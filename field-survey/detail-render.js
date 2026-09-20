@@ -1,5 +1,5 @@
 import { drawMarks, TONES } from './annotation.js';
-import { symbolArtwork, DETAIL_SYMBOLS, REGION_TYPES } from './detail-geometry.js';
+import { symbolArtwork, symbolBox, DETAIL_SYMBOLS, REGION_TYPES } from './detail-geometry.js';
 export const ns = 'http://www.w3.org/2000/svg';
 export function svgNode(tag, attrs = {}) { const el = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v)); return el; }
 // Cracks are red, water and other damage blue on screen; exports default to black line art
@@ -35,6 +35,15 @@ export function drawDetailMark(g, mark, width, height, options = {}) {
     const p = mark.points[0], scale = mark.size * Math.min(width, height) / 100;
     const shape = svgNode('g', { transform: `translate(${p.x * width} ${p.y * height}) rotate(${mark.rotation}) scale(${mark.mirror ? -scale : scale} ${scale})`, fill: 'none', stroke: color ? TONES[symbolTone(mark.symbol)] : BASE, 'stroke-width': 3, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
     symbolArtwork(mark.symbol, mark.size <= .14).forEach(attributes => shape.append(svgNode('path', attributes))); g.append(shape);
+    // The name belongs to this mark, so selecting/moving/copying it keeps the
+    // explanation attached. Keep text upright even when the artwork is rotated.
+    const name = DETAIL_SYMBOLS[mark.symbol], box = symbolBox(mark, width, height);
+    const fontSize = Math.min(width / 40, height / 22), pad = fontSize * .22, halfLabel = name.length * fontSize / 2;
+    const x = Math.max(halfLabel + pad, Math.min(width - halfLabel - pad, p.x * width));
+    const below = (box.y + box.h) * height + fontSize + pad;
+    const y = Math.max(fontSize + pad, Math.min(height - pad, below <= height - pad ? below : box.y * height - pad));
+    const label = svgNode('text', { x, y, 'text-anchor': 'middle', 'font-size': fontSize, 'font-family': 'sans-serif', 'font-weight': 500, fill: BASE, stroke: 'white', 'stroke-width': fontSize * .2, 'stroke-linejoin': 'round', 'paint-order': 'stroke', 'data-detail-symbol-label': mark.symbol });
+    label.textContent = name; g.append(label);
   } else if (mark.type === 'region') {
     const water = waterRegion(mark.condition), dash = water ? { 'stroke-dasharray': `${width / 100} ${width / 180}` } : {};
     if (color) g.append(svgNode('polygon', { points: mark.points.map(p => `${p.x * width},${p.y * height}`).join(' '), fill: TONES.blue, 'fill-opacity': .12, stroke: TONES.blue, 'stroke-width': width / 330, ...dash }));
@@ -53,14 +62,11 @@ export async function renderDetailImage(blob, marks, options = {}) {
   const url = URL.createObjectURL(blob), color = options.color === true;
   try {
     const img = new Image(); img.src = url; await img.decode();
-    const symbols = usedSymbols(marks), rows = Math.ceil(symbols.length / 3), legendRatio = rows ? rows / 20 + 1 / 30 : 0;
-    const scale = Math.min(1, 4094 / img.naturalWidth, 4094 / (img.naturalHeight + img.naturalWidth * legendRatio)), w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale)), legend = Math.ceil(w * legendRatio), rowHeight = w / 20;
-    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h + legend; const ctx = canvas.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, w, h + legend); ctx.drawImage(img, 0, 0, w, h);
-    const svg = svgNode('svg', { xmlns: ns, width: w, height: h + legend, viewBox: `0 0 ${w} ${h + legend}` }); drawDetailMarks(svg, marks, w, h, { color });
-    symbols.forEach((symbol,i) => { const g = svgNode('g', { transform: `translate(${w * (.04 + i % 3 / 3)} ${h + (Math.floor(i / 3) + .5) * rowHeight}) scale(${w / 2000})`, fill: 'none', stroke: color ? TONES[symbolTone(symbol)] : BASE, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }); symbolArtwork(symbol).forEach(attributes => g.append(svgNode('path', attributes))); svg.append(g); });
+    const scale = Math.min(1, 4094 / img.naturalWidth, 4094 / img.naturalHeight), w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; const ctx = canvas.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+    const svg = svgNode('svg', { xmlns: ns, width: w, height: h, viewBox: `0 0 ${w} ${h}` }); drawDetailMarks(svg, marks, w, h, { color });
     const overlay = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
     try { const picture = new Image(); picture.src = overlay; await picture.decode(); ctx.drawImage(picture, 0, 0); } finally { URL.revokeObjectURL(overlay); }
-    if (symbols.length) { ctx.fillStyle = BASE; ctx.font = `${w / 55}px sans-serif`; symbols.forEach((s,i) => ctx.fillText(DETAIL_SYMBOLS[s], w * (.075 + i % 3 / 3), h + (Math.floor(i / 3) + .64) * rowHeight)); ctx.font = `${w / 70}px sans-serif`; ctx.fillText('圖示，非實測範圍', w * .015, h + rows * rowHeight + w / 45); }
     return await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('細圖匯出失敗')), 'image/png'));
   } finally { URL.revokeObjectURL(url); }
 }

@@ -30,23 +30,34 @@ export async function verifyV016(browser, base, out) {
     for(const [i,key] of keys.entries()) { await click('[data-detail-tool=symbol]');await click(`[data-detail-symbol=${key}]`);await tap(.18+i%5*.16,i<5?.35:.7); }
     assert.equal(await page.locator('#detailStage [data-detail-index]').count(),10);assert.match(await page.locator('#detailLegend').textContent(),/10/);
     await click('[data-detail-tool=select]');await page.locator('#detailObject').selectOption('4');await click('#detailRotate');await click('#detailGrow');await click('#detailCopy');await click('#detailDelete');
+    const labels=await page.locator('#detailStage [data-detail-symbol-label]').evaluateAll(nodes=>nodes.map(el=>{const b=el.getBBox();return{text:el.textContent,x:b.x,y:b.y,end:b.x+b.width,bottom:b.y+b.height,parent:el.parentElement.dataset.detailIndex,transform:el.getAttribute('transform')};}));
+    assert.equal(labels.length,10);assert(labels.every(l=>l.parent!==undefined&&!l.transform&&l.x>=0&&l.end<=1200&&l.y>=0&&l.bottom<=640),'Names belong to their symbol and stay upright inside the drawing');
+    const edges = await page.evaluate(async () => {
+      const render=await import('./detail-render.js'), geo=await import('./detail-geometry.js'), checks=[];
+      for(const [width,height] of [[1200,640],[640,1200],[800,320]]) {
+        const svg=render.svgNode('svg',{width,height,viewBox:`0 0 ${width} ${height}`});svg.style.cssText='position:fixed;visibility:hidden;pointer-events:none';document.body.append(svg);
+        try {
+          const marks=[[.01,.01],[.99,.01],[.01,.99],[.99,.99]].map(([x,y],i)=>geo.moveDetailMark({type:'symbol',symbol:'exposedRebar',points:[{x,y}],size:.14,rotation:i*90,mirror:true},0,0,width,height));
+          render.drawDetailMarks(svg,marks,width,height);
+          checks.push(...[...svg.querySelectorAll('[data-detail-symbol-label]')].map(el=>{const b=el.getBBox();return b.x>=0&&b.y>=0&&b.x+b.width<=width&&b.y+b.height<=height&&!el.hasAttribute('transform');}));
+        } finally {svg.remove();}
+      } return checks;
+    });
+    assert.equal(edges.length,12);assert(edges.every(Boolean),'Rotated/mirrored small symbols keep names inside wide and tall image edges');
     await click('#saveDetail');const saved=(await current()).records[0];assert.deepEqual(saved.detail.marks.map(m=>m.symbol),keys);assert.equal(saved.detail.marks[4].rotation,15);
     for(const key of ['condition','conditions','crackPattern','width','length','tiles','reportText','photos'])assert.deepEqual(saved[key],before[key]);
     const result = await page.evaluate(async () => {
       const m=await import('./model.js'),s=await import('./store.js'),b=await import('./bundle.js'),d=await import('./detail.js'),r=await import('./report.js'),g=await import('./detail-geometry.js'),p=(await s.allProjects())[0],get=async id=>(await s.getMedia(id)).blob;
       const bundle=await b.readBundle((await b.makeBundle(p,get)).blob);m.validateProject(bundle.project);
-      const labels=[],original=CanvasRenderingContext2D.prototype.fillText;
-      CanvasRenderingContext2D.prototype.fillText=function(text,x,y,...args){labels.push({text,x,y,end:x+this.measureText(text).width,width:this.canvas.width,height:this.canvas.height});return original.call(this,text,x,y,...args);};
-      let png;try{png=await d.detailImage(p.records[0].detail,get);}finally{CanvasRenderingContext2D.prototype.fillText=original;}
+      const png=await d.detailImage(p.records[0].detail,get);
       const bitmap=await createImageBitmap(png),size={width:bitmap.width,height:bitmap.height};bitmap.close();const expected=await m.sha256(png),hashes=[];
       for(const format of ['quick','standard']) { const report=await r.renderAttachment(p,get,{format}),doc=new DOMParser().parseFromString(report.html,'text/html'),src=doc.querySelector('.detail-img').src;hashes.push(await m.sha256(Uint8Array.from(atob(src.split(',')[1]),c=>c.charCodeAt(0)))); }
-      return {version:bundle.manifest.version,equal:JSON.stringify(bundle.project)===JSON.stringify(p),names:Object.values(g.DETAIL_SYMBOLS),labels,size,hashes,expected,png:Array.from(new Uint8Array(await png.arrayBuffer()))};
+      return {version:bundle.manifest.version,equal:JSON.stringify(bundle.project)===JSON.stringify(p),names:Object.values(g.DETAIL_SYMBOLS),size,hashes,expected,png:Array.from(new Uint8Array(await png.arrayBuffer()))};
     });
     assert.equal(result.version, 14);assert(result.equal);assert(result.hashes.every(h=>h===result.expected));
-    assert.deepEqual(result.labels.slice(0,10).map(l=>l.text),result.names);assert.equal(new Set(result.labels.slice(0,10).map(l=>l.y)).size,4);
-    assert(result.labels.every(l=>l.x>=0&&l.end<=l.width&&l.y>640&&l.y<l.height));assert.equal(result.size.width,1200);assert(result.size.height>840);
+    assert.deepEqual(labels.map(l=>l.text),result.names);assert.deepEqual(result.size,{width:1200,height:640},'No duplicate legend or extra strip below the drawing');
     await fs.writeFile(path.join(out,'v0.16-ten-icons-detail.png'),Buffer.from(result.png));
     await page.waitForFunction(()=>document.querySelector('#offlineStatus').textContent==='離線已就緒');await context.setOffline(true);await page.reload();await click(`[data-field-detail="${before.id}"]`);assert.equal(await page.locator('#detailStage [data-detail-index]').count(),10);await click('#saveDetail');assert.deepEqual((await current()).records[0].detail,saved.detail);
-    assert.deepEqual(errors,[]);await fs.writeFile(path.join(out,'v0.16-result.json'),JSON.stringify({passed:true,icons:keys,backupVersion:result.version,reportHash:result.expected,legendRows:4,errors,physicalPhoneTested:false},null,2));console.log('PASS V0.16 ten icons, narrow picker, editing, four-row legend, PNG/report match, backup and offline persistence');
+    assert.deepEqual(errors,[]);await fs.writeFile(path.join(out,'v0.16-result.json'),JSON.stringify({passed:true,icons:keys,backupVersion:result.version,reportHash:result.expected,inlineLabels:10,legendRows:0,errors,physicalPhoneTested:false},null,2));console.log('PASS V0.16 ten icons, inline upright names, no bottom legend, editing, PNG/report match, backup and offline persistence');
   } finally { await context.close(); }
 }

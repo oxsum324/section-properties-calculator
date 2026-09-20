@@ -140,7 +140,7 @@ export async function openDetailEditor(api, recordId) {
     const m = st.marks[st.selected]; $('#detailDelete').disabled = $('#detailCopy').disabled = !m; $('#detailDeleteSegment').hidden = m?.type !== 'pen' || st.segment < 0; $('#detailDeletePoint').hidden = st.vertex < 0 || !m || m.points.length <= (m.type === 'region' ? 3 : 2); $('#detailSymbolActions').hidden = m?.type !== 'symbol';
     for (const b of $('#modalBody').querySelectorAll('[data-detail-tool]')) b.setAttribute('aria-pressed', String(b.dataset.detailTool === st.mode));
     const symbols = usedSymbols(st.marks), names = symbols.map(s=>DETAIL_SYMBOLS[s]).join('／');
-    $('#detailLegend').textContent = symbols.length > 4 ? `本圖 ${symbols.length} 種圖示` : names;
+    $('#detailLegend').textContent = symbols.length ? `本圖 ${symbols.length} 種圖示` : '';
     $('#detailLegend').title = names;
     const openingHint = st.openingPoints === 4 ? '依序點四個角；完成後可選取調整。' : '點兩個對角；斜視自動貼牆，2D 為矩形。';
     $('#detailHint').textContent = st.message || (st.pending ? (['door','window'].includes(st.mode) ? (st.openingPoints === 4 ? `已點 ${st.count} 個角，點滿四角完成；或按取消。` : '再點另一個對角；或按取消筆畫。') : `已點 ${st.count} 點；完成或取消目前筆畫。`) : ({door: openingHint,window: openingHint,line:'依序點起點與轉折點，再按完成。',region:'點選範圍角點，再按完成。',symbol:'選大小後點圖面；選取可移動、縮放及旋轉。',select:'點標記選取，拖動整筆或端點；更多操作在「調整」。',pan:'單指移動；雙指縮放。',pen:'按住拖曳手繪；雙指可縮放。',arrow:'依序點起點與箭頭終點。',circle:'點兩個對角畫圈。',rect:'點兩個對角畫範圍。',text:'填文字後，點圖面放置。',erase:'點線條附近刪除一筆，可復原。'}[st.mode] || ''));

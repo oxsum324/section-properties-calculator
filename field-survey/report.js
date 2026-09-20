@@ -2,7 +2,7 @@ import { assert, clone, now, VERSION, observationText, photoPlacement, photoIncl
 import { markedImage, placementMarks, reportPlanImage } from './annotation.js';
 import { photoStampText } from './model.js';
 import { detailAnnotationText, detailComparison } from './model.js';
-import { detailImage, detailLegend } from './detail.js';
+import { detailImage } from './detail.js';
 import { STANDARD_STYLE, standardPages, segmentKey, dateSummary, splitVolumes, contentsPages } from './report-standard.js';
 
 export const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -132,7 +132,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
       pages.push(page(group, `<h2>${e(plan.title)}</h2><img class="plan" src="${await encodeImage(plan.mediaId, marks, entries)}" alt="位置圖"><p>大圓圈為狀況位置；箭頭起點為拍攝點、箭頭為拍攝方向。代號對應照片編號。簡圖未按比例。</p><p>本房間照片：${e(photoNumbers.join('、'))}</p>`, 'plan-sheet'));
     }
     for (const record of group.records) {
-      if (record.detail && record.detail.kind !== 'text') pages.push(page(group, `<h2>細部示意圖 · 照片 ${e(record.photos.map(p => p.number).join('、'))}</h2><img class="plan detail-img" src="${await encodeDetail(record.detail)}" alt="細部示意圖"><p>${detailLegend(record.detail) ? '圖示：' + e(detailLegend(record.detail)) + '。' : ''}圖形僅示意，未按比例；圖示大小不代表實測範圍。</p>`, 'detail-sheet'));
+      if (record.detail && record.detail.kind !== 'text') pages.push(page(group, `<h2>細部示意圖 · 照片 ${e(record.photos.map(p => p.number).join('、'))}</h2><img class="plan detail-img" src="${await encodeDetail(record.detail)}" alt="細部示意圖"><p>圖形僅示意，未按比例；圖示大小不代表實測範圍。</p>`, 'detail-sheet'));
       const fullText = [record.text, record.notes, detailAnnotationText(record.detail), `日期：${record.dateInfo.label}`].filter(Boolean).join('\n'), longText = fullText.length > 180 || fullText.split('\n').length > 4;
       const moreText = [];
       if (longText) moreText.push(`現況完整說明（照片 ${record.photos.map(p => p.number).join('、')}）：\n${fullText}`);
