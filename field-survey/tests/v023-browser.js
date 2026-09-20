@@ -8,7 +8,20 @@ export async function verifyV023(browser, base, out) {
   const page = await sender.newPage(), other = await receiver.newPage(), errors = [];
   for (const p of [page, other]) p.on('pageerror', e => errors.push(e.message));
   try {
+    const checkFolderLink = async locator => {
+      assert(await locator.isVisible());
+      assert.equal(await locator.getAttribute('href'), 'https://drive.google.com/drive/folders/1jwhulKJvNKLTRFoA1a5rw-PKIN9_5g7J');
+      assert.equal(await locator.getAttribute('target'), '_blank');
+      assert.match(await locator.getAttribute('rel'), /noopener/);
+    };
     await page.goto(base); await page.locator('#contextStrip').waitFor();
+    await checkFolderLink(page.locator('#welcome .cloud-folder-link'));
+    await page.locator('#welcomeImport').click();
+    await checkFolderLink(page.locator('#modalBody .cloud-folder-link'));
+    const cancelled = page.waitForEvent('filechooser'); await page.locator('#chooseLocalCaseFile').click();
+    await (await cancelled).setFiles([]);
+    assert(await page.locator('#chooseLocalCaseFile').isVisible());
+    await page.locator('#closeModal').click();
     const sourceId = await page.evaluate(async () => {
       const m = await import('./model.js'), s = await import('./store.js');
       const p = m.newProject('HANDOFF', '整案跨裝置測試（合成資料）', '2026-09-20'), u = m.newUnit('A戶'), r = m.newRecord(u.id, '1F', '客廳');
@@ -22,7 +35,17 @@ export async function verifyV023(browser, base, out) {
       await s.saveProject(m.syncRooms(p), 0, [{ id: mid, blob }]); return p.id;
     });
     await page.reload(); await page.locator('[data-view=case]').click();
+    await checkFolderLink(page.locator('#backupView .cloud-folder-link'));
+    await page.locator('#readBackup').click();
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await checkFolderLink(page.locator('#modalBody .cloud-folder-link'));
+      assert(await page.evaluate(() => document.querySelector('#modal').scrollWidth <= document.querySelector('#modal').clientWidth + 1));
+      await page.screenshot({ path: path.join(out, `v0.24.1-open-cloud-${width}.png`) });
+    }
+    await page.locator('#closeModal').click();
     await page.locator('#prepareHandoff').click(); await page.locator('#downloadHandoff').waitFor();
+    await checkFolderLink(page.locator('#modalBody .cloud-folder-link'));
     assert.match(await page.locator('#modalBody').textContent(), /文字說明.*照片.*錄音/);
     assert.equal(await page.locator('#modalBody a').getAttribute('href'), 'https://drive.google.com/drive/folders/1jwhulKJvNKLTRFoA1a5rw-PKIN9_5g7J');
     const download = page.waitForEvent('download'); await page.locator('#downloadHandoff').click();
@@ -33,7 +56,9 @@ export async function verifyV023(browser, base, out) {
     await page.locator('#closeModal').click();
 
     await other.goto(base); await other.locator('#contextStrip').waitFor();
-    await other.locator('#bundleInput').setInputFiles(file); await other.locator('#restoreBundle').click();
+    await other.locator('#welcomeImport').click();
+    const chooser = other.waitForEvent('filechooser'); await other.locator('#chooseLocalCaseFile').click();
+    await (await chooser).setFiles(file); await other.locator('#restoreBundle').click();
     await other.waitForFunction(() => document.querySelector('#modal').open === false && document.querySelector('#caseSelect').value !== '');
     const restored = await other.evaluate(async () => {
       const s = await import('./store.js'), m = await import('./model.js'); const p = (await s.allProjects())[0];
@@ -93,7 +118,10 @@ export async function verifyV023(browser, base, out) {
     await page.locator('#closeModal').click();
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒');
     await sender.setOffline(true); await page.reload(); await page.locator('[data-view=case]').click(); await page.locator('#prepareHandoff').click(); await page.locator('#downloadHandoff').waitFor();
+    await page.locator('#closeModal').click(); await page.locator('#readBackup').click();
+    const offlinePicker = page.waitForEvent('filechooser'); await page.locator('#chooseLocalCaseFile').click();
+    await (await offlinePicker).setFiles(file); await page.locator('#restoreBundle').waitFor();
     assert.deepEqual(errors, []);
-    console.log('PASS V0.23 complete-case handoff across isolated browsers, continued edits, consolidation, duplicate/corrupt imports, responsive/offline UI; native APIs simulated');
+    console.log('PASS V0.23 complete-case handoff across isolated browsers, continued edits, consolidation, duplicate/corrupt imports, responsive/offline UI; native APIs simulated; shared folder entries, file picker cancellation/retry, offline open verified');
   } finally { await sender.close(); await receiver.close(); }
 }

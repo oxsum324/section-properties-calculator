@@ -488,3 +488,7 @@ dialog[data-mode="detail"] #modalBody{position:relative;display:flex;flex-direct
 .editor-footer>.micro:empty{display:none}body.keyboard-open .editor-footer,body.keyboard-open .recording-banner{position:static}
 
 body.recording-active .editor-footer{position:static}
+
+/* Shared handoff entry remains compact and easy to tap on phones. */
+.cloud-folder-link{color:var(--accent);display:inline-flex;align-items:center;min-height:44px;max-width:100%;font-weight:600;text-underline-offset:3px;overflow-wrap:anywhere}
+.cloud-folder-access{margin:8px 0}

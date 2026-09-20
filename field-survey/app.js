@@ -13,6 +13,9 @@ import { openDetailEditor, detailLabel, detailContextHTML } from './detail.js';
 import { COMMON_CONDITIONS, CONDITION_GROUPS, CRACK_LAYERS, LEAK_FORMS } from './model.js';
 
 const $ = selector => document.querySelector(selector), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const HANDOFF_FOLDER_URL = 'https://drive.google.com/drive/folders/1jwhulKJvNKLTRFoA1a5rw-PKIN9_5g7J';
+const cloudFolderLink = () => `<a class="cloud-folder-link" href="${HANDOFF_FOLDER_URL}" target="_blank" rel="noopener noreferrer">開啟共用雲端資料夾 ↗</a>`;
+for (const link of document.querySelectorAll('[data-handoff-folder]')) link.href = HANDOFF_FOLDER_URL;
 const opts = object => Object.entries(object).map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
 const size = bytes => bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
 const localDate = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; };
@@ -810,6 +813,13 @@ async function stopAudio() {
   } catch (error) { download(file, file.name); throw new Error(`錄音未寫入案件，已另產生下載檔，請保存並補記對應位置。${error.message}`); }
   finally { recording = null; $('#recordingBanner').hidden = true; document.body.classList.remove('recording-active'); $('#recordAudio').textContent = '開始錄音'; $('#audioStatus').textContent = ''; await renderMedia(); }
 }
+function chooseCaseFile() {
+  requireNoRecording();
+  openModal('開啟案件檔', `<button id="chooseLocalCaseFile" class="primary full">選擇裝置上的案件檔</button><p class="micro">選擇 .csurvey 檔，核對後建立可編輯副本，原案保留。</p><hr><h3>案件在共用雲端？</h3><p>${cloudFolderLink()}</p><p>先到資料夾下載案件檔，再回到這裡選擇檔案。iPhone 請先將案件檔存到「檔案」，再從上方按鈕選取。</p><p class="micro">雲端資料夾需連線；若無法開啟，請確認登入的 Google 帳號有存取權限。工具不會自動下載或同步。</p>`);
+  // Keep the native picker in the direct click so mobile user activation is preserved.
+  $('#chooseLocalCaseFile').onclick = () => $('#bundleInput').click();
+}
+
 async function prepareHandoff() {
   requireNoRecording();
   const scope = $('#exportScope').value, source = clone(project);
@@ -819,7 +829,7 @@ async function prepareHandoff() {
   const file = new File([blob], name, { type: blob.type });
   let canShare = false;
   try { canShare = !!navigator.share && !!navigator.canShare?.({ files: [file] }); } catch {}
-  openModal('完整案件已準備好', `<h3>${esc(source.name)}</h3><p>${scope ? '單戶' : '全案'} · ${manifest.payload.project.records.length} 筆紀錄 · ${size(blob.size)}</p><p>包含位置紀錄、文字說明、照片、錄音、平面圖及可編輯細圖。接收端開啟本工具，選「開啟案件檔繼續製作」即可接續工作。</p><div class="handoff-actions"><button id="saveHandoff" class="primary" ${typeof window.showSaveFilePicker !== 'function' ? 'hidden' : ''}>另存到資料夾</button><button id="shareHandoff" class="secondary" ${canShare ? '' : 'hidden'}>分享案件檔</button><button id="downloadHandoff" class="secondary">下載案件檔</button></div><p id="handoffStatus" class="modal-note" role="status">電腦可選已同步的 Google Drive 資料夾；手機可在分享選單選 Google Drive（若裝置提供）。儲存後請等 Drive 顯示同步完成。</p><details><summary>從雲端交接的操作方式</summary><ol><li>下載或另存這份 .csurvey 案件檔。</li><li>存入共用雲端資料夾；若未安裝 Drive，可開啟下方資料夾後手動上傳。</li><li>另一台電腦下載案件檔，在本工具開啟、編輯及製作報告。</li><li>多人交件時先開啟一份主案，再選「彙整同事的案件檔」。</li></ol><p><a href="https://drive.google.com/drive/folders/1jwhulKJvNKLTRFoA1a5rw-PKIN9_5g7J" target="_blank" rel="noopener noreferrer">開啟預設交接資料夾</a></p><p class="micro">工具目前不會直接上傳或列出雲端檔案，也無法確認 Drive 的同步進度。這是完整案件交接，不是照片壓縮檔。</p></details>`);
+  openModal('完整案件已準備好', `<h3>${esc(source.name)}</h3><p>${scope ? '單戶' : '全案'} · ${manifest.payload.project.records.length} 筆紀錄 · ${size(blob.size)}</p><p>包含位置紀錄、文字說明、照片、錄音、平面圖及可編輯細圖。接收端開啟本工具，選「開啟」即可接續工作。</p><div class="handoff-actions"><button id="saveHandoff" class="primary" ${typeof window.showSaveFilePicker !== 'function' ? 'hidden' : ''}>另存到資料夾</button><button id="shareHandoff" class="secondary" ${canShare ? '' : 'hidden'}>分享案件檔</button><button id="downloadHandoff" class="secondary">下載案件檔</button></div><p id="handoffStatus" class="modal-note" role="status">電腦可選已同步的 Google Drive 資料夾；手機可在分享選單選 Google Drive（若裝置提供）。儲存後請等 Drive 顯示同步完成。</p><p>${cloudFolderLink()}<br><span class="micro">固定交接位置：先保存案件檔，再上傳到此資料夾；需連線。</span></p><details><summary>從雲端交接的操作方式</summary><ol><li>下載或另存這份 .csurvey 案件檔。</li><li>存入共用雲端資料夾；若未安裝 Drive，可開啟上方共用資料夾後手動上傳。</li><li>另一台電腦下載案件檔，在本工具開啟、編輯及製作報告。</li><li>多人交件時先開啟一份主案，再選「彙整」。</li></ol><p class="micro">工具目前不會直接上傳或列出雲端檔案，也無法確認 Drive 的同步進度。這是完整案件交接，不是照片壓縮檔。</p></details>`);
   const status = $('#handoffStatus');
   const exported = async () => {
     const state = await backupState(source.id);
@@ -960,7 +970,7 @@ $('#togglePhotos').onclick = () => { const open = $('#photoGrid').classList.togg
 $('#prepareHandoff').onclick = () => action(prepareHandoff, '準備完整案件交接檔');
 $('#mergeBundles').onclick = () => { try { requireNoRecording(); $('#mergeBundleInput').click(); } catch (e) { fail(e); } };
 $('#mergeBundleInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (files.length) action(() => inspectColleagueBundles(files), '核對同事案件'); };
-$('#readBackup').onclick = $('#welcomeImport').onclick = () => { try { requireNoRecording(); $('#bundleInput').click(); } catch (e) { fail(e); } };
+$('#readBackup').onclick = $('#welcomeImport').onclick = () => action(chooseCaseFile, '準備開啟案件');
 $('#bundleInput').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (file) action(() => inspectBackup(file), '核對備份'); };
 $('#importReceipt').onclick = () => $('#receiptInput').click(); $('#receiptInput').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (file) action(() => receiveReceipt(file)); };
 $('#persistStorage').onclick = () => action(async () => { const granted = await navigator.storage?.persist?.(); toast(granted ? '已取得持續保存，仍請定期備份' : '瀏覽器未授予持續保存，請完成外部備份'); await renderBackup(); });
