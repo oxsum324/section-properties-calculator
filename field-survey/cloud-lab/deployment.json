@@ -1,0 +1,33 @@
+{
+  "worker": "field-survey-cloud-lab",
+  "url": "https://field-survey-cloud-lab.oxsum324-learning.workers.dev/",
+  "deploymentId": "2d6fa66ddc66427aa0b29b8bc49a5ce8",
+  "databaseName": "field-survey-cloud-lab",
+  "databaseId": "3b886b42-021d-4b19-9f5a-f7c8a39ddda3",
+  "verifiedAt": "2026-09-20",
+  "mode": "synthetic-only",
+  "modules": {
+    "worker.js": "878bbf999c513b2e418b45243a42aeef5131dcb1732d119930600da51825f954",
+    "assets.js": "8edc59ee834dfd85fd3f41dbaf7d1c0d2b5660f8835c2373ebf18b4545103cc6",
+    "fixtures.js": "0859955eaf8e62629f8fdb0dcebc1c21f4ed022b5f2a748e417e544c9a5faf68"
+  },
+  "verified": [
+    "liveUpload",
+    "independentBrowserContexts",
+    "duplicateSuppression",
+    "conflictResolution",
+    "downloadHashes",
+    "roomIsolation",
+    "sameTabRoomSwitch",
+    "localCompressionNoUpload",
+    "desktopMobileLayout",
+    "liveHtmlAndJsBytes"
+  ],
+  "notVerified": [
+    "physicalDevices",
+    "GoogleDriveIntegration",
+    "R2Storage",
+    "FirebaseStorage",
+    "productionCaseMerge"
+  ]
+}
