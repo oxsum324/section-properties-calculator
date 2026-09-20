@@ -492,3 +492,22 @@ body.recording-active .editor-footer{position:static}
 /* Shared handoff entry remains compact and easy to tap on phones. */
 .cloud-folder-link{color:var(--accent);display:inline-flex;align-items:center;min-height:44px;max-width:100%;font-weight:600;text-underline-offset:3px;overflow-wrap:anywhere}
 .cloud-folder-access{margin:8px 0}
+
+/* Keep incomplete observations and review navigation visible without long pages. */
+.record-issue-badge,.followup-link,#showRecordFollowup.has-issues{color:#a52828;font-weight:700}
+.record-followup{margin-top:20px;padding:14px;border:1px solid #e5aaaa;border-left:4px solid #b62d2d;border-radius:10px;background:#fff6f5;overflow-wrap:anywhere}
+.record-followup h3{margin:0 0 10px}.record-followup strong,.followup-record{color:#a52828}
+.followup-link{background:white;border:1px solid #d9a1a1;padding:8px 10px}
+.followup-record{display:block;width:100%;text-align:left;background:transparent;border:0;border-top:1px solid #edceca;border-radius:0;padding:10px 0}
+.followup-record span{display:block;font-size:14px}.record-followup #otherRecordIssues{margin-top:10px}
+#showRecordFollowup{padding:0;text-align:left;min-height:30px;font-size:14px}#showRecordFollowup:disabled{opacity:1;color:var(--muted)}
+#recordEditor :focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.report-pager{justify-content:space-between;align-items:center;gap:8px;scroll-margin-top:90px}.report-pager label{margin:0;min-width:100px;flex:1}.report-pager select{margin:0;padding:8px;min-height:44px}
+.report-bottom-pager{position:sticky;bottom:82px;z-index:7;background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:8px;margin-top:16px}
+.report-bottom-pager span{font-size:13px}.report-photo-pager{align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px}.report-photo-pager span{font-size:13px}
+body.keyboard-open .report-bottom-pager{position:static}
+@media(max-width:600px){.report-search{grid-template-columns:1fr 1fr}.report-pager button,.report-photo-pager button{padding:8px}.report-bottom-pager{bottom:76px}.report-pager label{max-width:100%}}
+.report-pager label{flex-direction:column;align-items:stretch;padding:0;border:0;background:transparent;min-width:0;gap:3px}.report-pager label .micro{font-size:12px}
+.report-pager{scroll-margin-top:calc(var(--survey-context-height,78px) + 12px)}
+.report-bottom-pager,.editor-footer{bottom:calc(var(--survey-nav-height,82px) + 8px)}
+.report-photos{scroll-margin-top:calc(var(--survey-context-height,78px) + 12px)}

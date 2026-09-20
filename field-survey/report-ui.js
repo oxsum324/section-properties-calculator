@@ -6,7 +6,8 @@ import { detailContextHTML } from './detail.js';
 export function createReportController(api) {
   const { $, action, commit, getProject, getMedia, mediaURL, openModal, download, busyText, editPhoto, editRecord } = api;
   const settings = { unitId: '', unitIds: null, order: [], breakBefore: [], start: 1, perPage: 2, format: 'standard' };
-  let projectId = '', pageNumber = 0, observer, generation = 0; const imageURLs = new Set();
+  let projectId = '', pageNumber = 0, unitPage = 0, observer, generation = 0;
+  const photoPages = new Map(); const imageURLs = new Set();
   let settingsDirty = false;
   let settingsWrite = null, settingsEdit = 0, textWrite = null, autoSaves = 0;
   let editQueue = Promise.resolve();
@@ -40,17 +41,20 @@ export function createReportController(api) {
   function clearImages() { observer?.disconnect(); generation++; for (const url of imageURLs) URL.revokeObjectURL(url); imageURLs.clear(); }
   const scopeIds = p => settings.unitId ? [settings.unitId] : settings.unitIds || settings.order;
   function options() { return { ...settings, unitIds: scopeIds(getProject()), start: Number($('#reportStart').value), perPage: Number($('#reportPerPage').value), numbering: $('#reportNumbering').value, pageStart: Number($('#reportPageStart').value), pagePrefix: $('#reportPrefix').value.trim(), plansPerPage: Number($('#reportPlans').value), tableRows: Number($('#reportRows').value), toc: $('#reportToc').checked, includeEmpty: $('#reportEmpty').checked, publicByFloor: $('#reportPublicFloors').checked, color: $('#reportColor').checked, maxPages: Number($('#volumeMaxPages').value) }; }
-  async function render() {
+  async function render(anchorRecordId = '') {
     const p = getProject(); if (!p) return;
     clearImages(); const token = generation;
-    if (projectId !== p.id) { projectId = p.id; Object.assign(settings, reportPreferences(p)); settingsDirty = false; loadControls(); pageNumber = 0; }
+    if (projectId !== p.id) { projectId = p.id; Object.assign(settings, reportPreferences(p)); settingsDirty = false; loadControls(); pageNumber = 0; unitPage = 0; photoPages.clear(); $('#reportBrowseUnit').value = ''; $('#reportSearch').value = ''; $('#reportFilter').value = ''; }
     settings.order = [...settings.order.filter(id => p.units.some(u => u.id === id)), ...p.units.filter(u => !settings.order.includes(u.id)).map(u => u.id)];
     if (settings.unitIds) settings.unitIds = settings.unitIds.filter(id => p.units.some(u => u.id === id));
     if (settings.unitId && !p.units.some(u => u.id === settings.unitId)) settings.unitId = '';
     $('#reportScope').innerHTML = '<option value="">全案</option><option value="custom">勾選的戶別</option>' + p.units.map(u => `<option value="${u.id}">${e(u.code)}</option>`).join('');
     $('#reportScope').value = settings.unitId || (settings.unitIds ? 'custom' : '');
     const includedUnits = scopeIds(p);
-    $('#reportUnits').innerHTML = settings.order.map((id, i) => { const u = p.units.find(u => u.id === id); return `<div class="report-unit-choice" data-report-unit="${id}"><label class="check-label"><input type="checkbox" data-unit-include ${includedUnits.includes(id) ? 'checked' : ''}>${e(u.code)}${u.building ? ' · ' + e(u.building) : ''}</label><div class="choice-chips"><button data-unit-move="-1" ${i === 0 ? 'disabled' : ''}>上移</button><button data-unit-move="1" ${i === settings.order.length - 1 ? 'disabled' : ''}>下移</button><label class="check-label"><input type="checkbox" data-unit-break ${settings.breakBefore.includes(id) ? 'checked' : ''}>本戶另起一冊</label></div></div>`; }).join('');
+    const unitPages = Math.max(1, Math.ceil(settings.order.length / 10)); unitPage = Math.min(unitPage, unitPages - 1);
+    $('#reportUnitsPager').hidden = unitPages <= 1;
+    $('#reportUnitsPager').innerHTML = `<button data-unit-page="-1" ${unitPage === 0 ? 'disabled' : ''}>上一頁</button><span>第 ${unitPage + 1}／${unitPages} 頁 · ${settings.order.length} 戶</span><button data-unit-page="1" ${unitPage + 1 === unitPages ? 'disabled' : ''}>下一頁</button>`;
+    $('#reportUnits').innerHTML = settings.order.slice(unitPage * 10, unitPage * 10 + 10).map((id, offset) => { const i = unitPage * 10 + offset; const u = p.units.find(u => u.id === id); return `<div class="report-unit-choice" data-report-unit="${id}"><label class="check-label"><input type="checkbox" data-unit-include ${includedUnits.includes(id) ? 'checked' : ''}>${e(u.code)}${u.building ? ' · ' + e(u.building) : ''}</label><div class="choice-chips"><button data-unit-move="-1" ${i === 0 ? 'disabled' : ''}>上移</button><button data-unit-move="1" ${i === settings.order.length - 1 ? 'disabled' : ''}>下移</button><label class="check-label"><input type="checkbox" data-unit-break ${settings.breakBefore.includes(id) ? 'checked' : ''}>本戶另起一冊</label></div></div>`; }).join('');
     $('#reportFormat').value = settings.format;
     styleSummary();
     $('#reportFormatHelp').textContent = settings.format === 'standard' ? '每戶依序：各樓整體平面圖 → 照片說明表 → 照片。同一圖面集中標示跨房間的照片編號。' : '依房間依序顯示位置圖、現況說明與照片，方便現場核對。';
@@ -59,13 +63,20 @@ export function createReportController(api) {
       const key = r.roomId || roomKey(r); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(r);
     }
     const orderedGroups = [...groups.entries()].sort((a, b) => includedUnits.indexOf(a[1][0].unitId) - includedUnits.indexOf(b[1][0].unitId));
+    const browseUnit = $('#reportBrowseUnit').value;
+    $('#reportBrowseUnit').innerHTML = '<option value="">匯出範圍內全部戶別</option>' + includedUnits.map(id => { const u = p.units.find(u => u.id === id); return `<option value="${e(id)}">${e(u.code)}${u.building ? ' · ' + e(u.building) : ''}</option>`; }).join('');
+    $('#reportBrowseUnit').value = includedUnits.includes(browseUnit) ? browseUnit : '';
     const selected = [...groups.values()].flat().reduce((n, r) => n + reportPhotos(r).length, 0), query = $('#reportSearch').value.trim().toLocaleLowerCase(), filter = $('#reportFilter').value;
     const visible = orderedGroups.flatMap(([key, records]) => records.filter(r => {
       const u = p.units.find(u => u.id === r.unitId), text = [u.code, u.building, r.floor, r.space, r.location].join(' ').toLocaleLowerCase();
-      return (!query || text.includes(query)) && (!filter || filter === 'detail' && !r.detail || filter === 'location' && reportPhotos(r).some(photo => !photoPlacement(r, photo) && !r.observationPin) || filter === 'issues' && recordIssues(r).length);
+      return (!$('#reportBrowseUnit').value || r.unitId === $('#reportBrowseUnit').value) && (!query || text.includes(query)) && (!filter || filter === 'detail' && !r.detail || filter === 'location' && reportPhotos(r).some(photo => !photoPlacement(r, photo) && !r.observationPin) || filter === 'issues' && recordIssues(r).length);
     }).map(r => ({ key, r })));
-    const pageCount = Math.max(1, Math.ceil(visible.length / 8)); pageNumber = Math.min(pageNumber, pageCount - 1); const visibleIds = new Set(visible.slice(pageNumber * 8, pageNumber * 8 + 8).map(x => x.r.id));
-    $('#reportPager').innerHTML = `<button data-report-page="-1" ${pageNumber === 0 ? 'disabled' : ''}>上一頁</button><span>第 ${pageNumber + 1}／${pageCount} 頁 · ${visible.length} 筆位置</span><button data-report-page="1" ${pageNumber + 1 === pageCount ? 'disabled' : ''}>下一頁</button>`;
+    const pageSize = Number($('#reportPageSize').value), anchorIndex = visible.findIndex(x => x.r.id === anchorRecordId);
+    if (anchorIndex >= 0) pageNumber = Math.floor(anchorIndex / pageSize);
+    const pageCount = Math.max(1, Math.ceil(visible.length / pageSize)); pageNumber = Math.max(0, Math.min(pageNumber, pageCount - 1)); const visibleIds = new Set(visible.slice(pageNumber * pageSize, pageNumber * pageSize + pageSize).map(x => x.r.id));
+    $('#reportPager').innerHTML = `<button data-report-page="-1" ${pageNumber === 0 ? 'disabled' : ''}>上一頁</button><label><span class="micro">${visible.length} 筆位置 · 跳至</span><select id="reportPageJump" aria-label="跳至位置頁">${Array.from({ length: pageCount }, (_, i) => { const r = visible[i * pageSize]?.r, u = r && p.units.find(u => u.id === r.unitId); return `<option value="${i}" ${i === pageNumber ? 'selected' : ''}>${i + 1}／${pageCount}${r ? ` · ${e(u.code)} · 位置 ${String(r.fieldNumber || p.records.indexOf(r) + 1).padStart(3, '0')}` : ''}</option>`; }).join('')}</select></label><button data-report-page="1" ${pageNumber + 1 === pageCount ? 'disabled' : ''}>下一頁</button>`;
+    $('#reportPagerBottom').innerHTML = `<button data-report-bottom-page="-1" ${pageNumber === 0 ? 'disabled' : ''}>上一頁</button><span>第 ${pageNumber + 1}／${pageCount} 頁</span><button data-report-bottom-page="1" ${pageNumber + 1 === pageCount ? 'disabled' : ''}>下一頁</button>`;
+    $('#reportPagerBottom').hidden = !visible.length;
     $('#reportRooms').innerHTML = orderedGroups.map(([key, records], gi) => {
       if (!records.some(r => visibleIds.has(r.id))) return '';
       const first = records[0], unit = p.units.find(u => u.id === first.unitId);
@@ -73,16 +84,22 @@ export function createReportController(api) {
         if (!visibleIds.has(r.id)) return '';
         const photos = reportPhotos(r), selectedIds = new Set(photos.map(p => p.mediaId));
         const main = r.mainPhotoId || (photos.find(p => p.role === 'close') || photos[0])?.mediaId;
-        return `<article class="report-record" data-report-record="${r.id}"><h4>${e(r.location || '位置說明未填')} · ${photos.length} 張納入附件</h4><div class="choice-chips"><button data-do="record-up" ${ri === 0 ? 'disabled' : ''}>位置上移</button><button data-do="record-down" ${ri === records.length - 1 ? 'disabled' : ''}>位置下移</button><button data-do="edit-record">回到現場紀錄</button><button data-do="edit-detail">${r.detail ? '查看／補畫細圖' : '＋ 畫細部示意圖'}</button><button data-do="preset">選全景＋近照</button><button data-do="main-only">只選主照片</button></div><p class="micro">${e(recordDateInfo(p, r).label)}</p><p class="micro">${e(recordIssues(r).length ? '待核對：' + recordIssues(r).join('、') : '本筆必要紀錄已齊')}</p><label>附件現況說明<textarea data-report-text rows="3" maxlength="10000">${e(r.reportText?.trim() || observationText(r))}</textarea></label>${detailContextHTML(r, e)}<div class="choice-chips"><button data-do="save-text">保存說明</button><button data-do="generate-text">產生新版說明預覽</button></div><p class="micro">附件合併完全相同的整段補充，圖示名稱不再重列；不同位置與量測保留。原始文字不改寫。</p><details><summary>查看精簡後照片內容</summary><p class="description" data-content-preview>${e(photoContent(r).text)}</p><p class="micro">各張照片另帶入未重複的個別說明。</p></details><div class="report-photos">${r.photos.map((photo, pi) => `<div class="report-photo" data-report-photo="${photo.mediaId}"><img data-report-image="${photo.mediaId}" alt="${e(photo.caption || ROLES[photo.role])}"><div><label class="check-label"><input type="checkbox" data-report-include ${selectedIds.has(photo.mediaId) ? 'checked' : ''} ${photo.excluded ? 'disabled' : ''}>${photo.excluded ? '不採用（原檔保留）' : '納入本次附件'}</label><p>${e(ROLES[photo.role])}${main === photo.mediaId ? ' · ★ 主照片' : ''}</p><p>${e(photo.caption)}</p><div class="choice-chips"><button data-do="main" ${photo.excluded ? 'disabled' : ''}>設主照片</button><button data-do="photo-up" ${pi === 0 ? 'disabled' : ''}>前移</button><button data-do="photo-down" ${pi === r.photos.length - 1 ? 'disabled' : ''}>後移</button><button data-do="edit-photo">圈註／拍攝位置</button></div></div></div>`).join('') || '<p>尚無照片</p>'}</div></article>`;
+        const photoPageCount = Math.max(1, Math.ceil(r.photos.length / 3)), photoPage = Math.min(photoPages.get(r.id) || 0, photoPageCount - 1); photoPages.set(r.id, photoPage);
+        return `<article class="report-record" data-report-record="${r.id}"><h4>位置 ${String(r.fieldNumber || p.records.indexOf(r) + 1).padStart(3, '0')} · ${e(r.location || '位置說明未填')} · ${photos.length} 張納入附件</h4><div class="choice-chips"><button data-do="record-up" ${ri === 0 ? 'disabled' : ''}>位置上移</button><button data-do="record-down" ${ri === records.length - 1 ? 'disabled' : ''}>位置下移</button><button data-do="edit-record">回到現場紀錄</button><button data-do="edit-detail">${r.detail ? '查看／補畫細圖' : '＋ 畫細部示意圖'}</button><button data-do="preset">選全景＋近照</button><button data-do="main-only">只選主照片</button></div><p class="micro">${e(recordDateInfo(p, r).label)}</p><p class="micro">${e(recordIssues(r).length ? '待核對：' + recordIssues(r).join('、') : '本筆必要紀錄已齊')}</p><label>附件現況說明<textarea data-report-text rows="3" maxlength="10000">${e(r.reportText?.trim() || observationText(r))}</textarea></label>${detailContextHTML(r, e)}<div class="choice-chips"><button data-do="save-text">保存說明</button><button data-do="generate-text">產生新版說明預覽</button></div><p class="micro">附件合併完全相同的整段補充，圖示名稱不再重列；不同位置與量測保留。原始文字不改寫。</p><details><summary>查看精簡後照片內容</summary><p class="description" data-content-preview>${e(photoContent(r).text)}</p><p class="micro">各張照片另帶入未重複的個別說明。</p></details><div class="report-photos">${r.photos.slice(photoPage * 3, photoPage * 3 + 3).map((photo, offset) => { const pi = photoPage * 3 + offset; return `<div class="report-photo" data-report-photo="${photo.mediaId}"><img data-report-image="${photo.mediaId}" alt="${e(photo.caption || ROLES[photo.role])}"><div><label class="check-label"><input type="checkbox" data-report-include ${selectedIds.has(photo.mediaId) ? 'checked' : ''} ${photo.excluded ? 'disabled' : ''}>${photo.excluded ? '不採用（原檔保留）' : '納入本次附件'}</label><p>${e(ROLES[photo.role])}${main === photo.mediaId ? ' · ★ 主照片' : ''}</p><p>${e(photo.caption)}</p><div class="choice-chips"><button data-do="main" ${photo.excluded ? 'disabled' : ''}>設主照片</button><button data-do="photo-up" ${pi === 0 ? 'disabled' : ''}>前移</button><button data-do="photo-down" ${pi === r.photos.length - 1 ? 'disabled' : ''}>後移</button><button data-do="edit-photo">圈註／拍攝位置</button></div></div></div>`; }).join('') || '<p>尚無照片</p>'}</div>${r.photos.length > 3 ? `<div class="choice-chips report-photo-pager"><button data-do="photos-prev" ${photoPage === 0 ? 'disabled' : ''}>上一批照片</button><span>照片 ${photoPage * 3 + 1}–${Math.min(r.photos.length, photoPage * 3 + 3)}／${r.photos.length}</span><button data-do="photos-next" ${photoPage + 1 === photoPageCount ? 'disabled' : ''}>下一批照片</button></div>` : ''}</article>`;
       }).join('')}</section>`;
-    }).join('') || '<p>目前範圍尚無紀錄。</p>';
-    $('#reportSummary').textContent = `${groups.size} 個房間／空間 · ${selected} 張已選照片。未選照片保留在案件備份。`;
+    }).join('') || '<p class="panel">此查看條件沒有位置紀錄，可切換戶別或清除篩選。匯出範圍不受影響。</p>';
+    $('#reportSummary').textContent = `匯出範圍：${includedUnits.length} 戶 · ${groups.size} 個房間／空間 · ${selected} 張已選照片。未選照片保留在案件備份。`;
     $('#previewReport').disabled = !selected && !(settings.format === 'standard' && $('#reportEmpty').checked && includedUnits.length);
     $('#planVolumes').disabled = settings.format !== 'standard' || !includedUnits.length;
     observer = new IntersectionObserver(entries => { for (const entry of entries) if (entry.isIntersecting) { observer?.unobserve(entry.target); const img = entry.target; getMedia(img.dataset.reportImage).then(asset => { if (token !== generation || !img.isConnected) return; if (!asset?.blob) { img.alt = '找不到原檔，請核對備份'; return; } const url = URL.createObjectURL(asset.thumb || asset.blob); imageURLs.add(url); img.src = url; }).catch(() => { img.alt = '讀取照片失敗'; }); } }, { rootMargin: '300px' });
     for (const img of $('#reportRooms').querySelectorAll('[data-report-image]')) { img.loading = 'lazy'; observer.observe(img); }
   }
-  async function mutate(fn) { await commit(p => { fn(p); syncRooms(p); }); await render(); }
+  async function mutate(fn, anchorRecordId = '', anchorPhotoId = '') {
+    await commit(p => { fn(p); syncRooms(p); });
+    const index = getProject().records.find(r => r.id === anchorRecordId)?.photos.findIndex(photo => photo.mediaId === anchorPhotoId);
+    if (index >= 0) photoPages.set(anchorRecordId, Math.floor(index / 3));
+    await render(anchorRecordId);
+  }
   $('#reportScope').onchange = () => action(async () => { const value = $('#reportScope').value; settings.unitId = value === 'custom' ? '' : value; settings.unitIds = value === 'custom' ? settings.unitIds || [...settings.order] : null; pageNumber = 0; settingsDirty = true; await saveSettings(); await render(); });
   for (const id of Object.values(controls)) {
     $('#' + id).oninput = () => { settingsDirty = true; settingsEdit++; styleSummary(); };
@@ -94,9 +111,13 @@ export function createReportController(api) {
     };
   }
   $('#companyReportStyle').onclick = () => action(async () => { Object.assign(settings, collectSettings(), COMPANY_REPORT_STYLE); loadControls(); settingsDirty = true; await saveSettings(); await render(); });
-  for (const selector of ['#reportSearch', '#reportFilter']) $(selector).onchange = () => action(async () => { pageNumber = 0; await render(); });
-  $('#reportPager').onclick = event => { const b = event.target.closest('[data-report-page]'); if (b) action(async () => { pageNumber += Number(b.dataset.reportPage); await render(); $('#reportPager').scrollIntoView({ block: 'start' }); }); };
-  $('#reportUnits').onchange = event => { const input = event.target.closest('[data-unit-include],[data-unit-break]'); if (!input) return; action(async () => { const id = input.closest('[data-report-unit]').dataset.reportUnit; if (input.hasAttribute('data-unit-break')) settings.breakBefore = input.checked ? [...new Set([...settings.breakBefore, id])] : settings.breakBefore.filter(x => x !== id); else { settings.unitId = ''; settings.unitIds = [...$('#reportUnits').querySelectorAll('[data-unit-include]:checked')].map(el => el.closest('[data-report-unit]').dataset.reportUnit); } pageNumber = 0; settingsDirty = true; await saveSettings(); await render(); }); };
+  for (const selector of ['#reportSearch', '#reportFilter', '#reportBrowseUnit', '#reportPageSize']) $(selector).onchange = () => action(async () => { pageNumber = 0; await render(); });
+  function focusPager() { requestAnimationFrame(() => { $('#reportPager').focus({ preventScroll: true }); $('#reportPager').scrollIntoView({ block: 'start' }); }); }
+  const turnPage = event => { const b = event.target.closest('[data-report-page],[data-report-bottom-page]'); if (b) action(async () => { pageNumber += Number(b.dataset.reportPage ?? b.dataset.reportBottomPage); await render(); focusPager(); }); };
+  $('#reportPager').onclick = $('#reportPagerBottom').onclick = turnPage;
+  $('#reportPager').onchange = event => { if (event.target.id === 'reportPageJump') action(async () => { pageNumber = Number(event.target.value); await render(); focusPager(); }); };
+  $('#reportUnitsPager').onclick = event => { const b = event.target.closest('[data-unit-page]'); if (b) action(async () => { unitPage += Number(b.dataset.unitPage); await render(); $('#reportUnitPicker').scrollIntoView({ block: 'start' }); }); };
+  $('#reportUnits').onchange = event => { const input = event.target.closest('[data-unit-include],[data-unit-break]'); if (!input) return; action(async () => { const id = input.closest('[data-report-unit]').dataset.reportUnit; if (input.hasAttribute('data-unit-break')) settings.breakBefore = input.checked ? [...new Set([...settings.breakBefore, id])] : settings.breakBefore.filter(x => x !== id); else { const selected = new Set(scopeIds(getProject())); if (input.checked) selected.add(id); else selected.delete(id); settings.unitId = ''; settings.unitIds = settings.order.filter(id => selected.has(id)); } pageNumber = 0; settingsDirty = true; await saveSettings(); await render(); }); };
   $('#reportUnits').onclick = event => { const b = event.target.closest('[data-unit-move]'); if (b) action(async () => { const id = b.closest('[data-report-unit]').dataset.reportUnit, i = settings.order.indexOf(id), j = i + Number(b.dataset.unitMove); if (j >= 0 && j < settings.order.length) [settings.order[i], settings.order[j]] = [settings.order[j], settings.order[i]]; if (settings.unitIds) settings.unitIds = settings.order.filter(id => settings.unitIds.includes(id)); settingsDirty = true; await saveSettings(); await render(); }); };
   $('#reportRooms').onchange = event => {
     const input = event.target.closest('[data-report-include]'); if (!input) return;
@@ -127,8 +148,13 @@ export function createReportController(api) {
   $('#reportRooms').onclick = event => {
     const button = event.target.closest('[data-do]'); if (!button) return;
     const command = button.dataset.do, rid = button.closest('[data-report-record]')?.dataset.reportRecord, mid = button.closest('[data-report-photo]')?.dataset.reportPhoto;
+    const anchor = rid || button.closest('.report-room')?.querySelector('[data-report-record]')?.dataset.reportRecord;
     action(async () => {
       await saveTextEdits();
+      if (command === 'photos-prev' || command === 'photos-next') {
+        photoPages.set(rid, Math.max(0, (photoPages.get(rid) || 0) + (command === 'photos-next' ? 1 : -1)));
+        await render(); const photos = $(`[data-report-record="${rid}"] .report-photos`); photos.scrollIntoView({ block: 'start' }); return;
+      }
       if (command === 'edit-photo') return editPhoto(rid, mid);
       if (command === 'edit-record') return editRecord(rid);
       if (command === 'edit-detail') return api.editDetail(rid);
@@ -153,7 +179,7 @@ export function createReportController(api) {
         if (command.startsWith('room-')) {
           moveRoom(p, button.dataset.room, command === 'room-up' ? -1 : 1, settings.unitId);
         }
-      });
+      }, anchor, mid);
     });
   };
   function showResult(result, p, back) {

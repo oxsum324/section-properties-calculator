@@ -28,8 +28,8 @@ export async function verifyScale(browser, base, out) {
     await page.locator('[data-report-image]').first().scrollIntoViewIfNeeded();
     await page.waitForFunction(() => [...document.querySelectorAll('[data-report-image]')].some(img => img.complete && img.naturalWidth));
     const dom = await page.evaluate(() => ({ records: document.querySelectorAll('[data-report-record]').length, images: document.querySelectorAll('[data-report-image]').length, loadedImages: [...document.querySelectorAll('[data-report-image]')].filter(img => img.src).length }));
-    assert.equal(dom.records, 8); assert.equal(dom.images, 48); assert(dom.loadedImages > 0 && dom.loadedImages < 48);
-    await page.locator('[data-report-page="1"]').click(); await page.locator('#busy').waitFor({ state: 'hidden' }); assert.equal(await page.locator('[data-report-record]').count(), 8);
+    assert.equal(dom.records, 1); assert.equal(dom.images, 3); assert(dom.loadedImages > 0 && dom.loadedImages <= 3);
+    await page.locator('[data-report-page="1"]').click(); await page.locator('#busy').waitFor({ state: 'hidden' }); assert.equal(await page.locator('[data-report-record]').count(), 1);
     const result = await page.evaluate(async () => {
       const s = await import('./store.js'), r = await import('./report.js'), p = (await s.allProjects())[0], before = JSON.stringify(p), start = performance.now();
       const plan = await r.prepareVolumes(p, { maxPages: 40, tableRows: 8, plansPerPage: 2, pagePrefix: '8-', pageStart: 41, toc: true }); const layoutMs = Math.round(performance.now() - start), encoded = [];

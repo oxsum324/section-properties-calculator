@@ -194,7 +194,7 @@ async function selectProject(projectId) {
 function renderRecordList() {
   const records = project?.records.filter(r => r.unitId === unitId) || [];
   $('#recordCount').textContent = records.length;
-  $('#recordList').innerHTML = records.length ? records.map(r => `<button class="record-item ${r.id === recordId ? 'active' : ''}" data-record="${esc(r.id)}"><strong>${esc(recordNumber(r))} · ${esc(r.space || '未填空間')}</strong><small>${esc(r.floor || '未填樓層')} · ${r.photos.filter(p => !p.excluded).length} 張照片${recordIssues(r).length ? ' · 待補' : ''}</small></button>`).join('') : '<p class="micro">這一戶尚無位置紀錄</p>';
+  $('#recordList').innerHTML = records.length ? records.map(r => `<button class="record-item ${r.id === recordId ? 'active' : ''}" data-record="${esc(r.id)}"><strong>${esc(recordNumber(r))} · ${esc(r.space || '未填空間')}</strong><small>${esc(r.floor || '未填樓層')} · ${r.photos.filter(p => !p.excluded).length} 張照片${recordIssues(r).length ? ` · <span class="record-issue-badge">待補 ${recordIssues(r).length} 項</span>` : ''}</small></button>`).join('') : '<p class="micro">這一戶尚無位置紀錄</p>';
   $('#addRecord').disabled = !unitId; $('#editUnit').disabled = !unitId;
   $('#unitPlans').disabled = !unitId; $('#addAddressRecord').disabled = !unitId;
   const order = project ? sortedUnits(project) : []; $('#nextUnit').disabled = !unitId || order.findIndex(u => u.id === unitId) >= order.length - 1;
@@ -213,7 +213,36 @@ function renderContext() {
 }
 function renderRecordIssues() {
   const r = currentRecord(); if (!r) return;
-  const issues = recordIssues(r); $('#recordIssues').textContent = issues.length ? `待補：${issues.join('、')}` : '本筆必要紀錄已齊';
+  const issues = recordIssues(r), others = project.records.filter(x => x.unitId === r.unitId && x.id !== r.id).map(record => ({ record, issues: recordIssues(record) })).filter(x => x.issues.length);
+  const currentIndex = project.records.indexOf(r);
+  others.sort((a, b) => Math.abs(project.records.indexOf(a.record) - currentIndex) - Math.abs(project.records.indexOf(b.record) - currentIndex));
+  $('#recordIssues').innerHTML = issues.length ? `<strong>本位置待補 ${issues.length} 項</strong><div class="choice-chips">${issues.map(text => `<button type="button" class="followup-link" data-fix-record="${esc(r.id)}" data-fix-issue="${esc(text)}">${esc(text)} →</button>`).join('')}</div>` : '<p>本位置未列出必要欄位待補。</p>';
+  $('#otherRecordIssues').innerHTML = others.length ? `<strong>本戶其他位置：${others.length} 筆待補</strong>${others.slice(0, 3).map(({ record, issues }) => `<button type="button" class="followup-record" data-fix-record="${esc(record.id)}" data-fix-issue="${esc(issues[0])}"><strong>${esc(recordNumber(record))} · ${esc([record.floor, record.space, record.location].filter(Boolean).join(' · '))}</strong><span>${esc(issues.slice(0, 3).join('、'))}${issues.length > 3 ? `，另 ${issues.length - 3} 項` : ''} →</span></button>`).join('')}` : '';
+  $('#recordFollowup').hidden = !issues.length && !others.length;
+  $('#showRecordFollowup').textContent = issues.length || others.length ? `${issues.length ? `本位置待補 ${issues.length} 項` : '本位置未列待補'}${others.length ? ` · 本戶另 ${others.length} 筆待補` : ''} ↓` : '未列出必要欄位待補';
+  $('#showRecordFollowup').classList.toggle('has-issues', !!(issues.length || others.length));
+  $('#showRecordFollowup').disabled = !issues.length && !others.length;
+}
+function focusFieldSection(selector) {
+  requestAnimationFrame(() => {
+    const element = $(selector); if (!element || activeView !== 'work') return;
+    const target = element.closest('label,fieldset') || element;
+    for (let parent = target.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
+    target.tabIndex = -1; target.focus({ preventScroll: true });
+    window.scrollTo({ top: Math.max(0, window.scrollY + target.getBoundingClientRect().top - $('#contextStrip').getBoundingClientRect().height - 12), behavior: 'instant' });
+  });
+}
+function issueField(text) {
+  if (text === '缺樓層') return '#floor';
+  if (text === '缺空間') return '#space';
+  if (text.startsWith('缺位置')) return '#location';
+  if (text === '缺部位') return '#component';
+  if (text === '尚未分類現況') return '#condition';
+  if (text === '尚無採用照片') return '#takePhoto';
+  if (text.includes('無法觀察')) return '#notes';
+  if (text.includes('磁磚')) return '#tileFields';
+  if (text.startsWith('U 型')) return '#uCrackFields';
+  return '#measurement';
 }
 async function managePhotos() {
   const r = currentRecord(), context = { projectId: project.id, recordId: r?.id };
@@ -944,6 +973,16 @@ $('#newCase').onclick = $('#startCase').onclick = () => action(caseDialog);
 $('#addUnit').onclick = () => action(() => unitDialog()); $('#editUnit').onclick = () => action(() => unitDialog(unitId));
 $('#caseSelect').onchange = e => { const selected = e.target.value; action(() => selectProject(selected)).finally(() => { $('#caseSelect').value = project?.id || ''; }); };
 $('#unitSelect').onchange = e => { const selected = e.target.value; action(async () => { requireNoRecording(); unitId = selected; recordId = project.records.find(r => r.unitId === unitId)?.id || ''; await render(); }).finally(() => { $('#unitSelect').value = unitId; }); };
+$('#showRecordFollowup').onclick = () => focusFieldSection('#recordFollowup');
+$('#recordFollowup').onclick = event => {
+  const button = event.target.closest('[data-fix-record]');
+  if (button) action(async () => {
+    requireNoRecording();
+    const record = project.records.find(r => r.id === button.dataset.fixRecord); if (!record) return;
+    unitId = record.unitId; recordId = record.id; await render(); focusFieldSection(issueField(button.dataset.fixIssue));
+  });
+};
+$('#showAllRecordIssues').onclick = () => action(async () => { requireNoRecording(); $('#reviewSearch').value = ''; $('#reviewFilter').value = ''; reviewPage = 0; await showView('review'); $('#reviewSummary').scrollIntoView({ block: 'start' }); });
 $('#addRecord').onclick = $('#nextRecord').onclick = () => action(addRecord);
 $('#saveRecord').onclick = () => action(async () => toast('目前紀錄已保存'));
 $('#recordList').onclick = e => { const b = e.target.closest('[data-record]'); if (b) action(async () => { requireNoRecording(); recordId = b.dataset.record; renderRecordList(); await renderEditor(); }); };
@@ -1009,3 +1048,10 @@ async function init() {
 init().catch(e => { fail(e); $('#offlineStatus').textContent = '資料庫尚未開啟，請依提示處理後重新整理'; for (const selector of ['#startCase', '#welcomeImport']) $(selector).disabled = true; });
 
 if (window.visualViewport) { const keyboardLayout = () => document.body.classList.toggle('keyboard-open', window.innerHeight - window.visualViewport.height > 120); window.visualViewport.addEventListener('resize', keyboardLayout); keyboardLayout(); }
+// Navigation can grow when labels wrap or the user switches to larger text.
+if (window.ResizeObserver) {
+  const layoutObserver = new ResizeObserver(entries => {
+    for (const { target } of entries) document.documentElement.style.setProperty(target.id === 'bottomNav' ? '--survey-nav-height' : '--survey-context-height', `${target.getBoundingClientRect().height}px`);
+  });
+  layoutObserver.observe($('#bottomNav')); layoutObserver.observe($('#contextStrip'));
+}

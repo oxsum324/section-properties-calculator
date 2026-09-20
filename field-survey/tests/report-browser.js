@@ -33,7 +33,7 @@ export async function verifyReportWorkflow(browser, base, out) {
     let data = await current(); assert.equal(data.records[0].photos[1].placement.x.toFixed(1), '0.4'); assert.equal(data.records[0].placement.x, .2); assert.equal(data.records[0].photos[1].caption, 'U 型裂縫近照');
     await click('[data-record="' + seed.s + '"]'); await click('[data-field-preset="tile"]'); await page.locator('#tileBroken').check(); await page.locator('#tileCrackCount').fill('4'); await page.locator('#tileBrokenCount').fill('2'); await page.locator('#tileOverlapCount').fill('2'); await click('#saveRecord');
     assert.equal((await page.locator('#tileTotal').textContent()).includes('4 塊'), true); assert(!(await page.locator('#recordIssues').innerText()).includes('量測'));
-    await click('[data-view="report"]'); assert.equal(await page.locator('.report-room').count(), 2); assert.equal(await page.locator('[data-report-include]:checked').count(), 3);
+    await click('[data-view="report"]'); await page.locator('#reportPageSize').selectOption('8'); await idle(); assert.equal(await page.locator('.report-room').count(), 2); assert.equal(await page.locator('[data-report-include]:checked').count(), 3);
     const row = '[data-report-record="' + seed.r + '"]', close = row + ' [data-report-photo="' + seed.close + '"]';
     await page.locator(row + ' [data-report-text]').fill('人工核對：梁 U 型裂縫 4 條，代表條展開長度 1.2 m。');
     await click(close + ' [data-do="main"]'); await click(close + ' [data-do="photo-up"]');
