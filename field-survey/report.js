@@ -1,7 +1,7 @@
 import { assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, ROLES, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
 import { markedImage, placementMarks, reportPlanImage } from './annotation.js';
 import { photoStampText } from './model.js';
-import { detailAnnotationText, detailComparison } from './model.js';
+import { detailAnnotationText, detailComparison, photoContent } from './model.js';
 import { detailImage } from './detail.js';
 import { STANDARD_STYLE, standardPages, segmentKey, dateSummary, splitVolumes, contentsPages } from './report-standard.js';
 
@@ -51,7 +51,7 @@ export function attachmentIndex(project, { unitId = '', unitIds, start = 1, perP
     const photos = reportPhotos(r); if (!photos.length) continue;
     const key = r.roomId || roomKey(r), unit = project.units.find(u => u.id === r.unitId);
     if (!groups.has(key)) groups.set(key, { roomId: key, unitId: unit.id, unit: unit.code, address: unit.address, floor: r.floor, room: r.space, records: [] });
-    groups.get(key).records.push({ recordId: r.id, fieldNumber: r.fieldNumber, visitId: r.visitId || '', observedOn: r.observedOn || '', dateInfo: recordDateInfo(project, r), detail: clone(r.detail), detailText: detailAnnotationText(r.detail), detailReminders: detailComparison(r).hints, components: clone(recordComponents(r)), conditions: clone(recordConditions(r)), text: r.reportText?.trim() || observationText(r), notes: r.notes, issues: recordIssues(r), pin: clone(r.observationPin || null), photos: photos.map(photo => ({ ...clone(photo), placement: clone(photoPlacement(r, photo) || null), main: r.mainPhotoId ? r.mainPhotoId === photo.mediaId : photo.mediaId === (photos.find(p => p.role === 'close') || photos[0]).mediaId })) });
+    groups.get(key).records.push({ recordId: r.id, fieldNumber: r.fieldNumber, visitId: r.visitId || '', observedOn: r.observedOn || '', dateInfo: recordDateInfo(project, r), detail: clone(r.detail), detailText: detailAnnotationText(r.detail), contentText: photoContent(r).text, detailReminders: detailComparison(r).hints, components: clone(recordComponents(r)), conditions: clone(recordConditions(r)), text: r.reportText?.trim() || observationText(r), notes: r.notes, issues: recordIssues(r), pin: clone(r.observationPin || null), photos: photos.map(photo => ({ ...clone(photo), contentCaption: photoContent(r, photo).caption, placement: clone(photoPlacement(r, photo) || null), main: r.mainPhotoId ? r.mainPhotoId === photo.mediaId : photo.mediaId === (photos.find(p => p.role === 'close') || photos[0]).mediaId })) });
   }
   // One numbering source for both formats; keep each unit contiguous even when
   // field records from different units were interleaved during collection.
@@ -133,16 +133,16 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
     }
     for (const record of group.records) {
       if (record.detail && record.detail.kind !== 'text') pages.push(page(group, `<h2>細部示意圖 · 照片 ${e(record.photos.map(p => p.number).join('、'))}</h2><img class="plan detail-img" src="${await encodeDetail(record.detail)}" alt="細部示意圖"><p>圖形僅示意，未按比例；圖示大小不代表實測範圍。</p>`, 'detail-sheet'));
-      const fullText = [record.text, record.notes, detailAnnotationText(record.detail), `日期：${record.dateInfo.label}`].filter(Boolean).join('\n'), longText = fullText.length > 180 || fullText.split('\n').length > 4;
+      const fullText = [record.contentText, `日期：${record.dateInfo.label}`].filter(Boolean).join('\n'), longText = fullText.length > 180 || fullText.split('\n').length > 4;
       const moreText = [];
       if (longText) moreText.push(`現況完整說明（照片 ${record.photos.map(p => p.number).join('、')}）：\n${fullText}`);
       for (let i = 0; i < record.photos.length; i += index.perPage) {
         const cards = [];
         for (const photo of record.photos.slice(i, i + index.perPage)) {
           const src = await encodeImage(photo.mediaId, photo.marks); progress(++imageCount, total);
-          const longCaption = photo.caption.length > 100 || photo.caption.split('\n').length > 2;
-          const caption = longCaption ? compactText(photo.caption).slice(0, 100) + '…（完整說明見續頁）' : photo.caption;
-          if (longCaption) moreText.push(`照片 ${photo.number} 完整說明：\n${photo.caption}`);
+          const contentCaption = photo.contentCaption ?? photo.caption, longCaption = contentCaption.length > 100 || contentCaption.split('\n').length > 2;
+          const caption = longCaption ? compactText(contentCaption).slice(0, 100) + '…（完整說明見續頁）' : contentCaption;
+          if (longCaption) moreText.push(`照片 ${photo.number} 完整說明：\n${contentCaption}`);
           cards.push(`<figure><img src="${src}" alt="照片 ${photo.number}"><figcaption><strong>照片 ${photo.number} · ${e(ROLES[photo.role])}${photo.main ? ' · 主要照片' : ''}</strong><p>${e(caption)}</p>${!photo.placement && !record.pin ? '<p>本照片尚無圖上定位，請對照位置說明。</p>' : ''}</figcaption></figure>`);
         }
         pages.push(page(group, `<div class="description">${e(longText ? compactText(fullText).slice(0, 180) + '…（完整說明見續頁）' : fullText)}</div><div class="photos count-${index.perPage}">${cards.join('')}</div>`, 'photo-sheet'));

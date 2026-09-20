@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.22.1';
+export const VERSION = '0.22.2';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -69,6 +69,35 @@ export function detailComparison(record, detail = record.detail) {
   else if (detail.kind !== 'text' && missing.length) hints.push(`已記錄${missing.map(c => CONDITIONS[c]).join('、')}；${manual ? '請核對手繪或文字是否已對應。' : '細圖尚無對應圖示，可補畫或補充文字。'}`);
   if (extra.length) hints.push(`細圖有${extra.map(c => CONDITIONS[c]).join('、')}；現況分類未勾選，請核對照片內容。`);
   return { conditions, drawn, missing, extra, hints };
+}
+// Compare complete source fields only. Splitting clauses could erase a second
+// location's equal measurement or detach a qualification from its subject.
+const descriptionKey = value => (value || '').trim().replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/[。；;]+$/, '');
+export function photoContent(record, photo) {
+  const seen = new Set(), lines = [];
+  const take = value => {
+    const text = (value || '').trim(), key = descriptionKey(text);
+    if (!key || seen.has(key)) return '';
+    seen.add(key); return text;
+  };
+  const add = (label, value) => { const text = take(value); if (text) lines.push(label + text); };
+  const generated = observationText(record), main = record.reportText?.trim() || generated;
+  // Generated prose already carries the component and conditions. Keep the
+  // classification for independently edited prose, which may omit those facts.
+  if (descriptionKey(main) !== descriptionKey(generated)) {
+    lines.push(`部位：${recordComponents(record).join('、') || '未填'}　狀況：${recordConditions(record).map(c => CONDITIONS[c]).join('、') || '未分類'}`);
+  }
+  add('', main);
+  add('補充：', record.notes);
+  const detail = record.detail;
+  const extra = detailComparison(record).extra;
+  if (extra.length) lines.push(`細圖另標：${extra.map(c => CONDITIONS[c]).join('、')}（示意；現況分類未勾選，請核對）。`);
+  add('細圖補充：', detail?.note);
+  for (const mark of detail?.marks || []) if (mark.type === 'text') add('圖中文字：', mark.text);
+  // The report already prints the photo role next to its caption.
+  const role = ROLES[photo?.role], rawCaption = photo?.caption?.trim() || '';
+  const caption = role && rawCaption === role ? '' : role && (rawCaption.startsWith(role + '：') || rawCaption.startsWith(role + ':')) ? rawCaption.slice(role.length + 1).trim() : rawCaption;
+  return { text: lines.join('\n'), caption: take(caption) };
 }
 export const AREA_CONDITIONS = { crack: '網狀裂隙分布', damp: '滲水痕', salt: '白華', spall: '剝落', tileBulge: '磁磚拱起', tileBroken: '磁磚破損', honeycomb: '混凝土蜂窩', tileDetached: '磁磚脫落', paintBlister: '油漆起泡', plasterBulge: '粉刷層鼓起', ponding: '積水', rustStain: '鏽水痕', moldStain: '霉斑', other: '其他損害' };
 export const AREA_METHODS = { measured: '實測', estimated: '估計' };

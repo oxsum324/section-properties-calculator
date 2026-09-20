@@ -38,7 +38,7 @@ export async function verifyV017(browser, base, out) {
       const file=path.join(out,`v0.17-${format}.html`);await fs.writeFile(file,html);const preview=await context.newPage();await preview.goto('file:///'+file.replaceAll('\\','/'));
       if(format==='standard') {
         const rows=preview.locator('.table-sheet tbody tr[data-photo-number]');assert.equal(await rows.count(),2);
-        for(let i=0;i<2;i++){const row=rows.nth(i);assert.equal((await row.locator('td').nth(2).textContent()).trim(),'');assert.match(await row.locator('.row-text').textContent(),/細圖標註：磁磚破損、網裂/);assert.match(await row.locator('.row-text').textContent(),/圖中文字：裂縫 A/);assert((await row.locator('.row-text').textContent()).includes(note));}
+        for(let i=0;i<2;i++){const row=rows.nth(i);assert.equal((await row.locator('td').nth(2).textContent()).trim(),'');assert.doesNotMatch(await row.locator('.row-text').textContent(),/細圖標註：/);assert.match(await row.locator('.row-text').textContent(),/狀況：裂隙、磁磚破損/);assert.match(await row.locator('.row-text').textContent(),/圖中文字：裂縫 A/);assert((await row.locator('.row-text').textContent()).includes(note));}
         await preview.locator('.table-sheet').screenshot({path:path.join(out,'v0.17-photo-table.png')});
       } else assert((await preview.locator('body').textContent()).includes(note));
       assert(await preview.locator('.standard-sheet .sheet-content').evaluateAll(nodes=>nodes.every(n=>n.scrollHeight<=n.clientHeight+1)));await preview.close();

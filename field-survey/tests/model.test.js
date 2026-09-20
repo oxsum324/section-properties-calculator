@@ -16,6 +16,34 @@ import { DETAIL_SYMBOLS, moveDetailMark, mirrorDetailMarks, splitDetailLine, sym
 import { removeRecordPhotos, validateMarks } from '../model.js';
 import { detailAnnotationText, detailComparison } from '../model.js';
 import { planTemplateCopy } from '../model.js';
+import { photoContent } from '../model.js';
+
+test('photo content removes duplicate source blocks without changing stored notes or photos', async () => {
+  const { p, r, blobs } = await fixture();
+  Object.assign(r, { component: '牆面', condition: 'damp', location: '窗角', notes: '窗角向下延伸水痕。', detail: { kind: 'preset', preset: 'wall', mirror: false, note: ' 窗角向下延伸水痕；', marks: [{ type: 'symbol', symbol: 'damp', points: [{ x: .5, y: .5 }], size: .24, rotation: 0, mirror: false }, { type: 'text', text: '窗角向下延伸水痕', points: [{ x: .3, y: .3 }] }] } });
+  r.reportText = observationText(r); r.photos[0].caption = r.notes;
+  const before = structuredClone(p), content = photoContent(r, r.photos[0]);
+  assert.equal(content.caption, ''); assert.equal(photoContent(r, { role: 'close', caption: '近照：' + r.notes }).caption, ''); assert.equal(photoContent(r, { role: 'close', caption: '近照' }).caption, ''); assert.equal(content.text.split('窗角向下延伸水痕').length - 1, 1);
+  assert.doesNotMatch(content.text, /部位：|狀況：|細圖標註：|細圖另標：/);
+  const view = attachmentIndex(p).groups[0].records[0]; assert.equal(view.contentText, content.text); assert.equal(view.photos[0].contentCaption, ''); assert.equal(view.photos[0].caption, r.notes);
+  assert.deepEqual(p, before); assert.deepEqual((await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob)).project, before);
+});
+
+test('photo content keeps different locations, numbers, negation, multiline context and independent photos', () => {
+  const r = { ...newRecord('u'), component: '牆面', condition: 'crack', reportText: '東牆裂隙寬 0.2 mm（實測）。', notes: '西牆裂隙寬 0.2 mm（估計）。', detail: { note: '東牆未見滲水。\n西牆可見滲水。', marks: [{ type: 'text', text: '東牆裂隙寬 0.3 mm（實測）' }] } };
+  const caption = '西牆裂隙寬 0.2 mm（實測）。', result = photoContent(r, { caption });
+  for (const value of [r.reportText, r.notes, r.detail.note, r.detail.marks[0].text]) assert(result.text.includes(value));
+  assert.equal(result.caption, caption); assert.equal(photoContent(r, { caption }).caption, caption);
+  r.notes = '東牆：滲水；白華。\n西牆：剝落；白華。'; assert(photoContent(r).text.includes(r.notes));
+  assert.match(result.text, /部位：牆面.*狀況：裂隙/);
+});
+
+test('extra drawing conditions remain explicit instead of becoming asserted observations', () => {
+  const r = { ...newRecord('u'), component: '牆面', condition: 'damp', detail: { marks: [{ type: 'symbol', symbol: 'salt' }, { type: 'symbol', symbol: 'salt' }, { type: 'arrow' }] } };
+  const result = photoContent(r).text;
+  assert.match(result, /細圖另標：白華（示意；現況分類未勾選，請核對）/);
+  assert.doesNotMatch(result, /箭頭|細圖標註/); assert.deepEqual(detailComparison(r).extra, ['salt']);
+});
 
 test('standard-floor copies isolate geometry and omit source positioning labels', () => {
   const source={id:'source',unitId:'A',floor:'1F',title:'來源圖',mediaId:'old',sketch:{...emptySketch(),strokes:[{type:'line',points:[{x:.2,y:.2},{x:.7,y:.2}]}]},labelLayout:[{id:'old-photo'}]},before=structuredClone(source);
