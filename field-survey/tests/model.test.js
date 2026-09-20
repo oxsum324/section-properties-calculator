@@ -17,6 +17,31 @@ import { removeRecordPhotos, validateMarks } from '../model.js';
 import { detailAnnotationText, detailComparison } from '../model.js';
 import { planTemplateCopy } from '../model.js';
 import { photoContent } from '../model.js';
+import { reportPreferences, validateReportSettings, COMPANY_REPORT_STYLE } from '../model.js';
+
+test('report preferences travel with complete/scoped backups and restore, with main-case precedence in consolidation', async () => {
+  const { p, blobs, a, b } = await fixture();
+  p.reportSettings = { ...reportPreferences(p), format: 'quick', numbering: 'project', start: 27, perPage: 1, pagePrefix: '附-', pageStart: 31, order: [b.id, a.id], unitIds: [b.id], breakBefore: [a.id], maxPages: 9, color: true, tableRows: 0 };
+  validateProject(p);
+  const full = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
+  assert.deepEqual(full.project.reportSettings, p.reportSettings);
+  assert.deepEqual(restoredCopy(full.project).project.reportSettings, p.reportSettings);
+  const single = await readBundle((await makeBundle(p, mid => blobs.get(mid), a.id)).blob);
+  assert.equal(single.project.reportSettings.unitId, a.id); assert.deepEqual(single.project.reportSettings.order, [a.id]); assert.equal(single.project.reportSettings.unitIds, null);
+  assert.equal(single.project.reportSettings.pagePrefix, '附-'); validateProject(single.project);
+  const main = newProject('MAIN', '主案版型', '2026-09-20');
+  const merged = await consolidateBundles(main, [{ ...full, label: '同事版型' }]);
+  assert.deepEqual(merged.project.reportSettings, main.reportSettings);
+  assert.equal(reportPreferences(merged.project).order.length, 2);
+  const reset = { ...p.reportSettings, ...COMPANY_REPORT_STYLE };
+  assert.deepEqual(reset.order, [b.id, a.id]); assert.deepEqual(reset.unitIds, [b.id]); assert.equal(reset.start, 27); assert.equal(reset.color, true);
+  const legacy = structuredClone(p); delete legacy.reportSettings; assert.equal(reportPreferences(legacy).pagePrefix, '8-'); assert.equal(legacy.reportSettings, undefined);
+});
+
+test('invalid persistent attachment settings are rejected before saving or importing', async () => {
+  const { p } = await fixture(), good = reportPreferences(p);
+  for (const patch of [{ start: 0 }, { start: 1.5 }, { perPage: 3 }, { format: 'unknown' }, { color: 'true' }, { maxPages: 2001 }, { order: ['missing'] }, { unitIds: [p.units[0].id, p.units[0].id] }, { breakBefore: ['missing'] }]) assert.throws(() => validateReportSettings({ ...good, ...patch }, p));
+});
 
 test('photo content removes duplicate source blocks without changing stored notes or photos', async () => {
   const { p, r, blobs } = await fixture();

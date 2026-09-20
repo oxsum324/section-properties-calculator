@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.23.0';
+export const VERSION = '0.24.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -180,7 +180,30 @@ export function tileTotal(t) {
 }
 export const emptySketch = () => ({ version: 1, width: 1200, height: 900, strokes: [] });
 export function newProject(code, name, date) {
-  return { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, visits: [{ id: id(), name: '第 1 次會勘', start: date, end: date }], units: [], records: [], plans: [], media: [] };
+  const p = { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, visits: [{ id: id(), name: '第 1 次會勘', start: date, end: date }], units: [], records: [], plans: [], media: [] };
+  p.reportSettings = reportPreferences(p); return p;
+}
+export const COMPANY_REPORT_STYLE = Object.freeze({ format: 'standard', numbering: 'unit', perPage: 2, tableRows: 8, pagePrefix: '8-' });
+export function reportPreferences(p) {
+  const s = { ...COMPANY_REPORT_STYLE, start: 1, pageStart: 1, plansPerPage: 1, toc: true, includeEmpty: true, publicByFloor: false, color: false, maxPages: 200, unitId: '', unitIds: null, order: [], breakBefore: [], ...clone(p.reportSettings || {}) };
+  const ids = new Set(p.units.map(u => u.id));
+  s.order = [...s.order.filter(id => ids.has(id)), ...p.units.filter(u => !s.order.includes(u.id)).map(u => u.id)];
+  s.unitIds = s.unitIds === null ? null : s.order.filter(id => s.unitIds.includes(id));
+  s.breakBefore = s.breakBefore.filter(id => ids.has(id)); if (!ids.has(s.unitId)) s.unitId = '';
+  return s;
+}
+export function validateReportSettings(s, p) {
+  assert(s && typeof s === 'object' && !Array.isArray(s), '附件設定不正確');
+  assert(['standard', 'quick'].includes(s.format) && ['unit', 'project'].includes(s.numbering) && [1, 2].includes(s.perPage), '附件格式或編號設定不正確');
+  for (const key of ['start', 'pageStart', 'maxPages']) assert(Number.isSafeInteger(s[key]) && s[key] >= 1 && s[key] <= (key === 'maxPages' ? 2000 : 999999), '附件起始號或分冊頁數不正確');
+  assert([1, 2, 3].includes(s.plansPerPage) && [0, 8].includes(s.tableRows) && typeof s.pagePrefix === 'string' && s.pagePrefix.length <= 20, '附件版面設定不正確');
+  for (const key of ['toc', 'includeEmpty', 'publicByFloor', 'color']) assert(typeof s[key] === 'boolean', '附件選項不正確');
+  const ids = new Set(p.units.map(u => u.id));
+  assert(typeof s.unitId === 'string' && (!s.unitId || ids.has(s.unitId)), '附件範圍不存在');
+  for (const key of ['unitIds', 'order', 'breakBefore']) {
+    if (key === 'unitIds' && s[key] === null) continue;
+    assert(Array.isArray(s[key]) && new Set(s[key]).size === s[key].length && s[key].every(id => ids.has(id)), '附件戶別順序或範圍不正確');
+  }
 }
 export function newUnit(code, address = '') { return { id: id(), code: code.trim(), address: address.trim(), status: 'open', reason: '' }; }
 export function newRecord(unitId, floor = '', space = '') {
@@ -365,6 +388,7 @@ export function validateProject(p) {
   if (p.photoStamp !== undefined) assert(typeof p.photoStamp === 'boolean', '照片戳記設定不正確');
   for (const key of ['units', 'records', 'plans', 'media']) list(p[key], key);
   const units = unique(p.units), media = unique(p.media), plans = unique(p.plans); unique(p.records);
+  if (p.reportSettings !== undefined) validateReportSettings(p.reportSettings, p);
   const visits = new Set();
   if (p.visits !== undefined) {
     list(p.visits, '會勘批次', 500); unique(p.visits);
@@ -539,6 +563,7 @@ export function subset(p, unitId = '') {
   if (result.handoffDigests) result.handoffDigests = [];
   assert(p.units.some(u => u.id === unitId), '找不到匯出的戶別');
   result.units = result.units.filter(u => u.id === unitId);
+  if (result.reportSettings) result.reportSettings = { ...reportPreferences(result), unitId, unitIds: null };
   result.records = result.records.filter(r => r.unitId === unitId);
   result.plans = result.plans.filter(x => x.unitId === unitId);
   if (result.rooms) result.rooms = result.rooms.filter(x => x.unitId === unitId);

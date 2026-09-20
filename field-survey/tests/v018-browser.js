@@ -24,7 +24,7 @@ export async function verifyV018(browser, base, out) {
     assert.deepEqual(await page.locator('#bottomNav [data-view]').evaluateAll(nodes => nodes.map(n => n.dataset.view)), ['case', 'work', 'review', 'report']);
     assert.equal(await activeView(), 'work');
     for (const selector of ['#unitSelect', '#addUnit', '#editUnit', '#unitPlans', '#addRecord', '#recordForm', '#gotoCase']) assert(await visible(selector), selector + ' visible on work view');
-    for (const selector of ['#visitSelect', '#manageVisits', '#importRoster', '#newCase', '#exportBackup', '#readBackup']) assert(!(await visible(selector)), selector + ' hidden on work view');
+    for (const selector of ['#visitSelect', '#manageVisits', '#importRoster', '#newCase', '#prepareHandoff', '#readBackup']) assert(!(await visible(selector)), selector + ' hidden on work view');
     // The context strip names case, visit, unit and the record being edited, and follows edits.
     assert(await visible('#contextStrip')); assert.equal(await page.locator('#caseSelect').inputValue(), seed.id);
     assert.equal(await text('#contextVisit'), '第 1 次會勘'); assert.equal(await text('#contextUnit'), 'A戶'); assert.equal(await text('#contextRecord'), '位置 001 · 2F 客廳');
@@ -36,7 +36,7 @@ export async function verifyV018(browser, base, out) {
     await page.locator('#unitSelect').selectOption(seed.a); await idle(); assert.equal(await text('#contextRecord'), '位置 001 · 2F 主臥');
     // The case view gathers setup and backup; the record crumb and the shortcut button are hidden there.
     await click('[data-view=case]'); assert.equal(await activeView(), 'case');
-    for (const selector of ['#visitSelect', '#manageVisits', '#importRoster', '#newCase', '#exportBackup', '#readBackup', '#persistStorage']) assert(await visible(selector), selector + ' visible on case view');
+    for (const selector of ['#visitSelect', '#manageVisits', '#importRoster', '#newCase', '#prepareHandoff', '#readBackup']) assert(await visible(selector), selector + ' visible on case view');
     assert(!(await visible('#recordForm'))); assert(!(await visible('#contextRecord'))); assert(!(await visible('#gotoCase')));
     assert.match(await text('#caseUnitSummary'), /2 戶：住戶 1、公設 1/); assert.match(await text('#backupSummary'), /2 戶 · 1 筆紀錄/);
     await click('#manageVisits'); await click('#newVisitBatch'); await page.locator('#visitForm [name=name]').fill('補勘'); await page.locator('#visitForm [name=start]').fill('2026-09-20'); await page.locator('#visitForm [name=end]').fill('2026-09-20'); await click('#visitForm .primary');
@@ -48,7 +48,7 @@ export async function verifyV018(browser, base, out) {
     // Navigating between views changed nothing except the edited space and the added batch.
     const after = await current(); assert.equal(after.records[0].space, '主臥'); assert.equal(after.visits.length, 2); assert.deepEqual(after.units, before.units); assert.equal(after.records[0].id, before.records[0].id);
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await page.locator('#recordForm').waitFor();
-    assert(await visible('#contextStrip')); assert.equal(await text('#contextUnit'), 'A戶'); await click('[data-view=case]'); assert(await visible('#exportBackup'));
+    assert(await visible('#contextStrip')); assert.equal(await text('#contextUnit'), 'A戶'); await click('[data-view=case]'); assert(await visible('#prepareHandoff'));
     assert.deepEqual(errors, []); await fs.writeFile(path.join(out, 'v0.18-result.json'), JSON.stringify({ passed: true, views: ['case', 'work', 'review', 'report'], errors, physicalPhoneTested: false }, null, 2));
     console.log('PASS V0.18 four-view navigation, case/backup page, pinned context strip, mobile widths, unchanged data and offline reload');
   } finally { await context.close(); }

@@ -1,5 +1,5 @@
 import { openLabelEditor } from './label-editor.js';
-import { clone, recordIssues, observationText, photoContent, roomKey, photoIncluded, ROLES, assert, syncRooms, photoPlacement, recordDateInfo } from './model.js';
+import { clone, recordIssues, observationText, photoContent, roomKey, photoIncluded, ROLES, assert, syncRooms, photoPlacement, recordDateInfo, reportPreferences, validateReportSettings, COMPANY_REPORT_STYLE } from './model.js';
 import { attachmentIndex, defaultPhotoIds, reportPhotos, renderAttachment, moveRoom, REPORT_FORMATS, escapeHTML as e, prepareVolumes, renderPlannedVolume, masterContentsHTML } from './report.js';
 import { detailContextHTML } from './detail.js';
 
@@ -7,13 +7,42 @@ export function createReportController(api) {
   const { $, action, commit, getProject, getMedia, mediaURL, openModal, download, busyText, editPhoto, editRecord } = api;
   const settings = { unitId: '', unitIds: null, order: [], breakBefore: [], start: 1, perPage: 2, format: 'standard' };
   let projectId = '', pageNumber = 0, observer, generation = 0; const imageURLs = new Set();
+  let settingsDirty = false;
+  let settingsWrite = null, settingsEdit = 0, textWrite = null, autoSaves = 0;
+  const controls = { start: 'reportStart', perPage: 'reportPerPage', format: 'reportFormat', numbering: 'reportNumbering', pageStart: 'reportPageStart', pagePrefix: 'reportPrefix', plansPerPage: 'reportPlans', tableRows: 'reportRows', toc: 'reportToc', includeEmpty: 'reportEmpty', publicByFloor: 'reportPublicFloors', color: 'reportColor', maxPages: 'volumeMaxPages' };
+  const numeric = new Set(['start', 'perPage', 'pageStart', 'plansPerPage', 'tableRows', 'maxPages']);
+  function loadControls() { for (const [key, id] of Object.entries(controls)) { const el = $('#' + id); if (el.type === 'checkbox') el.checked = settings[key]; else el.value = settings[key]; } }
+  function collectSettings() {
+    const result = clone(settings);
+    for (const [key, id] of Object.entries(controls)) { const el = $('#' + id); result[key] = el.type === 'checkbox' ? el.checked : numeric.has(key) ? Number(el.value) : el.value.trim(); }
+    return result;
+  }
+  function styleSummary() {
+    const s = collectSettings();
+    $('#reportStyleSummary').textContent = `${s.format === 'standard' ? '標準附件' : '快速預覽'} · ${s.numbering === 'unit' ? '每戶重編' : '全案接續'} · 每頁 ${s.perPage} 張 · ${s.tableRows ? '最多 8 列' : '自動分頁'} · 頁碼 ${s.pagePrefix || '無前綴'}${settingsDirty ? ' · 尚未保存' : ' · 隨案件保存'}`;
+    $('#reportFormatHelp').textContent = s.format === 'standard' ? '每戶依序：整體平面圖 → 照片說明表 → 照片。' : '依房間顯示位置圖、現況說明與照片。';
+    const p = getProject(); if (p && projectId === p.id) {
+      const ids = scopeIds(p), photos = p.records.filter(r => ids.includes(r.unitId)).some(r => reportPhotos(r).length);
+      $('#previewReport').disabled = !photos && !(s.format === 'standard' && s.includeEmpty && ids.length);
+      $('#planVolumes').disabled = s.format !== 'standard' || !ids.length;
+    }
+  }
+  async function saveSettings() {
+    if (settingsWrite) await settingsWrite;
+    const p = getProject(); if (!p || projectId !== p.id || !settingsDirty) return;
+    const next = collectSettings(), edit = settingsEdit; validateReportSettings(next, p);
+    settingsWrite = commit(draft => { draft.reportSettings = clone(next); }).then(() => {
+      Object.assign(settings, next); settingsDirty = edit !== settingsEdit; styleSummary();
+    });
+    try { await settingsWrite; } finally { settingsWrite = null; }
+  }
   function clearImages() { observer?.disconnect(); generation++; for (const url of imageURLs) URL.revokeObjectURL(url); imageURLs.clear(); }
   const scopeIds = p => settings.unitId ? [settings.unitId] : settings.unitIds || settings.order;
   function options() { return { ...settings, unitIds: scopeIds(getProject()), start: Number($('#reportStart').value), perPage: Number($('#reportPerPage').value), numbering: $('#reportNumbering').value, pageStart: Number($('#reportPageStart').value), pagePrefix: $('#reportPrefix').value.trim(), plansPerPage: Number($('#reportPlans').value), tableRows: Number($('#reportRows').value), toc: $('#reportToc').checked, includeEmpty: $('#reportEmpty').checked, publicByFloor: $('#reportPublicFloors').checked, color: $('#reportColor').checked, maxPages: Number($('#volumeMaxPages').value) }; }
   async function render() {
     const p = getProject(); if (!p) return;
     clearImages(); const token = generation;
-    if (projectId !== p.id) { projectId = p.id; settings.unitId = ''; settings.unitIds = null; settings.order = p.units.map(u => u.id); settings.breakBefore = []; pageNumber = 0; }
+    if (projectId !== p.id) { projectId = p.id; Object.assign(settings, reportPreferences(p)); settingsDirty = false; loadControls(); pageNumber = 0; }
     settings.order = [...settings.order.filter(id => p.units.some(u => u.id === id)), ...p.units.filter(u => !settings.order.includes(u.id)).map(u => u.id)];
     if (settings.unitIds) settings.unitIds = settings.unitIds.filter(id => p.units.some(u => u.id === id));
     if (settings.unitId && !p.units.some(u => u.id === settings.unitId)) settings.unitId = '';
@@ -22,6 +51,7 @@ export function createReportController(api) {
     const includedUnits = scopeIds(p);
     $('#reportUnits').innerHTML = settings.order.map((id, i) => { const u = p.units.find(u => u.id === id); return `<div class="report-unit-choice" data-report-unit="${id}"><label class="check-label"><input type="checkbox" data-unit-include ${includedUnits.includes(id) ? 'checked' : ''}>${e(u.code)}${u.building ? ' · ' + e(u.building) : ''}</label><div class="choice-chips"><button data-unit-move="-1" ${i === 0 ? 'disabled' : ''}>上移</button><button data-unit-move="1" ${i === settings.order.length - 1 ? 'disabled' : ''}>下移</button><label class="check-label"><input type="checkbox" data-unit-break ${settings.breakBefore.includes(id) ? 'checked' : ''}>本戶另起一冊</label></div></div>`; }).join('');
     $('#reportFormat').value = settings.format;
+    styleSummary();
     $('#reportFormatHelp').textContent = settings.format === 'standard' ? '每戶依序：各樓整體平面圖 → 照片說明表 → 照片。同一圖面集中標示跨房間的照片編號。' : '依房間依序顯示位置圖、現況說明與照片，方便現場核對。';
     const groups = new Map();
     for (const r of p.records.filter(r => includedUnits.includes(r.unitId))) {
@@ -52,13 +82,21 @@ export function createReportController(api) {
     for (const img of $('#reportRooms').querySelectorAll('[data-report-image]')) { img.loading = 'lazy'; observer.observe(img); }
   }
   async function mutate(fn) { await commit(p => { fn(p); syncRooms(p); }); await render(); }
-  $('#reportScope').onchange = () => action(async () => { const value = $('#reportScope').value; settings.unitId = value === 'custom' ? '' : value; settings.unitIds = value === 'custom' ? settings.unitIds || [...settings.order] : null; pageNumber = 0; await render(); });
-  $('#reportFormat').onchange = () => action(async () => { settings.format = $('#reportFormat').value; await render(); });
+  $('#reportScope').onchange = () => action(async () => { const value = $('#reportScope').value; settings.unitId = value === 'custom' ? '' : value; settings.unitIds = value === 'custom' ? settings.unitIds || [...settings.order] : null; pageNumber = 0; settingsDirty = true; await saveSettings(); await render(); });
+  for (const id of Object.values(controls)) {
+    $('#' + id).oninput = () => { settingsDirty = true; settingsEdit++; styleSummary(); };
+    // Saving on blur must not make the next field inert or swallow its input/click.
+    $('#' + id).onchange = () => {
+      settingsDirty = true; settingsEdit++;
+      autoSaves++; $('#reportView').setAttribute('aria-busy', 'true');
+      saveTextEdits().then(styleSummary).catch(api.fail).finally(() => { autoSaves--; $('#reportView').setAttribute('aria-busy', String(autoSaves > 0)); });
+    };
+  }
+  $('#companyReportStyle').onclick = () => action(async () => { Object.assign(settings, collectSettings(), COMPANY_REPORT_STYLE); loadControls(); settingsDirty = true; await saveSettings(); await render(); });
   for (const selector of ['#reportSearch', '#reportFilter']) $(selector).onchange = () => action(async () => { pageNumber = 0; await render(); });
-  $('#reportEmpty').onchange = () => action(render);
   $('#reportPager').onclick = event => { const b = event.target.closest('[data-report-page]'); if (b) action(async () => { pageNumber += Number(b.dataset.reportPage); await render(); $('#reportPager').scrollIntoView({ block: 'start' }); }); };
-  $('#reportUnits').onchange = event => { const input = event.target.closest('[data-unit-include],[data-unit-break]'); if (!input) return; action(async () => { const id = input.closest('[data-report-unit]').dataset.reportUnit; if (input.hasAttribute('data-unit-break')) settings.breakBefore = input.checked ? [...new Set([...settings.breakBefore, id])] : settings.breakBefore.filter(x => x !== id); else { settings.unitId = ''; settings.unitIds = [...$('#reportUnits').querySelectorAll('[data-unit-include]:checked')].map(el => el.closest('[data-report-unit]').dataset.reportUnit); } pageNumber = 0; await render(); }); };
-  $('#reportUnits').onclick = event => { const b = event.target.closest('[data-unit-move]'); if (b) action(async () => { const id = b.closest('[data-report-unit]').dataset.reportUnit, i = settings.order.indexOf(id), j = i + Number(b.dataset.unitMove); if (j >= 0 && j < settings.order.length) [settings.order[i], settings.order[j]] = [settings.order[j], settings.order[i]]; if (settings.unitIds) settings.unitIds = settings.order.filter(id => settings.unitIds.includes(id)); await render(); }); };
+  $('#reportUnits').onchange = event => { const input = event.target.closest('[data-unit-include],[data-unit-break]'); if (!input) return; action(async () => { const id = input.closest('[data-report-unit]').dataset.reportUnit; if (input.hasAttribute('data-unit-break')) settings.breakBefore = input.checked ? [...new Set([...settings.breakBefore, id])] : settings.breakBefore.filter(x => x !== id); else { settings.unitId = ''; settings.unitIds = [...$('#reportUnits').querySelectorAll('[data-unit-include]:checked')].map(el => el.closest('[data-report-unit]').dataset.reportUnit); } pageNumber = 0; settingsDirty = true; await saveSettings(); await render(); }); };
+  $('#reportUnits').onclick = event => { const b = event.target.closest('[data-unit-move]'); if (b) action(async () => { const id = b.closest('[data-report-unit]').dataset.reportUnit, i = settings.order.indexOf(id), j = i + Number(b.dataset.unitMove); if (j >= 0 && j < settings.order.length) [settings.order[i], settings.order[j]] = [settings.order[j], settings.order[i]]; if (settings.unitIds) settings.unitIds = settings.order.filter(id => settings.unitIds.includes(id)); settingsDirty = true; await saveSettings(); await render(); }); };
   $('#reportRooms').onchange = event => {
     const input = event.target.closest('[data-report-include]'); if (!input) return;
     const recordId = input.closest('[data-report-record]').dataset.reportRecord, mediaId = input.closest('[data-report-photo]').dataset.reportPhoto, checked = input.checked;
@@ -66,10 +104,15 @@ export function createReportController(api) {
   };
   // Preserve edits before any rerender (selection, sorting, view changes or preview).
   async function saveTextEdits() {
+    await saveSettings();
+    if (textWrite) await textWrite;
     const p = getProject(); if (!p) return;
     const changed = [...$('#reportRooms').querySelectorAll('[data-report-record]')].filter(el => el.querySelector('[data-report-text]').dataset.edited === 'true').map(el => ({ id: el.dataset.reportRecord, text: el.querySelector('[data-report-text]').value })).filter(x => p.records.some(r => r.id === x.id));
-    if (changed.length) await commit(next => { for (const item of changed) next.records.find(r => r.id === item.id).reportText = item.text; });
-    for (const el of $('#reportRooms').querySelectorAll('[data-report-text]')) delete el.dataset.edited;
+    if (changed.length) {
+      textWrite = commit(next => { for (const item of changed) next.records.find(r => r.id === item.id).reportText = item.text; });
+      try { await textWrite; } finally { textWrite = null; }
+      for (const item of changed) { const el = $(`[data-report-record="${item.id}"] [data-report-text]`); if (el?.value === item.text) delete el.dataset.edited; }
+    }
   }
   $('#reportRooms').oninput = event => { if (event.target.matches('[data-report-text]')) { event.target.dataset.edited = 'true'; const card = event.target.closest('[data-report-record]'), record = getProject().records.find(r => r.id === card.dataset.reportRecord); card.querySelector('[data-content-preview]').textContent = photoContent({ ...record, reportText: event.target.value }).text; } };
 
@@ -133,5 +176,5 @@ export function createReportController(api) {
   $('#planVolumes').onclick = () => action(async () => {
     await saveTextEdits(); const p = clone(getProject()), plan = await prepareVolumes(p, options()); volumeMenu(p, plan);
   }, '核對各戶頁數與分冊');
-  return { render, saveTextEdits, get dirty() { return !!$('#reportRooms [data-report-text][data-edited="true"]'); } };
+  return { render, saveTextEdits, get dirty() { return settingsDirty || !!$('#reportRooms [data-report-text][data-edited="true"]'); } };
 }

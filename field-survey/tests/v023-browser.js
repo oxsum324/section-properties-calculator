@@ -63,7 +63,7 @@ export async function verifyV023(browser, base, out) {
     assert.equal(combined.merged.records[0].notes, '另一台電腦繼續編輯'); assert.equal(combined.merged.records[1].notes, '同事不同的觀察');
     assert(combined.merged.units[1].code.includes('乙同事')); assert.equal(combined.merged.handoffImports.length, 1);
     assert.equal(combined.all.find(p => p.id === restored.p.id).records.length, 1);
-    await other.locator('[data-view=case]').click(); await other.locator('#handoffHistory').waitFor();
+    await other.locator('[data-view=case]').click(); await other.locator('#backupAdvanced').evaluate(el => el.open = true); await other.locator('#handoffHistory').waitFor();
     await other.locator('#mergeBundleInput').setInputFiles(second); await other.locator('#confirmConsolidate').click();
     await other.waitForFunction(() => !document.querySelector('#modal').open);
     assert.equal(await other.evaluate(async () => (await (await import('./store.js')).allProjects()).length), 2);

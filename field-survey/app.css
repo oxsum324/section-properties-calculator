@@ -468,3 +468,23 @@ dialog[data-mode="detail"] #modalBody{position:relative;display:flex;flex-direct
 
 /* Complete editable case handoff stays inside the backup workflow. */
 .handoff-actions{display:flex;flex-wrap:wrap;gap:10px}.handoff-actions button{flex:1 1 180px}#backupView button.full + button.full{margin-top:10px}#handoffHistoryList{overflow-wrap:anywhere}#handoffHistoryList li{margin-block:12px}
+
+/* V0.24: common actions stay visible; secondary controls disclose on demand. */
+.case-file-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#backupView{margin-top:18px}#backupAdvanced{margin-top:18px}#backupAdvanced h4{margin-top:22px}
+#photoGrid:not(.expanded)>.photo-card:nth-child(n+4){display:none}
+#photoGrid{margin-bottom:6px}#togglePhotos{margin-bottom:12px}
+#recordAdvanced>section{padding:12px 0;border-bottom:1px solid var(--line)}#recordAdvanced>summary{line-height:1.7}
+#recordAdvancedSummary{display:block}#recordAdvanced h4{margin:0 0 10px}.record-date-link{margin-bottom:12px;text-align:left}
+#visibilityChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}#visibilityChoices button{padding:10px 3px}
+#visibilityChoices [aria-pressed=true]{background:var(--green);color:white}
+.material-fields{padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}.material-fields>label{margin-bottom:6px}
+#recordLocation>strong{display:block;margin-bottom:8px}#recordLocation>details{margin-top:8px}
+#recordDetail>.choice-chips button{min-height:44px}#recordDetail details{margin-block:8px}
+.recording-banner{position:sticky;bottom:85px;background:#fff2dc;border:1px solid #b57b24;border-radius:10px;padding:10px;z-index:8;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.report-style{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.report-style p{flex:1;min-width:160px}
+#reportAdvanced{margin-top:16px}#reportAdvanced>summary{margin-bottom:12px}
+.editor-footer{position:sticky;bottom:82px;background:var(--paper,#f8faf5);padding:10px;border:1px solid var(--line);border-radius:10px;z-index:7}
+.editor-footer>.micro:empty{display:none}body.keyboard-open .editor-footer,body.keyboard-open .recording-banner{position:static}
+
+body.recording-active .editor-footer{position:static}

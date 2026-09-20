@@ -136,6 +136,13 @@ function conditionState() {
   for (const selector of ['#tileCrackCount', '#tileBrokenCount', '#tileBulgeCount']) $(selector).disabled = !!$(selector + 'Text').value;
   $('#individualCracks').hidden = !selected.includes('crack') || ['network', 'u'].includes($('#crackPattern').value) || $('#surface').value === 'tile';
   try { const values = formValues(), total = tileTotal(values.tiles); $('#tileTotal').textContent = total === null ? '數量或重疊情形未確認時，不自動合計塊數。' : `不重複受損磁磚：${values.tiles.approx ? '約 ' : ''}${total} 塊`; $('#quickDescription').textContent = observationText(values); } catch { $('#quickDescription').textContent = '請先確認數量或尺寸格式。'; }
+  for (const b of $('#visibilityChoices').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.visibility === $('#visibility').value));
+  $('#visibilityHint').hidden = $('#visibility').value === 'visible';
+  const summaries = [];
+  if ([...$('#areaFields').querySelectorAll('input')].some(el => el.value !== '')) summaries.push('已填面積');
+  if ($('#resident').value.trim()) summaries.push('有住戶陳述');
+  if (currentRecord()?.audioIds.length) summaries.push(`錄音 ${currentRecord().audioIds.length} 段`);
+  $('#recordAdvancedSummary').textContent = summaries.length ? '・' + summaries.join('・') : '面積、陳述、錄音與日期';
 }
 function measurementState() {
   const mode = $('#widthMode').value, measured = $('#measured').checked;
@@ -234,6 +241,10 @@ async function renderMedia() {
   const token = ++renderToken, r = currentRecord();
   if (!r) return;
   $('#managePhotos').disabled = !r.photos.length;
+  if ($('#photoGrid').dataset.record !== r.id) { $('#photoGrid').dataset.record = r.id; $('#photoGrid').classList.remove('expanded'); }
+  const expanded = $('#photoGrid').classList.contains('expanded');
+  $('#togglePhotos').hidden = r.photos.length <= 3; $('#togglePhotos').setAttribute('aria-expanded', String(expanded));
+  $('#togglePhotos').textContent = expanded ? '收合照片' : `查看全部 ${r.photos.length} 張照片`;
   $('#photoGrid').innerHTML = r.photos.length ? r.photos.map((p, i) => `<button type="button" class="photo-card" data-photo="${esc(p.mediaId)}" aria-label="照片 ${i + 1} 圈註"><span class="photo-placeholder">讀取照片…</span>${p.marks.length ? '<span class="mark-badge">已圈註</span>' : ''}<span class="photo-label"><span>${i + 1} · ${esc(p.excluded ? '不採用' : ROLES[p.role])}</span><span>編輯 ↗</span></span></button>`).join('') : '<div class="photo-empty">先拍一張位置全景，再加入近照或量尺照。</div>';
   $('#audioList').replaceChildren();
   await renderLocationCard($('#recordLocation'), r); if (token !== renderToken) return;
@@ -249,10 +260,12 @@ async function renderMedia() {
     const div = document.createElement('div'); div.className = 'audio-item'; const audio = document.createElement('audio'); audio.controls = true; audio.preload = 'metadata'; audio.src = url;
     const label = document.createElement('span'); label.textContent = project.media.find(m => m.id === audioId)?.name || '現場錄音'; div.append(label, audio); $('#audioList').append(div);
   }
+  conditionState();
 }
 async function renderEditor() {
   renderToken++;
   const r = currentRecord(); $('#recordEditor').hidden = !r; $('#recordEmpty').hidden = !!r; renderContext(); if (!r) return;
+  if ($('#recordAdvanced').dataset.record !== r.id) { $('#recordAdvanced').open = false; $('#recordAdvanced').dataset.record = r.id; }
   $('#recordCode').textContent = recordNumber(r); $('#recordTime').textContent = new Date(r.updatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
   $('#recordVisit').innerHTML = '<option value="">未指定／原案紀錄</option>' + (project.visits || []).map(v => `<option value="${esc(v.id)}">${esc(v.name)} · ${v.start}${v.end !== v.start ? '～' + v.end : ''}</option>`).join('');
   $('#recordVisit').value = r.visitId || ''; $('#observedOn').value = r.observedOn || ''; $('#recordDateSummary').textContent = recordDateInfo(project, r).label;
@@ -540,6 +553,13 @@ async function renderLocationCard(stage, r, onEdit = () => action(() => planEntr
   if (plan) await planPreview(stage.querySelector('.location-thumbnail'), await mediaURL(plan.mediaId, true), [{ placement: position, label: planLabel(r) }]);
   const pinPlan = project.plans.find(p => p.id === r.observationPin?.planId);
   if (!photo && pinPlan) { const div = document.createElement('div'); div.className = 'location-thumbnail'; stage.append(div); await planPreview(div, await mediaURL(pinPlan.mediaId, true), [{ placement: r.observationPin, kind: 'observation', label: planLabel(r) }]); }
+  if (stage.id === 'recordLocation') {
+    const title = stage.querySelector('strong'), edit = stage.querySelector('.location-edit'), more = document.createElement('details');
+    title.textContent = `照片定位 ${r.photos.filter(p => photoPlacement(r, p)).length} / ${r.photos.length}`;
+    more.innerHTML = `<summary>${plan ? esc(plan.title) : '共用位置未設定'} · 查看圖面</summary>`;
+    for (const node of [...stage.children]) if (node !== title && node !== edit) more.append(node);
+    stage.append(more);
+  }
 }
 function assertPlanContext(context) {
   assert(context && project?.id === context.projectId && unitId === context.unitId && project.units.some(u => u.id === context.unitId), '圖面原先的案件或戶別已變更，請重新選取');
@@ -595,6 +615,8 @@ function renderFieldDetailCard(stage, r) {
   stage.innerHTML = `<strong>本筆細部示意圖</strong><p class="micro">${esc(fieldDetailStatus(r))}。本筆遠拍、近拍共用，附件同步引用。</p>${detailContextHTML(r, esc)}<div class="choice-chips"><button type="button" class="primary" data-field-detail="${esc(r.id)}">${r.detail ? '查看／補畫細圖' : '＋ 畫細部示意圖'}</button>${r.photos.length ? `<button type="button" class="secondary" data-latest-photo="${esc(r.photos.at(-1).mediaId)}">最近照片：核對方向 → 細圖</button>` : ''}</div>`;
   stage.querySelector('[data-field-detail]').onclick = () => action(() => editRecordDetail(r.id));
   const latest = stage.querySelector('[data-latest-photo]'); if(latest) latest.onclick = () => action(() => planEntry(false, latest.dataset.latestPhoto));
+  const context = stage.querySelector('.detail-comparison');
+  if (context) { const more = document.createElement('details'); more.innerHTML = `<summary>核對細圖與現況${context.querySelectorAll('.detail-reminder').length ? '・有待核對項目' : ''}</summary>`; context.before(more); more.append(context); }
 }
 async function editRecordDetail(rid, origin = 'field', photoId = '') {
   requireNoRecording(); const r = project.records.find(r => r.id === rid); assert(r, '找不到原位置紀錄');
@@ -772,6 +794,7 @@ async function audioToggle() {
       const finish = () => { if (!recording || recording.recorder !== recorder) return; if (working) setTimeout(finish, 250); else action(stopAudio, '保存錄音'); }; finish();
     }, 300000) };
     $('#recordAudio').textContent = '■ 停止並保存錄音'; $('#audioStatus').textContent = '錄音中 · 最長 5 分鐘';
+    $('#recordingBanner').hidden = false; document.body.classList.add('recording-active');
   } catch (e) { stream.getTracks().forEach(t => t.stop()); throw e; }
 }
 async function stopAudio() {
@@ -785,15 +808,7 @@ async function stopAudio() {
     assert(project.id === context.projectId, '錄音案件已變更');
     await commit(next => { next.media.push(metadata); const r = next.records.find(x => x.id === context.recordId); r.audioIds.push(metadata.id); markUnitOpen(next, r); }, [asset]); toast('錄音已保存');
   } catch (error) { download(file, file.name); throw new Error(`錄音未寫入案件，已另產生下載檔，請保存並補記對應位置。${error.message}`); }
-  finally { recording = null; $('#recordAudio').textContent = '開始錄音'; $('#audioStatus').textContent = ''; await renderMedia(); }
-}
-async function exportBackup() {
-  requireNoRecording();
-  const scope = $('#exportScope').value;
-  const { blob, manifest } = await makeBundle(project, async mediaId => (await getMedia(mediaId))?.blob, scope, (i, n) => busyText(`核對原始檔 ${i} / ${n}`));
-  const unit = project.units.find(u => u.id === scope), name = `${project.code}${unit ? '-' + unit.code : ''}-${localDate()}-r${project.revision}.csurvey`;
-  download(blob, name);
-  const state = await backupState(project.id); state.entries[scope || 'all'] = { digest: manifest.digest, revision: project.revision, exportedAt: now(), verifiedAt: null }; await saveBackupState(state); await renderBackup(); toast('備份檔已產生，請在接收端開啟核對');
+  finally { recording = null; $('#recordingBanner').hidden = true; document.body.classList.remove('recording-active'); $('#recordAudio').textContent = '開始錄音'; $('#audioStatus').textContent = ''; await renderMedia(); }
 }
 async function prepareHandoff() {
   requireNoRecording();
@@ -937,7 +952,11 @@ $('#visitSelect').addEventListener('change', renderContext);
 $('#reviewList').onclick = e => { const status = e.target.closest('[data-unit-state]'), record = e.target.closest('[data-review-record]'); if (status) action(() => unitDialog(status.dataset.unitState)); if (record) action(async () => { unitId = record.dataset.unit; recordId = record.dataset.reviewRecord; activeView = 'work'; await render(); }); };
 for (const selector of ['#reviewSearch', '#reviewFilter']) $(selector).onchange = () => action(async () => { reviewPage = 0; renderReview(); });
 $('#reviewPager').onclick = event => { const b = event.target.closest('[data-review-page]'); if (b) action(async () => { reviewPage += Number(b.dataset.reviewPage); renderReview(); $('#reviewPager').scrollIntoView({ block: 'start' }); }); };
-$('#exportScope').onchange = () => action(renderBackup); $('#exportBackup').onclick = () => action(exportBackup, '核對備份資料');
+$('#exportScope').onchange = () => action(renderBackup);
+$('#visibilityChoices').onclick = e => { const b = e.target.closest('[data-visibility]'); if (b) { $('#visibility').value = b.dataset.visibility; changed(); } };
+$('#editRecordDate').onclick = () => { $('#recordAdvanced').open = true; $('#recordVisit').focus(); };
+$('#stopAudioVisible').onclick = () => action(stopAudio, '保存錄音');
+$('#togglePhotos').onclick = () => { const open = $('#photoGrid').classList.toggle('expanded'); $('#togglePhotos').setAttribute('aria-expanded', String(open)); $('#togglePhotos').textContent = open ? '收合照片' : `查看全部 ${currentRecord().photos.length} 張照片`; };
 $('#prepareHandoff').onclick = () => action(prepareHandoff, '準備完整案件交接檔');
 $('#mergeBundles').onclick = () => { try { requireNoRecording(); $('#mergeBundleInput').click(); } catch (e) { fail(e); } };
 $('#mergeBundleInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (files.length) action(() => inspectColleagueBundles(files), '核對同事案件'); };
@@ -965,9 +984,9 @@ for (const selector of ['#tileCrackCount', '#tileBrokenCount', '#tileBulgeCount'
 }
 const applyFont = large => { document.body.classList.toggle('large-type', large); $('#fontSize').setAttribute('aria-pressed', String(large)); $('#fontSize').textContent = large ? '標準字' : '大字'; preference.set('large-type', String(large)); };
 applyFont(preference.get('large-type') === 'true'); $('#fontSize').onclick = () => applyFont(!document.body.classList.contains('large-type'));
-$('#fieldPresets').onclick = e => { const b = e.target.closest('[data-field-preset]'); if (!b) return; $('#condition input[value="normal"]').checked = false; if (b.dataset.fieldPreset === 'u') { $('#component input[value="梁"]').checked = true; $('#condition input[value="crack"]').checked = true; $('#crackPattern').value = 'u'; } else { $('#component input[value="牆面"]').checked = true; $('#surface').value = 'tile'; $('#tileCrack').checked = true; $('#condition input[value="crack"]').checked = true; } changed(); };
+$('#recordForm').onclick = e => { const b = e.target.closest('[data-field-preset]'); if (!b) return; $('#condition input[value="normal"]').checked = false; if (b.dataset.fieldPreset === 'u') { $('#component input[value="梁"]').checked = true; $('#condition input[value="crack"]').checked = true; $('#crackPattern').value = 'u'; } else { $('#component input[value="牆面"]').checked = true; $('#surface').value = 'tile'; $('#tileCrack').checked = true; $('#condition input[value="crack"]').checked = true; } changed(); };
 organisation = createOrganisationController({ $, action, commit, getProject: () => project, openModal, closeModal, render, requireNoRecording, esc });
-reports = createReportController({ $, setDirty: value => { modalDirty = value; }, action, commit, getProject: () => project, getMedia, mediaURL, openModal, closeModal, download, busyText, editDetail: rid => editRecordDetail(rid, 'report'), editPhoto: async (rid, mid) => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); await photoDialog(mid); }, editRecord: async rid => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); } });
+reports = createReportController({ $, fail, setDirty: value => { modalDirty = value; }, action, commit, getProject: () => project, getMedia, mediaURL, openModal, closeModal, download, busyText, editDetail: rid => editRecordDetail(rid, 'report'), editPhoto: async (rid, mid) => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); await photoDialog(mid); }, editRecord: async rid => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); } });
 $('#help').onclick = () => action(helpDialog); $('#closeModal').onclick = () => closeModal(); $('#modal').addEventListener('cancel', e => { e.preventDefault(); closeModal(); }); $('#dismissError').onclick = () => { $('#errorBar').hidden = true; };
 window.addEventListener('beforeunload', e => { if (dirty || formSaving || recording || conflictDraft || modalDirty || reports?.dirty) { e.preventDefault(); e.returnValue = ''; } });
 document.addEventListener('visibilitychange', () => { if (document.hidden && dirty) saveForm().catch(fail); });
@@ -978,3 +997,5 @@ async function init() {
   initOffline().catch(e => { $('#offlineStatus').textContent = '離線資源尚未就緒'; fail(e); });
 }
 init().catch(e => { fail(e); $('#offlineStatus').textContent = '資料庫尚未開啟，請依提示處理後重新整理'; for (const selector of ['#startCase', '#welcomeImport']) $(selector).disabled = true; });
+
+if (window.visualViewport) { const keyboardLayout = () => document.body.classList.toggle('keyboard-open', window.innerHeight - window.visualViewport.height > 120); window.visualViewport.addEventListener('resize', keyboardLayout); keyboardLayout(); }

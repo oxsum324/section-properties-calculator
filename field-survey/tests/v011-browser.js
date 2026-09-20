@@ -35,7 +35,7 @@ export async function verifyV011(browser, base, out) {
     const cards = page.locator('[data-crack-id]');
     await cards.nth(0).evaluate(el => el.open = true); await cards.nth(0).locator('[data-key=layer]').selectOption('plaster'); await cards.nth(1).locator('[data-key=layer]').selectOption('structural');
     await click('#saveRecord'); r = (await current()).records[0]; assert.deepEqual(r.cracks.map(c => c.layer), ['plaster', 'structural']); assert.equal(r.legacyCrack.crackLayer, 'plaster'); assert.deepEqual(r.leakForms, ['drip']); assert.equal(r.notes, '人工文字保留：舊稱滲水跡。');
-    await page.locator('#areaMeasurements summary').click(); await page.locator('#area-tileBulge').fill('1.5'); await page.locator('#area-method-tileBulge').selectOption('estimated'); await click('#saveRecord');
+    await page.locator('#recordAdvanced').evaluate(el => el.open = true); await page.locator('#area-tileBulge').fill('1.5'); await page.locator('#area-method-tileBulge').selectOption('estimated'); await click('#saveRecord');
     await choose('tileBulge', false); await click('#saveRecord'); assert(await page.locator('#tileBulgeQuantity').isHidden()); assert.doesNotMatch(await page.locator('#quickDescription').textContent(), /磁磚拱起/);
     await choose('tileBulge'); assert.equal(await page.locator('#tileBulgeCountText').inputValue(), '二十餘塊'); assert.equal(await page.locator('#area-tileBulge').inputValue(), '1.5'); await click('#saveRecord');
     await page.reload(); await page.locator('#recordForm').waitFor(); assert.equal(await page.locator('#moreConditions').evaluate(el => el.open), false); assert(await page.locator('[data-remove-condition=honeycomb]').isVisible());
@@ -45,7 +45,7 @@ export async function verifyV011(browser, base, out) {
     }
     await page.setViewportSize({ width: 390, height: 844 }); await page.locator('#commonConditions').scrollIntoViewIfNeeded(); await page.screenshot({ path: path.join(out, 'v0.11-common-mobile.png') });
     await click('#moreConditions summary'); await page.locator('#condition').screenshot({ path: path.join(out, 'v0.11-condition-groups.png') }); await click('#moreConditions summary');
-    await click('[data-view=report]');
+    await click('[data-view=report]'); await page.locator('#reportAdvanced').evaluate(el => el.open = true);
     for (const format of ['standard', 'quick']) {
       await page.locator('#reportFormat').selectOption(format); await click('#previewReport');
       const frame = page.frameLocator('#attachmentPreview'); await frame.locator('figure').first().waitFor();

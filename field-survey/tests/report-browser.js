@@ -6,7 +6,7 @@ import { VERSION } from '../model.js';
 export async function verifyReportWorkflow(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, acceptDownloads: true }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  const idle = () => page.locator('#busy').waitFor({ state: 'hidden' });
+  const idle = async () => { await page.locator('#busy').waitFor({ state: 'hidden' }); await page.waitForFunction(() => document.querySelector('#reportView').getAttribute('aria-busy') !== 'true'); };
   const click = async selector => { await page.locator(selector).click(); await idle(); };
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   try {
@@ -22,12 +22,12 @@ export async function verifyReportWorkflow(browser, base, out) {
       await store.saveProject(p, 0, assets); return { r: r.id, s: s.id, close: r.photos[1].mediaId, planId: plan.id, hash: p.media[0].sha256 };
     });
     await page.reload(); await page.locator('#recordForm').waitFor();
-    await click('[data-field-preset="u"]'); await click('[data-count="4"]'); await click('#saveRecord');
+    await page.locator('#condition input[value=crack]').check(); await click('[data-field-preset="u"]'); await click('[data-count="4"]'); await click('#saveRecord');
     assert.equal((await current()).records[0].crackCount, 4); assert(!(await page.locator('#recordIssues').innerText()).includes('尺寸'));
     assert.equal(await page.locator('#recordLocation svg text').count(), 0);
     await page.locator('#measured').check(); await page.locator('#length').fill('1.2'); await click('#saveRecord');
     assert((await page.locator('#lengthLabel').innerText()).includes('單條 U 型')); assert(!(await page.locator('#quickDescription').textContent()).includes('4.8'));
-    await click('#recordLocation button:text("標示狀況位置點")'); await page.locator('#planStage svg').scrollIntoViewIfNeeded(); let box = await page.locator('#planStage svg').boundingBox(); await page.touchscreen.tap(box.x + box.width * .7, box.y + box.height * .6); await click('#savePlacement');
+    await page.locator('#recordLocation details').evaluate(el => el.open = true); await click('#recordLocation button:text("標示狀況位置點")'); await page.locator('#planStage svg').scrollIntoViewIfNeeded(); let box = await page.locator('#planStage svg').boundingBox(); await page.touchscreen.tap(box.x + box.width * .7, box.y + box.height * .6); await click('#savePlacement');
     await click('[data-photo="' + seed.close + '"]'); await page.locator('#photoCaption').fill('U 型裂縫近照'); await click('#photoLocation .location-edit');
     await page.locator('#planStage svg').scrollIntoViewIfNeeded(); box = await page.locator('#planStage svg').boundingBox(); await page.touchscreen.tap(box.x + box.width * .4, box.y + box.height * .4); await page.touchscreen.tap(box.x + box.width * .7, box.y + box.height * .6); await click('#savePlacement');
     let data = await current(); assert.equal(data.records[0].photos[1].placement.x.toFixed(1), '0.4'); assert.equal(data.records[0].placement.x, .2); assert.equal(data.records[0].photos[1].caption, 'U 型裂縫近照');
@@ -39,7 +39,7 @@ export async function verifyReportWorkflow(browser, base, out) {
     await click(close + ' [data-do="main"]'); await click(close + ' [data-do="photo-up"]');
     data = await current(); assert.match(data.records[0].reportText, /人工核對/); assert.equal(data.records[0].mainPhotoId, seed.close); assert.equal(data.records[0].photos[0].mediaId, seed.close); assert.equal(data.records[0].fieldNumber, 1);
     assert.equal(await page.locator('#reportFormat').inputValue(), 'standard');
-    await page.locator('#reportLayout').evaluate(el => el.open = true); await page.locator('#reportToc').uncheck(); await page.locator('#reportRows').selectOption('0'); await page.locator('#reportPrefix').fill(''); await page.locator('#reportStart').fill('10'); await click('#previewReport'); await page.frameLocator('#attachmentPreview').locator('figure img').first().waitFor();
+    await page.locator('#reportAdvanced').evaluate(el => el.open = true); await page.locator('#reportLayout').evaluate(el => el.open = true); await page.locator('#reportToc').uncheck(); await page.locator('#reportRows').selectOption('0'); await page.locator('#reportPrefix').fill(''); await page.locator('#reportStart').fill('10'); await click('#previewReport'); await page.frameLocator('#attachmentPreview').locator('figure img').first().waitFor();
     const frame = page.frameLocator('#attachmentPreview'); assert.equal(await frame.locator('figure').count(), 3); assert.match(await frame.locator('body').innerText(), /照片 010/); assert(!(await frame.locator('.sheet').allTextContents()).join('').includes('R-')); assert(!(await frame.locator('.sheet').allTextContents()).join('').includes('總長'));
     const download = page.waitForEvent('download'); await click('#downloadAttachment'); const htmlPath = path.join(out, 'synthetic-attachment-v0.9.html'); await (await download).saveAs(htmlPath);
     const mappingDownload = page.waitForEvent('download'); await click('#downloadMapping'); const mappingPath = path.join(out, 'synthetic-attachment-v0.9.json'); await (await mappingDownload).saveAs(mappingPath);

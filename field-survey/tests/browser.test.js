@@ -12,6 +12,7 @@ import { verifyReportWorkflow } from './report-browser.js';
 import { verifyStandardFloors } from './standard-floor-browser.js';
 import { verifyBlockedUpgrade } from './v0211-browser.js';
 import { verifyV021 } from './v021-browser.js';
+import { verifyV024 } from './v024-browser.js';
 import { verifyV023 } from './v023-browser.js';
 import { verifyV0222 } from './v0222-browser.js';
 import { verifyV022 } from './v022-browser.js';
@@ -142,7 +143,7 @@ async function verifyPlanFirstWorkflow() {
     await c('#saveSketch'); assert.equal(await p.locator('#modalTitle').innerText(), '本戶共用平面圖庫'); assert.equal((await data()).records.length, 0); assert.equal((await data()).plans.length, 1);
     const saved = (await data()).plans[0]; assert.equal(saved.sketch.strokes.length, 3); assert(saved.sketch.strokes.every(s => s.type === 'line'));
     // A library with no records must be independently backed up and restored.
-    await c('#finishLibrary'); await c('[data-view=case]'); const backupEvent = p.waitForEvent('download'); await c('#exportBackup'); const backupPath = path.join(out, 'synthetic-plan-only.csurvey'); await (await backupEvent).saveAs(backupPath);
+    await c('#finishLibrary'); await c('[data-view=case]'); const backupEvent = p.waitForEvent('download'); await c('#prepareHandoff'); await c('#downloadHandoff'); await c('#closeModal'); const backupPath = path.join(out, 'synthetic-plan-only.csurvey'); await (await backupEvent).saveAs(backupPath);
     const bundle = await readBundle(new Blob([await fs.readFile(backupPath)])); assert.equal(bundle.project.records.length, 0); assert.deepEqual(bundle.project.plans[0].sketch, saved.sketch); assert.equal(bundle.media.length, 1);
     await c('[data-view=work]'); await c('#unitPlans'); await p.locator('#libraryFloor').fill('2F');
     const fixture = await p.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 600; const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 800, 600); ctx.strokeRect(80, 70, 640, 460); return canvas.toDataURL().split(',')[1]; });
@@ -311,7 +312,7 @@ try {
   await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 3); assert.deepEqual(p.plans[1], sketchPlan); assert.equal(p.plans[2].sketch.strokes.length, 7); assert.equal(p.records[0].placement.planId, sketchPlan.id);
   await tapPair('#planStage svg'); await click('#savePlacement');
   for (const value of ['damp', 'salt', 'spall']) await page.locator('#condition input[value=' + value + ']').check();
-  await page.locator('#areaMeasurements summary').click(); await page.locator('#area-damp').fill('1.5'); await page.locator('#area-salt').fill('0.8'); await page.locator('#area-method-salt').selectOption('estimated'); await page.locator('#area-spall').fill('0.25'); await click('#saveRecord');
+  await page.locator('#recordAdvanced').evaluate(el => el.open = true); await page.locator('#area-damp').fill('1.5'); await page.locator('#area-salt').fill('0.8'); await page.locator('#area-method-salt').selectOption('estimated'); await page.locator('#area-spall').fill('0.25'); await click('#saveRecord');
   let multi = (await projects())[0].records[0]; assert.deepEqual(multi.conditions, ['crack', 'damp', 'salt', 'spall']); assert.deepEqual(multi.areas.salt, { value: .8, method: 'estimated' }); assert.equal(multi.width, .3); assert.equal(multi.length, 1.2);
   await page.locator('#condition input[value=normal]').check(); await click('#saveRecord'); assert.deepEqual((await projects())[0].records[0].conditions, ['normal']); assert.equal(await page.locator('#areaMeasurements').isVisible(), false);
   for (const value of ['crack', 'damp', 'salt', 'spall']) await page.locator('#condition input[value=' + value + ']').check(); await click('#saveRecord');
@@ -330,7 +331,7 @@ try {
   console.log('PASS camera and component flows; undo/redo and new-branch history, pending-point cancel, orthogonal touch sketch, doors/windows and arrow placement');
   console.log('PASS mobile capture, annotation geometry, untouched original, measurements, floorplan');
 
-  await page.locator('details:has(#resident) summary').click(); await click('#recordAudio');
+  await page.locator('#recordAdvanced > summary').click(); await click('#recordAudio');
   await page.waitForFunction(() => document.querySelector('#audioStatus').textContent.includes('錄音中'));
   await page.waitForTimeout(1200); // Let the simulated microphone deliver a real recording chunk.
   await click('#recordAudio'); p = (await projects())[0]; assert.equal(p.records[0].audioIds.length, 1);
@@ -342,7 +343,7 @@ try {
   await context.setOffline(false);
   console.log('PASS microphone capture with simulated stream; offline reload and editing');
 
-  await click('[data-view=case]'); const downloadEvent = page.waitForEvent('download'); await click('#exportBackup'); const downloaded = await downloadEvent;
+  await click('[data-view=case]'); const downloadEvent = page.waitForEvent('download'); await click('#prepareHandoff'); await click('#downloadHandoff'); await click('#closeModal'); const downloaded = await downloadEvent;
   const bundlePath = path.join(out, 'synthetic-backup.csurvey'); await downloaded.saveAs(bundlePath);
   const bundle = await readBundle(new Blob([await fs.readFile(bundlePath)])); assert.equal(bundle.media.length, 5); assert.equal(bundle.project.records[0].photos[0].marks.length, 3); assert.equal(bundle.project.plans[2].sketch.strokes.length, 7);
   assert((await page.locator('#exportState').innerText()).includes('待接收端'));
@@ -396,6 +397,7 @@ try {
   await verifyV016(browser, base, out);
   await verifyBlockedUpgrade(browser, base, out);
   await verifyV021(browser, base, out);
+  await verifyV024(browser, base, out);
   await verifyV023(browser, base, out);
   await verifyV0222(browser, base, out);
   await verifyV022(browser, base, out);

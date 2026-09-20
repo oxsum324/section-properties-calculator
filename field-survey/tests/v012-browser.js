@@ -27,7 +27,7 @@ export async function verifyV012(browser, base, out) {
       await s.saveProject(m.syncRooms(p), 0, assets);
     });
     await page.reload(); await page.locator('#recordForm').waitFor(); const original = await current();
-    await click('[data-view=report]'); await click('#editPlanLabels');
+    await click('[data-view=report]'); await page.locator('#reportAdvanced').evaluate(el => el.open = true); await click('#editPlanLabels');
     assert.equal(await page.locator('#labelStage [data-plan-label]').count(), 3); assert.equal(await page.locator('#labelStage [data-plan-arrow]').count(), 3);
     const initial = await transform(); await page.locator('#labelSelect').selectOption('0');
     assert.equal(await page.locator('#labelStage [data-plan-arrow="0"] path').getAttribute('stroke'), '#145ea8');
@@ -61,7 +61,7 @@ export async function verifyV012(browser, base, out) {
     }
     await page.setViewportSize({ width: 390, height: 844 }); await click('#saveLabelLayout');
     const saved = await current(); assert.deepEqual(saved.records, original.records); assert.equal(saved.plans[0].labelLayout.length, 4); assert(saved.plans[0].labelLayout[0].locked);
-    await page.reload(); await click('[data-view=report]'); await click('#editPlanLabels'); assert.equal(await transform(), moved); await click('#closeModal');
+    await page.reload(); await click('[data-view=report]'); await page.locator('#reportAdvanced').evaluate(el => el.open = true); await click('#editPlanLabels'); assert.equal(await transform(), moved); await click('#closeModal');
     const verification = await page.evaluate(async () => {
       const s = await import('./store.js'), m = await import('./model.js'), report = await import('./report.js'), a = await import('./annotation.js'), labels = await import('./plan-labels.js'), bundle = await import('./bundle.js');
       const p = (await s.allProjects())[0], plan = p.plans[0], get = async id => (await s.getMedia(id)).blob;
@@ -82,7 +82,7 @@ export async function verifyV012(browser, base, out) {
     });
     assert(verification.unchanged); assert(verification.stale); assert(verification.isolated); assert.equal(verification.version, 14);
     assert.deepEqual(verification.coordinates, verification.renumbered); assert(verification.hashes.every(h => h === verification.expected));
-    await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await click('[data-view=report]'); await click('#editPlanLabels'); assert.equal(await transform(), moved); await click('#closeModal');
+    await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await click('[data-view=report]'); await page.locator('#reportAdvanced').evaluate(el => el.open = true); await click('#editPlanLabels'); assert.equal(await transform(), moved); await click('#closeModal');
     assert.deepEqual(errors, []); await fs.writeFile(path.join(out, 'v0.12-result.json'), JSON.stringify({ passed: true, ...verification, errors, physicalPhoneTested: false }, null, 2));
     console.log('PASS V0.12 arrow avoidance, tap/drag labels, lock/undo/redo, responsive editor, identical report images, renumbering, saved/offline/backup positions');
   } finally { await context.close(); }
