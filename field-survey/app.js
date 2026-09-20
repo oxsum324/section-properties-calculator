@@ -906,4 +906,4 @@ async function init() {
   await openStore(); const existing = (await allProjects()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)); await selectProject(existing[0]?.id || '');
   initOffline().catch(e => { $('#offlineStatus').textContent = '離線資源尚未就緒'; fail(e); });
 }
-init().catch(fail);
+init().catch(e => { fail(e); $('#offlineStatus').textContent = '資料庫尚未開啟，請依提示處理後重新整理'; for (const selector of ['#startCase', '#welcomeImport']) $(selector).disabled = true; });

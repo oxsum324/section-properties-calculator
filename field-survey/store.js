@@ -7,7 +7,14 @@ export async function openStore() {
   // Close older writers that do not recognize unfolded elevation presets.
   const req = indexedDB.open('condition-survey-v1', 14);
   req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
-  database = await request(req);
+  // Another window (a background tab or the home-screen app) can keep the old database open and block
+  // the version upgrade; never hang silently, say what to close.
+  let blocked = false, timer; req.onblocked = () => { blocked = true; };
+  const opening = request(req);
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(blocked ? '資料庫正被另一個開著「現況鑑定紀錄」的視窗占用，無法完成更新。請關閉其他分頁與主畫面視窗（含背景），再重新整理本頁；案件資料不會遺失。' : '資料庫開啟逾時，請重新整理本頁；若持續發生，請關閉其他開著本工具的視窗後再試。案件資料不會遺失。')), 8000); });
+  try { database = await Promise.race([opening, timeout]); }
+  catch (error) { opening.then(db => { if (database !== db) db.close(); }).catch(() => {}); throw error; }
+  finally { clearTimeout(timer); }
   database.onversionchange = () => { database.close(); database = null; };
   return database;
 }

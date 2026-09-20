@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { verifyFieldV08Workflow } from './field-v08-browser.js';
 import { verifyReportWorkflow } from './report-browser.js';
 import { verifyStandardFloors } from './standard-floor-browser.js';
+import { verifyBlockedUpgrade } from './v0211-browser.js';
 import { verifyV021 } from './v021-browser.js';
 import { verifyV020 } from './v020-browser.js';
 import { verifyV019 } from './v019-browser.js';
@@ -390,6 +391,7 @@ try {
   await verifyV013(browser, base, out);
   await verifyV015(browser, base, out);
   await verifyV016(browser, base, out);
+  await verifyBlockedUpgrade(browser, base, out);
   await verifyV021(browser, base, out);
   await verifyV020(browser, base, out);
   await verifyV019(browser, base, out);
