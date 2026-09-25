@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.27.0';
+export const VERSION = '0.28.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -19,8 +19,8 @@ export const COMPONENTS = ['', '外觀', '牆面', '梁', '柱', '地坪', '平�
 export const UNIT_STATES = { open: '待完成', partial: '部分完成', inaccessible: '無法入內', complete: '本次紀錄完成' };
 export const ROLES = { overview: '位置全景', close: '近照', scale: '量尺照', other: '其他' };
 export const UNIT_KINDS = { residence: '住戶', public: '公設' };
-export const DETAIL_PRESETS = { beam: '梁底仰視', frame: '梁柱交接', wall: '純牆面', window: '有窗牆面', door: '有門牆面', corner: '轉角牆面', flatBeam: '展開：梁底仰視', flatFrame: '展開：梁柱交接', flatWall: '展開：純牆面', flatWindow: '展開：有窗牆面', flatDoor: '展開：有門牆面', flatCorner: '展開：轉角兩面' };
-export const DETAIL_PRESET_GROUPS = [['斜視（透視）', ['beam', 'frame', 'wall', 'window', 'door', 'corner']], ['展開立面（2D）', ['flatBeam', 'flatFrame', 'flatWall', 'flatWindow', 'flatDoor', 'flatCorner']]];
+export const DETAIL_PRESETS = { beam: '梁底仰視', frame: '梁柱交接', wall: '純牆面', window: '有窗牆面', door: '有門牆面', corner: '轉角牆面', flatBeam: '展開：梁底仰視', flatFrame: '展開：梁柱交接', flatWall: '展開：純牆面', flatWindow: '展開：有窗牆面', flatDoor: '展開：有門牆面', flatCorner: '展開：轉角兩面', flatFloor: '地板（俯視）', flatCeiling: '平頂（仰視）' };
+export const DETAIL_PRESET_GROUPS = [['地板／平頂（2D）', ['flatFloor', 'flatCeiling']], ['斜視（透視）', ['beam', 'frame', 'wall', 'window', 'door', 'corner']], ['展開立面（2D）', ['flatBeam', 'flatFrame', 'flatWall', 'flatWindow', 'flatDoor', 'flatCorner']]];
 export const DETAIL_TEXTS = { address: '門牌外觀', current: '現況', plan: '詳平面示意圖', none: '無須細部示意圖' };
 export const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
 export function recordDateInfo(p, r) {

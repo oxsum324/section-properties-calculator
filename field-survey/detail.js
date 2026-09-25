@@ -10,6 +10,8 @@ export function presetSVG(kind, mirror = false) {
   if (kind === 'beam') lines = [[[45,68],[555,68],[555,148],[45,148],[45,68]],[[45,148],[104,210],[496,210],[555,148]],[[45,68],[12,45]],[[555,68],[588,45]]];
   else if (kind === 'frame') lines = [[[45,45],[555,45],[555,105],[45,105],[45,45]],[[135,105],[465,105],[465,264]],[[70,105],[70,264]],[[135,105],[135,264],[70,264]],[[465,264],[530,264],[530,105]],[[135,105],[158,130],[442,130],[465,105]],[[158,130],[158,278],[135,264]],[[442,130],[442,278],[465,264]],[[45,45],[12,25]],[[555,45],[588,25]]];
   else if (kind === 'corner') lines = [[[25,36],[300,83],[575,36]],[[300,83],[300,242]],[[25,285],[300,242],[575,285]]];
+  // Horizontal surfaces use a plain boundary; no invented joints, fittings or damage.
+  else if (['flatFloor', 'flatCeiling'].includes(kind)) lines = [[[40,30],[560,30],[560,290],[40,290],[40,30]]];
   // Unfolded elevations: plain orthographic faces, so two-corner openings are exact.
   else if (['flatWall', 'flatWindow', 'flatDoor'].includes(kind)) {
     lines = [[[40,30],[560,30],[560,290],[40,290],[40,30]],[[15,290],[585,290]]];
@@ -24,7 +26,8 @@ export function presetSVG(kind, mirror = false) {
     if (kind === 'door') lines.push([[103,262],[270,262],[270,119],[378,119],[378,262],[497,262]],[[280,262],[280,130],[368,130],[368,262]],[[349,204],[355,204]]);
     else { lines.push([[103,262],[497,262]]); if (kind === 'window') lines.push([[214,122],[386,122],[386,218],[214,218],[214,122]],[[223,132],[377,132],[377,209],[223,209],[223,132]],[[300,132],[300,209]]); }
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 600 320"><rect width="600" height="320" fill="white"/><g fill="none" stroke="#303030" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"${mirror ? ' transform="translate(600 0) scale(-1 1)"' : ''}>${lines.map((pts, index) => `<path stroke-width="${index === 0 ? 1.8 : 1.2}" d="${pts.map((p, i) => (i ? 'L' : 'M') + p.join(' ')).join(' ')}"/>`).join('')}</g></svg>`;
+  const surfaceLabel = ['flatFloor', 'flatCeiling'].includes(kind) ? `<text x="54" y="58" font-size="18" font-family="sans-serif" fill="#505050" data-base-label="">${DETAIL_PRESETS[kind]}</text>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 600 320"><rect width="600" height="320" fill="white"/><g fill="none" stroke="#303030" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"${mirror ? ' transform="translate(600 0) scale(-1 1)"' : ''}>${lines.map((pts, index) => `<path stroke-width="${index === 0 ? 1.8 : 1.2}" d="${pts.map((p, i) => (i ? 'L' : 'M') + p.join(' ')).join(' ')}"/>`).join('')}</g>${surfaceLabel}</svg>`;
 }
 export const detailLabel = detail => !detail ? '尚未選擇細圖' : detail.kind === 'text' ? DETAIL_TEXTS[detail.value] : detail.kind === 'image' ? '自訂細圖' : DETAIL_PRESETS[detail.preset];
 export const detailLegend = detail => detail?.marks ? usedSymbols(detail.marks).map(s => DETAIL_SYMBOLS[s]).join('／') : '';
@@ -71,7 +74,7 @@ function detailEditorHTML(record, detail, context, e) {
     </div>
     <div id="detailChoices" class="detail-sheet" ${record.detail ? 'hidden' : ''}>
       <div class="detail-sheet-heading"><strong>選擇底圖</strong><button data-close-detail-panel>收起</button></div>
-      <p class="micro">2D 適合快速標位置；斜視適合表達轉角與梁底。</p>
+      <p class="micro">地板／平頂用方框標示；牆面可選 2D 或斜視。</p>
       ${DETAIL_PRESET_GROUPS.map(([group, keys]) => `<p class="micro detail-preset-group">${e(group)}</p><div class="detail-presets">${keys.map(key => `<button data-detail-preset="${key}">${presetSVG(key)}<span>${e(DETAIL_PRESETS[key])}</span></button>`).join('')}</div>`).join('')}
       <div class="choice-chips">${Object.entries(DETAIL_TEXTS).map(([key, name]) => `<button data-detail-text="${key}">${name}</button>`).join('')}</div><label>自訂底圖<input id="detailFile" type="file" accept="image/png,image/jpeg,image/webp"></label>
     </div>

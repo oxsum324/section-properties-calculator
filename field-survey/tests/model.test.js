@@ -85,7 +85,7 @@ test('detail summary links actual marks and notes without base names or invented
   assert.match(summary,/細圖標註：磁磚破損/);assert.match(summary,/圖中文字：裂縫 A/);assert.match(summary,/細圖補充：裂縫 A 在窗角\n破損磁磚在下方/);assert.doesNotMatch(summary,/完整牆面|wall|m²|mm|塊/);
   assert.deepEqual(detailComparison(r).missing,['crack']);assert.match(detailComparison(r).hints[0],/核對手繪或文字/);assert.deepEqual(r,before);
   const index=attachmentIndex(p).groups[0].records[0];assert.equal(index.detailText,summary);assert.equal(index.text,'保留人工照片內容');
-  const restored=await readBundle((await makeBundle(p,id=>blobs.get(id))).blob);assert.deepEqual(restored.project.records[0],before);assert.equal(restored.manifest.version,15);
+  const restored=await readBundle((await makeBundle(p,id=>blobs.get(id))).blob);assert.deepEqual(restored.project.records[0],before);assert.equal(restored.manifest.version,16);
   const copy=restoredCopy(restored.project).project;assert.equal(copy.records[0].detail.note,r.detail.note);
   r.detail.note='a'.repeat(2001);assert.throws(()=>validateProject(p),/細圖補充/);r.detail.note=42;assert.throws(()=>validateProject(p),/細圖補充/);
 });
@@ -118,7 +118,7 @@ test('editable openings retain geometry through backup and mirror and reject deg
   const { p, r, blobs } = await fixture();
   const marks = ['door', 'window'].map(kind => ({ type: 'opening', kind, points: [{ x: .2, y: .3 }, { x: .4, y: .8 }] }));
   r.detail = { kind: 'preset', preset: 'wall', mirror: false, marks }; validateProject(p);
-  const backup = await readBundle((await makeBundle(p, id => blobs.get(id))).blob); assert.equal(backup.manifest.version, 15); assert.deepEqual(backup.project.records[0].detail, r.detail);
+  const backup = await readBundle((await makeBundle(p, id => blobs.get(id))).blob); assert.equal(backup.manifest.version, 16); assert.deepEqual(backup.project.records[0].detail, r.detail);
   const mirrored = mirrorDetailMarks(marks); assert(Math.abs(mirrored[0].points[0].x - .8) < 1e-9); validateMarks(mirrored, true);
   assert.throws(() => validateMarks(marks), /圈註種類/);
   for (const mutation of [m => { m.points[1].x = m.points[0].x; }, m => { m.kind = 'unknown'; }, m => { m.points.push({ x: .5, y: .5 }); }]) { const bad = structuredClone(marks); mutation(bad[0]); assert.throws(() => validateMarks(bad, true), /門窗開口/); }
@@ -132,7 +132,7 @@ test('detail signs and regions preserve observed quantities, old strokes, manual
     { type: 'region', condition: 'damp', points: [{ x: .2, y: .2 }, { x: .4, y: .2 }, { x: .3, y: .5 }] }
   ] };
   const original = structuredClone(r); validateProject(p); assert.deepEqual(recordIssues(r), []);
-  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob); assert.equal(restored.manifest.version, 15); assert.deepEqual(restored.project.records[0], original);
+  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob); assert.equal(restored.manifest.version, 16); assert.deepEqual(restored.project.records[0], original);
   const copy = restoredCopy(restored.project).project; validateProject(copy); assert.deepEqual(copy.records[0].detail, r.detail); assert.equal(copy.records[0].reportText, original.reportText);
   r.photos[0].marks = [r.detail.marks[1]]; assert.throws(() => validateProject(p), /圈註/);
 });
@@ -164,7 +164,7 @@ test('expanded conditions and independent observation layers survive backup and 
     { id: id(), measured: false, widthMode: 'unknown', width: null, length: null, pattern: 'diagonal', notes: '', layer: 'structural' }
   ] });
   validateProject(p); const saved = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(saved.manifest.version, 15); assert.deepEqual(saved.project.records[0], r);
+  assert.equal(saved.manifest.version, 16); assert.deepEqual(saved.project.records[0], r);
   for (const format of ['quick', 'standard']) {
     const row = attachmentIndex(p, { format }).groups[0].records[0];
     assert.deepEqual(row.conditions, keys); assert.match(row.text, /裂縫 A.*粉刷層/); assert.match(row.text, /裂縫 B.*結構體/);
@@ -266,13 +266,27 @@ test('visit dates are actual calendar dates; legacy records retain uncertainty a
   assert(validDate('2024-02-29')); assert(!validDate('2026-02-29')); assert(!validDate('2026-13-01'));
 });
 
+test('horizontal surface bases preserve marks and observations through backup, restore and consolidation', async () => {
+  const { p, r, blobs, a } = await fixture(), before = structuredClone(r);
+  for (const preset of ['flatFloor', 'flatCeiling']) {
+    r.detail = { kind: 'preset', preset, mirror: true, note: '裂縫 A', marks: [{ type: 'pen', tone: 'red', points: [{ x: .2, y: .3 }, { x: .6, y: .7 }] }] };
+    validateProject(p);
+    const bundle = await readBundle((await makeBundle(p, mid => blobs.get(mid), a.id)).blob);
+    assert.equal(bundle.manifest.version, 16); assert.deepEqual(bundle.project.records[0].detail, r.detail);
+    const restored = restoredCopy(bundle.project); validateProject(restored.project); assert.deepEqual(restored.project.records[0].detail, r.detail);
+    const combined = await consolidateBundles(newProject('JOIN', '彙整', '2026-09-25'), [{ ...bundle, label: '同事' }]);
+    assert.deepEqual(combined.project.records[0].detail, r.detail);
+    for (const key of ['component', 'condition', 'notes', 'width', 'length', 'photos']) assert.deepEqual(r[key], before[key]);
+  }
+});
+
 test('detail drawings and custom originals survive scoped backup and restore with fresh media identities', async () => {
   const { p, r, blobs, a } = await fixture(), mid = id(), blob = blobs.get(r.photos[0].mediaId);
   p.media.push({ ...p.media[0], id: mid, kind: 'detail' }); blobs.set(mid, blob);
   r.detail = { kind: 'image', mediaId: mid, marks: [{ type: 'pen', points: [{ x: .2, y: .3 }, { x: .4, y: .5 }] }] };
   const result = await readBundle((await makeBundle(p, key => blobs.get(key), a.id)).blob); assert(result.project.media.some(m => m.id === mid));
   const restored = restoredCopy(result.project); validateProject(restored.project); assert.notEqual(restored.project.records[0].detail.mediaId, mid); assert.deepEqual(restored.project.records[0].detail.marks, r.detail.marks);
-  assert.equal(result.manifest.version, 15); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
+  assert.equal(result.manifest.version, 16); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
   r.detail = { kind: 'preset', preset: 'beam', mirror: true, marks: [] }; validateProject(p); r.detail.marks = [{ type: 'pen', points: [{ x: 2, y: .1 }] }]; assert.throws(() => validateProject(p), /座標/);
 });
 
@@ -311,7 +325,7 @@ test('individual cracks preserve independent units, uncertainty and legacy group
   assert.match(prose, /原整組紀錄/); assert.deepEqual(recordIssues(r), ['裂縫 C未量測']);
   const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
   assert.deepEqual(restored.project.records[0].cracks, r.cracks); assert.deepEqual(restored.project.records[0].legacyCrack, r.legacyCrack);
-  assert.equal(restored.manifest.version, 15);
+  assert.equal(restored.manifest.version, 16);
   r.cracks[2].width = .3; assert.throws(() => validateProject(p), /未量測/);
 });
 
@@ -459,7 +473,7 @@ test('approximate 0.1 to 0.3 width is explicit, does not assert measurement, and
   assert.doesNotMatch(observationText(r), /目視|初估|初記|已量測|未量測/);
   assert.deepEqual(recordIssues(r), ['裂縫長度待補']);
   const roundtrip = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(roundtrip.manifest.version, 15); assert.deepEqual(roundtrip.project.records[0], r);
+  assert.equal(roundtrip.manifest.version, 16); assert.deepEqual(roundtrip.project.records[0], r);
   assert.equal(r.measured, false); assert.equal(r.width, null);
   const c = { id: id(), pattern: 'diagonal', layer: 'plaster', measured: false, widthMode: 'range0103', width: null, length: null, notes: '' };
   r.cracks = [c]; validateProject(p);
@@ -723,7 +737,7 @@ test('multiple conditions share originals and retain independent measured or est
   Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
   validateProject(p); assert.deepEqual(recordIssues(r), []);
   const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(result.manifest.version, 15); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  assert.equal(result.manifest.version, 16); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
   const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
   r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
 });
@@ -856,7 +870,7 @@ test('oblique preset faces map two taps to a face-aligned opening; flat faces an
   assert.equal(openingOnPlane21('wall', false, { x: .5, y: .95 }, { x: .6, y: .99 }), null, 'taps outside every face fall back to the plain rectangle');
   assert.equal(openingOnPlane21('flatWindow', false, { x: .3, y: .4 }, { x: .5, y: .7 }), null, 'unfolded presets have no perspective faces');
   assert.equal(openingOnPlane21('corner', false, { x: .7, y: .4 }, { x: .7, y: .4 }), null, 'degenerate taps are refused');
-  assert.equal(Object.keys(M21.DETAIL_PRESETS).length, 12); assert.deepEqual(M21.DETAIL_PRESET_GROUPS.flatMap(g => g[1]).sort(), Object.keys(M21.DETAIL_PRESETS).sort());
+  assert.equal(Object.keys(M21.DETAIL_PRESETS).length, 14); assert.deepEqual(M21.DETAIL_PRESET_GROUPS.flatMap(g => g[1]).sort(), Object.keys(M21.DETAIL_PRESETS).sort());
   const p = M21.newProject('F21', '展開底圖驗證', '2026-09-21'), u = M21.newUnit('A'), r = M21.newRecord(u.id, '1F', '客廳'); p.units.push(u);
   r.detail = { kind: 'preset', preset: 'flatCorner', mirror: false, marks: [{ type: 'opening', kind: 'door', points: [{ x: .3, y: .5 }, { x: .4, y: .9 }] }] }; p.records.push(r); M21.validateProject(p);
   assert.throws(() => M21.validateProject({ ...p, records: [{ ...r, detail: { ...r.detail, preset: 'flatRoof' } }] }), /細部圖預選/);

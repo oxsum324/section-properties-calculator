@@ -92,7 +92,7 @@ export async function verifyV020(browser, base, out) {
     assert.equal(await page.evaluate(async () => { const m = await import('./model.js'), s = await import('./store.js'), p = (await s.allProjects())[0]; return m.photoStampText(p, p.records[0].photos[1]); }), '');
     await click('#editCase'); await page.locator('#caseForm [name=photoStamp]').check(); await click('#caseForm button[type=submit]'); project = await current(); assert.equal(project.photoStamp, true);
     const roundtrip = await page.evaluate(async () => { const s = await import('./store.js'), b = await import('./bundle.js'), p = (await s.allProjects())[0], get = async id => (await s.getMedia(id)).blob, bundle = await b.readBundle((await b.makeBundle(p, get)).blob); return { version: bundle.manifest.version, equal: JSON.stringify(bundle.project) === JSON.stringify(p) }; });
-    assert.equal(roundtrip.version, 15); assert(roundtrip.equal);
+    assert.equal(roundtrip.version, 16); assert(roundtrip.equal);
     await click('[data-view=work]');
     for (const [width, height] of [[320, 740], [390, 844], [844, 390]]) { await page.setViewportSize({ width, height }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'no horizontal overflow at ' + width); }
     await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: path.join(out, 'v0.20-work-390.png') });

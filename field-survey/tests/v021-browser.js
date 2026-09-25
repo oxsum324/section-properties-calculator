@@ -19,9 +19,9 @@ export async function verifyV021(browser, base, out) {
       await s.saveProject(m.syncRooms(p), 0, []); return { id: p.id, record: r.id };
     });
     await page.reload(); await page.locator('#recordForm').waitFor();
-    // Both base families are offered: six oblique and six unfolded elevations.
+    // All base families remain available: horizontal surfaces, oblique and unfolded elevations.
     await click(`[data-field-detail="${seed.record}"]`); await page.locator('#detailChoices').waitFor();
-    assert.equal(await page.locator('[data-detail-preset]').count(), 12); assert.deepEqual(await page.locator('.detail-preset-group').allTextContents(), ['斜視（透視）', '展開立面（2D）']);
+    assert.equal(await page.locator('[data-detail-preset]').count(), 14); assert.deepEqual(await page.locator('.detail-preset-group').allTextContents(), ['地板／平頂（2D）', '斜視（透視）', '展開立面（2D）']);
     // An unfolded elevation takes a plain two-corner door.
     await click('[data-detail-preset=flatWindow]'); await page.locator('#detailStage svg').waitFor(); await click('[data-detail-tool=door]'); await tapStage(.30, .50); await tapStage(.40, .88);
     await click('#saveDetail'); let detail = (await current()).records[0].detail; assert.equal(detail.preset, 'flatWindow'); assert.equal(detail.marks.length, 1); assert.equal(detail.marks[0].points.length, 2);
@@ -37,11 +37,11 @@ export async function verifyV021(browser, base, out) {
     detail = (await current()).records[0].detail; assert.equal(detail.mirror, true); detail.marks[0].points.forEach((p, i) => assert(near(1 - p.x, quad[i].x) && near(p.y, quad[i].y)));
     const rendered = await page.evaluate(async detail => { const d = await import('./detail.js'); const blob = await d.detailImage(detail, () => null); return blob.size > 1000; }, detail); assert(rendered);
     const roundtrip = await page.evaluate(async () => { const s = await import('./store.js'), b = await import('./bundle.js'), p = (await s.allProjects())[0], get = async id => (await s.getMedia(id)).blob, bundle = await b.readBundle((await b.makeBundle(p, get)).blob); return { version: bundle.manifest.version, equal: JSON.stringify(bundle.project) === JSON.stringify(p) }; });
-    assert.equal(roundtrip.version, 15); assert(roundtrip.equal);
+    assert.equal(roundtrip.version, 16); assert(roundtrip.equal);
     await page.screenshot({ path: path.join(out, 'v0.21-work-390.png') });
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await page.locator('#recordForm').waitFor();
     await click(`[data-field-detail="${seed.record}"]`); await page.locator('#detailStage svg').waitFor(); assert.equal(await page.locator('#detailStage [data-detail-index]').count(), 1); await click('#closeModal');
-    assert.deepEqual(errors, []); await fs.writeFile(path.join(out, 'v0.21-result.json'), JSON.stringify({ passed: true, presets: 12, backupVersion: 14, errors, physicalPhoneTested: false }, null, 2));
+    assert.deepEqual(errors, []); await fs.writeFile(path.join(out, 'v0.21-result.json'), JSON.stringify({ passed: true, presets: 14, backupVersion: 16, errors, physicalPhoneTested: false }, null, 2));
     console.log('PASS V0.21 unfolded elevation presets, plane-snapped two-tap openings on oblique bases, mirror, grayscale render, backup and offline');
   } finally { await context.close(); }
 }

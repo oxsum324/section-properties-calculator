@@ -13,6 +13,7 @@ import { verifyReportWorkflow } from './report-browser.js';
 import { verifyStandardFloors } from './standard-floor-browser.js';
 import { verifyBlockedUpgrade } from './v0211-browser.js';
 import { verifyV021 } from './v021-browser.js';
+import { verifyV028 } from './v028-browser.js';
 import { verifyV027 } from './v027-browser.js';
 import { verifyV026 } from './v026-browser.js';
 import { verifyV025 } from './v025-browser.js';
@@ -398,6 +399,7 @@ try {
   await verifyV016(browser, base, out);
   await verifyBlockedUpgrade(browser, base, out);
   await verifyV021(browser, base, out);
+  await verifyV028(browser, base, out);
   await verifyV027(browser, base, out);
   await verifyV026(browser, base, out);
   await verifyV025(browser, base, out);
