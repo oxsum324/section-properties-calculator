@@ -52,7 +52,7 @@ test('photo content removes duplicate source blocks without changing stored note
   const before = structuredClone(p), content = photoContent(r, r.photos[0]);
   assert.equal(content.caption, ''); assert.equal(photoContent(r, { role: 'close', caption: '近照：' + r.notes }).caption, ''); assert.equal(photoContent(r, { role: 'close', caption: '近照' }).caption, ''); assert.equal(content.text.split('窗角向下延伸水痕').length - 1, 1);
   assert.doesNotMatch(content.text, /部位：|狀況：|細圖標註：|細圖另標：/);
-  const view = attachmentIndex(p).groups[0].records[0]; assert.equal(view.contentText, content.text); assert.equal(view.photos[0].contentCaption, ''); assert.equal(view.photos[0].caption, r.notes);
+  const view = attachmentIndex(p).groups[0].records[0]; assert.equal(view.contentText, photoContent(r, r.photos[0], { omitSpace: true }).text); assert.equal(view.photos[0].contentCaption, ''); assert.equal(view.photos[0].caption, r.notes);
   assert.deepEqual(p, before); assert.deepEqual((await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob)).project, before);
 });
 
@@ -159,6 +159,23 @@ test('printed date summaries omit unconfirmed source dates instead of presenting
   const known = { dateInfo: { start: '2026-09-20', end: '2026-09-20', confirmed: true, label: '2026-09-20' } };
   assert.equal(dateSummary([unknown], ''), ''); assert.equal(dateSummary([unknown, known], ''), '2026-09-20');
   assert.equal(unknown.dateInfo.confirmed, false);
+});
+
+test('standard photo prose omits its room column while retaining exact positions and manual cross-room context', () => {
+  const r = { ...newRecord('u', '1F', '廚房'), component: '牆面', condition: 'crack', location: '水槽上方', widthMode: 'range0103' };
+  const expected = '水槽上方 · 牆面：裂隙；裂縫寬度約 0.1～0.3 mm。';
+  for (const saved of ['', observationText(r), attachmentObservationText(r)]) {
+    r.reportText = saved; const before = structuredClone(r);
+    assert.equal(photoContent(r, undefined, { omitSpace: true }).text, expected);
+    assert.match(photoContent(r).text, /^廚房 · 水槽上方/); assert.deepEqual(r, before);
+    assert.equal(photoContent(r, { caption: attachmentObservationText(r) }, { omitSpace: true }).caption, '');
+    assert.equal(photoContent({ ...r, notes: attachmentObservationText(r) }, undefined, { omitSpace: true }).text, expected);
+  }
+  r.reportText = '廚房未見滲水；浴廁有滲水痕。';
+  assert(photoContent(r, undefined, { omitSpace: true }).text.includes(r.reportText));
+  r.reportText = ''; r.location = '廚房';
+  assert.equal(photoContent(r, undefined, { omitSpace: true }).text, '牆面：裂隙；裂縫寬度約 0.1～0.3 mm。');
+  r.location = '廚房與浴廁交界'; assert(photoContent(r, undefined, { omitSpace: true }).text.includes(r.location));
 });
 
 test('standard-floor copies isolate geometry and omit source positioning labels', () => {
@@ -498,7 +515,10 @@ test('both report formats share selected numbering; standard plans consolidate a
   p.media.push({ ...p.media[0], id: plan.mediaId, kind: 'plan' }); p.plans.push(plan);
   r.placement = { planId: plan.id, x: .2, y: .3, endX: .6, endY: .7 }; second.placement = { ...r.placement, x: .4 };
   const before = structuredClone(p), standard = attachmentIndex(p, { start: 7 }), quick = attachmentIndex(p, { start: 7, format: 'quick' });
-  assert.equal(standard.format, 'standard'); assert.equal(standard.version, 3); assert.deepEqual(standard.groups, quick.groups);
+  assert.equal(standard.format, 'standard'); assert.equal(standard.version, 3);
+  const withoutProse = index => index.groups.map(g => ({ ...g, records: g.records.map(({ contentText, ...record }) => record) }));
+  assert.deepEqual(withoutProse(standard), withoutProse(quick));
+  assert.equal(standard.groups[0].records[0].contentText, photoContent(r, undefined, { omitSpace: true }).text);
   const units = attachmentUnits(standard, p); assert.equal(units.length, 2); assert.equal(units[0].groups.length, 2); assert.equal(units[0].plans.length, 1); assert.equal(units[1].plans.length, 0);
   assert.deepEqual(units[0].records.flatMap(r => r.photos.map(p => p.number)), ['007', '008']);
   assert.deepEqual(groupPlanEntries(units[0], plan.id).map(e => e.label), ['007', '008']);

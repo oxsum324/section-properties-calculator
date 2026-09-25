@@ -22,6 +22,17 @@ export function createReportController(api) {
   }
   const controls = { start: 'reportStart', perPage: 'reportPerPage', format: 'reportFormat', numbering: 'reportNumbering', pageStart: 'reportPageStart', pagePrefix: 'reportPrefix', plansPerPage: 'reportPlans', tableRows: 'reportRows', toc: 'reportToc', includeEmpty: 'reportEmpty', publicByFloor: 'reportPublicFloors', color: 'reportColor', maxPages: 'volumeMaxPages' };
   const numeric = new Set(['start', 'perPage', 'pageStart', 'plansPerPage', 'tableRows', 'maxPages']);
+  const displayContent = (record, photo) => photoContent(record, photo, { omitSpace: $('#reportFormat').value === 'standard' });
+  function updateContentPreview(card, record) {
+    const text = displayContent(record).text;
+    card.querySelector('[data-content-preview]').textContent = text;
+    card.querySelector('.report-read-only .description').textContent = text;
+    for (const item of card.querySelectorAll('[data-report-photo]')) {
+      const photo = record.photos.find(p => p.mediaId === item.dataset.reportPhoto), caption = displayContent(record, photo).caption;
+      item.querySelector('[data-photo-content-caption]').textContent = caption;
+      item.querySelector('img').alt = caption || ROLES[photo.role];
+    }
+  }
   function loadControls() { for (const [key, id] of Object.entries(controls)) { const el = $('#' + id); if (el.type === 'checkbox') el.checked = settings[key]; else el.value = settings[key]; } }
   function collectSettings() {
     const result = clone(settings);
@@ -33,6 +44,10 @@ export function createReportController(api) {
     $('#reportStyleSummary').textContent = `${s.format === 'standard' ? '標準附件' : '快速預覽'} · ${s.numbering === 'unit' ? '每戶重編' : '全案接續'} · 每頁 ${s.perPage} 張 · ${s.tableRows ? '最多 8 列' : '自動分頁'} · 頁碼 ${s.pagePrefix || '無前綴'}${settingsDirty ? ' · 尚未保存' : ' · 隨案件保存'}`;
     $('#reportFormatHelp').textContent = s.format === 'standard' ? '每戶依序：整體平面圖 → 照片說明表 → 照片。' : '依房間顯示位置圖、現況說明與照片。';
     const p = getProject(); if (p && projectId === p.id) {
+      for (const card of $('#reportRooms').querySelectorAll('[data-report-record]')) {
+        const record = p.records.find(r => r.id === card.dataset.reportRecord), input = card.querySelector('[data-report-text]');
+        if (record) updateContentPreview(card, input.dataset.edited === 'true' ? { ...record, reportText: input.value } : record);
+      }
       const ids = scopeIds(p), photos = p.records.filter(r => ids.includes(r.unitId)).some(r => reportPhotos(r).length);
       $('#previewReport').disabled = !photos && !(s.format === 'standard' && s.includeEmpty && ids.length);
       $('#planVolumes').disabled = s.format !== 'standard' || !ids.length;
@@ -96,7 +111,7 @@ export function createReportController(api) {
         const photos = reportPhotos(r), selectedIds = new Set(photos.map(p => p.mediaId));
         const main = r.mainPhotoId || (photos.find(p => p.role === 'close') || photos[0])?.mediaId;
         const photoPageCount = Math.max(1, Math.ceil(r.photos.length / 3)), photoPage = Math.min(photoPages.get(r.id) || 0, photoPageCount - 1); photoPages.set(r.id, photoPage);
-        return `<article class="report-record" data-report-record="${r.id}"><h4>位置 ${String(r.fieldNumber || p.records.indexOf(r) + 1).padStart(3, '0')} · ${e(r.location || '位置說明未填')} · ${photos.length} 張納入附件</h4><div class="report-read-only"><p class="description">${e(photoContent(r).text)}</p><button data-do="edit-layout" class="secondary">微調本位置</button></div><div class="choice-chips report-edit-only"><button data-do="record-up" ${ri === 0 ? 'disabled' : ''}>位置上移</button><button data-do="record-down" ${ri === records.length - 1 ? 'disabled' : ''}>位置下移</button><button data-do="edit-record">回到現場紀錄</button><button data-do="edit-detail">${r.detail ? '查看／補畫細圖' : '＋ 畫細部示意圖'}</button><button data-do="preset">選全景＋近照</button><button data-do="main-only">只選主照片</button></div><p class="micro">${e(recordDateInfo(p, r).label)}</p><p class="micro">${e(recordIssues(r).length ? '待核對：' + recordIssues(r).join('、') : '本筆必要紀錄已齊')}</p><div class="report-edit-only"><label>附件現況說明<textarea data-report-text rows="3" maxlength="10000">${e(r.reportText?.trim() || attachmentObservationText(r))}</textarea></label>${detailContextHTML(r, e)}<div class="choice-chips"><button data-do="save-text">保存說明</button><button data-do="generate-text">產生新版說明預覽</button></div><p class="micro">附件只列已填資料；含不確定或待確認字樣的整段說明不列入。原文保留供編輯，請展開下方預覽核對；相同補充不重複列出。</p><details><summary>查看精簡後照片內容</summary><p class="description" data-content-preview>${e(photoContent(r).text)}</p><p class="micro">各張照片另帶入未重複的個別說明。</p></details></div><div class="report-photos">${r.photos.slice(photoPage * 3, photoPage * 3 + 3).map((photo, offset) => { const pi = photoPage * 3 + offset; return `<div class="report-photo" data-report-photo="${photo.mediaId}"><img data-report-image="${photo.mediaId}" alt="${e(photoContent(r, photo).caption || ROLES[photo.role])}"><div><label class="check-label report-edit-only"><input type="checkbox" data-report-include ${selectedIds.has(photo.mediaId) ? 'checked' : ''} ${photo.excluded ? 'disabled' : ''}>${photo.excluded ? '不採用（原檔保留）' : '納入本次附件'}</label><p>${selectedIds.has(photo.mediaId) ? '已選 · ' : '未納入 · '}${e(ROLES[photo.role])}${main === photo.mediaId ? ' · ★ 主照片' : ''}</p><p data-photo-content-caption>${e(photoContent(r, photo).caption)}</p><div class="choice-chips report-edit-only"><button data-do="main" ${photo.excluded ? 'disabled' : ''}>設主照片</button><button data-do="photo-up" ${pi === 0 ? 'disabled' : ''}>前移</button><button data-do="photo-down" ${pi === r.photos.length - 1 ? 'disabled' : ''}>後移</button><button data-do="edit-photo">圈註／拍攝位置</button></div></div></div>`; }).join('') || '<p>尚無照片</p>'}</div>${r.photos.length > 3 ? `<div class="choice-chips report-photo-pager"><button data-do="photos-prev" ${photoPage === 0 ? 'disabled' : ''}>上一批照片</button><span>照片 ${photoPage * 3 + 1}–${Math.min(r.photos.length, photoPage * 3 + 3)}／${r.photos.length}</span><button data-do="photos-next" ${photoPage + 1 === photoPageCount ? 'disabled' : ''}>下一批照片</button></div>` : ''}</article>`;
+        return `<article class="report-record" data-report-record="${r.id}"><h4>位置 ${String(r.fieldNumber || p.records.indexOf(r) + 1).padStart(3, '0')} · ${e(r.location || '位置說明未填')} · ${photos.length} 張納入附件</h4><div class="report-read-only"><p class="description">${e(displayContent(r).text)}</p><button data-do="edit-layout" class="secondary">微調本位置</button></div><div class="choice-chips report-edit-only"><button data-do="record-up" ${ri === 0 ? 'disabled' : ''}>位置上移</button><button data-do="record-down" ${ri === records.length - 1 ? 'disabled' : ''}>位置下移</button><button data-do="edit-record">回到現場紀錄</button><button data-do="edit-detail">${r.detail ? '查看／補畫細圖' : '＋ 畫細部示意圖'}</button><button data-do="preset">選全景＋近照</button><button data-do="main-only">只選主照片</button></div><p class="micro">${e(recordDateInfo(p, r).label)}</p><p class="micro">${e(recordIssues(r).length ? '待核對：' + recordIssues(r).join('、') : '本筆必要紀錄已齊')}</p><div class="report-edit-only"><label>附件現況說明<textarea data-report-text rows="3" maxlength="10000">${e(r.reportText?.trim() || attachmentObservationText(r))}</textarea></label>${detailContextHTML(r, e)}<div class="choice-chips"><button data-do="save-text">保存說明</button><button data-do="generate-text">產生新版說明預覽</button></div><p class="micro">附件只列已填資料；含不確定或待確認字樣的整段說明不列入。原文保留供編輯，請展開下方預覽核對；相同補充不重複列出。</p><details><summary>查看精簡後照片內容</summary><p class="description" data-content-preview>${e(displayContent(r).text)}</p><p class="micro">各張照片另帶入未重複的個別說明。</p></details></div><div class="report-photos">${r.photos.slice(photoPage * 3, photoPage * 3 + 3).map((photo, offset) => { const pi = photoPage * 3 + offset; return `<div class="report-photo" data-report-photo="${photo.mediaId}"><img data-report-image="${photo.mediaId}" alt="${e(displayContent(r, photo).caption || ROLES[photo.role])}"><div><label class="check-label report-edit-only"><input type="checkbox" data-report-include ${selectedIds.has(photo.mediaId) ? 'checked' : ''} ${photo.excluded ? 'disabled' : ''}>${photo.excluded ? '不採用（原檔保留）' : '納入本次附件'}</label><p>${selectedIds.has(photo.mediaId) ? '已選 · ' : '未納入 · '}${e(ROLES[photo.role])}${main === photo.mediaId ? ' · ★ 主照片' : ''}</p><p data-photo-content-caption>${e(displayContent(r, photo).caption)}</p><div class="choice-chips report-edit-only"><button data-do="main" ${photo.excluded ? 'disabled' : ''}>設主照片</button><button data-do="photo-up" ${pi === 0 ? 'disabled' : ''}>前移</button><button data-do="photo-down" ${pi === r.photos.length - 1 ? 'disabled' : ''}>後移</button><button data-do="edit-photo">圈註／拍攝位置</button></div></div></div>`; }).join('') || '<p>尚無照片</p>'}</div>${r.photos.length > 3 ? `<div class="choice-chips report-photo-pager"><button data-do="photos-prev" ${photoPage === 0 ? 'disabled' : ''}>上一批照片</button><span>照片 ${photoPage * 3 + 1}–${Math.min(r.photos.length, photoPage * 3 + 3)}／${r.photos.length}</span><button data-do="photos-next" ${photoPage + 1 === photoPageCount ? 'disabled' : ''}>下一批照片</button></div>` : ''}</article>`;
       }).join('')}</section>`;
     }).join('') || '<p class="panel">此查看條件沒有位置紀錄，可切換戶別或清除篩選。匯出範圍不受影響。</p>';
     $('#reportSummary').textContent = `匯出範圍：${includedUnits.length} 戶 · ${groups.size} 個房間／空間 · ${selected} 張已選照片。未選照片保留在案件備份。`;
@@ -160,12 +175,7 @@ export function createReportController(api) {
     if (!event.target.matches('[data-report-text]')) return;
     event.target.dataset.edited = 'true';
     const card = event.target.closest('[data-report-record]'), record = getProject().records.find(r => r.id === card.dataset.reportRecord), draft = { ...record, reportText: event.target.value };
-    card.querySelector('[data-content-preview]').textContent = photoContent(draft).text;
-    for (const item of card.querySelectorAll('[data-report-photo]')) {
-      const photo = record.photos.find(p => p.mediaId === item.dataset.reportPhoto), caption = photoContent(draft, photo).caption;
-      item.querySelector('[data-photo-content-caption]').textContent = caption;
-      item.querySelector('img').alt = caption || ROLES[photo.role];
-    }
+    updateContentPreview(card, draft);
   };
 
   $('#reportRooms').onclick = event => {

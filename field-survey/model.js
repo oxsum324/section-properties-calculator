@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.29.1';
+export const VERSION = '0.29.2';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -91,8 +91,8 @@ export function attachmentDescription(value) {
   return conciseWidthText(text).replace(/面積\s*(\d+(?:\.\d+)?)\s*(m²|m2|㎡|平方公尺)\s*[（(]\s*(實測|估計|非實測)\s*[）)]/g,
     (_, amount, unit, method) => `面積${method === '實測' ? ' ' : '約 '}${amount} ${unit}`);
 }
-export const attachmentObservationText = record => observationText(record, { attachment: true });
-export function photoContent(record, photo) {
+export const attachmentObservationText = (record, { omitSpace = false } = {}) => observationText(record, { attachment: true, omitSpace });
+export function photoContent(record, photo, { omitSpace = false } = {}) {
   const seen = new Set(), lines = [];
   const take = value => {
     const text = attachmentDescription(value), key = descriptionKey(text);
@@ -100,10 +100,10 @@ export function photoContent(record, photo) {
     seen.add(key); return text;
   };
   const add = (label, value) => { const text = take(value); if (text) lines.push(label + text); };
-  const generated = attachmentObservationText(record), saved = record.reportText?.trim();
+  const generated = attachmentObservationText(record, { omitSpace }), fullGenerated = attachmentObservationText(record), saved = record.reportText?.trim();
   // Previously saved generated text is rendered with current display rules;
   // the saved source and manual edits are never overwritten.
-  const main = !saved || descriptionKey(saved) === descriptionKey(observationText(record)) ? generated : attachmentDescription(saved);
+  const main = !saved || descriptionKey(saved) === descriptionKey(observationText(record)) || descriptionKey(attachmentDescription(saved)) === descriptionKey(fullGenerated) ? generated : attachmentDescription(saved);
   // Generated prose already carries the component and conditions. Keep the
   // classification for independently edited prose, which may omit those facts.
   if (main && descriptionKey(main) !== descriptionKey(generated)) {
@@ -113,6 +113,9 @@ export function photoContent(record, photo) {
     if (classification) lines.push(classification);
   }
   add('', main);
+  // The room column replaces the generated room prefix, not the underlying
+  // content. A copied full description must still count as the same prose.
+  if (omitSpace && descriptionKey(main) === descriptionKey(generated)) seen.add(descriptionKey(fullGenerated));
   add('補充：', record.notes);
   const detail = record.detail;
   // Diagram/classification mismatches remain in editor reminders, not photo prose.
@@ -171,9 +174,9 @@ export function clearWrongFloor(p, r) {
   if (!valid(r.observationPin)) r.observationPin = null;
   for (const photo of r.photos) if (!valid(photo.placement)) photo.placement = null;
 }
-export function observationText(r, { attachment = false } = {}) {
+export function observationText(r, { attachment = false, omitSpace = false } = {}) {
   const clean = value => attachment ? attachmentDescription(value) : value;
-  const pieces = [], conditions = recordConditions(r), prefix = [clean(r.space), clean(r.location), recordComponents(r).map(clean).filter(Boolean).join('、')].filter(Boolean).join(' · ');
+  const pieces = [], conditions = recordConditions(r), prefix = [omitSpace ? '' : clean(r.space), omitSpace && r.location?.trim() === r.space?.trim() ? '' : clean(r.location), recordComponents(r).map(clean).filter(Boolean).join('、')].filter(Boolean).join(' · ');
   if (individualCracks(r)) {
     pieces.push(r.cracks.length ? `裂縫 ${r.cracks.length} 條` : attachment ? '裂縫' : '裂縫（條數未記）');
     r.cracks.forEach((c, i) => pieces.push(crackText(c, `裂縫 ${String.fromCharCode(65 + i)}`, { attachment })));

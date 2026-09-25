@@ -1,4 +1,4 @@
-const CACHE = 'condition-survey-shell-0.29.1-r1';
+const CACHE = 'condition-survey-shell-0.29.2-r1';
 const ASSETS = ['./recorder.html', './app.css', './app.js', './model.js', './report.js', './report-ui.js', './report-standard.js', './organisation.js', './detail.js', './detail-canvas.js', './detail-render.js', './detail-geometry.js', './store.js', './bundle.js', './annotation.js', './sketch.js', './stairs.js', './cracks.js', './plan-labels.js', './label-editor.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS.map(url => new Request(url, { cache: 'reload' }))))); });
 self.addEventListener('activate', event => { event.waitUntil((async () => { for (const key of await caches.keys()) if (key.startsWith('condition-survey-shell-') && key !== CACHE) await caches.delete(key); await self.clients.claim(); })()); });

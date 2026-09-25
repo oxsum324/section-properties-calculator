@@ -98,7 +98,8 @@ async function verifyStandardPagination(page, context, out) {
     const single = await report.renderAttachment(p, id => blobs.get(id), { unitId: other.id, perPage: 1 });
     const quick = report.attachmentIndex(p, { start: 21, format: 'quick' });
     if (JSON.stringify(p) !== before) throw new Error('Report mutated source');
-    return { ...standard, single, long, sameNumbering: JSON.stringify(standard.index.groups) === JSON.stringify(quick.groups) };
+    const withoutProse = index => index.groups.map(g => ({ ...g, records: g.records.map(({ contentText, ...record }) => record) }));
+    return { ...standard, single, long, sameNumbering: JSON.stringify(withoutProse(standard.index)) === JSON.stringify(withoutProse(quick)) };
   });
   assert(result.sameNumbering); const sections = result.index.sections, firstUnit = result.index.groups[0].unitId;
   assert.equal(result.single.index.groups.length, 1); assert.equal(result.single.index.groups[0].unit, 'B 戶');

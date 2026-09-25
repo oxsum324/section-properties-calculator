@@ -46,12 +46,12 @@ export function attachmentIndex(project, { unitId = '', unitIds, start = 1, perP
   assert(unitIds === undefined || Array.isArray(unitIds) && unitIds.length > 0 && new Set(unitIds).size === unitIds.length && unitIds.every(id => project.units.some(u => u.id === id)), '請選擇有效且不重複的戶別');
   const selectedUnits = unitId ? project.units.filter(u => u.id === unitId) : unitIds ? unitIds.map(id => project.units.find(u => u.id === id)) : project.units;
   const selectedIds = new Set(selectedUnits.map(u => u.id));
-  const groups = new Map();
+  const groups = new Map(), contentOptions = { omitSpace: format === 'standard' };
   for (const r of project.records.filter(r => selectedIds.has(r.unitId))) {
     const photos = reportPhotos(r); if (!photos.length) continue;
     const key = r.roomId || roomKey(r), unit = project.units.find(u => u.id === r.unitId);
     if (!groups.has(key)) groups.set(key, { roomId: key, unitId: unit.id, unit: unit.code, address: unit.address, floor: r.floor, room: r.space, records: [] });
-    groups.get(key).records.push({ recordId: r.id, fieldNumber: r.fieldNumber, visitId: r.visitId || '', observedOn: r.observedOn || '', dateInfo: recordDateInfo(project, r), detail: clone(r.detail), detailText: detailAnnotationText(r.detail), contentText: photoContent(r).text, detailReminders: detailComparison(r).hints, components: clone(recordComponents(r)), conditions: clone(recordConditions(r)), text: r.reportText?.trim() || observationText(r), notes: r.notes, issues: recordIssues(r), pin: clone(r.observationPin || null), photos: photos.map(photo => ({ ...clone(photo), contentCaption: photoContent(r, photo).caption, placement: clone(photoPlacement(r, photo) || null), main: r.mainPhotoId ? r.mainPhotoId === photo.mediaId : photo.mediaId === (photos.find(p => p.role === 'close') || photos[0]).mediaId })) });
+    groups.get(key).records.push({ recordId: r.id, fieldNumber: r.fieldNumber, visitId: r.visitId || '', observedOn: r.observedOn || '', dateInfo: recordDateInfo(project, r), detail: clone(r.detail), detailText: detailAnnotationText(r.detail), contentText: photoContent(r, undefined, contentOptions).text, detailReminders: detailComparison(r).hints, components: clone(recordComponents(r)), conditions: clone(recordConditions(r)), text: r.reportText?.trim() || observationText(r), notes: r.notes, issues: recordIssues(r), pin: clone(r.observationPin || null), photos: photos.map(photo => ({ ...clone(photo), contentCaption: photoContent(r, photo, contentOptions).caption, placement: clone(photoPlacement(r, photo) || null), main: r.mainPhotoId ? r.mainPhotoId === photo.mediaId : photo.mediaId === (photos.find(p => p.role === 'close') || photos[0]).mediaId })) });
   }
   // One numbering source for both formats; keep each unit contiguous even when
   // field records from different units were interleaved during collection.
@@ -132,7 +132,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
       pages.push(page(group, `<h2>${e(plan.title)}</h2><img class="plan" src="${await encodeImage(plan.mediaId, marks, entries)}" alt="位置圖"><p>大圓圈為狀況位置；箭頭起點為拍攝點、箭頭為拍攝方向。代號對應照片編號。簡圖未按比例。</p><p>本房間照片：${e(photoNumbers.join('、'))}</p>`, 'plan-sheet'));
     }
     for (const record of group.records) {
-      if (record.detail && record.detail.kind !== 'text') pages.push(page(group, `<h2>細部示意圖 · 照片 ${e(record.photos.map(p => p.number).join('、'))}</h2><img class="plan detail-img" src="${await encodeDetail(record.detail)}" alt="細部示意圖"><p>圖形僅示意，未按比例；圖示大小不代表實測範圍。</p>`, 'detail-sheet'));
+      if (record.detail && record.detail.kind !== 'text') pages.push(page(group, `<h2>細部示意圖 · 照片 ${e(record.photos.map(p => p.number).join('、'))}</h2><img class="plan detail-img" src="${await encodeDetail(record.detail)}" alt="細部示意圖"><p>細部示意圖未按照比例；圖示大小不代表實測範圍。</p>`, 'detail-sheet'));
       const fullText = [record.contentText, record.dateInfo.confirmed ? `日期：${record.dateInfo.label}` : ''].filter(Boolean).join('\n'), longText = fullText.length > 180 || fullText.split('\n').length > 4;
       const moreText = [];
       if (longText) moreText.push(`現況完整說明（照片 ${record.photos.map(p => p.number).join('、')}）：\n${fullText}`);

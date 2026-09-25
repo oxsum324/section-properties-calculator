@@ -1,4 +1,4 @@
-import { clickSurvey } from './ui-click.js';
+import { clickSurvey, revealSurveyControl } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -38,7 +38,7 @@ export async function verifyV029(browser, base, out) {
     });
     await page.reload(); await page.locator('#recordForm').waitFor(); await clickSurvey(page, '[data-view=report]');
     const preview = page.locator('[data-content-preview]');
-    const expected = '客廳 · 牆面：裂隙；裂縫寬度約 0.1～0.3 mm。';
+    const expected = '牆面：裂隙；裂縫寬度約 0.1～0.3 mm。';
     assert.equal(await preview.textContent(), expected);
     assert.equal(await page.locator('[data-photo-content-caption]').textContent(), '');
     assert.equal(await page.locator('[data-report-text]').inputValue(), source.records[0].reportText, 'Raw editable source remains available');
@@ -80,16 +80,25 @@ export async function verifyV029(browser, base, out) {
         assert.equal(await tab.locator('tr[data-photo-number="002"] td').nth(1).textContent(), '');
         assert.equal(await tab.locator('tr[data-photo-number="002"] td').nth(2).textContent(), '');
         assert.equal(await tab.locator('tr[data-photo-number="002"] .row-text').textContent(), '');
+        assert.doesNotMatch(await tab.locator('tr[data-photo-number="001"] .row-text').textContent(), /客廳/);
+        for (const note of await tab.locator('.units-note').allTextContents()) { assert(note.includes('細部示意圖未按照比例')); assert.doesNotMatch(note, /磁磚塊數|U 型裂縫|細圖未/); }
         assert(await tab.locator('.sheet-content').evaluateAll(nodes => nodes.every(n => n.scrollHeight <= n.clientHeight + 1)));
         await tab.setViewportSize({ width: 1000, height: 1100 });
         await tab.locator('.table-sheet').first().screenshot({ path: path.join(out, 'v0.29-table.png') });
         await tab.pdf({ path: path.join(out, 'v0.29-standard.pdf'), preferCSSPageSize: true, printBackground: true });
       } else {
         assert.equal(await tab.locator('.photo-sheet .photos img').count(), 4);
+        assert.match(await tab.locator('.photo-sheet .description').first().textContent(), /客廳/);
         assert.equal(await tab.locator('.photo-sheet .description').nth(1).textContent(), '');
       }
       await tab.close();
     }
+    await (await revealSurveyControl(page, '#reportFormat')).selectOption('quick');
+    await page.waitForFunction(() => document.querySelector('#reportView').getAttribute('aria-busy') === 'false');
+    assert.equal(await preview.textContent(), '客廳 · ' + expected);
+    await page.locator('#reportFormat').selectOption('standard');
+    await page.waitForFunction(() => document.querySelector('#reportView').getAttribute('aria-busy') === 'false');
+    assert.equal(await preview.textContent(), expected);
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await clickSurvey(page, '[data-view=report]');
     assert.equal(await page.locator('[data-content-preview]').textContent(), expected); assert.deepEqual(errors, []);
     console.log('PASS V0.29 concise attachment prose, area precision, single width bounds, role-free captions, empty photo rows, both printed formats, unchanged backup/reminders, mobile and offline');
