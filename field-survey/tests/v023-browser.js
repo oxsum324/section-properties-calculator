@@ -7,6 +7,14 @@ export async function verifyV023(browser, base, out) {
   const receiver = await browser.newContext({ viewport: { width: 1200, height: 900 } });
   const page = await sender.newPage(), other = await receiver.newPage(), errors = [];
   for (const p of [page, other]) p.on('pageerror', e => errors.push(e.message));
+  const selectColleagueFiles = async files => {
+    // Follow the visible, enabled entry point. Setting a hidden input directly can
+    // dispatch while the preceding navigation is still busy and intentionally inert.
+    await other.locator('#busy').waitFor({ state: 'hidden' });
+    const chooser = other.waitForEvent('filechooser');
+    await other.locator('#mergeBundles').click(); await (await chooser).setFiles(files);
+    await other.locator('#busy').waitFor({ state: 'hidden' });
+  };
   try {
     const checkFolderLink = async locator => {
       assert(await locator.isVisible());
@@ -77,7 +85,7 @@ export async function verifyV023(browser, base, out) {
       return Array.from(new Uint8Array(await blob.arrayBuffer()));
     });
     const second = path.join(out, 'v0.23.0-colleague.csurvey'); await fs.writeFile(second, Buffer.from(colleague));
-    await other.locator('#mergeBundleInput').setInputFiles([second, second]);
+    await selectColleagueFiles([second, second]);
     await other.locator('[data-handoff-label="0"]').fill('乙同事'); await other.locator('#confirmConsolidate').click();
     await other.waitForFunction(async () => (await (await import('./store.js')).allProjects()).length === 2);
     const combined = await other.evaluate(async () => {
@@ -89,11 +97,11 @@ export async function verifyV023(browser, base, out) {
     assert(combined.merged.units[1].code.includes('乙同事')); assert.equal(combined.merged.handoffImports.length, 1);
     assert.equal(combined.all.find(p => p.id === restored.p.id).records.length, 1);
     await other.locator('[data-view=case]').click(); await other.locator('#backupAdvanced').evaluate(el => el.open = true); await other.locator('#handoffHistory').waitFor();
-    await other.locator('#mergeBundleInput').setInputFiles(second); await other.locator('#confirmConsolidate').click();
+    await selectColleagueFiles(second); await other.locator('#confirmConsolidate').click();
     await other.waitForFunction(() => !document.querySelector('#modal').open);
     assert.equal(await other.evaluate(async () => (await (await import('./store.js')).allProjects()).length), 2);
     // Corrupt input must not create even a partial combined project.
-    await other.locator('#mergeBundleInput').setInputFiles({ name: 'damaged.csurvey', mimeType: 'application/octet-stream', buffer: Buffer.from('invalid') });
+    await selectColleagueFiles({ name: 'damaged.csurvey', mimeType: 'application/octet-stream', buffer: Buffer.from('invalid') });
     await other.locator('#errorBar').waitFor();
     assert.equal(await other.evaluate(async () => (await (await import('./store.js')).allProjects()).length), 2);
     await other.locator('#dismissError').click();
