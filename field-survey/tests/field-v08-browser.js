@@ -1,4 +1,4 @@
-import { clickSurvey } from './ui-click.js';
+import { clickSurvey, revealSurveyControl } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -13,7 +13,7 @@ export async function verifyFieldV08Workflow(browser, base, out) {
   try {
     await page.goto(base); await page.locator('#contextStrip').waitFor();
     await page.evaluate(async () => { const m = await import('./model.js'), s = await import('./store.js'), p = m.newProject('V08-SYNTHETIC', '合成現場操作測試', '2026-09-09'), u = m.newUnit('A 戶'), r = m.newRecord(u.id, '1F', '客廳'); p.units.push(u); p.records.push(r); Object.assign(r, { component: '牆面', condition: 'crack', location: '入口旁', measured: true, widthMode: 'exact', width: .2, length: 3 }); await s.saveProject(p, 0); });
-    await page.reload(); await page.locator('#individualCracks').waitFor();
+    await page.reload(); await revealSurveyControl(page, '#individualCracks'); await page.locator('#individualCracks').waitFor();
     await click('#individualCracks [data-count="3"]');
     for (const [i, values] of [[0, ['range0103', '', '1.2']], [1, ['exact', '.45', '2.1']]]) {
       const card = page.locator('[data-crack-id]').nth(i); await card.evaluate(el => { el.open = true; });
@@ -30,9 +30,9 @@ export async function verifyFieldV08Workflow(browser, base, out) {
     let r = await record(); assert.equal(r.cracks.length, 3); assert.equal(r.cracks[0].width, null); assert.equal(r.cracks[1].width, .45); assert.equal(r.cracks[2].length, null); assert.equal(r.legacyCrack.length, 3); assert.equal(r.length, null);
     await page.reload(); await page.locator('[data-crack-id]').nth(2).waitFor(); assert.match(await page.locator('#recordIssues').textContent(), /裂縫 C未量測/);
     await click('#fontSize'); assert.equal(await page.locator('#fontSize').getAttribute('aria-pressed'), 'true'); await page.reload(); await page.locator('#recordForm').waitFor(); assert(await page.locator('body').evaluate(el => el.classList.contains('large-type'))); await click('#fontSize');
-    await click('#fieldPresets [data-field-preset=tile]'); await page.locator('#tileCrackCountText').selectOption('十餘塊'); await click('#saveRecord'); assert.equal((await record()).tiles.crackCount, null); assert.match(await page.locator('#tileTotal').textContent(), /不自動合計/);
+    await click('#fieldPresets [data-field-preset=tile]'); await (await revealSurveyControl(page, '#tileCrackCountText')).selectOption('十餘塊'); await click('#saveRecord'); assert.equal((await record()).tiles.crackCount, null); assert.match(await page.locator('#tileTotal').textContent(), /不自動合計/);
     await click('#tileCrackQuantity [data-value="20"]'); await click('#tileCrackQuantity [data-step="10"]'); await click('#saveRecord'); assert.equal((await record()).tiles.crackCount, 30); assert.equal((await record()).tiles.crackText, '');
-    await page.locator('#surface').selectOption(''); await click('#saveRecord'); assert.equal((await record()).cracks[1].length, 2.1);
+    await (await revealSurveyControl(page, '#surface')).selectOption(''); await click('#saveRecord'); assert.equal((await record()).cracks[1].length, 2.1);
     await click('#takePhoto'); await click('#startCamera'); await page.locator('#shutter:enabled').waitFor(); assert(await page.locator('#cameraPermission').isHidden());
     await page.setViewportSize({ width: 844, height: 390 });
     const preview = await page.locator('.camera-stage').boundingBox(); assert(preview.width > 500 && preview.height > 220);

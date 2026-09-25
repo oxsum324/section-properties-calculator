@@ -1,4 +1,4 @@
-import { clickSurvey } from './ui-click.js';
+import { clickSurvey, revealSurveyControl } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -44,7 +44,7 @@ export async function verifyV017(browser, base, out) {
       assert(await preview.locator('.standard-sheet .sheet-content').evaluateAll(nodes=>nodes.every(n=>n.scrollHeight<=n.clientHeight+1)));await preview.close();
     }
     // A later classification change refreshes reminders and leaves the drawing intact.
-    await click('[data-do=edit-record] >> nth=0');await page.locator('#condition input[value=tileBroken]').uncheck();await click('#saveRecord');assert.match(await page.locator('#recordDetail').textContent(),/現況分類未勾選/);assert.deepEqual((await current()).records[0].detail,saved.records[0].detail);
+    await click('[data-do=edit-record] >> nth=0');await (await revealSurveyControl(page, '#condition input[value=tileBroken]')).uncheck();await click('#saveRecord');assert.match(await page.locator('#recordDetail').textContent(),/現況分類未勾選/);assert.deepEqual((await current()).records[0].detail,saved.records[0].detail);
     await page.waitForFunction(()=>document.querySelector('#offlineStatus').textContent==='離線已就緒');await context.setOffline(true);await page.reload();await click(`[data-field-detail="${r.id}"]`);await page.locator('#detailLinkage').evaluate(el=>el.open=true);assert.equal(await page.locator('#detailNote').inputValue(),note);
     // Changing the base clears marks with confirmation, but retains shared explanatory notes.
     await click('#chooseDetail');page.once('dialog',d=>d.accept());await click('[data-detail-preset=window]');assert.equal(await page.locator('#detailNote').inputValue(),note);await click('#saveDetail');assert.equal((await current()).records[0].detail.note,note);

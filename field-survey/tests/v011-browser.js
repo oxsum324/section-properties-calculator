@@ -1,4 +1,4 @@
-import { clickSurvey } from './ui-click.js';
+import { clickSurvey, revealSurveyControl } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -8,7 +8,7 @@ export async function verifyV011(browser, base, out) {
   page.on('pageerror', e => errors.push(e.message));
   const click = selector => clickSurvey(page, selector);
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
-  const choose = (key, checked = true) => page.locator(`#condition input[value="${key}"]`).setChecked(checked);
+  const choose = async (key, checked = true) => (await revealSurveyControl(page, `#condition input[value="${key}"]`)).setChecked(checked);
   try {
     await page.goto(base); await page.locator('#contextStrip').waitFor();
     await page.evaluate(async () => {
@@ -18,28 +18,28 @@ export async function verifyV011(browser, base, out) {
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png')), mid = m.id(); p.media.push({ id: mid, name: 'synthetic.png', kind: 'image', size: blob.size, type: blob.type, importedAt: m.now(), sha256: await m.sha256(blob) }); r.photos.push({ mediaId: mid, role: 'overview', caption: '', marks: [], excluded: false, excludedReason: '' });
       await s.saveProject(m.syncRooms(p), 0, [{ id: mid, blob, thumb: blob }]);
     });
-    await page.reload(); await page.locator('#recordForm').waitFor();
+    await page.reload(); await page.locator('#recordForm').waitFor(); await revealSurveyControl(page, '#commonConditions');
     assert.equal(await page.locator('#commonConditions input').count(), 6);
     assert.match(await page.locator('#commonConditions').innerText(), /滲水痕/); assert.doesNotMatch(await page.locator('#commonConditions').innerText(), /正在漏水|滲水跡/);
     assert.equal(await page.locator('#moreConditions').evaluate(el => el.open), false);
-    await choose('tileBulge'); await page.locator('#tileBulgeCountText').selectOption('二十餘塊');
-    await choose('tileBroken'); await page.locator('#tileBrokenCount').fill('2'); await click('#saveRecord');
+    await choose('tileBulge'); await (await revealSurveyControl(page, '#tileBulgeCountText')).selectOption('二十餘塊');
+    await choose('tileBroken'); await (await revealSurveyControl(page, '#tileBrokenCount')).fill('2'); await click('#saveRecord');
     let r = (await current()).records[0]; assert.equal(r.tiles.bulgeCount, null); assert.equal(r.tiles.bulgeText, '二十餘塊'); assert.equal(r.surface, ''); assert.match(await page.locator('#tileTotal').innerText(), /不自動合計/);
     await click('#moreConditions summary');
     for (const key of ['exposedRebar', 'rebarCorrosion', 'honeycomb', 'jointOffset', 'activeLeak', 'paintBlister']) await choose(key);
-    await page.locator('#leakForms input[value=drip]').check(); await click('#moreConditions summary');
-    assert(await page.locator('[data-remove-condition=activeLeak]').isVisible());
-    await click('[data-remove-condition=activeLeak]'); assert(await page.locator('#leakFields').isHidden()); assert.doesNotMatch(await page.locator('#quickDescription').textContent(), /現場可見漏水/);
+    await (await revealSurveyControl(page, '#leakForms input[value=drip]')).check(); await click('#moreConditions summary');
+    assert(await page.locator('#condition input[value=activeLeak]').isChecked());
+    await choose('activeLeak', false); assert(await page.locator('#leakFields').isHidden()); assert.doesNotMatch(await page.locator('#quickDescription').textContent(), /現場可見漏水/);
     await click('#moreConditions summary'); await choose('activeLeak'); await click('#moreConditions summary'); assert(await page.locator('#leakForms input[value=drip]').isChecked());
     await choose('crack'); assert(await page.locator('#crackLayer input[value=unknown]').isChecked());
-    await page.locator('#crackLayer input[value=plaster]').check(); await click('#individualCracks [data-count="2"]');
+    await (await revealSurveyControl(page, '#crackLayer input[value=plaster]')).check(); await click('#individualCracks [data-count="2"]');
     const cards = page.locator('[data-crack-id]');
-    await cards.nth(0).evaluate(el => el.open = true); await cards.nth(0).locator('[data-key=layer]').selectOption('plaster'); await cards.nth(1).locator('[data-key=layer]').selectOption('structural');
+    await cards.nth(0).evaluate(el => el.open = true); await (await revealSurveyControl(page, cards.nth(0).locator('[data-key=layer]'))).selectOption('plaster'); await (await revealSurveyControl(page, cards.nth(1).locator('[data-key=layer]'))).selectOption('structural');
     await click('#saveRecord'); r = (await current()).records[0]; assert.deepEqual(r.cracks.map(c => c.layer), ['plaster', 'structural']); assert.equal(r.legacyCrack.crackLayer, 'plaster'); assert.deepEqual(r.leakForms, ['drip']); assert.equal(r.notes, '人工文字保留：舊稱滲水跡。');
-    await page.locator('#recordAdvanced').evaluate(el => el.open = true); await page.locator('#area-tileBulge').fill('1.5'); await page.locator('#area-method-tileBulge').selectOption('estimated'); await click('#saveRecord');
+    await (await revealSurveyControl(page, '#area-tileBulge')).fill('1.5'); await (await revealSurveyControl(page, '#area-method-tileBulge')).selectOption('estimated'); await click('#saveRecord');
     await choose('tileBulge', false); await click('#saveRecord'); assert(await page.locator('#tileBulgeQuantity').isHidden()); assert.doesNotMatch(await page.locator('#quickDescription').textContent(), /磁磚拱起/);
     await choose('tileBulge'); assert.equal(await page.locator('#tileBulgeCountText').inputValue(), '二十餘塊'); assert.equal(await page.locator('#area-tileBulge').inputValue(), '1.5'); await click('#saveRecord');
-    await page.reload(); await page.locator('#recordForm').waitFor(); assert.equal(await page.locator('#moreConditions').evaluate(el => el.open), false); assert(await page.locator('[data-remove-condition=honeycomb]').isVisible());
+    await page.reload(); await page.locator('#recordForm').waitFor(); assert.equal(await page.locator('#moreConditions').evaluate(el => el.open), false); assert(await page.locator('#condition input[value=honeycomb]').isChecked()); await revealSurveyControl(page, '#commonConditions');
     for (const width of [320, 390, 844]) {
       await page.setViewportSize({ width, height: width === 844 ? 390 : 844 });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `No horizontal overflow at ${width}`);

@@ -1,4 +1,4 @@
-import { clickSurvey } from './ui-click.js';
+import { clickSurvey, revealSurveyControl } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -23,16 +23,16 @@ export async function verifyReportWorkflow(browser, base, out) {
       await store.saveProject(p, 0, assets); return { r: r.id, s: s.id, close: r.photos[1].mediaId, planId: plan.id, hash: p.media[0].sha256 };
     });
     await page.reload(); await page.locator('#recordForm').waitFor();
-    await page.locator('#condition input[value=crack]').check(); await click('[data-field-preset="u"]'); await click('[data-count="4"]'); await click('#saveRecord');
+    await (await revealSurveyControl(page, '#condition input[value=crack]')).check(); await click('[data-field-preset="u"]'); await click('[data-count="4"]'); await click('#saveRecord');
     assert.equal((await current()).records[0].crackCount, 4); assert(!(await page.locator('#recordIssues').innerText()).includes('尺寸'));
     assert.equal(await page.locator('#recordLocation svg text').count(), 0);
-    await page.locator('#measured').check(); await page.locator('#length').fill('1.2'); await click('#saveRecord');
+    await (await revealSurveyControl(page, '#measured')).check(); await (await revealSurveyControl(page, '#length')).fill('1.2'); await click('#saveRecord');
     assert((await page.locator('#lengthLabel').innerText()).includes('單條 U 型')); assert(!(await page.locator('#quickDescription').textContent()).includes('4.8'));
     await page.locator('#recordLocation details').evaluate(el => el.open = true); await click('#recordLocation button:text("標示狀況位置點")'); await page.locator('#planStage svg').scrollIntoViewIfNeeded(); let box = await page.locator('#planStage svg').boundingBox(); await page.touchscreen.tap(box.x + box.width * .7, box.y + box.height * .6); await click('#savePlacement');
     await click('[data-photo="' + seed.close + '"]'); await page.locator('#photoCaption').fill('U 型裂縫近照'); await click('#photoLocation .location-edit');
     await page.locator('#planStage svg').scrollIntoViewIfNeeded(); box = await page.locator('#planStage svg').boundingBox(); await page.touchscreen.tap(box.x + box.width * .4, box.y + box.height * .4); await page.touchscreen.tap(box.x + box.width * .7, box.y + box.height * .6); await click('#savePlacement');
     let data = await current(); assert.equal(data.records[0].photos[1].placement.x.toFixed(1), '0.4'); assert.equal(data.records[0].placement.x, .2); assert.equal(data.records[0].photos[1].caption, 'U 型裂縫近照');
-    await click('[data-record="' + seed.s + '"]'); await click('[data-field-preset="tile"]'); await page.locator('#tileBroken').check(); await page.locator('#tileCrackCount').fill('4'); await page.locator('#tileBrokenCount').fill('2'); await page.locator('#tileOverlapCount').fill('2'); await click('#saveRecord');
+    await click('[data-record="' + seed.s + '"]'); await click('[data-field-preset="tile"]'); await (await revealSurveyControl(page, '#tileBroken')).check(); await (await revealSurveyControl(page, '#tileCrackCount')).fill('4'); await (await revealSurveyControl(page, '#tileBrokenCount')).fill('2'); await (await revealSurveyControl(page, '#tileOverlapCount')).fill('2'); await click('#saveRecord');
     assert.equal((await page.locator('#tileTotal').textContent()).includes('4 塊'), true); assert(!(await page.locator('#recordIssues').innerText()).includes('量測'));
     await click('[data-view="report"]'); await page.locator('#reportPageSize').selectOption('8'); await idle(); assert.equal(await page.locator('.report-room').count(), 2); assert.equal(await page.locator('[data-report-include]:checked').count(), 3);
     const row = '[data-report-record="' + seed.r + '"]', close = row + ' [data-report-photo="' + seed.close + '"]';

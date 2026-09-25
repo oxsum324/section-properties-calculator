@@ -1,3 +1,4 @@
+import { clickSurvey, revealSurveyControl } from './ui-click.js';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
@@ -36,7 +37,7 @@ export async function verifyV026(browser, base, out) {
     await click('#showRecordFollowup'); assert.match(await page.locator('#recordIssues').innerText(), /長度待補/);
     assert.doesNotMatch(await page.locator('#recordIssues').innerText(), /未量測/);
     assert.equal(await page.locator('#showAllRecordIssues').count(), 0);
-    await click('[data-width=exact]'); await page.locator('#width').fill('0.45'); await page.locator('#length').fill('1.2');
+    await click('[data-width=exact]'); await (await revealSurveyControl(page, '#width')).fill('0.45'); await (await revealSurveyControl(page, '#length')).fill('1.2');
     await click(`[data-record="${seed.records[1]}"]`);
     assert.equal((await current()).records[0].width, .45);
     assert.match(await page.locator('#widthLegacy').textContent(), /≤0.3/);

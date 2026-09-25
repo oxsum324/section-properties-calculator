@@ -532,3 +532,26 @@ body.keyboard-open .report-bottom-pager{position:static}
 
 #reportSearchAdvanced{margin-bottom:8px}#reportSearchAdvanced>summary{min-height:44px;padding-block:10px}
 #reportView[data-mode=simple] .report-room{padding:16px}#reportView[data-mode=simple] .report-record{margin-top:10px;padding-top:10px}#reportView[data-mode=simple] .report-record h4{margin:8px 0}#reportView[data-mode=simple] .section-heading{margin-bottom:8px}
+
+/* V0.27: choose conditions once, then work through compact selected cards. */
+#conditionPanel{min-width:0}#conditionPicker>summary,#visibilityOptions>summary,#materialOptions>summary{min-height:44px;line-height:1.5;padding:12px 0}
+#conditionPicker[open]>summary{font-weight:700;color:var(--ink)}#condition label:has(input:checked){font-weight:750}
+#conditionPicker #fillConditionDetails{margin:10px 0;min-height:44px}
+#conditionPicker,#conditionCards>.condition-card{padding-top:0}#conditionPanel{scroll-margin-top:calc(var(--survey-context-height,78px) + 12px)}
+#condition .choice-chips label{min-height:46px;padding:8px 10px;margin:0}
+#conditionCards{scroll-margin-top:calc(var(--survey-context-height,78px) + 12px)}
+.condition-card{border:1px solid var(--line);border-radius:10px;margin-top:8px;overflow-wrap:anywhere;background:#fff;min-width:0}
+.condition-card>summary{min-height:52px;padding:12px;font-size:15px;line-height:1.5;color:var(--ink);scroll-margin-top:calc(var(--survey-context-height,78px) + 12px)}
+.condition-card>summary strong{font-weight:750}.condition-card>summary span{display:block;font-size:13px;font-weight:400;color:var(--muted);margin-top:3px}
+.needs-input,.condition-card>summary .needs-input{color:#a52828;font-weight:700}
+.condition-card[open]>summary{border-bottom:1px solid var(--line);background:#f4f7f2}.condition-card-body{padding:12px}
+.condition-card .measurement{background:transparent;padding:0}.condition-card .condition-card-body:empty{display:none}
+.condition-card .condition-area>summary,.crack-extra>summary,#crackExtras>summary,#crackSizeFields>summary{min-height:44px;line-height:1.5;padding:12px 0}
+#measurement[data-optional=false] #crackSizeFields>summary{display:none}
+#crackSizeFields>label,#crackExtras>label,.crack-extra>label{margin-block:12px}
+#visibilityOptions{margin:16px 0 8px}#visibilityChoices{grid-template-columns:repeat(3,minmax(0,1fr))}
+#materialOptions .material-fields{margin:0}#materialSummary{font-size:13px}
+#crackQuickTypes{margin-bottom:12px}#crackQuickTypes button{flex:1;padding:10px 5px;font-size:14px}
+#crackExtraSummary,[data-crack-extra-summary]{display:block}#crackExtraSummary:empty,[data-crack-extra-summary]:empty{display:none}
+.crack-cards .crack-extra summary{font-size:13px}
+@media(max-width:600px){.condition-card-body{padding:10px}.condition-card>summary{padding:10px}#conditionCards .two-col{gap:8px}}

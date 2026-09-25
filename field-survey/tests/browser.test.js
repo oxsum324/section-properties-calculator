@@ -1,3 +1,4 @@
+import { clickSurvey, revealSurveyControl } from './ui-click.js';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs/promises';
@@ -12,6 +13,7 @@ import { verifyReportWorkflow } from './report-browser.js';
 import { verifyStandardFloors } from './standard-floor-browser.js';
 import { verifyBlockedUpgrade } from './v0211-browser.js';
 import { verifyV021 } from './v021-browser.js';
+import { verifyV027 } from './v027-browser.js';
 import { verifyV026 } from './v026-browser.js';
 import { verifyV025 } from './v025-browser.js';
 import { verifyV024 } from './v024-browser.js';
@@ -54,7 +56,7 @@ page.on('pageerror', e => errors.push(e.message));
 page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 context.on('request', r => { if (/^https?:/.test(r.url()) && new URL(r.url()).origin !== new URL(base).origin) outbound.push(r.url()); });
 const idle = p => p.locator('#busy').waitFor({ state: 'hidden' });
-async function click(sel, p = page) { const el = p.locator(sel); await el.evaluate(el => { for (let parent = el.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true; }); await el.click(); await idle(p); if (sel === '#addRoomFrame' || sel === '#clearSketch') await p.locator('#sketchSettings').evaluate(el => { el.open = false; }); }
+async function click(sel, p = page) { await clickSurvey(p, sel); if (sel === '#addRoomFrame' || sel === '#clearSketch') await p.locator('#sketchSettings').evaluate(el => { el.open = false; }); }
 async function projects(p = page) { return p.evaluate(async () => (await import('./store.js')).allProjects()); }
 async function originalHash(p, mid) { return p.evaluate(async mid => { const a = await (await import('./store.js')).getMedia(mid); return (await import('./model.js')).sha256(a.blob); }, mid); }
 async function sketchPoint(p, position) { return p.locator('#sketchStage svg').evaluate((svg, pos) => { const paper = svg.firstElementChild, point = svg.createSVGPoint(); point.x = Number(paper.getAttribute('width')) * pos[0]; point.y = Number(paper.getAttribute('height')) * pos[1]; const q = point.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, position); }
@@ -226,7 +228,7 @@ try {
   console.log('PASS actual two-finger pinch, single-finger pan, inverse-CTM plotting, four-direction expansion and undo/redo');
   await click('#closeModal'); await click('#discardChanges');
   for (const [key, value] of Object.entries({ floor: '1F', space: '客廳', location: '入口右側牆面', notes: '合成測試：裂隙可见範圍紀錄。' })) await page.locator('#' + key).fill(value);
-  for (const value of ['牆面', '梁', '柱']) await page.locator(`#component input[value="${value}"]`).check(); await page.locator('#condition input[value=crack]').check(); await click('#saveRecord');
+  for (const value of ['牆面', '梁', '柱']) await page.locator(`#component input[value="${value}"]`).check(); await (await revealSurveyControl(page, '#condition input[value=crack]')).check(); await click('#saveRecord');
   let p = (await projects())[0]; assert.equal(p.records[0].width, null); assert.equal(p.records[0].measured, false);
   const fixture = await page.evaluate(() => {
     const c = document.createElement('canvas'); c.width = 1000; c.height = 700; const g = c.getContext('2d');
@@ -266,25 +268,25 @@ try {
   const markedDownload = page.waitForEvent('download'); await click('#downloadMarked'); const marked = await markedDownload; await marked.saveAs(path.join(out, 'marked-copy.jpg'));
   await click('#savePhoto'); p = (await projects())[0]; assert.equal(p.records[0].photos[0].marks.length, 1); assert.equal(await originalHash(page, mid), hash);
   await click('.photo-card'); await page.locator('#photoStage svg').waitFor(); await draw('#photoStage svg'); await click('#closeModal'); await click('#discardChanges'); assert.equal((await projects())[0].records[0].photos[0].marks.length, 1);
-  await page.locator('#crackPattern').selectOption('network'); await click('#saveRecord');
-  assert.equal(await page.locator('#recordIssues').textContent(), '本位置未列出必要欄位待補。'); assert((await page.locator('#widthLabel').innerText()).includes('選填')); assert((await page.locator('#lengthLabel').innerText()).includes('選填'));
-  await page.reload(); await page.locator('#crackPattern').waitFor(); assert.equal(await page.locator('#crackPattern').inputValue(), 'network'); assert.equal(await page.locator('#recordIssues').textContent(), '本位置未列出必要欄位待補。');
+  await (await revealSurveyControl(page, '#crackPattern')).selectOption('network'); await click('#saveRecord');
+  assert.equal(await page.locator('#recordIssues').textContent(), '本位置未列出必要欄位待補。'); assert((await page.locator('#widthLabel').textContent()).includes('選填')); assert((await page.locator('#lengthLabel').textContent()).includes('選填'));
+  await page.reload(); await revealSurveyControl(page, '#crackPattern'); await page.locator('#crackPattern').waitFor(); assert.equal(await page.locator('#crackPattern').inputValue(), 'network'); assert.equal(await page.locator('#recordIssues').textContent(), '本位置未列出必要欄位待補。');
   assert.equal(await page.locator('#measured').isChecked(), false); p = (await projects())[0]; assert.equal(p.records[0].width, null); assert.equal(p.records[0].length, null);
   await click('[data-view=review]'); assert((await page.locator('#reviewList').innerText()).includes('未列出必要欄位待補')); await click('[data-view=work]');
-  await page.locator('#measured').check(); await click('[data-width=exact]'); await page.locator('#width').fill('0.2'); await click('#saveRecord');
+  await (await revealSurveyControl(page, '#measured')).check(); await click('[data-width=exact]'); await (await revealSurveyControl(page, '#width')).fill('0.2'); await click('#saveRecord');
   assert.equal(await page.locator('#recordIssues').textContent(), '本位置未列出必要欄位待補。');
-  await page.locator('#crackPattern').selectOption('diagonal'); await click('#saveRecord'); assert((await page.locator('#recordIssues').textContent()).includes('量測尺寸未齊')); assert(!(await page.locator('#lengthLabel').innerText()).includes('選填')); assert.equal(await page.locator('#width').inputValue(), '0.2');
-  await page.locator('#crackPattern').selectOption('network'); await click('#saveRecord'); assert.equal(await page.locator('#recordIssues').textContent(), '本位置未列出必要欄位待補。'); assert.equal((await projects())[0].records[0].width, .2);
+  await (await revealSurveyControl(page, '#crackPattern')).selectOption('diagonal'); await click('#saveRecord'); assert((await page.locator('#recordIssues').textContent()).includes('量測尺寸未齊')); assert(!(await page.locator('#lengthLabel').innerText()).includes('選填')); assert.equal(await page.locator('#width').inputValue(), '0.2');
+  await (await revealSurveyControl(page, '#crackPattern')).selectOption('network'); await click('#saveRecord'); assert.equal(await page.locator('#recordIssues').textContent(), '本位置未列出必要欄位待補。'); assert.equal((await projects())[0].records[0].width, .2);
   await page.screenshot({ path: path.join(out, '06-network-crack-optional.png'), fullPage: true });
-  await page.locator('#measured').uncheck(); await click('#saveRecord'); assert.equal(await page.locator('#recordIssues').textContent(), '本位置未列出必要欄位待補。');
-  await page.locator('#crackPattern').selectOption('horizontal'); await click('#saveRecord'); assert((await page.locator('#recordIssues').textContent()).includes('裂縫未量測'));
+  await (await revealSurveyControl(page, '#measured')).uncheck(); await click('#saveRecord'); assert.equal(await page.locator('#recordIssues').textContent(), '本位置未列出必要欄位待補。');
+  await (await revealSurveyControl(page, '#crackPattern')).selectOption('horizontal'); await click('#saveRecord'); assert((await page.locator('#recordIssues').textContent()).includes('裂縫未量測'));
   console.log('PASS network crack dimensions optional, reload and review without measurement reminders, optional readings preserved, regular cracks still checked');
-  await page.locator('#crackPattern').selectOption('diagonal');
+  await (await revealSurveyControl(page, '#crackPattern')).selectOption('diagonal');
   await click('[data-width=range0103]'); await click('#saveRecord'); p = (await projects())[0]; assert.equal(p.records[0].widthMode, 'range0103'); assert.equal(p.records[0].width, null); assert.equal(p.records[0].measured, false);
-  await page.locator('#measured').check(); await page.locator('#length').fill('1.2'); await click('#saveRecord'); assert.equal((await projects())[0].records[0].width, null);
-  await click('[data-width=exact]'); await page.locator('#width').fill('0.45'); await click('#saveRecord'); assert.equal((await projects())[0].records[0].width, .45);
+  await (await revealSurveyControl(page, '#measured')).check(); await (await revealSurveyControl(page, '#length')).fill('1.2'); await click('#saveRecord'); assert.equal((await projects())[0].records[0].width, null);
+  await click('[data-width=exact]'); await (await revealSurveyControl(page, '#width')).fill('0.45'); await click('#saveRecord'); assert.equal((await projects())[0].records[0].width, .45);
   await click('[data-width=range0103]'); await click('#saveRecord'); assert.equal(await page.locator('#width').inputValue(), ''); assert.equal((await projects())[0].records[0].width, null);
-  await click('[data-width=exact]'); await page.locator('#width').fill('0.3'); await click('#saveRecord');
+  await click('[data-width=exact]'); await (await revealSurveyControl(page, '#width')).fill('0.3'); await click('#saveRecord');
   await click('#showPlan'); const planPicker = page.waitForEvent('filechooser'); await click('#addPlanImage'); await (await planPicker).setFiles(imagePath); await idle(page); await page.locator('#planStage svg').waitFor(); await tapPair('#planStage svg'); await click('#savePlacement');
   p = (await projects())[0]; assert(p.records[0].placement); assert.equal(p.plans.length, 1);
   const imagePlanId = p.plans[0].id;
@@ -310,11 +312,11 @@ try {
   await click('#showPlan'); await click('#editSketch'); assert(await page.locator('#redoSketch').isDisabled()); await page.locator('#sketchExpansion').evaluate(el => { el.open = true; }); await click('[data-expand=left]'); await click('[data-expand=top]'); await page.locator('#sketchExpansion').evaluate(el => { el.open = false; }); await sketchGesture('drag'); await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .5], [.87, .5]); await click('#saveSketch');
   await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 3); assert.deepEqual(p.plans[1], sketchPlan); assert.equal(p.plans[2].sketch.strokes.length, 7); assert.equal(p.records[0].placement.planId, sketchPlan.id);
   await tapPair('#planStage svg'); await click('#savePlacement');
-  for (const value of ['damp', 'salt', 'spall']) await page.locator('#condition input[value=' + value + ']').check();
-  await page.locator('#recordAdvanced').evaluate(el => el.open = true); await page.locator('#area-damp').fill('1.5'); await page.locator('#area-salt').fill('0.8'); await page.locator('#area-method-salt').selectOption('estimated'); await page.locator('#area-spall').fill('0.25'); await click('#saveRecord');
+  for (const value of ['damp', 'salt', 'spall']) await (await revealSurveyControl(page, '#condition input[value=' + value + ']')).check();
+  await (await revealSurveyControl(page, '#area-damp')).fill('1.5'); await (await revealSurveyControl(page, '#area-salt')).fill('0.8'); await (await revealSurveyControl(page, '#area-method-salt')).selectOption('estimated'); await (await revealSurveyControl(page, '#area-spall')).fill('0.25'); await click('#saveRecord');
   let multi = (await projects())[0].records[0]; assert.deepEqual(multi.conditions, ['crack', 'damp', 'salt', 'spall']); assert.deepEqual(multi.areas.salt, { value: .8, method: 'estimated' }); assert.equal(multi.width, .3); assert.equal(multi.length, 1.2);
-  await page.locator('#condition input[value=normal]').check(); await click('#saveRecord'); assert.deepEqual((await projects())[0].records[0].conditions, ['normal']); assert.equal(await page.locator('#areaMeasurements').isVisible(), false);
-  for (const value of ['crack', 'damp', 'salt', 'spall']) await page.locator('#condition input[value=' + value + ']').check(); await click('#saveRecord');
+  await (await revealSurveyControl(page, '#condition input[value=normal]')).check(); await click('#saveRecord'); assert.deepEqual((await projects())[0].records[0].conditions, ['normal']); assert.equal(await page.locator('#areaMeasurements').isVisible(), false);
+  for (const value of ['crack', 'damp', 'salt', 'spall']) await (await revealSurveyControl(page, '#condition input[value=' + value + ']')).check(); await click('#saveRecord');
   assert.equal(await page.locator('#area-salt').inputValue(), '0.8'); assert.equal(await page.locator('#width').inputValue(), '0.3');
   await click('.photo-card'); await page.locator('#photoStage svg').waitFor();
   for (const [i, condition] of ['salt', 'spall'].entries()) { await click('[data-condition-label=' + condition + ']'); await page.locator('#photoStage svg').click({ position: { x: 50 + i * 60, y: 60 + i * 30 } }); }
@@ -396,6 +398,7 @@ try {
   await verifyV016(browser, base, out);
   await verifyBlockedUpgrade(browser, base, out);
   await verifyV021(browser, base, out);
+  await verifyV027(browser, base, out);
   await verifyV026(browser, base, out);
   await verifyV025(browser, base, out);
   await verifyV024(browser, base, out);

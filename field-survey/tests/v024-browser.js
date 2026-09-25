@@ -1,4 +1,4 @@
-import { clickSurvey } from './ui-click.js';
+import { clickSurvey, revealSurveyControl } from './ui-click.js';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
@@ -32,9 +32,9 @@ export async function verifyV024(browser, base, out) {
     await page.locator('#resident').fill('住戶表示曾有水痕'); await click('#saveRecord');
     assert.match(await page.locator('#recordAdvancedSummary').textContent(), /有住戶陳述/);
     await page.locator('#recordAdvanced').evaluate(el => el.open = false);
-    await page.locator('#condition input[value=tileBroken]').check(); await page.locator('#tileFields').waitFor();
+    await (await revealSurveyControl(page, '#condition input[value=tileBroken]')).check(); await revealSurveyControl(page, '#tileBrokenCount'); await page.locator('#tileFields').waitFor();
     assert.equal(await page.locator('#surface').inputValue(), '', 'Tile condition alone reveals counts without inventing surface');
-    await page.locator('#tileBrokenCount').fill('3'); await click('#saveRecord');
+    await (await revealSurveyControl(page, '#tileBrokenCount')).fill('3'); await click('#saveRecord');
     await click('#nextRecord'); assert.equal(await page.locator('#recordAdvanced').evaluate(el => el.open), false);
     assert.equal((await current()).records[0].visibility, 'partial');
     await click(`[data-record="${seed.record}"]`);

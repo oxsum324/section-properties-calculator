@@ -113,22 +113,94 @@ async function saveForm() {
   await formSaving;
 }
 const selectedConditions = () => [...$('#condition').querySelectorAll('input:checked')].map(el => el.value);
+let workflowRecord = '';
+function initConditionWorkflow() {
+  const keys = [...new Set(['crack', 'tile', ...Object.keys(CONDITIONS).filter(k => k && !['tileBroken', 'tileBulge'].includes(k))])];
+  $('#conditionCards').innerHTML = keys.map(key => `<details id="conditionCard-${key}" class="condition-card" data-condition-card="${key}" hidden><summary><strong>${key === 'tile' ? '磁磚損害' : esc(CONDITIONS[key])}</strong><span data-condition-status></span></summary><div class="condition-card-body"></div></details>`).join('');
+  const body = key => $(`#conditionCard-${key} .condition-card-body`);
+  body('crack').append($('#measurement')); body('tile').append($('#tileFields')); body('activeLeak').append($('#leakFields'));
+  for (const [key] of Object.entries(AREA_CONDITIONS)) {
+    const cardKey = ['tileBroken', 'tileBulge'].includes(key) ? 'tile' : key;
+    const extra = document.createElement('details'); extra.className = 'condition-area'; extra.dataset.areaExtra = key;
+    extra.innerHTML = `<summary>補充${cardKey === 'tile' ? esc(AREA_CONDITIONS[key]) : ''}面積（選填）</summary><p class="micro">未知可留空；重疊面積不相加。</p>`;
+    extra.append($(`[data-area="${key}"]`));
+    (key === 'crack' ? $('#crackAreaSlot') : body(cardKey)).append(extra);
+  }
+  for (const key of keys) if (!['crack', 'tile'].includes(key)) body(key).insertAdjacentHTML('beforeend', '<button type="button" class="text-button" data-condition-note>在本位置說明補充</button>');
+  $('#conditionCards').onclick = event => { if (event.target.closest('[data-condition-note]')) focusFieldSection('#notes'); };
+  $('#conditionPicker').addEventListener('toggle', () => syncConditionWorkflow());
+  $('#fillConditionDetails').onclick = () => {
+    $('#conditionPicker').open = false; syncConditionWorkflow(true);
+    const first = $('#conditionCards > details[open]:not([hidden]) > summary') || $('#conditionCards > details:not([hidden]) > summary');
+    if (first) requestAnimationFrame(() => { first.focus({ preventScroll: true }); first.scrollIntoView({ block: 'start' }); });
+  };
+  $('#crackQuickTypes').onclick = event => {
+    const button = event.target.closest('[data-crack-type]'); if (!button) return;
+    if (button.dataset.crackType === 'network') $('#crackPattern').value = 'network';
+    else if (['network', 'u'].includes($('#crackPattern').value)) $('#crackPattern').value = '';
+    changed({ target: $('#crackPattern') });
+  };
+}
+function syncConditionWorkflow(arrange = false) {
+  if (!currentRecord() || !$('#conditionCards').children.length) return;
+  const selected = selectedConditions(), tileCrack = selected.includes('crack') && $('#surface').value === 'tile';
+  const active = [...new Set(selected.map(key => key === 'crack' && tileCrack || ['tileBroken', 'tileBulge'].includes(key) ? 'tile' : key))];
+  const isNewRecord = workflowRecord !== recordId;
+  if (isNewRecord) {
+    workflowRecord = recordId; $('#conditionPicker').open = !selected.length; $('#materialOptions').open = false;
+    $('#visibilityOptions').open = $('#visibility').value !== 'visible'; $('#crackExtras').open = false;
+    for (const detail of $('#conditionCards').querySelectorAll('details')) detail.open = false;
+    arrange = true;
+  }
+  $('#conditionPickerSummary').textContent = selected.length ? `調整現況 · 已選 ${selected.length} 項` : '選擇現況（可複選）';
+  $('#fillConditionDetails').disabled = !selected.length;
+  $('#conditionCards').hidden = $('#conditionPicker').open || !selected.length;
+  $('#materialSummary').textContent = `材質：${$('#surface').selectedOptions[0]?.textContent || '未指定'} · 磁磚快填`;
+  let values, issues = [];
+  try { values = { ...currentRecord(), ...formValues() }; issues = recordIssues(values); } catch { /* Keep incomplete numeric input editable. */ }
+  const ordered = [];
+  for (const card of $('#conditionCards').children) {
+    const key = card.dataset.conditionCard, shown = active.includes(key); card.hidden = !shown;
+    if (!shown) continue;
+    const pending = issues.filter(text => key === 'crack' ? /裂縫|量測尺寸/.test(text) : key === 'tile' ? /磁磚/.test(text) : false);
+    const status = card.querySelector('[data-condition-status]'); status.classList.toggle('needs-input', pending.length > 0);
+    let summary = '已選';
+    if (values && key === 'crack') summary = individualCracks(values) ? `${values.cracks.length} 條` : isUCrack(values) ? `${values.crackCount ?? '未記'} 條` : isNetworkCrack(values) ? '網裂' : values.widthMode === 'exact' && values.width !== null ? `寬度 ${values.width} mm` : WIDTH_MODES[values.widthMode] || '已選';
+    if (values && key === 'crack' && !individualCracks(values) && !isUCrack(values) && !isNetworkCrack(values) && values.length != null) summary += ` · 長度 ${values.length} m`;
+    if (values && key === 'tile') summary = ['crack', 'broken', 'bulge'].filter(k => values.tiles[k]).map(k => `${{ crack: '裂隙', broken: '破損', bulge: '拱起' }[k]} ${values.tiles[k + 'Text'] || (values.tiles[k + 'Count'] == null ? '未記塊數' : values.tiles[k + 'Count'] + ' 塊')}`).join(' · ');
+    if (values?.areas?.[key]?.value != null) summary += ` · ${values.areas[key].value} m²（${AREA_METHODS[values.areas[key].method]}）`;
+    status.textContent = pending.length ? '待補：' + pending.slice(0, 2).join('、') + (pending.length > 2 ? `（另 ${pending.length - 2} 項）` : '') : summary;
+    ordered.push({ card, pending: pending.length });
+  }
+  // Arrange only on entering a record or explicitly finishing selection, never while typing.
+  if (arrange) {
+    ordered.sort((a, b) => Number(b.pending > 0) - Number(a.pending > 0) || active.indexOf(a.card.dataset.conditionCard) - active.indexOf(b.card.dataset.conditionCard));
+    for (const item of ordered) { $('#conditionCards').append(item.card); item.card.open = false; }
+    const firstPending = ordered.find(item => item.pending); if (firstPending) firstPending.card.open = true;
+  }
+  // Tile quantities share one card; optional dimensions remain available there.
+  const measurementHome = tileCrack ? $('#conditionCard-tile .condition-card-body') : $('#conditionCard-crack .condition-card-body');
+  if ($('#measurement').parentElement !== measurementHome) measurementHome.append($('#measurement'));
+  const limited = $('#visibility').value !== 'visible';
+  $('#visibilitySummary').textContent = '觀察範圍：' + ({ visible: '可觀察', partial: '部分受限', inaccessible: '無法觀察' }[$('#visibility').value]) + '　修改';
+  $('#notesLabel').textContent = limited ? '觀察範圍與原因／本位置說明' : '本位置說明（選填）';
+  $('#notesLabel').classList.toggle('needs-input', limited && !$('#notes').value.trim());
+}
 function conditionState() {
   const selected = selectedConditions();
   const selectionKey = selected.join(',');
-  if ($('#selectedConditions').dataset.selection !== selectionKey) {
-    $('#selectedConditions').dataset.selection = selectionKey;
-    $('#selectedConditions').innerHTML = selected.map(key => `<button type="button" data-remove-condition="${key}" aria-label="取消選取${esc(CONDITIONS[key])}">${esc(CONDITIONS[key])} ×</button>`).join('');
+  if ($('#conditionSelectionStatus').dataset.selection !== selectionKey) {
+    $('#conditionSelectionStatus').dataset.selection = selectionKey;
     $('#conditionSelectionStatus').textContent = selected.length ? `已選 ${selected.length} 項` : '尚未分類';
   }
   $('#measurement').hidden = !selected.includes('crack');
   $('#leakFields').hidden = !selected.includes('activeLeak');
-  let anyArea = false;
   for (const key of Object.keys(AREA_CONDITIONS)) {
     const shown = selected.includes(key) && (key !== 'crack' || $('#crackPattern').value === 'network');
-    $('[data-area="' + key + '"]').hidden = !shown; anyArea ||= shown;
+    $('[data-area="' + key + '"]').hidden = !shown;
   }
-  $('#areaMeasurements').hidden = !anyArea;
+  $('#areaMeasurements').hidden = true;
+  for (const extra of document.querySelectorAll('[data-area-extra]')) extra.hidden = $(`[data-area="${extra.dataset.areaExtra}"]`).hidden;
   $('#uCrackFields').hidden = !selected.includes('crack') || $('#crackPattern').value !== 'u';
   $('#tileFields').hidden = $('#surface').value !== 'tile' && !selected.some(c => ['tileBroken', 'tileBulge'].includes(c));
   $('#tileCrackOption').hidden = $('#surface').value !== 'tile';
@@ -142,10 +214,10 @@ function conditionState() {
   for (const b of $('#visibilityChoices').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.visibility === $('#visibility').value));
   $('#visibilityHint').hidden = $('#visibility').value === 'visible';
   const summaries = [];
-  if ([...$('#areaFields').querySelectorAll('input')].some(el => el.value !== '')) summaries.push('已填面積');
   if ($('#resident').value.trim()) summaries.push('有住戶陳述');
   if (currentRecord()?.audioIds.length) summaries.push(`錄音 ${currentRecord().audioIds.length} 段`);
-  $('#recordAdvancedSummary').textContent = summaries.length ? '・' + summaries.join('・') : '面積、陳述、錄音與日期';
+  $('#recordAdvancedSummary').textContent = summaries.length ? '・' + summaries.join('・') : '陳述、錄音與日期';
+  syncConditionWorkflow();
 }
 function measurementState() {
   const mode = $('#widthMode').value, measured = $('#measured').checked;
@@ -154,6 +226,15 @@ function measurementState() {
   for (const button of $('#widthPresets').querySelectorAll('[data-width]')) button.setAttribute('aria-pressed', String(button.dataset.width === mode));
   const individual = !$('#individualCracks').hidden && crackFields?.active;
   $('#crackLayerFields').hidden = individual;
+  $('#crackExtras').hidden = individual;
+  $('#crackSizeFields').hidden = individual;
+  const optionalKey = String(optional);
+  if ($('#measurement').dataset.optional !== optionalKey) { $('#measurement').dataset.optional = optionalKey; $('#crackSizeFields').open = !optional; }
+  if (!optional) $('#crackSizeFields').open = true;
+  const pattern = $('#crackPattern').value, layer = $('#crackLayer input:checked')?.value || 'unknown';
+  $('#crackExtraSummary').textContent = [pattern ? CRACK_PATTERNS[pattern] : '', layer !== 'unknown' ? CRACK_LAYERS[layer] : ''].filter(Boolean).join(' · ');
+  $('#crackQuickTypes').hidden = isTile(data);
+  for (const button of $('#crackQuickTypes').querySelectorAll('button')) button.setAttribute('aria-pressed', String((button.dataset.crackType || 'u') === (['network', 'u'].includes(pattern) ? pattern : 'general')));
   for (const selector of ['#widthPresets', '#widthHint', '#measured', '#width']) { const el = $(selector); (selector === '#measured' ? el.parentElement : selector === '#width' ? el.closest('.two-col') : el).hidden = individual; }
   $('#width').closest('label').hidden = mode !== 'exact';
   $('#widthLegacy').hidden = individual || ['unknown', 'range0103', 'exact'].includes(mode); $('#widthLegacy').textContent = '原記錄：' + WIDTH_MODES[mode];
@@ -228,8 +309,9 @@ function renderRecordIssues() {
 function focusFieldSection(selector) {
   requestAnimationFrame(() => {
     const element = $(selector); if (!element || activeView !== 'work') return;
-    const target = element.closest('label,fieldset') || element;
-    for (let parent = target.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
+    if (element.closest('#conditionCards')) { $('#conditionPicker').open = false; syncConditionWorkflow(); }
+    const target = element.closest('#conditionCards') ? element.closest('label') || element : element.closest('label,fieldset') || element;
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
     target.tabIndex = -1; target.focus({ preventScroll: true });
     window.scrollTo({ top: Math.max(0, window.scrollY + target.getBoundingClientRect().top - $('#contextStrip').getBoundingClientRect().height - 12), behavior: 'instant' });
   });
@@ -244,6 +326,8 @@ function issueField(text) {
   if (text.includes('無法觀察')) return '#notes';
   if (text.includes('磁磚')) return '#tileFields';
   if (text.startsWith('U 型')) return '#uCrackFields';
+  const crack = /^裂縫 ([A-Z])/.exec(text);
+  if (crack) return `#individualCracks [data-crack-id]:nth-child(${crack[1].charCodeAt(0) - 64}) > summary`;
   return '#measurement';
 }
 async function managePhotos() {
@@ -319,11 +403,10 @@ async function renderEditor() {
   $('#surface').value = r.surface || ''; $('#tileCrack').checked = r.tiles?.crack || false; $('#tileBroken').checked = $('#condition input[value="tileBroken"]').checked; $('#tileBulge').checked = $('#condition input[value="tileBulge"]').checked; $('#tileApprox').checked = r.tiles?.approx || false;
   for (const [selector, key] of [['#tileCrackCount', 'crackCount'], ['#tileBrokenCount', 'brokenCount'], ['#tileBulgeCount', 'bulgeCount'], ['#tileOverlapCount', 'overlapCount']]) $(selector).value = r.tiles?.[key] ?? '';
   $('#spaces').innerHTML = [...new Set(['客廳', '房間', '廚房', '浴廁', '樓梯', '陽台', ...project.records.filter(x => x.unitId === r.unitId && x.floor === r.floor).map(x => x.space)])].filter(Boolean).map(x => `<option value="${esc(x)}">`).join('');
-  renderChips(r);
   for (const k of ['width', 'length']) { $('#' + k).value = r[k] ?? ''; $('#' + k).disabled = !r.measured; }
   crackFields.load(r);
   for (const [kind, selector] of [['crack', '#tileCrackCountText'], ['broken', '#tileBrokenCountText'], ['bulge', '#tileBulgeCountText']]) $(selector).value = r.tiles?.[kind + 'Text'] || '';
-  conditionState(); measurementState(); renderRecordIssues(); await renderMedia();
+  renderChips(r); conditionState(); measurementState(); renderRecordIssues(); await renderMedia();
 }
 async function render() {
   await projectOptions(); $('#welcome').hidden = !!project; $('#workspace').hidden = !project; $('#bottomNav').hidden = !project; $('#contextCrumbs').hidden = !project; $('#gotoCase').hidden = !project || activeView === 'case';
@@ -927,6 +1010,7 @@ async function receiveReceipt(file) {
 function helpDialog() {
   openModal('手機使用與保存', `<ol class="help-list"><li>在「案件與備份」建立案件（選透天／公寓／大樓並填層數，公寓會自動建立各樓層戶別）、會勘批次與戶別名冊；到「現場紀錄」選鑑定戶，先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>拍照自動壓年月日戳記在附件與副本（原圖不變；可逐張改，或在案件設定整案關閉），紀錄日期依照片日期帶入。點照片可圈選、畫箭頭與文字（紅＝裂縫、藍＝水分／其他損害）；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「戶別進度」，無法入內或部分完成請記原因。</li><li>從「案件與備份」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
   $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.10.0：可匯入戶別名冊、分次會勘並保留進場歷程。在附件整理選六種細圖、畫損害標註，再依戶編號與規劃分冊。標準附件依序為整體平面圖、照片說明表、照片；保留快速預覽。分冊設定請於每次匯出前核對。</p><details><summary>既有現場功能說明</summary><p>V0.8.0：一般裂縫可逐條填尺寸並以 A／B／C 圈註；磁磚可選 1／2／5／10／15／20 塊或文字數量。新增大字、橫向拍攝與收合說明的繪圖介面；樓梯提供直梯、L 型、折返及長短梯，方向未確認不加箭頭或文字。梁 U 型裂縫以條數記錄、不列總長；磁磚裂隙與破損可記塊數。在「附件整理」依房間選主照片、排序並自動產生照片流水號與位置圖，可下載 HTML 附件及列印 PDF。照片可各自設定拍攝位置，舊案及舊備份可接續使用。網狀裂隙：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p></details>');
+  $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.27：先勾選現況，再按「填寫重點」，待補卡片優先顯示。方向、層位與面積可展開補充；一般情況保留「可觀察」，有遮蔽時再修改。裂縫可選「0.1～0.3 mm」或填寫實測值；卡片收合仍保存原有資料。</p>');
   navigator.serviceWorker?.getRegistration().then(reg => { if (reg?.waiting && $('#applyUpdate')) { $('#applyUpdate').hidden = false; $('#applyUpdate').onclick = () => action(async () => { requireNoRecording(); assert(!conflictDraft, '請先另存目前副本，再套用更新'); closeModal(true); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); reg.waiting.postMessage('ACTIVATE_UPDATE'); }); } });
 }
 async function initOffline() {
@@ -966,7 +1050,6 @@ const conditionChoices = keys => keys.map(key => `<label><input type="checkbox" 
 $('#commonConditions').innerHTML = conditionChoices(COMMON_CONDITIONS);
 $('#conditionGroups').innerHTML = CONDITION_GROUPS.map(([label, keys]) => `<fieldset class="component-field"><legend>${esc(label)}</legend><div class="choice-chips">${conditionChoices(keys)}</div></fieldset>`).join('');
 $('#normalCondition').innerHTML = conditionChoices(['normal']);
-$('#selectedConditions').onclick = event => { const b = event.target.closest('[data-remove-condition]'); if (!b) return; const input = $('#condition input[value="' + b.dataset.removeCondition + '"]'); input.checked = false; changed({ target: input }); $('#moreConditions summary').focus(); };
 $('#crackLayer').innerHTML = Object.entries(CRACK_LAYERS).map(([key, label]) => `<label><input type="radio" name="crackLayer" value="${key}" ${key === 'unknown' ? 'checked' : ''}>${label}</label>`).join('');
 $('#leakForms').innerHTML = Object.entries(LEAK_FORMS).map(([key, label]) => `<label><input type="checkbox" value="${key}">${label}</label>`).join('');
 $('#areaFields').innerHTML = Object.entries(AREA_CONDITIONS).map(([key, label]) => `<div data-area="${key}" class="two-col" hidden><label>${label}面積（m²，選填）<input id="area-${key}" type="number" min="0" step="any" inputmode="decimal" placeholder="未記錄"></label><label>取得方式<select id="area-method-${key}">${opts(AREA_METHODS)}</select></label></div>`).join('');
@@ -1019,7 +1102,6 @@ $('#importReceipt').onclick = () => $('#receiptInput').click(); $('#receiptInput
 $('#persistStorage').onclick = () => action(async () => { const granted = await navigator.storage?.persist?.(); toast(granted ? '已取得持續保存，仍請定期備份' : '瀏覽器未授予持續保存，請完成外部備份'); await renderBackup(); });
 $('#fieldLabels').onchange = () => action(async () => { await renderMedia(); });
 $('#crackCountPresets').onclick = e => { const b = e.target.closest('button'); if (!b) return; $('#crackCount').value = b.dataset.count ?? Math.max(0, Math.min(99999, Number($('#crackCount').value || 0) + Number(b.dataset.countStep))); changed(); };
-$('#measurement').prepend($('#crackPattern').parentElement, $('#uCrackFields'));
 crackFields = createCrackFields($('#individualCracks'), changed, () => {
   const measured = $('#measured').checked, widthMode = $('#widthMode').value;
   const width = measured && widthMode === 'exact' && $('#width').value !== '' ? Number($('#width').value) : null;
@@ -1038,6 +1120,7 @@ for (const selector of ['#tileCrackCount', '#tileBrokenCount', '#tileBulgeCount'
 const applyFont = large => { document.body.classList.toggle('large-type', large); $('#fontSize').setAttribute('aria-pressed', String(large)); $('#fontSize').textContent = large ? '標準字' : '大字'; preference.set('large-type', String(large)); };
 applyFont(preference.get('large-type') === 'true'); $('#fontSize').onclick = () => applyFont(!document.body.classList.contains('large-type'));
 $('#recordForm').onclick = e => { const b = e.target.closest('[data-field-preset]'); if (!b) return; $('#condition input[value="normal"]').checked = false; if (b.dataset.fieldPreset === 'u') { $('#component input[value="梁"]').checked = true; $('#condition input[value="crack"]').checked = true; $('#crackPattern').value = 'u'; } else { $('#component input[value="牆面"]').checked = true; $('#surface').value = 'tile'; $('#tileCrack').checked = true; $('#condition input[value="crack"]').checked = true; } changed(); };
+initConditionWorkflow();
 organisation = createOrganisationController({ $, action, commit, getProject: () => project, openModal, closeModal, render, requireNoRecording, esc });
 reports = createReportController({ $, fail, setDirty: value => { modalDirty = value; }, action, commit, getProject: () => project, getMedia, mediaURL, openModal, closeModal, download, busyText, editDetail: rid => editRecordDetail(rid, 'report'), editPhoto: async (rid, mid) => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); await photoDialog(mid); }, editRecord: async rid => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); } });
 $('#help').onclick = () => action(helpDialog); $('#closeModal').onclick = () => closeModal(); $('#modal').addEventListener('cancel', e => { e.preventDefault(); closeModal(); }); $('#dismissError').onclick = () => { $('#errorBar').hidden = true; };
