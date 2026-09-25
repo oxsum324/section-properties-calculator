@@ -1,7 +1,7 @@
 import { assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, ROLES, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
 import { markedImage, placementMarks, reportPlanImage } from './annotation.js';
 import { photoStampText } from './model.js';
-import { detailAnnotationText, detailComparison, photoContent } from './model.js';
+import { detailAnnotationText, detailComparison, photoContent, attachmentDescription } from './model.js';
 import { detailImage } from './detail.js';
 import { STANDARD_STYLE, standardPages, segmentKey, dateSummary, splitVolumes, contentsPages } from './report-standard.js';
 
@@ -121,7 +121,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
     const get = async id => { const meta = project.media.find(m => m.id === id), blob = await getBlob(id); assert(meta && blob && await sha256(blob) === meta.sha256, '細部底圖原檔核對失敗'); includedAssets.set(id, { id, name: meta.name, sha256: meta.sha256 }); return blob; };
     const blob = await detailImage(detail, get, { color: !!options.color }); outputBytes += blob.size; assert(outputBytes <= 160 * 1024 * 1024, '附件影像超過 160 MB，請縮小每冊頁數或按戶匯出'); return dataURL(blob);
   };
-  const page = (group, body, type = '') => `<section class="sheet ${type}"><header><h1>${e(REPORT_FORMATS[index.format])}</h1><div>${e(index.code)} · ${e(index.name)}</div><div>${e([group.unit, group.floor, group.room, group.address].filter(Boolean).join(' · '))}</div></header>${body}<footer>會勘日期：${e(dateSummary(group.records, '尚未確認'))}　｜　第 ${e((index.pagePrefix || '') + ((index.pageStart || 1) + pageNumber++))} 頁</footer></section>`;
+  const page = (group, body, type = '') => `<section class="sheet ${type}"><header><h1>${e(REPORT_FORMATS[index.format])}</h1><div>${e(index.code)} · ${e(index.name)}</div><div>${e([group.unit, attachmentDescription(group.floor), attachmentDescription(group.room), group.address].filter(Boolean).join(' · '))}</div></header>${body}<footer>${dateSummary(group.records, '') ? `會勘日期：${e(dateSummary(group.records, ''))}　｜　` : ''}第 ${e((index.pagePrefix || '') + ((index.pageStart || 1) + pageNumber++))} 頁</footer></section>`;
   if (index.format === 'standard') pages.push(...await standardPages({ index, project, encodeImage, encodeDetail, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }));
   else for (const group of index.groups) {
     const planIds = new Set(group.records.flatMap(r => [r.pin?.planId, ...r.photos.map(p => p.placement?.planId)]).filter(Boolean));
@@ -133,7 +133,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
     }
     for (const record of group.records) {
       if (record.detail && record.detail.kind !== 'text') pages.push(page(group, `<h2>細部示意圖 · 照片 ${e(record.photos.map(p => p.number).join('、'))}</h2><img class="plan detail-img" src="${await encodeDetail(record.detail)}" alt="細部示意圖"><p>圖形僅示意，未按比例；圖示大小不代表實測範圍。</p>`, 'detail-sheet'));
-      const fullText = [record.contentText, `日期：${record.dateInfo.label}`].filter(Boolean).join('\n'), longText = fullText.length > 180 || fullText.split('\n').length > 4;
+      const fullText = [record.contentText, record.dateInfo.confirmed ? `日期：${record.dateInfo.label}` : ''].filter(Boolean).join('\n'), longText = fullText.length > 180 || fullText.split('\n').length > 4;
       const moreText = [];
       if (longText) moreText.push(`現況完整說明（照片 ${record.photos.map(p => p.number).join('、')}）：\n${fullText}`);
       for (let i = 0; i < record.photos.length; i += index.perPage) {
@@ -143,7 +143,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
           const contentCaption = photo.contentCaption ?? photo.caption, longCaption = contentCaption.length > 100 || contentCaption.split('\n').length > 2;
           const caption = longCaption ? compactText(contentCaption).slice(0, 100) + '…（完整說明見續頁）' : contentCaption;
           if (longCaption) moreText.push(`照片 ${photo.number} 完整說明：\n${contentCaption}`);
-          cards.push(`<figure><img src="${src}" alt="照片 ${photo.number}"><figcaption><strong>照片 ${photo.number} · ${e(ROLES[photo.role])}${photo.main ? ' · 主要照片' : ''}</strong><p>${e(caption)}</p>${!photo.placement && !record.pin ? '<p>本照片尚無圖上定位，請對照位置說明。</p>' : ''}</figcaption></figure>`);
+          cards.push(`<figure><img src="${src}" alt="照片 ${photo.number}"><figcaption><strong>照片 ${photo.number} · ${e(ROLES[photo.role])}${photo.main ? ' · 主要照片' : ''}</strong><p>${e(caption)}</p></figcaption></figure>`);
         }
         pages.push(page(group, `<div class="description">${e(longText ? compactText(fullText).slice(0, 180) + '…（完整說明見續頁）' : fullText)}</div><div class="photos count-${index.perPage}">${cards.join('')}</div>`, 'photo-sheet'));
       }

@@ -17,7 +17,8 @@ import { DETAIL_SYMBOLS, moveDetailMark, mirrorDetailMarks, splitDetailLine, sym
 import { removeRecordPhotos, validateMarks } from '../model.js';
 import { detailAnnotationText, detailComparison } from '../model.js';
 import { planTemplateCopy } from '../model.js';
-import { photoContent } from '../model.js';
+import { photoContent, attachmentDescription, attachmentObservationText } from '../model.js';
+import { dateSummary } from '../report-standard.js';
 import { reportPreferences, validateReportSettings, COMPANY_REPORT_STYLE } from '../model.js';
 
 test('report preferences travel with complete/scoped backups and restore, with main-case precedence in consolidation', async () => {
@@ -64,11 +65,69 @@ test('photo content keeps different locations, numbers, negation, multiline cont
   assert.match(result.text, /部位：牆面.*狀況：裂隙/);
 });
 
-test('extra drawing conditions remain explicit instead of becoming asserted observations', () => {
+test('extra drawing conditions remain editor reminders and never become attachment assertions', () => {
   const r = { ...newRecord('u'), component: '牆面', condition: 'damp', detail: { marks: [{ type: 'symbol', symbol: 'salt' }, { type: 'symbol', symbol: 'salt' }, { type: 'arrow' }] } };
   const result = photoContent(r).text;
-  assert.match(result, /細圖另標：白華（示意；現況分類未勾選，請核對）/);
+  assert.doesNotMatch(result, /白華|細圖另標|請核對/); assert.match(detailComparison(r).hints.join(''), /白華.*請核對/);
   assert.doesNotMatch(result, /箭頭|細圖標註/); assert.deepEqual(detailComparison(r).extra, ['salt']);
+});
+
+test('attachment descriptions omit unknown position/layer but retain selected cracks and approved approximate width', () => {
+  const r = { ...newRecord('u'), space: '客廳', location: '位置不確定', component: '牆面', condition: 'crack', widthMode: 'range0103', crackLayer: 'unknown' };
+  const before = structuredClone(r);
+  assert.equal(attachmentObservationText(r), '客廳 · 牆面：裂隙；裂縫寬度約 0.1～0.3 mm。');
+  assert.match(observationText(r), /不確定/); assert.deepEqual(r, before);
+  r.reportText = observationText(r); assert.equal(photoContent(r).text, attachmentObservationText(r));
+  r.crackLayer = 'plaster'; r.widthMode = 'exact'; r.measured = true; r.width = .42; r.length = 1.8;
+  assert.match(attachmentObservationText(r), /粉刷層.*實測寬度 0.42 mm/); assert.match(attachmentObservationText(r), /實測長度 1.8 m/);
+});
+
+test('individual attachment cracks omit empty fields and unassigned legacy groups without inventing dimensions', () => {
+  const r = { ...newRecord('u'), condition: 'crack', cracks: [
+    { pattern: '', layer: 'unknown', widthMode: 'unknown', measured: false, width: null, length: null, notes: '疑似結構裂縫。' },
+    { pattern: 'diagonal', layer: 'structural', widthMode: 'exact', measured: true, width: .5, length: 2, notes: '由窗角向右上延伸。' }
+  ], legacyCrack: { measured: true, widthMode: 'exact', width: .8, length: 3, crackLayer: 'unknown' } };
+  const text = attachmentObservationText(r);
+  assert.match(text, /裂縫 2 條；裂縫 A；裂縫 B，斜向裂隙，觀察層位：結構體，寬度 0.5 mm，長度 2 m/);
+  assert.doesNotMatch(text, /不確定|未量測|尚未選擇|疑似|0.8|原整組/);
+  assert.match(observationText(r), /原整組紀錄/); assert.equal(r.legacyCrack.width, .8);
+});
+
+test('attachment tiles show damage without missing count text or stale numeric fallback', () => {
+  const r = { ...newRecord('u'), component: '牆面', conditions: ['tileBroken', 'tileBulge'], surface: 'tile', tiles: { broken: true, bulge: true, brokenCount: null, bulgeCount: null } };
+  assert.equal(attachmentObservationText(r), '牆面：磁磚破損；磁磚拱起。');
+  r.tiles.brokenCount = 4; r.tiles.brokenText = '塊數待確認';
+  assert.doesNotMatch(attachmentObservationText(r), /4|待確認|未記/);
+  r.tiles.brokenText = ''; r.tiles.approx = true;
+  assert.match(attachmentObservationText(r), /磁磚破損 約 4 塊/);
+});
+
+test('free text keeps whole source fields together so later qualifications never become certain assertions', () => {
+  const original = '東牆：裂隙；白華，但位置不確定。西牆未見滲水。\n窗角可見水痕。疑似由外牆滲入；原因待確認。\n照片模糊，狀況不清楚！平頂剝落。';
+  assert.equal(attachmentDescription(original), '');
+  assert.equal(attachmentDescription('東牆裂隙。\n上述位置尚未確認。'), '');
+  for (const term of ['不確定', '未確定', '不清楚', '未確認', '未知', '疑似', '可能', '無法判斷', '待釐清', '尚未定位']) assert.equal(attachmentDescription(`東牆${term}裂隙；白華。`), '');
+  const precise = '東牆寬 0.2 mm（實測）；西牆寬 0.3 mm（估計）。\n櫃後遮蔽，無法觀察。裂縫路徑局部可見。';
+  assert.equal(attachmentDescription(precise), precise);
+  const r = { ...newRecord('u'), reportText: '疑似裂隙。', notes: '未確認。', detail: { note: '位置不明。', marks: [{ type: 'text', text: '狀況不清楚' }] } };
+  assert.deepEqual(photoContent(r, { role: 'close', caption: '近照：疑似白華。窗角表面痕跡。' }), { text: '', caption: '' });
+  assert.equal(r.reportText, '疑似裂隙。'); assert.equal(r.notes, '未確認。');
+});
+
+test('attachment legacy width bounds and estimated areas retain meaning without draft labels', () => {
+  for (const [mode, expected] of [['le03', '≤0.3'], ['gt03', '>0.3'], ['lt03', '小於 0.3'], ['ge03', '大於或等於 0.3']]) {
+    const r = { ...newRecord('u'), condition: 'crack', widthMode: mode };
+    const text = attachmentObservationText(r); assert(text.includes(expected)); assert.doesNotMatch(text, /初記|舊紀錄|0.1～0.3|實測/);
+  }
+  const r = { ...newRecord('u'), condition: 'damp', areas: { damp: { value: 1.5, method: 'estimated' } } };
+  assert.match(attachmentObservationText(r), /1.5 m²（估計）/);
+});
+
+test('printed date summaries omit unconfirmed source dates instead of presenting them as confirmed', () => {
+  const unknown = { dateInfo: { start: '2026-09-01', end: '2026-09-03', confirmed: false, label: '第 1 次會勘（逐筆日期未確認）' } };
+  const known = { dateInfo: { start: '2026-09-20', end: '2026-09-20', confirmed: true, label: '2026-09-20' } };
+  assert.equal(dateSummary([unknown], ''), ''); assert.equal(dateSummary([unknown, known], ''), '2026-09-20');
+  assert.equal(unknown.dateInfo.confirmed, false);
 });
 
 test('standard-floor copies isolate geometry and omit source positioning labels', () => {

@@ -119,7 +119,7 @@ async function verifyStandardPagination(page, context, out) {
     assert.equal(await preview.locator('script').count(), 0);
     const joined = (await preview.locator('tr[data-photo-number="021"] .row-text').allTextContents()).join(''); assert(joined.includes(result.long)); assert(joined.includes('<script>不可執行</script>'));
     assert(joined.includes('屋主陳述：2026-09-08 曾有滲水。'));
-    assert((await preview.locator('.table-sheet').last().innerText()).includes('尚未定位'));
+    assert(!(await preview.locator('.table-sheet').last().innerText()).includes('尚未定位'));
     const overflows = await preview.locator('.sheet-content').evaluateAll(elements => elements.map(el => ({ height: el.clientHeight, used: el.scrollHeight })).filter(x => x.used > x.height + 1)); assert.deepEqual(overflows, []);
     await preview.pdf({ path: path.join(out, 'synthetic-standard-long-v0.9.pdf'), preferCSSPageSize: true, printBackground: true });
     await preview.locator('.table-sheet').first().screenshot({ path: path.join(out, 'v0.9-standard-table.png') });

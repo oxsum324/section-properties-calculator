@@ -1,4 +1,4 @@
-import { clone, ROLES, DETAIL_TEXTS, UNIT_STATES, assert } from './model.js';
+import { clone, ROLES, DETAIL_TEXTS, UNIT_STATES, assert, attachmentDescription } from './model.js';
 
 export const STANDARD_STYLE = `
 .standard-sheet,.standard-sheet *{box-sizing:border-box}
@@ -20,11 +20,12 @@ export const STANDARD_STYLE = `
 
 export const segmentKey = (unitId, floor, index) => index.publicByFloor && index.units?.find(u => u.id === unitId)?.kind === 'public' && floor ? `${unitId}/${floor}` : unitId;
 export function dateSummary(records, fallback) {
+  records = records.filter(r => r.dateInfo?.confirmed);
   const labels = [...new Set(records.map(r => r.dateInfo?.label).filter(Boolean))];
   if (!labels.length) return fallback;
   if (labels.length <= 2 && labels.join('、').length <= 65) return labels.join('、');
   const starts = records.map(r => r.dateInfo?.start).filter(Boolean).sort(), ends = records.map(r => r.dateInfo?.end).filter(Boolean).sort();
-  return `${starts[0]}～${ends.at(-1)}（${records.some(r => !r.dateInfo?.confirmed) ? '含未確認日期，' : ''}各筆詳紀錄）`;
+  return `${starts[0]}～${ends.at(-1)}（各筆詳紀錄）`;
 }
 
 export async function standardPages({ index, project, encodeImage, encodeDetail, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }) {
@@ -33,7 +34,7 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
   await document.fonts.ready;
   const label = number => `${index.pagePrefix || ''}${number}`;
   const numberNow = () => (index.pageStart || 1) + pages.length;
-  const sheet = (unit, body, type, number = numberNow()) => `<section class="sheet standard-sheet ${type}" data-unit="${e(unit.unitId)}" id="page-${number}"><header><h1>現況鑑定紀錄附件</h1><div>案號：${e(index.code)}　${e(index.name)}</div><div>戶別：${e(unit.unit)}${unit.segmentFloor ? ' · ' + e(unit.segmentFloor) : ''}${unit.address ? '　地址：' + e(unit.address) : ''}</div></header><div class="sheet-content">${body}</div><footer>${type === 'table-sheet' ? '' : `會勘日期：${e(dateSummary(unit.records, '尚未確認'))}　｜　`}第 ${e(label(number))} 頁</footer></section>`;
+  const sheet = (unit, body, type, number = numberNow()) => `<section class="sheet standard-sheet ${type}" data-unit="${e(unit.unitId)}" id="page-${number}"><header><h1>現況鑑定紀錄附件</h1><div>案號：${e(index.code)}　${e(index.name)}</div><div>戶別：${e(unit.unit)}${attachmentDescription(unit.segmentFloor) ? ' · ' + e(attachmentDescription(unit.segmentFloor)) : ''}${unit.address ? '　地址：' + e(unit.address) : ''}</div></header><div class="sheet-content">${body}</div><footer>${type === 'table-sheet' || !dateSummary(unit.records, '') ? '' : `會勘日期：${e(dateSummary(unit.records, ''))}　｜　`}第 ${e(label(number))} 頁</footer></section>`;
   const fits = html => { shadow.innerHTML = `<style>${STANDARD_STYLE}</style>${html}`; const content = shadow.querySelector('.sheet-content'); return content.clientHeight > 100 && content.scrollHeight <= content.clientHeight + 1; };
   const add = (unit, body, type, refs = {}) => { const number = numberNow(), html = sheet(unit, body, type, number); assert(fits(html), '附件頁面放不下，請縮短案名、地址或房間名稱後再匯出'); pages.push(html); sections.push({ page: number, label: label(number), type, unitId: unit.unitId, segmentKey: unit.segmentKey, ...refs }); };
   const tableBody = rows => `<h2>照片說明表</h2><table><colgroup><col style="width:10%"><col style="width:17%"><col style="width:25%"><col style="width:48%"></colgroup><thead><tr><th>照片編號</th><th>樓層、隔間</th><th>細部示意圖</th><th>照片內容</th></tr></thead><tbody>${rows.join('')}</tbody></table><p class="units-note">單位：裂縫寬度 mm；長度 m；面積 m²；磁磚塊數 塊；梁 U 型裂縫 條。細圖未按比例。</p>`;
@@ -51,7 +52,7 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
         add(unit, `<h2>平面示意及照片位置圖</h2><div class="plan-tiles" style="grid-template-rows:repeat(${batch.length},minmax(0,1fr))">${tiles.join('')}</div><p class="legend">小圓圈＝拍攝點；大圓圈＝狀況位置；箭頭＝拍攝方向；虛線＝照片代號引線。簡圖未按比例。</p>`, 'plan-sheet', { planId: batch[0].id, planIds: batch.map(p => p.id), entries: clone(allEntries) });
       }
       const photos = unit.groups.flatMap(group => group.records.flatMap(record => record.photos.map(photo => ({ group, record, photo }))));
-      if (!photos.length) { add(unit, `<h2>本次進場紀錄</h2><p>狀態：${e(UNIT_STATES[unit.status] || '待完成')}</p><p>${e(unit.reason || '本單元尚無納入附件的照片。')}</p>${(unit.visitHistory || []).map(h => { const v = project.visits?.find(v => v.id === h.visitId); return `<p>${e(v?.name || '')} · ${e(h.date || '日期未確認')} · ${e(UNIT_STATES[h.status])}\n${e(h.scope)}\n${e(h.reason)}</p>`; }).join('')}`, 'status-sheet'); continue; }
+      if (!photos.length) { add(unit, `<h2>本次進場紀錄</h2><p>狀態：${e(UNIT_STATES[unit.status] || '待完成')}</p><p>${e(unit.reason || '本單元尚無納入附件的照片。')}</p>${(unit.visitHistory || []).map(h => { const v = project.visits?.find(v => v.id === h.visitId); return `<p>${e(v?.name || '')} · ${e(h.date || '')} · ${e(UNIT_STATES[h.status])}\n${e(h.scope)}\n${e(h.reason)}</p>`; }).join('')}`, 'status-sheet'); continue; }
       let rows = [], rowNumbers = [];
       const flush = (last = false) => {
         if (!rows.length) return;
@@ -64,7 +65,7 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
       const detailCache = new Map();
       for (const { group, record, photo } of photos) {
         const refs = [...new Set([record.pin?.planId, photo.placement?.planId].filter(Boolean))].map(id => planPages.get(id)).filter(n => n !== undefined);
-        const reference = refs.length ? `詳平面示意圖\n第 ${refs.map(label).join('、')} 頁` : '尚未定位\n請核對位置說明';
+        const reference = refs.length ? `詳平面示意圖\n第 ${refs.map(label).join('、')} 頁` : '';
         let detailHTML = e(reference);
         if (record.detail?.kind === 'text' && record.detail.value !== 'plan') detailHTML = e(DETAIL_TEXTS[record.detail.value]);
         else if (record.detail && record.detail.kind !== 'text') {
@@ -73,7 +74,7 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
         }
         const full = [record.contentText, `${ROLES[photo.role]}${photo.main ? '（主要照片）' : ''}${photo.contentCaption ? '：' + photo.contentCaption : ''}`].filter(Boolean).join('\n');
         let remaining = Array.from(full), continuation = false;
-        const row = text => `<tr data-photo-number="${photo.number}"><td class="photo-no">${photo.number}${continuation ? '<span class="continued">（續）</span>' : ''}</td><td>${e([group.floor, group.room].filter(Boolean).join('\n') || '未填')}</td><td>${detailHTML}</td><td class="row-text">${e(text)}</td></tr>`;
+        const row = text => `<tr data-photo-number="${photo.number}"><td class="photo-no">${photo.number}${continuation ? '<span class="continued">（續）</span>' : ''}</td><td>${e([group.floor, group.room].map(attachmentDescription).filter(Boolean).join('\n'))}</td><td>${detailHTML}</td><td class="row-text">${e(text)}</td></tr>`;
         while (remaining.length) {
           if (index.tableRows && rows.length >= index.tableRows) flush();
           if (fits(sheet(unit, tableBody([...rows, row(remaining.join(''))]), 'table-sheet'))) { rows.push(row(remaining.join(''))); rowNumbers.push(photo.number); break; }
@@ -110,7 +111,7 @@ export function contentsPages(index, entries, e, title = '全案分冊目錄', f
   const pages = []; let rows = [];
   const page = rows => `<section class="sheet standard-sheet toc-sheet"><header><h1>${e(title)}</h1><div>案號：${e(index.code)}　${e(index.name)}</div></header><div class="sheet-content"><table class="toc-table"><colgroup><col style="width:23%"><col style="width:45%"><col style="width:12%"><col style="width:20%"></colgroup><thead><tr><th>戶別／範圍</th><th>地址</th><th>冊次</th><th>附件頁次</th></tr></thead><tbody>${rows.join('')}</tbody></table></div><footer>目錄 ${pages.length + 1}　｜　${e(index.createdAt.slice(0, 10))}</footer></section>`;
   for (const entry of entries) {
-    const row = `<tr><td>${e(entry.unit)}${entry.floor ? '\n' + e(entry.floor) : ''}</td><td>${e(entry.address)}</td><td>${entry.volume || index.volume || 1}</td><td>${e((index.pagePrefix || '') + entry.start)}${entry.end !== entry.start ? '～' + e((index.pagePrefix || '') + entry.end) : ''}</td></tr>`;
+    const row = `<tr><td>${e(entry.unit)}${attachmentDescription(entry.floor) ? '\n' + e(attachmentDescription(entry.floor)) : ''}</td><td>${e(entry.address)}</td><td>${entry.volume || index.volume || 1}</td><td>${e((index.pagePrefix || '') + entry.start)}${entry.end !== entry.start ? '～' + e((index.pagePrefix || '') + entry.end) : ''}</td></tr>`;
     if (rows.length && (rows.length >= 20 || fits && !fits(page([...rows, row])))) { pages.push(page(rows)); rows = []; }
     assert(!fits || fits(page([row])), '目錄單筆內容過長，請縮短戶別或地址'); rows.push(row);
   }

@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.28.0';
+export const VERSION = '0.29.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -75,25 +75,38 @@ export function detailComparison(record, detail = record.detail) {
 // Compare complete source fields only. Splitting clauses could erase a second
 // location's equal measurement or detach a qualification from its subject.
 const descriptionKey = value => (value || '').trim().replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/[。；;]+$/, '');
+// Keep a complete source field together: a later sentence or line can qualify
+// the earlier assertion. Never delete only the qualifier and manufacture fact.
+const unresolvedDescription = /不確定|未確定|未確認|待確認|待核對|待釐清|不清楚|不明確|不詳|不明|未知|(?:無法|未能|難以)(?:判斷|確認|確定|辨識)|看不清|模糊|疑似|可能|推測|初判|暫判|未量測|待量測|未記錄|未記|未填|未分類|尚未(?:選擇|分類|定位)|尚無圖上定位/;
+export function attachmentDescription(value) {
+  const text = (value || '').trim();
+  return unresolvedDescription.test(text) ? '' : text;
+}
+export const attachmentObservationText = record => observationText(record, { attachment: true });
 export function photoContent(record, photo) {
   const seen = new Set(), lines = [];
   const take = value => {
-    const text = (value || '').trim(), key = descriptionKey(text);
+    const text = attachmentDescription(value), key = descriptionKey(text);
     if (!key || seen.has(key)) return '';
     seen.add(key); return text;
   };
   const add = (label, value) => { const text = take(value); if (text) lines.push(label + text); };
-  const generated = observationText(record), main = record.reportText?.trim() || generated;
+  const generated = attachmentObservationText(record), saved = record.reportText?.trim();
+  // Previously saved generated text is rendered with current display rules;
+  // the saved source and manual edits are never overwritten.
+  const main = !saved || descriptionKey(saved) === descriptionKey(observationText(record)) ? generated : attachmentDescription(saved);
   // Generated prose already carries the component and conditions. Keep the
   // classification for independently edited prose, which may omit those facts.
-  if (descriptionKey(main) !== descriptionKey(generated)) {
-    lines.push(`部位：${recordComponents(record).join('、') || '未填'}　狀況：${recordConditions(record).map(c => CONDITIONS[c]).join('、') || '未分類'}`);
+  if (main && descriptionKey(main) !== descriptionKey(generated)) {
+    const component = recordComponents(record).map(attachmentDescription).filter(Boolean).join('、');
+    const conditions = recordConditions(record).filter(c => c && c !== 'other').map(c => CONDITIONS[c]).filter(Boolean).join('、');
+    const classification = [component && `部位：${component}`, conditions && `狀況：${conditions}`].filter(Boolean).join('　');
+    if (classification) lines.push(classification);
   }
   add('', main);
   add('補充：', record.notes);
   const detail = record.detail;
-  const extra = detailComparison(record).extra;
-  if (extra.length) lines.push(`細圖另標：${extra.map(c => CONDITIONS[c]).join('、')}（示意；現況分類未勾選，請核對）。`);
+  // Diagram/classification mismatches remain in editor reminders, not photo prose.
   add('細圖補充：', detail?.note);
   for (const mark of detail?.marks || []) if (mark.type === 'text') add('圖中文字：', mark.text);
   // The report already prints the photo role next to its caption.
@@ -109,15 +122,17 @@ export const isNetworkCrack = r => recordConditions(r).includes('crack') && r.cr
 export const isUCrack = r => recordConditions(r).includes('crack') && r.crackPattern === 'u' && recordComponents(r).includes('梁');
 export const isTile = r => r.surface === 'tile';
 export const individualCracks = r => Array.isArray(r.cracks) && recordConditions(r).includes('crack') && !isNetworkCrack(r) && !isUCrack(r) && !isTile(r);
-export const tileQuantityText = (t, kind) => t[kind + 'Text'] || (t[kind + 'Count'] == null ? '（塊數未記）' : `${t.approx ? '約 ' : ''}${t[kind + 'Count']} 塊`);
-export function crackText(c, label) {
-  const pieces = [label, CRACK_PATTERNS[c.pattern] || '', c.widthMode === 'range0103' ? '' : c.measured ? '已量測' : '未量測'];
-  pieces.push(`觀察層位：${CRACK_LAYERS[c.layer ?? c.crackLayer ?? 'unknown']}`);
+export const tileQuantityText = (t, kind, attachment = false) => t[kind + 'Text'] ? (attachment ? attachmentDescription(t[kind + 'Text']) : t[kind + 'Text']) : (t[kind + 'Count'] == null ? (attachment ? '' : '（塊數未記）') : `${t.approx ? '約 ' : ''}${t[kind + 'Count']} 塊`);
+export function crackText(c, label, { attachment = false } = {}) {
+  const pattern = attachment && (!c.pattern || c.pattern === 'other') ? '' : CRACK_PATTERNS[c.pattern] || '';
+  const pieces = [label, pattern, attachment || c.widthMode === 'range0103' ? '' : c.measured ? '已量測' : '未量測'];
+  const layer = c.layer ?? c.crackLayer ?? 'unknown';
+  if (!attachment || layer !== 'unknown') pieces.push(`觀察層位：${CRACK_LAYERS[layer]}`);
   if (c.widthMode === 'range0103') pieces.push('裂縫寬度約 0.1～0.3 mm');
   else if (c.measured && c.widthMode === 'exact' && c.width !== null) pieces.push(`寬度 ${c.width} mm`);
-  else if (!['unknown', 'exact'].includes(c.widthMode)) pieces.push(`寬度${c.measured ? '實測區間' : '初記'}：${WIDTH_MODES[c.widthMode]}`);
+  else if (!['unknown', 'exact'].includes(c.widthMode)) pieces.push(`寬度${c.measured ? '實測區間' : attachment ? '區間' : '初記'}：${attachment ? (WIDTH_MODES[c.widthMode] || '').replace('舊紀錄：', '') : WIDTH_MODES[c.widthMode]}`);
   if (c.measured && c.length !== null) pieces.push(`長度 ${c.length} m`);
-  if (c.notes) pieces.push(c.notes);
+  if (c.notes) pieces.push(attachment ? attachmentDescription(c.notes) : c.notes);
   return pieces.filter(Boolean).join('，');
 }
 export const photoPlacement = (r, photo) => photo.placement === undefined ? r.placement : photo.placement;
@@ -142,36 +157,37 @@ export function clearWrongFloor(p, r) {
   if (!valid(r.observationPin)) r.observationPin = null;
   for (const photo of r.photos) if (!valid(photo.placement)) photo.placement = null;
 }
-export function observationText(r) {
-  const pieces = [], conditions = recordConditions(r), prefix = [r.space, r.location, recordComponents(r).join('、')].filter(Boolean).join(' · ');
+export function observationText(r, { attachment = false } = {}) {
+  const clean = value => attachment ? attachmentDescription(value) : value;
+  const pieces = [], conditions = recordConditions(r), prefix = [clean(r.space), clean(r.location), recordComponents(r).map(clean).filter(Boolean).join('、')].filter(Boolean).join(' · ');
   if (individualCracks(r)) {
-    pieces.push(r.cracks.length ? `裂縫 ${r.cracks.length} 條` : '裂縫（條數未記）');
-    r.cracks.forEach((c, i) => pieces.push(crackText(c, `裂縫 ${String.fromCharCode(65 + i)}`)));
-    if (r.legacyCrack) pieces.push(crackText({ ...r.legacyCrack, pattern: r.legacyCrack.crackPattern }, '原整組紀錄（未分配至單條，供核對）'));
+    pieces.push(r.cracks.length ? `裂縫 ${r.cracks.length} 條` : attachment ? '裂縫' : '裂縫（條數未記）');
+    r.cracks.forEach((c, i) => pieces.push(crackText(c, `裂縫 ${String.fromCharCode(65 + i)}`, { attachment })));
+    if (r.legacyCrack && !attachment) pieces.push(crackText({ ...r.legacyCrack, pattern: r.legacyCrack.crackPattern }, '原整組紀錄（未分配至單條，供核對）'));
   } else if (isUCrack(r)) {
     pieces.push(`U 型裂縫${r.crackCount == null ? '' : ` ${r.countApprox ? '約 ' : ''}${r.crackCount} 條`}`);
     if (r.measured && r.length !== null) pieces.push(`${r.uScope === 'each' ? '各條實測展開長度均為' : '代表 1 條實測展開長度'} ${r.length} m`);
     if (r.uPartial) pieces.push('裂縫路徑局部可見');
   } else if (conditions.includes('crack') && !isTile(r)) {
-    pieces.push(r.crackPattern ? CRACK_PATTERNS[r.crackPattern] || '裂隙' : '裂隙');
+    pieces.push(r.crackPattern && !(attachment && r.crackPattern === 'other') ? CRACK_PATTERNS[r.crackPattern] || '裂隙' : '裂隙');
     if (r.measured && r.length !== null) pieces.push(`實測長度 ${r.length} m`);
   }
   if (conditions.includes('crack') && !individualCracks(r)) {
-    pieces.push(`裂隙觀察層位：${CRACK_LAYERS[r.crackLayer ?? 'unknown']}`);
+    if (!attachment || (r.crackLayer && r.crackLayer !== 'unknown')) pieces.push(`裂隙觀察層位：${CRACK_LAYERS[r.crackLayer ?? 'unknown']}`);
     const mode = widthMode(r), scope = isUCrack(r) ? (r.uScope === 'each' ? '各條' : '代表條') : '';
     if (mode === 'range0103') pieces.push(`${scope}裂縫寬度約 0.1～0.3 mm`);
     else if (r.measured && mode === 'exact' && r.width !== null) pieces.push(`${scope}實測寬度 ${r.width} mm`);
-    else if (['le03', 'gt03', 'lt03', 'ge03'].includes(mode)) pieces.push(`${scope}寬度${r.measured ? '實測區間' : '初記'}：${WIDTH_MODES[mode]}`);
+    else if (['le03', 'gt03', 'lt03', 'ge03'].includes(mode)) pieces.push(`${scope}寬度${r.measured ? '實測區間' : attachment ? '區間' : '初記'}：${attachment ? WIDTH_MODES[mode].replace('舊紀錄：', '') : WIDTH_MODES[mode]}`);
   }
   if (isTile(r) || conditions.some(c => ['tileBulge', 'tileBroken'].includes(c))) {
     const t = r.tiles || {};
-    if (t.crack) pieces.push('磁磚裂隙 ' + tileQuantityText(t, 'crack'));
-    if (t.broken || conditions.includes('tileBroken')) pieces.push('磁磚破損 ' + tileQuantityText(t, 'broken'));
-    if (t.bulge || conditions.includes('tileBulge')) pieces.push('磁磚拱起 ' + tileQuantityText(t, 'bulge'));
+    if (t.crack) pieces.push(('磁磚裂隙 ' + tileQuantityText(t, 'crack', attachment)).trim());
+    if (t.broken || conditions.includes('tileBroken')) pieces.push(('磁磚破損 ' + tileQuantityText(t, 'broken', attachment)).trim());
+    if (t.bulge || conditions.includes('tileBulge')) pieces.push(('磁磚拱起 ' + tileQuantityText(t, 'bulge', attachment)).trim());
     if (t.crack && t.broken && t.overlapCount != null) pieces.push(`其中同時裂隙及破損 ${t.overlapCount} 塊`);
     const total = tileTotal({ ...t, broken: t.broken || conditions.includes('tileBroken'), bulge: t.bulge || conditions.includes('tileBulge') }); if (total !== null) pieces.push(`受損磁磚不重複合計 ${t.approx ? '約 ' : ''}${total} 塊`);
   }
-  for (const c of conditions) if (!['crack', 'tileBulge', 'tileBroken'].includes(c)) pieces.push(c === 'activeLeak' ? `現場可見漏水${r.leakForms?.length ? `（${r.leakForms.map(f => LEAK_FORMS[f]).join('、')}）` : ''}` : CONDITIONS[c]);
+  for (const c of conditions) if (!['crack', 'tileBulge', 'tileBroken', ...(attachment ? ['', 'other'] : [])].includes(c)) pieces.push(c === 'activeLeak' ? `現場可見漏水${r.leakForms?.length ? `（${r.leakForms.map(f => LEAK_FORMS[f]).join('、')}）` : ''}` : CONDITIONS[c]);
   for (const [key, a] of Object.entries(r.areas || {})) if (conditions.includes(key) && a.value !== null && (key !== 'crack' || isNetworkCrack(r))) pieces.push(`${AREA_CONDITIONS[key]}面積 ${a.value} m²（${AREA_METHODS[a.method]}）`);
   return [prefix, pieces.join('；')].filter(Boolean).join('：') + (pieces.length ? '。' : '');
 }
