@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
@@ -6,7 +7,7 @@ export async function verifyV024(browser, base, out) {
   const receiver = await browser.newContext(), other = await receiver.newPage(), errors = [];
   for (const p of [page, other]) p.on('pageerror', e => errors.push(e.message));
   const idle = async (p = page) => { await p.locator('#busy').waitFor({ state: 'hidden' }); await p.waitForFunction(() => document.querySelector('#reportView').getAttribute('aria-busy') !== 'true'); };
-  const click = async selector => { await page.locator(selector).click(); await idle(); };
+  const click = selector => clickSurvey(page, selector);
   const select = async (selector, value) => { await page.locator(selector).selectOption(value); await idle(); };
   const current = () => page.evaluate(async () => (await import('./store.js')).getProject(document.querySelector('#caseSelect').value));
   try {

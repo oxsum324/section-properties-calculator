@@ -4,8 +4,8 @@ const completion = tx => new Promise((resolve, reject) => { tx.oncomplete = reso
 let database;
 export async function openStore() {
   if (database) return database;
-  // Close older writers that do not recognize unfolded elevation presets.
-  const req = indexedDB.open('condition-survey-v1', 14);
+  // Close older writers that do not recognize the approximate 0.1–0.3 mm width range.
+  const req = indexedDB.open('condition-survey-v1', 15);
   req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   // Another window (a background tab or the home-screen app) can keep the old database open and block
   // the version upgrade; never hang silently, say what to close.

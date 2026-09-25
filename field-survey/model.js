@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.25.0';
+export const VERSION = '0.26.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -35,7 +35,9 @@ export function latestUnitHistory(p, u) {
     return date(b).localeCompare(date(a)) || (p.visits || []).findIndex(v => v.id === b.visitId) - (p.visits || []).findIndex(v => v.id === a.visitId);
   })[0];
 }
-export const WIDTH_MODES = { unknown: '未確認', le03: '0.3 mm 以下（≤0.3）', gt03: '超過 0.3 mm（>0.3）', exact: '輸入實測值', lt03: '舊紀錄：小於 0.3 mm', ge03: '舊紀錄：大於或等於 0.3 mm' };
+export const WIDTH_MODES = { unknown: '未確認', range0103: '約 0.1～0.3 mm', le03: '0.3 mm 以下（≤0.3）', gt03: '超過 0.3 mm（>0.3）', exact: '輸入實測值', lt03: '舊紀錄：小於 0.3 mm', ge03: '舊紀錄：大於或等於 0.3 mm' };
+// Historical bounds are accepted on read, but only the current saved bound is offered in legacy UI.
+export const widthChoices = current => Object.fromEntries(Object.entries(WIDTH_MODES).filter(([key]) => ['unknown', 'range0103', 'exact', current].includes(key)));
 export const recordComponents = r => r.components ?? (r.component ? [r.component] : []);
 export const recordConditions = r => r.conditions ?? (r.condition ? [r.condition] : []);
 export function planTemplateCopy(source, { unitId, floor, title, mediaId, sketch = source?.sketch }) {
@@ -109,9 +111,10 @@ export const isTile = r => r.surface === 'tile';
 export const individualCracks = r => Array.isArray(r.cracks) && recordConditions(r).includes('crack') && !isNetworkCrack(r) && !isUCrack(r) && !isTile(r);
 export const tileQuantityText = (t, kind) => t[kind + 'Text'] || (t[kind + 'Count'] == null ? '（塊數未記）' : `${t.approx ? '約 ' : ''}${t[kind + 'Count']} 塊`);
 export function crackText(c, label) {
-  const pieces = [label, CRACK_PATTERNS[c.pattern] || '', c.measured ? '已量測' : '未量測'];
+  const pieces = [label, CRACK_PATTERNS[c.pattern] || '', c.widthMode === 'range0103' ? '' : c.measured ? '已量測' : '未量測'];
   pieces.push(`觀察層位：${CRACK_LAYERS[c.layer ?? c.crackLayer ?? 'unknown']}`);
-  if (c.measured && c.widthMode === 'exact' && c.width !== null) pieces.push(`寬度 ${c.width} mm`);
+  if (c.widthMode === 'range0103') pieces.push('裂縫寬度約 0.1～0.3 mm');
+  else if (c.measured && c.widthMode === 'exact' && c.width !== null) pieces.push(`寬度 ${c.width} mm`);
   else if (!['unknown', 'exact'].includes(c.widthMode)) pieces.push(`寬度${c.measured ? '實測區間' : '初記'}：${WIDTH_MODES[c.widthMode]}`);
   if (c.measured && c.length !== null) pieces.push(`長度 ${c.length} m`);
   if (c.notes) pieces.push(c.notes);
@@ -156,7 +159,8 @@ export function observationText(r) {
   if (conditions.includes('crack') && !individualCracks(r)) {
     pieces.push(`裂隙觀察層位：${CRACK_LAYERS[r.crackLayer ?? 'unknown']}`);
     const mode = widthMode(r), scope = isUCrack(r) ? (r.uScope === 'each' ? '各條' : '代表條') : '';
-    if (r.measured && mode === 'exact' && r.width !== null) pieces.push(`${scope}實測寬度 ${r.width} mm`);
+    if (mode === 'range0103') pieces.push(`${scope}裂縫寬度約 0.1～0.3 mm`);
+    else if (r.measured && mode === 'exact' && r.width !== null) pieces.push(`${scope}實測寬度 ${r.width} mm`);
     else if (['le03', 'gt03', 'lt03', 'ge03'].includes(mode)) pieces.push(`${scope}寬度${r.measured ? '實測區間' : '初記'}：${WIDTH_MODES[mode]}`);
   }
   if (isTile(r) || conditions.some(c => ['tileBulge', 'tileBroken'].includes(c))) {
@@ -311,9 +315,10 @@ export function recordIssues(r) {
   if (recordConditions(r).includes('crack') && !isNetworkCrack(r) && !isUCrack(r) && !isTile(r)) {
     if (individualCracks(r)) {
       if (!r.cracks.length) issues.push('裂縫條數未記');
-      r.cracks.forEach((c, i) => { const label = `裂縫 ${String.fromCharCode(65 + i)}`; if (!c.measured) issues.push(label + '未量測'); else if ((c.widthMode === 'unknown' || c.widthMode === 'exact' && c.width === null) || c.length === null) issues.push(label + '量測尺寸未齊'); });
+      r.cracks.forEach((c, i) => { const label = `裂縫 ${String.fromCharCode(65 + i)}`; if (c.widthMode === 'range0103') { if (c.length === null) issues.push(label + '長度待補'); } else if (!c.measured) issues.push(label + '未量測'); else if ((c.widthMode === 'unknown' || c.widthMode === 'exact' && c.width === null) || c.length === null) issues.push(label + '量測尺寸未齊'); });
       return issues;
     }
+    if (widthMode(r) === 'range0103') { if (r.length === null) issues.push('裂縫長度待補'); return issues; }
     if (!r.measured) issues.push('裂縫未量測');
     if (r.measured && ((r.width === null && !['lt03', 'ge03', 'le03', 'gt03'].includes(widthMode(r))) || r.length === null)) issues.push('量測尺寸未齊');
   }

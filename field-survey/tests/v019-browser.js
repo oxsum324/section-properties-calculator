@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -6,7 +7,7 @@ export async function verifyV019(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   const idle = () => page.locator('#busy').waitFor({ state: 'hidden' });
-  const click = async selector => { await page.locator(selector).click(); await idle(); };
+  const click = selector => clickSurvey(page, selector);
   const byCode = code => page.evaluate(async c => (await (await import('./store.js')).allProjects()).find(p => p.code === c), code);
   const visible = selector => page.locator(selector).isVisible();
   const text = selector => page.locator(selector).textContent();
@@ -58,12 +59,12 @@ export async function verifyV019(browser, base, out) {
     await page.locator('#unitSelect').selectOption(imported.units.find(u => u.code === 'A-1201').id); await idle(); await click('#addRecord'); assert.equal(await page.locator('#floor').inputValue(), '12F'); assert((await chips('#floorChips')).includes('12F'));
     // Backups carry the new fields under format 12 and restore unchanged.
     const roundtrip = await page.evaluate(async code => { const s = await import('./store.js'), b = await import('./bundle.js'), p = (await s.allProjects()).find(x => x.code === code), get = async id => (await s.getMedia(id)).blob, bundle = await b.readBundle((await b.makeBundle(p, get)).blob); return { version: bundle.manifest.version, equal: JSON.stringify(bundle.project) === JSON.stringify(p), type: bundle.project.buildingType, floors: bundle.project.units.map(u => u.floor || '') }; }, 'V019');
-    assert.equal(roundtrip.version, 14); assert(roundtrip.equal); assert.equal(roundtrip.type, 'apartment'); assert.deepEqual(roundtrip.floors, ['1F', '2F', '3F', '']);
+    assert.equal(roundtrip.version, 15); assert(roundtrip.equal); assert.equal(roundtrip.type, 'apartment'); assert.deepEqual(roundtrip.floors, ['1F', '2F', '3F', '']);
     for (const [width, height] of [[320, 740], [390, 844], [844, 390]]) { await page.setViewportSize({ width, height }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'no horizontal overflow at ' + width); await page.screenshot({ path: path.join(out, `v0.19-work-${width}.png`) }); }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await page.locator('#contextStrip').waitFor();
     assert(await visible('#contextStrip')); assert.match(await text('#contextCase'), /V019/); await page.locator('#recordForm, #recordEmpty').first().waitFor(); assert((await chips('#floorChips')).length > 0 || await visible('#recordEmpty'));
     assert.deepEqual(errors, []); await fs.writeFile(path.join(out, 'v0.19-result.json'), JSON.stringify({ passed: true, backupVersion: 12, types: ['apartment', 'tower'], errors, physicalPhoneTested: false }, null, 2));
-    console.log('PASS V0.19 case types, auto units, fixed floors with editable chips, space chips, address shortcut, next unit, case settings, tower buildings, roster floors, backup 12 and offline');
+    console.log('PASS V0.19 case types, auto units, fixed floors with editable chips, space chips, address shortcut, next unit, case settings, tower buildings, roster floors, backup and offline');
   } finally { await context.close(); }
 }

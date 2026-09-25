@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -5,7 +6,7 @@ import path from 'node:path';
 export async function verifyV022(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  const click = async selector => { await page.locator(selector).click(); await page.locator('#busy').waitFor({ state: 'hidden' }); };
+  const click = selector => clickSurvey(page, selector);
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   const tap = async (x,y) => {
     const p = await page.locator('#detailStage svg').evaluate((svg,[x,y]) => { const v=svg.viewBox.baseVal, p=new DOMPoint(v.x+x*v.width,v.y+y*v.height).matrixTransform(svg.getScreenCTM()); return {x:p.x,y:p.y}; }, [x,y]);

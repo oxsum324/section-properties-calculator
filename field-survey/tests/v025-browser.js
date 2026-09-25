@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -6,7 +7,7 @@ export async function verifyV025(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } }), page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
   const idle = () => page.locator('#busy').waitFor({ state: 'hidden' });
-  const click = async selector => { await page.locator(selector).click(); await idle(); };
+  const click = selector => clickSurvey(page, selector);
   const select = async (selector, value) => { await page.locator(selector).selectOption(value); await idle(); };
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   try {

@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -21,7 +22,7 @@ export async function verifyV0222(browser, base, out) {
       }
       await s.saveProject(m.syncRooms(p), 0, assets); return (await s.allProjects())[0];
     });
-    await page.reload(); await page.locator('#recordForm').waitFor(); await page.locator('[data-view=report]').click();
+    await page.reload(); await page.locator('#recordForm').waitFor(); await clickSurvey(page, '[data-view=report]');
     const preview = page.locator('[data-content-preview]');
     assert.equal(await preview.evaluate(el => el.parentElement.open), false);
     await preview.evaluate(el => el.parentElement.open = true);
@@ -48,7 +49,7 @@ export async function verifyV0222(browser, base, out) {
       }
       await tab.close();
     }
-    await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await page.locator('[data-view=report]').click();
+    await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await clickSurvey(page, '[data-view=report]');
     assert.equal(await page.locator('[data-content-preview]').textContent(), common); assert.deepEqual(errors, []);
     console.log('PASS V0.22.2 concise photo content, draft preview, both attachments, unchanged backup and offline');
   } finally { await context.close(); }

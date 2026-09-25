@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -6,7 +7,7 @@ export async function verifyV018(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   const idle = () => page.locator('#busy').waitFor({ state: 'hidden' });
-  const click = async selector => { await page.locator(selector).click(); await idle(); };
+  const click = selector => clickSurvey(page, selector);
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   const visible = selector => page.locator(selector).isVisible();
   const activeView = () => page.locator('#bottomNav .active').getAttribute('data-view');

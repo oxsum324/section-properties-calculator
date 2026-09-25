@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -5,7 +6,7 @@ import path from 'node:path';
 export async function verifyV012(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  const click = async selector => { await page.locator(selector).click(); await page.locator('#busy').waitFor({ state: 'hidden' }); };
+  const click = selector => clickSurvey(page, selector);
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   const transform = () => page.locator('#labelStage [data-plan-label="0"]').getAttribute('transform');
   const tapAt = async (x, y) => {
@@ -80,7 +81,7 @@ export async function verifyV012(browser, base, out) {
       try { labels.planLabelGeometry(changed, 1200, 900, plan.labelLayout); } catch (e) { stale = /定位/.test(e.message); }
       return { expected, hashes, unchanged: before === JSON.stringify(p), stale, coordinates: geometry.labels.map(b => [b.x, b.y]), renumbered: second.labels.map(b => [b.x, b.y]), version: restored.manifest.version, isolated: copy.plans[0].labelLayout[0].id !== plan.labelLayout[0].id && copy.plans[0].labelLayout[0].recordId === plan.labelLayout[0].recordId };
     });
-    assert(verification.unchanged); assert(verification.stale); assert(verification.isolated); assert.equal(verification.version, 14);
+    assert(verification.unchanged); assert(verification.stale); assert(verification.isolated); assert.equal(verification.version, 15);
     assert.deepEqual(verification.coordinates, verification.renumbered); assert(verification.hashes.every(h => h === verification.expected));
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await click('[data-view=report]'); await page.locator('#reportAdvanced').evaluate(el => el.open = true); await click('#editPlanLabels'); assert.equal(await transform(), moved); await click('#closeModal');
     assert.deepEqual(errors, []); await fs.writeFile(path.join(out, 'v0.12-result.json'), JSON.stringify({ passed: true, ...verification, errors, physicalPhoneTested: false }, null, 2));

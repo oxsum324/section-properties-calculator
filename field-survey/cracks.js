@@ -1,4 +1,4 @@
-import { id, WIDTH_MODES, CRACK_PATTERNS, CRACK_LAYERS, assert } from './model.js';
+import { id, WIDTH_MODES, widthChoices, CRACK_PATTERNS, CRACK_LAYERS, assert } from './model.js';
 
 export const crackLabel = i => String.fromCharCode(65 + i);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -20,20 +20,23 @@ export function createCrackFields(root, changed, legacyValues, onError) {
   function state() {
     for (const [i, card] of [...root.querySelectorAll('[data-crack-id]')].entries()) {
       const get = key => card.querySelector(`[data-key="${key}"]`), measured = get('measured').checked;
+      const legacyLabel = card.querySelector('[data-width-legacy]'); legacyLabel.hidden = ['unknown', 'range0103', 'exact'].includes(get('widthMode').value); legacyLabel.textContent = '原記錄：' + WIDTH_MODES[get('widthMode').value];
+      get('width').closest('label').hidden = get('widthMode').value !== 'exact';
+      for (const button of card.querySelectorAll('[data-narrow],[data-exact]')) button.setAttribute('aria-pressed', String(get('widthMode').value === (button.hasAttribute('data-narrow') ? 'range0103' : 'exact')));
       get('width').disabled = !measured || get('widthMode').value !== 'exact'; get('length').disabled = !measured;
       const w = measured && get('widthMode').value === 'exact' && get('width').value !== '' ? `${get('width').value} mm` : WIDTH_MODES[get('widthMode').value];
-      card.querySelector('summary').textContent = `裂縫 ${crackLabel(i)} · ${w}${measured && get('length').value !== '' ? ` · ${get('length').value} m` : ''}${measured ? '' : ' · 未量測'}`;
+      card.querySelector('summary').textContent = `裂縫 ${crackLabel(i)} · ${w}${measured && get('length').value !== '' ? ` · ${get('length').value} m` : ''}${measured || get('widthMode').value === 'range0103' ? '' : ' · 未量測'}`;
     }
   }
   function render() {
-    root.innerHTML = `<div class="choice-chips"><button type="button" data-count="1">1 條</button><button type="button" data-count="2">2 條</button><button type="button" data-count="3">3 條</button><button type="button" data-add>＋一條</button></div><p class="micro">每條分別記寬度 mm、長度 m；A、B、C 可標在同一張照片。</p>${legacy ? '<p class="micro">原有整組尺寸已保留供核對，未自動分配至任何單條裂縫。</p>' : ''}<div class="crack-cards">${(cracks || []).map((c, i) => `<details data-crack-id="${esc(c.id)}" ${i === (cracks.length - 1) ? 'open' : ''}><summary>裂縫 ${crackLabel(i)}</summary><fieldset class="component-field"><legend>本條觀察層位</legend><select data-key="layer" aria-label="本條觀察層位">${options(CRACK_LAYERS, c.layer || 'unknown')}</select></fieldset><label>型態<select data-key="pattern">${options(Object.fromEntries(Object.entries(CRACK_PATTERNS).filter(([k]) => !['network', 'u'].includes(k))), c.pattern)}</select></label><label>寬度記法<select data-key="widthMode">${options(WIDTH_MODES, c.widthMode)}</select></label><button type="button" data-narrow>≤0.3 mm 以下</button><label class="check-label"><input data-key="measured" type="checkbox" ${c.measured ? 'checked' : ''}>本條已實際量測</label><div class="two-col"><label>寬度（mm）<input data-key="width" type="number" min="0" step="any" inputmode="decimal" value="${c.width ?? ''}"></label><label>長度（m）<input data-key="length" type="number" min="0" step="any" inputmode="decimal" value="${c.length ?? ''}"></label></div><label>本條說明<input data-key="notes" maxlength="1000" value="${esc(c.notes)}" placeholder="例如窗角向下延伸；尚未量測"></label><button type="button" data-remove>移除本條</button></details>`).join('')}</div>`;
+    root.innerHTML = `<div class="choice-chips"><button type="button" data-count="1">1 條</button><button type="button" data-count="2">2 條</button><button type="button" data-count="3">3 條</button><button type="button" data-add>＋一條</button></div><p class="micro">每條分別記寬度 mm、長度 m；A、B、C 可標在同一張照片。</p>${legacy ? '<p class="micro">原有整組尺寸已保留供核對，未自動分配至任何單條裂縫。</p>' : ''}<div class="crack-cards">${(cracks || []).map((c, i) => `<details data-crack-id="${esc(c.id)}" ${i === (cracks.length - 1) ? 'open' : ''}><summary>裂縫 ${crackLabel(i)}</summary><fieldset class="component-field"><legend>本條觀察層位</legend><select data-key="layer" aria-label="本條觀察層位">${options(CRACK_LAYERS, c.layer || 'unknown')}</select></fieldset><label>型態<select data-key="pattern">${options(Object.fromEntries(Object.entries(CRACK_PATTERNS).filter(([k]) => !['network', 'u'].includes(k))), c.pattern)}</select></label><label hidden>寬度記法<select data-key="widthMode">${options(widthChoices(c.widthMode), c.widthMode)}</select></label><p class="micro" data-width-legacy hidden></p><div class="choice-chips"><button type="button" data-narrow>0.1～0.3 mm</button><button type="button" data-exact>填寫實測值</button></div><label class="check-label"><input data-key="measured" type="checkbox" ${c.measured ? 'checked' : ''}>已量測</label><div class="two-col"><label>寬度（mm）<input data-key="width" type="number" min="0" step="any" inputmode="decimal" value="${c.width ?? ''}"></label><label>長度（m）<input data-key="length" type="number" min="0" step="any" inputmode="decimal" value="${c.length ?? ''}"></label></div><label>本條說明<input data-key="notes" maxlength="1000" value="${esc(c.notes)}" placeholder="例如窗角向下延伸；尚未量測"></label><button type="button" data-remove>移除本條</button></details>`).join('')}</div>`;
     state();
   }
   root.addEventListener('input', state);
   root.addEventListener('change', state);
   const handleClick = e => {
     const b = e.target.closest('button'); if (!b) return;
-    if (b.hasAttribute('data-narrow')) { const card = b.closest('[data-crack-id]'); card.querySelector('[data-key="widthMode"]').value = 'le03'; card.querySelector('[data-key="width"]').value = ''; state(); changed(); return; }
+    if (b.hasAttribute('data-narrow') || b.hasAttribute('data-exact')) { const card = b.closest('[data-crack-id]'); card.querySelector('[data-key="widthMode"]').value = b.hasAttribute('data-narrow') ? 'range0103' : 'exact'; if (b.hasAttribute('data-narrow')) card.querySelector('[data-key="width"]').value = ''; else card.querySelector('[data-key="measured"]').checked = true; state(); changed(); return; }
     const current = read(); if (cracks) cracks = current.cracks; else legacy ??= legacyValues();
     if (b.hasAttribute('data-remove')) {
       if (!confirm('移除此條裂縫及尺寸？照片上的文字圈註仍保留，請一併核對。')) return;

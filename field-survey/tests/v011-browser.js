@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -5,7 +6,7 @@ import path from 'node:path';
 export async function verifyV011(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  const click = async selector => { await page.locator(selector).click(); await page.locator('#busy').waitFor({ state: 'hidden' }); };
+  const click = selector => clickSurvey(page, selector);
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   const choose = (key, checked = true) => page.locator(`#condition input[value="${key}"]`).setChecked(checked);
   try {
@@ -58,7 +59,7 @@ export async function verifyV011(browser, base, out) {
     await choose('normal'); await click('#saveRecord'); r = (await current()).records[0]; assert.deepEqual(r.conditions, ['normal']); assert.equal(r.tiles.bulge, false); assert.equal(r.tiles.broken, false); assert.equal(r.cracks[1].layer, 'structural'); assert(await page.locator('#measurement').isHidden());
     await choose('tileBulge'); await click('#saveRecord'); assert.equal((await current()).records[0].tiles.bulgeText, '二十餘塊');
     const backup = await page.evaluate(async () => { const m = await import('./model.js'), s = await import('./store.js'), b = await import('./bundle.js'), p = (await s.allProjects())[0]; const result = await b.readBundle((await b.makeBundle(p, async id => (await s.getMedia(id)).blob)).blob); const restored = m.restoredCopy(result.project).project; m.validateProject(restored); return { version: result.manifest.version, equal: JSON.stringify(p) === JSON.stringify(result.project), layer: restored.records[0].cracks[1].layer, countText: restored.records[0].tiles.bulgeText, hash: await m.sha256(result.media[0].blob), sourceHash: p.media[0].sha256 }; });
-    assert.equal(backup.version, 14); assert(backup.equal); assert.equal(backup.layer, 'structural'); assert.equal(backup.countText, '二十餘塊'); assert.equal(backup.hash, backup.sourceHash); assert.deepEqual(errors, []);
+    assert.equal(backup.version, 15); assert(backup.equal); assert.equal(backup.layer, 'structural'); assert.equal(backup.countText, '二十餘塊'); assert.equal(backup.hash, backup.sourceHash); assert.deepEqual(errors, []);
     await fs.writeFile(path.join(out, 'v0.11-result.json'), JSON.stringify({ passed: true, ...backup, errors, physicalPhoneTested: false }, null, 2));
     console.log('PASS V0.11 compact conditions, neutral per-crack layers, tile counts, optional areas, both report formats and offline backup');
   } finally { await context.close(); }

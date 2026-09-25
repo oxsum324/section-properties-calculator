@@ -54,7 +54,7 @@ export async function verifyV016(browser, base, out) {
       for(const format of ['quick','standard']) { const report=await r.renderAttachment(p,get,{format}),doc=new DOMParser().parseFromString(report.html,'text/html'),src=doc.querySelector('.detail-img').src;hashes.push(await m.sha256(Uint8Array.from(atob(src.split(',')[1]),c=>c.charCodeAt(0)))); }
       return {version:bundle.manifest.version,equal:JSON.stringify(bundle.project)===JSON.stringify(p),names:Object.values(g.DETAIL_SYMBOLS),size,hashes,expected,png:Array.from(new Uint8Array(await png.arrayBuffer()))};
     });
-    assert.equal(result.version, 14);assert(result.equal);assert(result.hashes.every(h=>h===result.expected));
+    assert.equal(result.version, 15);assert(result.equal);assert(result.hashes.every(h=>h===result.expected));
     assert.deepEqual(labels.map(l=>l.text),result.names);assert.deepEqual(result.size,{width:1200,height:640},'No duplicate legend or extra strip below the drawing');
     await fs.writeFile(path.join(out,'v0.16-ten-icons-detail.png'),Buffer.from(result.png));
     await page.waitForFunction(()=>document.querySelector('#offlineStatus').textContent==='離線已就緒');await context.setOffline(true);await page.reload();await click(`[data-field-detail="${before.id}"]`);assert.equal(await page.locator('#detailStage [data-detail-index]').count(),10);await click('#saveDetail');assert.deepEqual((await current()).records[0].detail,saved.detail);
