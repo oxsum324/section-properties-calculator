@@ -115,12 +115,43 @@ test('free text keeps whole source fields together so later qualifications never
 });
 
 test('attachment legacy width bounds and estimated areas retain meaning without draft labels', () => {
-  for (const [mode, expected] of [['le03', '≤0.3'], ['gt03', '>0.3'], ['lt03', '小於 0.3'], ['ge03', '大於或等於 0.3']]) {
+  for (const [mode, expected] of [['le03', '0.3 mm 以下'], ['gt03', '超過 0.3 mm'], ['lt03', '小於 0.3'], ['ge03', '大於或等於 0.3']]) {
     const r = { ...newRecord('u'), condition: 'crack', widthMode: mode };
     const text = attachmentObservationText(r); assert(text.includes(expected)); assert.doesNotMatch(text, /初記|舊紀錄|0.1～0.3|實測/);
   }
   const r = { ...newRecord('u'), condition: 'damp', areas: { damp: { value: 1.5, method: 'estimated' } } };
-  assert.match(attachmentObservationText(r), /1.5 m²（估計）/);
+  assert.match(attachmentObservationText(r), /面積約 1.5 m²/);
+});
+
+test('area prose follows each area method independently of the crack measurement flag and preserves stored prose', () => {
+  const r = { ...newRecord('u'), conditions: ['damp', 'salt'], measured: false, areas: { damp: { value: 2.5, method: 'measured' }, salt: { value: 1.2, method: 'estimated' } } };
+  r.reportText = observationText(r);
+  const before = structuredClone(r), content = photoContent(r).text;
+  assert.match(content, /滲水痕面積 2.5 m²/); assert.match(content, /白華面積約 1.2 m²/); assert.doesNotMatch(content, /（實測）|（估計）/);
+  assert.deepEqual(r, before);
+  r.measured = true; assert.equal(photoContent(r).text, content);
+  r.reportText = '東牆白華面積 1.2 m²（估計）。';
+  assert.match(photoContent(r).text, /東牆白華面積約 1.2 m²。/);
+  assert.equal(r.reportText, '東牆白華面積 1.2 m²（估計）。');
+  r.areas.damp.value = 0; assert.match(attachmentObservationText(r), /滲水痕面積 0 m²/);
+  r.areas.salt.value = null; assert.doesNotMatch(attachmentObservationText(r), /白華面積/);
+});
+
+test('saved width prose drops duplicate parentheses while keeping strict and inclusive bounds distinct', () => {
+  const r = { ...newRecord('u'), condition: 'crack', widthMode: 'le03' };
+  r.reportText = observationText(r); const raw = r.reportText;
+  assert.match(photoContent(r).text, /0.3 mm 以下/); assert.doesNotMatch(photoContent(r).text, /[（(].*0.3/); assert.equal(r.reportText, raw);
+  assert.equal(attachmentDescription('裂縫寬度 0.3 mm 以下（小於 0.3）。'), '裂縫寬度 0.3 mm 以下。');
+  assert.equal(widthChoices('le03').le03, '0.3 mm 以下');
+  assert.equal(widthChoices('lt03').lt03, '舊紀錄：小於 0.3 mm');
+  assert.equal(widthChoices('ge03').ge03, '舊紀錄：大於或等於 0.3 mm');
+});
+
+test('photo role prefixes are omitted even after reclassification without deleting actual photo descriptions', () => {
+  const r = newRecord('u');
+  for (const caption of ['近照', '主照片', '（主要照片）', '近照（主要照片）', '位置全景。']) assert.equal(photoContent(r, { role: 'scale', caption }).caption, '');
+  for (const caption of ['近照（主要照片）：窗角裂隙。', '位置全景：窗角裂隙。', '主照片：近照：窗角裂隙。']) assert.equal(photoContent(r, { role: 'scale', caption }).caption, '窗角裂隙。');
+  assert.equal(photoContent(r, { role: 'close', caption: '近照顯示窗角裂隙。' }).caption, '近照顯示窗角裂隙。');
 });
 
 test('printed date summaries omit unconfirmed source dates instead of presenting them as confirmed', () => {

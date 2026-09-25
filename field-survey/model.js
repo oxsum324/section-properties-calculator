@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.29.0';
+export const VERSION = '0.29.1';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -36,8 +36,14 @@ export function latestUnitHistory(p, u) {
   })[0];
 }
 export const WIDTH_MODES = { unknown: '未確認', range0103: '約 0.1～0.3 mm', le03: '0.3 mm 以下（≤0.3）', gt03: '超過 0.3 mm（>0.3）', exact: '輸入實測值', lt03: '舊紀錄：小於 0.3 mm', ge03: '舊紀錄：大於或等於 0.3 mm' };
+// Retain historical generated labels for matching saved prose, but show each bound once.
+function conciseWidthText(text) {
+  return text.replace(/(0\.3\s*mm\s*以下)\s*[（(]\s*(?:≤\s*0\.3|小於(?:或等於)?\s*0\.3)(?:\s*mm)?\s*[）)]/g, '$1')
+    .replace(/((?:超過|小於|大於或等於)\s*0\.3\s*mm)\s*[（(]\s*[<>≥]\s*0\.3(?:\s*mm)?\s*[）)]/g, '$1');
+}
+export const widthLabel = mode => conciseWidthText(WIDTH_MODES[mode] || '');
 // Historical bounds are accepted on read, but only the current saved bound is offered in legacy UI.
-export const widthChoices = current => Object.fromEntries(Object.entries(WIDTH_MODES).filter(([key]) => ['unknown', 'range0103', 'exact', current].includes(key)));
+export const widthChoices = current => Object.fromEntries(Object.keys(WIDTH_MODES).filter(key => ['unknown', 'range0103', 'exact', current].includes(key)).map(key => [key, widthLabel(key)]));
 export const recordComponents = r => r.components ?? (r.component ? [r.component] : []);
 export const recordConditions = r => r.conditions ?? (r.condition ? [r.condition] : []);
 export function planTemplateCopy(source, { unitId, floor, title, mediaId, sketch = source?.sketch }) {
@@ -80,7 +86,10 @@ const descriptionKey = value => (value || '').trim().replace(/\r\n?/g, '\n').rep
 const unresolvedDescription = /不確定|未確定|未確認|待確認|待核對|待釐清|不清楚|不明確|不詳|不明|未知|(?:無法|未能|難以)(?:判斷|確認|確定|辨識)|看不清|模糊|疑似|可能|推測|初判|暫判|未量測|待量測|未記錄|未記|未填|未分類|尚未(?:選擇|分類|定位)|尚無圖上定位/;
 export function attachmentDescription(value) {
   const text = (value || '').trim();
-  return unresolvedDescription.test(text) ? '' : text;
+  if (unresolvedDescription.test(text)) return '';
+  // Apply the same display convention to previously saved generated area text.
+  return conciseWidthText(text).replace(/面積\s*(\d+(?:\.\d+)?)\s*(m²|m2|㎡|平方公尺)\s*[（(]\s*(實測|估計|非實測)\s*[）)]/g,
+    (_, amount, unit, method) => `面積${method === '實測' ? ' ' : '約 '}${amount} ${unit}`);
 }
 export const attachmentObservationText = record => observationText(record, { attachment: true });
 export function photoContent(record, photo) {
@@ -109,13 +118,18 @@ export function photoContent(record, photo) {
   // Diagram/classification mismatches remain in editor reminders, not photo prose.
   add('細圖補充：', detail?.note);
   for (const mark of detail?.marks || []) if (mark.type === 'text') add('圖中文字：', mark.text);
-  // The report already prints the photo role next to its caption.
-  const role = ROLES[photo?.role], rawCaption = photo?.caption?.trim() || '';
-  const caption = role && rawCaption === role ? '' : role && (rawCaption.startsWith(role + '：') || rawCaption.startsWith(role + ':')) ? rawCaption.slice(role.length + 1).trim() : rawCaption;
+  // Roles are selection controls, not report prose. Old captions may still carry
+  // their original role after the user changes the photo's current role.
+  let caption = photo?.caption?.trim() || '', previous;
+  do {
+    previous = caption;
+    caption = caption.replace(/^(?:(?:位置全景|近照|量尺照|其他|主(?:要)?照片)(?:\s*[（(]主(?:要)?照片[）)])?|[（(]主(?:要)?照片[）)])\s*(?:[:：]\s*|[。.]?$)/, '').trim();
+  } while (caption !== previous);
   return { text: lines.join('\n'), caption: take(caption) };
 }
 export const AREA_CONDITIONS = { crack: '網狀裂隙分布', damp: '滲水痕', salt: '白華', spall: '剝落', tileBulge: '磁磚拱起', tileBroken: '磁磚破損', honeycomb: '混凝土蜂窩', tileDetached: '磁磚脫落', paintBlister: '油漆起泡', plasterBulge: '粉刷層鼓起', ponding: '積水', rustStain: '鏽水痕', moldStain: '霉斑', other: '其他損害' };
 export const AREA_METHODS = { measured: '實測', estimated: '估計' };
+export const areaAmountText = area => `${area.method === 'measured' ? '' : '約 '}${area.value} m²`;
 export const CRACK_PATTERNS = { '': '尚未選擇', horizontal: '水平裂隙', vertical: '垂直裂隙', diagonal: '斜向裂隙', network: '網狀裂隙', u: '梁 U 型裂縫', other: '其他（於說明補充）' };
 export const widthMode = r => r.widthMode ?? (r.width !== null ? 'exact' : 'unknown');
 export const isNetworkCrack = r => recordConditions(r).includes('crack') && r.crackPattern === 'network';
@@ -130,7 +144,7 @@ export function crackText(c, label, { attachment = false } = {}) {
   if (!attachment || layer !== 'unknown') pieces.push(`觀察層位：${CRACK_LAYERS[layer]}`);
   if (c.widthMode === 'range0103') pieces.push('裂縫寬度約 0.1～0.3 mm');
   else if (c.measured && c.widthMode === 'exact' && c.width !== null) pieces.push(`寬度 ${c.width} mm`);
-  else if (!['unknown', 'exact'].includes(c.widthMode)) pieces.push(`寬度${c.measured ? '實測區間' : attachment ? '區間' : '初記'}：${attachment ? (WIDTH_MODES[c.widthMode] || '').replace('舊紀錄：', '') : WIDTH_MODES[c.widthMode]}`);
+  else if (!['unknown', 'exact'].includes(c.widthMode)) pieces.push(`寬度${c.measured ? '實測區間' : attachment ? '區間' : '初記'}：${attachment ? widthLabel(c.widthMode).replace('舊紀錄：', '') : WIDTH_MODES[c.widthMode]}`);
   if (c.measured && c.length !== null) pieces.push(`長度 ${c.length} m`);
   if (c.notes) pieces.push(attachment ? attachmentDescription(c.notes) : c.notes);
   return pieces.filter(Boolean).join('，');
@@ -177,7 +191,7 @@ export function observationText(r, { attachment = false } = {}) {
     const mode = widthMode(r), scope = isUCrack(r) ? (r.uScope === 'each' ? '各條' : '代表條') : '';
     if (mode === 'range0103') pieces.push(`${scope}裂縫寬度約 0.1～0.3 mm`);
     else if (r.measured && mode === 'exact' && r.width !== null) pieces.push(`${scope}實測寬度 ${r.width} mm`);
-    else if (['le03', 'gt03', 'lt03', 'ge03'].includes(mode)) pieces.push(`${scope}寬度${r.measured ? '實測區間' : attachment ? '區間' : '初記'}：${attachment ? WIDTH_MODES[mode].replace('舊紀錄：', '') : WIDTH_MODES[mode]}`);
+    else if (['le03', 'gt03', 'lt03', 'ge03'].includes(mode)) pieces.push(`${scope}寬度${r.measured ? '實測區間' : attachment ? '區間' : '初記'}：${attachment ? widthLabel(mode).replace('舊紀錄：', '') : WIDTH_MODES[mode]}`);
   }
   if (isTile(r) || conditions.some(c => ['tileBulge', 'tileBroken'].includes(c))) {
     const t = r.tiles || {};
@@ -188,7 +202,7 @@ export function observationText(r, { attachment = false } = {}) {
     const total = tileTotal({ ...t, broken: t.broken || conditions.includes('tileBroken'), bulge: t.bulge || conditions.includes('tileBulge') }); if (total !== null) pieces.push(`受損磁磚不重複合計 ${t.approx ? '約 ' : ''}${total} 塊`);
   }
   for (const c of conditions) if (!['crack', 'tileBulge', 'tileBroken', ...(attachment ? ['', 'other'] : [])].includes(c)) pieces.push(c === 'activeLeak' ? `現場可見漏水${r.leakForms?.length ? `（${r.leakForms.map(f => LEAK_FORMS[f]).join('、')}）` : ''}` : CONDITIONS[c]);
-  for (const [key, a] of Object.entries(r.areas || {})) if (conditions.includes(key) && a.value !== null && (key !== 'crack' || isNetworkCrack(r))) pieces.push(`${AREA_CONDITIONS[key]}面積 ${a.value} m²（${AREA_METHODS[a.method]}）`);
+  for (const [key, a] of Object.entries(r.areas || {})) if (conditions.includes(key) && a.value !== null && (key !== 'crack' || isNetworkCrack(r))) pieces.push(attachment ? `${AREA_CONDITIONS[key]}面積${a.method === 'measured' ? ' ' : ''}${areaAmountText(a)}` : `${AREA_CONDITIONS[key]}面積 ${a.value} m²（${AREA_METHODS[a.method]}）`);
   return [prefix, pieces.join('；')].filter(Boolean).join('：') + (pieces.length ? '。' : '');
 }
 export function tileTotal(t) {

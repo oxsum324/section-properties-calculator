@@ -19,14 +19,20 @@ export async function verifyV029(browser, base, out) {
       Object.assign(second, { reportText: '疑似白華。', notes: '未確認。', location: '位置未確定' });
       const third = m.newRecord(u.id, '2F', '浴廁');
       Object.assign(third, { component: '牆面', condition: 'tileBroken', location: '門旁', observedOn: '2026-09-25', notes: '相鄰牆面未見滲水。', tiles: { crack: false, broken: true, approx: false, crackCount: null, brokenCount: null, overlapCount: null } });
-      p.records.push(first, second, third);
+      third.conditions = ['tileBroken', 'damp', 'salt'];
+      third.areas = { damp: { value: 2.5, method: 'measured' }, salt: { value: 1.2, method: 'estimated' } };
+      const fourth = m.newRecord(u.id, '2F', '臥室');
+      Object.assign(fourth, { component: '牆面', condition: 'crack', location: '窗旁', widthMode: 'le03' });
+      fourth.reportText = m.observationText(fourth);
+      p.records.push(first, second, third, fourth);
       const canvas = document.createElement('canvas'); canvas.width = 400; canvas.height = 300;
       const ctx = canvas.getContext('2d'); ctx.fillStyle = '#eee'; ctx.fillRect(0, 0, 400, 300); ctx.fillStyle = '#222'; ctx.font = '24px sans-serif'; ctx.fillText('SYNTHETIC PHOTO', 40, 150);
       const blob = await new Promise(resolve => canvas.toBlob(resolve)), assets = [];
       for (const [i, r] of p.records.entries()) {
         const id = m.id(); assets.push({ id, blob, thumb: blob });
         p.media.push({ id, name: `sample-${i}.png`, kind: 'image', type: blob.type, size: blob.size, sha256: await m.sha256(blob), importedAt: m.now() });
-        r.photos.push({ mediaId: id, role: 'close', caption: i === 0 ? '近照：疑似表面裂隙。' : i === 1 ? '照片模糊。' : '近照：門旁磁磚表面。', marks: [], excluded: false, excludedReason: '' });
+        r.photos.push({ mediaId: id, role: 'close', caption: i === 0 ? '近照：疑似表面裂隙。' : i === 1 ? '照片模糊。' : i === 2 ? '近照：門旁磁磚表面。' : '位置全景（主要照片）：窗旁裂隙。', marks: [], excluded: false, excludedReason: '' });
+        r.mainPhotoId = id;
       }
       await s.saveProject(m.syncRooms(p), 0, assets); return (await s.allProjects())[0];
     });
@@ -52,32 +58,40 @@ export async function verifyV029(browser, base, out) {
       const m = await import('./model.js'), s = await import('./store.js'), b = await import('./bundle.js'), report = await import('./report.js');
       const p = (await s.allProjects())[0], get = async id => (await s.getMedia(id)).blob, outputs = {};
       for (const format of ['standard', 'quick']) outputs[format] = (await report.renderAttachment(p, get, { format })).html;
-      return { source: p, backup: (await b.readBundle((await b.makeBundle(p, get)).blob)).project, issues: m.recordIssues(p.records[0]), outputs };
+      const empty = m.clone(p);
+      empty.records = Array.from({ length: 80 }, (_, i) => ({ ...m.clone(p.records[1]), id: m.id(), fieldNumber: i + 1 }));
+      const emptyDoc = new DOMParser().parseFromString((await report.renderAttachment(empty, get, { format: 'standard', tableRows: 0 })).html, 'text/html');
+      const emptyRows = { numbers: [...emptyDoc.querySelectorAll('tr[data-photo-number]')].map(row => row.dataset.photoNumber), pages: emptyDoc.querySelectorAll('.table-sheet').length, content: [...emptyDoc.querySelectorAll('.row-text')].map(cell => cell.textContent) };
+      return { source: p, backup: (await b.readBundle((await b.makeBundle(p, get)).blob)).project, issues: m.recordIssues(p.records[0]), outputs, emptyRows };
     });
     assert.deepEqual(result.source, source); assert.deepEqual(result.backup, source); assert(result.issues.length > 0);
+    assert(result.emptyRows.pages > 1); assert.equal(result.emptyRows.numbers.length, 80); assert.equal(new Set(result.emptyRows.numbers).size, 80); assert(result.emptyRows.content.every(text => text === ''));
     for (const [format, html] of Object.entries(result.outputs)) {
       const file = path.join(out, `v0.29-${format}.html`); await fs.writeFile(file, html);
       const tab = await context.newPage(); await tab.goto('file:///' + file.replaceAll('\\', '/'));
       const text = await tab.locator('body').innerText();
       assert.doesNotMatch(text, /不確定|不清楚|未確定|未確認|待確認|未量測|未填|塊數未記|尚未定位|疑似|照片模糊|樓層不明/);
       assert(text.includes(expected)); assert(text.includes('磁磚破損')); assert(text.includes('未見滲水')); assert(text.includes('2026-09-25'));
+      assert(text.includes('滲水痕面積 2.5 m²')); assert(text.includes('白華面積約 1.2 m²')); assert(text.includes('0.3 mm 以下')); assert(text.includes('窗旁裂隙。'));
+      assert.doesNotMatch(text, /近照|位置全景|量尺照|主(?:要)?照片|（實測）|（估計）|（≤0.3）/);
       if (format === 'standard') {
-        assert.equal(await tab.locator('tr[data-photo-number]').count(), 3, 'Photos with empty prose still receive rows');
-        assert.equal(await tab.locator('.photos img').count(), 3);
+        assert.equal(await tab.locator('tr[data-photo-number]').count(), 4, 'Photos with empty prose still receive rows');
+        assert.equal(await tab.locator('.photos img').count(), 4);
         assert.equal(await tab.locator('tr[data-photo-number="002"] td').nth(1).textContent(), '');
         assert.equal(await tab.locator('tr[data-photo-number="002"] td').nth(2).textContent(), '');
+        assert.equal(await tab.locator('tr[data-photo-number="002"] .row-text').textContent(), '');
         assert(await tab.locator('.sheet-content').evaluateAll(nodes => nodes.every(n => n.scrollHeight <= n.clientHeight + 1)));
         await tab.setViewportSize({ width: 1000, height: 1100 });
         await tab.locator('.table-sheet').first().screenshot({ path: path.join(out, 'v0.29-table.png') });
         await tab.pdf({ path: path.join(out, 'v0.29-standard.pdf'), preferCSSPageSize: true, printBackground: true });
       } else {
-        assert.equal(await tab.locator('.photo-sheet .photos img').count(), 3);
+        assert.equal(await tab.locator('.photo-sheet .photos img').count(), 4);
         assert.equal(await tab.locator('.photo-sheet .description').nth(1).textContent(), '');
       }
       await tab.close();
     }
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await clickSurvey(page, '[data-view=report]');
     assert.equal(await page.locator('[data-content-preview]').textContent(), expected); assert.deepEqual(errors, []);
-    console.log('PASS V0.29 concise attachment prose, unresolved source blocks, dates, empty photo rows, both printed formats, unchanged backup/reminders, mobile and offline');
+    console.log('PASS V0.29 concise attachment prose, area precision, single width bounds, role-free captions, empty photo rows, both printed formats, unchanged backup/reminders, mobile and offline');
   } finally { await context.close(); }
 }

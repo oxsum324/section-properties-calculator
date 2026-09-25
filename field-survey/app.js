@@ -1,9 +1,9 @@
-import { planTemplateCopy, VERSION, removeRecordPhotos, BUILDING_TYPES, floorConfig, buildingType, floorOptions, spaceOptions, sortedUnits, apartmentUnits, validDate, MARK_TONES, CAPTURE_SOURCES, localDateOf, defaultStamp, photoStampText, applyPhotoDate, exifDate, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, widthChoices, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
+import { planTemplateCopy, VERSION, removeRecordPhotos, BUILDING_TYPES, floorConfig, buildingType, floorOptions, spaceOptions, sortedUnits, apartmentUnits, validDate, MARK_TONES, CAPTURE_SOURCES, localDateOf, defaultStamp, photoStampText, applyPhotoDate, exifDate, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, widthLabel, areaAmountText, widthChoices, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
 import { makeBundle, readBundle, makeReceipt, checkReceipt, consolidateBundles } from './bundle.js';
 import { createAnnotator, markedImage, planPreview, photoLocationImage } from './annotation.js';
 import { createSketcher, sketchImage } from './sketch.js';
-import { isUCrack, isTile, syncRooms, clearWrongFloor, observationText, tileTotal, photoPlacement } from './model.js';
+import { isUCrack, isTile, syncRooms, clearWrongFloor, attachmentObservationText, tileTotal, photoPlacement } from './model.js';
 import { createCrackFields, crackLabel } from './cracks.js';
 import { individualCracks } from './model.js';
 import { createReportController } from './report-ui.js';
@@ -165,10 +165,10 @@ function syncConditionWorkflow(arrange = false) {
     const pending = issues.filter(text => key === 'crack' ? /裂縫|量測尺寸/.test(text) : key === 'tile' ? /磁磚/.test(text) : false);
     const status = card.querySelector('[data-condition-status]'); status.classList.toggle('needs-input', pending.length > 0);
     let summary = '已選';
-    if (values && key === 'crack') summary = individualCracks(values) ? `${values.cracks.length} 條` : isUCrack(values) ? `${values.crackCount ?? '未記'} 條` : isNetworkCrack(values) ? '網裂' : values.widthMode === 'exact' && values.width !== null ? `寬度 ${values.width} mm` : WIDTH_MODES[values.widthMode] || '已選';
+    if (values && key === 'crack') summary = individualCracks(values) ? `${values.cracks.length} 條` : isUCrack(values) ? `${values.crackCount ?? '未記'} 條` : isNetworkCrack(values) ? '網裂' : values.widthMode === 'exact' && values.width !== null ? `寬度 ${values.width} mm` : widthLabel(values.widthMode) || '已選';
     if (values && key === 'crack' && !individualCracks(values) && !isUCrack(values) && !isNetworkCrack(values) && values.length != null) summary += ` · 長度 ${values.length} m`;
     if (values && key === 'tile') summary = ['crack', 'broken', 'bulge'].filter(k => values.tiles[k]).map(k => `${{ crack: '裂隙', broken: '破損', bulge: '拱起' }[k]} ${values.tiles[k + 'Text'] || (values.tiles[k + 'Count'] == null ? '未記塊數' : values.tiles[k + 'Count'] + ' 塊')}`).join(' · ');
-    if (values?.areas?.[key]?.value != null) summary += ` · ${values.areas[key].value} m²（${AREA_METHODS[values.areas[key].method]}）`;
+    if (values?.areas?.[key]?.value != null) summary += ` · ${areaAmountText(values.areas[key])}`;
     status.textContent = pending.length ? '待補：' + pending.slice(0, 2).join('、') + (pending.length > 2 ? `（另 ${pending.length - 2} 項）` : '') : summary;
     ordered.push({ card, pending: pending.length });
   }
@@ -210,7 +210,7 @@ function conditionState() {
   $('#tileOverlapQuantity').hidden ||= $('#surface').value !== 'tile';
   for (const selector of ['#tileCrackCount', '#tileBrokenCount', '#tileBulgeCount']) $(selector).disabled = !!$(selector + 'Text').value;
   $('#individualCracks').hidden = !selected.includes('crack') || ['network', 'u'].includes($('#crackPattern').value) || $('#surface').value === 'tile';
-  try { const values = formValues(), total = tileTotal(values.tiles); $('#tileTotal').textContent = total === null ? '數量或重疊情形未確認時，不自動合計塊數。' : `不重複受損磁磚：${values.tiles.approx ? '約 ' : ''}${total} 塊`; $('#quickDescription').textContent = observationText(values); } catch { $('#quickDescription').textContent = '請先確認數量或尺寸格式。'; }
+  try { const values = formValues(), total = tileTotal(values.tiles); $('#tileTotal').textContent = total === null ? '數量或重疊情形未確認時，不自動合計塊數。' : `不重複受損磁磚：${values.tiles.approx ? '約 ' : ''}${total} 塊`; $('#quickDescription').textContent = attachmentObservationText(values); } catch { $('#quickDescription').textContent = '請先確認數量或尺寸格式。'; }
   for (const b of $('#visibilityChoices').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.visibility === $('#visibility').value));
   $('#visibilityHint').hidden = $('#visibility').value === 'visible';
   const summaries = [];
@@ -237,7 +237,7 @@ function measurementState() {
   for (const button of $('#crackQuickTypes').querySelectorAll('button')) button.setAttribute('aria-pressed', String((button.dataset.crackType || 'u') === (['network', 'u'].includes(pattern) ? pattern : 'general')));
   for (const selector of ['#widthPresets', '#widthHint', '#measured', '#width']) { const el = $(selector); (selector === '#measured' ? el.parentElement : selector === '#width' ? el.closest('.two-col') : el).hidden = individual; }
   $('#width').closest('label').hidden = mode !== 'exact';
-  $('#widthLegacy').hidden = individual || ['unknown', 'range0103', 'exact'].includes(mode); $('#widthLegacy').textContent = '原記錄：' + WIDTH_MODES[mode];
+  $('#widthLegacy').hidden = individual || ['unknown', 'range0103', 'exact'].includes(mode); $('#widthLegacy').textContent = '原記錄：' + widthLabel(mode);
   $('#width').disabled = !measured || mode !== 'exact'; $('#length').disabled = !measured;
   $('#widthLabel').textContent = `實測裂縫寬度（mm）${optional ? '・選填' : ''}`; $('#lengthLabel').textContent = `${u ? '單條 U 型裂縫展開長度' : '實測裂縫長度'}（m）${optional ? '・選填' : ''}`;
   if (u || isTile(data)) { $('#widthHint').textContent = u ? '以條數記錄即可。單條展開長度與寬度選填；本工具不計算或列出 U 型裂縫總長。' : '磁磚以受損塊數記錄，寬度與長度選填。'; return; }

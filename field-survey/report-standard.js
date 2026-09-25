@@ -1,4 +1,4 @@
-import { clone, ROLES, DETAIL_TEXTS, UNIT_STATES, assert, attachmentDescription } from './model.js';
+import { clone, DETAIL_TEXTS, UNIT_STATES, assert, attachmentDescription } from './model.js';
 
 export const STANDARD_STYLE = `
 .standard-sheet,.standard-sheet *{box-sizing:border-box}
@@ -72,10 +72,11 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
           if (!detailCache.has(record.recordId)) detailCache.set(record.recordId, await encodeDetail(record.detail));
           detailHTML = `<img class="detail-img" src="${detailCache.get(record.recordId)}" alt="細部示意圖">`;
         }
-        const full = [record.contentText, `${ROLES[photo.role]}${photo.main ? '（主要照片）' : ''}${photo.contentCaption ? '：' + photo.contentCaption : ''}`].filter(Boolean).join('\n');
+        const full = [record.contentText, photo.contentCaption].filter(Boolean).join('\n');
         let remaining = Array.from(full), continuation = false;
         const row = text => `<tr data-photo-number="${photo.number}"><td class="photo-no">${photo.number}${continuation ? '<span class="continued">（續）</span>' : ''}</td><td>${e([group.floor, group.room].map(attachmentDescription).filter(Boolean).join('\n'))}</td><td>${detailHTML}</td><td class="row-text">${e(text)}</td></tr>`;
-        while (remaining.length) {
+        // Empty descriptions still need a row, including after a page break.
+        while (remaining.length || !continuation) {
           if (index.tableRows && rows.length >= index.tableRows) flush();
           if (fits(sheet(unit, tableBody([...rows, row(remaining.join(''))]), 'table-sheet'))) { rows.push(row(remaining.join(''))); rowNumbers.push(photo.number); break; }
           if (rows.length) { flush(); continue; }
@@ -86,7 +87,7 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
       flush(true);
       for (let offset = 0; offset < photos.length; offset += index.perPage) {
         const batch = photos.slice(offset, offset + index.perPage), cards = [];
-        for (const { photo } of batch) { const src = await encodeImage(photo.mediaId, photo.marks); progress(++imageCount, total); cards.push(`<figure data-photo-number="${photo.number}"><figcaption><strong>照片 ${photo.number}</strong>　${e(ROLES[photo.role])}　｜　說明：詳照片說明表</figcaption><img src="${src}" alt="照片 ${photo.number}"></figure>`); }
+        for (const { photo } of batch) { const src = await encodeImage(photo.mediaId, photo.marks); progress(++imageCount, total); cards.push(`<figure data-photo-number="${photo.number}"><figcaption><strong>照片 ${photo.number}</strong>　｜　說明：詳照片說明表</figcaption><img src="${src}" alt="照片 ${photo.number}"></figure>`); }
         add(unit, `<h2>現況照片</h2><div class="photos count-${index.perPage}">${cards.join('')}</div>`, 'photo-sheet', { photoNumbers: batch.map(x => x.photo.number) });
       }
     }

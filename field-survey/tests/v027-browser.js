@@ -54,6 +54,12 @@ export async function verifyV027(browser, base, out) {
     await click('#crackExtras > summary'); await page.locator('#crackPattern').selectOption('diagonal'); await page.locator('#crackLayer input[value=plaster]').check();
     await click('#crackExtras > summary'); assert.match(await page.locator('#crackExtraSummary').textContent(), /斜向.*粉刷層/);
     await click('#conditionCard-damp > summary'); await click('[data-area-extra=damp] > summary'); await page.locator('#area-damp').fill('1.5'); await page.locator('#area-method-damp').selectOption('estimated');
+    assert.match(await page.locator('#conditionCard-damp > summary').textContent(), /約 1.5 m²/);
+    assert.match(await page.locator('#quickDescription').textContent(), /滲水痕面積約 1.5 m²/);
+    await page.locator('#area-method-damp').selectOption('measured');
+    assert.doesNotMatch(await page.locator('#conditionCard-damp > summary').textContent(), /約|（實測）/);
+    assert.match(await page.locator('#quickDescription').textContent(), /滲水痕面積 1.5 m²/);
+    await page.locator('#area-method-damp').selectOption('estimated');
     await click('#conditionCard-damp > summary');
     await click('#conditionPickerSummary'); await page.locator('#condition input[value=damp]').uncheck(); await page.locator('#condition input[value=damp]').check();
     await click('#fillConditionDetails'); assert.equal(await page.locator('#area-damp').inputValue(), '1.5');
@@ -71,7 +77,7 @@ export async function verifyV027(browser, base, out) {
     await click(`[data-record="${ids[1]}"]`);
     assert.equal(await page.locator('#visibilityOptions').evaluate(el => el.open), true); assert.equal(await page.locator('#notes').inputValue(), '櫃後遮蔽，保留既有說明');
     assert.equal(await page.locator('#crackExtras').evaluate(el => el.open), false); assert.match(await page.locator('#crackExtraSummary').textContent(), /斜向.*結構體/);
-    assert.match(await page.locator('#widthLegacy').textContent(), /≤0.3/);
+    assert.match(await page.locator('#widthLegacy').textContent(), /0.3 mm 以下/);
     await click('[data-crack-type=network]');
     assert.equal(await page.locator('#crackSizeFields').evaluate(el => el.open), false); assert.doesNotMatch(await page.locator('#conditionCard-crack > summary').textContent(), /待補/);
     await click('[data-field-preset=u]'); await click('#crackCountPresets [data-count="3"]'); await save(); assert.equal((await current()).records[1].crackCount, 3);

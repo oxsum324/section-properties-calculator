@@ -1,4 +1,4 @@
-import { assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, ROLES, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
+import { assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
 import { markedImage, placementMarks, reportPlanImage } from './annotation.js';
 import { photoStampText } from './model.js';
 import { detailAnnotationText, detailComparison, photoContent, attachmentDescription } from './model.js';
@@ -143,7 +143,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
           const contentCaption = photo.contentCaption ?? photo.caption, longCaption = contentCaption.length > 100 || contentCaption.split('\n').length > 2;
           const caption = longCaption ? compactText(contentCaption).slice(0, 100) + '…（完整說明見續頁）' : contentCaption;
           if (longCaption) moreText.push(`照片 ${photo.number} 完整說明：\n${contentCaption}`);
-          cards.push(`<figure><img src="${src}" alt="照片 ${photo.number}"><figcaption><strong>照片 ${photo.number} · ${e(ROLES[photo.role])}${photo.main ? ' · 主要照片' : ''}</strong><p>${e(caption)}</p></figcaption></figure>`);
+          cards.push(`<figure><img src="${src}" alt="照片 ${photo.number}"><figcaption><strong>照片 ${photo.number}</strong><p>${e(caption)}</p></figcaption></figure>`);
         }
         pages.push(page(group, `<div class="description">${e(longText ? compactText(fullText).slice(0, 180) + '…（完整說明見續頁）' : fullText)}</div><div class="photos count-${index.perPage}">${cards.join('')}</div>`, 'photo-sheet'));
       }

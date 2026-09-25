@@ -1,4 +1,4 @@
-import { id, WIDTH_MODES, widthChoices, CRACK_PATTERNS, CRACK_LAYERS, assert } from './model.js';
+import { id, widthLabel, widthChoices, CRACK_PATTERNS, CRACK_LAYERS, assert } from './model.js';
 
 export const crackLabel = i => String.fromCharCode(65 + i);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -21,11 +21,11 @@ export function createCrackFields(root, changed, legacyValues, onError) {
     for (const [i, card] of [...root.querySelectorAll('[data-crack-id]')].entries()) {
       const get = key => card.querySelector(`[data-key="${key}"]`), measured = get('measured').checked;
       card.querySelector('[data-crack-extra-summary]').textContent = [get('pattern').value ? CRACK_PATTERNS[get('pattern').value] : '', get('layer').value !== 'unknown' ? CRACK_LAYERS[get('layer').value] : ''].filter(Boolean).join(' · ');
-      const legacyLabel = card.querySelector('[data-width-legacy]'); legacyLabel.hidden = ['unknown', 'range0103', 'exact'].includes(get('widthMode').value); legacyLabel.textContent = '原記錄：' + WIDTH_MODES[get('widthMode').value];
+      const legacyLabel = card.querySelector('[data-width-legacy]'); legacyLabel.hidden = ['unknown', 'range0103', 'exact'].includes(get('widthMode').value); legacyLabel.textContent = '原記錄：' + widthLabel(get('widthMode').value);
       get('width').closest('label').hidden = get('widthMode').value !== 'exact';
       for (const button of card.querySelectorAll('[data-narrow],[data-exact]')) button.setAttribute('aria-pressed', String(get('widthMode').value === (button.hasAttribute('data-narrow') ? 'range0103' : 'exact')));
       get('width').disabled = !measured || get('widthMode').value !== 'exact'; get('length').disabled = !measured;
-      const w = measured && get('widthMode').value === 'exact' && get('width').value !== '' ? `${get('width').value} mm` : WIDTH_MODES[get('widthMode').value];
+      const w = measured && get('widthMode').value === 'exact' && get('width').value !== '' ? `${get('width').value} mm` : widthLabel(get('widthMode').value);
       card.querySelector('summary').textContent = `裂縫 ${crackLabel(i)} · ${w}${measured && get('length').value !== '' ? ` · ${get('length').value} m` : ''}${measured || get('widthMode').value === 'range0103' ? '' : ' · 未量測'}`;
     }
   }

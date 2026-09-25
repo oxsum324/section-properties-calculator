@@ -40,7 +40,7 @@ export async function verifyV026(browser, base, out) {
     await click('[data-width=exact]'); await (await revealSurveyControl(page, '#width')).fill('0.45'); await (await revealSurveyControl(page, '#length')).fill('1.2');
     await click(`[data-record="${seed.records[1]}"]`);
     assert.equal((await current()).records[0].width, .45);
-    assert.match(await page.locator('#widthLegacy').textContent(), /≤0.3/);
+    assert.match(await page.locator('#widthLegacy').textContent(), /0.3 mm 以下/);
     await page.locator('#notes').fill('舊區間原樣保留'); await click('[data-view=review]');
     assert.equal((await current()).records[1].widthMode, 'le03');
     assert.match(await page.locator('[data-view=review]').textContent(), /戶別進度/);
