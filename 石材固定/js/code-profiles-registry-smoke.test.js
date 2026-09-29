@@ -209,7 +209,30 @@ test('resolveActiveProfiles 缺失 inp 回退至 default', () => {
   const r = Reg.resolveActiveProfiles({});
   assert.strictEqual(r.wind, 'cns_wind_107');
   assert.strictEqual(r.seismic, 'cns_seismic_113');
-  assert.strictEqual(r.anchor, 'aci_318_appendix_d');
+  assert.strictEqual(r.anchor, 'cns_concrete_112_ch17');
+});
+
+test('V3.1.0：錨栓 profile 112 年版第 17 章參數對照表 17.5.3a／b 與 17.6.2.5／17.7.2.5', () => {
+  const p = Reg.getProfile('cns_concrete_112_ch17');
+  assert.ok(p, '112 年版錨栓 profile 應存在');
+  assert.strictEqual(p.scope, 'anchor');
+  assert.strictEqual(p.params.phi_steel_tension_ductile, 0.75);
+  assert.strictEqual(p.params.phi_steel_shear_ductile, 0.65);
+  assert.deepStrictEqual(
+    [p.params.phi_concrete_tension_none_cast_in, p.params.phi_concrete_tension_none_cat1, p.params.phi_concrete_tension_none_cat2, p.params.phi_concrete_tension_none_cat3],
+    [0.70, 0.65, 0.55, 0.45]);
+  assert.deepStrictEqual(
+    [p.params.phi_concrete_tension_supplementary_cast_in, p.params.phi_concrete_tension_supplementary_cat1, p.params.phi_concrete_tension_supplementary_cat2, p.params.phi_concrete_tension_supplementary_cat3],
+    [0.75, 0.75, 0.65, 0.55]);
+  assert.strictEqual(p.params.phi_concrete_shear_none, 0.70);
+  assert.strictEqual(p.params.phi_concrete_shear_supplementary, 0.75);
+  assert.strictEqual(p.params.psi_cN_uncracked_cast_in, 1.25);
+  assert.strictEqual(p.params.psi_cN_uncracked_post_installed, 1.4);
+  assert.strictEqual(p.params.psi_cV_uncracked, 1.4);
+  assert.deepStrictEqual([p.params.psi_cV_no_rebar, p.params.psi_cV_edge_rebar, p.params.psi_cV_full_rebar], [1.0, 1.2, 1.4]);
+  assert.strictEqual(p.params.interaction_method, 'trilinear');
+  assert.strictEqual(p.params.interaction_limit, 1.2);
+  assert.strictEqual(p.params.interaction_exempt_ratio, 0.2);
 });
 
 test('resolveActiveProfiles 從 inp.code_profiles 讀取覆寫', () => {
@@ -413,12 +436,13 @@ test('V2.4.0：buildActiveProfileHashes 產出 scope→{id,hash} map', () => {
   assert.notStrictEqual(rOverride.seismic.hash, r.seismic.hash);
 });
 
-test('V2.4.1：archive 含 V2.4.0 baseline 與所有 6 個 profile', () => {
+test('V3.1.0：最新 archive 含所有 7 個 profile（V2.4.0 baseline 仍保留）', () => {
   const archive = Reg.getLatestProfileArchive();
   assert.ok(archive, 'archive 應存在');
-  assert.strictEqual(archive.version, 'V2.4.0');
+  assert.strictEqual(archive.version, 'V3.1.0');
   assert.ok(archive.date);
-  const ids = ['cns_wind_107','cns_seismic_113','cns_seismic_113_conservative','aci_318_appendix_d','cns_steel_general','cns_stone_general'];
+  assert.strictEqual(Reg.PROFILE_HASH_ARCHIVE[0].version, 'V2.4.0');
+  const ids = ['cns_wind_107','cns_seismic_113','cns_seismic_113_conservative','cns_concrete_112_ch17','aci_318_appendix_d','cns_steel_general','cns_stone_general'];
   for (const id of ids) {
     assert.ok(archive.hashes[id], `archive 應含 ${id} 之 hash`);
   }
@@ -428,7 +452,7 @@ test('V2.4.1：compareProfileHashWithArchive — 未變動 profile changed=false
   // archive 與目前 inline 應一致（V2.4.0 上線時拍攝）
   const r = Reg.compareProfileHashWithArchive('cns_seismic_113');
   assert.strictEqual(r.changed, false, `應無變動，但 archive=${r.archiveHash} current=${r.currentHash}`);
-  assert.strictEqual(r.archiveVersion, 'V2.4.0');
+  assert.strictEqual(r.archiveVersion, 'V3.1.0');
 });
 
 test('V2.4.1：compareProfileHashWithArchive — 未在 archive 之 profile newProfile=true', () => {

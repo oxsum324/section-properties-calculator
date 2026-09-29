@@ -532,7 +532,7 @@ normalized_input
 ```
 js/code-profiles/
 ├── _README.md / _schema.md
-├── cns_wind_107.json           （建築物耐風設計規範及解說 107 年版）
+├── cns_wind_107.json           （建築物耐風設計規範及解說 103 年版）
 ├── cns_seismic_113.json        （建築物耐震設計規範及解說 113 年版）
 ├── aci_318_appendix_d.json     （ACI 318 Appendix D）
 ├── cns_steel_general.json      （鋼構造容許應力法）
@@ -579,7 +579,7 @@ Formula Registry: formula-registry-...
 
 現在：
 ```
-耐風 profile: cns_wind_107  建築物耐風設計規範及解說（107 年版）
+耐風 profile: cns_wind_107  建築物耐風設計規範及解說（103 年版）
 耐震 profile: cns_seismic_113  建築物耐震設計規範及解說（113 年版）
 錨栓 profile: aci_318_appendix_d  ACI 318 Appendix D
 鋼結構 profile: cns_steel_general  鋼構造建築物鋼結構設計技術規範

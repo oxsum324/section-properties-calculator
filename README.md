@@ -149,7 +149,7 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
 - Schema v23 新增正式 Excel 附件乾淨封裝 gate：目前錨栓檢討當輪 XLSX 必須 `1/1` 通過 OOXML 關聯、工作表可見性與公式快取稽核。外部關聯、外部公式或連線、公式錯誤／缺少快取結果、隱藏工作表／列／欄／名稱、批註、嵌入物件、巨集、孤兒媒體或非預期 custom XML 都會阻擋 release；正常內部重算公式、凍結標題、篩選器與列印設定可保留。Pages 只公開完成數，不公開檔名、工作表清冊、公式或逐檔細節。
 - Schema v24 新增正式 Excel 列印成品 gate：錨栓 XLSX 產製器本身必須為 9 張工作表寫入 A4、寬表橫向、單頁寬、不強制單頁高、明確列印範圍與續頁重複表頭。release 以獨立 Microsoft Excel 程序唯讀開啟實際成品，禁止外部連結更新與巨集，逐張輸出 PDF；9/9 張工作表須通過來源雜湊、A4／方向／縮放設定、可讀文字、非空白頁、頁邊裁切、續頁表頭及橫向溢出檢查。Office 匯出摘要、工作表名稱、PDF、逐頁像素指標與雜湊只留在私人 release 證據，Pages 僅公開 `1/1` 活頁簿與 `9/9` 工作表完成數。
 - Schema v25 新增正式 Excel 雙封印 gate：錨栓 XLSX 的 `Summary` 可見列保存內容封印與核可封印。內容封印涵蓋所有工作表的非空白儲存格、公式與快取結果，但不混入文件狀態等核可欄位；核可封印再綁定內容 SHA-256、文件狀態、核可資訊、產出工具、版本、固定格式輸出時間與計算指紋。release 由獨立 OOXML 驗證器重算 `1/1` 內容封印及 `1/1` 核可封印，並以正文竄改、偽造內容封印及核可欄位竄改反例證明失敗關閉。這是 SHA-256 防竄改證據，不是核可人身分的數位簽章；Pages 只公開 `2/2` 完成數，不公開封印值、工作表內容或竄改樣本。
-- Schema v27 把 RC 梁／基礎流程內的深梁、基礎深梁與樁帽三維 STM 升為獨立首頁正式入口，並納入專用正式附件 gate。三者各自先輸出內部審閱 PDF 與整頁 PNG，再實際勾選核可、下載可攜 HTML、重算內容／核可雙封印、驗證兩類竄改阻擋，最後在零外部網路請求的新頁面重開並列印正式 PDF；release aggregate 必須從當輪 `rc-stm-formal` 目錄逐檔重驗 `3/3` 附件及 `12/12` 實體成品。跨 RC、LoadCombo／ForcePicker、Joint Reactions 格式治理、rendered evidence 與公開狀態的原子依賴由 `結構工具箱/tools/rc-stm-atomic-change-set.manifest.json` 統一列管，`rc-stm-atomic-change-set-review.js` 會以人讀 Markdown／JSON 分組顯示清冊內變更、清冊外熱檔與暫存閉合狀態；漏列入口、wrapper、regression、直接載入資產或實體檔案會由共用驗證器與 entrypoint contract 阻擋。三頁新增 `/rc-deep-beam-stm`、`/rc-foundation-deep-beam-stm`、`/rc-pile-cap-3d-stm` 獨立首頁正式入口，使正式入口總數成為 36；仍保留 RC 梁／基礎流程銜接與限定拓樸，也不改變既有 RC 設計／補強 34 組結果鏈及 32 組來源 JSON 組包口徑。
+- Schema v27 把 RC 梁／基礎流程內的深梁、基礎深梁與樁帽三維 STM 升為獨立首頁正式入口，並納入專用正式附件 gate。三者各自先輸出內部審閱 PDF 與整頁 PNG，再實際勾選核可、下載可攜 HTML、重算內容／核可雙封印、驗證兩類竄改阻擋，最後在零外部網路請求的新頁面重開並列印正式 PDF；release aggregate 必須從當輪 `rc-stm-formal` 目錄逐檔重驗 `3/3` 附件及 `12/12` 實體成品。三頁新增 `/rc-deep-beam-stm`、`/rc-foundation-deep-beam-stm`、`/rc-pile-cap-3d-stm` 獨立首頁正式入口，使正式入口總數成為 36；仍保留 RC 梁／基礎流程銜接與限定拓樸，也不改變既有 RC 設計／補強 34 組結果鏈及 32 組來源 JSON 組包口徑。
   - 原子邊界同時納入 RC 梁最小／最大配筋與多排筋核心、深梁適用性的獨立工程基準，以及平面剛架 V1.6 將 D／L／W／E 基本反力傳入樁帽 STM 的上游路徑；不得只提交三個 STM 頁面或只提交接收端。
 - 正式計算書結果鏈：schema v4 會要求 14 個風力／地震正式工具先在同一瀏覽器工作階段完成 manifest 全部 golden case 的 selector、metric 與文字結果斷言，再以最後一個已驗證案例的同一計算狀態產生正式附件。Producer summary 保存 golden case 身分雜湊、驗證案例數、斷言數與報告計算指紋，release aggregate 重新核對 `14/14` 並保存集合 SHA-256；Pages 僅顯示「數值結果鏈 `14/14`」，不公開案例輸入、預期數值、案例雜湊或計算指紋。
 - RC 正式計算書結果鏈：schema v5 另要求 RC 梁、柱、板、牆、剪力牆、基礎與單樁的 30 組瀏覽器回歸案例，先把實際專案快照重現計算，再確認 PDF 與核可後可攜 HTML 沿用同一計算指紋。每筆 producer audit 保存案例 ID、專案快照 SHA-256、結果斷言數及計算指紋；release aggregate 核對 `30/30`、唯一案例身分與集合 SHA-256。Pages 僅顯示「RC 結果鏈 `30/30`」，不公開案例資料、專案快照雜湊或計算指紋。
@@ -187,13 +187,6 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
   - 巡檢儀表板以有效 schema v3 `pages-deployment.json` 自動進入公開摘要模式；資料範圍與部署信任分開判定，帶有合法布林 `sourceDirty` 的 staging manifest 仍屬公開 artifact，dirty 狀態則由部署信任卡揭露。公開頁只請求 deployment manifest 與三份 tracked status，不再探測 `output/`、私人 log、診斷 hash、RVR 或 GSM 本機監測。三份快照都明列 `publicEvidenceSchemaVersion: 3`，並由 [public-evidence-schema.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/assets/status/public-evidence-schema.js:1) 在快照產出、Pages manifest 建置、live smoke 與 dashboard 共用同一套欄位型別、release 身分、四面向完成規則及最多 8 次的正式 release 公開摘要鏈。歷程 schema v2 逐次保存受測 commit、正式／後置門檻、四面向、十組完成數，以及 12 個 required counter 的基準／維持／提升／縮減／混合分類；不保存案件、輸入、逐檔清冊、來源路徑或私密雜湊。任何縮減預設阻擋 release；只有一次性 `.github/public-release-reduction-authorization.json` 精確對應上一個 runId、全部縮減欄位與前後數值，並提供可公開理由時才可通過。授權未使用、沿用到下一輪、含私密路徑或額外欄位同樣阻擋；設定檔不發布，公開歷程只保留理由。產生器只從 Git 中可重驗的成套舊快照回填，重複 carrier 去重，不完整舊資料不推測。[public-evidence-schema.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/public-evidence-schema.test.js:1) 與 [public-release-change-governance.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/public-release-change-governance.test.js:1) 分別是版本化證據與門檻退化 preflight gate，固定證明未知版本、字串完成數、跨 release 混用、偽造變化、歷史缺漏／倒序／未對齊、未授權縮減、過期／未使用授權、未宣告私密欄位及絕對私密路徑會失敗關閉。四張卡片不重複同一全平台結論，而分別呈現「正式 release 總覽」、「鋼構正式附件證據」、「RC 正式附件證據」與「風震與跨家族交付證據」；其下另以最新優先表格顯示公開歷程、變化分類，縮減時並顯示簡短理由。完成數直接取自型別正確的 tracked preflight / report-readiness 欄位，任何必要欄位缺漏、型別錯誤或完成數未滿都顯示公開證據不足，不以私人資料或文案推定通過。公開閱讀流程會移除沒有公開資料的成熟度、RVR／GSM、preflight 細項與私人巡檢歷程區塊，只保留 release、附件完整性與去識別證據摘要；相關 `output/` 連結隱藏。本機 localhost 若需完整診斷，可用 `?audit_scope=local` 明確啟用；非 localhost 不接受此覆寫。共用 Pages browser smoke 會在 staged artifact 與正式網址以桌機、手機驗證公開 dashboard，並在正式網域故意附加該 query，證明仍為公開模式且零 private-output 請求。
   - 發布前可執行 `node 結構工具箱/tools/public-release-change-assistant.js --json` 唯讀比較目前正式輸出與公開基準；維持或提升時不產生核准。確有縮減且已完成工程判斷時，才使用 `--write-authorization --reason-code scope-change --reason "可公開且不含案件或路徑的理由"` 寫入精確一次性核准。該核准不得手動提前清除；成功發布並由 tracked 公開歷程證明完全相同的縮減後，執行 `--reset-authorization` 才會安全重設為 inactive。候選檔、核准檔與相關測試都是私人治理，不進 Pages 或計算書。
   - 真正的 release 模式會在三份公開快照及 post-check 全部完成後，自動以 [public-release-decision-receipt.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/public-release-decision-receipt.js:1) 將封閉式私人決策收據寫入 `output/preflight/history/<runId>/`。收據保存正式／後置門檻、變化分類、核准是否實際使用、受測 commit 與三組證據雜湊，並以 `PRD-` 內容指紋鏈回上一份收據；同 run 重跑只能接受完全相同內容，舊收據竄改、倒序或前一輪核准尚未重設都會阻擋。Git-tracked `.github/public-release-decision-anchor.json` 只保存鏈尖 ID／雜湊，不含案件或決策內容，讓整個 ignored 私人鏈遭刪除時仍能失敗關閉。若 release 曾使用縮減核准，`--reset-authorization` 會另增不可混用的 `PRA-` 重設收據；收據失敗時 active 核准會自動復原。可用 `node 結構工具箱/tools/public-release-decision-receipt.js --check-history --json` 唯讀驗證。整條決策鏈與錨點只屬工作站私人治理，不發布、不進 dashboard、計算書或正式附件，亦不等同個人數位簽章。
-  - 收據完成後，正式 release 會再以 [public-release-decision-backup.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/public-release-decision-backup.js:1) 自動輸出封閉 `PRB-` 可攜備份。預設位置為 ignored `output/private-backups/public-release-decisions/`；若工作站環境變數 `PUBLIC_RELEASE_DECISION_BACKUP_DIR` 指向受控同步資料夾，則以同一內容同步建立本機與外部私人副本，路徑不寫入 Git、公開快照或計算書。`--verify <PRB.json>` 可唯讀驗證；`--restore <PRB.json>` 預設只預覽，明確加上 `--apply` 才會交易式還原。還原只接受完全相同或向前延伸的鏈；新電腦只有 Git 錨點時，PRB 鏈尖必須精確符合該錨點。較舊、分叉、竄改、移除 reset 或覆寫既有收據都會阻擋，任何寫入故障會回復原錨點並移除本次新增檔案。備份檔仍屬私人治理，不發布至 Pages、dashboard、計算書或附件。
-  - 外部備份位置不會取代本機副本：設定環境變數後，每次正式 release 以同一個 PRB 交易式寫入本機與外部鏡像，任一位置失敗會回滾當輪全部新增副本。[public-release-decision-backup-health.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/public-release-decision-backup-health.js:1) 會在匯出後核對目前鏈尖、兩地有效副本、同一 PRB 配對、損毀檔與 365 日保存提醒；`--write --require-external --json` 可產生 ignored 去識別健康摘要。摘要不含路徑、PRB ID、雜湊或收據內容；相同資料夾不能冒充雙副本，過期副本只列入人工處理，不自動刪除。此工作站已私下設定受控 GDrive 鏡像，但檔案出現在掛載目錄只證明本機寫入，仍不等同雲端服務端已完成同步。
-  - [manage-public-release-decision-backup-health-task.ps1](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/manage-public-release-decision-backup-health-task.ps1:1) 管理每日私人健康檢查；`-Action Install` 會先完成外部 PRB 雙副本、PDR 兩地歷史串鏈、8 日演練時效及目前 PDC 雲端檢查點的真實驗證，再以目前登入者、有限權限、隱藏視窗、禁止重疊及漏跑補執行註冊固定排程。`-Action Status` 會核對 action、runner、每日 trigger 與啟用狀態；`-Action Remove` 只移除排程，不刪除 PRB、PRD、PRA、PDR、PDC 或健康摘要。排程可驗證最近一次服務端確認留下的雲端往返證據；超過 8 日或新 release 尚未確認時會失敗提醒，不會把本機掛載狀態冒充新的服務端查詢。
-  - [public-release-decision-restore-drill.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/public-release-decision-restore-drill.js:1) 把格式驗證提升為實際復原證據：正式 release 會從目前成對外部 PRB 在系統暫存目錄建立只有 Git 鏈尖錨點的最小工作區，完整套用 `tracked-anchor-bootstrap`、重驗收據鏈與錨點、確認來源決策檔案逐位元組未變，再清除隔離工作區。既有 schema v1 PDR 可原樣保留；新 schema v2 收據以連續序號、上一筆 PDR ID 與 canonical SHA-256 串成追加式歷史，第一筆 v2 會直接鏈回既有 v1 鏈尖。成功後以同一交易把收據寫入本機與外部 `restore-drills/` 私人目錄，並以 ignored `output/audit/public-release-decision-restore-drill-anchor.json` 固定目前 PDR 筆數與鏈尾 ID／雜湊；任一鏡像、錨點或寫後重驗失敗，都會回滾當輪兩地收據及還原原錨點。schema v2 ignored 狀態另保存單調歷史筆數，因此即使兩地同步改寫或刪除鏈尾，也會由獨立錨點或檢查點失敗關閉；去識別狀態仍不含路徑、PRB／PDR ID、雜湊或收據內容。
-  - [public-release-decision-restore-drill-health.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/public-release-decision-restore-drill-health.js:1) 會逐份重驗本機與外部 PDR、連續序號與前筆指紋、完整兩地檔名／內容配對、私有鏈尾錨點、狀態單調檢查點、目前 PRD 鏈尖及最近一次演練時間；預設超過 8 日未演練即為 `attention-required`。`--write --require-external --json` 只產生 ignored 去識別健康摘要，列出 schema 計數、成對筆數、錨點是否完成、時效與問題代碼，不保存私人 ID、雜湊、路徑或收據內容。
-  - [public-release-decision-cloud-checkpoint.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/public-release-decision-cloud-checkpoint.js:1) 將 Google Drive API 直接觀察到的目前 PRB／PDR 檔名、bytes、雲端時間與 provider file ID，和工作站重驗的 PRD／PRB／PDR 鏈尖封閉成 `PDC-` 內容指紋。因目前 Drive 連線採唯讀授權，PDC 經 Drive for desktop 寫入私人 `cloud-checkpoints/` 後，必須再由 API 下載服務端原始檔；`--confirm` 強制以獨立於 DriveFS 掛載目錄的 `--provider-content-file` 讀取實際 bytes，由 CLI 自行核對大小並重算 SHA-256，再將檔名、內容雜湊與 provider 中繼資料封閉成 ignored schema v3 `PCV-`。舊 schema v1 只有中繼資料、v2 只有宣告雜湊，兩者只保留歷史讀取相容，不能建立新往返證據。沒有有效 v3 PCV 時，即使掛載路徑已有 PDC，也不得標成往返完成或接受新鏈尾。PDC 的連續序號、前筆指紋及 ignored 私有鏈尾錨點可偵測刪除或回退。去識別健康摘要只顯示筆數、內容級往返是否完成與確認時效，不含路徑、檔名、provider ID、PRD／PRB／PDR／PCO／PCV／PDC ID 或雜湊。預設 PCV 超過 8 日或新 release 尚未建立並由 API 回讀目前 PDC 即為 `attention-required`；這項證據仍不宣稱 Google 提供簽章雜湊、帳號不可刪除、第三方 WORM 保存或個人數位簽章。
-  - [manage-public-release-decision-restore-drill-task.ps1](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/manage-public-release-decision-restore-drill-task.ps1:1) 管理每週日 09:15 的隔離還原演練；安裝前必須先從受控外部鏡像完成一次真實演練，並通過 PDR 串鏈與目前 PDC 雲端往返健康檢查，排程固定使用目前登入者、有限權限、隱藏視窗、禁止重疊與漏跑補執行。`Status` 會核對唯一 action、每週 trigger、星期、時間、身分與啟用狀態；`Remove` 只刪排程，不刪 PRB、PDR、PDC 或演練摘要。後續追加的同 release PDR 不會使既有 PDC 失效；新 PRD／PRB 則必須重新由 provider API 確認。
   - `build-pages-artifact.js` 是 Actions 與本機預演共用的唯一發布清冊：由 Git tracked 檔案加上未 ignored 的工作中新增檔建立 artifact，集中排除文件、測試、治理腳本與 backend / source tree，並透過獨立暫存 index 套用 Git clean filter，使 Windows 與 Linux 對相同內容產生相同檔案數、bytes 與 tree digest；不再各自維護 `robocopy` / `rsync` 排除規則。複製後還必須逐檔通過本機路徑內容掃描，掃描筆數須等於發布檔數且 findings 為 0，否則 staging 直接失敗。
   - 正式推送建議執行 `push-pages-release.bat`；批次入口會優先使用 PowerShell 7 (`pwsh -NoProfile`)，未安裝時才回退 Windows PowerShell 5.1。也可直接執行 `pwsh -NoProfile -File .\push-pages-release.ps1`。PowerShell 腳本以檔名尋找受治理的工具腳本，不在來源內硬編碼中文路徑，因此 5.1 後備入口也不受 UTF-8 無 BOM 解碼影響。入口會先拒絕 dirty、錯誤分支與遠端分歧，並以 `verify-pages-release-lineage.js` 確認 HEAD 的直接父提交就是公開快照所列的 `sourceCommitSha`，且兩者差異恰為三個狀態 JSON 與一個不公開的決策鏈尖錨點；任何未經該輪 release 測試的 HTML、JS 或計算核心夾帶變更都在 push 前阻擋。Actions build 會以 `fetch-depth: 2` 重做相同檢查，只使用非 force push；推送後等待同一 SHA 的 push workflow，逾時且沒有既有 run 才使用既有 `workflow_dispatch` 後備入口。完成判定要求 build、deploy、live-smoke、performance-trend 四個 job 全部成功，核對公開 `pages-deployment.json` 的 commit、runId 與 `sourceDirty=false`，並由執行安全推送的工作站再獨立呼叫 `pages-live-smoke.js`，直接從正式網址逐檔重驗 v2 清冊、全部公開檔案、由公開清冊動態推導的全部路由、狀態資料與私有邊界；工作站預設最多嘗試 3 次、間隔 10 秒，且只有受治理 smoke 明確認定的 5xx 或網路暫態錯誤才重跑，內容、雜湊、來源或隱私邊界錯誤仍立即失敗。只有這項工作站事後複驗也成功，結果才輸出 `publicArtifactVerified=true`、重試政策及已驗證的 schemaVersion、fileCount、totalBytes 與 digest。這項共同完成條件同樣套用一般推送、已存在的同 SHA 部署與 `-VerifyOnly`。若 GitHub Actions 頂層 run 狀態延遲但四個必要 job 已成功，結果會標示 `aggregateStatusStale=true`；若個別 job 聚合狀態延遲，則只有在 run 已 completed/success 且該 job 每一個 step 都 completed/success 時，才標示 `aggregateJobStatusStale=true` 並接受相同證據。只有 deploy 失敗紀錄同時明列 `deployment_queued`／`deployment_in_progress`、`Timeout reached, aborting!` 與取消動作，且同一 SHA 的 Pages API 在 180 秒內轉為 `succeed` 時，入口才會對同一 run 執行 `gh run rerun --failed`，等待 deploy、live-smoke 與 performance-trend 補成全綠並回傳 `deploymentRecoveryUsed=true`；其餘 job／step、後端未完成或工作站逐檔複驗在有上限的暫態重試後仍失敗時都直接停止，也不得以新 dispatch 掩蓋。`-VerifyOnly` 可唯讀複驗現有 HEAD；只有搭配 `-VerifyOnly -AllowDirtyVerification` 時才可在 dirty 工作樹讀取既有部署，該選項永遠不能授權 push 或 dispatch。
   - 工作站 HTTP smoke 成功後另輸出機器可讀的 `pagesHttpSmokeAttemptCount`；安全發布入口只接受唯一、正整數且不超過設定上限的值，並在結果揭露 `publicArtifactVerificationAttemptCount` 與 `publicArtifactVerificationRetried`。缺少、重複或超界的嘗試次數證據一律阻擋完成。
@@ -238,13 +231,7 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
   - `formal-browser-smoke` 會在 release 模式逐一重跑 14 個風力／地震正式工具的桌面與行動版報表；其 preflight 專屬上限固定為 `timeoutSeconds = 600`，保留平台稽核後的瀏覽器啟動與 31 份正式渲染證據餘裕。
   - `audit-all.ps1` 內的完整 RC audit 固定為 `timeoutSeconds = 1200`，其 preflight 外層 `platform-audit` 固定為 `timeoutSeconds = 1500`；兩層仍保留逾時失敗與程序樹終止，只提供 release 全量瀏覽器證據與平台串行稽核所需的執行餘裕，不重用或略過任何 RC 檢查。RC 子 gate 只有在輸出精確出現 Windows／Chromium `net::ERR_NO_BUFFER_SPACE` 時，才保存首次失敗 log、冷卻 60 秒並重跑一次；其他錯誤或第二次失敗仍立即阻擋。
 
-### Windows 案件附件工作台捷徑
-
-需要在新電腦、專案移動後或捷徑遺失時重建 Windows 入口，可執行根目錄 `安裝案件附件工作台捷徑.bat`；它透過 `install-attachment-governance-shortcuts.ps1` 建立「案件附件工作台」桌面捷徑、同名開始功能表捷徑，以及「以附件工作台檢查」傳送到捷徑。因此可直接按 Windows 鍵搜尋「案件附件工作台」開啟。安裝器可重複執行，會先檢查三個目的地，只更新帶本工具管理標記或精確指向目前 repo 受治理入口的捷徑；任一處存在同名但屬於使用者的其他捷徑時，會保留原檔並在寫入前停止整批安裝。指向其他資料夾同名批次檔的捷徑也視為使用者資產，不得由檢查、安裝或移除模式接管。捷徑不帶固定參數，因此可在檔案總管選取單一案件資料夾或單一 `.formal-source.zip`，再用右鍵「傳送到 → 以附件工作台檢查」把原始路徑交給現有工作台封閉驗證；其他檔案與多重選取仍由工作台拒絕。只想確認入口狀態時，可執行根目錄 `檢查案件附件工作台捷徑.bat`；它全程唯讀，逐一回報 `current`、`repairable`、`foreign` 或 `absent`，整體分為 `ready`、`review` 或 `blocked`，不建立、不修復也不移除捷徑。要清除這三個 Windows 入口時，可執行根目錄 `移除案件附件工作台捷徑.bat`；它只刪除帶本工具管理標記或精確指向目前 repo 受治理啟動器的捷徑，不存在可重複執行，同名使用者捷徑與指向其他資料夾同名批次檔的捷徑都會保留。檢查、安裝、移除入口、捷徑與動態合約都是私有本機治理資產，不發布至 GitHub Pages。
-
 ## 巡檢分層
-
-`attachment-governance-shortcut-installer.test.js` 會在臨時桌面／SendTo 資料夾動態驗證首次安裝、重複執行不重寫、`.lnk` 目標與工作目錄，並證明同名使用者捷徑會保留。
 
 - 鋼構巡檢：
   [鋼構工具/audit-tool.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/audit-tool.ps1:1)
@@ -267,62 +254,16 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
   [attachment-package-build.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-build.js:1)
 - 正式附件包事後完整性與工程內容驗證：
   [attachment-package-verify.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-verify.js:1)
-- Windows 案件附件工作台（建議統一入口）：
-  [啟動案件附件工作台.bat](/C:/Users/USER/Desktop/AI/小工具製作/啟動案件附件工作台.bat:1)（根目錄捷徑；可直接開啟或拖入單一資料夾）
-- Windows 正式附件包管理器：
-  [啟動正式附件包管理器.bat](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/啟動正式附件包管理器.bat:1)
-- Windows 案件附件治理檢視器：
-  [啟動案件附件治理檢視器.bat](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/啟動案件附件治理檢視器.bat:1)
-- Windows 舊版附件升級助手：
-  [啟動舊版附件升級助手.bat](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/啟動舊版附件升級助手.bat:1)
 - 舊版正式附件包升級評估：
   [attachment-package-upgrade-assess.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-assess.js:1)
 - 舊版附件包安全升級工作區：
   [attachment-package-upgrade-workspace.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-workspace.js:1)
 - 舊版附件升級工作區完成度檢查：
   [attachment-package-upgrade-workspace-check.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-workspace-check.js:1)
-- 舊版正式附件統一升級流程：
-  [attachment-package-upgrade-flow.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-flow.js:1)
-- 附件升級外部內部歷程收據：
-  [attachment-package-upgrade-history.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history.js:1)
-- 附件升級歷程唯讀索引與基準比對：
-  [attachment-package-upgrade-history-index.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history-index.js:1)
-- 附件升級可信基準安全發布器：
-  [attachment-package-upgrade-history-baseline.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history-baseline.js:1)
-- 附件升級可信基準版本前進：
-  [attachment-package-upgrade-history-baseline-advance.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history-baseline-advance.js:1)
-- 附件升級可信基準版本鏈唯讀驗證器：
-  [attachment-package-upgrade-history-baseline-chain.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history-baseline-chain.js:1)
-- 案件附件治理唯讀總覽：
-  [attachment-case-governance-overview.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-overview.js:1)
-- 單一案件根目錄治理入口：
-  [attachment-case-governance-root.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-root.js:1)
-- 多案件附件治理唯讀總覽：
-  [attachment-case-governance-portfolio.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio.js:1)
-- 多案件治理快照唯讀比較：
-  [attachment-case-governance-portfolio-compare.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-compare.js:1)
-- 多案件治理快照安全保存：
-  [attachment-case-governance-portfolio-snapshot.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot.js:1)
-- 多案件治理快照唯讀索引：
-  [attachment-case-governance-portfolio-snapshot-index.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-index.js:1)
-- 多案件治理快照跨版本趨勢：
-  [attachment-case-governance-portfolio-snapshot-trend.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend.js:1)
-- 多案件治理趨勢處置收據鏈：
-  [attachment-case-governance-portfolio-snapshot-trend-disposition.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition.js:1)
-- 多案件治理趨勢處置外部可信檢查點：
-  [attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js:1)
-- 多案件治理趨勢處置可信檢查點歷程：
-  [attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js:1)
-- 單一設定檔附件治理工作區：
-  [attachment-case-governance-workspace.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-workspace.js:1)
-- 私有工程資格化案件包：
-  [engineering-qualification-case-bundle.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/engineering-qualification-case-bundle.js:1)
-- 梁柱彎矩實案收件就緒檢查：
-  [beam-column-moment-real-case-intake.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/beam-column-moment-real-case-intake.js:1)
-- 梁柱彎矩實案 G1 執行與封印：
-  [beam-column-moment-real-case-g1-runner.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/beam-column-moment-real-case-g1-runner.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
+
+2026-09-29 起已停用並自 repo 移除下列治理流程：多案件治理趨勢、舊版附件升級使用者流程（統一升級流程、內部歷程、可信基準與升級助手）、單案附件治理（案件附件工作台、治理檢視器、總覽／根目錄／工作區與捷徑安裝器）、正式附件包管理器與建立／驗證／檢查附件組包批次入口、梁柱彎矩 G1、工程資格化案件包、RC STM 變更集審查，以及公開發布決策備份、還原演練、雲端檢查點與其排程。上列附件檢查、組包與驗證核心仍以 CLI 保留；如需恢復已停用流程，可自 git tag `archive/governance-2026-09-29` 還原。
 
 所有直接啟動 PowerShell 的 `.bat` 均先找 `pwsh -NoProfile`，未安裝時才回退 `powershell -NoProfile`；launcher smoke 會自動掃描並阻擋漏掉此雙路徑的新增 wrapper。
 
@@ -330,76 +271,26 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
 
 `audit-all.ps1` 用來守住主平台的鋼構、RC 與規範核心，子 audit 以 `ProcessStartInfo` 執行，避免 Windows `Path` / `PATH` 環境鍵重複造成 `Start-Process` 失敗；`refresh-platform-status.ps1` 可在三個子系統 audit 已通過時，快速刷新平台摘要、歷史紀錄與 `platform-audit-decision.json`，讓 dashboard component hash 不會沿用舊 decision；`platform-audit-preflight.ps1` 會先判定三個子系統 audit-status 是否通過且比來源檔新，若新鮮即重用狀態並刷新平台摘要，若 stale / missing 則自動回到 `audit-all.ps1`；需要強制完整重跑時可用 `run-preflight-tools.bat -ForcePlatformAudit`。`preflight-tools.ps1` 則再納入風力路徑、連續梁、批次啟動檔 smoke、generated artifact boundary、工具箱入口合約（首頁入口 / routeFileMap / vercel.json / formal-tools.manifest.json / local-quick-tools.manifest.json / 首頁版本治理 / Pages deploy / Pages live smoke / preflight contract 文件化 / staging 指引可執行性 / 目前工作樹覆蓋率 / HOME_TOOL_UPDATES / APP_VERSION / TOOL_VERSION）、鋼構 / RC / 規範核心 audit 狀態新鮮度、風力 / 地震正式工具與鋼構 traceability contract、平台摘要刷新、runtime stale pid 首尾 gate、錨栓 source verify、`/anchor/` 部署 fingerprint 與錨栓報告邊界 contract、石材、開挖擋土支撐報告邊界 contract、覆工板 Word 報告邊界 contract、平面剛架專屬報告邊界 contract、局部快算 manifest runner / 共同契約 / JSON 匯出 helper / 跨輸出一致性 regression / Edge 瀏覽器 smoke（含 `vercel.json` 乾淨路由、JSON 匯出按鈕、JSON round-trip 與列印計算書）、風力 / 地震正式工具 manifest runner（14 個正式 / 報表頁，含乾淨路由、桌機 / 手機橫向溢出、詳算式 / 簡易結果分流 regression、具備者的 JSON 匯出、列印計算書、示意圖角色、示意圖幾何與 pilot golden cases）、preflight latest summary / history 耗時、最慢檢查摘要、latest/history log 可追溯性與通過 log hygiene、基礎局部檢核、設備局部荷重與擋土土壓局部快算 smoke / regression，適合交付前或跨工具大改後執行。主檢查 summary 寫出後先重產工具成熟度矩陣（含 `goldenCaseRegression`、`jsonRoundTrip`、`referenceTraceability` 下一步品質欄位，且 N/A 不列入分數分母），再執行巡檢儀表板 final history contract、fixture browser smoke 與 live-output smoke；這讓 dashboard 讀到的是當輪 summary，避免新增 governance key 時被舊 summary 或 sourceHash stale 假失敗卡住。quick preflight 的兩次矩陣 refresh 會保留 tracked 首頁公開狀態快照，只更新 ignored `output/audit`，避免本機 quick 驗證污染正式 release 快照。GitHub Pages deploy workflow 是部署防線，會以 Actions 發布 artifact，部署成功後檢查公開首頁與首頁狀態快照，不取代本機 preflight；部署前可用 `run-pages-artifact-smoke.ps1` 做本機 artifact 預演。若只是用 repo root 的臨時 HTTP server 做本機預覽，可對 `pages-live-smoke.js` 加 `--allow-local-output`，只跳過本機 `/output/` 路徑可讀性的假陽性，不放寬公開站檢查。修改 `螺栓檢討/bolt-review-tool` 後，請先跑 `sync-anchor-deployment.ps1` 更新 `anchor/` 與 `anchor/deployment-manifest.json`，否則 anchor route gate 會視為部署鏡像 stale。`run-preflight-tools-quick.bat` 只跑靜態契約、狀態新鮮度、輕量 parser/import/store smoke 與 runtime gate；完整 browser smoke、完整 backend tests、錨栓 verify、前端 build 與平台完整 audit 仍以 full preflight 為準。full preflight 只會對通過、來源未更新且狀態不超過 24 小時的慢測重用新鮮狀態，並在 history 記錄 `slowReuseKeys`；需要強制重跑慢測時可用 `run-preflight-tools.bat -ForceSlowChecks`；正式放行可直接用 `run-preflight-tools-release.bat`，它固定帶 `-ForceSlowChecks -ForcePlatformAudit`，避免誤用快取狀態。
 
-Windows 日常操作可直接執行 repo 根目錄的 `啟動案件附件工作台.bat`，也可把單一資料夾或單一 `.formal-source.zip` 直接拖到這個捷徑；它只將原始參數轉交 `結構工具箱/tools/啟動案件附件工作台.bat`，不重做或繞過任何權限判定，開啟後立即取得唯讀辨識建議。`attachment-governance-hub.ps1` 以「新案或重產後組包／唯讀查看案件狀態／v1、v2 舊包升級」三個目的分流到既有正式附件包管理器、案件附件治理檢視器與舊版附件升級助手；起始資料夾或來源 ZIP 可由啟動參數、對應選擇器或工作台內拖放帶入。這三種帶入方式都只接受單一現有實體資料夾或檔名精確以 `.formal-source.zip` 結尾的實體檔案，正規化為絕對路徑後立即執行唯讀辨識；一般檔案、多重路徑、連結或特殊項目會明確拒絕，手動輸入路徑時仍可按「唯讀辨識建議」。來源 ZIP 只會建議正式附件包管理器的 `source` 模式；管理器會在隔離暫存區安全檢查 ZIP，工作台與 `AutoInspect` 都不會自動建立附件包。資料夾的新組包建議至少要有 PDF／DOCX／XLSX／HTML 等報告型檔案，或帶有產出工具、版本、計畫編號、計算指紋等追溯訊號的來源資料；一般 JSON 或不支援檔案本身不構成組包建議。`attachment-governance-hub-worker.js` 只呼叫既有輸入類型、升級評估、案件／多案件掃描及附件來源檢查核心，回傳建議工具與 `InitialMode`，不另做 `ready / review / blocked` 判定。自動辨識本身不開啟工具；建議成立後，使用者明確點擊標示為「建議｜開啟並唯讀檢查」的工具，工作台才傳入 `AutoInspect`，由子工具執行既有 `check / verify / case / portfolio / inspect` 唯讀動作。現行 v3 包會進入管理器驗證，單案／多案會進入對應治理檢視，舊包／升級工作區只執行升級助手第一步檢查。此捷徑不會觸發 `build / execute`、勾選確認、建立、升級或核可；非建議工具仍只預填路徑。三個入口完整保留各自原有權限：管理器只有明確建立時可新建 v3 包，檢視器永遠唯讀，升級助手須通過兩步確認才可另建升級產物。工作台固定提醒工程結果、完整性、治理 ready 與正式附件核可是不同層次。唯讀 advisor 在背景程序執行，使用者可按「停止辨識」，逾 60 秒或關閉視窗也會清理程序。根目錄捷徑、四個工作台檔案均不發布至 GitHub Pages；`attachment-governance-hub.contract.test.js` 與三套 GUI 契約固定檢查入口完整性、啟動參數／選取／拖放的唯讀自動建議、模式交接、單擊唯讀檢查、寫入動作隔離、UTF-8 BOM 與私有發布邊界。
+附件整理完成、送出計算附件前，可執行 `node 結構工具箱/tools/attachment-package-check.js --input <附件資料夾> --project-no <計畫編號>`。它讀取 PDF、DOCX、XLSX、JSON、HTML 與文字附件，會自動略過 `.evidence.json`、成對的文字擷取檔、渲染摘要及作業系統雜項檔案，並檢查同工具版本、來源 JSON 與正式計算書的計算指紋配對、真正重複的來源／輸出及頁面專用文字。所有被辨識為計算文件的成品另須通過同一正向內容契約：一般計算書至少可辨識採用輸入、計算／檢核過程、工程結果及至少兩個實際工程數值；明確標題為計算摘要者可省略重複詳算，但仍須包含採用輸入、工程結果與相同的數值門檻。只有標題、章名、文件狀態、核可時間或追溯欄位的空殼文件一律 blocked；版本、日期、時間與計算指紋也不算工程數值。HTML 的 script、style、template 與 noscript 程式內容不計入可見工程內容。來源 JSON 維持追溯資料角色，不套用計算書正向內容群組。每份檔案會在內容解析前後取得 SHA-256；檢查期間若仍被重新輸出或替換即 blocked。來源資料夾本身或其內容若含符號連結、Windows junction 或其他特殊項目也會列名並阻擋，避免靜默遺漏或帶入選取資料夾以外的檔案。`文件狀態：內部審閱` 會阻擋正式組包；文件同時具備 `文件狀態：正式附件` 與有效 `核可時間` 才能自動放行。輸出時間與核可時間會依台灣本地格式或具時區 ISO 格式解析；無效輸出日期降為 `review`，核可早於輸出則 blocked，同一顯示秒可接受。計畫名稱、計畫編號與設計人可由主文承接，不列為必要欄位。缺少產出工具、版本、輸出時間、指紋或遇到未支援格式時仍降為 `review`。命令列採失敗封閉：只有 `ready` 回傳退出碼 `0`；`review` 回傳 `1`、`blocked` 回傳 `2`，參數或執行錯誤回傳 `3`。檢查結果只供內部整理，不得附入計算書、列印或 PDF。
 
-唯讀 advisor 由外部 Node 程序執行，WinForms 只以計時器輪詢完成狀態，因此大型資料夾辨識期間畫面仍可操作。工作台會依啟動瞬間游標所在螢幕的可用工作區調整寬高並置中，不再固定使用主要螢幕；最低可在 780 × 640px 視窗使用。狀態列固定於底部，主要內容置於獨立雙向捲動容器，底部正式核可提醒及最右側工具按鈕不會因筆電工作區或並排視窗較小而永久被裁切。鍵盤可用 `Ctrl+L` 聚焦並全選路徑、`Enter` 執行目前的唯讀辨識操作、辨識中按 `Esc` 安全停止；Tab 順序會依路徑、選擇／辨識及三個治理工具前進，控制項另提供輔助名稱與權限說明。辨識進行時，按鈕會改為「停止辨識」，使用者可立即取消背景程序並保留工作台開啟；路徑一旦改變，舊程序也會取消。完成結果只有在路徑仍完全相同時才可套用。辨識超過 60 秒會停止並要求縮小案件或附件範圍；關閉工作台也會清理背景程序。worker 逾時或失敗時，主提示會明確改為「唯讀辨識未完成」，按鈕改為「重新辨識」，可用原路徑直接重試或調整路徑後再辨識，不再停留在進行中文字。這些取消、逾時與失敗只影響工具建議，不會啟動子工具、寫入案件或改變治理狀態。工作台契約另以真實 WinForms message loop 先執行按鈕 `PerformClick()` 停止第一個 worker，再啟動第二個 worker 並送出真實 `Esc`，確認兩種停止路徑都會終止背景程序、保留視窗、復原待命按鈕及取消訊息；小視窗 smoke 會在顯示前降為 800 × 640px，確認視窗四邊仍在所選螢幕工作區內，以真實 `WM_VSCROLL`／`WM_HSCROLL` 分別捲到底及最右側，並用畫面座標證明正式核可提醒與升級助手按鈕完整可見，再以真實 `Ctrl+L` 與連續 Tab 證明鍵盤焦點可帶到窄視窗外的最右側工具；生命週期 smoke 會再切換一次資料夾並正常關閉視窗，動態確認前後兩個 worker 都被清除；逾時 smoke 會由真實 WinForms 計時器終止第一個慢速 worker，再以同一按鈕 `PerformClick()` 重新辨識，確認第二個 worker 正常完成、結果取代逾時訊息且沒有程序殘留；失敗 smoke 也會讓第一個真實 worker 回傳錯誤後完成相同的重試復原，全程不需人工關閉對話框。
+日常組包與 v3 正式附件包事後驗證會重新計算 RC、風力／地震共用正式 HTML、錨栓正式 HTML，以及錨栓正式 XLSX 的內容／核可封印。共用 HTML 計算書的正式附件核可另提供「核可人」與「核可依據」選填欄位；兩欄留空不構成 NG、DRAFT 或組包阻擋，填寫後只以精簡頁尾紀錄進入正式附件，輸入控制仍在列印時隱藏。新版 RC／共用正式 HTML 核可封印 v2 會把兩欄連同狀態、時間、標題、計算指紋及內容封印一起綁定，任何改寫均由附件檢查器阻擋；既有 v1 核可封印仍可依原規則驗證。舊版正式 HTML 或 XLSX 缺少任一應有封印時降為 `review`；正文、公式、快取結果、文件狀態、核可時間、計算指紋、工具身分或文件標題被改寫時固定 `blocked`。即使同步重算檔案雜湊、附件包清單與包指紋，也不能繞過附件內容的雙封印驗證。組包與事後驗證摘要分別列出 HTML 雙封印與 XLSX 雙封印完成數，只顯示完成數與通過／異常狀態，不輸出封印值、封印範圍或正文；這些資訊只供內部交付確認，不進入正式附件，且 SHA-256 封印不是核可人的身分數位簽章。
 
-Windows 也可直接執行 `結構工具箱/tools/啟動正式附件包管理器.bat`，在同一個本機視窗完成「選擇附件來源資料夾或 `.formal-source.zip` → 檢查 → ready 後建立正式附件包 → 選擇或沿用輸出資料夾驗證」。介面由 `attachment-package-manager.ps1` 提供資料夾／來源 ZIP 選擇、狀態色塊、附件清單與問題明細；`attachment-package-manager-worker.js` 只把既有檢查、組包及驗證核心轉成結構化結果，不自行改判 `ready / review / blocked`。計畫編號維持選填；使用者欄位空白且來源附件只辨識出一個一致的計畫編號時，管理器才會帶入該值，來源未填就維持空白，多值衝突不猜選，使用者既有輸入也不覆寫，正式建立前仍由核心重新檢查。任一來源檢查 ready 且輸出欄位空白時，唯讀核心都會先產生含臺北時間與隨機識別碼的唯一預定輸出位置；畫面只顯示路徑，不預建資料夾。使用者自行選過的輸出不覆寫，來源改變時只清除仍未編輯的舊自動建議；正式建立若沒有確切輸出路徑則拒絕啟動，且核心仍會阻擋既有位置。來源檢查與既有附件包驗證會在背景唯讀程序執行，視窗保持回應；進行中同一按鈕會改為「停止檢查」或「停止驗證」，使用者取消、五分鐘逾時、路徑變更或關閉視窗都會終止該唯讀程序，清除受管結果檔與該 worker 的來源 ZIP 隔離暫存區，且不套用過期結果。鍵盤可用 `Ctrl+L` 聚焦目前模式的路徑、`Enter` 執行來源檢查或既有包驗證、`Esc` 停止進行中的唯讀工作；正式建立不接受 Enter 快捷觸發，仍須明確點按。來源／驗證欄位與主要按鈕另提供固定 Tab 順序、輔助名稱及權限說明。正式建立是唯一寫入動作，仍明確留在既有原子組包流程，不與可取消的唯讀路徑混用。來源 ZIP 必須依序且只含根目錄同名 PDF 與 canonical evidence；worker 先由 ZIP 中央目錄檢查名稱與大小，再將兩個指定檔案讀入隔離暫存區，完成後一律清理。組包成功時會直接沿用核心自我驗證結果分別顯示 HTML 雙封印與 XLSX 雙封印完成數；事後驗證的逐份結果會標示錨栓、RC 或共用正式 HTML，以及錨栓 XLSX 雙封印是否通過，但不顯示封印值、scope 或正規化內容。管理器不啟動本機網路服務、不傳送案件資料，且和其他附件治理腳本一樣不發布至 GitHub Pages。其契約由 `attachment-package-manager.contract.test.js` 固定檢查本機邊界、背景 IPC／取消清理、鍵盤唯讀路由、ZIP 路徑穿越／多檔／錯配反例、GUI 入口、核心接線與 Pages 私有清冊。
-
-管理器會依啟動瞬間游標所在螢幕的可用工作區調整尺寸並置中，不再固定使用主要螢幕；工作區較小時最低可在 800 × 640px 視窗操作。主內容保留 1040 × 784px 固定設計面並放入雙向捲動容器，底部狀態列固定於視窗外層；因此右側來源 ZIP／驗證按鈕、下方附件清單及問題明細都可捲動到完整可見。`Ctrl+L` 聚焦路徑時也會自動把欄位帶入可視區。viewport smoke 在真實 WinForms message loop 中把視窗縮為 800 × 640px，確認四邊仍位於游標所在螢幕工作區內，水平與垂直捲動均有效、右下內容探針與固定狀態列可見，且不啟動 worker 或建立附件包。
-
-管理器的來源區與驗證區也可直接接受 Windows 檔案拖放。來源區只接受單一現有實體資料夾或檔名精確以 `.formal-source.zip` 結尾的實體檔案；驗證區只接受單一現有實體正式附件包資料夾，來源 ZIP 不得在驗證區誤當附件包。多重路徑、一般檔案、連結與特殊項目會保留原路徑並明確拒絕。合法拖入只會立即執行對應的背景唯讀檢查或驗證，永遠不會觸發「建立正式附件包」；原本的明確建立按鈕與建立前重查仍保留。drag-and-drop smoke 透過真實 WinForms `OnDragEnter`／`OnDragDrop` 事件動態證明兩種合法路徑、三種拒絕路徑、worker／結果暫存清理及 `built=false`。
-
-正式建立也由獨立背景 worker 執行，因此大型附件來源組包時 WinForms 畫面仍可回應，不再因同步等待而像當機。這仍是唯一寫入動作：來源通過唯讀檢查後必須明確點按，背景核心會再次完整檢查、以暫存資料夾原子發布並執行事後驗證。建立期間來源、計畫編號、輸出、檢查與驗證入口全部鎖定；核心透過系統暫存區內的受管 JSONL 事件檔回報「準備來源、重新檢查、建立暫存包、發布前驗證、原子發布」等真實階段，WinForms 只接受白名單階段並搭配實際經過時間顯示，不採用 worker 任意文字，也不以無法證明的百分比假裝進度。按 Esc 或嘗試關窗只會提示「不可取消」，不會終止正在發布的 worker。建立自然完成後才恢復畫面、清理結果／階段 IPC、來源 ZIP 暫存並清除一次性建立權限。build responsiveness smoke 在真實 WinForms message loop 內啟動延遲的失敗封閉測試建立，動態證明核心階段與經過時間可見、UI 計時器可運作、關窗與 Esc 被阻擋、worker 自然結束、兩種 IPC 暫存清除、UI 復原且沒有建立附件包。
-
-單一案件或多案件治理可直接執行 `結構工具箱/tools/啟動案件附件治理檢視器.bat`。`attachment-case-governance-viewer.ps1` 讓使用者選擇案件根目錄或案件上層資料夾，並以狀態色塊、案件清單、P0／P1／P2、附件包狀態、可信基準鏈、待前進收據、問題與下一步顯示既有唯讀治理結果；多案件的「只顯示待處理」及優先層級篩選只縮減畫面，不改變整批狀態、退出碼或 `POR-` 指紋。`attachment-case-governance-viewer-worker.js` 直接呼叫既有單案 root 與多案 portfolio 核心，不另行升降狀態。檢視器不建立、修改、核可或寫入案件資料，不啟動網路服務，也不發布至 GitHub Pages；`ready` 只表示可進入內部歸檔複核，不代表正式附件核可。其邊界由 `attachment-case-governance-viewer.contract.test.js` 固定檢查。
-
-既有 v1／v2 正式附件包可直接執行 `結構工具箱/tools/啟動舊版附件升級助手.bat`。介面採固定兩步式流程：第一步只讀辨識輸入階段並執行既有升級評估或工作區完成度檢查，不建立產物、不寫歷程收據；第二步只有完整舊包或完成度 `ready` 的升級工作區才會提供新建動作，且必須勾選「只新建產物、不改寫舊包、本動作不代表正式核可」後才能呼叫既有 `attachment-package-upgrade-flow.js`。舊包只會另建安全升級工作區；完成工作區只會另建新的 v3 正式附件包，兩者均使用既有安全預設位置、禁止覆寫並在外部留下內部歷程收據。`attachment-package-upgrade-assistant-worker.js` 不另建第二套寫入邏輯，狀態、完成度、組包、自我驗證及收據皆沿用既有核心；GUI 不提供原地升級、複製舊核可、人工提升狀態或自訂不安全輸出位置。助手不啟動網路服務，四個檔案均不發布至 GitHub Pages；其邊界由 `attachment-package-upgrade-assistant.contract.test.js` 固定檢查。
-
-附件整理完成、送出計算附件前，也可將附件資料夾拖曳到 `結構工具箱/tools/檢查附件組包.bat`，或執行 `node 結構工具箱/tools/attachment-package-check.js --input <附件資料夾> --project-no <計畫編號>`。它讀取 PDF、DOCX、XLSX、JSON、HTML 與文字附件，會自動略過 `.evidence.json`、成對的文字擷取檔、渲染摘要及作業系統雜項檔案，並檢查同工具版本、來源 JSON 與正式計算書的計算指紋配對、真正重複的來源／輸出及頁面專用文字。所有被辨識為計算文件的成品另須通過同一正向內容契約：一般計算書至少可辨識採用輸入、計算／檢核過程、工程結果及至少兩個實際工程數值；明確標題為計算摘要者可省略重複詳算，但仍須包含採用輸入、工程結果與相同的數值門檻。只有標題、章名、文件狀態、核可時間或追溯欄位的空殼文件一律 blocked；版本、日期、時間與計算指紋也不算工程數值。HTML 的 script、style、template 與 noscript 程式內容不計入可見工程內容。來源 JSON 維持追溯資料角色，不套用計算書正向內容群組。每份檔案會在內容解析前後取得 SHA-256；檢查期間若仍被重新輸出或替換即 blocked。來源資料夾本身或其內容若含符號連結、Windows junction 或其他特殊項目也會列名並阻擋，避免靜默遺漏或帶入選取資料夾以外的檔案。`文件狀態：內部審閱` 會阻擋正式組包；文件同時具備 `文件狀態：正式附件` 與有效 `核可時間` 才能自動放行。輸出時間與核可時間會依台灣本地格式或具時區 ISO 格式解析；無效輸出日期降為 `review`，核可早於輸出則 blocked，同一顯示秒可接受。計畫名稱、計畫編號與設計人可由主文承接，不列為必要欄位。缺少產出工具、版本、輸出時間、指紋或遇到未支援格式時仍降為 `review`。命令列採失敗封閉：只有 `ready` 回傳退出碼 `0`；`review` 回傳 `1`、`blocked` 回傳 `2`，參數或執行錯誤回傳 `3`。檢查結果只供內部整理，不得附入計算書、列印或 PDF。
-
-日常組包與 v3 正式附件包事後驗證會重新計算 RC、風力／地震共用正式 HTML、錨栓正式 HTML，以及錨栓正式 XLSX 的內容／核可封印。共用 HTML 計算書的正式附件核可另提供「核可人」與「核可依據」選填欄位；兩欄留空不構成 NG、DRAFT 或組包阻擋，填寫後只以精簡頁尾紀錄進入正式附件，輸入控制仍在列印時隱藏。新版 RC／共用正式 HTML 核可封印 v2 會把兩欄連同狀態、時間、標題、計算指紋及內容封印一起綁定，任何改寫均由附件檢查器阻擋；既有 v1 核可封印仍可依原規則驗證。舊版正式 HTML 或 XLSX 缺少任一應有封印時降為 `review`；正文、公式、快取結果、文件狀態、核可時間、計算指紋、工具身分或文件標題被改寫時固定 `blocked`。即使同步重算檔案雜湊、附件包清單與包指紋，也不能繞過附件內容的雙封印驗證。驗證摘要與正式附件包管理器只顯示完成數與通過／異常狀態，不輸出封印值、封印範圍或正文；這些資訊只供內部交付確認，不進入正式附件，且 SHA-256 封印不是核可人的身分數位簽章。
-
-開挖擋土支撐的 PDF／DOCX 預設為可列印的內部審閱，只有使用者在報表匯出頁明確勾選核可，才標示為正式附件並記錄核可時間；案件名稱與設計者留空仍可由主文承接。核可 PDF 會同步產生逐頁像素、OCR 與文字層對齊證據，以及只含 PDF／證據的單一 ZIP 組包來源套件；ZIP 可直接交給正式附件包管理器，本身不是正式附件包。若同案還要納入 ERH、RVR、SEV、SCV 或可選公開 RTB，則仍將治理 JSON、PDF 與其同名證據放在同一個組包來源資料夾，以完整案件來源組包。檢查器會把治理與渲染證據辨識為內部追溯，不拿來冒充計算來源／報告配對；SCV 所列來源檔名、SHA-256、各層指紋、工程結果、身分採用狀態及非工程核可邊界必須一致。完整鏈與 PDF 證據會隨 v3 包保存在 `99_內部追溯_勿附入主報告/來源資料/`，正式計算書仍只進入 `01_正式附件/`；缺檔或內容替換 blocked，孤立且未被 SCV 連結的治理證據維持 review。匿名端到端測試以實際後端產物與正式附件包管理器證明核可 PDF 來源 ZIP 可直接放行及組包、內部 JSON 不流入正文，且 OCR 證據或組包後 SEV 遭替換都會失敗封閉。組包器及事後驗證器都會重做這項檢查並只顯示完成組數。此關係檢查不重算 ERH／RVR／SEV 的受控內容或 Ed25519 簽章，正式複驗仍須使用包內來源檔重跑 `驗證SEV證據鏈.bat`。
+開挖擋土支撐的 PDF／DOCX 預設為可列印的內部審閱，只有使用者在報表匯出頁明確勾選核可，才標示為正式附件並記錄核可時間；案件名稱與設計者留空仍可由主文承接。核可 PDF 會同步產生逐頁像素、OCR 與文字層對齊證據，以及只含 PDF／證據的單一 ZIP 組包來源套件；ZIP 只是搬運用來源套件，本身不是正式附件包，組包前須解壓為 PDF 與證據配對。若同案還要納入 ERH、RVR、SEV、SCV 或可選公開 RTB，則仍將治理 JSON、PDF 與其同名證據放在同一個組包來源資料夾，以完整案件來源組包。檢查器會把治理與渲染證據辨識為內部追溯，不拿來冒充計算來源／報告配對；SCV 所列來源檔名、SHA-256、各層指紋、工程結果、身分採用狀態及非工程核可邊界必須一致。完整鏈與 PDF 證據會隨 v3 包保存在 `99_內部追溯_勿附入主報告/來源資料/`，正式計算書仍只進入 `01_正式附件/`；缺檔或內容替換 blocked，孤立且未被 SCV 連結的治理證據維持 review。匿名端到端測試以實際後端產物證明核可 PDF 來源 ZIP 內容精確、組包後內部 JSON 不流入正文，且 OCR 證據或組包後 SEV 遭替換都會失敗封閉。組包器及事後驗證器都會重做這項檢查並只顯示完成組數。此關係檢查不重算 ERH／RVR／SEV 的受控內容或 Ed25519 簽章，正式複驗仍須使用包內來源檔重跑 `驗證SEV證據鏈.bat`。
 附件可見性採失敗封閉：HTML 靜態檢查會排除 `hidden`、`aria-hidden`、列印媒體隱藏、透明、零尺寸及明確同色前景／背景內容；裁切、頁外位移或無法由靜態 CSS 確定的同色內容一律降為 `review`。DOCX 的 `w:vanish` 隱藏文字及 XLSX 的 hidden／veryHidden 工作表、隱藏列、隱藏欄都不計入工程內容；工作表存在隱藏欄但儲存格缺少 `r` 參照時，不猜測欄位而改列 `review`。PDF 的 `pdftotext` 只用於文字層 metadata 對照，不能證明實際可見或冒充 OCR；只有同一次瀏覽器列印工作階段取得的 print-visible DOM（computed style、有效背景／對比、`getClientRects`）、PDF SHA-256 與 `pdftoppm` 逐頁像素指標，或真正由渲染頁面取得的 OCR／vision 證據，才可自動視為 canonical evidence。檢查器會重算 evidence 內正規化 `visibleText.text` 的長度、SHA-256、文件 profile 與工程內容邊界，並要求正式狀態、核可時間、產出工具、版本、輸出時間及計算指紋與 PDF 文字層一致。這仍是可見性與一致性檢查：複雜 Office 條件格式、物件疊放、字型替換、透明度合成及掃描 PDF 的辨識誤差可能需要人工複核，不等同排版簽章或工程核可。
 HTML 靜態判定會合併同一元素命中的 simple selector 規則與 inline style，並以預設白色頁面、繼承前景色及最近明示的祖先背景色判斷對比；白字落在預設白底、分拆規則形成同色前景／背景，以及 `width:0; height:0; overflow:hidden` 的內容都不得補足工程內容。明確白字／深色背景等有效對比則維持可見；外部 stylesheet、CSS `@import`、涉及可見性／配置／前景背景但無法解析的 selector，以及無法解析的 `color`／`background` 值（如 `hsl()`、`var()`）一律轉人工複核。純 typography 的複雜 selector 不會單獨觸發此狀態。
 Canonical profile 也不直接相信 evidence 宣告：檢查器先由可見標題重判「計算書／計算摘要」family；可見內容同時具備產出工具、版本、輸出時間與計算指紋時，再提升為 `traceable-*` 並以較嚴格群組重算，避免把可追溯計算書降級或偽裝成摘要。`compiled-engineering-report` 可與計算書 family 相容，但仍以重判後 profile 檢核內容。preflight 的同一 `attachment-package-check` key 在 quick／CI 固定保留 Node 單元測試；只有 full／release 才在單元通過後追加實際 Edge canonical render E2E。
 
-檢查通過後，可將同一資料夾拖曳到 `結構工具箱/tools/建立正式附件包.bat`，或執行 `node 結構工具箱/tools/attachment-package-build.js --input <附件資料夾> [--output <輸出資料夾>] [--project-no <計畫編號>]`。組包器直接沿用上述檢查結果；只有 `ready` 且至少一份文件明確標示「文件狀態：正式附件」及有效核可時間時才會建立輸出。正式計算書放入 `01_正式附件/`；來源 JSON、SHA-256 清單與附件包指紋放入 `99_內部追溯_勿附入主報告/`。新建附件包採 `formal-attachment-package.v3`：附件包指紋除 v2 已涵蓋的檔案路徑、大小、SHA-256、建立時間、計畫編號、產出工具、版本、輸出時間、計算指紋、組包前摘要及正式／內部分流邊界外，再綁定每份正式附件的核可時間。`review`、內部審閱、來源連結／junction、無正式文件、輸出位於來源資料夾內或輸出位置已存在時皆不產生正式包；複製層另會逐層檢查來源實際路徑，並要求檢查完成、複製前、複製後與目標檔案的 SHA-256 完全相同，避免檢查後遭路徑轉向、重新輸出或內容替換。建立過程先寫入暫存資料夾，並以事後驗證器在暫存區完成逐檔大小、SHA-256、清單、指紋、資料夾邊界及正式附件工程內容自我驗證，全部通過後才原子更名；Windows 若於更名瞬間回傳 `EPERM`、`EACCES` 或 `EBUSY` 且正式輸出仍不存在，只會在 0.5 秒內有限重試，其他錯誤仍立即失敗。自我驗證失敗會清除暫存資料且不建立輸出，避免留下半成品或看似正式的異常附件包。
+檢查通過後，可執行 `node 結構工具箱/tools/attachment-package-build.js --input <附件資料夾> [--output <輸出資料夾>] [--project-no <計畫編號>]`。組包器直接沿用上述檢查結果；只有 `ready` 且至少一份文件明確標示「文件狀態：正式附件」及有效核可時間時才會建立輸出。正式計算書放入 `01_正式附件/`；來源 JSON、SHA-256 清單與附件包指紋放入 `99_內部追溯_勿附入主報告/`。新建附件包採 `formal-attachment-package.v3`：附件包指紋除 v2 已涵蓋的檔案路徑、大小、SHA-256、建立時間、計畫編號、產出工具、版本、輸出時間、計算指紋、組包前摘要及正式／內部分流邊界外，再綁定每份正式附件的核可時間。`review`、內部審閱、來源連結／junction、無正式文件、輸出位於來源資料夾內或輸出位置已存在時皆不產生正式包；複製層另會逐層檢查來源實際路徑，並要求檢查完成、複製前、複製後與目標檔案的 SHA-256 完全相同，避免檢查後遭路徑轉向、重新輸出或內容替換。建立過程先寫入暫存資料夾，並以事後驗證器在暫存區完成逐檔大小、SHA-256、清單、指紋、資料夾邊界及正式附件工程內容自我驗證，全部通過後才原子更名；Windows 若於更名瞬間回傳 `EPERM`、`EACCES` 或 `EBUSY` 且正式輸出仍不存在，只會在 0.5 秒內有限重試，其他錯誤仍立即失敗。自我驗證失敗會清除暫存資料且不建立輸出，避免留下半成品或看似正式的異常附件包。
 
-正式附件包在寄送、複製或歸檔後，可將整個附件包資料夾拖曳到 `結構工具箱/tools/驗證正式附件包.bat`，或執行 `node 結構工具箱/tools/attachment-package-verify.js --input <正式附件包資料夾>`。驗證器不修改任何檔案，會逐一核對清單格式、資料夾邊界、檔案大小、SHA-256、附件包指紋與內部 README，並阻擋遺漏、替換、追溯欄位、核可時間或附件邊界變更、額外檔案／資料夾、符號連結及路徑越界；附件包根目錄本身若為符號連結或 Windows junction 也會直接阻擋，並在結束前以檔案系統身分重新確認根目錄未被替換。對目前 v3 包，驗證器還會直接重讀包內正式附件與來源 JSON，再次套用正向工程內容、頁面專用文字、正式附件身分、核可時間及來源／報告指紋配對規則；附件實際文字中的產出工具、版本、輸出時間、核可時間或計算指紋若與清單不同，即使重新計算出相符的檔案雜湊與附件包指紋仍會 blocked。清單、README、全部附件及目錄結構會在結束前再做第二次快照，雲端同步、重新輸出或人工整理若在驗證期間改變任何項目即失敗封閉。清單內每一層 JSON 物件的欄位名稱必須唯一；同字面欄位或以 `\u` 跳脫表示的同名欄位都會阻擋，避免不同解析器採第一值或最後值而讀出不同附件內容。清單另採封閉式欄位契約：頂層、檢查摘要、分流邊界及每筆正式／追溯附件紀錄只接受已定義欄位，任何未納入指紋的自訂狀態、簽章或擴充欄位都會阻擋，避免驗證器忽略而其他系統誤信。清單路徑另須採 NFC 正規化、避開 Windows 保留裝置名稱與尾端空白／句點，且以不分大小寫的可攜式路徑鍵維持唯一，避免 `A.pdf` 與 `a.pdf` 在 Windows 被重複計數為兩份附件。v3 包另會獨立驗證輸出時間有效、核可不早於輸出、清單建立時間為嚴格具時區格式且不早於任何正式附件核可時間，形成「輸出 ≤ 核可 ≤ 組包」的完整時間鏈。即使清單指紋重新計算一致，也不放行空殼附件、實際內容與清單不一致、重複／未定義 JSON 欄位、路徑碰撞或不合理時間。既有 `formal-attachment-package.v1` 與 `formal-attachment-package.v2` 附件包仍可依各自原指紋規則確認檔案完整性，但因未綁定 v3 的完整追溯 metadata／正式核可時間，結果固定為 `review`、退出碼 `1`，需人工確認或重新組包為 v3；只有完整性、工程內容與驗證期間穩定性都吻合的 v3 包才會自動判定 `ready` 並回傳退出碼 `0`。任何版本若有完整性異常都以 `blocked` 優先並回傳 `2`，參數或執行錯誤回傳 `3`。此機制仍不等同數位簽章或第三方身分驗證。
+正式附件包在寄送、複製或歸檔後，可執行 `node 結構工具箱/tools/attachment-package-verify.js --input <正式附件包資料夾>`。驗證器不修改任何檔案，會逐一核對清單格式、資料夾邊界、檔案大小、SHA-256、附件包指紋與內部 README，並阻擋遺漏、替換、追溯欄位、核可時間或附件邊界變更、額外檔案／資料夾、符號連結及路徑越界；附件包根目錄本身若為符號連結或 Windows junction 也會直接阻擋，並在結束前以檔案系統身分重新確認根目錄未被替換。對目前 v3 包，驗證器還會直接重讀包內正式附件與來源 JSON，再次套用正向工程內容、頁面專用文字、正式附件身分、核可時間及來源／報告指紋配對規則；附件實際文字中的產出工具、版本、輸出時間、核可時間或計算指紋若與清單不同，即使重新計算出相符的檔案雜湊與附件包指紋仍會 blocked。清單、README、全部附件及目錄結構會在結束前再做第二次快照，雲端同步、重新輸出或人工整理若在驗證期間改變任何項目即失敗封閉。清單內每一層 JSON 物件的欄位名稱必須唯一；同字面欄位或以 `\u` 跳脫表示的同名欄位都會阻擋，避免不同解析器採第一值或最後值而讀出不同附件內容。清單另採封閉式欄位契約：頂層、檢查摘要、分流邊界及每筆正式／追溯附件紀錄只接受已定義欄位，任何未納入指紋的自訂狀態、簽章或擴充欄位都會阻擋，避免驗證器忽略而其他系統誤信。清單路徑另須採 NFC 正規化、避開 Windows 保留裝置名稱與尾端空白／句點，且以不分大小寫的可攜式路徑鍵維持唯一，避免 `A.pdf` 與 `a.pdf` 在 Windows 被重複計數為兩份附件。v3 包另會獨立驗證輸出時間有效、核可不早於輸出、清單建立時間為嚴格具時區格式且不早於任何正式附件核可時間，形成「輸出 ≤ 核可 ≤ 組包」的完整時間鏈。即使清單指紋重新計算一致，也不放行空殼附件、實際內容與清單不一致、重複／未定義 JSON 欄位、路徑碰撞或不合理時間。既有 `formal-attachment-package.v1` 與 `formal-attachment-package.v2` 附件包仍可依各自原指紋規則確認檔案完整性，但因未綁定 v3 的完整追溯 metadata／正式核可時間，結果固定為 `review`、退出碼 `1`，需人工確認或重新組包為 v3；只有完整性、工程內容與驗證期間穩定性都吻合的 v3 包才會自動判定 `ready` 並回傳退出碼 `0`。任何版本若有完整性異常都以 `blocked` 優先並回傳 `2`，參數或執行錯誤回傳 `3`。此機制仍不等同數位簽章或第三方身分驗證。
 
-要處理既有 v1／v2 包時，可將附件包拖曳到 `結構工具箱/tools/評估舊版附件包升級.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-assess.js --input <正式附件包資料夾> [--json]`。評估器先沿用同一完整性驗證器：異常包固定 blocked，不提供升級捷徑；完整的舊包則列為 review，依序要求保留舊包、由原始工具重新確認並輸出計算結果、重新勾選正式附件核可、另建新的 v3 包。它不修改附件包、不在原清單補欄位、不複製或推算舊核可時間，也不自行產生正式附件；v3 包若已驗證通過則明確回報不需升級。CLI 狀態碼維持 `ready=0`、`review=1`、`blocked=2`、參數或執行錯誤 `3`，`--json` 只把同一份內部評估輸出到標準輸出。
+要處理既有 v1／v2 包時，可執行 `node 結構工具箱/tools/attachment-package-upgrade-assess.js --input <正式附件包資料夾> [--json]`。評估器先沿用同一完整性驗證器：異常包固定 blocked，不提供升級捷徑；完整的舊包則列為 review，依序要求保留舊包、由原始工具重新確認並輸出計算結果、重新勾選正式附件核可、另建新的 v3 包。它不修改附件包、不在原清單補欄位、不複製或推算舊核可時間，也不自行產生正式附件；v3 包若已驗證通過則明確回報不需升級。CLI 狀態碼維持 `ready=0`、`review=1`、`blocked=2`、參數或執行錯誤 `3`，`--json` 只把同一份內部評估輸出到標準輸出。
 
 升級評估另會依「產出工具＋版本＋共享計算指紋」為每份正式附件配對包內來源資料，列出附件路徑、舊輸出時間、指紋、來源檔案及四項待辦。找不到來源時會逐份標示需回外部可信原始檔或原工具重建，禁止從舊報告反推輸入；文字與 `--json` 使用同一份工作清單。v3 或 blocked 包不產生誤導性的重新輸出清單。
 
-確認完整舊包需要升級後，可將它拖曳到 `結構工具箱/tools/建立舊版附件升級工作區.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-workspace.js --input <舊版正式附件包> [--output <新工作區>] [--json]`。建立器只新增獨立工作區，不修改舊包，也不複製舊附件、來源資料、metadata 或核可時間；`00_內部升級工作說明_勿附入主報告/` 只放逐份待辦，`01_新組包來源/` 只預建空白的「重新輸出正式計算書」與「重新確認來源資料」資料夾。完成重算與重新核可後，只能選取 `01_新組包來源/` 交給正式組包器，不得選取整個升級工作區。工作區採暫存後原子發布，失敗不留半成品；建立成功仍固定為 `review`／退出碼 `1`，不代表正式附件已核可。v3 完整包不建立工作區並回傳 `ready=0`；異常包不建立工作區並回傳 `blocked=2`；參數或執行錯誤為 `3`。
+確認完整舊包需要升級後，可執行 `node 結構工具箱/tools/attachment-package-upgrade-workspace.js --input <舊版正式附件包> [--output <新工作區>] [--json]`。建立器只新增獨立工作區，不修改舊包，也不複製舊附件、來源資料、metadata 或核可時間；`00_內部升級工作說明_勿附入主報告/` 只放逐份待辦，`01_新組包來源/` 只預建空白的「重新輸出正式計算書」與「重新確認來源資料」資料夾。完成重算與重新核可後，只能選取 `01_新組包來源/` 交給正式組包器，不得選取整個升級工作區。工作區採暫存後原子發布，失敗不留半成品；建立成功仍固定為 `review`／退出碼 `1`，不代表正式附件已核可。v3 完整包不建立工作區並回傳 `ready=0`；異常包不建立工作區並回傳 `blocked=2`；參數或執行錯誤為 `3`。
 
-新輸出整理完成後，可將整個工作區拖曳到 `結構工具箱/tools/檢查舊版附件升級工作區.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-workspace-check.js --input <升級工作區> [--project-no <計畫編號>] [--json]`。完成度檢查器固定唯讀，先核對工作清單指紋、JSON／Markdown 同源與目錄邊界，再沿用附件組包檢查，並以「產出工具＋舊計算指紋」逐份尋找各 1 份新計算書及新來源；新工具版本可以不同，但兩份新檔仍須彼此版本與指紋一致。新輸出、來源儲存與正式核可時間均不得早於工作區建立時間，因此手動複製舊包內容不會通過。缺件、內部審閱或尚未重新核可維持 `review=1`；指紋不符、清單遭修改、邊界多檔或不安全連結為 `blocked=2`；只有全部逐份完成才是 `ready=0`。正式組包器會自動辨識 `01_新組包來源/` 並先執行同一閘門，未通過時不建立附件包；通過後的新 v3 包也固定輸出在工作區外。
-
-日常操作可只使用 `結構工具箱/tools/舊版附件包升級流程.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-flow.js --input <正式附件包｜升級工作區｜新組包來源> [--output <新工作區或新 v3 包>] [--project-no <計畫編號>] [--history-dir <外部內部歷程資料夾>] [--json]`。統一流程會先辨識輸入階段：完整 v1／v2 包建立安全工作區後停止於 review；未完成工作區只列出待辦；完成度 ready 的工作區才呼叫正式組包器並產生驗證通過的 v3；既有完整 v3 不修改附件包；完整性異常則 blocked。即使直接選取 `01_新組包來源/`，也會回到父工作區執行同一完成度閘門，不能繞過重新輸出與人工核可。`--output` 在舊包階段代表新工作區，在完成工作區階段代表新 v3 包；省略時使用各階段的安全預設位置。
-
-統一流程的每次 CLI／批次執行另會原子產生一份 `formal-attachment-package-upgrade-history-record.v1` JSON 收據；預設放在輸入旁的 `附件升級內部歷程_勿附入主報告/`，也可用 `--history-dir` 指定。收據只記錄辨識階段、動作、ready／review／blocked、舊包／工作清單／新包指紋、完成度摘要與發布前自我驗證狀態，不保存計算內容、輸入值或核可時間。歷程資料夾必須位於舊包、升級工作區、新組包來源與新 v3 包之外；位置不安全或不可寫時，會在任何工作區建立／正式組包動作前停止。每份收據以 `HIS-` 指紋及唯一檔名原子發布，既有收據不得覆寫；它只供案件內部追溯，不得放入計算書、主報告或正式附件包。完整 v3 的「零變更」是指附件包本身不變，仍會在外部留下本次確認收據。
-
-要查驗外部歷程，可將 `附件升級內部歷程_勿附入主報告/` 拖曳到 `結構工具箱/tools/檢查附件升級內部歷程.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-history-index.js --history <外部歷程資料夾> [--baseline <外部保存的可信索引 JSON>] [--json]`。索引器固定唯讀，採封閉欄位白名單，逐份驗證 JSON 欄位唯一、`HIS-` 指紋、檔名／時間／動作／receiptId 一致、動作與 ready／review／blocked 語意、完成摘要及讀取前後雙快照，並產生不含完整路徑的 `HIX-` 集合指紋。沒有基準時只能確認目前收據完整，不能證明過去是否曾刪除；外部保存且狀態為 `valid` 的可信索引可供 `--baseline` 比對，同 ID 改變或收據遺失為 `blocked=2`，合法新增為 `review=1`，完全相符為 `valid=0`，參數或執行錯誤為 `3`。可信基準與索引輸出不得存回歷程收據資料夾；此結果只代表內部歷程完整性，不代表附件正式核可，也不等同數位簽章。
-
-第一次建立可信基準時，可直接把歷程資料夾拖曳到 `結構工具箱/tools/建立附件升級可信基準.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-history-baseline.js --history <外部歷程資料夾> [--baseline <既有外部可信基準 JSON>] [--output <新的外部基準 JSON>] [--json]`。未指定輸出時會在歷程旁建立 `附件升級可信基準_勿附入主報告/`，不必手動重新導向；只有歷程索引為 `valid` 才會以同目錄暫存、發布前自我驗證及原子更名建立新 JSON，既有檔案永不覆寫。空歷程、收據損壞，或相較既有基準出現未確認新增／遺失／改變時均不產生基準；因此提供舊基準後，合法新增仍需先人工確認，不能被發布器靜默納入。基準只含不具完整路徑的收據摘要與 `HIX-` 指紋，固定存於歷程、計算書、主報告及正式附件包之外；它是內部完整性錨點，不是附件核可或數位簽章。
-
-既有基準之後出現合法新增收據時，先用唯讀索引確認差異，再執行 `node 結構工具箱/tools/attachment-package-upgrade-history-baseline-advance.js --history <外部歷程資料夾> --baseline <既有外部可信基準 JSON> --accept-additions --reviewer <內部複核人> --basis <複核依據> [--output <新的外部前進包資料夾>] [--json]`，或使用 `結構工具箱/tools/推進附件升級可信基準.bat`。前進工具只接受「舊收據完全不變且僅有新增」；遺失、同 ID 改變、收據篡改或其他警告均不發布。明確接受後會建立一個新前進包，內含新版 `valid` 基準與 `formal-attachment-package-upgrade-history-baseline-advancement-record.v1` 內部核准紀錄；紀錄綁定舊／新基準 SHA-256、`HIX-` 集合指紋、收據數、逐筆新增 ID／`HIS-` 指紋、複核人及依據。兩檔先在隱藏暫存目錄完成封閉欄位、重複 JSON key、`HAD-` 指紋、差異集合、歷程回讀及 SHA-256 交叉驗證，最後整個目錄原子發布，既有基準永不改寫。此核准只代表接受內部歷程新增，不是計算書或正式附件核可，也不得附入主報告。
-
-多次前進後，可執行 `node 結構工具箱/tools/attachment-package-upgrade-history-baseline-chain.js --history <外部歷程資料夾> --chain-root <可信基準根目錄> [--initial-baseline <根目錄外的初始可信基準 JSON>] [--json]`，或使用 `結構工具箱/tools/檢查附件升級可信基準版本鏈.bat`。版本鏈驗證器固定唯讀，依基準 SHA-256 與每份核准紀錄建立單根、單終端的線性鏈，逐段重驗純新增差異、核准時間、`HAD-`、`HIX-`、`HIS-` 及新舊基準交叉證據；缺口、分叉、合流、重複基準、基準遭替換、缺少或重複鍵核准紀錄、目前歷程遺失或改變均為 `blocked=2`。終端基準與目前歷程相符為 `valid=0`；目前歷程只有尚未納入的合法新增時為 `review=1`，表示需另行複核與前進，不會自動改寫版本鏈。輸出只含相對名稱、指紋與摘要，不含完整路徑、複核人或依據；`HCX-` 是目前版本鏈集合指紋，不是數位簽章。版本鏈、核准紀錄與檢查結果均屬內部治理資料，不得放入計算書、主報告、正式附件包或 Pages。
-
-案件歸檔前，可執行 `node 結構工具箱/tools/attachment-case-governance-overview.js --package <正式附件包> --history <外部歷程資料夾> --chain-root <可信基準根目錄> [--initial-baseline <根目錄外的初始可信基準 JSON>] [--json]`，或使用 `結構工具箱/tools/檢查案件附件治理總覽.bat`。總覽固定唯讀並直接沿用正式附件包驗證器與可信基準版本鏈驗證器：附件包 `ready` 且版本鏈 `valid` 時才回報「可進入內部歸檔複核」／退出碼 0；舊包相容性提醒或合法新增尚待前進為 `review=1`；附件包損壞、斷鏈、篡改、核准證據異常或總覽期間任一輸入改變為 `blocked=2`。輸入三區必須是完全分離的實體資料夾，檢查前後重驗整體快照；輸出只含資料夾名稱、狀態、數量與 `PKG-`／`HIX-`／`HCX-`／`GOV-` 指紋，不含完整路徑、計算內容、複核人或依據。`ready` 不是新增核可，只表示現有正式附件包與內部追溯證據一致；總覽不得附入計算書、主報告、正式附件包或 Pages。
-
-若正式附件包、外部歷程及可信基準鏈都放在同一案件根目錄的直接子資料夾，可只執行 `node 結構工具箱/tools/attachment-case-governance-root.js --root <案件根目錄> [--json]`，或把案件根目錄拖曳至 `結構工具箱/tools/檢查案件根目錄附件治理.bat`。入口以附件包清單、`formal-attachment-package-upgrade-history-record.v1` 收據、標準歷程／基準資料夾名稱、可信索引 JSON 與前進包固定兩檔結構辨識候選；三類各恰好一組才會呼叫同一治理總覽。缺少候選、多組候選、同一資料夾跨角色、連結項目或執行期間候選／選定內容改變均為 `blocked=2`，不依日期、名稱或排序自行猜選。非標準資料夾名稱仍可依封閉結構辨識；使用根目錄外初始基準等特殊配置時，改用前述三路徑進階入口。輸出只揭露直接子資料夾名稱、`CAS-` 案件指紋與既有治理摘要，維持唯讀、內部使用且不代表正式附件核可。
-
-多個案件集中在同一上層資料夾時，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio.js --parent <案件上層資料夾> [--only-actionable] [--priority P0|P1|P2] [--json]`，或把上層資料夾拖曳至 `結構工具箱/tools/檢查多案件附件治理總覽.bat` 執行完整總覽。入口只掃描直接子資料夾，有附件治理結構者視為案件，其餘資料夾明列為忽略；各案沿用單一案件根目錄入口，不會自行提升狀態。只要一案 `blocked`，整批即為 `blocked=2`；無 blocked 但有 `review` 時為 `review=1`；全部 ready 才為 `ready=0`。跨案處置另依既有問題與下一步代碼衍生分群：P0 為來源異動、附件包、版本鏈或案件結構等停止歸檔事項，P1 為合法新增收據待複核並前進可信基準，P2 為附件包相容性或其他人工確認；同案可出現在多個原因群，但優先案件數只計一次。`--only-actionable` 只顯示非 ready 案件，`--priority` 只顯示指定層級群組及其中案件；篩選視圖仍明列完整總數、完整批次狀態及 `fingerprintScope=all-cases`，退出碼與 `POR-` 指紋不因隱藏案件而改變，上層阻擋問題也不會被篩選隱藏。檢查前後會重掃案件清單並重驗治理候選快照，輸出只含案件名稱、狀態、優先群組、問題／下一步代碼與 `POR-`／既有治理指紋，不含完整路徑、計算內容、複核人或依據。總覽固定唯讀，只供內部跨案排序，不代表正式附件核可，也不得放入計算書、主報告、正式附件包或 Pages。
-
-比較兩次完整批次狀態時，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-compare.js --previous <前次完整總覽.json> --current <目前完整總覽.json> [--only-blocking | --change regressed|added|removed|improved|changed|unchanged ...] [--json]`，或使用 `結構工具箱/tools/比較多案件附件治理總覽.bat`；批次入口第三參數可填 `blocking` 或一種差異類型。比較器只接受未套用 `--only-actionable`／`--priority` 的完整 v1 總覽，並封閉驗證欄位、重複 JSON key、摘要、案件唯一性、狀態與可重算分群；篩選視圖、額外欄位、錯誤摘要或比較期間來源改變均拒絕或 blocked。結果依案件名稱列出新增、移除、改善、惡化、同狀態內容變更及未變，使用 `CMP-` 比較指紋綁定兩個完整 `POR-` 指紋與差異；目前總覽若仍 blocked／review，不會因兩次相同而被提升為 ready。`--only-blocking` 只顯示目前仍 blocked 或已惡化案件；`--change` 可重複指定差異類型。篩選結果另標示為 comparison view、`fingerprintScope=all-changes` 及顯示／隱藏筆數，只縮減案件與對應下一步的顯示，不改變完整狀態、摘要、退出碼或 `CMP-` 指紋。輸出只含快照檔名、案件名稱、狀態／優先層級、差異代碼與指紋，不含完整路徑、計算內容、複核人或依據。比較固定唯讀，不修改、核可、前進或重新掃描案件，也不得放入計算書、主報告、正式附件包或 Pages。
-
-需要保存可供上述比較器直接讀取的完整快照時，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot.js --parent <案件上層資料夾> --output <內部治理快照資料夾> [--json]`，或使用 `結構工具箱/tools/保存多案件附件治理快照.bat`。快照資料夾必須與案件上層完全分離，避免新增內部檔案改變案件發現結果；工具依總覽時間與 `POR-` 產生新檔名，同名檔永不覆寫。完整 JSON 先以排他暫存寫入及 fsync，再由比較器的封閉規則自我驗證；發布前重新建立相同總覽，並在原子硬連結發布前後重驗案件集合與治理候選內容。來源在總覽讀取期間變動時不保存，發布邊界發生競態則撤回新檔；穩定的 ready、review 或 blocked 狀態都可保存供跨期追蹤，退出碼仍保持 0／1／2。命令輸出只揭露快照資料夾名稱、檔名、SHA-256、案件數及 `POR-`，不含完整路徑、計算內容、複核人或依據。快照屬內部治理資料，不是正式附件核可、版本前進或數位簽章，不得放入計算書、主報告、正式附件包或 Pages。
-
-快照累積後，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-index.js --directory <內部治理快照資料夾> [--compare-latest [--only-blocking | --change regressed|added|removed|improved|changed|unchanged ...]] [--json]`，或使用 `結構工具箱/tools/檢查多案件治理快照歷程.bat`；批次入口第二參數填 `compare` 可比較最新兩版，第三參數可填 `blocking` 或一種差異類型。索引只接受發布器產生、檔名與內容時間／`POR-` 完全一致、沒有其他硬連結別名的實體 JSON；連結、子目錄、非 JSON、損壞或重複 key、改名檔、同群組重複時間及執行期間任何新增／移除／替換都失敗封閉。快照依內含的案件上層名稱分群；資料夾含多群組時只建立 review 索引並要求分開，`--compare-latest` 會 blocked，避免憑名稱或時間跨案件猜選。單一群組至少兩份有效快照時，依內含 `generatedAt` 選取最新兩版並呼叫同一比較器；比較完成後再次重驗整個資料夾與全部來源雜湊。索引完整性與最新快照健康分開計算，整體狀態不得低於最新快照或比較結果；索引與比較固定唯讀，不修改快照、不核可或前進版本，也不得放入計算書、主報告、正式附件包或 Pages。
-
-若要檢視全部保存期間而不是只看最新兩版，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend.js --directory <單一案件群組的內部治理快照資料夾> [--json]`，或把資料夾拖曳至 `結構工具箱/tools/分析多案件治理快照趨勢.bat`。趨勢入口完整沿用索引的實體檔、封閉格式、檔名、時間、`POR-`、硬連結與競態驗證，只接受單一案件群組且至少兩份有效快照；它依時間分析每組相鄰快照，列出批次狀態軌跡、累計新增／移除／改善／惡化／同狀態變更、案件狀態軌跡及跨期反覆問題代碼。注意排序只沿用目前狀態、既有 P0／P1／P2、最新惡化、目前移除及仍存在的反覆問題，不產生黑箱風險分數；整體狀態不得低於目前注意層級。「目前健康」、「最新轉折」、「目前注意」與歷史累計分開顯示，因此已修復的舊惡化不會永久把目前狀態標成 blocked。`TRD-` 指紋綁定全部來源快照、索引、轉折與趨勢結果；分析完成後再次重驗整個資料夾與所有來源雜湊。輸出只含資料夾／案件上層／案件名稱、時間、狀態、問題代碼、封閉摘要及 `POR-`／`CMP-`／`PSI-`／`TRD-` 指紋，不含完整路徑、計算內容、複核人或依據。趨勢固定唯讀，不是正式附件核可、版本前進、風險評分或數位簽章，也不得放入計算書、主報告、正式附件包或 Pages。
-
-對趨勢中的預期案件移除或目前仍反覆出現的提醒完成內部判讀後，可先執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition.js --directory <治理快照資料夾> --ledger <獨立內部處置紀錄資料夾> [--json]`，或使用 `結構工具箱/tools/檢查多案件治理趨勢處置.bat` 檢視原始注意與處置後有效注意；明確確認時加上 `--acknowledge [--case-removal <案件名稱> ...] [--recurring-issue <問題代碼> ...] --reviewer <內部複核人> --basis <複核依據>`，單一目標也可使用 `結構工具箱/tools/記錄多案件治理趨勢處置.bat`。處置紀錄資料夾必須與快照資料夾完全分離，只接受依序號、時間與 `TRA-` 命名的封閉實體 JSON；重複 key、改名、額外項目、硬連結、序號缺口、前後指紋不連續、時間倒退或讀取競態均 blocked。每份收據以 `DTE-` 綁定案件本次持續移除的開始時間與最後出現時間，或問題本次連續出現的開始時間、受影響案件集合及上層出現狀態；同一證據持續跨新快照時既有收據仍有效，案件重新加入後再移除、問題消失再發生或受影響案件集合改變時必須重新確認。唯讀組合結果完成前會再次同時重讀趨勢與收據鏈，任一側改變即 blocked。發布採上層排他鎖、排他暫存、fsync、自我回讀、發布前趨勢／收據鏈重驗、原子硬連結與發布後再次重驗；同一有效目標不得重複確認。`TAI-` 綁定完整收據鏈，`TDS-` 綁定目前趨勢、適用收據與有效注意。收據內保存複核人與依據，但命令結果不揭露；確認只可解除對應的歷史型 P2 注意，不能覆蓋目前 blocked／review、既有 P0／P1 或最新惡化。處置收據與結果均屬公司內部治理資料，不是正式附件核可、版本前進、風險評分或數位簽章，不得放入計算書、主報告、正式附件包或 Pages。
-
-為了補上 `TAI-` 收據鏈只靠自身無法識別「尾端整段被刪除」的限制，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js --directory <治理快照資料夾> --ledger <內部處置紀錄資料夾> --checkpoint <指定的外部可信檢查點 JSON> [--json]`，或使用 `結構工具箱/tools/檢查多案件治理趨勢處置檢查點.bat`。初次錨定使用 `--initialize --output <外部檢查點資料夾> --reviewer <複核人> --basis <依據>`；既有前綴完全相同且只有新收據時，才可使用 `--advance --checkpoint <前一檢查點> --accept-additions --output <外部檢查點資料夾> --reviewer <複核人> --basis <依據>`，或使用 `結構工具箱/tools/建立多案件治理趨勢處置檢查點.bat`。每次建立不可覆寫的新檔，以 `TAC-` 綁定當時完整收據清單、每檔 SHA-256、`TRA-` 終端與 `TAI-`；前進檔再綁定前一檢查點的檔名、`TAC-` 與 SHA-256。指定鏈若較檢查點短，即使剩餘前綴仍可通過鏈內驗證，也會以尾端截斷 blocked；既有前綴變更同樣 blocked，純新增則維持 review，直到人工複核後建立新檢查點。檢查點必須位於快照與處置鏈之外的受保護位置，使用時必須明確指定，工具不會自動猜選所謂最新檔；若檢查點本身可被任意替換，本機雜湊無法提供獨立信任。可信檢查點只證明處置鏈相對完整性，不會把目前 `review`／`blocked` 降級，也不是正式附件核可、數位簽章或附件內容；檢查點、工具、測試、批次入口與結果均不得放入計算書、主報告、正式附件包或 Pages。
-
-當同一資料夾累積多份 `TAC-` 後，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js --directory <治理快照資料夾> --ledger <內部處置紀錄資料夾> --history <可信檢查點歷程資料夾> --head <明確指定的受信任 TAC 終點 JSON> [--json]`，或使用 `結構工具箱/tools/檢查多案件治理趨勢處置檢查點歷程.bat`。歷程入口只接受直接位於指定資料夾的封閉實體 JSON、單一 link count 與內容一致檔名；恰須一份 initial，後續 advance 必須逐份引用前一檔名、`TAC-` 及 SHA-256，完整保留收據前綴、增加收據數、正確記錄接受新增數，且案件群組、快照及處置資料夾範圍不得改變。缺少中間檔、替換、改名、分叉、循環、回退、範圍切換或讀取競態均 blocked，並以 `TCH-` 綁定整條有序歷程；指定終點是唯一鏈尾時 ready，其後另有合法檢查點時只回報 review，要求人工改指新的受信任終點。工具絕不依時間或檔名自動猜選終點，因為改用較舊路徑會破壞外部信任意義。歷程狀態不得低於目前處置／工程狀態，結果不含完整路徑、複核人或依據；它不是正式附件核可、防竄改儲存或數位簽章，也不得進入計算書、主報告、正式附件包或 Pages。
-
-若不希望每次手動輸入四個治理來源，可使用 `node 結構工具箱/tools/attachment-case-governance-workspace.js --config <附件治理工作區設定 JSON> [--json]`，或把設定檔拖曳至 `結構工具箱/tools/檢查附件治理工作區.bat`。初次建立使用 `--create --workspace-name <名稱> --directory <快照> --ledger <處置鏈> --history <檢查點歷程> --head <受信任 TAC 終點> --output <設定資料夾> --reviewer <複核人> --basis <依據>`；終點合法前進後，使用 `--create --previous-config <前一設定> --head <新終點> --output <設定資料夾> --reviewer <複核人> --basis <依據>`，或使用 `結構工具箱/tools/建立附件治理工作區.bat`。設定檔採相對於自身資料夾的正規化路徑，以 `TGW-` 綁定工作區名稱、三個固定來源、受信任終點的檔名／`TAC-`／SHA-256、內部複核決定及前一設定身分；輸出資料夾必須與所有治理來源完全分離。每次建立排他鎖與暫存檔，fsync、封閉回讀、發布前後來源重驗後才原子發布新檔，永不覆寫既有設定；前進固定沿用前一設定名稱與來源，且新終點必須是舊終點的後續檢查點。日常檢查只需一個 `--config`，若設定被改名、移動後相對拓撲失效、硬連結化、終點三重身分不符或任一治理來源改變，均失敗封閉。命令結果不含相對／完整路徑、複核人或依據，且不會降低目前工程 `review`／`blocked`；工作區設定不是正式附件核可、防竄改儲存或數位簽章，也不得進入計算書、主報告、正式附件包或 Pages。
+新輸出整理完成後，可執行 `node 結構工具箱/tools/attachment-package-upgrade-workspace-check.js --input <升級工作區> [--project-no <計畫編號>] [--json]`。完成度檢查器固定唯讀，先核對工作清單指紋、JSON／Markdown 同源與目錄邊界，再沿用附件組包檢查，並以「產出工具＋舊計算指紋」逐份尋找各 1 份新計算書及新來源；新工具版本可以不同，但兩份新檔仍須彼此版本與指紋一致。新輸出、來源儲存與正式核可時間均不得早於工作區建立時間，因此手動複製舊包內容不會通過。缺件、內部審閱或尚未重新核可維持 `review=1`；指紋不符、清單遭修改、邊界多檔或不安全連結為 `blocked=2`；只有全部逐份完成才是 `ready=0`。正式組包器會自動辨識 `01_新組包來源/` 並先執行同一閘門，未通過時不建立附件包；通過後的新 v3 包也固定輸出在工作區外。
 
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接獨立基腳 production core、有限配筋需求、底版需求、群樁側向分配、p-y 結果橋接與表格換算純數值回歸，以及 8 份基礎報告視覺 smoke：涵蓋獨立、聯合、筏式、樁基／樁帽、代表單樁 p-y 採用及擋土牆，檢查 NG／待確認邊界、主要檢核群組、逐層承載力表、趾版底層與踵版頂層設計、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 
@@ -431,96 +322,6 @@ SRC 梁以 catalog v2 正式基準登錄於 `/src-beam`，production 核心以�
 node 結構工具箱/tools/independent-engineering-benchmarks.test.js
 node 結構工具箱/tools/independent-engineering-benchmarks.js --write
 ```
-
-## 工程資格化案件包
-
-`engineering-qualification-case-bundle.v1` 把工具發布、本次計算獨立比較、指定案件適用確認與本次附件內部採用分成四層，不再用一個綠色狀態代替全部責任。案件包是 `unsigned-self-attested-internal-record`：驗證欄位、檔案、雜湊與時間線一致性，不驗證填寫者身分、資格或法律效力。
-
-- `G0 發布治理通過`：來源、測試與發布證據自洽；不代表本次計算、指定案件或附件已被審查。
-- `G1 本次計算獨立比較通過`：至少一份不使用 production 核心的比較，完整通過數值、控制分支、工程決定與超範圍處置斷言。它只屬於同一 `runId`；合成案例、規範例題或真實案件都可提供 G1 證據，但單一 G1 不建立整支工具的驗證域。
-- `G2 指定案件適用確認`：只接受 `real-case`，須綁定外部案件 ID、案件來源證據、同一執行的 G1、用途、允許用途、限制、排除項、規範依據及 applicability 斷言。它只適用該案該次執行；合成案例固定不能升到 G2。
-- `G3 本次附件內部採用`：同一執行已有 G2，且實際 PDF／DOCX／XLSX／HTML 成品完成五項固定目視／內容複核並留下審閱與採用收據後，才可記錄本案採用；被審閱成品與編排後附件的可見內容都必須帶入該次固定 16 位 `CF-`。PDF 另須把同資料夾 canonical-render evidence 的相對路徑、bytes 與 SHA-256 納入案件包，且可見性狀態必須為 `verified`；只有文字層的 PDF 不通過。G3 不會改寫附件本身的正式核可，也不是簽章或法定簽證。
-
-案件包固定是私人工作底稿，不進計算書、主報告、正式附件包或 GitHub Pages。既有 v3 正式附件包繼續只負責文件身分、封印、來源配對與封裝完整性；兩條證據鏈互不替代。`same-core-replay` 可留作版本一致性證據，但不得標成獨立比較。所有容許差與判定基準必須早於工具執行固定；每個斷言須以 JSON Pointer 分別從正式機讀結果與獨立基準機讀資料實際取值，正規化比較 JSON 再精確綁定兩側機讀檔、正式輸出與原始獨立基準的 SHA-256。只同步改寫案件包與比較 JSON、而沒有對上兩側機讀原始檔，仍會失敗。任何 open 差異、未處置的失敗比較、晚於決定才結案的差異或未終止於同工具 current run 的 stale 鏈都會阻擋。
-
-Windows 可直接使用三個私有批次入口，或執行相同 CLI：
-
-```powershell
-.\結構工具箱\tools\建立工程資格化案件工作區.bat "C:\case\EQ-001" "EQ-001" "匿名案件 001" "real-case"
-.\結構工具箱\tools\封印工程資格化案件包.bat "C:\case\EQ-001\case-bundle.draft.json"
-.\結構工具箱\tools\檢查工程資格化案件包.bat "C:\case\EQ-001\case-bundle-EQB-....json"
-```
-
-新工作區固定建立 `inputs/`、`outputs/`、`references/`、`reports/` 與 `case-bundle.draft.json`。證據只接受工作區內 NFC 相對路徑，並鎖定 bytes 與 SHA-256；連結、硬連結、路徑越界、大小寫碰撞、重複 JSON 欄位、假副檔名、驗證期間換檔或案件包本身換檔都會失敗封閉。封印採另建不可覆寫檔，不修改草稿。完整實體證據檢查後，回傳目前 current runs 的最低明確層級 `G1`、`G2` 或 `G3`；只做物件 shape 檢查永遠是 `review`。CLI 退出碼沿用附件治理慣例：`0=內部證據紀錄完整且目前執行至少 G1`、`1=review`、`2=blocked`、`3=用法或執行錯誤`。退出碼 0 不得單獨作為 G2、G3、可編排、工具級驗證域或可簽證判定。
-
-報告附件編排只能消費案件包內同一次執行、已有 G3 內部採用的成品資料，不得重算工程結果或複製核可；`ready-for-render` 之後的每一節都必須引用同一執行的 G3。範本與編排可以先規劃，但 G2／G3 只是內部證據的必要條件，不是法定簽證的充分條件；即使達 G3，也不構成技師簽證、簽證資格、主管機關認可或其他案件／版本的採用。
-
-梁柱彎矩接頭可另以專用 bridge 把現行 V1.3 production adapter、登錄 `momentPriorTestSmrfPass` 的 88 欄輸入、71 項 catalog 斷言、8 個未登錄但會控制正式判定的補充 gate，以及獨立閉式 oracle 閉合成 repo 外的 synthetic G1：
-
-```powershell
-node .\結構工具箱\tools\beam-column-moment-g1-pilot.js `
-  --workspace "C:\engineering-private\moment-g1-20260901" `
-  --case-id "MOMENT-G1-20260901" `
-  --json
-```
-
-這個命令只接受 clean Git 來源與未觀察到注入的 Node／Git 執行環境；非空 Node 啟動旗標、`NODE_OPTIONS`、`NODE_PATH` 及 Git repository／config override 會在建立工作區前失敗。它在隔離子行程執行 production adapter 與未呼叫 production core 的同 repo 閉式 oracle；Git 讀取禁用 replace objects、system/global config 與 fsmonitor，且若 tracked ancestors 或 `.git/info/attributes` 存在 attributes policy 就失敗，不執行 checkout／clean filter。來源檔改以實體 UTF-8 換行正規化後直接核對指定 commit 的 raw content，再綁定可解析 commit object、Git blob 與 commit 內容 SHA-256。71 項 catalog 容許差另以固定 policy digest 登錄，不能在重簽外層證據時放寬。判定基準先寫入輸入證據，再產生分離的機讀 JSON、人讀 dry-run HTML、原始基準、79 鍵 JSON Pointer 比較、收件 profile、空白實案 intake template 與不覆寫的封印案件包；`CF-`、`QRF-`、比較資料、可讀邊界及決策收據必須互相一致。CLI 只回傳不含絕對路徑的檔名與指紋。成功只表示本次 synthetic MC-G1 的 G1 內部證據完整；因 oracle 與 production 仍位於同 repo，它可偵測程式漂移，不能排除共同條文誤讀。案件包固定 `sourceKind=synthetic`、`completeJointDesign=false`、`gitAttributeFiltersAllowed=false`、無 G2/G3，不宣稱 AISC 358 預認證、完整接頭設計或簽證。
-
-這條鏈以可信的 parent process、Node 與 Git 執行檔為前提。它會攔截未隱藏的環境污染並清理 calculator child，但任意程式碼若已在 pilot 載入前取得 parent process 控制權，便能改寫行程內觀測；同一 Node 行程不能自我證明此類本機入侵從未發生。正式保存 G1 時應從未配置 preload／loader 的可信終端直接啟動，不接受第三方 wrapper、`NODE_OPTIONS`、自訂 Node 啟動旗標或 PATH 前置的替代執行檔。
-
-實案門檻不得沿用 synthetic benchmark 的 `1e-12` 程式漂移容許差。`beam-column-moment-real-case-intake.js` 先提供一個不執行計算的收件關卡：它只接受 `beam-column-moment-real-case-intake.v1 / candidate-unvalidated`，核對固定 88 欄及型別、固定 LRFD／梁柱彎矩／SMRF／X 向／補強型／既有試驗相似性 scope、案件身分、事前 criteria、規範依據與 `規範判定／專案指定` 等權威標籤，以及外部手算、獨立 Excel 或第三方軟體的人讀 artifact 與分離機讀 JSON。工作區必須與 repo 完全不相交；JSON 重複 key、路徑越界或非 NFC 路徑、符號／硬連結、缺檔、同檔、bytes／SHA-256 不符，以及驗證期間換檔都會失敗封閉。
-
-先從 synthetic G1 工作區取出 producer 建立的候選檔，但不可在該 synthetic 工作區原地填寫。請複製到另一個新建、repo 外的私有實案工作區根目錄，重新命名後才填入真實案件與獨立基準資料：
-
-```powershell
-$realCaseWorkspace = "C:\engineering-private\moment-real-case-001"
-New-Item -ItemType Directory -Path $realCaseWorkspace | Out-Null
-New-Item -ItemType Directory -Path "$realCaseWorkspace\references" | Out-Null
-Copy-Item `
-  "C:\engineering-private\moment-g1-20260901\inputs\real-case-intake.template.json" `
-  "$realCaseWorkspace\beam-column-moment-real-case-intake.json"
-
-# 完成候選 JSON，並把案件來源、人讀外部基準與分離機讀 JSON 放進工作區後，先唯讀檢查：
-node .\結構工具箱\tools\beam-column-moment-real-case-intake.js `
-  --workspace $realCaseWorkspace `
-  --input beam-column-moment-real-case-intake.json `
-  --json
-
-# 僅在唯讀結果確認後，明確建立不覆寫的收件就緒收據：
-node .\結構工具箱\tools\beam-column-moment-real-case-intake.js `
-  --workspace $realCaseWorkspace `
-  --input beam-column-moment-real-case-intake.json `
-  --seal-readiness yes `
-  --json
-```
-
-預設檢查完全唯讀；只有精確指定 `--seal-readiness yes` 才會以不可覆寫方式建立 `references/beam-column-moment-real-case-intake-readiness.receipt.json`。若 exclusive create 後的實體身分或事後驗證失敗，工具為避免路徑競態誤刪他人檔案，不會自動刪除可能留下的空白／部分收據；須先人工檢查並將該固定收據移出工作區，再重新執行。成功狀態固定為 `intake-complete-manual-g1-work-required`，只代表收件資料與證據綁定完整；邊界固定為 `calculatorExecuted=false`、`engineeringResultsCompared=false`、`g1=false`、`g2=false`、`g3=false`、`completeJointDesign=false`、`legalSignoff=false`、`formalAttachmentApproval=false`、`pagesPublication=false`。本版不載入或執行 production，也不做工程比較；下一關才是實案 G1 runner，由案件負責人執行 production、規格化外部基準並完成逐項比較。之後的 G2 才綁定真實案號、來源證據、用途、限制、排除項、規範依據與 applicability；G3 再由負責人對同一次 `CF-` 的實際附件完成人工複核與內部採用。
-
-實案 G1 runner 只接受已建立 readiness receipt 的收件工作區，並要求一個全新、與 repo 及 intake workspace 彼此不相交的 output workspace。第一段必須明確授權 production 執行：
-
-```powershell
-$intakeWorkspace = "C:\engineering-private\moment-real-case-001"
-$g1Workspace = "C:\engineering-private\moment-real-case-g1-001"
-
-node .\結構工具箱\tools\beam-column-moment-real-case-g1-runner.js `
-  --intake-workspace $intakeWorkspace `
-  --input beam-column-moment-real-case-intake.json `
-  --output-workspace $g1Workspace `
-  --execute-production yes
-```
-
-這一步只產生 production 結果、外部基準正規化資料、comparison、review draft 與空白 decision template；即使全部自動比較通過，仍固定 `g1=false`。案件負責人須在 output workspace 內另由人工審閱結果與差異，再依 template 填妥 `references/beam-column-moment-real-case-g1-decision.json`。只有之後明確要求封印，才可建立 G1 decision receipt 與 sealed bundle：
-
-```powershell
-node .\結構工具箱\tools\beam-column-moment-real-case-g1-runner.js `
-  --output-workspace $g1Workspace `
-  --seal-g1 yes `
-  --decision references/beam-column-moment-real-case-g1-decision.json
-```
-
-封印會重新綁定原 intake／readiness、production、獨立基準、comparison、人工 decision 與實體證據；只有全部契約與人工決定成立時，才可記錄該案該次執行的 G1。G1 仍不建立整支工具驗證域，且 `g2=false`、`g3=false`、`completeJointDesign=false`、`legalSignoff=false`、`formalAttachmentApproval=false`、`pagesPublication=false`。兩個 workspace、decision template/candidate/receipt、input、production JSON、review HTML、comparison、draft／review／sealed bundle 與所有真實案件／外部基準 artifacts 全部只留 repo 外，不得 staging、複製到正式附件或發布至 Pages。
-
-新的 intake 工具不接受舊 `beam-column-moment-real-case-intake-template.v1 / template-only-no-case-data` 直接升格；既有已封印 synthetic G1 案件包仍由 `engineering-qualification-case-bundle.js` 依原契約相容驗證，不必也不得為了新版候選格式改寫舊封印證據。
 
 ## 巡檢啟動
 
@@ -558,19 +359,7 @@ Preflight 歷程會保留失敗、中斷或摘要缺漏的原始事實，並以 
 
 ## 正式附件包進度觀測邊界
 
-正式建立的階段事件只供旁路觀測。執行中若受管 JSONL 事件檔暫時無法寫入，畫面可停留在最後一個已驗證階段，但不得改變檢查、組包、發布或事後驗證的核心結果，尤其不得把已原子發布成功的附件包誤報成建立失敗。組包單元測試以每一階段都拋錯的故障注入，證明觀測通道失效仍可取得真實成功結果與已發布附件包。
-
-最終結果 JSON 與階段事件的權限不同：結果通道是 UI 套用核心結論的必要交接，因此 worker 必須在任何 check / build / verify 動作前先於系統暫存區排他建立結果檔並持有檔案描述元，無法保留時不得啟動核心動作；完成後以同一已保留描述元寫入並 fsync。若極端 I/O 錯誤仍使最終結果缺漏或損壞，GUI 固定顯示「建立結果待確認」，明示這不代表建立失敗，並要求先對預定或候選輸出執行唯讀驗證、確認沒有新附件包後才能重建。
-
-GUI 套用結果前還會封閉核對 action、`ready / review / blocked / error` 與實際 worker 退出碼 0 / 1 / 2 / 3；任何錯配都拒絕形成建立成功、組包權限或驗證結論。這可避免結果檔在排他保留前遭占用時，既有或偽造內容被誤當成這次 worker 的回應。
-
-若最終結果交接未完成、但本次唯讀檢查產生或使用者明確選擇的預定輸出資料夾已存在，狀態卡會提供「唯讀驗證待確認輸出」按鈕並鎖定該精確路徑；按下後只呼叫既有背景 verify 核心，可安全停止且不會重建、修改或核可附件包。候選資料夾不存在時不顯示按鈕，工具不依時間或相似名稱猜選其他資料夾。
-
-正式建立啟動前，管理器另在目前 Windows 使用者的系統暫存區以排他新建方式寫入 24 小時有效的私有復原收據，內容只供本機記錄 request ID、來源、精確預定輸出、管理器／worker PID 與受管 IPC 路徑；worker 啟動後以同目錄原子替換綁定程序資訊。可信 build 結果會立即清除收據；只有結果交接異常且精確輸出確實存在時才轉為 `pending-verification`、釋放已結束的程序所有權並保留。下次一般啟動會拒絕錯誤 schema、非受管檔名、相對路徑、逾期收據及仍有原程序運作的項目；恰有一筆合格候選時只提供既有唯讀驗證，多筆則開啟顯示狀態、建立時間、有效至／剩餘期限與精確輸出路徑的本機唯讀單選總覽，依最早到期優先排列。多筆與單筆採相同期限分級：超過 2 小時為一般文字色，2 小時內為深橙色明文提示，30 分鐘內為紅色明文提示；總覽說明與無障礙文字也會陳述規則，不以顏色作唯一線索。初始仍不選取任何項目並定時刷新期限；已選項目若在刷新時到期、輸出消失或資格失效，會立即清除選取及目前儲存格、停用開啟／複製／驗證，且使用者事後點選失效列也不會保留選取。可見狀態列與 assertive 無障礙 live region 會通知重新選擇；若只是未到期輸出暫時不存在，計時器會繼續重查並在恢復時通知。到期項目的私有收據與受管暫存檔會立即清除；全部候選均永久到期時停止計時、將「取消」改為「關閉」，並明示目前已無可驗證項目。明確選取仍有效且存在的輸出後，可先用「開啟選取資料夾」在 Windows 檔案總管查看精確位置；此動作不執行 verifier，也不修改附件包。只有明確選定的一筆會交給既有 verifier，且執行前會重新確認該收據仍未到期、仍受管理且路徑完全一致；取消或關閉清單會保留全部尚未到期的收據。驗證取消、結果封套無法信任或 verifier 回傳 `error` 時也保留收據，只有選定項目取得可信 `ready / review / blocked` 驗證結論並套用後才刪除該筆；排序、提示與資料夾預覽均不形成自動選取、重建或核可權限，收據也不發布至 Pages。
-
-補充：多筆復原總覽會在說明列與「複製精確路徑（Ctrl+C）」按鈕直接顯示快捷鍵提示；按鈕只在明確單選、收據仍有效且精確輸出資料夾存在時啟用。按下按鈕或在清單使用 `Ctrl+C` 時會再次確認資格與存在性，只將該列完整路徑寫入 Windows 剪貼簿。表格原生整列複製已停用，無有效選取時快捷鍵只會被攔截；兩種路由都不執行 verifier、不修改附件包，也不形成重建或核可權限。
-
-若啟動時只有一筆合格復原收據，主畫面的待確認狀態卡會顯示該收據的「有效至／剩餘時間」，並每 30 秒重查收據、精確輸出與資料夾。期限超過 2 小時採一般文字色，2 小時內顯示深橙色「2 小時內到期」，30 分鐘內改為紅色「30 分鐘內到期」；無障礙說明會同步讀出期限狀態，不以顏色作為唯一線索。到期、失效或輸出消失時會自動移除短期收據、停用複製與唯讀驗證並明確顯示原因。無收據的同次結果交接不顯示虛構期限，也不啟動到期計時器。狀態卡另在「唯讀驗證待確認輸出」旁提供「複製精確路徑（Ctrl+C）」；可點按按鈕，或先讓焦點位於該按鈕再按 `Ctrl+C`，其他欄位的 `Ctrl+C` 不會被此路由攔截。每次執行仍會重讀收據並核對期限、管理資格、精確輸出一致性及資料夾存在性；一般模式只複製該完整路徑，動態 smoke 不實際寫入剪貼簿，且複製不會啟動 verifier、build、修改或核可。
+正式建立的階段事件只供旁路觀測。執行中若階段事件暫時無法寫入，觀測端可停留在最後一個已驗證階段，但不得改變檢查、組包、發布或事後驗證的核心結果，尤其不得把已原子發布成功的附件包誤報成建立失敗。組包單元測試以每一階段都拋錯的故障注入，證明觀測通道失效仍可取得真實成功結果與已發布附件包。
 
 ## 鋼索輸入敏感度比較
 

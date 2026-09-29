@@ -94,7 +94,7 @@ TYPE_LABEL = {
     'pk_6v': '插銷式─左右各3支',
 }
 DEFAULT_SPEC_REFS = {
-    'cc': '建築物耐風設計規範（107 年版）',
+    'cc': '建築物耐風設計規範（103 年版）',
     'seismic': '建築物耐震設計規範及解說（113 年版）',
     'anchor': '錨栓製造商試驗報告（安全係數 SF=3）',
     'steel': '鋼構造建築物鋼結構設計技術規範（容許應力設計法）',
@@ -983,7 +983,7 @@ def build_wind_appendix(doc, cc, inp):
     _add_para_border_bottom(app_title, sz=10, color='1A3A5C')
 
     loc_str = f'{city}{dist}' if city else inp.get('loc', '')
-    _body(doc, f'依據「建築物耐風設計規範及解說」（107年版）§3，採構件與外覆材（C&C）設計風壓。', indent_cm=0)
+    _body(doc, f'依據「建築物耐風設計規範及解說」（103年版）§3，採構件與外覆材（C&C）設計風壓。', indent_cm=0)
     _body(doc, f'施工地點：{loc_str}', indent_cm=0)
 
     # 一、設計條件

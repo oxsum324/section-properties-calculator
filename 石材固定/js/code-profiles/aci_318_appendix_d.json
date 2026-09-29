@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "id": "aci_318_appendix_d",
   "scope": "anchor",
-  "name": "ACI 318 Appendix D（混凝土結構用錨栓）",
+  "name": "ACI 318 Appendix D（混凝土結構用錨栓；舊版，僅供既有案件重播）",
   "issued": "2014",
   "publisher": "American Concrete Institute",
   "supersedes": null,

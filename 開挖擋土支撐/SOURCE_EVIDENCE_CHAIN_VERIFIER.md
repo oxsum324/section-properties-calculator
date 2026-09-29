@@ -25,7 +25,7 @@ python -m backend.verify_source_evidence_chain --handoff <ERH.json> --receipt <R
 
 ## 與正式附件包一起歸檔
 
-整理案件附件時，可把已核可的正式計算書、ERH、RVR、SEV、SCV，以及 SCV 有採用時所列的 RTB，放在同一個附件來源資料夾，再使用「正式附件包管理器」檢查及建立 v3 附件包。附件檢查器會原生辨識這五種 JSON，核對 SCV 所列來源檔名、SHA-256、ERH／RVR／SEV／RTB 指紋、工程結果與採用狀態。
+整理案件附件時，可把已核可的正式計算書、ERH、RVR、SEV、SCV，以及 SCV 有採用時所列的 RTB，放在同一個附件來源資料夾，再以 `結構工具箱/tools/attachment-package-check.js` 檢查、`attachment-package-build.js` 建立 v3 附件包。附件檢查器會原生辨識這五種 JSON，核對 SCV 所列來源檔名、SHA-256、ERH／RVR／SEV／RTB 指紋、工程結果與採用狀態。
 
 正式計算書只會進入 `01_正式附件/`；ERH、RVR、SEV、SCV 與 RTB 只會進入 `99_內部追溯_勿附入主報告/來源資料/`，不會混入主報告或計算書附件。缺少 SCV 所列檔案、SHA-256 不符、指紋關係錯誤或採用狀態矛盾時會直接阻擋組包；只有孤立而尚未形成 SCV 的證據時維持人工確認。
 
