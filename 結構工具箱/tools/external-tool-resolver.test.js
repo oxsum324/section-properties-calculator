@@ -116,7 +116,20 @@ function fakeSpawn(versions) {
   assert.equal(resolved.source, 'poppler-sibling', 'diagnostics identify the same-suite Poppler resolution');
 }
 
+{
+  const probe = (stdout, status = 0) => (command, args, spawnOptions) => {
+    assert.equal(command, 'powershell.exe');
+    assert.equal(spawnOptions.env.ANSI_CODE_PAGE_PROBE_TEXT, '正式附件');
+    return { status, stdout, stderr: status ? 'probe failed' : '' };
+  };
+  assert.equal(Resolver.ansiCodePageCanRepresent('正式附件', { platform: 'linux', spawnSync: () => assert.fail('no probe off Windows') }), true);
+  assert.equal(Resolver.ansiCodePageCanRepresent('正式附件', { platform: 'win32', spawnSync: probe('yes\r\n') }), true);
+  assert.equal(Resolver.ansiCodePageCanRepresent('正式附件', { platform: 'win32', spawnSync: probe('no\r\n') }), false);
+  assert.throws(() => Resolver.ansiCodePageCanRepresent('正式附件', { platform: 'win32', spawnSync: probe('', 1) }), /ANSI code page probe failed/);
+}
+
 if (process.platform === 'win32') {
+  assert.equal(Resolver.ansiCodePageCanRepresent('ascii-only-path'), true, 'live ANSI code page represents ASCII');
   const live = Resolver.diagnoseExternalTools(['pdftotext', 'pdfinfo', 'pdftoppm', 'tar']);
   assert.equal(live.pass, true, `live Windows toolchain resolves: ${JSON.stringify(live, null, 2)}`);
   const textTool = live.tools.find(tool => tool.tool === 'pdftotext');

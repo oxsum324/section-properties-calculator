@@ -36,8 +36,27 @@ jobs:
         with:
           python-version: '3.14'
 
+      # construction-stage-load-handoff replays the excavation backend
+      # (backend.app.calculations -> pydantic schemas + openpyxl workbook loader).
+      - name: Install preflight Python dependencies
+        run: python -m pip install --disable-pip-version-check pydantic==2.12.5 openpyxl==3.1.5
+
+      # excavation-traceability-contract and independent-engineering-benchmarks
+      # load TypeScript from these projects' own locked node_modules.
+      - name: Install preflight Node dependencies
+        run: |
+          npm ci --prefix 開挖擋土支撐/frontend --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm ci --prefix 螺栓檢討/bolt-review-tool --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Run CI preflight
         shell: cmd
+        # The hosted runner's default TEMP is an 8.3 short path (C:\Users\RUNNER~1\...),
+        # which realpath expands and the governed "no link redirection" guards reject.
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
         run: call run-preflight-tools-ci.bat
 
       - name: Upload preflight evidence
