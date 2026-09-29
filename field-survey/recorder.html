@@ -5,15 +5,15 @@
   <meta name="theme-color" content="#173d3b"><meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="手機現況鑑定紀錄：依戶別及位置拍照、圈註、離線保存與案件備份。">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'">
-  <title>現況鑑定紀錄 V0.30.2</title>
+  <title>現況鑑定紀錄 V0.30.3</title>
   <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="./app.css"><script type="module" src="./app.js"></script>
 </head>
 <body>
-<header class="app-header"><div class="brand"><img src="./icon.svg" width="40" height="40" alt=""><div><span class="eyebrow">弘一工程 · <span id="appVersion">V0.30.2</span></span><h1>現況鑑定紀錄</h1></div></div><button id="fontSize" class="quiet" aria-pressed="false">大字</button><button id="help" class="quiet" aria-label="使用說明">使用說明</button></header>
+<header class="app-header"><div class="brand"><img src="./icon.svg" width="40" height="40" alt=""><div><span class="eyebrow">弘一工程 · <span id="appVersion">V0.30.3</span></span><h1>現況鑑定紀錄</h1></div></div><button id="fontSize" class="quiet" aria-pressed="false">大字</button><button id="help" class="quiet" aria-label="使用說明">使用說明</button></header>
 <div class="system-bar"><span id="offlineStatus" role="status">離線資源準備中</span><span id="saveStatus" role="status">資料保存在此裝置</span><button id="updateApp" class="quiet" hidden>套用新版</button></div>
 <main id="app">
-  <div id="contextStrip" class="context-strip"><span id="contextCase" class="strip-case">尚無案件</span><span id="contextCrumbs" class="crumbs" hidden><span id="contextVisit" class="crumb"></span><span id="contextUnit" class="crumb"></span><span id="contextRecord" class="crumb" hidden></span></span><button id="gotoCase" class="quiet" hidden>案件與備份</button></div>
+  <div id="contextStrip" class="context-strip"><span id="contextCase" class="strip-case">尚無案件</span><span id="contextCrumbs" class="crumbs" hidden><span id="contextVisit" class="crumb"></span><span id="contextUnit" class="crumb"></span><span id="contextRecord" class="crumb" hidden></span></span><button id="keepAwake" class="quiet" type="button" aria-pressed="false" aria-describedby="keepAwakeStatus">☀ 螢幕常亮</button><span id="keepAwakeStatus" class="sr-only" role="status">螢幕常亮未啟用</span><button id="gotoCase" class="quiet" hidden>案件與備份</button></div>
   <section id="welcome" class="welcome"><div class="welcome-art" aria-hidden="true"><span class="line l1"></span><span class="line l2"></span><span class="pin">＋</span><span class="stamp">現場紀錄</span></div><p class="eyebrow">從第一個位置開始</p><h2>開始今天的會勘</h2><p>選好戶別與位置，將照片、圈註及現況說明一起留下。離線也能接續紀錄。</p><button id="startCase" class="primary">建立第一個案件</button><button id="welcomeImport" class="text-button">開啟案件檔</button><p class="micro"><a class="cloud-folder-link" data-handoff-folder target="_blank" rel="noopener noreferrer">開啟共用雲端資料夾 ↗</a></p><div class="welcome-foot"><span>原圖與圈註分存</span><span>不自動上傳</span><span>支援分戶備份</span></div></section>
   <div id="workspace" hidden>
     <section id="caseView" class="view" hidden>
@@ -24,7 +24,7 @@
     </section>
     <section id="workView" class="view">
       <div class="context-bar"><label class="grow">鑑定戶<select id="unitSelect" aria-label="鑑定戶"></select></label><button id="addUnit" class="secondary">＋ 戶別</button><button id="editUnit" class="quiet">戶況</button><button id="nextUnit" class="quiet">下一戶 →</button></div>
-      <div class="choice-chips"><button id="unitSignoff" class="primary">開始觸控簽名／會勘簽認</button><span id="unitSignoffStatus" class="micro">未簽</span></div>
+      <div class="choice-chips"><button id="unitSignoff" class="primary">開始觸控簽名／會勘簽認</button><span id="unitSignoffStatus" class="micro">未簽</span></div><p class="micro">現場作業怕螢幕自動熄滅，可按上方「☀ 螢幕常亮」；結束時再按一次關閉。切離本頁或手動鎖屏仍可能要求解鎖。</p>
       <div class="plan-workflow compact"><div><strong>本戶平面位置圖</strong><p id="unitPlanSummary" class="micro">先觀察整體，再依樓層匯入或手繪，供各筆紀錄引用。</p></div><button id="unitPlans" class="secondary" disabled>平面圖庫／先建圖</button></div>
       <label class="check-label"><input id="fieldLabels" type="checkbox">位置圖顯示現場暫用代號（附件另編流水號）</label><div class="work-grid">
         <aside class="records-panel"><div class="section-heading"><h2>位置紀錄</h2><span id="recordCount" class="count">0</span></div><div id="recordList" class="record-list"></div><button id="addRecord" class="primary full">＋ 新增位置紀錄</button><button id="addAddressRecord" class="secondary full record-shortcut">＋ 門牌外觀</button><p class="micro">同一位置可加入多張照片。<br>一般現況與未能觀察處也請記錄。</p></aside>

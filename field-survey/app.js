@@ -26,6 +26,56 @@ let pendingCapture = null, pendingPlan = null, modalCleanup = () => {}, modalDir
 let conflictDraft = null;
 let reports, crackFields, organisation, signoffs, reviewPage = 0;
 const preference = { get(key) { try { return localStorage.getItem('survey-' + key); } catch { return null; } }, set(key, value) { try { localStorage.setItem('survey-' + key, value); } catch {} } };
+let wakeRequested = false, wakeSentinel = null, wakePending = null;
+function wakeState(state, message) {
+  const button = $('#keepAwake');
+  button.dataset.state = state;
+  button.setAttribute('aria-pressed', String(state === 'active'));
+  button.textContent = { off: '☀ 螢幕常亮', pending: '☀ 啟用中', active: '☀ 常亮中', paused: '☀ 常亮暫停', failed: '☀ 常亮未啟用' }[state];
+  $('#keepAwakeStatus').textContent = message;
+}
+async function requestScreenWake() {
+  if (!wakeRequested || wakeSentinel || wakePending) return;
+  if (document.hidden) { wakeState('paused', '頁面暫時不在畫面上；返回後會再嘗試常亮。'); return; }
+  if (!navigator.wakeLock?.request) { wakeRequested = false; wakeState('failed', '此瀏覽器不支援螢幕常亮；可調整手機的自動鎖定設定。'); toast('此瀏覽器不支援螢幕常亮；請調整手機的自動鎖定設定。'); return; }
+  wakeState('pending', '正在向裝置啟用螢幕常亮。');
+  let pending;
+  try { pending = navigator.wakeLock.request('screen'); }
+  catch { wakeRequested = false; wakeState('failed', '此裝置未允許螢幕常亮；可調整手機的自動鎖定設定。'); toast('無法保持亮屏；請檢查省電模式或手機的自動鎖定設定。'); return; }
+  wakePending = pending;
+  try {
+    const sentinel = await pending;
+    if (!wakeRequested || document.hidden) {
+      await sentinel.release();
+      wakeState(wakeRequested ? 'paused' : 'off', wakeRequested ? '返回畫面後會再嘗試常亮。' : '螢幕常亮已關閉。');
+      return;
+    }
+    wakeSentinel = sentinel;
+    sentinel.addEventListener('release', () => {
+      if (wakeSentinel !== sentinel) return;
+      wakeSentinel = null;
+      if (!wakeRequested) return;
+      if (document.hidden) wakeState('paused', '頁面暫時不在畫面上；返回後會再嘗試常亮。');
+      else { wakeRequested = false; wakeState('failed', '裝置已停止螢幕常亮，請檢查省電模式或重新啟用。'); toast('裝置已停止螢幕常亮；請檢查省電模式。'); }
+    });
+    wakeState('active', '螢幕常亮已啟用；頁面保持顯示時會避免自動熄屏。');
+  } catch {
+    if (!wakeRequested) { wakeState('off', '螢幕常亮已關閉。'); return; }
+    if (document.hidden) { wakeState('paused', '頁面暫時不在畫面上；返回後會再嘗試常亮。'); return; }
+    wakeRequested = false;
+    wakeState('failed', '此裝置未允許螢幕常亮；可調整手機的自動鎖定設定。');
+    toast('無法保持亮屏；請檢查省電模式或手機的自動鎖定設定。');
+  } finally { if (wakePending === pending) wakePending = null; }
+}
+async function toggleScreenWake() {
+  wakeRequested = !wakeRequested;
+  if (wakeRequested) await requestScreenWake();
+  else {
+    const sentinel = wakeSentinel; wakeSentinel = null;
+    wakeState('off', '螢幕常亮已關閉。');
+    if (sentinel) await sentinel.release();
+  }
+}
 const urls = new Map();
 const currentRecord = () => project?.records.find(r => r.id === recordId);
 const currentUnit = () => project?.units.find(u => u.id === unitId);
@@ -1148,6 +1198,8 @@ for (const selector of ['#tileCrackCount', '#tileBrokenCount', '#tileBulgeCount'
 }
 const applyFont = large => { document.body.classList.toggle('large-type', large); $('#fontSize').setAttribute('aria-pressed', String(large)); $('#fontSize').textContent = large ? '標準字' : '大字'; preference.set('large-type', String(large)); };
 applyFont(preference.get('large-type') === 'true'); $('#fontSize').onclick = () => applyFont(!document.body.classList.contains('large-type'));
+$('#keepAwake').onclick = () => toggleScreenWake().catch(fail);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && wakeRequested) requestScreenWake().catch(fail); });
 $('#recordForm').onclick = e => { const b = e.target.closest('[data-field-preset]'); if (!b) return; $('#condition input[value="normal"]').checked = false; if (b.dataset.fieldPreset === 'u') { $('#component input[value="梁"]').checked = true; $('#condition input[value="crack"]').checked = true; $('#crackPattern').value = 'u'; } else { $('#component input[value="牆面"]').checked = true; $('#surface').value = 'tile'; $('#tileCrack').checked = true; $('#condition input[value="crack"]').checked = true; } changed(); };
 initConditionWorkflow();
 organisation = createOrganisationController({ $, action, commit, getProject: () => project, openModal, closeModal, render, requireNoRecording, esc });

@@ -429,6 +429,8 @@ dialog[data-mode="detail"] #modalBody{position:relative;display:flex;flex-direct
 .crumb:not(:first-child):before{content:"›";margin-right:6px;color:#9db0a7}
 #contextRecord{color:var(--ink);font-weight:650}
 .context-strip .quiet{flex-shrink:0;min-height:40px;padding:6px 8px;font-size:14px;color:var(--accent)}
+.context-strip #keepAwake[data-state="active"]{background:var(--green);color:#fff;border-radius:8px}
+#keepAwake[data-state="paused"],#keepAwake[data-state="failed"]{color:#9a4e19}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .plan-workflow.compact{padding:10px 14px;margin:0 0 14px}
 .plan-workflow.compact strong{font-size:15px}

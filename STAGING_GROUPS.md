@@ -437,6 +437,8 @@ V0.30.1 調整觸控簽名入口與姓名選填。IndexedDB 及 `.csurvey` 版�
 
 V0.30.2 將簽認作廢原因由瀏覽器原生 `prompt` 改為簽認視窗內的必填欄位（`field-survey/signoff-ui.js`、`app.css`），使 `browser-dialogs.contract.test.js` 通過；作廢資料仍為 `voided = { at, reason }`，IndexedDB 及 `.csurvey` 版本維持 18。`tests/v030-browser.js` 改以畫面操作驗證空白原因擋存、取消不變動及確認作廢。
 
+V0.30.3 在現場紀錄固定上方加入手動螢幕常亮開關，使用瀏覽器 Screen Wake Lock；顯示真正取得、暫停或失效的狀態，切離頁面後返回會重新嘗試。無支援或遭省電設定拒絕時提示手機自動鎖定設定。IndexedDB 及 `.csurvey` 維持 18；`tests/v0303-browser.js` 驗證開關、回到前景、系統收回與拒絕。
+
 ## 現況鑑定現場紀錄 V0.7.0
 
 本次包含 `field-survey/report.js`、`report-ui.js` 與 `tests/report-browser.js`：U 型裂縫條數不列總長、磁磚塊數、房間整理、各照片機位與主照片／附件選片、同步流水號與獨立 HTML／列印 PDF。新備份版本 3，資料庫版本 3，舊資料保留。另同步 `結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/pages-live-smoke.js` 及 `pages-release-governance.contract.test.js`；附件 HTML 與 JSON 編號對照是私人案件輸出，不得發布。公開只有產生附件的程式。
