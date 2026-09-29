@@ -157,11 +157,11 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-09-09',
+    generatedAt: '2026-09-25',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
-      '/condition-survey': '2026-09-09',
+      '/condition-survey': '2026-09-25',
       '/beam-analysis': '2026-08-30',
       '/frame-analysis': '2026-08-30',
       '/struct-dx': '2026-08-13',
@@ -316,12 +316,12 @@
   const tools = [
     {
       title: '現況鑑定紀錄',
-      version: 'V0.7.0',
+      version: 'V0.29.2',
       href: '/condition-survey',
       categories: ['temporary'],
       state: 'workflow',
       output: '依戶別及位置整理的現場紀錄、原始媒體與可編輯圈註備份',
-      summary: 'U 型裂縫條數與磁磚塊數快填，依房間選主照片、排附件並同步編號；支援離線與原圖備份。',
+      summary: '依戶別及位置快選現況、拍照圈註，並以細部示意圖與平面草圖定位；可產生標準／快速照片附件，支援離線、原圖備份及同事案件彙整。',
       fit: '現況鑑定會勘紀錄與逐戶資料收集，先以少量照片試用。',
       limit: '本版為現場紀錄工作稿；鑑定結論與正式報告須另行審閱製作，實體手機相機及容量須先試拍確認。',
       capabilities: ['離線拍照', '圈註定位', '原圖保留', '完整備份']

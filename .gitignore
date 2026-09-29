@@ -132,3 +132,6 @@ GSM-外部歸檔生命週期監測事件-*.json
 # Private field survey backup packages and verification receipts.
 *.[cC][sS][uU][rR][vV][eE][yY]
 *-核對收據.json
+# 水準測量紀錄另於 oxsum324/level-survey-recorder 獨立發布；本機工作副本不重複納管。
+/level-survey/
+/啟動水準測量紀錄.bat
