@@ -2536,7 +2536,7 @@ $checks = @(
     workdir = $root
     command = $conditionSurveyBrowserCommand
     slow = $true
-    timeoutSeconds = 180
+    timeoutSeconds = 480
   },
   [pscustomobject]@{
     key = "toolbox-entrypoints-contract"

@@ -13,6 +13,8 @@ const SKIP_DIRS = new Set([
   'build',
   'vendor',
   'backups',
+  // 水準測量紀錄另於獨立 repo 發布，本機副本已 gitignore，不屬本 repo 內容
+  'level-survey',
 ]);
 const SKIP_FILES = [/\.(test|spec)\.[cm]?[jt]sx?$/i];
 const EXTENSIONS = new Set(['.html', '.js', '.ts', '.tsx']);
