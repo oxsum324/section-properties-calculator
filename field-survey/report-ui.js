@@ -20,7 +20,7 @@ export function createReportController(api) {
     $('#reportModeToggle').setAttribute('aria-pressed', String(fullEditor));
     $('#reportModeHint').textContent = fullEditor ? '整理文字、選片與版面；設定隨案件保存。' : '預覽照片與說明；需要調整時，點選「微調本位置」。';
   }
-  const controls = { start: 'reportStart', perPage: 'reportPerPage', format: 'reportFormat', numbering: 'reportNumbering', pageStart: 'reportPageStart', pagePrefix: 'reportPrefix', plansPerPage: 'reportPlans', tableRows: 'reportRows', toc: 'reportToc', includeEmpty: 'reportEmpty', publicByFloor: 'reportPublicFloors', color: 'reportColor', maxPages: 'volumeMaxPages' };
+  const controls = { start: 'reportStart', perPage: 'reportPerPage', format: 'reportFormat', numbering: 'reportNumbering', pageStart: 'reportPageStart', pagePrefix: 'reportPrefix', plansPerPage: 'reportPlans', tableRows: 'reportRows', toc: 'reportToc', includeEmpty: 'reportEmpty', includeSignoffs: 'reportSignoffs', publicByFloor: 'reportPublicFloors', color: 'reportColor', maxPages: 'volumeMaxPages' };
   const numeric = new Set(['start', 'perPage', 'pageStart', 'plansPerPage', 'tableRows', 'maxPages']);
   const displayContent = (record, photo) => photoContent(record, photo, { omitSpace: $('#reportFormat').value === 'standard' });
   function updateContentPreview(card, record) {
@@ -64,7 +64,7 @@ export function createReportController(api) {
   }
   function clearImages() { observer?.disconnect(); generation++; for (const url of imageURLs) URL.revokeObjectURL(url); imageURLs.clear(); }
   const scopeIds = p => settings.unitId ? [settings.unitId] : settings.unitIds || settings.order;
-  function options() { return { ...settings, unitIds: scopeIds(getProject()), start: Number($('#reportStart').value), perPage: Number($('#reportPerPage').value), numbering: $('#reportNumbering').value, pageStart: Number($('#reportPageStart').value), pagePrefix: $('#reportPrefix').value.trim(), plansPerPage: Number($('#reportPlans').value), tableRows: Number($('#reportRows').value), toc: $('#reportToc').checked, includeEmpty: $('#reportEmpty').checked, publicByFloor: $('#reportPublicFloors').checked, color: $('#reportColor').checked, maxPages: Number($('#volumeMaxPages').value) }; }
+  function options() { return { ...settings, unitIds: scopeIds(getProject()), start: Number($('#reportStart').value), perPage: Number($('#reportPerPage').value), numbering: $('#reportNumbering').value, pageStart: Number($('#reportPageStart').value), pagePrefix: $('#reportPrefix').value.trim(), plansPerPage: Number($('#reportPlans').value), tableRows: Number($('#reportRows').value), toc: $('#reportToc').checked, includeEmpty: $('#reportEmpty').checked, includeSignoffs: $('#reportSignoffs').checked, publicByFloor: $('#reportPublicFloors').checked, color: $('#reportColor').checked, maxPages: Number($('#volumeMaxPages').value) }; }
   async function render(anchorRecordId = '') {
     const p = getProject(); if (!p) return;
     clearImages(); renderMode(); const token = generation;

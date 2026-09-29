@@ -1,4 +1,4 @@
-import { clone, DETAIL_TEXTS, UNIT_STATES, assert, attachmentDescription } from './model.js';
+import { clone, DETAIL_TEXTS, UNIT_STATES, assert, attachmentDescription, recordsDigest } from './model.js';
 
 export const STANDARD_STYLE = `
 .standard-sheet,.standard-sheet *{box-sizing:border-box}
@@ -15,6 +15,8 @@ export const STANDARD_STYLE = `
 .standard-sheet .row-text{white-space:pre-wrap}.standard-sheet .detail-cell{padding:.8mm;vertical-align:middle}.standard-sheet .detail-fit{position:relative;overflow:hidden;max-width:100%;margin:auto}.standard-sheet .detail-fit .detail-img{position:absolute;display:block;max-width:none;max-height:none;object-fit:fill}.standard-sheet figure{margin:0 0 4mm;border:1px solid #555;break-inside:avoid}
 .standard-sheet figcaption{padding:2mm;border:0;border-bottom:1px solid #555;font-size:13px;line-height:1.5}
 .standard-sheet figure img{display:block;width:100%;height:94mm;max-height:none;object-fit:contain;background:white}.standard-sheet .count-1 img{height:193mm;max-height:none}.standard-sheet .toc-table td{padding:2mm}.standard-sheet .toc-table a{color:inherit;text-decoration:none}
+.standard-sheet .signoff-statement{border:1px solid #777;padding:3mm;white-space:pre-wrap;font-size:12px}.standard-sheet .signoff-grid{display:grid;grid-template-columns:1fr 1fr;gap:3mm}.standard-sheet .signoff-card{border:1px solid #777;min-height:30mm;padding:2mm;break-inside:avoid}.standard-sheet .signoff-ink{height:18mm}.standard-sheet .signoff-ink img{display:block;max-width:100%;max-height:100%;object-fit:contain}.standard-sheet .signoff-card small{display:block}
+.standard-sheet .signoff-changed{border:1px solid #a33;color:#8b1515;padding:2mm;font-weight:bold}
 @media print{.standard-sheet.sheet{margin:0}.standard-sheet.sheet:last-of-type{break-after:auto}}
 `;
 
@@ -49,7 +51,7 @@ export async function fittedDetailHTML(src) {
   return `<div class="detail-fit" data-detail-frame="${[x, y, w, h].join(',')}" style="width:${36 * w / h}mm;aspect-ratio:${w}/${h}"><img class="detail-img" src="${src}" alt="細部示意圖" style="width:${100 * width / w}%;height:${100 * height / h}%;left:${-100 * x / w}%;top:${-100 * y / h}%"></div>`;
 }
 
-export async function standardPages({ index, project, encodeImage, encodeDetail, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }) {
+export async function standardPages({ index, project, encodeImage, encodeDetail, encodeSignature, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }) {
   const pages = [], sections = [], total = index.groups.flatMap(g => g.records).reduce((n, r) => n + r.photos.length, 0); let imageCount = 0;
   const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none'; document.body.append(host); const shadow = host.attachShadow({ mode: 'closed' });
   await document.fonts.ready;
@@ -62,6 +64,24 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
   try {
     for (const unit of attachmentUnits(index, project)) {
       if (index.segmentKeys && !index.segmentKeys.includes(unit.segmentKey)) continue;
+      if (index.includeSignoffs && unit.segmentKey === unit.unitId) {
+        const x = (project.signoffs || []).filter(s => s.level === 'unit' && s.unitId === unit.unitId).at(-1);
+        if (x) {
+          const changed = x.sourceChanged || x.recordsDigest !== await recordsDigest(project, x.unitId, x.visitId);
+          const visitAttendees = (project.signoffs || []).filter(v => v.level === 'visit' && v.visitId === x.visitId && v.date === x.date)
+            .flatMap(v => v.signers.filter(y => y.group === 'attendee' && y.status === 'signed' && !y.voided).map(y => y.name));
+          const participants = x.signers.filter(y => !y.voided);
+          const chunks = participants.length ? Array.from({ length: Math.ceil(participants.length / 4) }, (_, i) => participants.slice(i * 4, i * 4 + 4)) : [[]];
+          for (const [i, batch] of chunks.entries()) {
+            const cards = [];
+            for (const y of batch) {
+              const src = y.status === 'signed' ? await encodeSignature(y.mediaId) : y.status === 'paper' ? await encodeSignature(y.mediaId, 'image') : '';
+              cards.push(`<div class="signoff-card"><div class="signoff-ink">${src ? `<img src="${src}" alt="${e(y.name)}${y.status === 'paper' ? '紙本簽章照片' : '簽名'}">` : ''}</div><div>${e(y.name)}　${e(y.role)}　${e(y.relation || '')}</div><small>${e(y.signedAt || '')}　${y.status === 'refused' ? '拒簽：' + e(y.reason) : y.status === 'absent' ? '不在場' : y.status === 'paper' ? '紙本簽章照片' : ''}</small></div>`);
+            }
+            add(unit, `<h2>建築物現況會勘簽認單${i ? '（續）' : ''}</h2><p>會勘日期：${e(x.date)}　天氣：${e(x.weather)}　狀態：${e(UNIT_STATES[x.status] || '')}</p><p>本次範圍：${e(x.scope)}　原因：${e(x.reason)}</p><p>簽署時：${x.summary.records} 處紀錄、${x.summary.photos} 張採用照片、${x.summary.pending} 項待補。</p>${changed ? '<p class="signoff-changed">簽署後紀錄有更動，請核對案件紀錄。</p>' : ''}${i ? '' : `<p class="signoff-statement">${e(x.statement.text)}</p>${visitAttendees.length ? `<p>當日會同人員：${e(visitAttendees.join('、'))}；詳 ${e(x.date)} 簽到表。</p>` : ''}`}<div class="signoff-grid">${cards.join('') || '<p>尚無簽署人</p>'}</div><p>簽認識別短碼：${e(x.snapshotHash.slice(0, 8))}　｜　觸控簽名，非數位簽章</p>`, 'signoff-sheet', { signoffId: x.id });
+          }
+        }
+      }
       const planPages = new Map();
       for (let offset = 0; offset < unit.plans.length; offset += index.plansPerPage || 1) {
         const batch = unit.plans.slice(offset, offset + (index.plansPerPage || 1)), tiles = [], allEntries = [];

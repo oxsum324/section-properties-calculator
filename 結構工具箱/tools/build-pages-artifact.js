@@ -174,7 +174,7 @@ const PRIVATE_SUFFIXES = [
 const PRIVATE_CONTENT_PATTERNS = [
   {
     name: 'condition-survey-private-data',
-    pattern: /^CSURVEY\/1\r?\n|["']kind["']\s*:\s*["']condition-survey-(?:bundle|receipt|attachment)["']|^\s*<!doctype html>[\s\S]*?<meta name="condition-survey-private" content="attachment">/iu,
+    pattern: /^CSURVEY\/1\r?\n|["']kind["']\s*:\s*["']condition-survey-(?:bundle|receipt|attachment|signoff|signature-package|form-template)["']|^\s*<!doctype html>[\s\S]*?<meta name="condition-survey-private" content="(?:attachment|signoff)">/iu,
   },
   {
     name: 'engineering-qualification-case-bundle',

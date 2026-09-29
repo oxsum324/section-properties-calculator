@@ -10,7 +10,7 @@ import { VERSION } from './model.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const baseline = JSON.parse(fs.readFileSync(new URL('./release-baseline.json', import.meta.url), 'utf8'));
-const runtime = ['recorder.html', 'app.css', 'app.js', 'model.js', 'report.js', 'report-ui.js', 'report-standard.js', 'organisation.js', 'detail.js', 'detail-canvas.js', 'detail-render.js', 'detail-geometry.js', 'store.js', 'bundle.js', 'annotation.js', 'sketch.js', 'stairs.js', 'cracks.js', 'plan-labels.js', 'label-editor.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'sw.js'];
+const runtime = ['recorder.html', 'app.css', 'app.js', 'model.js', 'report.js', 'report-ui.js', 'report-standard.js', 'organisation.js', 'signoff.js', 'signoff-ui.js', 'detail.js', 'detail-canvas.js', 'detail-render.js', 'detail-geometry.js', 'store.js', 'bundle.js', 'annotation.js', 'sketch.js', 'stairs.js', 'cracks.js', 'plan-labels.js', 'label-editor.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'sw.js'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const git = args => execFileSync('git', ['-C', root, ...args]);
 const head = git(['rev-parse', 'HEAD']).toString().trim();
@@ -33,8 +33,10 @@ async function currentBaseline() {
 }
 function sourceScope() {
   if (!draft) assert.equal(git(['status', '--porcelain', '--untracked-files=all']).toString().trim(), '', 'Release requires a clean source checkout');
-  const changed = git(['diff', '--name-only', '--no-renames', '-z', baseline.commitSha, head]).toString().split('\0').filter(Boolean);
-  assert(changed.every(name => name.startsWith('field-survey/') || ['.github/workflows/pages-deploy.yml', '.github/workflows/field-survey-deploy.yml'].includes(name)), 'Source changes exceed the survey module and its publishing entry');
+  // The overlay only packages survey runtime. Check this release commit; prior
+  // unrelated master commits are guarded by the byte-for-byte site inventory.
+  const changed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', head]).toString().split('\0').filter(Boolean);
+  assert(changed.every(name => name.startsWith('field-survey/') || ['.github/workflows/pages-deploy.yml', '.github/workflows/field-survey-deploy.yml', '結構工具箱/tools/build-pages-artifact.js', 'pages-release-governance.contract.test.js', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md'].includes(name)), 'Source changes exceed the survey module and its publishing boundary');
 }
 
 const mode = process.argv[2];

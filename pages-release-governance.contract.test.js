@@ -8,7 +8,7 @@ const PagesLiveSmoke = require('./結構工具箱/tools/pages-live-smoke.js');
 const repoRoot = __dirname;
 
 function readText(relativePath) {
-  return fs.readFileSync(path.join(repoRoot, ...relativePath.split('/')), 'utf8');
+  return fs.readFileSync(path.join(repoRoot, ...relativePath.split('/')), 'utf8').replace(/\r\n/g, '\n');
 }
 
 function readJson(relativePath) {
@@ -293,7 +293,7 @@ assert.ok(
     assert.equal(result.missingCount, 1, 'artifact builder omits tracked working-tree deletions');
     assert.deepEqual(result.privateContentScan, { scannedFileCount: 2, findingCount: 0 }, 'artifact builder scans every staged public file for private workstation paths');
     for (const name of ['survey-private.csurvey', 'DEMO-核對收據.json']) assert.equal(fs.existsSync(path.join(fixtureSite, name)), false, 'survey originals and receipts stay private');
-    for (const content of ['CSURVEY/1\n0000000002\n{}private', '{"kind":"condition-survey-receipt","projectId":"private"}', '{"kind":"condition-survey-bundle","payload":{}}', '{"kind":"condition-survey-attachment","groups":[]}', '<!doctype html><html><head><meta name="condition-survey-private" content="attachment"></head><body>private</body></html>']) {
+    for (const content of ['CSURVEY/1\n0000000002\n{}private', '{"kind":"condition-survey-receipt","projectId":"private"}', '{"kind":"condition-survey-bundle","payload":{}}', '{"kind":"condition-survey-attachment","groups":[]}', '{"kind":"condition-survey-signoff","signers":[]}', '{"kind":"condition-survey-signature-package","signers":[]}', '{"kind":"condition-survey-form-template","fields":[]}', '<!doctype html><html><head><meta name="condition-survey-private" content="attachment"></head><body>private</body></html>', '<!doctype html><html><head><meta name="condition-survey-private" content="signoff"></head><body>private</body></html>']) {
       const renamed = path.join(fixtureRepo, 'renamed-survey-data.bin'); fs.writeFileSync(renamed, content);
       assert.throws(() => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }), /condition-survey-private-data/, 'renamed survey data fails publication closed');
       fs.rmSync(renamed);
@@ -804,7 +804,7 @@ assert.equal((pagesWorkflow.match(/PAGES_BROWSER_SMOKE_RESULT_FILE:/g) || []).le
 assert.equal((pagesWorkflow.match(/PAGES_CI_ACTION: prepare/g) || []).length, 2, 'Pages workflow prepares one governed evidence receipt per browser job');
 assert.equal((pagesWorkflow.match(/PAGES_CI_ACTION: summary/g) || []).length, 2, 'Pages workflow summarizes only prepared evidence receipts');
 assert.equal((pagesWorkflow.match(/PAGES_CI_PERFORMANCE_BUDGET_FILE: \.github\/pages-smoke\/performance-budget\.json/g) || []).length, 2, 'Pages evidence uses the same versioned performance budget in both jobs');
-assert.equal((pagesWorkflow.match(/uses: actions\/upload-artifact@v6\n\s+with:\n\s+name: pages-ci-evidence-(?:build|live-smoke)/g) || []).length, 2, 'Pages workflow uploads staged and live evidence under unique artifact names');
+assert.equal((pagesWorkflow.match(/uses: actions\/upload-artifact@v6\r?\n\s+with:\r?\n\s+name: pages-ci-evidence-(?:build|live-smoke)/g) || []).length, 2, 'Pages workflow uploads staged and live evidence under unique artifact names');
 assert.ok(pagesWorkflow.indexOf('- name: Upload build CI evidence') < pagesWorkflow.indexOf('- name: Publish build CI evidence'), 'Pages build summary job status includes its evidence upload outcome');
 assert.ok(pagesWorkflow.indexOf('- name: Upload live CI evidence') < pagesWorkflow.indexOf('- name: Publish live CI evidence'), 'Pages live summary job status includes its evidence upload outcome');
 assert.ok(pagesBrowserRunner.includes("kind: 'pages-browser-smoke'") && pagesBrowserRunner.includes('write_result failed') && pagesBrowserRunner.includes('write_result passed') && pagesBrowserRunner.includes('durationMs') && pagesBrowserRunner.includes('attemptCount'), 'Pages browser runner records success or failure timing and attempt evidence');

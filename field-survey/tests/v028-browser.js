@@ -72,7 +72,7 @@ export async function verifyV028(browser, base, out) {
       }
       return { restored: bundle.project, version: bundle.manifest.version, hashes, sizes, labels, reports };
     });
-    assert.deepEqual(result.restored.records, saved.records); assert.equal(result.version, 16);
+    assert.deepEqual(result.restored.records, saved.records); assert.equal(result.version, 17);
     assert.deepEqual(result.labels, [[{ text: '地板（俯視）', transformed: false }], [{ text: '平頂（仰視）', transformed: false }], []]);
     assert(result.sizes.every(size => size[0] === 1200 && size[1] === 640), 'No extra caption band below the diagram');
     for (const hashes of Object.values(result.reports)) assert.deepEqual(hashes, result.hashes);

@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.29.2';
+export const VERSION = '0.30.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -19,6 +19,13 @@ export const COMPONENTS = ['', '外觀', '牆面', '梁', '柱', '地坪', '平�
 export const UNIT_STATES = { open: '待完成', partial: '部分完成', inaccessible: '無法入內', complete: '本次紀錄完成' };
 export const ROLES = { overview: '位置全景', close: '近照', scale: '量尺照', other: '其他' };
 export const UNIT_KINDS = { residence: '住戶', public: '公設' };
+export const SIGNER_GROUPS = { resident: '住戶側', attendee: '會同人員', surveyor: '鑑定人員' };
+export const SIGNER_ROLES = { resident: '住戶本人', proxy: '家屬／代理人', management: '管委會／管理員', contractor: '施工廠商', supervisor: '監造單位', owner: '起造人代表', other: '其他', surveyor: '鑑定人員' };
+export const SIGNER_STATUSES = { signed: '已簽名', refused: '拒簽', absent: '不在場', paper: '紙本簽章' };
+export const DEFAULT_SIGNING_STATEMENTS = Object.freeze({
+  resident: '本人已於上列日期會同鑑定人員進行本建築物（單元）現況會勘，並知悉本次紀錄範圍如上。本簽名僅確認會同會勘之事實與紀錄範圍，不代表同意、承認或放棄任何有關損害原因、責任歸屬或鑑定結論之主張。',
+  attendee: '本人已於上列日期到場會同進行現況會勘。本簽名僅確認到場會同之事實，不代表同意或承認任何鑑定結論。'
+});
 export const DETAIL_PRESETS = { beam: '梁底仰視', frame: '梁柱交接', wall: '純牆面', window: '有窗牆面', door: '有門牆面', corner: '轉角牆面', flatBeam: '展開：梁底仰視', flatFrame: '展開：梁柱交接', flatWall: '展開：純牆面', flatWindow: '展開：有窗牆面', flatDoor: '展開：有門牆面', flatCorner: '展開：轉角兩面', flatFloor: '地板（俯視）', flatCeiling: '平頂（仰視）' };
 export const DETAIL_PRESET_GROUPS = [['地板／平頂（2D）', ['flatFloor', 'flatCeiling']], ['斜視（透視）', ['beam', 'frame', 'wall', 'window', 'door', 'corner']], ['展開立面（2D）', ['flatBeam', 'flatFrame', 'flatWall', 'flatWindow', 'flatDoor', 'flatCorner']]];
 export const DETAIL_TEXTS = { address: '門牌外觀', current: '現況', plan: '詳平面示意圖', none: '無須細部示意圖' };
@@ -218,11 +225,12 @@ export function tileTotal(t) {
 export const emptySketch = () => ({ version: 1, width: 1200, height: 900, strokes: [] });
 export function newProject(code, name, date) {
   const p = { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, visits: [{ id: id(), name: '第 1 次會勘', start: date, end: date }], units: [], records: [], plans: [], media: [] };
-  p.reportSettings = reportPreferences(p); return p;
+  p.reportSettings = reportPreferences(p); p.signingSettings = defaultSigningSettings(); p.signoffs = []; return p;
 }
+export const defaultSigningSettings = () => ({ statement: clone(DEFAULT_SIGNING_STATEMENTS), surveyors: [], attendeePolicy: 'visit-sheet', allowProfileSignature: false });
 export const COMPANY_REPORT_STYLE = Object.freeze({ format: 'standard', numbering: 'unit', perPage: 2, tableRows: 8, pagePrefix: '8-' });
 export function reportPreferences(p) {
-  const s = { ...COMPANY_REPORT_STYLE, start: 1, pageStart: 1, plansPerPage: 1, toc: true, includeEmpty: true, publicByFloor: false, color: false, maxPages: 200, unitId: '', unitIds: null, order: [], breakBefore: [], ...clone(p.reportSettings || {}) };
+  const s = { ...COMPANY_REPORT_STYLE, start: 1, pageStart: 1, plansPerPage: 1, toc: true, includeEmpty: true, includeSignoffs: false, publicByFloor: false, color: false, maxPages: 200, unitId: '', unitIds: null, order: [], breakBefore: [], ...clone(p.reportSettings || {}) };
   const ids = new Set(p.units.map(u => u.id));
   s.order = [...s.order.filter(id => ids.has(id)), ...p.units.filter(u => !s.order.includes(u.id)).map(u => u.id)];
   s.unitIds = s.unitIds === null ? null : s.order.filter(id => s.unitIds.includes(id));
@@ -235,6 +243,7 @@ export function validateReportSettings(s, p) {
   for (const key of ['start', 'pageStart', 'maxPages']) assert(Number.isSafeInteger(s[key]) && s[key] >= 1 && s[key] <= (key === 'maxPages' ? 2000 : 999999), '附件起始號或分冊頁數不正確');
   assert([1, 2, 3].includes(s.plansPerPage) && [0, 8].includes(s.tableRows) && typeof s.pagePrefix === 'string' && s.pagePrefix.length <= 20, '附件版面設定不正確');
   for (const key of ['toc', 'includeEmpty', 'publicByFloor', 'color']) assert(typeof s[key] === 'boolean', '附件選項不正確');
+  if (s.includeSignoffs !== undefined) assert(typeof s.includeSignoffs === 'boolean', '簽認單附件選項不正確');
   const ids = new Set(p.units.map(u => u.id));
   assert(typeof s.unitId === 'string' && (!s.unitId || ids.has(s.unitId)), '附件範圍不存在');
   for (const key of ['unitIds', 'order', 'breakBefore']) {
@@ -404,6 +413,58 @@ export function validateMarks(marks, detail = false) {
     if (m.type === 'region') assert(Object.hasOwn(REGION_TYPES, m.condition) && m.points.length >= 3 && regionArea(m.points) > 1e-8, '細圖範圍格式不正確');
   }
 }
+function validateSignoffs(p, units, visits, meta) {
+  if (p.signingSettings !== undefined) {
+    const s = p.signingSettings;
+    assert(s && typeof s === 'object' && s.statement && typeof s.statement === 'object', '簽認設定不正確');
+    text(s.statement.resident, '住戶聲明'); text(s.statement.attendee, '會同人員聲明');
+    list(s.surveyors, '鑑定人員', 100); unique(s.surveyors);
+    for (const x of s.surveyors) { text(x.name, '鑑定人員姓名', 200); text(x.org, '鑑定單位', 200); }
+    assert(['visit-sheet', 'per-unit'].includes(s.attendeePolicy) && typeof s.allowProfileSignature === 'boolean', '簽認設定不正確');
+  }
+  if (p.signoffs === undefined) return;
+  list(p.signoffs, '簽認紀錄', 50000); unique(p.signoffs);
+  for (const x of p.signoffs) {
+    assert(['unit', 'visit'].includes(x.level) && visits.has(x.visitId), '簽認層級或批次不正確');
+    assert(x.level === 'unit' ? units.has(x.unitId) : x.unitId === undefined, '簽認戶別不正確');
+    assert(validDate(x.date), '簽認日期不正確');
+    for (const key of ['weather', 'status', 'reason', 'scope', 'createdAt', 'updatedAt']) text(x[key], key);
+    assert(Object.hasOwn(UNIT_STATES, x.status), '簽認會勘狀態不正確');
+    assert(x.statement && typeof x.statement === 'object', '簽認聲明不正確');
+    text(x.statement.text, '簽認聲明'); text(x.statement.revision, '聲明版次', 100);
+    const s = x.summary;
+    assert(s && ['records', 'photos', 'inaccessible', 'pending'].every(k => Number.isSafeInteger(s[k]) && s[k] >= 0), '簽認摘要不正確');
+    list(s.spaces, '簽認空間', 5000); s.spaces.forEach(v => text(v, '空間名稱', 200));
+    assert(/^[a-f0-9]{64}$/.test(x.recordsDigest) && /^[a-f0-9]{64}$/.test(x.snapshotHash), '簽認指紋不正確');
+    if (x.sourceChanged !== undefined) assert(typeof x.sourceChanged === 'boolean', '簽認來源變動標記不正確');
+    list(x.signers, '簽署人', 100); unique(x.signers);
+    const signerIds = new Set(x.signers.map(y => y.id));
+    for (const y of x.signers) {
+      assert(Object.hasOwn(SIGNER_GROUPS, y.group) && Object.hasOwn(SIGNER_ROLES, y.role) && Object.hasOwn(SIGNER_STATUSES, y.status), '簽署人角色或狀態不正確');
+      assert((y.group === 'resident' && ['resident', 'proxy', 'management'].includes(y.role)) ||
+        (y.group === 'attendee' && ['contractor', 'supervisor', 'owner', 'other'].includes(y.role)) ||
+        (y.group === 'surveyor' && y.role === 'surveyor'), '簽署人群組不正確');
+      for (const key of ['name', 'org', 'title', 'relation', 'reason', 'signedAt', 'timeZone']) text(y[key], key, 500);
+      assert(y.name.trim() && (!['signed', 'paper'].includes(y.status) || Number.isFinite(Date.parse(y.signedAt))), '簽署人姓名或時間不正確');
+      assert(y.role !== 'proxy' || y.relation.trim(), '代理人須填與住戶關係');
+      if (y.status === 'signed') {
+        assert(meta.get(y.mediaId)?.kind === 'signature', '簽名影像關聯遺失');
+        assert(y.strokes && Number.isFinite(y.strokes.aspect) && y.strokes.aspect > 0 && y.strokes.aspect <= 10, '簽名筆跡格式不正確');
+        list(y.strokes.strokes, '簽名筆畫', 500);
+        assert(y.strokes.strokes.length > 0, '簽名筆跡不可空白');
+        for (const stroke of y.strokes.strokes) { list(stroke, '簽名座標', 10000); assert(stroke.length > 0 && stroke.every(q => finite01(q.x) && finite01(q.y) && Number.isFinite(q.t) && q.t >= 0 && finite01(q.p)), '簽名座標不正確'); }
+        const count = y.strokes.strokes.reduce((sum, stroke) => sum + stroke.length, 0);
+        const length = y.strokes.strokes.reduce((sum, stroke) => sum + stroke.slice(1).reduce((n, q, i) => n + Math.hypot(q.x - stroke[i].x, (q.y - stroke[i].y) / y.strokes.aspect), 0), 0);
+        assert(count >= 10 && length >= .08, '簽名筆跡過短');
+        assert(['live', 'profile'].includes(y.source), '簽名來源不正確');
+      }
+      if (y.status === 'paper') assert(meta.get(y.mediaId)?.kind === 'image', '紙本照片關聯遺失');
+      if (y.status === 'refused') assert(y.reason.trim(), '拒簽須填原因');
+      if (['refused', 'absent'].includes(y.status)) assert(signerIds.has(y.attestedBy) && x.signers.some(w => w.id === y.attestedBy && w.group === 'surveyor' && w.status === 'signed'), '拒簽或不在場須由鑑定人員簽名見證');
+      if (y.voided !== undefined) { text(y.voided.at, '作廢時間', 100); text(y.voided.reason, '作廢原因'); assert(y.voided.reason.trim() && Number.isFinite(Date.parse(y.voided.at)), '作廢紀錄不正確'); }
+    }
+  }
+}
 export function validateProject(p) {
   assert(p && typeof p === 'object', '缺案件資料'); identifier(p.id);
   for (const key of ['code', 'name', 'date', 'createdAt', 'updatedAt']) text(p[key], key, 250);
@@ -459,11 +520,12 @@ export function validateProject(p) {
   const meta = new Map(p.media.map(m => [m.id, m]));
   for (const m of p.media) {
     text(m.name, '檔名', 500); text(m.type, '媒體類型', 100); text(m.importedAt, '取得時間', 100);
-    assert(['image', 'audio', 'plan', 'detail'].includes(m.kind), '媒體用途不正確');
-    assert((m.kind === 'audio' ? /^audio\/(webm|ogg|mp4|mpeg|wav|x-wav|aac)(;\s*codecs=(?:[\w.,+-]+|"[\w.,+ -]+"))?$/ : /^image\/(jpeg|png|webp|heic|heif)$/).test(m.type), '媒體格式不正確');
+    assert(['image', 'audio', 'plan', 'detail', 'signature'].includes(m.kind), '媒體用途不正確');
+    assert((m.kind === 'audio' ? /^audio\/(webm|ogg|mp4|mpeg|wav|x-wav|aac)(;\s*codecs=(?:[\w.,+-]+|"[\w.,+ -]+"))?$/ : m.kind === 'signature' ? /^image\/png$/ : /^image\/(jpeg|png|webp|heic|heif)$/).test(m.type), '媒體格式不正確');
     assert(Number.isSafeInteger(m.size) && m.size > 0 && m.size <= 60 * 1024 * 1024, '單一媒體大小超過 60 MB 或為空');
     assert(/^[a-f0-9]{64}$/.test(m.sha256), '媒體指紋不正確');
   }
+  validateSignoffs(p, units, visits, meta);
   for (const plan of p.plans) {
     assert(units.has(plan.unitId) && media.has(plan.mediaId) && meta.get(plan.mediaId).kind === 'plan', '位置圖關聯遺失');
     for (const k of ['floor', 'title']) text(plan[k], k, 250);
@@ -594,6 +656,37 @@ export async function sha256(blob) {
   const buffer = blob instanceof Blob ? await blob.arrayBuffer() : blob;
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256', buffer))].map(b => b.toString(16).padStart(2, '0')).join('');
 }
+export function canonicalJSON(value) {
+  if (Array.isArray(value)) return '[' + value.map(canonicalJSON).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonicalJSON(value[key])).join(',') + '}';
+  return JSON.stringify(value);
+}
+export async function recordsDigest(p, unitId, visitId) {
+  const rows = p.records.filter(r => r.unitId === unitId && r.visitId === visitId).map(r => ({
+    id: r.id, updatedAt: r.updatedAt, floor: r.floor, space: r.space, location: r.location,
+    conditions: recordConditions(r), photos: r.photos.filter(photoIncluded).map(photo => photo.mediaId).sort(),
+    content: r
+  })).sort((a, b) => a.id.localeCompare(b.id));
+  return sha256(new TextEncoder().encode(canonicalJSON(rows)));
+}
+export async function signoffHash(p, x) {
+  const fields = { projectId: p.id, unitId: x.unitId || null, visitId: x.visitId, date: x.date, weather: x.weather,
+    status: x.status, reason: x.reason, scope: x.scope, statement: x.statement.text,
+    summary: x.summary, recordsDigest: x.recordsDigest, sourceChanged: x.sourceChanged || false,
+    signers: x.signers.map(y => ({ id: y.id, role: y.role, group: y.group, name: y.name, status: y.status, reason: y.reason, relation: y.relation, attestedBy: y.attestedBy || null, mediaId: y.mediaId || null, signedAt: y.signedAt, voided: y.voided || null })) };
+  return sha256(new TextEncoder().encode(canonicalJSON(fields)));
+}
+export async function rebaseSignoffs(p, sourceProject) {
+  for (const x of p.signoffs || []) {
+    const source = sourceProject?.signoffs?.find(y => y.id === x.id);
+    if (source?.level === 'unit' && source.signers.some(y => !y.voided)) x.sourceChanged ||= source.recordsDigest !== await recordsDigest(sourceProject, source.unitId, source.visitId);
+    x.sourceSnapshotHash ||= x.snapshotHash;
+    x.sourceRecordsDigest ||= x.recordsDigest;
+    x.recordsDigest = x.level === 'unit' ? await recordsDigest(p, x.unitId, x.visitId) : await sha256(new TextEncoder().encode('visit:' + x.visitId));
+    x.snapshotHash = await signoffHash(p, x);
+  }
+  return p;
+}
 export function subset(p, unitId = '') {
   const result = clone(p);
   if (!unitId) return result;
@@ -603,13 +696,14 @@ export function subset(p, unitId = '') {
   result.units = result.units.filter(u => u.id === unitId);
   if (result.reportSettings) result.reportSettings = { ...reportPreferences(result), unitId, unitIds: null };
   result.records = result.records.filter(r => r.unitId === unitId);
+  if (result.signoffs) result.signoffs = result.signoffs.filter(x => x.level === 'unit' && x.unitId === unitId || x.level === 'visit');
   result.plans = result.plans.filter(x => x.unitId === unitId);
   if (result.rooms) result.rooms = result.rooms.filter(x => x.unitId === unitId);
   if (result.handoffImports) {
     const records = new Set(result.records.map(r => r.id));
     result.handoffImports = result.handoffImports.map(s => ({ ...s, units: s.units.filter(u => u.id === unitId), records: s.records.filter(r => records.has(r.id)) })).filter(s => s.units.length || s.records.length);
   }
-  const used = new Set([...result.records.flatMap(r => [...r.photos.map(x => x.mediaId), ...r.audioIds, r.detail?.mediaId].filter(Boolean)), ...result.plans.map(x => x.mediaId)]);
+  const used = new Set([...result.records.flatMap(r => [...r.photos.map(x => x.mediaId), ...r.audioIds, r.detail?.mediaId].filter(Boolean)), ...result.plans.map(x => x.mediaId), ...(result.signoffs || []).flatMap(x => x.signers.map(y => y.mediaId).filter(Boolean))]);
   result.media = result.media.filter(m => used.has(m.id));
   return result;
 }
@@ -619,5 +713,6 @@ export function restoredCopy(p) {
   copy.media.forEach(m => { m.id = remap.get(m.id); });
   copy.plans.forEach(x => { x.mediaId = remap.get(x.mediaId); for (const l of x.labelLayout || []) if (l.kind === 'photo') l.id = remap.get(l.id); });
   copy.records.forEach(r => { r.photos.forEach(x => { x.mediaId = remap.get(x.mediaId); }); if (r.mainPhotoId) r.mainPhotoId = remap.get(r.mainPhotoId); if (r.detail?.mediaId) r.detail.mediaId = remap.get(r.detail.mediaId); r.audioIds = r.audioIds.map(x => remap.get(x)); });
+  for (const x of copy.signoffs || []) for (const y of x.signers) if (y.mediaId) y.mediaId = remap.get(y.mediaId);
   return { project: copy, remap };
 }

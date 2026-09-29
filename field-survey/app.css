@@ -555,3 +555,17 @@ body.keyboard-open .report-bottom-pager{position:static}
 #crackExtraSummary,[data-crack-extra-summary]{display:block}#crackExtraSummary:empty,[data-crack-extra-summary]:empty{display:none}
 .crack-cards .crack-extra summary{font-size:13px}
 @media(max-width:600px){.condition-card-body{padding:10px}.condition-card>summary{padding:10px}#conditionCards .two-col{gap:8px}}
+.signoff-handoff[hidden]{display:none}
+.signoff-handoff{position:fixed;inset:0;z-index:10000;overflow:auto;background:#fff;color:#172f2e;padding:env(safe-area-inset-top) max(16px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px,env(safe-area-inset-left))}
+.signoff-handoff-body{max-width:960px;margin:auto;padding:12px 0 28px}
+.signoff-handoff-body h1{font-size:1.4rem}
+.signoff-handoff-body p{white-space:pre-wrap}
+#signoffCanvas{display:block;width:100%;height:clamp(210px,42vh,430px);border:2px solid #45645e;border-radius:12px;background:#fff;touch-action:none}
+#signoffDrawError{color:#a51d1d;min-height:1.5em}
+.signoff-saved{text-align:center;padding-top:25vh}
+.signoff-saved h1{font-size:2rem}
+#signoffReturn{min-height:64px;touch-action:none}
+#signoffReturn.holding{background:#1b6653}
+.statement-preview{border:1px solid #bdcbc5;border-radius:8px;padding:12px;margin:12px 0;white-space:pre-wrap}
+.signoff-existing{max-height:260px;overflow:auto}
+#signoffPreview{width:100%;height:60vh;border:1px solid #bdcbc5;background:#fff}

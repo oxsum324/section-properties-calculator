@@ -20,6 +20,45 @@ import { planTemplateCopy } from '../model.js';
 import { photoContent, attachmentDescription, attachmentObservationText } from '../model.js';
 import { dateSummary } from '../report-standard.js';
 import { reportPreferences, validateReportSettings, COMPANY_REPORT_STYLE } from '../model.js';
+import { canonicalJSON, recordsDigest, signoffHash, rebaseSignoffs } from '../model.js';
+import { proposedSignoff, sealSignoff, signoffChanged, signoffFields } from '../signoff.js';
+
+test('signoff canonical digest follows recorded content and selected photos, not object key order', async () => {
+  assert.equal(canonicalJSON({ b: 1, a: { z: 2, x: 3 } }), canonicalJSON({ a: { x: 3, z: 2 }, b: 1 }));
+  const p = newProject('S-1', '合成測試', '2026-09-29'), u = newUnit('A101'); p.units.push(u);
+  const r = newRecord(u.id, '1F', '客廳'); r.visitId = p.visits[0].id; p.records.push(r);
+  const a = await recordsDigest(p, u.id, r.visitId); r.photos.push({ mediaId: id(), role: 'close', excluded: false });
+  assert.notEqual(await recordsDigest(p, u.id, r.visitId), a);
+  const x = proposedSignoff(p, u.id, r.visitId); await sealSignoff(p, x); p.signoffs.push(x);
+  assert.equal(x.snapshotHash, await signoffHash(p, x)); assert.equal(await signoffChanged(p, x), false);
+  r.location = '窗邊'; r.updatedAt = now(); assert.equal(await signoffChanged(p, x), false, 'unsigned draft is not flagged');
+});
+
+test('signed, proxy, refusal, paper and void records validate and survive scoped backup', async () => {
+  const p = newProject('S-2', '簽認測試', '2026-09-29'), u = newUnit('A102'); p.units.push(u);
+  const record = newRecord(u.id, '1F', '客廳'); record.visitId = p.visits[0].id; p.records.push(record);
+  const blob = new Blob([new Uint8Array([137, 80, 78, 71, 1])], { type: 'image/png' }), mediaId = id();
+  p.media.push({ id: mediaId, kind: 'signature', name: '簽名.png', type: 'image/png', size: blob.size, sha256: await sha256(blob), importedAt: now() });
+  const x = proposedSignoff(p, u.id, p.visits[0].id);
+  const surveyor = { id: id(), role: 'surveyor', group: 'surveyor', name: '甲技師', org: '', title: '', relation: '', status: 'signed', reason: '', signedAt: now(), timeZone: 'Asia/Taipei', mediaId, strokes: { aspect: 3, strokes: [Array.from({ length: 12 }, (_, i) => ({ x: .1 + i * .025, y: .2 + i * .01, t: i * 10, p: .5 }))] }, source: 'live' };
+  x.signers.push(surveyor, { id: id(), role: 'resident', group: 'resident', name: '乙住戶', org: '', title: '', relation: '', status: 'refused', reason: '當場表示不簽', signedAt: now(), timeZone: 'Asia/Taipei', source: 'live', attestedBy: surveyor.id });
+  await sealSignoff(p, x); p.signoffs.push(x); validateProject(p);
+  record.notes = '簽署後補記現場所見'; assert.equal(await signoffChanged(p, x), true);
+  const fields = signoffFields(p, x); assert.equal(fields['sig.surveyor.1.name'], '甲技師');
+  const wrong = structuredClone(p); delete wrong.signoffs[0].signers[1].reason; assert.throws(() => validateProject(wrong));
+  const proxy = { ...structuredClone(surveyor), id: id(), role: 'proxy', group: 'resident', name: '丙代理人', relation: '' };
+  x.signers.push(proxy); assert.throws(() => validateProject(p), /代理人/); proxy.relation = '家屬';
+  const wrongPoint = structuredClone(p); wrongPoint.signoffs[0].signers[0].strokes.strokes[0][0].x = 2; assert.throws(() => validateProject(wrongPoint), /座標/);
+  const paperId = id(); p.media.push({ id: paperId, kind: 'image', name: '紙本.png', type: 'image/png', size: blob.size, sha256: await sha256(blob), importedAt: now() });
+  x.signers.push({ id: id(), role: 'contractor', group: 'attendee', name: '丁公司', org: '', title: '', relation: '', status: 'paper', reason: '', signedAt: now(), timeZone: 'Asia/Taipei', mediaId: paperId, source: 'live' });
+  x.snapshotHash = await signoffHash(p, x); validateProject(p);
+  const { blob: archive } = await makeBundle(p, async () => blob, u.id); const restored = await readBundle(archive);
+  assert.deepEqual(restored.project.signoffs, p.signoffs); assert.equal(restored.project.media[0].kind, 'signature');
+  const copy = restoredCopy(restored.project).project; await rebaseSignoffs(copy, restored.project); validateProject(copy);
+  assert.notEqual(copy.signoffs[0].snapshotHash, x.snapshotHash);
+  assert.equal(await signoffChanged(copy, copy.signoffs[0]), true, 'copy retains the source post-signature change warning');
+  copy.signoffs[0].signers[1].voided = { at: now(), reason: '紀錄誤植' }; validateProject(copy);
+});
 
 test('report preferences travel with complete/scoped backups and restore, with main-case precedence in consolidation', async () => {
   const { p, blobs, a, b } = await fixture();
@@ -192,7 +231,7 @@ test('detail summary links actual marks and notes without base names or invented
   assert.match(summary,/細圖標註：磁磚破損/);assert.match(summary,/圖中文字：裂縫 A/);assert.match(summary,/細圖補充：裂縫 A 在窗角\n破損磁磚在下方/);assert.doesNotMatch(summary,/完整牆面|wall|m²|mm|塊/);
   assert.deepEqual(detailComparison(r).missing,['crack']);assert.match(detailComparison(r).hints[0],/核對手繪或文字/);assert.deepEqual(r,before);
   const index=attachmentIndex(p).groups[0].records[0];assert.equal(index.detailText,summary);assert.equal(index.text,'保留人工照片內容');
-  const restored=await readBundle((await makeBundle(p,id=>blobs.get(id))).blob);assert.deepEqual(restored.project.records[0],before);assert.equal(restored.manifest.version,16);
+  const restored=await readBundle((await makeBundle(p,id=>blobs.get(id))).blob);assert.deepEqual(restored.project.records[0],before);assert.equal(restored.manifest.version,17);
   const copy=restoredCopy(restored.project).project;assert.equal(copy.records[0].detail.note,r.detail.note);
   r.detail.note='a'.repeat(2001);assert.throws(()=>validateProject(p),/細圖補充/);r.detail.note=42;assert.throws(()=>validateProject(p),/細圖補充/);
 });
@@ -225,7 +264,7 @@ test('editable openings retain geometry through backup and mirror and reject deg
   const { p, r, blobs } = await fixture();
   const marks = ['door', 'window'].map(kind => ({ type: 'opening', kind, points: [{ x: .2, y: .3 }, { x: .4, y: .8 }] }));
   r.detail = { kind: 'preset', preset: 'wall', mirror: false, marks }; validateProject(p);
-  const backup = await readBundle((await makeBundle(p, id => blobs.get(id))).blob); assert.equal(backup.manifest.version, 16); assert.deepEqual(backup.project.records[0].detail, r.detail);
+  const backup = await readBundle((await makeBundle(p, id => blobs.get(id))).blob); assert.equal(backup.manifest.version, 17); assert.deepEqual(backup.project.records[0].detail, r.detail);
   const mirrored = mirrorDetailMarks(marks); assert(Math.abs(mirrored[0].points[0].x - .8) < 1e-9); validateMarks(mirrored, true);
   assert.throws(() => validateMarks(marks), /圈註種類/);
   for (const mutation of [m => { m.points[1].x = m.points[0].x; }, m => { m.kind = 'unknown'; }, m => { m.points.push({ x: .5, y: .5 }); }]) { const bad = structuredClone(marks); mutation(bad[0]); assert.throws(() => validateMarks(bad, true), /門窗開口/); }
@@ -239,7 +278,7 @@ test('detail signs and regions preserve observed quantities, old strokes, manual
     { type: 'region', condition: 'damp', points: [{ x: .2, y: .2 }, { x: .4, y: .2 }, { x: .3, y: .5 }] }
   ] };
   const original = structuredClone(r); validateProject(p); assert.deepEqual(recordIssues(r), []);
-  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob); assert.equal(restored.manifest.version, 16); assert.deepEqual(restored.project.records[0], original);
+  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob); assert.equal(restored.manifest.version, 17); assert.deepEqual(restored.project.records[0], original);
   const copy = restoredCopy(restored.project).project; validateProject(copy); assert.deepEqual(copy.records[0].detail, r.detail); assert.equal(copy.records[0].reportText, original.reportText);
   r.photos[0].marks = [r.detail.marks[1]]; assert.throws(() => validateProject(p), /圈註/);
 });
@@ -271,7 +310,7 @@ test('expanded conditions and independent observation layers survive backup and 
     { id: id(), measured: false, widthMode: 'unknown', width: null, length: null, pattern: 'diagonal', notes: '', layer: 'structural' }
   ] });
   validateProject(p); const saved = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(saved.manifest.version, 16); assert.deepEqual(saved.project.records[0], r);
+  assert.equal(saved.manifest.version, 17); assert.deepEqual(saved.project.records[0], r);
   for (const format of ['quick', 'standard']) {
     const row = attachmentIndex(p, { format }).groups[0].records[0];
     assert.deepEqual(row.conditions, keys); assert.match(row.text, /裂縫 A.*粉刷層/); assert.match(row.text, /裂縫 B.*結構體/);
@@ -379,7 +418,7 @@ test('horizontal surface bases preserve marks and observations through backup, r
     r.detail = { kind: 'preset', preset, mirror: true, note: '裂縫 A', marks: [{ type: 'pen', tone: 'red', points: [{ x: .2, y: .3 }, { x: .6, y: .7 }] }] };
     validateProject(p);
     const bundle = await readBundle((await makeBundle(p, mid => blobs.get(mid), a.id)).blob);
-    assert.equal(bundle.manifest.version, 16); assert.deepEqual(bundle.project.records[0].detail, r.detail);
+    assert.equal(bundle.manifest.version, 17); assert.deepEqual(bundle.project.records[0].detail, r.detail);
     const restored = restoredCopy(bundle.project); validateProject(restored.project); assert.deepEqual(restored.project.records[0].detail, r.detail);
     const combined = await consolidateBundles(newProject('JOIN', '彙整', '2026-09-25'), [{ ...bundle, label: '同事' }]);
     assert.deepEqual(combined.project.records[0].detail, r.detail);
@@ -393,7 +432,7 @@ test('detail drawings and custom originals survive scoped backup and restore wit
   r.detail = { kind: 'image', mediaId: mid, marks: [{ type: 'pen', points: [{ x: .2, y: .3 }, { x: .4, y: .5 }] }] };
   const result = await readBundle((await makeBundle(p, key => blobs.get(key), a.id)).blob); assert(result.project.media.some(m => m.id === mid));
   const restored = restoredCopy(result.project); validateProject(restored.project); assert.notEqual(restored.project.records[0].detail.mediaId, mid); assert.deepEqual(restored.project.records[0].detail.marks, r.detail.marks);
-  assert.equal(result.manifest.version, 16); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
+  assert.equal(result.manifest.version, 17); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
   r.detail = { kind: 'preset', preset: 'beam', mirror: true, marks: [] }; validateProject(p); r.detail.marks = [{ type: 'pen', points: [{ x: 2, y: .1 }] }]; assert.throws(() => validateProject(p), /座標/);
 });
 
@@ -432,7 +471,7 @@ test('individual cracks preserve independent units, uncertainty and legacy group
   assert.match(prose, /原整組紀錄/); assert.deepEqual(recordIssues(r), ['裂縫 C未量測']);
   const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
   assert.deepEqual(restored.project.records[0].cracks, r.cracks); assert.deepEqual(restored.project.records[0].legacyCrack, r.legacyCrack);
-  assert.equal(restored.manifest.version, 16);
+  assert.equal(restored.manifest.version, 17);
   r.cracks[2].width = .3; assert.throws(() => validateProject(p), /未量測/);
 });
 
@@ -583,7 +622,7 @@ test('approximate 0.1 to 0.3 width is explicit, does not assert measurement, and
   assert.doesNotMatch(observationText(r), /目視|初估|初記|已量測|未量測/);
   assert.deepEqual(recordIssues(r), ['裂縫長度待補']);
   const roundtrip = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(roundtrip.manifest.version, 16); assert.deepEqual(roundtrip.project.records[0], r);
+  assert.equal(roundtrip.manifest.version, 17); assert.deepEqual(roundtrip.project.records[0], r);
   assert.equal(r.measured, false); assert.equal(r.width, null);
   const c = { id: id(), pattern: 'diagonal', layer: 'plaster', measured: false, widthMode: 'range0103', width: null, length: null, notes: '' };
   r.cracks = [c]; validateProject(p);
@@ -847,7 +886,7 @@ test('multiple conditions share originals and retain independent measured or est
   Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
   validateProject(p); assert.deepEqual(recordIssues(r), []);
   const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(result.manifest.version, 16); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  assert.equal(result.manifest.version, 17); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
   const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
   r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
 });

@@ -4,9 +4,9 @@ const completion = tx => new Promise((resolve, reject) => { tx.oncomplete = reso
 let database;
 export async function openStore() {
   if (database) return database;
-  // Close older writers that do not recognize floor and ceiling detail presets.
-  const req = indexedDB.open('condition-survey-v1', 16);
-  req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
+  // A version upgrade prevents older windows from overwriting signature records.
+  const req = indexedDB.open('condition-survey-v1', 17);
+  req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups', 'profile', 'templates']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   // Another window (a background tab or the home-screen app) can keep the old database open and block
   // the version upgrade; never hang silently, say what to close.
   let blocked = false, timer; req.onblocked = () => { blocked = true; };
@@ -21,6 +21,11 @@ export async function openStore() {
 export async function allProjects() { const db = await openStore(); return request(db.transaction('projects').objectStore('projects').getAll()); }
 export async function getProject(id) { const db = await openStore(); return request(db.transaction('projects').objectStore('projects').get(id)); }
 export async function getMedia(id) { const db = await openStore(); return request(db.transaction('blobs').objectStore('blobs').get(id)); }
+export async function getProfileSignature() { const db = await openStore(); return request(db.transaction('profile').objectStore('profile').get('surveyor-signature')); }
+export async function saveProfileSignature(blob, strokes) {
+  const db = await openStore(), tx = db.transaction('profile', 'readwrite'), done = completion(tx);
+  tx.objectStore('profile').put({ id: 'surveyor-signature', blob, strokes, updatedAt: now() }); await done;
+}
 export async function saveProject(project, expectedRevision, media = []) {
   validateProject(project);
   const db = await openStore(), tx = db.transaction(['projects', 'blobs'], 'readwrite'), done = completion(tx);

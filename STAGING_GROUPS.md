@@ -536,6 +536,10 @@ Schema v27 RC STM 補充正式附件：深梁、基礎深梁與樁帽三維 STM 
 
 鋼構同步 manifest 的 Pages 私有邊界：`鋼構工具/core/formal-core-manifest.json` 保存工作站絕對路徑與同步雜湊，只供本機 audit，不是公開 runtime。調整此邊界時必須同批 staging `結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/pages-live-smoke.js`、`pages-release-governance.contract.test.js`、`toolbox-entrypoints.contract.test.js`、README 與 `TOOL_BOUNDARIES.md`；測試須同時證明 builder 精確排除、HTTP 私有路徑非 200，且實際暫存 artifact 不含本機帳號或工作區絕對路徑。
 
+## 現況鑑定會勘簽認 V0.30.0
+
+V0.30.0 會勘簽認階段 A：`field-survey/signoff.js`、`signoff-ui.js` 與現有紀錄、備份、附件頁碼整合；新 runtime 要進 `sw.js` 和 `release.mjs`。資料庫及備份格式 17，舊案件檔仍可讀；更新前關閉其他開著的舊視窗。`結構工具箱/tools/build-pages-artifact.js` 與 `pages-release-governance.contract.test.js` 同批檢查簽認 HTML、簽名資料包、範本 JSON 的改名私密輸出。發布只含程式，簽認案例及 PNG 均留在私有案件與 `output/`。實體 iPhone／Android 檢核待使用者試用，不得以模擬標記完成。
+
 ## 現況鑑定現場紀錄 V0.7.0
 
 本次包含 `field-survey/report.js`、`report-ui.js` 與 `tests/report-browser.js`：U 型裂縫條數不列總長、磁磚塊數、房間整理、各照片機位與主照片／附件選片、同步流水號與獨立 HTML／列印 PDF。新備份版本 3，資料庫版本 3，舊資料保留。另同步 `結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/pages-live-smoke.js` 及 `pages-release-governance.contract.test.js`；附件 HTML 與 JSON 編號對照是私人案件輸出，不得發布。公開只有產生附件的程式。

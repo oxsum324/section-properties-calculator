@@ -33,7 +33,7 @@ export function moveRoom(project, roomId, direction, unitId = '') {
   [allKeys[a], allKeys[b]] = [allKeys[b], allKeys[a]];
   project.records.sort((x, y) => allKeys.indexOf(key(x)) - allKeys.indexOf(key(y)));
 }
-export function attachmentIndex(project, { unitId = '', unitIds, start = 1, perPage = 2, format = 'standard', numbering = 'unit', pageStart = 1, pagePrefix = '', plansPerPage = 1, tableRows = 0, includeEmpty = false, publicByFloor = false, toc = false } = {}) {
+export function attachmentIndex(project, { unitId = '', unitIds, start = 1, perPage = 2, format = 'standard', numbering = 'unit', pageStart = 1, pagePrefix = '', plansPerPage = 1, tableRows = 0, includeEmpty = false, includeSignoffs = false, publicByFloor = false, toc = false } = {}) {
   validateProject(project);
   assert(!unitId || project.units.some(u => u.id === unitId), '附件戶別不存在');
   assert(Number.isSafeInteger(start) && start > 0 && start <= 999999, '起始編號須為 1 至 999999 的整數');
@@ -42,7 +42,7 @@ export function attachmentIndex(project, { unitId = '', unitIds, start = 1, perP
   assert(['unit', 'project'].includes(numbering), '照片編號範圍不正確');
   assert(Number.isSafeInteger(pageStart) && pageStart >= 1 && pageStart <= 999999 && typeof pagePrefix === 'string' && pagePrefix.length <= 20, '附件頁碼不正確');
   assert([1, 2, 3].includes(plansPerPage) && [0, 8].includes(tableRows), '圖表版面不正確');
-  assert([includeEmpty, publicByFloor, toc].every(v => typeof v === 'boolean'), '附件選項不正確');
+  assert([includeEmpty, includeSignoffs, publicByFloor, toc].every(v => typeof v === 'boolean'), '附件選項不正確');
   assert(unitIds === undefined || Array.isArray(unitIds) && unitIds.length > 0 && new Set(unitIds).size === unitIds.length && unitIds.every(id => project.units.some(u => u.id === id)), '請選擇有效且不重複的戶別');
   const selectedUnits = unitId ? project.units.filter(u => u.id === unitId) : unitIds ? unitIds.map(id => project.units.find(u => u.id === id)) : project.units;
   const selectedIds = new Set(selectedUnits.map(u => u.id));
@@ -65,9 +65,9 @@ export function attachmentIndex(project, { unitId = '', unitIds, start = 1, perP
   });
   let number = start, previousUnit = '';
   for (const group of ordered) { if (numbering === 'unit' && group.unitId !== previousUnit) number = start; previousUnit = group.unitId; for (const record of group.records) for (const photo of record.photos) { assert(number <= 999999, '照片編號超過上限'); photo.number = String(number++).padStart(3, '0'); } }
-  assert(ordered.length || format === 'standard' && includeEmpty && selectedUnits.length, '尚未選擇附件照片');
+  assert(ordered.length || format === 'standard' && (includeEmpty && selectedUnits.length || includeSignoffs && selectedUnits.some(u => (project.signoffs || []).some(x => x.level === 'unit' && x.unitId === u.id))), '尚未選擇附件照片或簽認單');
   const visitIds = new Set([...ordered.flatMap(g => g.records.map(r => r.visitId)), ...selectedUnits.flatMap(u => (u.visitHistory || []).map(h => h.visitId))]);
-  return { kind: 'condition-survey-attachment', version: 3, format, toolVersion: VERSION, createdAt: now(), projectId: project.id, sourceRevision: project.revision, code: project.code, name: project.name, date: project.date, start, perPage, numbering, pageStart, pagePrefix, plansPerPage, tableRows, includeEmpty, publicByFloor, toc, visits: clone((project.visits || []).filter(v => visitIds.has(v.id))), units: clone(selectedUnits.filter(u => includeEmpty || ordered.some(g => g.unitId === u.id))), groups: ordered };
+  return { kind: 'condition-survey-attachment', version: 3, format, toolVersion: VERSION, createdAt: now(), projectId: project.id, sourceRevision: project.revision, code: project.code, name: project.name, date: project.date, start, perPage, numbering, pageStart, pagePrefix, plansPerPage, tableRows, includeEmpty, includeSignoffs, publicByFloor, toc, visits: clone((project.visits || []).filter(v => visitIds.has(v.id))), units: clone(selectedUnits.filter(u => includeEmpty || includeSignoffs && (project.signoffs || []).some(x => x.level === 'unit' && x.unitId === u.id) || ordered.some(g => g.unitId === u.id))), groups: ordered };
 }
 export function attachmentUnits(index, project) {
   const units = new Map();
@@ -121,8 +121,16 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
     const get = async id => { const meta = project.media.find(m => m.id === id), blob = await getBlob(id); assert(meta && blob && await sha256(blob) === meta.sha256, '細部底圖原檔核對失敗'); includedAssets.set(id, { id, name: meta.name, sha256: meta.sha256 }); return blob; };
     const blob = await detailImage(detail, get, { color: !!options.color }); outputBytes += blob.size; assert(outputBytes <= 160 * 1024 * 1024, '附件影像超過 160 MB，請縮小每冊頁數或按戶匯出'); return dataURL(blob);
   };
+  const encodeSignature = async (mediaId, expectedKind = 'signature') => {
+    if (options.layoutOnly) return placeholder;
+    const meta = project.media.find(m => m.id === mediaId), blob = await getBlob(mediaId);
+    assert(meta?.kind === expectedKind && blob && await sha256(blob) === meta.sha256, '簽名或紙本影像原檔核對失敗');
+    outputBytes += blob.size; assert(outputBytes <= 160 * 1024 * 1024, '附件影像超過 160 MB，請縮小每冊頁數或按戶匯出');
+    includedAssets.set(mediaId, { id: mediaId, name: meta.name, sha256: meta.sha256 });
+    return dataURL(blob);
+  };
   const page = (group, body, type = '') => `<section class="sheet ${type}"><header><h1>${e(REPORT_FORMATS[index.format])}</h1><div>${e(index.code)} · ${e(index.name)}</div><div>${e([group.unit, attachmentDescription(group.floor), attachmentDescription(group.room), group.address].filter(Boolean).join(' · '))}</div></header>${body}<footer>${dateSummary(group.records, '') ? `會勘日期：${e(dateSummary(group.records, ''))}　｜　` : ''}第 ${e((index.pagePrefix || '') + ((index.pageStart || 1) + pageNumber++))} 頁</footer></section>`;
-  if (index.format === 'standard') pages.push(...await standardPages({ index, project, encodeImage, encodeDetail, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }));
+  if (index.format === 'standard') pages.push(...await standardPages({ index, project, encodeImage, encodeDetail, encodeSignature, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }));
   else for (const group of index.groups) {
     const planIds = new Set(group.records.flatMap(r => [r.pin?.planId, ...r.photos.map(p => p.placement?.planId)]).filter(Boolean));
     const photoNumbers = group.records.flatMap(r => r.photos.map(p => p.number));
