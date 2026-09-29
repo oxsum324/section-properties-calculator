@@ -316,7 +316,7 @@
   const tools = [
     {
       title: '現況鑑定紀錄',
-      version: 'V0.30.1',
+      version: 'V0.30.2',
       href: '/condition-survey',
       categories: ['temporary'],
       state: 'workflow',

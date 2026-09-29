@@ -542,6 +542,8 @@ V0.30.0 會勘簽認階段 A：`field-survey/signoff.js`、`signoff-ui.js` 與�
 
 V0.30.1 調整觸控簽名入口與姓名選填。IndexedDB 及 `.csurvey` 版本 18，讀取 1～17；以 V0.30.0 實際已發布提交做升級來源，確認舊視窗拒寫、舊案件保存與離線更新。公開成品仍只疊加 `field-survey/` 執行檔；使用者簽名資料不進 Pages。
 
+V0.30.2 將簽認作廢原因由瀏覽器原生 `prompt` 改為簽認視窗內的必填欄位（`field-survey/signoff-ui.js`、`app.css`），使 `browser-dialogs.contract.test.js` 通過；作廢資料仍為 `voided = { at, reason }`，IndexedDB 及 `.csurvey` 版本維持 18。`tests/v030-browser.js` 改以畫面操作驗證空白原因擋存、取消不變動及確認作廢。
+
 ## 現況鑑定現場紀錄 V0.7.0
 
 本次包含 `field-survey/report.js`、`report-ui.js` 與 `tests/report-browser.js`：U 型裂縫條數不列總長、磁磚塊數、房間整理、各照片機位與主照片／附件選片、同步流水號與獨立 HTML／列印 PDF。新備份版本 3，資料庫版本 3，舊資料保留。另同步 `結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/pages-live-smoke.js` 及 `pages-release-governance.contract.test.js`；附件 HTML 與 JSON 編號對照是私人案件輸出，不得發布。公開只有產生附件的程式。
