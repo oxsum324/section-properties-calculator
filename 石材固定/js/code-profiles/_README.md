@@ -26,7 +26,7 @@
 js/code-profiles/
 ├── _README.md                    （本文件）
 ├── _schema.md                    profile JSON schema 規格
-├── cns_wind_107.json             建築物耐風設計規範（107 年版）
+├── cns_wind_107.json             建築物耐風設計規範（103 年版）
 ├── cns_seismic_113.json          建築物耐震設計規範及解說（113 年版）
 ├── aci_318_appendix_d.json       ACI 318 Appendix D（混凝土結構用錨栓）
 ├── cns_steel_general.json        鋼構造建築物鋼結構設計技術規範

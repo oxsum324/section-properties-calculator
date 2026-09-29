@@ -26,7 +26,7 @@ function legacyUpgradeRequirements() {
     {
       code: 'build-separate-v3-package',
       state: 'required',
-      message: '以重新輸出的附件資料夾執行「建立正式附件包」，另建全新的 v3 包；不得覆寫舊包。',
+      message: '以重新輸出的附件資料夾執行正式組包（attachment-package-build.js），另建全新的 v3 包；不得覆寫舊包。',
     },
   ];
 }

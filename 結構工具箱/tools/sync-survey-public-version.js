@@ -32,7 +32,7 @@ home = home.replace(cardPattern, `$1V${version}$2`);
 const surveyFiles = ['field-survey/recorder.html', ...(home.match(/'\/condition-survey': \[([^\]]+)\]/)?.[1].match(/'[^']+'/g) || []).map(item => item.slice(1, -1))];
 const git = gitArgs => execFileSync('git', ['-c', 'core.quotepath=off', ...gitArgs], { cwd: repoRoot, encoding: 'utf8' }).trim();
 const dirty = git(['status', '--porcelain', '--', ...surveyFiles]) !== '';
-const contentDate = dirty ? today : surveyFiles.map(file => git(['log', '-1', '--format=%ad', '--date=short', '--', file])).filter(Boolean).sort().at(-1);
+const contentDate = dirty ? today : surveyFiles.map(file => git(['log', '-1', '--format=%cs', '--', file])).filter(Boolean).sort().at(-1);
 home = home.replace(/('\/condition-survey': ')\d{4}-\d{2}-\d{2}(')/, `$1${contentDate}$2`);
 const generatedAt = home.match(/generatedAt: '(\d{4}-\d{2}-\d{2})'/)?.[1];
 if (generatedAt && generatedAt < contentDate) home = home.replace(/(generatedAt: ')\d{4}-\d{2}-\d{2}(')/, `$1${contentDate}$2`);

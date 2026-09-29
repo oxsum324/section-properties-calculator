@@ -66,7 +66,7 @@
 
 目前 v3 正式附件包在建立完成前及日後重新驗證時，都會直接重讀包內正式附件與來源 JSON，重做同一正向內容、文件身分、核可時間與指紋配對檢查；清單內的工具、版本、輸出時間、核可時間與計算指紋也必須和附件實際文字一致。只重算 SHA-256、清單與附件包指紋，不能讓空殼附件或不一致 metadata 通過。
 
-開挖擋土支撐的核可 PDF 另在產出端逐頁渲染，以像素墨量、RapidOCR 與 PDF 文字層 bigram Dice 對齊建立同名 canonical evidence；最低比例為 1.5、每頁最低一致率為 0.50。附件檢查器必須自行重算文字 SHA-256、一致率、逐頁集合與整體最低／平均值，不能相信 evidence 宣告。產出端另以原子方式建立只含同次 PDF 與 evidence 的 `.formal-source.zip`，發布前回讀檔案清單與 bytes；ZIP 可直接送入正式附件包管理器，由管理器驗證中央目錄精確同名兩檔、逐檔大小與名稱後，只讀取指定內容到隔離暫存區並在完成後清理。ZIP 只是減少分別下載的搬運套件，本身不是正式附件包。正式 PDF 進 `01_正式附件/`，canonical evidence 只進 `99_內部追溯_勿附入主報告/來源資料/`，並在事後驗證時再次被找到與複驗；證據與 ZIP 都不是計算書內容，也不得在正文顯示治理說明。
+開挖擋土支撐的核可 PDF 另在產出端逐頁渲染，以像素墨量、RapidOCR 與 PDF 文字層 bigram Dice 對齊建立同名 canonical evidence；最低比例為 1.5、每頁最低一致率為 0.50。附件檢查器必須自行重算文字 SHA-256、一致率、逐頁集合與整體最低／平均值，不能相信 evidence 宣告。產出端另以原子方式建立只含同次 PDF 與 evidence 的 `.formal-source.zip`，發布前回讀檔案清單與 bytes；ZIP 只是減少分別下載的搬運套件，本身不是正式附件包；組包前須解壓為同名 PDF 與 evidence 配對。正式 PDF 進 `01_正式附件/`，canonical evidence 只進 `99_內部追溯_勿附入主報告/來源資料/`，並在事後驗證時再次被找到與複驗；證據與 ZIP 都不是計算書內容，也不得在正文顯示治理說明。
 
 附件組包命令列只有 `ready` 可回傳成功碼 `0`；`review`、`blocked` 與命令本身執行失敗分別回傳 `1`、`2`、`3`。後續複製、壓縮或送件自動化必須以退出碼 `0` 為唯一放行條件，不得只判斷命令是否有產生摘要檔。
 
@@ -251,7 +251,7 @@ flowchart TD
 
 ### 規範版本揭露
 
-正式工具的畫面與列印計算書都要明確揭露採用規範全名與年版。風力工具目前以「建築物耐風設計規範及解說」與「107 年版」為必要字串；地震工具以「建築物耐震設計規範及解說」與「113 年版」為必要字串。
+正式工具的畫面與列印計算書都要明確揭露採用規範全名與年版。風力工具目前以「建築物耐風設計規範及解說」與「103 年版」為必要字串；地震工具以「建築物耐震設計規範及解說」與「113 年版」為必要字串。
 
 這些字串集中登記於 `formal-tools.manifest.json` 的 `reportDisclosureNeedles`。同一 manifest 的 `documentStateRequired` 要求全部正式風力 / 地震計算書透過 `core/ui/report.js` 產生一致的核可控制與 `內部審閱／正式附件` 文件狀態；頁面 readiness 只能提供工程狀態，不得把待辦明細複製進計算書。`formal-tools.contract.test.js` 檢查原始頁面與共用 renderer，`formal-browser-smoke.test.js` 則實測空白案件資料、預設內部審閱、勾選核可及輸入變更撤銷核可；若日後文件狀態規則更新，應同步更新頁面、manifest 與 golden / browser smoke，不得只改首頁文案。
 
@@ -292,7 +292,7 @@ Schema v24 進一步要求 Excel 的實際列印成品可用。錨栓報表產�
 
 Schema v25 再要求 Excel 成品具有可獨立重算的內容／核可雙封印。錨栓 XLSX 的 `Summary` 可見列保存封印範圍、內容 SHA-256、核可 SHA-256 與「非身分數位簽章」說明。內容封印正規化所有工作表的非空白儲存格、公式及快取結果，排除文件狀態、核可資訊、工具身分、輸出時間、計算指紋及封印列；核可封印則綁定上述核可／追溯欄位與已記錄內容 SHA-256。`xlsx-seal-verifier.js` 直接解析 OOXML 並獨立重算，release 必須通過 `1/1` 內容封印、`1/1` 核可封印，以及計算內容竄改、偽造內容 SHA、核可欄位竄改的負向測試。日常附件檢查對舊版缺封印降 `review`，封印不符固定 `blocked`。Pages 只顯示雙封印完成數，不公開 scope、封印值、工作表內容或竄改樣本。
 
-Schema v27 再將 RC 深梁、基礎深梁及樁帽三維 STM 的核可路徑納入正式 release。這三份是 RC 梁／基礎工作流程內的補充正式附件，不是新增首頁入口；每份都必須保留內部審閱 PDF／PNG、核可 HTML、離線獨立列印 PDF 與 evidence JSON，並由 aggregate 重驗報告標題、工程內容、計算指紋、續頁脈絡、page-only 排除、HTML 成品雜湊、內容／核可雙封印及竄改阻擋。`rc-stm-formal` 的附件完成數固定 `3/3`、實體成品固定 `12/12`；未產出或任一重驗失敗即阻擋 release。`結構工具箱/tools/rc-stm-atomic-change-set.manifest.json` 另固定三份附件從計算核心、RC 父流程、載重傳遞、匿名格式治理到公開狀態的完整提交邊界，並可由 `rc-stm-atomic-change-set-review.js` 產生人讀審查摘要；清冊、驗證器、審查摘要與暫存閉合狀態只治理程式交付完整性，不進入任何計算書、列印或正式附件正文。
+Schema v27 再將 RC 深梁、基礎深梁及樁帽三維 STM 的核可路徑納入正式 release。這三份是 RC 梁／基礎工作流程內的補充正式附件，不是新增首頁入口；每份都必須保留內部審閱 PDF／PNG、核可 HTML、離線獨立列印 PDF 與 evidence JSON，並由 aggregate 重驗報告標題、工程內容、計算指紋、續頁脈絡、page-only 排除、HTML 成品雜湊、內容／核可雙封印及竄改阻擋。`rc-stm-formal` 的附件完成數固定 `3/3`、實體成品固定 `12/12`；未產出或任一重驗失敗即阻擋 release。
 
 同一原子邊界還要包含 RC 梁最小／最大配筋支數、多排筋幾何、拉控應變與深梁適用性的獨立基準，以及平面剛架 V1.6 → LoadCombo／ForcePicker → 樁帽 STM 的 D／L／W／E 基本反力輸入鏈。這些屬程式交付與結果來源完整性；計算書仍只呈現本案已採用的輸入、配筋、模型、公式、代入、結果與文件狀態，不列出清冊或工作樹審查訊息。
 
@@ -559,18 +559,6 @@ node .\結構工具箱\tests\wind.test.js
 - Golden case、JSON round-trip、同核心重播與成品雜湊用於證明版本一致性，不可直接稱為獨立工程驗證。
 - 只有預期值能由明列的規範例題、手算、第三方軟體或獨立封閉式推導取得，且沒有讀取 production 預期答案時，才可列入獨立工程基準。
 - 獨立基準的覆蓋率、差異與路線圖是內部品質治理資料，顯示於 HTML 狀態或稽核輸出即可，不寫入計算書正文、列印或正式附件。
-
-## 工程資格化與報告編排邊界
-
-- `beam-column-moment-g1-pilot.js` 只將 V1.3 的 `momentPriorTestSmrfPass` production adapter 與同 repo 獨立閉式 oracle 閉合成 synthetic G1：88 欄輸入、71 項固定 tolerance-policy catalog 斷言、8 個補充閉合 gate、控制分支、工程判定與 `completeJointDesign=false` 超範圍警示。只接受 clean Git 與未觀察到注入的 Node／Git 執行環境，repository／info attributes policy 固定不允許，且判定基準先於執行落檔；來源證據以正規化實體 UTF-8 對 raw commit content，綁定可解析 commit、Git blob 與 commit 內容 SHA，production／reference／comparison 的 CF、reference／comparison／receipt 的 QRF、可讀邊界與 V2 決策收據必須互綁。可信 parent process／Node／Git 執行檔是外部前提；同一 Node 行程不能自證任意前置程式碼不存在。它可找程式漂移，不能排除共同條文誤讀；不得把 synthetic 的 `1e-12` benchmark tolerance 當作實案驗收門檻。實案需在執行前另行固定容許差、判定、控制分支、超範圍處置與 applicability，並以外部手算／Excel／第三方軟體作基準。
-- `beam-column-moment-real-case-intake.js` 是實案 G1 前的私有收件關卡，不是計算器或比較器。它只接受 producer 的 `beam-column-moment-real-case-intake.v1 / candidate-unvalidated`；候選須從 synthetic G1 工作區複製到另一個與 repo 完全不相交的實案工作區後填寫。檢查固定 88 欄型別與 scope、真實案件身分、事前 criteria、規範依據與 `規範判定／專案指定` 等權威標籤、案件來源，以及外部手算／獨立 Excel／第三方軟體的人讀 artifact 與分離機讀 JSON；重複 key、路徑或實體檔違規、雜湊不符與驗證競態都須失敗封閉。預設唯讀，只有 `--seal-readiness yes` 可不可覆寫地建立收據；`intake-complete-manual-g1-work-required` 固定代表 `calculatorExecuted=false`、`engineeringResultsCompared=false`、G1／G2／G3=false，不能進計算書、正式附件包、Pages 或簽證依據，也不能用來宣稱完整接頭設計或附件核可。下一關實案 G1 runner 才能執行 production 並對規格化外部基準逐項比較。舊空白 template 不得直接升格，但既有已封印 legacy synthetic G1 bundle 仍可由通用案件包驗證器按原契約重驗。
-- `beam-column-moment-real-case-g1-runner.js` 將已封印 intake 與全新的 repo 外 output workspace 分開處理。`--execute-production yes` 只建立 production、外部基準正規化、comparison、review draft 及空白 decision template，不得自動把 comparison 通過升格為 G1；此時 G1 固定 false。只有案件負責人另行審閱並填妥 output workspace 內的 decision candidate，再明確執行 `--seal-g1 yes --decision references/beam-column-moment-real-case-g1-decision.json`，工具才可重驗實體檔、雜湊、時間線與決定後建立 G1 receipt 和 sealed bundle。該 G1 只屬指定案件的同一次執行，不建立工具驗證域；G2／G3、完整接頭設計、正式附件核可、Pages 與簽證仍為 false。Runner 的 input、production、reference、comparison、review、decision、receipt、bundle 與所有真實 artifacts 都是私有資格化證據，不得抄入計算書、附件包、報告主文或公開狀態；計算書只能依既有附件契約呈現經人工採用的工程輸入、公式、結果、控制結論與必要追溯資料。
-
-- `G0 發布治理通過`、`G1 本次計算獨立比較通過`、`G2 指定案件適用確認`、`G3 本次附件內部採用` 必須分欄記錄；不得以 `complianceReady`、測試綠燈、正式附件文件狀態或單一成熟度分數跨層代答。
-- `engineering-qualification-case-bundle.v1` 是未簽署、自我陳述的私有工作底稿，只保存案件身分、計算執行、獨立比較、差異處置、成品複核、決定與採用收據。它驗證結構、雜湊與檔案一致性，不驗證填寫者身分、法定資格或法律效力；每筆比較值須以 JSON Pointer 從正式結果與獨立基準的分離機讀 JSON 實際取得，不得只相信案件包或比較摘要自報的值。案件包不得被複製到計算書、主報告、正式附件包或 Pages，也不會覆寫既有附件核可。
-- 合成案例、規範例題及 golden case 最多支持單一 run 的 G1；1 至 2 件 pilot 也只用來找差異，不建立整支工具驗證域。G2 必須綁定指定真實案件來源，並明列用途、限制、排除項與規範依據。G3 再要求同一執行的實際附件完成人工複核與內部採用；G2／G3 都不是法定簽證的充分條件。
-- 報告附件編排器只能依案件包中的穩定 `runId` 與 G3 採用紀錄排序、套範本及封裝；被複核成品與編排後附件的可見內容都須保留該次固定 16 位 `CF-`。若成品是 PDF，案件包還須綁定同資料夾 canonical-render evidence 的相對路徑、bytes 與 SHA-256，且附件檢查器必須回報 visibility `verified`；純文字層不得替代可見性證據。編排器不得自行重算、變更工程值、推定案件適用性或產生資格化決定。
-- 任一會改變公式、單位、預設值、控制分支、四捨五入、輸入限制、共用核心或規範版本的變更，都要把受影響執行標為 `stale`，重新取得相稱的 G1／G2／G3 證據；只重畫樣式時仍須重做成品複核，不得沿用舊版版面採用紀錄。
 - 計算書仍直接呈現採用輸入、公式／依據、計算結果、控制結果與必要追溯資料；附件身分由內部審閱／核可模型決定，不由測試覆蓋率決定。
 ## 鋼索敏感度頁面比較
 

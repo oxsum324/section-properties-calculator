@@ -58,7 +58,6 @@ const steelSharedReport = readText('鋼構工具/core/ui/report.js');
 const formalWindReport = readText('結構工具箱/core/wind-report.js');
 const attachmentPackageChecker = readText('結構工具箱/tools/attachment-package-check.js');
 const attachmentPackageVerifier = readText('結構工具箱/tools/attachment-package-verify.js');
-const attachmentPackageManagerWorker = readText('結構工具箱/tools/attachment-package-manager-worker.js');
 const rcReportVisualSources = [
   'beam', 'column', 'slab', 'wall', 'shear-wall', 'foundation', 'single-pile', 'retrofit',
 ].map(name => ({ name, source: readText(`鋼筋混凝土/tools/${name}-report-visual.test.js`) }));
@@ -68,7 +67,6 @@ const renderedEvidenceInventory = readText('結構工具箱/tools/rendered-deliv
 const pagesLiveSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
 const pagesReleaseGovernanceContract = readText('pages-release-governance.contract.test.js');
 const toolboxEntrypointsContract = readText('toolbox-entrypoints.contract.test.js');
-const rcStmAtomicChangeSet = JSON.parse(readText('結構工具箱/tools/rc-stm-atomic-change-set.manifest.json'));
 const stoneAutoWordArtifact = readText('石材固定/auto_word_artifact_test.py');
 const anchorReportArtifacts = readText('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts');
 const anchorReportHtmlSeal = readText('螺栓檢討/bolt-review-tool/src/reportHtmlSeal.ts');
@@ -313,16 +311,6 @@ assert(failingSchemaV35Transition.pass === false && failingSchemaV35Transition.f
   'xlsxDualSealVerified',
   '只顯示完成數，不輸出封印值',
 ].forEach(needle => assertIncludes(attachmentPackageVerifier, needle, `attachment verifier preserves private dual seal evidence ${needle}`));
-[
-  'dualSealSummaryLine',
-  'xlsxDualSealSummaryLine',
-  'htmlDualSealExpected',
-  'htmlDualSealVerified',
-  'xlsxDualSealExpected',
-  'xlsxDualSealVerified',
-  "anchor: '錨栓'",
-  '雙封印',
-].forEach(needle => assertIncludes(attachmentPackageManagerWorker, needle, `attachment manager exposes dual seal verification ${needle}`));
 [
   ['README', readme],
   ['STAGING_GROUPS', staging],
@@ -786,21 +774,6 @@ assert(
 );
 assert(JSON.parse(renderedEvidenceInventory).tools.length === 40, 'rendered evidence inventory has 40 formal tools', 'rendered-delivery-evidence.inventory.json');
 assert(JSON.parse(renderedEvidenceInventory).rcSupplementalAttachments.length === 3, 'rendered evidence inventory has three RC STM dedicated formal-entry attachments', 'rendered-delivery-evidence.inventory.json');
-assert(rcStmAtomicChangeSet.kind === 'rc-stm-atomic-change-set' && rcStmAtomicChangeSet.schemaVersion === 2, 'release governance reads the RC STM atomic change-set manifest with governed handoff edges');
-assert(Array.isArray(rcStmAtomicChangeSet.handoffs) && rcStmAtomicChangeSet.handoffs.length === 4, 'RC STM atomic change set declares all four cross-tool handoffs');
-assert(rcStmAtomicChangeSet.homepageFormalToolDelta === 3, 'RC STM atomic change set records the three formal homepage promotions');
-assert(rcStmAtomicChangeSet.releaseEvidence?.schemaVersion === 27
-  && rcStmAtomicChangeSet.releaseEvidence?.requiredAttachments === 3
-  && rcStmAtomicChangeSet.releaseEvidence?.requiredArtifacts === 12,
-'RC STM atomic change set matches Schema v27 release evidence counts');
-const rcStmAtomicPaths = new Set(rcStmAtomicChangeSet.groups.flatMap(group => group.paths));
-[
-  '結構工具箱/tools/rc-stm-atomic-change-set.manifest.json',
-  '結構工具箱/tools/rc-stm-atomic-change-set.js',
-  '結構工具箱/tools/rc-stm-atomic-change-set-review.js',
-  '結構工具箱/tools/rc-stm-atomic-change-set-review.test.js',
-].forEach(relativePath => assert(rcStmAtomicPaths.has(relativePath), 'RC STM atomic manifest includes its governance implementation', relativePath));
-assertIncludes(preflight, 'node 結構工具箱/tools/rc-stm-atomic-change-set-review.test.js', 'preflight runs the RC STM atomic review contract');
 assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.test.js', 'preflight runs the regulatory data synchronization contract');
 
 [
@@ -1203,8 +1176,6 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   assert(/Schema v35[^\r\n]*96\/96[^\r\n]*179\/179/.test(source), `${label} keeps Schema v35 with canonical 96/96 and public 179/179 in the same governance block`);
   assert(/Schema v35[^\r\n]*(?:RSC v4|RSC／RSB)[^\r\n]*(?:RSB v1|1\/1)[^\r\n]*6\/6/.test(source), `${label} keeps Schema v35 with the RSC/RSB formal attachment and six-artifact gate`);
   assertIncludes(source, 'rc-stm-formal', `${label} documents RC STM release evidence directory`);
-  assertIncludes(source, 'rc-stm-atomic-change-set.manifest.json', `${label} documents the RC STM machine-readable atomic change set`);
-  assertIncludes(source, 'rc-stm-atomic-change-set-review.js', `${label} documents the RC STM human-readable atomic review`);
   assertIncludes(source, '平面剛架 V1.6', `${label} documents the frame-to-pile-cap STM handoff`);
   assertIncludes(source, '最小／最大配筋', `${label} documents the RC beam reinforcement-to-STM boundary`);
   assertIncludes(source, '3/3', `${label} documents RC STM supplemental formal attachment count`);

@@ -1405,31 +1405,6 @@ node 結構工具箱/tools/attachment-package-verify.test.js
 exit $LASTEXITCODE
 '@
 
-$attachmentPackageManagerCommand = @'
-node 結構工具箱/tools/attachment-package-manager.contract.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernanceViewerCommand = @'
-node 結構工具箱/tools/attachment-case-governance-viewer.contract.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentPackageUpgradeAssistantCommand = @'
-node 結構工具箱/tools/attachment-package-upgrade-assistant.contract.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentGovernanceHubCommand = @'
-node 結構工具箱/tools/attachment-governance-hub.contract.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentGovernanceShortcutInstallerCommand = @'
-node 結構工具箱/tools/attachment-governance-shortcut-installer.test.js
-exit $LASTEXITCODE
-'@
-
 $attachmentPackageUpgradeAssessCommand = @'
 node 結構工具箱/tools/attachment-package-upgrade-assess.test.js
 exit $LASTEXITCODE
@@ -1442,102 +1417,6 @@ exit $LASTEXITCODE
 
 $attachmentPackageUpgradeWorkspaceCheckCommand = @'
 node 結構工具箱/tools/attachment-package-upgrade-workspace-check.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentPackageUpgradeFlowCommand = @'
-node 結構工具箱/tools/attachment-package-upgrade-flow.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentPackageUpgradeHistoryCommand = @'
-node 結構工具箱/tools/attachment-package-upgrade-history.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentPackageUpgradeHistoryIndexCommand = @'
-node 結構工具箱/tools/attachment-package-upgrade-history-index.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentPackageUpgradeHistoryBaselineCommand = @'
-node 結構工具箱/tools/attachment-package-upgrade-history-baseline.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentPackageUpgradeHistoryBaselineAdvanceCommand = @'
-node 結構工具箱/tools/attachment-package-upgrade-history-baseline-advance.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentPackageUpgradeHistoryBaselineChainCommand = @'
-node 結構工具箱/tools/attachment-package-upgrade-history-baseline-chain.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernanceOverviewCommand = @'
-node 結構工具箱/tools/attachment-case-governance-overview.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernanceRootCommand = @'
-node 結構工具箱/tools/attachment-case-governance-root.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernancePortfolioCommand = @'
-node 結構工具箱/tools/attachment-case-governance-portfolio.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernancePortfolioCompareCommand = @'
-node 結構工具箱/tools/attachment-case-governance-portfolio-compare.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernancePortfolioSnapshotCommand = @'
-node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernancePortfolioSnapshotIndexCommand = @'
-node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-index.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernancePortfolioSnapshotTrendCommand = @'
-node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernancePortfolioSnapshotTrendDispositionCommand = @'
-node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernancePortfolioSnapshotTrendDispositionCheckpointCommand = @'
-node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernancePortfolioSnapshotTrendDispositionCheckpointHistoryCommand = @'
-node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.test.js
-exit $LASTEXITCODE
-'@
-
-$attachmentCaseGovernanceWorkspaceCommand = @'
-node 結構工具箱/tools/attachment-case-governance-workspace.test.js
-exit $LASTEXITCODE
-'@
-
-$engineeringQualificationCaseBundleCommand = @'
-node 結構工具箱/tools/engineering-qualification-case-bundle.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/beam-column-moment-real-case-intake.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/beam-column-moment-real-case-g1-runner.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/beam-column-moment-g1-pilot.test.js
 exit $LASTEXITCODE
 '@
 
@@ -1564,20 +1443,6 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-change-assistant.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-decision-receipt.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/public-release-decision-backup.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/public-release-decision-backup-health.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/public-release-decision-backup-task.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/public-release-decision-restore-drill.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/public-release-decision-restore-drill-health.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/public-release-decision-cloud-checkpoint.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/public-release-decision-restore-drill-task.test.js
 exit $LASTEXITCODE
 '@
 
@@ -1673,8 +1538,6 @@ exit $LASTEXITCODE
 
 $toolboxEntrypointsContractCommand = @'
 node --test field-survey/tests/model.test.js
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node 結構工具箱/tools/rc-stm-atomic-change-set-review.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node toolbox-entrypoints.contract.test.js
 exit $LASTEXITCODE
@@ -1899,106 +1762,6 @@ $checks = @(
   @{
     Path = '結構工具箱\run-audit-core.bat'
     Needles = @('audit-core.ps1', '-Quiet')
-  },
-  @{
-    Path = '結構工具箱\tools\評估舊版附件包升級.bat'
-    Needles = @('attachment-package-upgrade-assess.js', '--input', '%~1')
-  },
-  @{
-    Path = '結構工具箱\tools\建立舊版附件升級工作區.bat'
-    Needles = @('attachment-package-upgrade-workspace.js', '--input', '%~1', '--output', '%~2')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查舊版附件升級工作區.bat'
-    Needles = @('attachment-package-upgrade-workspace-check.js', '--input', '%~1', '--project-no', '%~2')
-  },
-  @{
-    Path = '結構工具箱\tools\舊版附件包升級流程.bat'
-    Needles = @('attachment-package-upgrade-flow.js', '--input', '%~1', '--output', '%~2', '--project-no', '%~3', '--history-dir', '%~4')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查附件升級內部歷程.bat'
-    Needles = @('attachment-package-upgrade-history-index.js', '--history', '%~1', '--baseline', '%~2')
-  },
-  @{
-    Path = '結構工具箱\tools\建立附件升級可信基準.bat'
-    Needles = @('attachment-package-upgrade-history-baseline.js', '--history', '%~1', '--baseline', '%~2', '--output', '%~3')
-  },
-  @{
-    Path = '結構工具箱\tools\推進附件升級可信基準.bat'
-    Needles = @('attachment-package-upgrade-history-baseline-advance.js', '--history', '%~1', '--baseline', '%~2', '--accept-additions', '--reviewer', '%~3', '--basis', '%~4', '--output', '%~5')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查附件升級可信基準版本鏈.bat'
-    Needles = @('attachment-package-upgrade-history-baseline-chain.js', '--history', '%~1', '--chain-root', '%~2', '--initial-baseline', '%~3')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查案件附件治理總覽.bat'
-    Needles = @('attachment-case-governance-overview.js', '--package', '%~1', '--history', '%~2', '--chain-root', '%~3', '--initial-baseline', '%~4')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查案件根目錄附件治理.bat'
-    Needles = @('attachment-case-governance-root.js', '--root', '%~1')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查多案件附件治理總覽.bat'
-    Needles = @('attachment-case-governance-portfolio.js', '--parent', '%~1')
-  },
-  @{
-    Path = '結構工具箱\tools\比較多案件附件治理總覽.bat'
-    Needles = @('attachment-case-governance-portfolio-compare.js', '--previous', '%~1', '--current', '%~2', '%~3', '--only-blocking', '--change')
-  },
-  @{
-    Path = '結構工具箱\tools\保存多案件附件治理快照.bat'
-    Needles = @('attachment-case-governance-portfolio-snapshot.js', '--parent', '%~1', '--output', '%~2')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查多案件治理快照歷程.bat'
-    Needles = @('attachment-case-governance-portfolio-snapshot-index.js', '--directory', '%~1', '%~2', '%~3', '--compare-latest', '--only-blocking', '--change')
-  },
-  @{
-    Path = '結構工具箱\tools\分析多案件治理快照趨勢.bat'
-    Needles = @('attachment-case-governance-portfolio-snapshot-trend.js', '--directory', '%~1')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查多案件治理趨勢處置.bat'
-    Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition.js', '--directory', '%~1', '--ledger', '%~2')
-  },
-  @{
-    Path = '結構工具箱\tools\記錄多案件治理趨勢處置.bat'
-    Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition.js', '--directory', '%~1', '--ledger', '%~2', '--acknowledge', '--reviewer', '%~3', '--basis', '%~4', '%~5', '%~6', '--case-removal', '--recurring-issue')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查多案件治理趨勢處置檢查點.bat'
-    Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js', '--directory', '%~1', '--ledger', '%~2', '--checkpoint', '%~3')
-  },
-  @{
-    Path = '結構工具箱\tools\建立多案件治理趨勢處置檢查點.bat'
-    Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js', '--directory', '%~1', '--ledger', '%~2', '--output', '%~3', '--reviewer', '%~4', '--basis', '%~5', '%~6', '--initialize', '--advance', '--checkpoint', '--accept-additions')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查多案件治理趨勢處置檢查點歷程.bat'
-    Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js', '--directory', '%~1', '--ledger', '%~2', '--history', '%~3', '--head', '%~4')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查附件治理工作區.bat'
-    Needles = @('attachment-case-governance-workspace.js', '--config', '%~1', 'ATTACHMENT_GOVERNANCE_NO_PAUSE')
-  },
-  @{
-    Path = '結構工具箱\tools\建立附件治理工作區.bat'
-    Needles = @('attachment-case-governance-workspace.js', '%~1', '%~2', '%~3', '%~4', '%~5', '%~6', '%~7', '%~8', '%~9', '--create', '--workspace-name', '--directory', '--ledger', '--history', '--head', '--output', '--reviewer', '--basis', '--previous-config', 'ATTACHMENT_GOVERNANCE_NO_PAUSE')
-  },
-  @{
-    Path = '結構工具箱\tools\建立工程資格化案件工作區.bat'
-    Needles = @('engineering-qualification-case-bundle.js', '--init', '%~1', '--case-id', '%~2', '--case-label', '%~3', '--source-kind', '%~4', 'ENGINEERING_QUALIFICATION_NO_PAUSE')
-  },
-  @{
-    Path = '結構工具箱\tools\封印工程資格化案件包.bat'
-    Needles = @('engineering-qualification-case-bundle.js', '--seal', '%~1', 'ENGINEERING_QUALIFICATION_NO_PAUSE')
-  },
-  @{
-    Path = '結構工具箱\tools\檢查工程資格化案件包.bat'
-    Needles = @('engineering-qualification-case-bundle.js', '--input', '%~1', 'ENGINEERING_QUALIFICATION_NO_PAUSE')
   }
 )
 
@@ -2663,41 +2426,6 @@ $checks = @(
     slow = $false
   },
   [pscustomobject]@{
-    key = "attachment-package-manager"
-    label = "Windows formal attachment package manager"
-    workdir = $root
-    command = $attachmentPackageManagerCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-viewer"
-    label = "Windows read-only case attachment governance viewer"
-    workdir = $root
-    command = $attachmentCaseGovernanceViewerCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-package-upgrade-assistant"
-    label = "Windows governed legacy attachment upgrade assistant"
-    workdir = $root
-    command = $attachmentPackageUpgradeAssistantCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-governance-hub"
-    label = "Windows case attachment governance hub"
-    workdir = $root
-    command = $attachmentGovernanceHubCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-governance-shortcut-installer"
-    label = "Windows case attachment governance shortcut installer"
-    workdir = $root
-    command = $attachmentGovernanceShortcutInstallerCommand
-    slow = $false
-  },
-  [pscustomobject]@{
     key = "attachment-package-upgrade-assess"
     label = "Legacy attachment package upgrade assessment"
     workdir = $root
@@ -2716,132 +2444,6 @@ $checks = @(
     label = "Legacy attachment upgrade workspace completion gate"
     workdir = $root
     command = $attachmentPackageUpgradeWorkspaceCheckCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-package-upgrade-flow"
-    label = "Unified legacy attachment package upgrade flow"
-    workdir = $root
-    command = $attachmentPackageUpgradeFlowCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-package-upgrade-history"
-    label = "External legacy attachment upgrade history receipts"
-    workdir = $root
-    command = $attachmentPackageUpgradeHistoryCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-package-upgrade-history-index"
-    label = "Read-only legacy attachment upgrade history index"
-    workdir = $root
-    command = $attachmentPackageUpgradeHistoryIndexCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-package-upgrade-history-baseline"
-    label = "Trusted legacy attachment upgrade history baseline publisher"
-    workdir = $root
-    command = $attachmentPackageUpgradeHistoryBaselineCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-package-upgrade-history-baseline-advance"
-    label = "Explicit trusted attachment upgrade history baseline advancement"
-    workdir = $root
-    command = $attachmentPackageUpgradeHistoryBaselineAdvanceCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-package-upgrade-history-baseline-chain"
-    label = "Read-only trusted attachment upgrade history baseline chain verifier"
-    workdir = $root
-    command = $attachmentPackageUpgradeHistoryBaselineChainCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-overview"
-    label = "Read-only case attachment governance overview"
-    workdir = $root
-    command = $attachmentCaseGovernanceOverviewCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-root"
-    label = "Single-root read-only case attachment governance entry"
-    workdir = $root
-    command = $attachmentCaseGovernanceRootCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-portfolio"
-    label = "Multi-case read-only attachment governance portfolio"
-    workdir = $root
-    command = $attachmentCaseGovernancePortfolioCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-portfolio-compare"
-    label = "Read-only multi-case governance snapshot comparison"
-    workdir = $root
-    command = $attachmentCaseGovernancePortfolioCompareCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-portfolio-snapshot"
-    label = "Safe internal multi-case governance snapshot publication"
-    workdir = $root
-    command = $attachmentCaseGovernancePortfolioSnapshotCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-portfolio-snapshot-index"
-    label = "Read-only multi-case governance snapshot directory index"
-    workdir = $root
-    command = $attachmentCaseGovernancePortfolioSnapshotIndexCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-portfolio-snapshot-trend"
-    label = "Read-only multi-case governance cross-snapshot trend analysis"
-    workdir = $root
-    command = $attachmentCaseGovernancePortfolioSnapshotTrendCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-portfolio-snapshot-trend-disposition"
-    label = "Append-only multi-case governance trend disposition receipts"
-    workdir = $root
-    command = $attachmentCaseGovernancePortfolioSnapshotTrendDispositionCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint"
-    label = "External trusted checkpoint for trend disposition receipt chains"
-    workdir = $root
-    command = $attachmentCaseGovernancePortfolioSnapshotTrendDispositionCheckpointCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history"
-    label = "Designated-head history verification for trusted disposition checkpoints"
-    workdir = $root
-    command = $attachmentCaseGovernancePortfolioSnapshotTrendDispositionCheckpointHistoryCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "attachment-case-governance-workspace"
-    label = "Single-config attachment governance workspace verification"
-    workdir = $root
-    command = $attachmentCaseGovernanceWorkspaceCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "engineering-qualification-case-bundle"
-    label = "Private engineering qualification case bundle, moment real-case intake, real-case G1 runner and synthetic G1 pilot contract"
-    workdir = $root
-    command = $engineeringQualificationCaseBundleCommand
     slow = $false
   },
   [pscustomobject]@{
@@ -3562,12 +3164,6 @@ Update-PreflightHistoryManifest
 
 $decisionReceiptScript = Join-Path $root "結構工具箱\tools\public-release-decision-receipt.js"
 if ($overallPass -and $isReleaseMode) {
-  if ([string]::IsNullOrWhiteSpace($env:PUBLIC_RELEASE_DECISION_BACKUP_DIR)) {
-    $userDecisionBackupDirectory = [Environment]::GetEnvironmentVariable('PUBLIC_RELEASE_DECISION_BACKUP_DIR', 'User')
-    if (-not [string]::IsNullOrWhiteSpace($userDecisionBackupDirectory)) {
-      $env:PUBLIC_RELEASE_DECISION_BACKUP_DIR = $userDecisionBackupDirectory
-    }
-  }
   $decisionReceiptStdout = Join-Path $runDir "public-release-decision-receipt.stdout.txt"
   $decisionReceiptStderr = Join-Path $runDir "public-release-decision-receipt.stderr.txt"
   $decisionReceiptProc = Start-Process -FilePath node -ArgumentList @($decisionReceiptScript, "--write", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionReceiptStdout -RedirectStandardError $decisionReceiptStderr -PassThru -Wait -WindowStyle Hidden
@@ -3582,74 +3178,6 @@ if ($overallPass -and $isReleaseMode) {
     [System.IO.File]::AppendAllText($summaryPath, "- Release decision receipt: pass=False, exitCode=$($decisionReceiptProc.ExitCode), log=$decisionReceiptStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision receipt: pass=False, exitCode=$($decisionReceiptProc.ExitCode), log=$decisionReceiptStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
     Update-PreflightHistoryManifest
-  } else {
-    $decisionBackupScript = Join-Path $root "結構工具箱\tools\public-release-decision-backup.js"
-    $decisionBackupStdout = Join-Path $runDir "public-release-decision-backup.stdout.txt"
-    $decisionBackupStderr = Join-Path $runDir "public-release-decision-backup.stderr.txt"
-    $decisionBackupProc = Start-Process -FilePath node -ArgumentList @($decisionBackupScript, "--export", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionBackupStdout -RedirectStandardError $decisionBackupStderr -PassThru -Wait -WindowStyle Hidden
-    if ($decisionBackupProc.ExitCode -ne 0) {
-      $overallPass = $false
-      $failures.Add("public-release-decision-backup: exitCode=$($decisionBackupProc.ExitCode), log=$decisionBackupStderr")
-      $payload["pass"] = $overallPass
-      $payload["failureCount"] = $failures.Count
-      $payload["failures"] = @($failures.ToArray())
-      Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6
-      Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
-      [System.IO.File]::AppendAllText($summaryPath, "- Release decision backup: pass=False, exitCode=$($decisionBackupProc.ExitCode), log=$decisionBackupStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-      [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision backup: pass=False, exitCode=$($decisionBackupProc.ExitCode), log=$decisionBackupStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-      Update-PreflightHistoryManifest
-    } else {
-      $decisionBackupHealthScript = Join-Path $root "結構工具箱\tools\public-release-decision-backup-health.js"
-      $decisionBackupHealthStdout = Join-Path $runDir "public-release-decision-backup-health.stdout.txt"
-      $decisionBackupHealthStderr = Join-Path $runDir "public-release-decision-backup-health.stderr.txt"
-      $decisionBackupHealthProc = Start-Process -FilePath node -ArgumentList @($decisionBackupHealthScript, "--write", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionBackupHealthStdout -RedirectStandardError $decisionBackupHealthStderr -PassThru -Wait -WindowStyle Hidden
-      if ($decisionBackupHealthProc.ExitCode -ne 0) {
-        $overallPass = $false
-        $failures.Add("public-release-decision-backup-health: exitCode=$($decisionBackupHealthProc.ExitCode), log=$decisionBackupHealthStderr")
-        $payload["pass"] = $overallPass
-        $payload["failureCount"] = $failures.Count
-        $payload["failures"] = @($failures.ToArray())
-        Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6
-        Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
-        [System.IO.File]::AppendAllText($summaryPath, "- Release decision backup health: pass=False, exitCode=$($decisionBackupHealthProc.ExitCode), log=$decisionBackupHealthStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-        [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision backup health: pass=False, exitCode=$($decisionBackupHealthProc.ExitCode), log=$decisionBackupHealthStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-        Update-PreflightHistoryManifest
-      } else {
-        $decisionRestoreDrillScript = Join-Path $root "結構工具箱\tools\public-release-decision-restore-drill.js"
-        $decisionRestoreDrillStdout = Join-Path $runDir "public-release-decision-restore-drill.stdout.txt"
-        $decisionRestoreDrillStderr = Join-Path $runDir "public-release-decision-restore-drill.stderr.txt"
-        $decisionRestoreDrillProc = Start-Process -FilePath node -ArgumentList @($decisionRestoreDrillScript, "--write", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionRestoreDrillStdout -RedirectStandardError $decisionRestoreDrillStderr -PassThru -Wait -WindowStyle Hidden
-        if ($decisionRestoreDrillProc.ExitCode -ne 0) {
-          $overallPass = $false
-          $failures.Add("public-release-decision-restore-drill: exitCode=$($decisionRestoreDrillProc.ExitCode), log=$decisionRestoreDrillStderr")
-          $payload["pass"] = $overallPass
-          $payload["failureCount"] = $failures.Count
-          $payload["failures"] = @($failures.ToArray())
-          Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6
-          Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
-          [System.IO.File]::AppendAllText($summaryPath, "- Release decision restore drill: pass=False, exitCode=$($decisionRestoreDrillProc.ExitCode), log=$decisionRestoreDrillStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-          [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision restore drill: pass=False, exitCode=$($decisionRestoreDrillProc.ExitCode), log=$decisionRestoreDrillStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-          Update-PreflightHistoryManifest
-        } else {
-          $decisionRestoreDrillHealthScript = Join-Path $root "結構工具箱\tools\public-release-decision-restore-drill-health.js"
-          $decisionRestoreDrillHealthStdout = Join-Path $runDir "public-release-decision-restore-drill-health.stdout.txt"
-          $decisionRestoreDrillHealthStderr = Join-Path $runDir "public-release-decision-restore-drill-health.stderr.txt"
-          $decisionRestoreDrillHealthProc = Start-Process -FilePath node -ArgumentList @($decisionRestoreDrillHealthScript, "--write", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionRestoreDrillHealthStdout -RedirectStandardError $decisionRestoreDrillHealthStderr -PassThru -Wait -WindowStyle Hidden
-          if ($decisionRestoreDrillHealthProc.ExitCode -ne 0) {
-            $overallPass = $false
-            $failures.Add("public-release-decision-restore-drill-health: exitCode=$($decisionRestoreDrillHealthProc.ExitCode), log=$decisionRestoreDrillHealthStderr")
-            $payload["pass"] = $overallPass
-            $payload["failureCount"] = $failures.Count
-            $payload["failures"] = @($failures.ToArray())
-            Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6
-            Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
-            [System.IO.File]::AppendAllText($summaryPath, "- Release decision restore drill health: pass=False, exitCode=$($decisionRestoreDrillHealthProc.ExitCode), log=$decisionRestoreDrillHealthStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-            [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision restore drill health: pass=False, exitCode=$($decisionRestoreDrillHealthProc.ExitCode), log=$decisionRestoreDrillHealthStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-            Update-PreflightHistoryManifest
-          }
-        }
-      }
-    }
   }
 }
 

@@ -382,8 +382,8 @@ assertFocused(
     driftDisp: 4,
     thermalPass: true,
     thermalReq: 3.2784,
-    interactionValue: 1.7356,
-    interactionDetail: 'Tu = 626.40 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。',
+    interactionValue: 1.392,
+    interactionDetail: 'Tu = 626.40 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。 V/Va = 0.006 ≤ 0.2，依 17.8.2 免計互制，僅檢核拉力比值。',
     failedItems: [
       '膨脹螺栓 Tu2（水平力）',
       '膨脹螺栓 拉剪交互',
@@ -423,8 +423,8 @@ assertFocused(
     driftDisp: 4,
     thermalPass: true,
     thermalReq: 3.2784,
-    interactionValue: 4.9483,
-    interactionDetail: 'Tu = 626.40 kgf（Tu2 水平力拉拔控制），Ta = 240.0 kgf；V = 2.82 kgf，Va = 240.0 kgf。',
+    interactionValue: 2.61,
+    interactionDetail: 'Tu = 626.40 kgf（Tu2 水平力拉拔控制），Ta = 240.0 kgf；V = 2.82 kgf，Va = 240.0 kgf。 V/Va = 0.012 ≤ 0.2，依 17.8.2 免計互制，僅檢核拉力比值。',
     failedItems: [
       '膨脹螺栓 Tu2（水平力）',
       '膨脹螺栓 拉剪交互',
@@ -465,8 +465,8 @@ assertFocused(
     driftDisp: 4,
     thermalPass: true,
     thermalReq: 3.2784,
-    interactionValue: 2.244,
-    interactionDetail: 'Tu = 730.80 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。',
+    interactionValue: 1.624,
+    interactionDetail: 'Tu = 730.80 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。 V/Va = 0.006 ≤ 0.2，依 17.8.2 免計互制，僅檢核拉力比值。',
     failedItems: [
       '膨脹螺栓 Tu2（水平力）',
       '膨脹螺栓 拉剪交互',
@@ -506,8 +506,8 @@ assertFocused(
     driftDisp: 8,
     thermalPass: true,
     thermalReq: 3.2784,
-    interactionValue: 1.7356,
-    interactionDetail: 'Tu = 626.40 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。',
+    interactionValue: 1.392,
+    interactionDetail: 'Tu = 626.40 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。 V/Va = 0.006 ≤ 0.2，依 17.8.2 免計互制，僅檢核拉力比值。',
     failedItems: [
       '膨脹螺栓 Tu2（水平力）',
       '膨脹螺栓 拉剪交互',
@@ -549,8 +549,8 @@ assertFocused(
     driftDisp: 5,
     thermalPass: false,
     thermalReq: 4.28,
-    interactionValue: 10.0806,
-    interactionDetail: 'Tu = 1800.00 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 8.10 kgf，Va = 450.0 kgf。',
+    interactionValue: 4,
+    interactionDetail: 'Tu = 1800.00 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 8.10 kgf，Va = 450.0 kgf。 V/Va = 0.018 ≤ 0.2，依 17.8.2 免計互制，僅檢核拉力比值。',
     failedItems: [
       '膨脹螺栓 Tu2（水平力）',
       '膨脹螺栓 拉剪交互',
@@ -592,8 +592,8 @@ assertFocused(
     driftDisp: 4,
     thermalPass: true,
     thermalReq: 3.2784,
-    interactionValue: 0.0024,
-    interactionDetail: 'Tu = 11.28 kgf（Tu1 垂直剪力導出，保守包絡），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。',
+    interactionValue: 0.0251,
+    interactionDetail: 'Tu = 11.28 kgf（Tu1 垂直剪力導出，保守包絡），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。 V/Va = 0.006 ≤ 0.2，依 17.8.2 免計互制，僅檢核拉力比值。',
     failedItems: [
       '石材孔周剪應力 / 石板衝切（簡化）',
       '插梢孔深度',
@@ -629,8 +629,8 @@ assertFocused(
     driftDisp: 4,
     thermalPass: true,
     thermalReq: 3.2784,
-    interactionValue: 1.7356,
-    interactionDetail: 'Tu = 626.40 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。',
+    interactionValue: 1.392,
+    interactionDetail: 'Tu = 626.40 kgf（Tu2 水平力拉拔控制），Ta = 450.0 kgf；V = 2.82 kgf，Va = 450.0 kgf。 V/Va = 0.006 ≤ 0.2，依 17.8.2 免計互制，僅檢核拉力比值。',
     failedItems: [
       '膨脹螺栓 Tu2（水平力）',
       '膨脹螺栓 拉剪交互',
@@ -680,7 +680,7 @@ assertFocused(
     driftDisp: 10,
     thermalPass: true,
     thermalReq: 3.64,
-    interactionValue: 4.3021,
+    interactionValue: 2.4,
     interactionDetail: 'Tu1 = 1080.00 kgf（Tu1 與 V 同源，依分離計算模式僅檢核 Tu1/Ta），Ta = 450.0 kgf；V = 54.00 kgf，Va = 450.0 kgf。',
     failedItems: [
       '膨脹螺栓 Tu1（垂直力）',
@@ -694,5 +694,37 @@ assertFocused(
     ],
   },
 );
+
+// V3.1.0：112 年版第 17 章錨栓等效服務值（手算基準：SH-440、fc'=280 → Nu = 3700、Vu = 3000 kgf，換算係數 1.6）
+{
+  const anchorOf = (overrides) => calculator.calcCase(caseFixture(), baseInput({
+    m_anc_type: 'SH-440', m_anc_fc: 280, sp_anchor_design_mode: 'appendix_d', ...overrides,
+  })).spec.anchor;
+  const near = (actual, expected, label) => assert.ok(Math.abs(actual - expected) < 0.05, `${label}: ${actual} ≠ ${expected}`);
+
+  // 開裂、無輔助鋼筋、Category 1：φt = min(0.75, 0.65) = 0.65，φv = min(0.65, 0.70) = 0.65，ψ 比 = 1.0/1.4
+  const cracked = anchorOf({ sp_concrete_crack: 'cracked', sp_rebar_support: 'none', sp_anchor_aci_category: 1 });
+  assert.strictEqual(cracked.anchorMethod, 'cns_112_ch17_vendor_equivalent');
+  near(cracked.phi, 0.65, '112 cracked φt');
+  near(cracked.phiShear, 0.65, '112 cracked φv');
+  near(cracked.appendixTensionService, 3700 * 0.65 * (1 / 1.4) / 1.6, '112 cracked tension service'); // 1073.66
+  near(cracked.appendixShearService, 3000 * 0.65 * (1 / 1.4) / 1.6, '112 cracked shear service'); // 870.54
+
+  // 未開裂：廠商試驗值不再乘 ψc 提高
+  const uncracked = anchorOf({ sp_concrete_crack: 'noncracked', sp_anchor_aci_category: 1 });
+  near(uncracked.appendixTensionService, 3700 * 0.65 / 1.6, '112 uncracked tension service'); // 1503.13
+  near(uncracked.appendixShearService, 3000 * 0.65 / 1.6, '112 uncracked shear service'); // 1218.75
+
+  // Category 3、有輔助鋼筋、開裂且錨栓與邊緣間有 D13 以上鋼筋：φt = min(0.75, 0.55) = 0.55，φv = min(0.65, 0.75) = 0.65，ψc,V 比 = 1.2/1.4
+  const cat3 = anchorOf({ sp_concrete_crack: 'cracked', sp_rebar_support: 'edge_rebar', sp_anchor_aci_category: 3, sp_anchor_supplementary_rebar: 'yes' });
+  near(cat3.phi, 0.55, '112 cat3 φt');
+  near(cat3.appendixTensionService, 3700 * 0.55 * (1 / 1.4) / 1.6, '112 cat3 tension service'); // 908.48
+  near(cat3.appendixShearService, 3000 * 0.65 * (1.2 / 1.4) / 1.6, '112 cat3 shear service'); // 1044.64
+
+  // 舊版附篇 D profile（既有案件重播）維持原公式：φ = 0.75，未開裂 Category 1 ψc,N = 1.25
+  const legacy = anchorOf({ sp_concrete_crack: 'noncracked', sp_anchor_aci_category: 1, code_profiles: { anchor: 'aci_318_appendix_d' } });
+  assert.strictEqual(legacy.anchorMethod, 'aci_appendix_d_legacy');
+  near(legacy.appendixTensionService, 3700 * 0.75 * 1.25 / 1.6, 'legacy tension service'); // 2167.97
+}
 
 console.log(`StoneCalculator ${calculator.VERSION} regression smoke tests passed.`);

@@ -315,58 +315,64 @@ try {
   assert.equal(forgedAnchorApprovalReport.summary.htmlDualSealExpected, 1);
   assert.equal(forgedAnchorApprovalReport.summary.htmlDualSealVerified, 0);
 
-  const readyAnchorXlsxPackage = createAnchorXlsxPackage(tempRoot, 'ready-anchor-xlsx');
-  const readyAnchorXlsxReport = Verifier.verifyPackage(readyAnchorXlsxPackage);
-  assert.equal(readyAnchorXlsxReport.status, 'ready', 'sealed anchor formal XLSX survives package build and post-package verification');
-  assert.equal(readyAnchorXlsxReport.summary.xlsxDualSealExpected, 1);
-  assert.equal(readyAnchorXlsxReport.summary.xlsxDualSealVerified, 1);
-  const readyAnchorXlsxRecord = readyAnchorXlsxReport.records.find(record => record.role === 'formal');
-  assert.deepEqual(
-    readyAnchorXlsxRecord.xlsxDualSeal,
-    { family: 'anchor', contentStatus: 'verified', approvalStatus: 'verified' },
-  );
-  assert.match(Verifier.formatSummary(readyAnchorXlsxReport), /XLSX 雙封印複驗 1 \/ 1 份/);
-  assert.doesNotMatch(
-    JSON.stringify(readyAnchorXlsxRecord),
-    /expectedSha256|actualSha256|anchor-xlsx-calculation-book-(?:content|approval)-v1/i,
-    'package verification evidence exposes only XLSX seal family and status',
-  );
+  // System32 tar.exe builds and reads these XLSX fixtures under CJK paths (01_正式附件) through
+  // the ANSI code page (cp950 on delivery workstations); skip only this block where it cannot.
+  if (!ExternalTools.ansiCodePageCanRepresent(path.join(tempRoot, Builder.FORMAL_ATTACHMENTS_DIR))) {
+    console.log('SKIP anchor XLSX dual-seal fixtures: system ANSI code page cannot represent CJK tar arguments');
+  } else {
+    const readyAnchorXlsxPackage = createAnchorXlsxPackage(tempRoot, 'ready-anchor-xlsx');
+    const readyAnchorXlsxReport = Verifier.verifyPackage(readyAnchorXlsxPackage);
+    assert.equal(readyAnchorXlsxReport.status, 'ready', 'sealed anchor formal XLSX survives package build and post-package verification');
+    assert.equal(readyAnchorXlsxReport.summary.xlsxDualSealExpected, 1);
+    assert.equal(readyAnchorXlsxReport.summary.xlsxDualSealVerified, 1);
+    const readyAnchorXlsxRecord = readyAnchorXlsxReport.records.find(record => record.role === 'formal');
+    assert.deepEqual(
+      readyAnchorXlsxRecord.xlsxDualSeal,
+      { family: 'anchor', contentStatus: 'verified', approvalStatus: 'verified' },
+    );
+    assert.match(Verifier.formatSummary(readyAnchorXlsxReport), /XLSX 雙封印複驗 1 \/ 1 份/);
+    assert.doesNotMatch(
+      JSON.stringify(readyAnchorXlsxRecord),
+      /expectedSha256|actualSha256|anchor-xlsx-calculation-book-(?:content|approval)-v1/i,
+      'package verification evidence exposes only XLSX seal family and status',
+    );
 
-  const forgedAnchorXlsxContentPackage = createAnchorXlsxPackage(tempRoot, 'forged-anchor-xlsx-content');
-  const forgedAnchorXlsxContentManifest = readManifest(forgedAnchorXlsxContentPackage);
-  const forgedAnchorXlsxContentPath = path.join(forgedAnchorXlsxContentPackage, ...forgedAnchorXlsxContentManifest.formalAttachments[0].packagedFile.split('/'));
-  const forgedAnchorXlsxContentEntries = XlsxSealVerifier.readZipEntries(forgedAnchorXlsxContentPath);
-  forgedAnchorXlsxContentEntries.set(
-    'xl/worksheets/sheet2.xml',
-    Buffer.from(forgedAnchorXlsxContentEntries.get('xl/worksheets/sheet2.xml').toString('utf8').replace('<v>12.5</v>', '<v>13.5</v>'), 'utf8'),
-  );
-  writeXlsx(forgedAnchorXlsxContentPath, forgedAnchorXlsxContentEntries);
-  refreshV3PackageIntegrity(forgedAnchorXlsxContentPackage, forgedAnchorXlsxContentManifest);
-  const forgedAnchorXlsxContentReport = Verifier.verifyPackage(forgedAnchorXlsxContentPackage);
-  assert.equal(forgedAnchorXlsxContentReport.status, 'blocked', 'self-consistent package hashes cannot hide changed XLSX calculation content');
-  assert.equal(hasIssue(forgedAnchorXlsxContentReport, 'anchor-xlsx-content-seal-invalid'), true);
-  assert.equal(hasIssue(forgedAnchorXlsxContentReport, 'hash-mismatch'), false);
-  assert.equal(hasIssue(forgedAnchorXlsxContentReport, 'package-fingerprint-mismatch'), false);
-  assert.equal(forgedAnchorXlsxContentReport.summary.xlsxDualSealExpected, 1);
-  assert.equal(forgedAnchorXlsxContentReport.summary.xlsxDualSealVerified, 0);
+    const forgedAnchorXlsxContentPackage = createAnchorXlsxPackage(tempRoot, 'forged-anchor-xlsx-content');
+    const forgedAnchorXlsxContentManifest = readManifest(forgedAnchorXlsxContentPackage);
+    const forgedAnchorXlsxContentPath = path.join(forgedAnchorXlsxContentPackage, ...forgedAnchorXlsxContentManifest.formalAttachments[0].packagedFile.split('/'));
+    const forgedAnchorXlsxContentEntries = XlsxSealVerifier.readZipEntries(forgedAnchorXlsxContentPath);
+    forgedAnchorXlsxContentEntries.set(
+      'xl/worksheets/sheet2.xml',
+      Buffer.from(forgedAnchorXlsxContentEntries.get('xl/worksheets/sheet2.xml').toString('utf8').replace('<v>12.5</v>', '<v>13.5</v>'), 'utf8'),
+    );
+    writeXlsx(forgedAnchorXlsxContentPath, forgedAnchorXlsxContentEntries);
+    refreshV3PackageIntegrity(forgedAnchorXlsxContentPackage, forgedAnchorXlsxContentManifest);
+    const forgedAnchorXlsxContentReport = Verifier.verifyPackage(forgedAnchorXlsxContentPackage);
+    assert.equal(forgedAnchorXlsxContentReport.status, 'blocked', 'self-consistent package hashes cannot hide changed XLSX calculation content');
+    assert.equal(hasIssue(forgedAnchorXlsxContentReport, 'anchor-xlsx-content-seal-invalid'), true);
+    assert.equal(hasIssue(forgedAnchorXlsxContentReport, 'hash-mismatch'), false);
+    assert.equal(hasIssue(forgedAnchorXlsxContentReport, 'package-fingerprint-mismatch'), false);
+    assert.equal(forgedAnchorXlsxContentReport.summary.xlsxDualSealExpected, 1);
+    assert.equal(forgedAnchorXlsxContentReport.summary.xlsxDualSealVerified, 0);
 
-  const forgedAnchorXlsxApprovalPackage = createAnchorXlsxPackage(tempRoot, 'forged-anchor-xlsx-approval');
-  const forgedAnchorXlsxApprovalManifest = readManifest(forgedAnchorXlsxApprovalPackage);
-  const forgedAnchorXlsxApprovalPath = path.join(forgedAnchorXlsxApprovalPackage, ...forgedAnchorXlsxApprovalManifest.formalAttachments[0].packagedFile.split('/'));
-  const forgedAnchorXlsxApprovalEntries = XlsxSealVerifier.readZipEntries(forgedAnchorXlsxApprovalPath);
-  forgedAnchorXlsxApprovalEntries.set(
-    'xl/sharedStrings.xml',
-    Buffer.from(forgedAnchorXlsxApprovalEntries.get('xl/sharedStrings.xml').toString('utf8').replace('核可時間：2026/07/21 22:05:00', '核可時間：2000/01/01 00:00:00'), 'utf8'),
-  );
-  writeXlsx(forgedAnchorXlsxApprovalPath, forgedAnchorXlsxApprovalEntries);
-  refreshV3PackageIntegrity(forgedAnchorXlsxApprovalPackage, forgedAnchorXlsxApprovalManifest);
-  const forgedAnchorXlsxApprovalReport = Verifier.verifyPackage(forgedAnchorXlsxApprovalPackage);
-  assert.equal(forgedAnchorXlsxApprovalReport.status, 'blocked', 'self-consistent package hashes cannot hide changed XLSX approval metadata');
-  assert.equal(hasIssue(forgedAnchorXlsxApprovalReport, 'anchor-xlsx-approval-seal-invalid'), true);
-  assert.equal(hasIssue(forgedAnchorXlsxApprovalReport, 'hash-mismatch'), false);
-  assert.equal(hasIssue(forgedAnchorXlsxApprovalReport, 'package-fingerprint-mismatch'), false);
-  assert.equal(forgedAnchorXlsxApprovalReport.summary.xlsxDualSealExpected, 1);
-  assert.equal(forgedAnchorXlsxApprovalReport.summary.xlsxDualSealVerified, 0);
+    const forgedAnchorXlsxApprovalPackage = createAnchorXlsxPackage(tempRoot, 'forged-anchor-xlsx-approval');
+    const forgedAnchorXlsxApprovalManifest = readManifest(forgedAnchorXlsxApprovalPackage);
+    const forgedAnchorXlsxApprovalPath = path.join(forgedAnchorXlsxApprovalPackage, ...forgedAnchorXlsxApprovalManifest.formalAttachments[0].packagedFile.split('/'));
+    const forgedAnchorXlsxApprovalEntries = XlsxSealVerifier.readZipEntries(forgedAnchorXlsxApprovalPath);
+    forgedAnchorXlsxApprovalEntries.set(
+      'xl/sharedStrings.xml',
+      Buffer.from(forgedAnchorXlsxApprovalEntries.get('xl/sharedStrings.xml').toString('utf8').replace('核可時間：2026/07/21 22:05:00', '核可時間：2000/01/01 00:00:00'), 'utf8'),
+    );
+    writeXlsx(forgedAnchorXlsxApprovalPath, forgedAnchorXlsxApprovalEntries);
+    refreshV3PackageIntegrity(forgedAnchorXlsxApprovalPackage, forgedAnchorXlsxApprovalManifest);
+    const forgedAnchorXlsxApprovalReport = Verifier.verifyPackage(forgedAnchorXlsxApprovalPackage);
+    assert.equal(forgedAnchorXlsxApprovalReport.status, 'blocked', 'self-consistent package hashes cannot hide changed XLSX approval metadata');
+    assert.equal(hasIssue(forgedAnchorXlsxApprovalReport, 'anchor-xlsx-approval-seal-invalid'), true);
+    assert.equal(hasIssue(forgedAnchorXlsxApprovalReport, 'hash-mismatch'), false);
+    assert.equal(hasIssue(forgedAnchorXlsxApprovalReport, 'package-fingerprint-mismatch'), false);
+    assert.equal(forgedAnchorXlsxApprovalReport.summary.xlsxDualSealExpected, 1);
+    assert.equal(forgedAnchorXlsxApprovalReport.summary.xlsxDualSealVerified, 0);
+  }
   assert.equal(
     Verifier.samePackageRoot(
       Verifier.packageRootIdentity(readyPackage),
