@@ -2,7 +2,7 @@
 // Existing whole-toolbox evidence stays attached to its original release.
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
@@ -36,14 +36,25 @@ function sourceScope() {
   // The overlay only packages survey runtime. Check this release commit; prior
   // unrelated master commits are guarded by the byte-for-byte site inventory.
   const changed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', head]).toString().split('\0').filter(Boolean);
-  assert(changed.every(name => name.startsWith('field-survey/') || ['.github/workflows/pages-deploy.yml', '.github/workflows/field-survey-deploy.yml', '結構工具箱/tools/build-pages-artifact.js', 'pages-release-governance.contract.test.js', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md'].includes(name)), 'Source changes exceed the survey module and its publishing boundary');
+  assert(changed.every(name => name.startsWith('field-survey/') || ['.github/workflows/pages-deploy.yml', '.github/workflows/field-survey-deploy.yml', '結構工具箱/tools/build-pages-artifact.js', '結構工具箱/tools/sync-survey-public-version.js', '結構工具箱/assets/home/home.js', '結構工具箱/tools/pages-live-smoke.js', 'pages-release-governance.contract.test.js', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md'].includes(name)), 'Source changes exceed the survey module and its publishing boundary');
+}
+// Source consistency only: version bumps must carry the home card and live probe
+// markers in the same source (contract tests; probes target deployed field-survey/
+// files). The overlay never deploys home.js, so the published card changes only
+// with the next governed full-site release. Stage cannot write these files (clean
+// checkout), so fail before any network.
+function publicVersionSync() {
+  const result = spawnSync(process.execPath, [path.join(root, '結構工具箱/tools/sync-survey-public-version.js'), '--check'], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0, `Survey public version drift: ${(result.stderr || result.stdout).trim()}`);
 }
 
 const mode = process.argv[2];
 if (mode === 'baseline') {
   await currentBaseline(); console.log('PASS current published baseline');
+} else if (mode === 'check') {
+  sourceScope(); publicVersionSync(); console.log(`PASS survey V${VERSION} source scope and public version sync`);
 } else if (mode === 'stage') {
-  sourceScope(); await currentBaseline();
+  sourceScope(); publicVersionSync(); await currentBaseline();
   const site = path.resolve(process.argv[3] || ''); assert(site !== root && !root.startsWith(site + path.sep), 'Staging directory must be separate from source');
   const manifestBytes = fs.readFileSync(path.join(site, 'pages-deployment.json'));
   assert.equal(sha(manifestBytes), baseline.manifestSha256, 'Downloaded artifact manifest must match the pinned published release');
@@ -86,4 +97,4 @@ if (mode === 'baseline') {
     assert.equal(sha(await remote('field-survey/' + file.path)), file.sha256, `Live module mismatch: ${file.path}`);
   }
   console.log(`PASS live survey V${VERSION}; ${runtime.length} files match ${head}`);
-} else throw new Error('Use baseline, stage <extracted-site>, or live');
+} else throw new Error('Use check, baseline, stage <extracted-site>, or live');

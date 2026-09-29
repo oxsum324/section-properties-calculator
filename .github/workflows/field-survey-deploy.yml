@@ -27,6 +27,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+      - name: Check release scope and public version sync
+        run: node field-survey/release.mjs check
       - name: Install survey browser test runtime
         working-directory: .github/pages-smoke
         run: |
