@@ -1,5 +1,5 @@
 ﻿{
-    "generatedAt":  "2026-08-30T11:18:27Z",
+    "generatedAt":  "2026-09-29T06:05:08Z",
     "mode":  "sync",
     "toolRoot":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具",
     "targetRoot":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core",
@@ -9,10 +9,10 @@
                       "label":  "steel core",
                       "source":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\結構工具箱\\core\\materials\\steel.js",
                       "target":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core\\materials\\steel.js",
-                      "sourceHash":  "23777D34D81F935B026F2CE9A4BEC6B5591FF4BBE49158E09ED575923C254A82",
-                      "targetHash":  "23777D34D81F935B026F2CE9A4BEC6B5591FF4BBE49158E09ED575923C254A82",
-                      "sourceLastWriteUtc":  "2026-04-20T10:33:06Z",
-                      "targetLastWriteUtc":  "2026-04-20T10:33:06Z",
+                      "sourceHash":  "C837E6C0DBC591D6EBAA3FBB173B5234950ED6CD4452D8C46E8652D8B5556309",
+                      "targetHash":  "C837E6C0DBC591D6EBAA3FBB173B5234950ED6CD4452D8C46E8652D8B5556309",
+                      "sourceLastWriteUtc":  "2026-09-29T06:05:07Z",
+                      "targetLastWriteUtc":  "2026-09-29T06:05:07Z",
                       "inSync":  true
                   },
                   {
@@ -27,6 +27,6 @@
                   }
               ],
     "syncedLabels":  [
-                         "report core"
+                         "steel core"
                      ]
 }

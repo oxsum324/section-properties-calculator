@@ -84,4 +84,19 @@ for (const official of SrcCatalog.SECTIONS) {
   }
 }
 
+// 覆工板型鋼表列性質須與 core 尺寸／R 角及 Steel.calcProps 一致（容許 ±0.5% 加表列末位半單位）
+const deckContext = {};
+vm.createContext(deckContext);
+vm.runInContext(`${read('覆工板/shared/h-section-table.js')}\nthis.__sections = H_SECTIONS;`, deckContext, { filename: '覆工板/shared/h-section-table.js' });
+for (const deck of deckContext.__sections) {
+  const match = coreSections.find(item => item.H === toMm(deck.H) && item.B === toMm(deck.B) && item.tw === toMm(deck.tw) && item.tf === toMm(deck.tf));
+  assert.ok(match, `覆工板型鋼 ${deck.name} 須存在於 core H_SECTIONS_MM`);
+  const props = Steel.calcProps(match);
+  for (const [label, computed, tabulated] of [['A', props.A, deck.A], ['Ix', props.Ix, deck.Ix], ['Iy', props.Iy, deck.Iy], ['Sx', props.Sx, deck.Sx], ['Sy', props.Sy, deck.Sy], ['rx', props.rx, deck.rx], ['ry', props.ry, deck.ry]]) {
+    const decimals = (String(tabulated).split('.')[1] || '').length;
+    const tolerance = 0.005 * Math.abs(tabulated) + 0.5 * 10 ** -decimals;
+    assert.ok(Math.abs(computed - tabulated) <= tolerance, `覆工板 ${deck.name} ${label} 表列 ${tabulated} 與 core 計算 ${computed.toFixed(2)}（R=${match.R}）差異超過 0.5%`);
+  }
+}
+
 console.log(`shared formula parity contract OK (β1 implementations=${Object.keys(beta1Implementations).length + 1}, H sections=${coreNames.size}, composite=${compositeNames.length})`);
