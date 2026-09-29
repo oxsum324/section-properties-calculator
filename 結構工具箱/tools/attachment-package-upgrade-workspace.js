@@ -117,7 +117,7 @@ function formatPlanMarkdown(plan) {
     `3. 新計算書放入「${plan.boundaries.newFormalReportsDirectory}」。`,
     `4. 對應來源資料放入「${plan.boundaries.newTraceSourcesDirectory}」。`,
     '5. 檢查新計算書後重新勾選正式附件核可，產生新的核可時間。',
-    `6. 只以「${plan.boundaries.packageSourceDirectory}」執行建立正式附件包，不得選取整個工作區。`,
+    `6. 只以「${plan.boundaries.packageSourceDirectory}」執行正式組包，不得選取整個工作區。`,
     '',
     `## 逐份清單（${plan.workItemSummary.total} 份）`,
     '',
@@ -216,7 +216,7 @@ function formatSummary(result) {
     `新組包來源：${result.packageSourceDir}`,
     `逐份待辦：${result.workItemSummary.total} 份；需外部可信來源：${result.workItemSummary.externalSourceRequired} 份。`,
     '舊附件複製：0 份；舊 metadata／核可時間預填：0 項。',
-    `完成新輸出與核可後，只選取「${PACKAGE_SOURCE_DIR}」執行建立正式附件包。`,
+    `完成新輸出與核可後，只選取「${PACKAGE_SOURCE_DIR}」執行正式組包。`,
     '工作區建立成功不代表正式附件已核可，因此狀態維持 review。',
   ].join('\n');
 }

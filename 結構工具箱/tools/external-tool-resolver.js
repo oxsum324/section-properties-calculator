@@ -243,6 +243,27 @@ function diagnoseExternalTools(tools = Object.keys(TOOL_CONFIGS), options = {}) 
   };
 }
 
+// System32 tar.exe (narrow argv) and the WScript.Shell shortcut object pass paths
+// through the system ANSI code page; characters outside it become '?'. Delivery
+// workstations run cp950, hosted Windows CI runners cp1252, so CJK-path fixtures
+// probe the actual text before shelling out. A failed probe throws instead of
+// silently skipping.
+function ansiCodePageCanRepresent(text, options = {}) {
+  if ((options.platform || process.platform) !== 'win32') return true;
+  const spawnSync = options.spawnSync || childProcess.spawnSync;
+  const script = '$e = [Text.Encoding]::Default; $t = $env:ANSI_CODE_PAGE_PROBE_TEXT; if ($e.GetString($e.GetBytes($t)) -ceq $t) { "yes" } else { "no" }';
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    encoding: 'utf8',
+    windowsHide: true,
+    env: { ...process.env, ANSI_CODE_PAGE_PROBE_TEXT: String(text) },
+  });
+  const answer = String(result.stdout || '').trim();
+  if (result.error || result.status !== 0 || !['yes', 'no'].includes(answer)) {
+    throw new Error(`ANSI code page probe failed: ${result.error?.message || result.stderr || `exit=${result.status}`}`);
+  }
+  return answer === 'yes';
+}
+
 function parseCliTools(argv) {
   const requested = argv.filter(value => !value.startsWith('-')).map(value => value.toLowerCase());
   return requested.length ? requested : ['pdftotext', 'pdfinfo', 'pdftoppm', 'tar'];
@@ -266,6 +287,7 @@ module.exports = {
   collectCandidates,
   resolveExternalTool,
   diagnoseExternalTools,
+  ansiCodePageCanRepresent,
   main,
 };
 

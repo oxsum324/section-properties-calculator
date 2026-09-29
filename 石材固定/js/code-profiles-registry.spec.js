@@ -11,7 +11,7 @@
 (function (root) {
   'use strict';
 
-  const REGISTRY_VERSION = 'code-profiles-registry-2026.07.16-v4';
+  const REGISTRY_VERSION = 'code-profiles-registry-2026.09.29-v5';
   // V3.0.0：StoneGovernanceProtocol 版本號 — 對應 dev_tools/StoneGovernanceProtocol-v1.0.md
   // 任何 protocol-compliant 工具於 result.meta.governance_protocol_version 寫入此值；
   // 用於跨工具 / 跨版本比對時確認治理欄位 schema 相容性
@@ -22,7 +22,7 @@
   const DEFAULT_ACTIVE = Object.freeze({
     wind:    'cns_wind_107',
     seismic: 'cns_seismic_113',
-    anchor:  'aci_318_appendix_d',
+    anchor:  'cns_concrete_112_ch17',
     steel:   'cns_steel_general',
     stone:   'cns_stone_general'
   });
@@ -44,8 +44,8 @@
       schema_version: '1.0.0',
       id: 'cns_wind_107',
       scope: 'wind',
-      name: '建築物耐風設計規範及解說（107 年版）',
-      issued: '2018-XX-XX',
+      name: '建築物耐風設計規範及解說（103 年版）',
+      issued: '2014-12-03',
       params: Object.freeze({
         I_categories: Object.freeze({ general: 1.0, important: 1.1, essential: 1.15 }),
         exposure_classes: Object.freeze(['A','B','C']),
@@ -102,11 +102,48 @@
         Ip_facade_minimum: 1.5
       })
     }),
+    cns_concrete_112_ch17: Object.freeze({
+      schema_version: '1.0.0',
+      id: 'cns_concrete_112_ch17',
+      scope: 'anchor',
+      name: '建築物混凝土結構設計規範（112 年版）第 17 章 錨定於混凝土',
+      issued: '2023-08-10',
+      params: Object.freeze({
+        method: 'cns_112_ch17_vendor_equivalent',
+        phi_steel_tension_ductile: 0.75,
+        phi_steel_shear_ductile: 0.65,
+        phi_concrete_tension_supplementary_cast_in: 0.75,
+        phi_concrete_tension_supplementary_cat1: 0.75,
+        phi_concrete_tension_supplementary_cat2: 0.65,
+        phi_concrete_tension_supplementary_cat3: 0.55,
+        phi_concrete_tension_none_cast_in: 0.7,
+        phi_concrete_tension_none_cat1: 0.65,
+        phi_concrete_tension_none_cat2: 0.55,
+        phi_concrete_tension_none_cat3: 0.45,
+        phi_concrete_shear_supplementary: 0.75,
+        phi_concrete_shear_none: 0.7,
+        psi_cN_uncracked_cast_in: 1.25,
+        psi_cN_uncracked_post_installed: 1.4,
+        psi_cN_cracked: 1.0,
+        psi_cV_uncracked: 1.4,
+        psi_cV_full_rebar: 1.4,
+        psi_cV_edge_rebar: 1.2,
+        psi_cV_no_rebar: 1.0,
+        service_factor_typical: 1.6,
+        interaction_method: 'trilinear',
+        interaction_limit: 1.2,
+        interaction_exempt_ratio: 0.2,
+        min_anchor_diameter_mm: 4,
+        min_anchor_length_mm: 75,
+        min_embedment_mm: 40,
+        min_edge_distance_mm: 25
+      })
+    }),
     aci_318_appendix_d: Object.freeze({
       schema_version: '1.0.0',
       id: 'aci_318_appendix_d',
       scope: 'anchor',
-      name: 'ACI 318 Appendix D（混凝土結構用錨栓）',
+      name: 'ACI 318 Appendix D（混凝土結構用錨栓；舊版，僅供既有案件重播）',
       issued: '2014',
       params: Object.freeze({
         phi_steel: 0.75,
@@ -300,6 +337,20 @@
         cns_wind_107:                  'cyrb53:17b5da32fdece2',
         cns_seismic_113:               'cyrb53:16d961ede8be9d',
         cns_seismic_113_conservative:  'cyrb53:13f5c547d3cd78',
+        aci_318_appendix_d:            'cyrb53:1c6c15536a2ad1',
+        cns_steel_general:             'cyrb53:1e704b3330bcff',
+        cns_stone_general:             'cyrb53:1dfaff36620b45'
+      })
+    }),
+    Object.freeze({
+      version: 'V3.1.0',
+      date: '2026-09-29',
+      note: '錨栓預設 profile 改為 112 年版第 17 章（cns_concrete_112_ch17）；其餘 profile 參數未變',
+      hashes: Object.freeze({
+        cns_wind_107:                  'cyrb53:17b5da32fdece2',
+        cns_seismic_113:               'cyrb53:16d961ede8be9d',
+        cns_seismic_113_conservative:  'cyrb53:13f5c547d3cd78',
+        cns_concrete_112_ch17:         'cyrb53:1d654c6a5634d0',
         aci_318_appendix_d:            'cyrb53:1c6c15536a2ad1',
         cns_steel_general:             'cyrb53:1e704b3330bcff',
         cns_stone_general:             'cyrb53:1dfaff36620b45'

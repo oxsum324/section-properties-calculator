@@ -6051,7 +6051,7 @@ function App() {
                   {pdfSourceBundleUrl && (
                     <a className="generated-report-link" href={pdfSourceBundleUrl} target="_blank" rel="noreferrer" download>
                       <strong>下載 PDF＋證據組包來源套件</strong>
-                      <span>單一 ZIP 搬運；可直接交給正式附件包管理器</span>
+                      <span>單一 ZIP 搬運；組包前請先解壓</span>
                       <em>{extractDownloadFilename(pdfSourceBundleUrl)}</em>
                     </a>
                   )}

@@ -66,4 +66,37 @@ for (const group of Steel.H_SECTIONS_MM) {
   }
 }
 
+// core 型鋼尺寸／R 角與 Steel.calcProps，須與已查核的官方表列值一致
+// （SRC 教材附錄表 1-1，見 SRC工具/core/src-column-h-section-catalog.js；表列取 3 位有效數字，容許 ±0.5%）
+const SrcCatalog = require('./SRC工具/core/src-column-h-section-catalog.js');
+const coreSections = Steel.H_SECTIONS_MM.flatMap(group => group.s);
+const toMm = cm => Math.round(cm * 100) / 10;
+for (const official of SrcCatalog.SECTIONS) {
+  const d = official.dimensions;
+  const match = coreSections.find(item => item.H === toMm(d.depthCm) && item.B === toMm(d.flangeWidthCm)
+    && item.tw === toMm(d.webThicknessCm) && item.tf === toMm(d.flangeThicknessCm));
+  assert.ok(match, `官方表 ${official.name} 須存在於 core H_SECTIONS_MM`);
+  assert.equal(match.R, toMm(d.rootRadiusCm), `${official.name} R 角須與官方表一致`);
+  const props = Steel.calcProps(match);
+  const t = official.properties;
+  for (const [label, computed, tabulated] of [['A', props.A, t.areaCm2], ['Ix', props.Ix, t.ixCm4], ['Iy', props.Iy, t.iyCm4], ['Sx', props.Sx, t.sxCm3], ['Zx', props.Zx, t.zxCm3]]) {
+    assert.ok(Math.abs(computed / tabulated - 1) <= 0.005, `${official.name} ${label} 計算 ${computed.toFixed(1)} 與官方表 ${tabulated} 差異超過 0.5%`);
+  }
+}
+
+// 覆工板型鋼表列性質須與 core 尺寸／R 角及 Steel.calcProps 一致（容許 ±0.5% 加表列末位半單位）
+const deckContext = {};
+vm.createContext(deckContext);
+vm.runInContext(`${read('覆工板/shared/h-section-table.js')}\nthis.__sections = H_SECTIONS;`, deckContext, { filename: '覆工板/shared/h-section-table.js' });
+for (const deck of deckContext.__sections) {
+  const match = coreSections.find(item => item.H === toMm(deck.H) && item.B === toMm(deck.B) && item.tw === toMm(deck.tw) && item.tf === toMm(deck.tf));
+  assert.ok(match, `覆工板型鋼 ${deck.name} 須存在於 core H_SECTIONS_MM`);
+  const props = Steel.calcProps(match);
+  for (const [label, computed, tabulated] of [['A', props.A, deck.A], ['Ix', props.Ix, deck.Ix], ['Iy', props.Iy, deck.Iy], ['Sx', props.Sx, deck.Sx], ['Sy', props.Sy, deck.Sy], ['rx', props.rx, deck.rx], ['ry', props.ry, deck.ry]]) {
+    const decimals = (String(tabulated).split('.')[1] || '').length;
+    const tolerance = 0.005 * Math.abs(tabulated) + 0.5 * 10 ** -decimals;
+    assert.ok(Math.abs(computed - tabulated) <= tolerance, `覆工板 ${deck.name} ${label} 表列 ${tabulated} 與 core 計算 ${computed.toFixed(2)}（R=${match.R}）差異超過 0.5%`);
+  }
+}
+
 console.log(`shared formula parity contract OK (β1 implementations=${Object.keys(beta1Implementations).length + 1}, H sections=${coreNames.size}, composite=${compositeNames.length})`);

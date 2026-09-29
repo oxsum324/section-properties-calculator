@@ -11,7 +11,7 @@
       "traces": [
         {
           "id": "stone-load-wind-seismic-demand",
-          "clause": "建築物耐風設計規範及解說（107 年版）與建築物耐震設計規範及解說（113 年版）非結構組件需求",
+          "clause": "建築物耐風設計規範及解說（103 年版）與建築物耐震設計規範及解說（113 年版）非結構組件需求",
           "purpose": "風力與耐震需求需分開追蹤來源；鄉鎮表提供 SsD 而非 SDS，必須再依地盤種類與 Fa 換算，或由專案文件指定 SDS。報告另揭露 Ip 外牆最小值、Fph、PEV、正負風壓與方向性包絡，不把單一控制力當成完整載重依據。",
           "inputs": ["w_src", "w_manual_mode", "w_pos", "w_neg", "w_cf", "w_qref", "w_cpe_pos", "w_cpe_neg", "w_gcpi", "s_ssd", "s_site_class", "s_fa", "s_sds_source", "s_sds_basis", "s_sds", "s_ip_raw", "sp_ip15_on", "sp_seis_ap", "sp_seis_rp", "sp_seis_zh_ratio", "sp_pev_conservative_on", "case width / height / point count"],
           "calculation": ["GCp wind pressure", "positive / negative wind envelope", "SsD township lookup", "Fa site-class interpolation", "SDS = Fa × SsD", "Ip facade minimum", "Fph", "PEV", "horizontal pull / push", "effective fixing point count", "D + W / D + E vertical basis"],
@@ -21,7 +21,7 @@
         },
         {
           "id": "stone-load-profile-governance",
-          "clause": "耐風 107 年版、耐震 113 年版、ACI 318 Appendix D、鋼構容許應力與 CNS / JASS 石材 profile 治理",
+          "clause": "耐風 103 年版、耐震 113 年版、ACI 318 Appendix D、鋼構容許應力與 CNS / JASS 石材 profile 治理",
           "purpose": "規範參數需以 active profile 與指紋綁定到計算結果；切換 profile 時，仍沿用舊 profile 預設的可編輯欄位必須同步，人工覆寫則保留並揭露。專案匯入或重新載入時，專案 profile 必須先正規化並完整取代瀏覽器 runtime 狀態；缺少 profile-owned 欄位時依 active profile 補齊並記錄實際欄位。來源 input_hash 只與移轉前原始內容比對，正規化寫回則重新產生指紋；密集輸入產生多個非同步存檔時只允許最新請求寫回。畫面提示只消費本次移轉事件，避免換電腦遺失選擇、跨專案汙染、舊快照倒寫、假完整性警報、重複提示，或 profile / metadata 與實算欄位矛盾。",
           "inputs": ["code_profiles", "PROFILE_INPUT_BINDINGS", "V2_PROFILE_OVERRIDE_KEY", "v2GetRuntimeProfileOverride", "v2SetRuntimeProfileOverride", "sp_ip_default", "sp_seis_ap", "sp_seis_rp", "meta.applied_defaults", "governance_ack", "calc_source_hash", "input_hash", "normalized_input_hash", "result_hash", "active profile ids"],
           "calculation": ["resolveActiveProfiles", "normalizeProfileOverrides", "buildProfileOwnedInputDefaults", "getParam", "buildProfileInputUpdates", "project profile restore", "project case replacement", "runtime profile replacement", "profile-owned missing-field migration", "source input hash verification", "immutable save hash snapshot", "latest-save-wins persistence", "project replacement write invalidation", "normalized project hash persistence", "pending or failed persistence retry", "pending export block", "transient migration event", "explicit manual value preservation", "profile-owned default sync", "profile params hash", "governance_fingerprint", "governance_ack_hash", "profile changelog"],

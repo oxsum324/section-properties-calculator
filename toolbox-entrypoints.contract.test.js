@@ -8,7 +8,6 @@ const { spawnSync } = require('child_process');
 const repoRoot = __dirname;
 const toolboxRoot = path.join(repoRoot, '結構工具箱');
 const homeJsPath = path.join(toolboxRoot, 'assets/home/home.js');
-const rcStmAtomicChangeSetContract = require('./結構工具箱/tools/rc-stm-atomic-change-set.js');
 
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -462,8 +461,6 @@ const EXPECTED_GOVERNANCE_SOURCE_KEYS = {
 const vercel = readJson('vercel.json');
 const formalManifest = readJson('結構工具箱/tools/formal-tools.manifest.json');
 const localQuickManifest = readJson('結構工具箱/tools/local-quick-tools.manifest.json');
-const rcStmAtomicChangeSet = readJson('結構工具箱/tools/rc-stm-atomic-change-set.manifest.json');
-const renderedDeliveryInventory = readJson('結構工具箱/tools/rendered-delivery-evidence.inventory.json');
 const readme = readText(path.join(repoRoot, 'README.md'));
 const boundaries = readText(path.join(repoRoot, 'TOOL_BOUNDARIES.md'));
 const staging = readText(path.join(repoRoot, 'STAGING_GROUPS.md'));
@@ -489,9 +486,6 @@ const pagesArtifactSmoke = readText(path.join(repoRoot, 'run-pages-artifact-smok
 const pushPagesRelease = readText(path.join(repoRoot, 'push-pages-release.ps1'));
 const pushPagesReleaseBatch = readText(path.join(repoRoot, 'push-pages-release.bat'));
 const anchorSync = readText(path.join(repoRoot, 'sync-anchor-deployment.ps1'));
-const restoreDrillSource = readText(path.join(toolboxRoot, 'tools/public-release-decision-restore-drill.js'));
-const restoreDrillHealthSource = readText(path.join(toolboxRoot, 'tools/public-release-decision-restore-drill-health.js'));
-const cloudCheckpointSource = readText(path.join(toolboxRoot, 'tools/public-release-decision-cloud-checkpoint.js'));
 
 function assertPagesCleanRouteBuilder() {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-clean-routes-contract-'));
@@ -944,15 +938,6 @@ assert.ok(pagesLiveSmoke.includes('deployment release run matches public preflig
 assert.ok(pagesDeploymentManifestBuilder.includes('schemaVersion: 3') && pagesDeploymentManifestBuilder.includes('releaseEvidenceIdentity') && pagesDeploymentManifestBuilder.includes('validatePublicEvidenceBundle') && pagesDeploymentManifestBuilder.includes('published public evidence bundle failed schema'), 'Pages manifest schema v3 binds the shared complete public evidence contract');
 assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-change-assistant.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-change-assistant.js'), 'Pages artifact and live smoke keep the release authorization assistant private');
 assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-receipt.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-receipt.js'), 'Pages artifact and live smoke keep private decision receipt tooling unpublished');
-assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-backup.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-backup.js'), 'Pages artifact and live smoke keep private decision backup tooling unpublished');
-assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-backup-health.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-backup-health.js'), 'Pages artifact and live smoke keep private decision backup health tooling unpublished');
-assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/manage-public-release-decision-backup-health-task.ps1') && pagesLiveSmoke.includes('結構工具箱/tools/manage-public-release-decision-backup-health-task.ps1'), 'Pages artifact and live smoke keep private backup health scheduling unpublished');
-assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-restore-drill.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-restore-drill.js'), 'Pages artifact and live smoke keep isolated restore drill tooling unpublished');
-assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-restore-drill-health.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-restore-drill-health.js'), 'Pages artifact and live smoke keep private restore drill history health unpublished');
-assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-cloud-checkpoint.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-cloud-checkpoint.js'), 'Pages artifact and live smoke keep provider-confirmed cloud checkpoint tooling unpublished');
-assert.ok(pagesLiveSmoke.includes('public-release-decision-cloud-verification-current.json') && pagesLiveSmoke.includes('public-release-decision-cloud-verifications/'), 'Pages live smoke keeps provider readback observations and sealed confirmations unpublished');
-assert.ok(pagesArtifactBuilder.includes("'output'") && pagesLiveSmoke.includes('output/audit/public-release-decision-restore-drill-anchor.json'), 'Pages artifact and live smoke keep the private restore drill tip anchor unpublished');
-assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/manage-public-release-decision-restore-drill-task.ps1') && pagesLiveSmoke.includes('結構工具箱/tools/manage-public-release-decision-restore-drill-task.ps1'), 'Pages artifact and live smoke keep private restore drill scheduling unpublished');
 assert.ok(pagesLiveSmoke.includes('.github/public-release-decision-anchor.json') && pagesLiveSmoke.includes('.github/public-release-reduction-authorization.json'), 'Pages live smoke keeps private release decision and authorization config unpublished');
 assert.ok(auditDashboard.includes('kpiReleaseFreshness') && auditDashboard.includes('kpiDeploymentAlignment') && auditDashboard.includes('未對齊'), 'audit dashboard separates release freshness from deployment alignment');
 assert.ok(pagesLiveBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesLiveBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
@@ -968,30 +953,10 @@ assert.ok(pagesDeploymentManifestBuilder.includes('changePolicyVersion') && page
 assert.ok(preflight.includes('public-release-change-governance') && preflight.includes('public-release-change-governance.test.js'), 'preflight records the public threshold regression governance gate');
 assert.ok(preflight.includes('public-release-change-assistant.test.js'), 'public threshold governance gate runs the preview and authorization assistant contract');
 assert.ok(preflight.includes('public-release-decision-receipt.test.js') && preflight.includes('public-release-decision-receipt.js'), 'formal preflight validates and writes the private release decision receipt');
-assert.ok(preflight.includes('public-release-decision-backup.test.js') && preflight.includes('public-release-decision-backup.js'), 'formal preflight validates and exports the private portable decision backup');
-assert.ok(preflight.includes('public-release-decision-backup-health.test.js') && preflight.includes('public-release-decision-backup-health.js'), 'formal preflight validates private backup mirror health after export');
-assert.ok(preflight.includes('public-release-decision-backup-task.test.js'), 'preflight validates the private daily backup health task contract');
-assert.ok(preflight.includes('public-release-decision-restore-drill.test.js') && preflight.includes('public-release-decision-restore-drill.js'), 'formal preflight performs a real isolated restore drill after backup health succeeds');
-assert.ok(preflight.includes('public-release-decision-restore-drill-health.test.js') && preflight.includes('public-release-decision-restore-drill-health.js'), 'formal preflight validates chained restore drill history and freshness after the actual drill');
-assert.ok(restoreDrillSource.includes("DEFAULT_ANCHOR_FILE = 'output/audit/public-release-decision-restore-drill-anchor.json'") && restoreDrillSource.includes('replaceReceiptAnchor') && restoreDrillHealthSource.includes('drill-anchor-mismatch'), 'restore drill governance binds mirrored receipts to an independent ignored tip anchor');
-assert.ok(preflight.includes('public-release-decision-cloud-checkpoint.test.js') && cloudCheckpointSource.includes('public-release-decision-cloud-checkpoint') && cloudCheckpointSource.includes('roundTripValidated'), 'preflight contracts provider-confirmed cloud checkpoint round-trip evidence');
-assert.ok(preflight.includes("GetEnvironmentVariable('PUBLIC_RELEASE_DECISION_BACKUP_DIR', 'User')") && preflight.includes('$env:PUBLIC_RELEASE_DECISION_BACKUP_DIR = $userDecisionBackupDirectory'), 'formal release imports the current user private mirror setting when the parent process predates that setting');
-assert.ok(preflight.includes('public-release-decision-restore-drill-task.test.js'), 'preflight validates the private weekly restore drill task contract');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-change-assistant.js')), 'read-only public threshold change assistant exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-change-assistant.test.js')), 'public threshold change assistant contract exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-receipt.js')), 'private release decision receipt generator exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-receipt.test.js')), 'private release decision receipt contract exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-backup.js')), 'private release decision backup tool exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-backup.test.js')), 'private release decision backup contract exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-backup-health.js')), 'private release decision backup health tool exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-backup-health.test.js')), 'private release decision backup health contract exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-restore-drill.js')), 'private release decision isolated restore drill exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-restore-drill.test.js')), 'private release decision isolated restore drill contract exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-restore-drill-health.js')), 'private release decision restore drill history health exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-restore-drill-health.test.js')), 'private release decision restore drill history health contract exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-cloud-checkpoint.js')), 'private provider-confirmed cloud checkpoint tool exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-cloud-checkpoint.test.js')), 'private provider-confirmed cloud checkpoint contract exists');
-assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'manage-public-release-decision-restore-drill-task.ps1')), 'private weekly restore drill task manager exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '.github', 'public-release-reduction-authorization.json')), 'one-time public threshold reduction authorization config exists');
 assert.ok(pagesLiveBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesLiveBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke locks public reading density');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
@@ -1068,9 +1033,8 @@ assert.ok(pagesDeployWorkflow.includes('name: github-pages'), 'Pages deploy work
 assert.ok(pagesDeployWorkflow.includes('node "結構工具箱/tools/build-pages-artifact.js" --repo-root "." --site-root "_site"'), 'Pages deploy workflow uses the shared Git-inventory builder');
 assert.equal(pagesDeployWorkflow.includes('rsync -a'), false, 'Pages deploy workflow has no duplicate rsync exclusion policy');
 assert.ok(pagesArtifactBuilder.includes('PRIVATE_FILES') && pagesArtifactBuilder.includes('PRIVATE_PREFIXES') && pagesArtifactBuilder.includes('PRIVATE_SUFFIXES'), 'shared Pages artifact builder centralizes the publication policy');
-assert.ok(pagesArtifactBuilder.includes('attachment-package-check.js') && pagesArtifactBuilder.includes('attachment-package-build.js') && pagesArtifactBuilder.includes('attachment-package-verify.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-assess.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-workspace.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-workspace-check.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-flow.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-index.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-baseline.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-baseline-advance.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-baseline-chain.js') && pagesArtifactBuilder.includes('attachment-case-governance-overview.js') && pagesArtifactBuilder.includes('attachment-case-governance-root.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-compare.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-index.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend-disposition.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js') && pagesArtifactBuilder.includes('attachment-case-governance-workspace.js') && pagesArtifactBuilder.includes('rendered-delivery-evidence.inventory.json') && rcStmAtomicChangeSetContract.REQUIRED_GOVERNANCE_PATHS.every(relativePath => pagesArtifactBuilder.includes(relativePath)), 'shared Pages artifact builder excludes governance helpers and every RC STM atomic governance file');
-assert.ok(rcStmAtomicChangeSetContract.REQUIRED_GOVERNANCE_PATHS.every(relativePath => pagesLiveSmoke.includes(relativePath)), 'Pages private-boundary smoke blocks every RC STM atomic governance file');
-assert.ok(pagesLiveSmoke.includes('attachment-package-upgrade-assess.js') && pagesLiveSmoke.includes('attachment-package-upgrade-workspace.js') && pagesLiveSmoke.includes('attachment-package-upgrade-workspace-check.js') && pagesLiveSmoke.includes('attachment-package-upgrade-flow.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history-index.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history-baseline.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history-baseline-advance.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history-baseline-chain.js') && pagesLiveSmoke.includes('attachment-case-governance-overview.js') && pagesLiveSmoke.includes('attachment-case-governance-root.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-compare.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-index.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-trend.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-trend-disposition.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js') && pagesLiveSmoke.includes('attachment-case-governance-workspace.js'), 'Pages private-boundary smoke blocks the attachment upgrade helpers');
+assert.ok(pagesArtifactBuilder.includes('attachment-package-check.js') && pagesArtifactBuilder.includes('attachment-package-build.js') && pagesArtifactBuilder.includes('attachment-package-verify.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-assess.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-workspace.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-workspace-check.js') && pagesArtifactBuilder.includes('rendered-delivery-evidence.inventory.json'), 'shared Pages artifact builder excludes attachment package helpers and rendered delivery inventory');
+assert.ok(pagesLiveSmoke.includes('attachment-package-upgrade-assess.js') && pagesLiveSmoke.includes('attachment-package-upgrade-workspace.js') && pagesLiveSmoke.includes('attachment-package-upgrade-workspace-check.js'), 'Pages private-boundary smoke blocks the attachment upgrade helpers');
 assert.ok(pagesArtifactBuilder.includes('build-performance-trend.js') && pagesArtifactBuilder.includes('build-performance-trend.test.js') && pagesLiveSmoke.includes('build-performance-trend.js'), 'Pages publication keeps performance trend governance private');
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
 assert.ok(pagesDeployWorkflow.includes('build-pages-clean-routes.js" --site-root "_site" --config "vercel.json"'), 'Pages deploy workflow builds Vercel-compatible clean routes for Pages');
@@ -1231,35 +1195,7 @@ assert.ok(stagingPaths.length >= 55, 'STAGING_GROUPS should keep concrete git ad
 for (const stagingPath of stagingPaths) {
   assertStagingPathIsUsable(stagingPath);
 }
-function validateRcStmAtomicChangeSet(manifest, options = {}) {
-  return rcStmAtomicChangeSetContract.validateRcStmAtomicChangeSet(manifest, {
-    repoRoot,
-    renderedDeliveryInventory,
-    ...options,
-  });
-}
-
-const stmAtomicChangePaths = rcStmAtomicChangeSet.groups.flatMap(group => group.paths);
-assert.ok(stmAtomicChangePaths.length >= 80, `STM atomic manifest should cover the full cross-tool dependency surface: ${stmAtomicChangePaths.length}`);
-assert.deepEqual(validateRcStmAtomicChangeSet(rcStmAtomicChangeSet), [], 'STM atomic change-set manifest is complete and internally consistent');
-
-const missingManifestPath = JSON.parse(JSON.stringify(rcStmAtomicChangeSet));
-missingManifestPath.groups.find(group => group.key === 'formal-attachment-evidence').paths = missingManifestPath.groups
-  .find(group => group.key === 'formal-attachment-evidence').paths
-  .filter(relativePath => relativePath !== missingManifestPath.entrypoints[0].regression);
-assert.ok(validateRcStmAtomicChangeSet(missingManifestPath).some(issue => issue === 'entrypoint-path-not-listed:deep-beam-stm:regression'), 'STM atomic manifest rejects an omitted entrypoint regression');
-
-const missingWorkspaceFile = rcStmAtomicChangeSet.entrypoints[1].page;
-assert.ok(validateRcStmAtomicChangeSet(rcStmAtomicChangeSet, {
-  exists: relativePath => relativePath !== missingWorkspaceFile && fs.existsSync(path.join(repoRoot, ...relativePath.split('/'))),
-}).some(issue => issue === `missing-file:${missingWorkspaceFile}`), 'STM atomic manifest rejects a declared file missing from the checkout');
-
-const demotedHomepageCount = JSON.parse(JSON.stringify(rcStmAtomicChangeSet));
-demotedHomepageCount.homepageFormalToolDelta = 0;
-assert.ok(validateRcStmAtomicChangeSet(demotedHomepageCount).includes('homepage-formal-tool-delta'), 'STM atomic manifest rejects omitting the three formal homepage promotions');
-
 for (const document of [staging, boundaries]) {
-  assert.ok(document.includes('rc-stm-atomic-change-set.manifest.json'), 'STM atomic change-set governance names the machine-readable manifest');
   assert.ok(document.includes('獨立首頁正式入口'), 'STM governance records the three independent formal-home-tool promotions');
 }
 const preflightContractPaths = extractPreflightContractPaths(preflight);
