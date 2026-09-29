@@ -2,12 +2,12 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-09-09 16:53:47",
-  "runId": "20260909-161017",
+  "generatedAt": "2026-09-29 18:43:53",
+  "runId": "20260929-180044",
   "quick": false,
   "forcePlatformAudit": true,
   "forceSlowChecks": true,
-  "sourceCommitSha": "aa7d33ee38ef839fa48085d1b851ea28f534be18",
+  "sourceCommitSha": "3b56235885e86b53fc3c6817597ee60a8cef3141",
   "sourceBranch": "master",
   "sourceDirty": false,
   "pass": true,
@@ -16,111 +16,20 @@
   "slowReuseCount": 0,
   "slowReuseKeys": [],
   "platformAuditReused": false,
-  "recordsCount": 91,
-  "passedCount": 91,
-  "totalSeconds": 2518.4,
+  "recordsCount": 68,
+  "passedCount": 68,
+  "totalSeconds": 2497.9,
   "slowestKey": "platform-audit",
-  "slowestSeconds": 1063.2,
+  "slowestSeconds": 1066.5,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20260909-161017/preflight-summary.json",
-  "sourceHash": "0d2724b284bcf8a06345082fc72c13a0051262f7eba7489a1e34857bb7bb7588",
+  "sourcePath": "output/preflight/history/20260929-180044/preflight-summary.json",
+  "sourceHash": "919929d6cac6652a609990a712ab5392d82492eea4f16f5e1cdc9dbdfad51a49",
   "releaseHistory": {
     "schemaVersion": 2,
     "limit": 8,
     "entries": [
-      {
-        "runId": "20260908-134443",
-        "generatedAt": "2026-09-08 14:23:04",
-        "sourceCommitSha": "73db25ba7562c709142c20f7e022201fcf7c0df9",
-        "records": {
-          "passed": 91,
-          "required": 91
-        },
-        "postChecks": {
-          "passed": 3,
-          "required": 3
-        },
-        "dimensions": [
-          {
-            "id": "release",
-            "pass": true
-          },
-          {
-            "id": "steel",
-            "pass": true
-          },
-          {
-            "id": "rc",
-            "pass": true
-          },
-          {
-            "id": "delivery",
-            "pass": true
-          }
-        ],
-        "metrics": [
-          {
-            "id": "steelResult",
-            "complete": 9,
-            "required": 9
-          },
-          {
-            "id": "steelContentSeal",
-            "complete": 9,
-            "required": 9
-          },
-          {
-            "id": "steelApprovalSeal",
-            "complete": 9,
-            "required": 9
-          },
-          {
-            "id": "rcResult",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPrint",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPackage",
-            "complete": 32,
-            "required": 32
-          },
-          {
-            "id": "formalResult",
-            "complete": 14,
-            "required": 14
-          },
-          {
-            "id": "localQuickResult",
-            "complete": 6,
-            "required": 6
-          },
-          {
-            "id": "rendered",
-            "complete": 40,
-            "required": 40
-          },
-          {
-            "id": "delivery",
-            "complete": 179,
-            "required": 179
-          }
-        ],
-        "change": {
-          "policyVersion": 1,
-          "classification": "baseline",
-          "increases": [],
-          "reductions": [],
-          "reasonCode": "",
-          "reason": ""
-        }
-      },
       {
         "runId": "20260908-165737",
         "generatedAt": "2026-09-08 17:40:06",
@@ -205,7 +114,7 @@
         ],
         "change": {
           "policyVersion": 1,
-          "classification": "unchanged",
+          "classification": "baseline",
           "increases": [],
           "reductions": [],
           "reasonCode": "",
@@ -756,6 +665,103 @@
           "reductions": [],
           "reasonCode": "",
           "reason": ""
+        }
+      },
+      {
+        "runId": "20260929-180044",
+        "generatedAt": "2026-09-29 18:43:53",
+        "sourceCommitSha": "3b56235885e86b53fc3c6817597ee60a8cef3141",
+        "records": {
+          "passed": 68,
+          "required": 68
+        },
+        "postChecks": {
+          "passed": 3,
+          "required": 3
+        },
+        "dimensions": [
+          {
+            "id": "release",
+            "pass": true
+          },
+          {
+            "id": "steel",
+            "pass": true
+          },
+          {
+            "id": "rc",
+            "pass": true
+          },
+          {
+            "id": "delivery",
+            "pass": true
+          }
+        ],
+        "metrics": [
+          {
+            "id": "steelResult",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "steelContentSeal",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "steelApprovalSeal",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "rcResult",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPrint",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPackage",
+            "complete": 32,
+            "required": 32
+          },
+          {
+            "id": "formalResult",
+            "complete": 14,
+            "required": 14
+          },
+          {
+            "id": "localQuickResult",
+            "complete": 6,
+            "required": 6
+          },
+          {
+            "id": "rendered",
+            "complete": 40,
+            "required": 40
+          },
+          {
+            "id": "delivery",
+            "complete": 179,
+            "required": 179
+          }
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "reduced",
+          "increases": [],
+          "reductions": [
+            {
+              "id": "records",
+              "from": 91,
+              "to": 68
+            }
+          ],
+          "reasonCode": "tool-retirement",
+          "reason": "工具箱治理流程精簡，退役流程之預檢一併移除。"
         }
       }
     ]
