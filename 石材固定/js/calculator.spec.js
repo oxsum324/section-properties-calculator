@@ -119,6 +119,50 @@ const VERSION = '2026.04.23-spec-core11';
     return option?.label || mode;
   }
 
+  const ANCHOR_METHOD_112 = 'cns_112_ch17_vendor_equivalent';
+
+  function anchorProfileParam(inp, key, fallback) {
+    const profiles = (typeof globalThis !== 'undefined' && globalThis.StoneCodeProfiles)
+      ? globalThis.StoneCodeProfiles
+      : (typeof window !== 'undefined' && window.StoneCodeProfiles ? window.StoneCodeProfiles : null);
+    return profiles ? profiles.getParam(inp, 'anchor', key, fallback) : fallback;
+  }
+
+  // 錨栓 profile 計算方法：112 年版第 17 章，或舊版附篇 D（僅供既有案件重播）
+  function anchorMethod(inp) {
+    return anchorProfileParam(inp, 'method', 'aci_appendix_d_legacy');
+  }
+
+  function anchorInstallType(inp) {
+    const spec = CONSTS.ANCHOR_CATALOG?.[inp?.m_anc_type || 'custom'];
+    return spec?.install === 'cast_in' ? 'cast_in' : 'post_installed';
+  }
+
+  // 112 年版表 17.5.3a／17.5.3b：廠商試驗值之控制破壞模式未知，拉力、剪力各取鋼材與混凝土 φ 之較小值
+  function anchorPhi112(inp) {
+    const supplementary = inp?.sp_anchor_supplementary_rebar === 'yes' ? 'supplementary' : 'none';
+    const castIn = anchorInstallType(inp) === 'cast_in';
+    const category = Math.min(3, Math.max(1, Math.round(toNumber(inp?.sp_anchor_aci_category, 1))));
+    const concreteKey = `phi_concrete_tension_${supplementary}_${castIn ? 'cast_in' : `cat${category}`}`;
+    const fallbackConcrete = { supplementary: { cast_in: 0.75, cat1: 0.75, cat2: 0.65, cat3: 0.55 }, none: { cast_in: 0.70, cat1: 0.65, cat2: 0.55, cat3: 0.45 } };
+    const phiConcreteTension = anchorProfileParam(inp, concreteKey, fallbackConcrete[supplementary][castIn ? 'cast_in' : `cat${category}`]);
+    const phiConcreteShear = anchorProfileParam(inp, `phi_concrete_shear_${supplementary}`, supplementary === 'supplementary' ? 0.75 : 0.70);
+    const phiSteelTension = anchorProfileParam(inp, 'phi_steel_tension_ductile', 0.75);
+    const phiSteelShear = anchorProfileParam(inp, 'phi_steel_shear_ductile', 0.65);
+    return {
+      tension: Math.min(phiSteelTension, phiConcreteTension),
+      shear: Math.min(phiSteelShear, phiConcreteShear),
+      phiSteelTension,
+      phiSteelShear,
+      phiConcreteTension,
+      phiConcreteShear,
+      supplementary,
+      castIn,
+      category,
+      label: `${castIn ? '預埋式' : `後置式 Category ${category}`}、${supplementary === 'supplementary' ? '有' : '未設置'}輔助鋼筋`,
+    };
+  }
+
   function concreteState(inp) {
     return inp?.sp_concrete_crack === 'noncracked' ? 'noncracked' : 'cracked';
   }
@@ -143,6 +187,42 @@ const VERSION = '2026.04.23-spec-core11';
 
     const cracked = concreteState(inp) === 'cracked';
     const aciCategory = Math.max(1, Math.round(toNumber(inp?.sp_anchor_aci_category, 1)));
+    // V3.1.0：112 年版第 17 章 — 廠商試驗值視為未開裂混凝土結果，不再乘未開裂 ψc 提高；
+    // 開裂混凝土依 17.6.2.5.1、17.7.2.5.1 以（開裂 ψc ÷ 未開裂 ψc）折減
+    if (anchorMethod(inp) === ANCHOR_METHOD_112) {
+      const castIn = anchorInstallType(inp) === 'cast_in';
+      const psiCnUncracked = _gp(castIn ? 'psi_cN_uncracked_cast_in' : 'psi_cN_uncracked_post_installed', castIn ? 1.25 : 1.4);
+      const psiCvUncracked = _gp('psi_cV_uncracked', 1.4);
+      if (!cracked) {
+        return {
+          psiCv: 1.0,
+          psiCn: 1.0,
+          basisLabel: '未開裂混凝土：廠商試驗值不再乘未開裂 ψc 提高（112 年版 17.6.2.5、17.7.2.5）',
+          cracked: false,
+          note: '未開裂混凝土：廠商極限試驗值視為未開裂混凝土結果，拉力、剪力之 ψc 修正均取 1.00（不再乘未開裂 ψc,N、ψc,V 提高）。',
+          tensionUsesShared: false,
+          aciCategory,
+        };
+      }
+      const key = inp?.sp_rebar_support || 'none';
+      const label = CONSTS.PSI_CV_LABEL?.[key] || key;
+      const psiCvProfileKey = key === 'full_rebar' ? 'psi_cV_full_rebar'
+        : key === 'edge_rebar' ? 'psi_cV_edge_rebar'
+        : 'psi_cV_no_rebar';
+      const psiCvCracked = _gp(psiCvProfileKey, 1.0);
+      const psiCnCracked = _gp('psi_cN_cracked', 1.0);
+      const psiCn = psiCnCracked / psiCnUncracked;
+      const psiCv = psiCvCracked / psiCvUncracked;
+      return {
+        psiCv,
+        psiCn,
+        basisLabel: `開裂混凝土＋${label}（拉力 ${psiCnCracked.toFixed(2)}/${psiCnUncracked.toFixed(2)} = ${psiCn.toFixed(3)}；剪力 ${psiCvCracked.toFixed(2)}/${psiCvUncracked.toFixed(2)} = ${psiCv.toFixed(3)}）`,
+        cracked: true,
+        note: `開裂混凝土：廠商試驗值（未開裂）依 112 年版 17.6.2.5.1 折減拉力 ψc,N 比 = ${psiCnCracked.toFixed(2)} ÷ ${psiCnUncracked.toFixed(2)} = ${psiCn.toFixed(3)}；依表 17.7.2.5.1（${label}）折減剪力 ψc,V 比 = ${psiCvCracked.toFixed(2)} ÷ ${psiCvUncracked.toFixed(2)} = ${psiCv.toFixed(3)}。`,
+        tensionUsesShared: false,
+        aciCategory,
+      };
+    }
     if (!cracked) {
       const psiCnUncracked = _gp('psi_cN_uncracked', toNumber(CONSTS.PSI_CN?.noncracked, 1.25));
       const psiCvUncracked = _gp('psi_cV_full_rebar', 1.4);
@@ -216,7 +296,12 @@ const VERSION = '2026.04.23-spec-core11';
       : (typeof window !== 'undefined' && window.StoneCodeProfiles ? window.StoneCodeProfiles : null);
     const phiDefault = _profilesPhi ? _profilesPhi.getParam(inp, 'anchor', 'phi_steel', 0.75) : 0.75;
     const serviceFactorDefault = _profilesPhi ? _profilesPhi.getParam(inp, 'anchor', 'service_factor_typical', 1.6) : 1.6;
-    const phi = Math.max(0.1, toNumber(inp?.sp_anchor_phi, phiDefault));
+    const is112 = anchorMethod(inp) === ANCHOR_METHOD_112;
+    const phi112 = is112 ? anchorPhi112(inp) : null;
+    // 112 年版：φ 依表 17.5.3a／b 自動決定（sp_anchor_phi 僅供舊版附篇 D profile）
+    const phi = is112 ? phi112.tension : Math.max(0.1, toNumber(inp?.sp_anchor_phi, phiDefault));
+    const phiShear = is112 ? phi112.shear : phi;
+    const methodLabel = is112 ? '112 年版第 17 章' : '附篇 D';
     const psi = psiFactors(inp);
     const serviceFactor = Math.max(1.0, toNumber(inp?.sp_anchor_service_factor, serviceFactorDefault));
     const mode = moduleOn(inp, 'sp_anchor_on') ? (inp?.sp_anchor_design_mode || 'dual_compare') : 'vendor_sf';
@@ -234,7 +319,7 @@ const VERSION = '2026.04.23-spec-core11';
     const appendixShearAvailable = ultimateShear > 0;
     const appendixAvailable = appendixTensionAvailable;
     const appendixTensionService = ultimateTension ? (ultimateTension * phi * psi.psiCn) / serviceFactor : 0;
-    const appendixShearService = ultimateShear ? (ultimateShear * phi * psi.psiCv) / serviceFactor : 0;
+    const appendixShearService = ultimateShear ? (ultimateShear * phiShear * psi.psiCv) / serviceFactor : 0;
 
     let governingTa = vendorAllow;
     let governingVa = vendorAllowShear;
@@ -243,25 +328,25 @@ const VERSION = '2026.04.23-spec-core11';
     let warning = false;
     if (mode === 'appendix_d' && appendixTensionService > 0) {
       governingTa = appendixTensionService;
-      basis = '附篇 D 等效服務值';
+      basis = `${methodLabel}等效服務值`;
     } else if (mode === 'dual_compare' && appendixTensionService > 0) {
       governingTa = Math.min(vendorAllow || Number.POSITIVE_INFINITY, appendixTensionService);
       basis = '雙軌比較取較保守者';
     } else if (mode !== 'vendor_sf' && !appendixTensionAvailable) {
       basis = mode === 'appendix_d'
-        ? '附篇 D 模式不可用，退回廠商試驗 SF 法'
+        ? `${methodLabel}模式不可用，退回廠商試驗 SF 法`
         : '雙軌模式缺 Nu 資料，退回廠商試驗 SF 法';
       warning = true;
     }
     if (mode === 'appendix_d' && appendixShearService > 0) {
       governingVa = appendixShearService;
-      basisShear = '附篇 D 等效服務值';
+      basisShear = `${methodLabel}等效服務值`;
     } else if (mode === 'dual_compare' && appendixShearService > 0) {
       governingVa = Math.min(vendorAllowShear || Number.POSITIVE_INFINITY, appendixShearService);
       basisShear = '雙軌比較取較保守者';
     } else if (mode !== 'vendor_sf' && !appendixShearAvailable) {
       basisShear = mode === 'appendix_d'
-        ? '附篇 D 剪力資料不足，退回廠商試驗 SF 法'
+        ? `${methodLabel}剪力資料不足，退回廠商試驗 SF 法`
         : '雙軌模式缺 Vu 資料，退回廠商試驗 SF 法';
       warning = true;
     }
@@ -274,13 +359,17 @@ const VERSION = '2026.04.23-spec-core11';
     if (mode !== 'vendor_sf' && !appendixTensionAvailable) fallbackNotes.push('Nu');
     if (mode !== 'vendor_sf' && !appendixShearAvailable) fallbackNotes.push('Vu');
     const equivalentNote = appendixAvailable
-      ? `拉力等效服務值 = φ·Nu·ψc,N ÷ ${serviceFactor.toFixed(2)} = ${appendixTensionService.toFixed(1)} kgf；`
+      ? (is112
+        ? `依 112 年版表 17.5.3a／17.5.3b（${phi112.label}）：拉力 φ = min(鋼材 ${phi112.phiSteelTension.toFixed(2)}, 混凝土 ${phi112.phiConcreteTension.toFixed(2)}) = ${phi.toFixed(2)}；`
+          + `剪力 φ = min(鋼材 ${phi112.phiSteelShear.toFixed(2)}, 混凝土 ${phi112.phiConcreteShear.toFixed(2)}) = ${phiShear.toFixed(2)}。`
+        : '')
+        + `拉力等效服務值 = φ·Nu·ψc,N ÷ ${serviceFactor.toFixed(2)} = ${appendixTensionService.toFixed(1)} kgf；`
         + ` 剪力等效服務值 = φ·Vu·ψc,V ÷ ${serviceFactor.toFixed(2)} = ${appendixShearService.toFixed(1)} kgf；`
         + ` 廠商 SF 法（拉力 / 剪力）= ${vendorAllow.toFixed(1)} / ${vendorAllowShear.toFixed(1)} kgf。`
         + `${psi.note} 本工具 Nu / Vu 採廠商報告之最小值，視為已包絡鋼材拉力、混凝土錐形、拉出與側爆等破壞模式。`
         + ` ${mode === 'dual_compare' ? '雙軌模式採較保守值。' : '供保守性比較參考。'}`
         + `${fallbackNotes.length ? ` ${fallbackNotes.join(' / ')} 資料不足時，對應項目已退回廠商試驗 SF 法。` : ''}`
-      : '缺少 Nu / Vu 極限資料，附篇 D 模式不可用，已退回廠商試驗 SF 法。';
+      : `缺少 Nu / Vu 極限資料，${methodLabel}模式不可用，已退回廠商試驗 SF 法。`;
     const torqueNm = spec?.torqueNm != null ? toNumber(spec.torqueNm, 0) : toNumber(inp?.sp_custom_torque_nm, 0);
     const embedMm = spec?.embedMm != null ? toNumber(spec.embedMm, 0) : toNumber(inp?.sp_custom_anchor_embed_mm, 0);
     const lengthMm = spec?.lengthMm != null ? toNumber(spec.lengthMm, 0) : toNumber(inp?.sp_custom_anchor_length_mm, 0);
@@ -290,6 +379,10 @@ const VERSION = '2026.04.23-spec-core11';
       fc,
       sf,
       phi,
+      phiShear,
+      phiBasis: phi112 ? phi112.label : 'sp_anchor_phi',
+      anchorMethod: is112 ? ANCHOR_METHOD_112 : 'aci_appendix_d_legacy',
+      methodLabel,
       psiCv: psi.psiCv,
       psiCn: psi.psiCn,
       psiCvLabel: psiCvLabel(inp),
@@ -1273,19 +1366,37 @@ const VERSION = '2026.04.23-spec-core11';
         const interactionMode = inp?.sp_interaction_mode || 'conservative_envelope';
         const useSeparatedMode = interactionMode === 'separated' && Tu2 < Tu1;
         const interactionTu = Tu2 >= Tu1 ? Tu2 : Tu;
-        // V2.1.1：拉剪互制指數改由 profile 取得（ACI 318 Appendix D.7.3 = 5/3）
+        // V3.1.0：112 年版 17.8 — 任一比值 ≤ 0.2 免檢核（17.8.2），否則 Nua/φNn + Vua/φVn ≤ 1.2（式 17.8.3）；
+        // 以 R = 比值和 ÷ 1.2 ≤ 1.000 呈現。舊版附篇 D profile 沿用 5/3 次方式。
         const _profilesIE = (typeof globalThis !== 'undefined' && globalThis.StoneCodeProfiles)
           ? globalThis.StoneCodeProfiles
           : (typeof window !== 'undefined' && window.StoneCodeProfiles ? window.StoneCodeProfiles : null);
+        const interactionMethod = _profilesIE ? _profilesIE.getParam(inp, 'anchor', 'interaction_method', 'power') : 'power';
+        const trilinear = interactionMethod === 'trilinear';
+        const interactionLimit = trilinear && _profilesIE ? toNumber(_profilesIE.getParam(inp, 'anchor', 'interaction_limit', 1.2), 1.2) : 1.2;
+        const exemptRatio = trilinear && _profilesIE ? toNumber(_profilesIE.getParam(inp, 'anchor', 'interaction_exempt_ratio', 0.2), 0.2) : 0.2;
         const interactionExp = _profilesIE ? _profilesIE.getParam(inp, 'anchor', 'interaction_exponent_steel', 5 / 3) : 5 / 3;
-        const interactionValue = anchorTa > 0 && anchorVa > 0
-          ? (useSeparatedMode
-              ? Math.pow(Tu1 / anchorTa, interactionExp)
-              : (Math.pow(interactionTu / anchorTa, interactionExp) + Math.pow(V / anchorVa, interactionExp)))
-          : Number.POSITIVE_INFINITY;
+        const tensionRatio = anchorTa > 0 ? (useSeparatedMode ? Tu1 : interactionTu) / anchorTa : Number.POSITIVE_INFINITY;
+        const shearRatio = anchorVa > 0 ? V / anchorVa : Number.POSITIVE_INFINITY;
+        const exemptNote = !trilinear || useSeparatedMode ? ''
+          : (shearRatio <= exemptRatio ? `V/Va = ${shearRatio.toFixed(3)} ≤ ${exemptRatio.toFixed(1)}，依 17.8.2 免計互制，僅檢核拉力比值。`
+            : tensionRatio <= exemptRatio ? `T/Ta = ${tensionRatio.toFixed(3)} ≤ ${exemptRatio.toFixed(1)}，依 17.8.2 免計互制，僅檢核剪力比值。` : '');
+        const interactionValue = !(anchorTa > 0 && anchorVa > 0)
+          ? Number.POSITIVE_INFINITY
+          : trilinear
+            ? (useSeparatedMode
+                ? tensionRatio
+                : shearRatio <= exemptRatio ? tensionRatio
+                  : tensionRatio <= exemptRatio ? shearRatio
+                  : (tensionRatio + shearRatio) / interactionLimit)
+            : (useSeparatedMode
+                ? Math.pow(Tu1 / anchorTa, interactionExp)
+                : (Math.pow(interactionTu / anchorTa, interactionExp) + Math.pow(V / anchorVa, interactionExp)));
         return row(
         '膨脹螺栓 拉剪交互',
-        useSeparatedMode ? 'R = (Tu1/Ta)^1.67' : 'R = (Tu/Ta)^1.67 + (V/Va)^1.67',
+        trilinear
+          ? (useSeparatedMode ? 'R = Tu1/Ta' : 'R = (Tu/Ta + V/Va) ÷ 1.2（112 年版式 17.8.3）')
+          : (useSeparatedMode ? 'R = (Tu1/Ta)^1.67' : 'R = (Tu/Ta)^1.67 + (V/Va)^1.67'),
         `${interactionValue.toFixed(3)}`,
         '≤ 1.000',
         interactionValue,
@@ -1293,9 +1404,10 @@ const VERSION = '2026.04.23-spec-core11';
         '',
         anchorTa > 0 && anchorVa > 0 && interactionValue <= 1,
         {
-          detail: useSeparatedMode
+          detail: (useSeparatedMode
             ? `Tu1 = ${Tu1.toFixed(2)} kgf（Tu1 與 V 同源，依分離計算模式僅檢核 Tu1/Ta），Ta = ${anchorTa.toFixed(1)} kgf；V = ${V.toFixed(2)} kgf，Va = ${anchorVa.toFixed(1)} kgf。`
-            : `Tu = ${interactionTu.toFixed(2)} kgf（${Tu2 >= Tu1 ? 'Tu2 水平力拉拔控制' : 'Tu1 垂直剪力導出，保守包絡'}），Ta = ${anchorTa.toFixed(1)} kgf；V = ${V.toFixed(2)} kgf，Va = ${anchorVa.toFixed(1)} kgf。`,
+            : `Tu = ${interactionTu.toFixed(2)} kgf（${Tu2 >= Tu1 ? 'Tu2 水平力拉拔控制' : 'Tu1 垂直剪力導出，保守包絡'}），Ta = ${anchorTa.toFixed(1)} kgf；V = ${V.toFixed(2)} kgf，Va = ${anchorVa.toFixed(1)} kgf。`)
+            + (exemptNote ? ` ${exemptNote}` : ''),
         }
       )})(),
     ];
@@ -1652,7 +1764,7 @@ const VERSION = '2026.04.23-spec-core11';
           material.enabled ? `材質要求：${material.pass ? '符合' : '不符合'}` : '',
           dimensions.enabled ? `厚度/面積：${dimensions.warning ? '警示' : dimensions.pass ? '符合' : '不符合'}` : '',
           customAnchor.enabled ? `錨栓／插梢尺寸：${customAnchor.pass ? '符合' : '不符合'}` : '',
-          anchor.warning ? '附篇 D 模式資料不足：已退回廠商試驗 SF 法' : '',
+          anchor.warning ? `${anchor.methodLabel}模式資料不足：已退回廠商試驗 SF 法` : '',
           anchorGroup.enabled ? `群組/邊距折減：Ta ${anchor.baseTa.toFixed(1)}→${anchor.effectiveTa.toFixed(1)} kgf，Va ${anchor.baseVa.toFixed(1)}→${anchor.effectiveVa.toFixed(1)} kgf` : '',
           seismic.detailed ? `耐震細算：${seismic.control}` : '',
           bool(inp?.sp_seis_upper_compare_on) ? `地震上限比較：Fph* = ${compareFph.toFixed(2)} kgf/m²，P* = ${compareP.toFixed(2)} kgf（${compareControlsPull && compareControlsPush ? '上限比較為地震控制' : compareControlsPull || compareControlsPush ? '上限比較於不同方向控制不同' : '上限比較仍為風力控制'}，僅供比較，不回寫主設計力）` : '',

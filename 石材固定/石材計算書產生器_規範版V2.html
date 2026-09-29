@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>石材外牆固定構件計算書產生器 規範版 V3.0.8</title>
+<title>石材外牆固定構件計算書產生器 規範版 V3.1.0</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -762,7 +762,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 <script src="vendor/loads/regulatory-locations.js"></script>
 <script src="vendor/loads/seismic.js"></script>
 <script src="vendor/loads/wind.js"></script>
-<script src="vendor/loads/project-location.js" data-location-tool-id="stone-fixing" data-location-tool-name="石材固定計算書" data-location-tool-version="V3.0.8"></script>
+<script src="vendor/loads/project-location.js" data-location-tool-id="stone-fixing" data-location-tool-name="石材固定計算書" data-location-tool-version="V3.1.0"></script>
 <script src="./js/constants.spec.js"></script>
 <script src="./js/input-schema.spec.js"></script>
 <script src="./js/code-profiles-registry.spec.js"></script>
@@ -862,7 +862,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 
 <!-- Sidebar -->
 <div id="sidebar">
-<div id="tool-header">石材固定構件計算書產生器｜規範版 <span id="tool-version-label">V3.0.8 任務導向介面 ‧ 弘一工程顧問有限公司</span> <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span></div>
+<div id="tool-header">石材固定構件計算書產生器｜規範版 <span id="tool-version-label">V3.1.0 任務導向介面 ‧ 弘一工程顧問有限公司</span> <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span></div>
 
   <!-- V2 快速工具列 -->
   <div id="v2-toolbar" role="toolbar" aria-label="快速工具列">
@@ -1009,7 +1009,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
           </div>
           <div class="basis-row">
             <label><input id="basis_anchor_on" type="checkbox" checked onchange="save();render()"> 錨栓規範</label>
-            <input id="basis_anchor_text" type="text" placeholder="混凝土結構設計規範附篇 D「混凝土結構用錨栓」。" oninput="save();render()">
+            <input id="basis_anchor_text" type="text" placeholder="建築物混凝土結構設計規範（112 年版）第 17 章「錨定於混凝土」。" oninput="save();render()">
           </div>
           <div class="basis-row">
             <label><input id="basis_stone_on" type="checkbox" checked onchange="save();render()"> 石材規範</label>
@@ -1450,13 +1450,13 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
         </div>
         <div class="mod-body">
           <div class="row">
-            <div class="field"><label>設計模式 <span class="infoi" title="雙軌比較：廠商 SF 法與 ACI 附篇 D 法並行取較保守者；vendor_sf 僅採試驗值；appendix_d 僅採規範換算。">i</span></label>
+            <div class="field"><label>設計模式 <span class="infoi" title="雙軌比較：廠商 SF 法與規範等效服務值（112 年版第 17 章）並行取較保守者；vendor_sf 僅採試驗值；appendix_d 僅採規範換算。">i</span></label>
               <select id="sp_anchor_design_mode" onchange="save();render()">
                 <option value="dual_compare" selected>雙軌比較取較保守者</option>
                 <option value="vendor_sf">僅採廠商試驗 SF 法</option>
-                <option value="appendix_d">採附篇 D 等效服務值</option>
+                <option value="appendix_d">採規範等效服務值（112 年版第 17 章）</option>
               </select></div>
-            <div class="field"><label>φ 折減係數 <span class="infoi" title="ACI 318 附篇 D 強度折減係數。拉力破壞由鋼材控制：φ=0.75；由混凝土控制：φ=0.65（Condition B）。">i</span></label>
+            <div class="field"><label>φ（僅舊版附篇 D profile） <span class="infoi" title="112 年版 profile 依表 17.5.3a／17.5.3b 自動決定拉力、剪力 φ（各取鋼材與混凝土之較小值），不採用本欄；本欄僅於選用舊版 ACI 附篇 D profile 重播既有案件時使用。">i</span></label>
               <input id="sp_anchor_phi" type="number" value="0.75" step="0.05" oninput="save();render()"></div>
           </div>
           <div class="row">
@@ -1469,7 +1469,14 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
                 <option value="3">Category 3</option>
               </select></div>
           </div>
-          <div class="rule-box">以廠商試驗值與附篇 D 等效服務值比對保守性；未開裂混凝土之 ψc,N 會依 ACI 355.2 類別決定，Category 1 採 1.25，Category 2/3 採 1.00。</div>
+          <div class="row">
+            <div class="field"><label>輔助鋼筋（表 17.5.3b） <span class="infoi" title="112 年版表 17.5.3b：錨栓破壞區有無設置輔助鋼筋，決定混凝土控制之 φ；未確認時請採「未設置」。">i</span></label>
+              <select id="sp_anchor_supplementary_rebar" onchange="save();render()">
+                <option value="none" selected>未設置輔助鋼筋</option>
+                <option value="yes">有設置輔助鋼筋</option>
+              </select></div>
+          </div>
+          <div class="rule-box">以廠商試驗值與 112 年版第 17 章等效服務值比對保守性。φ 依表 17.5.3a／17.5.3b（拉力、剪力各取鋼材與混凝土之較小值）；廠商試驗值視為未開裂混凝土結果，不再乘未開裂 ψc 提高，開裂混凝土依 17.6.2.5.1、表 17.7.2.5.1 折減；拉剪互制依 17.8.2、式 (17.8.3)。</div>
         </div>
       </div>
 
@@ -3966,8 +3973,9 @@ const V2_TIPS = {
   m_mc_va:  '馬車螺栓剪力容許值；Fv 自 Fy 依 AISC F2 推得。',
   m_mc_ta:  '馬車螺栓拉力容許值；Ft = 0.33 Fu × As 約略。',
   // 規範附加
-  sp_anchor_design_mode:'雙軌比較：廠商 SF 法與 ACI 附篇 D 法並行取較保守者；vendor_sf 僅採試驗值；appendix_d 僅採規範換算。',
-  sp_anchor_phi:'ACI 318 附篇 D 強度折減係數。拉力破壞由鋼材控制：φ=0.75；由混凝土控制：φ=0.65（Condition B）。'
+  sp_anchor_design_mode:'雙軌比較：廠商 SF 法與規範等效服務值（112 年版第 17 章）並行取較保守者；vendor_sf 僅採試驗值；appendix_d 僅採規範換算。',
+  sp_anchor_phi:'僅舊版 ACI 附篇 D profile 使用；112 年版 profile 依表 17.5.3a／17.5.3b 自動決定拉力、剪力 φ。',
+  sp_anchor_supplementary_rebar:'112 年版表 17.5.3b：錨栓破壞區有無設置輔助鋼筋，決定混凝土控制之 φ；未確認時請採「未設置」。'
 };
 // DOMContentLoaded 時同步：如 .infoi 元素設定 data-tip 屬性且 title 為空，則自動填入字典值
 function v2SyncTipsFromDict(){
@@ -7192,7 +7200,7 @@ function v2RenderAnchorSectionSvg(){
     <text x="${boltX+boltW/2+25}" y="${topY+p.hef*scale/2+10}" style="font-size:10px;fill:#333;font-weight:bold">hef = ${p.hef} mm</text>
     <!-- 直徑標註 -->
     <text x="${boltX}" y="${topY-18}" text-anchor="middle" style="font-size:9px;fill:#333">φ ${p.d} mm</text>
-    <text x="${SW/2}" y="${SH-10}" text-anchor="middle" style="font-size:9px;fill:#555">SF = ${sf}　　破壞錐體示意（ACI 附篇 D）</text>
+    <text x="${SW/2}" y="${SH-10}" text-anchor="middle" style="font-size:9px;fill:#555">SF = ${sf}　　破壞錐體示意（112 年版第 17 章）</text>
   </svg>`;
 }
 
@@ -7523,7 +7531,10 @@ function syncConcreteCrackControls(){
     rebarEl.value = 'full_rebar';
     rebarEl.disabled = true;
     rebarEl.style.background = '#eef3fb';
-    rebarEl.title = `未開裂混凝土時，ψc,V 固定採 1.40，ψc,N 依 ACI 355.2 Category ${aciCategory} 採 ${psiCn.toFixed(2)}；不需選擇輔助鋼筋配置。`;
+    const anchorMethod = window.StoneCodeProfiles?.getParam?.(inputs(), 'anchor', 'method', '') || '';
+    rebarEl.title = anchorMethod === 'cns_112_ch17_vendor_equivalent'
+      ? '未開裂混凝土時，廠商試驗值不再乘未開裂 ψc,N／ψc,V 提高（112 年版 17.6.2.5、17.7.2.5）；不需選擇角隅鋼筋配置。'
+      : `未開裂混凝土時，ψc,V 固定採 1.40，ψc,N 依 ACI 355.2 Category ${aciCategory} 採 ${psiCn.toFixed(2)}；不需選擇輔助鋼筋配置。`;
   }else{
     rebarEl.disabled = false;
     rebarEl.style.background = '';
@@ -7735,6 +7746,7 @@ const MIGRATABLE_SPEC_FIELDS = Object.freeze({
   sp_anchor_phi: 0.75,
   sp_anchor_service_factor: 1.6,
   sp_anchor_aci_category: 1,
+  sp_anchor_supplementary_rebar: 'none',
   sp_bk2_on: true,
   sp_panel_on: true,
   sp_stone_grade: 'granite_grade2',
@@ -7983,6 +7995,7 @@ function normalizeImportedInput(inp, appliedDefaults = null){
   normalized.sp_anchor_phi = pickFiniteNumber(normalized.sp_anchor_phi, 0.75);
   normalized.sp_anchor_service_factor = pickFiniteNumber(normalized.sp_anchor_service_factor, 1.6);
   normalized.sp_anchor_aci_category = pickFiniteNumber(normalized.sp_anchor_aci_category, 1);
+  normalized.sp_anchor_supplementary_rebar = normalized.sp_anchor_supplementary_rebar === 'yes' ? 'yes' : 'none';
   normalized.sp_stone_fb = pickFiniteNumber(normalized.sp_stone_fb, 55);
   normalized.sp_stone_ft = pickFiniteNumber(normalized.sp_stone_ft, 35);
   normalized.sp_panel_cone_angle = pickFiniteNumber(normalized.sp_panel_cone_angle, 30);
@@ -9142,6 +9155,7 @@ function inputs(){
     sp_anchor_phi: n('sp_anchor_phi') || 0.75,
     sp_anchor_service_factor: n('sp_anchor_service_factor') || 1.6,
     sp_anchor_aci_category: n('sp_anchor_aci_category') || 1,
+    sp_anchor_supplementary_rebar: v('sp_anchor_supplementary_rebar') === 'yes' ? 'yes' : 'none',
     sp_bk2_on: specChecked('sp_bk2_on'),
     sp_panel_on: specChecked('sp_panel_on'),
     sp_stone_grade: v('sp_stone_grade') || 'granite_grade2',
@@ -9327,7 +9341,7 @@ const DESIGN_BASIS_CONFIG = Object.freeze([
     onKey: 'basis_anchor_on',
     textKey: 'basis_anchor_text',
     label: '錨栓規範',
-    defaultText: () => SPEC_REFS.anchor || '混凝土結構設計規範附篇 D「混凝土結構用錨栓」。',
+    defaultText: () => SPEC_REFS.anchor || '建築物混凝土結構設計規範（112 年版）第 17 章「錨定於混凝土」。',
   },
   {
     key: 'stone',
@@ -9634,7 +9648,7 @@ function renderSpecRefSummary(){
   const panelMode = inp.sp_panel_on ? `；板塊局部破壞：${panelLocalModeLabel(inp.sp_panel_local_mode)}${inp.sp_panel_local_mode === 'cone' || inp.sp_panel_local_mode === 'auto' ? `（θ=${inp.sp_panel_cone_angle.toFixed(0)}°）` : ''}` : '';
   const stoneMode = inp.sp_panel_on ? `；石材等級：${stoneGradeLabel(inp.sp_stone_grade)}（fb=${inp.sp_stone_fb.toFixed(0)}、ft=${inp.sp_stone_ft.toFixed(0)}）` : '';
   const anchorMode = inp.sp_anchor_on
-    ? `；錨栓雙軌模式：${inp.sp_anchor_design_mode === 'dual_compare' ? '雙軌比較' : inp.sp_anchor_design_mode === 'appendix_d' ? '附篇 D 等效服務值' : '廠商試驗 SF 法'}；ACI 類別：Category ${inp.sp_anchor_aci_category.toFixed(0)}`
+    ? `；錨栓雙軌模式：${inp.sp_anchor_design_mode === 'dual_compare' ? '雙軌比較' : inp.sp_anchor_design_mode === 'appendix_d' ? '規範等效服務值（112 年版第 17 章）' : '廠商試驗 SF 法'}；ACI 類別：Category ${inp.sp_anchor_aci_category.toFixed(0)}`
     : '';
   const anchorGroupMode = inp.sp_anchor_group_on ? '；錨栓群組／邊距折減：已啟用' : '';
   const manualWindMode = inp.w_src === 'manual'
@@ -9651,7 +9665,7 @@ function renderSpecRefSummary(){
   const thermalMode = inp.sp_thermal_on
     ? `；伸縮縫估算：α=${inp.sp_thermal_alpha.toExponential(2)}、ΔT=${inp.sp_thermal_delta_t.toFixed(0)}°C`
     : '';
-  const appendixNote = appendixUnavailable ? '；提示：目前錨栓缺少 Nu 資料，附篇 D 模式將退回廠商試驗 SF 法' : '';
+  const appendixNote = appendixUnavailable ? '；提示：目前錨栓缺少 Nu 資料，規範等效服務值模式將退回廠商試驗 SF 法' : '';
   const migrationDefaultCount = Array.isArray(_projectMigrationInfo?.applied_defaults)
     ? _projectMigrationInfo.applied_defaults.length
     : 0;
@@ -9693,7 +9707,7 @@ function renderSpecRefSummary(){
   const cautions = [
     certificatePageRequested(inp) && !certificatePageEnabled(inp) ? '技師執業證書已勾選但尚未上傳。' : '',
     batchAppendixEnabled(inp) && !batchReportData() ? '敏感度分析附錄需先執行批次試算。' : '',
-    appendixUnavailable ? '錨栓缺 Nu 資料，附篇 D 模式會退回廠商試驗 SF 法。' : '',
+    appendixUnavailable ? '錨栓缺 Nu 資料，規範等效服務值模式會退回廠商試驗 SF 法。' : '',
     integrityNote && /警示|失敗|不一致/.test(integrityNote) ? integrityNote : '',
   ].filter(Boolean);
   el.textContent = `送審摘要：${selectedDesignBasisEntries(inp).length} 項設計依據、${moduleCount} 項規範模組；輸出：${outputItems.join('、') || '主文'}。正式送件前請確認規範版本、廠商型錄與專案試驗值。${cautions.length ? ` 提醒：${cautions.join(' ')}` : ''}`;
@@ -9748,7 +9762,7 @@ function regulatoryReferenceRows(inp){
       no: '3',
       topic: '錨栓拉力',
       scope: 'Ta、ψc,N、群組/邊距折減',
-      ref: selectedBasisRefText(inp, ['anchor'], '附篇 D §17.6；ACI 355.2'),
+      ref: selectedBasisRefText(inp, ['anchor'], '112 年版 §17.5.3、§17.6.2.5；ACI 355.2'),
       enabled: !!inp?.sp_anchor_on,
       basisKeys: ['anchor'],
     },
@@ -9756,7 +9770,7 @@ function regulatoryReferenceRows(inp){
       no: '4',
       topic: '錨栓剪力',
       scope: 'Va、ψc,V、群組/邊距折減',
-      ref: selectedBasisRefText(inp, ['anchor'], '附篇 D §17.7；ACI 355.2'),
+      ref: selectedBasisRefText(inp, ['anchor'], '112 年版 §17.5.3、表 17.7.2.5.1；ACI 355.2'),
       enabled: !!inp?.sp_anchor_on,
       basisKeys: ['anchor'],
     },
@@ -9764,7 +9778,7 @@ function regulatoryReferenceRows(inp){
       no: '5',
       topic: '錨栓拉剪交互',
       scope: '(Tu/Ta)^1.67 + (V/Va)^1.67 ≤ 1.0',
-      ref: selectedBasisRefText(inp, ['anchor'], '附篇 D §17.8'),
+      ref: selectedBasisRefText(inp, ['anchor'], '112 年版 §17.8.2、式 (17.8.3)'),
       enabled: !!inp?.sp_anchor_on,
       basisKeys: ['anchor'],
     },
@@ -9815,9 +9829,9 @@ function regulatoryClauseRows(inp){
   const rows = [
     { no: '①', item: '風壓與固定件', basis: selectedBasisRefText(inp, ['wind', 'steel'], SPEC_REFS.cc || '建築物耐風設計規範及解說（103 年版）'), clause: '第 2 章 / C&C 外牆區域', enabled: true, note: '風壓、角鋼彎剪、背扣螺絲／插銷需求', basisKeys: ['wind', 'steel'] },
     { no: '②', item: '非結構地震力', basis: selectedBasisRefText(inp, ['seismic'], SPEC_REFS.seismic || '建築物耐震設計規範及解說（113 年版）'), clause: '§13.5.2', enabled: true, note: `Fph、PE${inp?.sp_seis_upper_compare_on ? '、規範上限比較' : ''}、PEV`, basisKeys: ['seismic'] },
-    { no: '③', item: '錨栓拉力', basis: selectedBasisRefText(inp, ['anchor'], SPEC_REFS.anchor || '混凝土結構設計規範附篇 D'), clause: '§17.6 / D.5', enabled: !!inp?.sp_anchor_on, note: 'Ta、ψc,N、群組／邊距折減', basisKeys: ['anchor'] },
-    { no: '④', item: '錨栓剪力', basis: selectedBasisRefText(inp, ['anchor'], SPEC_REFS.anchor || '混凝土結構設計規範附篇 D'), clause: '§17.7 / D.6', enabled: !!inp?.sp_anchor_on, note: 'Va、ψc,V、群組／邊距折減', basisKeys: ['anchor'] },
-    { no: '⑤', item: '拉剪交互', basis: selectedBasisRefText(inp, ['anchor'], SPEC_REFS.anchor || '混凝土結構設計規範附篇 D'), clause: '§17.8 / D.8', enabled: !!inp?.sp_anchor_on, note: '(Tu/Ta)^1.67 + (V/Va)^1.67 ≤ 1.0', basisKeys: ['anchor'] },
+    { no: '③', item: '錨栓拉力', basis: selectedBasisRefText(inp, ['anchor'], SPEC_REFS.anchor || '建築物混凝土結構設計規範（112 年版）第 17 章'), clause: '§17.5.3 / §17.6.2.5', enabled: !!inp?.sp_anchor_on, note: 'Ta、ψc,N、群組／邊距折減', basisKeys: ['anchor'] },
+    { no: '④', item: '錨栓剪力', basis: selectedBasisRefText(inp, ['anchor'], SPEC_REFS.anchor || '建築物混凝土結構設計規範（112 年版）第 17 章'), clause: '§17.5.3 / 表 17.7.2.5.1', enabled: !!inp?.sp_anchor_on, note: 'Va、ψc,V、群組／邊距折減', basisKeys: ['anchor'] },
+    { no: '⑤', item: '拉剪交互', basis: selectedBasisRefText(inp, ['anchor'], SPEC_REFS.anchor || '建築物混凝土結構設計規範（112 年版）第 17 章'), clause: '§17.8.2 / 式 (17.8.3)', enabled: !!inp?.sp_anchor_on, note: '任一比值 ≤ 0.2 免計；否則 Tu/Ta + V/Va ≤ 1.2', basisKeys: ['anchor'] },
     { no: '⑥', item: '石材板塊', basis: selectedBasisRefText(inp, ['stone'], SPEC_REFS.stone || 'CNS 14448、CNS 6300 A1028、JASS 9'), clause: '板塊抗彎 / 局部破壞', enabled: !!(inp?.sp_panel_on || inp?.sp_dimension_on), note: '抗彎、局部破壞、厚度／面積門檻', basisKeys: ['stone'] },
     { no: '⑦', item: '孔位與固定構造幾何', basis: '規範研擬本 / 台北市規範', clause: '2.1.8、3.2.4、2.1.6、2.1.7', enabled: !!(inp?.sp_geometry_on || inp?.sp_bk2_on), note: '背擴孔／插梢孔邊距、間距、深度、兩點固定例外' },
     { no: '⑧', item: '材質與最小尺寸', basis: '台北市規範', clause: '2.2.3、2.2.4、3.2.4', enabled: !!(inp?.sp_material_on || inp?.sp_custom_anchor_on || inp?.sp_torque_on), note: 'SUS/鍍鋅要求、錨栓／插梢最小尺寸、扭力建議' },
@@ -12856,7 +12870,7 @@ function load(){
       m_anc_type:'m_anc_type',m_anc_fc:'m_anc_fc',m_anc_sf:'m_anc_sf',
       m_pin_d:'m_pin_d',m_pin_fy:'m_pin_fy',
       sp_anchor_design_mode:'sp_anchor_design_mode',sp_anchor_phi:'sp_anchor_phi',
-      sp_anchor_service_factor:'sp_anchor_service_factor',sp_anchor_aci_category:'sp_anchor_aci_category',
+      sp_anchor_service_factor:'sp_anchor_service_factor',sp_anchor_aci_category:'sp_anchor_aci_category',sp_anchor_supplementary_rebar:'sp_anchor_supplementary_rebar',
       sp_stone_grade:'sp_stone_grade',sp_stone_fb:'sp_stone_fb',sp_stone_ft:'sp_stone_ft',
       sp_panel_local_mode:'sp_panel_local_mode',sp_panel_cone_angle:'sp_panel_cone_angle',
       sp_concrete_crack:'sp_concrete_crack',sp_rebar_support:'sp_rebar_support',
