@@ -40,12 +40,33 @@ function setMetricRequired(bundle, requiredKey, completeKey, passKey, value) {
   if (passKey) bundle.reportReadinessStatus[passKey] = true;
 }
 
-const trackedAuthorization = readJson(authorizationPath);
-assert.deepEqual(trackedAuthorization, {
+const inactiveAuthorization = {
   schemaVersion: schema.REDUCTION_AUTHORIZATION_SCHEMA_VERSION,
   kind: schema.REDUCTION_AUTHORIZATION_KIND,
   active: false,
-}, 'tracked reduction authorization starts inactive and contains no reusable approval');
+};
+const trackedAuthorizationFile = readJson(authorizationPath);
+if (trackedAuthorizationFile.active !== true) {
+  assert.deepEqual(trackedAuthorizationFile, inactiveAuthorization, 'tracked reduction authorization starts inactive and contains no reusable approval');
+} else {
+  // 一次性縮減核准：只允許「對應最新公開基準、尚待使用」或「剛由最新一次發布使用、待 --reset-authorization」兩種狀態，不得沿用到其他輪次。
+  const trackedEntries = baseBundle.preflightStatus.releaseHistory.entries;
+  const latestEntry = trackedEntries.at(-1);
+  const pendingUse = trackedAuthorizationFile.previousRunId === latestEntry.runId;
+  const usedByLatest = trackedEntries.at(-2)?.runId === trackedAuthorizationFile.previousRunId
+    && JSON.stringify(latestEntry.change?.reductions || []) === JSON.stringify(trackedAuthorizationFile.reductions)
+    && latestEntry.change?.reasonCode === trackedAuthorizationFile.reasonCode
+    && latestEntry.change?.reason === trackedAuthorizationFile.reason;
+  assert.ok(pendingUse || usedByLatest, 'tracked active reduction authorization targets the latest public baseline or was used by the latest release');
+  const validation = schema.validateReductionAuthorization(
+    trackedAuthorizationFile,
+    { reductions: trackedAuthorizationFile.reductions },
+    trackedAuthorizationFile.previousRunId,
+  );
+  assert.ok(validation.pass, `tracked active reduction authorization is well-formed: ${validation.errors.join(', ')}`);
+}
+// 以下 fixture 一律以未啟用核准驗證預設阻擋行為
+const trackedAuthorization = inactiveAuthorization;
 
 const legacyBundle = clone(baseBundle);
 Object.values(legacyBundle).forEach(snapshot => { snapshot.publicEvidenceSchemaVersion = 2; });
