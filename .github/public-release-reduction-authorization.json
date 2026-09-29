@@ -1,5 +1,15 @@
 {
   "schemaVersion": 1,
   "kind": "public-release-reduction-authorization",
-  "active": false
+  "active": true,
+  "previousRunId": "20260909-161017",
+  "reasonCode": "tool-retirement",
+  "reason": "工具箱治理流程精簡，退役流程之預檢一併移除。",
+  "reductions": [
+    {
+      "id": "records",
+      "from": 91,
+      "to": 68
+    }
+  ]
 }
