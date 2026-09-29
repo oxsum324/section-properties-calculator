@@ -44,7 +44,7 @@
       schema_version: '1.0.0',
       id: 'cns_wind_107',
       scope: 'wind',
-      name: '建築物耐風設計規範及解說（107 年版）',
+      name: '建築物耐風設計規範及解說（103 年版）',
       issued: '2018-XX-XX',
       params: Object.freeze({
         I_categories: Object.freeze({ general: 1.0, important: 1.1, essential: 1.15 }),

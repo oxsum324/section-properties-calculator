@@ -117,7 +117,7 @@ assert(seenTraceIds.size >= 8, 'stone traceability catalog trace volume', `trace
 });
 
 [
-  '建築物耐風設計規範及解說（107 年版）',
+  '建築物耐風設計規範及解說（103 年版）',
   '建築物耐震設計規範及解說（113 年版）',
   '混凝土結構設計規範附篇 D',
   'CNS 14448',

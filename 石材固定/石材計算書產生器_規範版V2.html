@@ -8766,9 +8766,9 @@ function ccAdoptedWindLabel(cc){
 function ccMainLeadText(inp){
   const cc = ccReportSnapshot(inp);
   if(ccUsesTableAdopt(cc)){
-    return '先依「建築物耐風設計規範及解說（107年版）」C&C 法試算，再依高度表分別內插正、負設計風壓，詳見附件 1。';
+    return '先依「建築物耐風設計規範及解說（103年版）」C&C 法試算，再依高度表分別內插正、負設計風壓，詳見附件 1。';
   }
-  return `按照「建築物耐風設計規範及解說（107年版）」C&C 法計算${cc ? '，詳見附件 1。' : '。'}`;
+  return `按照「建築物耐風設計規範及解說（103年版）」C&C 法計算${cc ? '，詳見附件 1。' : '。'}`;
 }
 
 function ccAdoptedWindInterpolationNote(cc){
@@ -9319,7 +9319,7 @@ const DESIGN_BASIS_CONFIG = Object.freeze([
           ? '設計風壓採手動 GCp / GCpi 細算，非 C&C 自動查表。'
           : '設計風壓依委託單位指定，非依規範推算。';
       }
-      return SPEC_REFS.cc || '建築物耐風設計規範及解說（民國 107 年版）。';
+      return SPEC_REFS.cc || '建築物耐風設計規範及解說（民國 103 年版）。';
     },
   },
   {
@@ -9813,7 +9813,7 @@ function regulatoryReferenceRows(inp){
 function regulatoryClauseRows(inp){
   const labels = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
   const rows = [
-    { no: '①', item: '風壓與固定件', basis: selectedBasisRefText(inp, ['wind', 'steel'], SPEC_REFS.cc || '建築物耐風設計規範及解說（107 年版）'), clause: '第 2 章 / C&C 外牆區域', enabled: true, note: '風壓、角鋼彎剪、背扣螺絲／插銷需求', basisKeys: ['wind', 'steel'] },
+    { no: '①', item: '風壓與固定件', basis: selectedBasisRefText(inp, ['wind', 'steel'], SPEC_REFS.cc || '建築物耐風設計規範及解說（103 年版）'), clause: '第 2 章 / C&C 外牆區域', enabled: true, note: '風壓、角鋼彎剪、背扣螺絲／插銷需求', basisKeys: ['wind', 'steel'] },
     { no: '②', item: '非結構地震力', basis: selectedBasisRefText(inp, ['seismic'], SPEC_REFS.seismic || '建築物耐震設計規範及解說（113 年版）'), clause: '§13.5.2', enabled: true, note: `Fph、PE${inp?.sp_seis_upper_compare_on ? '、規範上限比較' : ''}、PEV`, basisKeys: ['seismic'] },
     { no: '③', item: '錨栓拉力', basis: selectedBasisRefText(inp, ['anchor'], SPEC_REFS.anchor || '混凝土結構設計規範附篇 D'), clause: '§17.6 / D.5', enabled: !!inp?.sp_anchor_on, note: 'Ta、ψc,N、群組／邊距折減', basisKeys: ['anchor'] },
     { no: '④', item: '錨栓剪力', basis: selectedBasisRefText(inp, ['anchor'], SPEC_REFS.anchor || '混凝土結構設計規範附篇 D'), clause: '§17.7 / D.6', enabled: !!inp?.sp_anchor_on, note: 'Va、ψc,V、群組／邊距折減', basisKeys: ['anchor'] },
@@ -11432,7 +11432,7 @@ function windAppendix(cc, inp){
   return `<div class="a4 pg-break" data-pg="arabic" data-anchor="wind">
 ${pgHd}
 <div class="doc-title">附件 1　耐風設計計算（外牆構件與外覆材 C&amp;C）</div>
-<div class="calc" style="margin-bottom:2px">依「建築物耐風設計規範及解說」（107年版）§3 C&amp;C 法。施工地點：${escapeHtml(locStr)}</div>
+<div class="calc" style="margin-bottom:2px">依「建築物耐風設計規範及解說」（103年版）§3 C&amp;C 法。施工地點：${escapeHtml(locStr)}</div>
 
 <div class="sec" style="margin-bottom:10px">
 <div class="sec-hd" style="font-size:16px;margin-bottom:5px">一、設計條件</div>

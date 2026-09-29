@@ -273,7 +273,7 @@ window.STONE_CONSTANTS = Object.freeze({
     }),
   }),
   SPEC_REFS: Object.freeze({
-    cc: '建築物耐風設計規範及解說（107 年版）',
+    cc: '建築物耐風設計規範及解說（103 年版）',
     seismic: '建築物耐震設計規範及解說（113 年版）',
     anchor: '混凝土結構設計規範附篇 D「混凝土結構用錨栓」＋ 廠商 ETA／ACI 355.2 試驗報告',
     steel: '鋼構造建築物鋼結構設計技術規範（容許應力設計法）',

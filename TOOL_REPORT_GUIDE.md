@@ -251,7 +251,7 @@ flowchart TD
 
 ### 規範版本揭露
 
-正式工具的畫面與列印計算書都要明確揭露採用規範全名與年版。風力工具目前以「建築物耐風設計規範及解說」與「107 年版」為必要字串；地震工具以「建築物耐震設計規範及解說」與「113 年版」為必要字串。
+正式工具的畫面與列印計算書都要明確揭露採用規範全名與年版。風力工具目前以「建築物耐風設計規範及解說」與「103 年版」為必要字串；地震工具以「建築物耐震設計規範及解說」與「113 年版」為必要字串。
 
 這些字串集中登記於 `formal-tools.manifest.json` 的 `reportDisclosureNeedles`。同一 manifest 的 `documentStateRequired` 要求全部正式風力 / 地震計算書透過 `core/ui/report.js` 產生一致的核可控制與 `內部審閱／正式附件` 文件狀態；頁面 readiness 只能提供工程狀態，不得把待辦明細複製進計算書。`formal-tools.contract.test.js` 檢查原始頁面與共用 renderer，`formal-browser-smoke.test.js` 則實測空白案件資料、預設內部審閱、勾選核可及輸入變更撤銷核可；若日後文件狀態規則更新，應同步更新頁面、manifest 與 golden / browser smoke，不得只改首頁文案。
 
