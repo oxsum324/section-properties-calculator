@@ -118,7 +118,13 @@ assert.throws(() => Worker.runAction('publish', { input: toolsDir }), /不支援
 assert.throws(() => Worker.runAction('check', { input: '' }), /尚未選擇附件來源/);
 
 const zipFixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-manager-zip-test-'));
-try {
+formalSourceZipFixtures: try {
+  // System32 tar.exe receives these CJK paths through the ANSI code page (cp950 on
+  // delivery workstations); skip only this ZIP block where it cannot represent them.
+  if (!ExternalTools.ansiCodePageCanRepresent(path.join(zipFixtureRoot, '核可計算書錯配名稱.formal-source.zip'))) {
+    console.log('SKIP formal-source ZIP fixtures: system ANSI code page cannot represent CJK tar arguments');
+    break formalSourceZipFixtures;
+  }
   const zipSource = path.join(zipFixtureRoot, 'source');
   fs.mkdirSync(zipSource);
   const pdfName = '核可計算書.pdf';
@@ -412,7 +418,8 @@ assert.equal(Worker.notifyProgress(() => { throw new Error('simulated progress I
 assert.equal(Worker.parseArgs(['--smoke-delay-ms', '250']).smokeDelayMs, 250);
 assert.throws(() => Worker.parseArgs(['--smoke-delay-ms', '5001']), /0 至 5000/);
 
-const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
+// Normalize checkout EOL (core.autocrlf) so source-slicing regexes match CRLF and LF alike.
+const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1').replace(/\r\n/g, '\n');
 const managerWorker = read('結構工具箱/tools/attachment-package-manager-worker.js');
 assert.match(
   managerWorker,

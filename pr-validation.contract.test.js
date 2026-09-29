@@ -30,6 +30,15 @@ assert.ok(workflow.includes('uses: actions/setup-node@v6') && workflow.includes(
 assert.ok(workflow.includes('package-manager-cache: false'), 'PR validation does not enable an unused package-manager cache');
 assert.ok(workflow.includes('uses: actions/setup-python@v6') && workflow.includes("python-version: '3.14'"), 'PR validation pins Python 3.14');
 assert.ok(workflow.includes('shell: cmd') && workflow.includes('call run-preflight-tools-ci.bat'), 'PR validation calls the clean-checkout CI wrapper');
+assert.match(workflow, /python -m pip install [^\n]*pydantic==\d+\.\d+\.\d+[^\n]*openpyxl==\d+\.\d+\.\d+/, 'PR validation installs pinned Python packages for the excavation backend handoff replay');
+for (const project of ['開挖擋土支撐/frontend', '螺栓檢討/bolt-review-tool']) {
+  assert.ok(workflow.includes(`npm ci --prefix ${project} --ignore-scripts`), `PR validation installs ${project} from its lockfile without install scripts`);
+}
+assert.match(
+  workflow,
+  /env:\s*\n\s*TEMP: \$\{\{ runner\.temp \}\}\s*\n\s*TMP: \$\{\{ runner\.temp \}\}\s*\n\s*run: call run-preflight-tools-ci\.bat/,
+  'PR validation runs preflight with a long-path TEMP so link-redirection guards do not reject the runner 8.3 short path',
+);
 assert.ok(workflow.includes('if: ${{ always() }}') && workflow.includes('uses: actions/upload-artifact@v7'), 'PR validation always uploads available evidence');
 assert.ok(workflow.includes('output/preflight/preflight-summary.json') && workflow.includes('output/preflight/history/'), 'PR validation preserves summary and history evidence');
 assert.ok(workflow.includes('if-no-files-found: warn') && workflow.includes('retention-days: 7'), 'PR evidence upload is bounded and diagnostic-safe');

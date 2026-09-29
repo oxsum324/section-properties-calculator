@@ -199,7 +199,7 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
   - 工作站 HTTP smoke 成功後另輸出機器可讀的 `pagesHttpSmokeAttemptCount`；安全發布入口只接受唯一、正整數且不超過設定上限的值，並在結果揭露 `publicArtifactVerificationAttemptCount` 與 `publicArtifactVerificationRetried`。缺少、重複或超界的嘗試次數證據一律阻擋完成。
 - Pull request validation：
   [.github/workflows/pr-validation.yml](/C:/Users/USER/Desktop/AI/小工具製作/.github/workflows/pr-validation.yml:1)
-  - 每次送往 `master` 的 PR 會在 `windows-latest` 執行 `run-preflight-tools-ci.bat` 的 clean-checkout gate，以唯讀權限、無 secrets、限時 30 分鐘的方式建立狀態檢查；無論成功或失敗都保留 7 天的 preflight summary / history artifact。CI 模式只執行不依賴 ignored audit 狀態、本機 node_modules、Python 額外套件或本機工具檔的可重現契約；完整 46 項 quick 與正式 release preflight 仍須在交付工作站執行，CI 綠燈不得取代正式放行證據。`pr-validation.contract.test.js` 會鎖住觸發條件、權限、runtime 版本、wrapper、clean-checkout 邊界與證據路徑。
+  - 每次送往 `master` 的 PR 會在 `windows-latest` 執行 `run-preflight-tools-ci.bat` 的 clean-checkout gate，以唯讀權限、無 secrets、限時 30 分鐘的方式建立狀態檢查；無論成功或失敗都保留 7 天的 preflight summary / history artifact。CI 模式只執行不依賴 ignored audit 狀態、未鎖定的本機 node_modules、未列明的 Python 套件或本機工具檔的可重現契約；workflow 會先安裝固定版本的 `pydantic`、`openpyxl`（供 `construction-stage-load-handoff` 回放開挖後端），並以 lockfile `npm ci` 安裝 `開挖擋土支撐/frontend` 與 `螺栓檢討/bolt-review-tool` 的 TypeScript 相依，且將 preflight 的 `TEMP` / `TMP` 指向 `runner.temp`，避免 runner 預設 8.3 短路徑被「不得透過連結重新導向」防護誤判；完整 46 項 quick 與正式 release preflight 仍須在交付工作站執行，CI 綠燈不得取代正式放行證據。`pr-validation.contract.test.js` 會鎖住觸發條件、權限、runtime 版本、wrapper、clean-checkout 邊界與證據路徑。
 - 局部快算工具 manifest：
   [結構工具箱/tools/local-quick-tools.manifest.json](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.manifest.json:1)
   - `地坪承載檢核（Westergaard）` 納入相對勁度半徑、內部／自由邊緣／角隅載重應力、多輪或機具腳位同點疊加、容許彎拉應力比對、6 組 golden cases、JSON 回讀及兩段式計算書；疲勞、接縫傳力與沉陷明列為頁面外責任。

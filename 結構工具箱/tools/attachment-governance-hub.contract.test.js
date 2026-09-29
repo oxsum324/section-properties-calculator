@@ -15,7 +15,8 @@ function read(relativePath) {
 }
 
 const hubPath = path.join(toolsDir, 'attachment-governance-hub.ps1');
-const hubPs = fs.readFileSync(hubPath, 'utf8');
+// Normalize checkout EOL (core.autocrlf) so source-slicing regexes match CRLF and LF alike.
+const hubPs = fs.readFileSync(hubPath, 'utf8').replace(/\r\n/g, '\n');
 [
   'System.Windows.Forms', '案件附件工作台', '選擇原則：新案組包',
   '正式附件包管理器', '案件附件治理檢視器', '舊版附件升級助手',

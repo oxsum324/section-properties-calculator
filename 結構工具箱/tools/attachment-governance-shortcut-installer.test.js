@@ -5,6 +5,7 @@ const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const ExternalTools = require('./external-tool-resolver.js');
 
 const toolsDir = __dirname;
 const repoRoot = path.resolve(toolsDir, '..', '..');
@@ -145,7 +146,7 @@ fs.mkdirSync(desktopPath);
 fs.mkdirSync(sendToPath);
 fs.mkdirSync(programsPath);
 
-try {
+shortcutFixtures: try {
   const conflictingModes = runPowerShell([
     '-File', installerPath,
     '-DesktopPath', desktopPath,
@@ -157,6 +158,13 @@ try {
   ]);
   assert.notEqual(conflictingModes.status, 0, 'check and remove modes are mutually exclusive');
   assert.match(`${conflictingModes.stdout}\n${conflictingModes.stderr}`, /不可同時使用/);
+
+  // WScript.Shell shortcuts pass the CJK target and .lnk paths through the ANSI code page
+  // (cp950 on delivery workstations); skip the install fixtures only where it cannot.
+  if (!ExternalTools.ansiCodePageCanRepresent([targetPath, path.join(desktopPath, '案件附件工作台.lnk'), path.join(sendToPath, '以附件工作台檢查.lnk')].join(path.delimiter))) {
+    console.log('SKIP shortcut install fixtures: system ANSI code page cannot represent CJK shortcut paths');
+    break shortcutFixtures;
+  }
 
   const first = runInstaller(desktopPath, sendToPath, programsPath);
   assert.equal(first.status, 0, first.stderr);
