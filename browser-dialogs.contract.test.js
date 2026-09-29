@@ -16,7 +16,13 @@ const SKIP_DIRS = new Set([
 ]);
 const SKIP_FILES = [/\.(test|spec)\.[cm]?[jt]sx?$/i];
 const EXTENSIONS = new Set(['.html', '.js', '.ts', '.tsx']);
-const CONFIRM_ALLOWLIST = new Map();
+// Reviewed confirm() calls: each guards a destructive, cancel-safe step (cancel keeps data unchanged).
+const CONFIRM_ALLOWLIST = new Map([
+  ['field-survey/app.js', 1], // delete selected photos and their marks
+  ['field-survey/cracks.js', 2], // remove one crack / reduce crack count
+  ['field-survey/detail.js', 1], // replace detail base drawing (clears added marks)
+  ['field-survey/label-editor.js', 1], // switch plan and discard unsaved label edits
+]);
 
 function assert(pass, title, detail) {
   if (!pass) throw new Error(`${title} :: ${detail}`);
