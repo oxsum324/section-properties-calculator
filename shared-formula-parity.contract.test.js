@@ -66,4 +66,22 @@ for (const group of Steel.H_SECTIONS_MM) {
   }
 }
 
+// core 型鋼尺寸／R 角與 Steel.calcProps，須與已查核的官方表列值一致
+// （SRC 教材附錄表 1-1，見 SRC工具/core/src-column-h-section-catalog.js；表列取 3 位有效數字，容許 ±0.5%）
+const SrcCatalog = require('./SRC工具/core/src-column-h-section-catalog.js');
+const coreSections = Steel.H_SECTIONS_MM.flatMap(group => group.s);
+const toMm = cm => Math.round(cm * 100) / 10;
+for (const official of SrcCatalog.SECTIONS) {
+  const d = official.dimensions;
+  const match = coreSections.find(item => item.H === toMm(d.depthCm) && item.B === toMm(d.flangeWidthCm)
+    && item.tw === toMm(d.webThicknessCm) && item.tf === toMm(d.flangeThicknessCm));
+  assert.ok(match, `官方表 ${official.name} 須存在於 core H_SECTIONS_MM`);
+  assert.equal(match.R, toMm(d.rootRadiusCm), `${official.name} R 角須與官方表一致`);
+  const props = Steel.calcProps(match);
+  const t = official.properties;
+  for (const [label, computed, tabulated] of [['A', props.A, t.areaCm2], ['Ix', props.Ix, t.ixCm4], ['Iy', props.Iy, t.iyCm4], ['Sx', props.Sx, t.sxCm3], ['Zx', props.Zx, t.zxCm3]]) {
+    assert.ok(Math.abs(computed / tabulated - 1) <= 0.005, `${official.name} ${label} 計算 ${computed.toFixed(1)} 與官方表 ${tabulated} 差異超過 0.5%`);
+  }
+}
+
 console.log(`shared formula parity contract OK (β1 implementations=${Object.keys(beta1Implementations).length + 1}, H sections=${coreNames.size}, composite=${compositeNames.length})`);
