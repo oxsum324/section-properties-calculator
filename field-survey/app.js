@@ -516,7 +516,7 @@ function unitDialog(editId = '') {
   openModal(u ? '戶別與本次進場情形' : '新增鑑定戶', `<form id="unitForm"><label>鑑定戶編號／名稱<input name="code" required maxlength="150" value="${esc(u?.code || '')}" placeholder="例如 001、A 棟公設"></label><label>地址<input name="address" maxlength="500" value="${esc(u?.address || '')}" placeholder="可於此核對實際門牌"></label>${u ? `<label>本次狀態<select name="status">${opts(UNIT_STATES)}</select></label><label>未完成範圍／無法入內原因<textarea name="reason" maxlength="10000" rows="3">${esc(u.reason)}</textarea></label><p class="micro">部分完成或無法入內請留下原因；完成狀態只表示本次紀錄進度。</p>` : ''}<div class="modal-actions"><button class="primary" type="submit">${u ? '保存戶況' : '新增戶別'}</button></div></form>`);
   if (u) $('#unitForm [name=status]').value = u.status;
   if (u) {
-    const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.textContent = '保存戶況並會勘簽認';
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.textContent = '保存戶況並開始觸控簽名';
     $('#unitForm .modal-actions').prepend(button);
     button.onclick = () => { signAfter = true; $('#unitForm').requestSubmit(); };
   }

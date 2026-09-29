@@ -40,7 +40,7 @@ export function createSignoffController(api) {
     const role = String(data.get('role')), status = String(data.get('signerStatus'));
     const signer = { id: id(), role, group: roleGroup(role), name: String(data.get('name')).trim(), org: String(data.get('org')).trim(), title: String(data.get('title')).trim(), relation: String(data.get('relation')).trim(),
       status, reason: String(data.get('signerReason')).trim(), signedAt: now(), timeZone: zone(), source: 'live' };
-    assert(signer.name, '請填簽署人姓名');
+    assert(status === 'signed' || signer.name, '拒簽、不在場或紙本紀錄請填姓名');
     assert(role !== 'proxy' || signer.relation, '代理人須填與住戶關係');
     if (status === 'refused') assert(signer.reason, '拒簽須填原因');
     if (['refused', 'absent'].includes(status)) {
@@ -63,15 +63,24 @@ export function createSignoffController(api) {
     const active = x.signers.filter(y => !y.voided);
     const defaultRole = unitId ? u?.kind === 'public' ? 'management' : 'resident' : 'contractor';
     openModal(unitId ? `${u.code} · 會勘簽認` : '本批次會同人員簽到', `<p>案號：${esc(p.code)}　${unitId ? `戶別：${esc(u.code)} · ${esc(u.address)}` : `批次：${esc(p.visits.find(v => v.id === visitId).name)}`}</p>
+      <p class="modal-note">確認下方資料後，向下滑按「交付手機開始觸控簽名」。觸控簽名不必輸入姓名。</p>
       ${changed ? '<p class="modal-note danger-text">簽署後紀錄有更動，請核對簽署時的範圍與目前內容。</p>' : ''}
       <p class="micro">簽署時摘要：${x.summary.records} 處紀錄、${x.summary.photos} 張採用照片、${x.summary.spaces.map(esc).join('、') || '尚無空間'}；待補 ${x.summary.pending} 項。</p>
-      <div class="signoff-existing">${active.map(y => `<div class="panel">${esc(y.name)} · ${esc(SIGNER_ROLES[y.role])} · ${esc(SIGNER_STATUSES[y.status])}　<small>${esc(y.signedAt)}</small><button type="button" data-void-signer="${esc(y.id)}" class="quiet">作廢</button></div>`).join('') || '<p>尚未簽認。</p>'}</div>
+      <div class="signoff-existing">${active.map(y => `<div class="panel">${esc(y.name || '姓名未另填')} · ${esc(SIGNER_ROLES[y.role])} · ${esc(SIGNER_STATUSES[y.status])}　<small>${esc(y.signedAt)}</small><button type="button" data-void-signer="${esc(y.id)}" class="quiet">作廢</button></div>`).join('') || '<p>尚未簽認。</p>'}</div>
       <form id="signoffForm"><div class="two-col"><label>本戶會勘日期<input type="date" name="date" value="${esc(x.date)}" required></label><label>天氣<select name="weather"><option value="">未記錄</option>${['晴', '陰', '雨', '其他'].map(v => `<option value="${v}" ${x.weather === v ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
       <label>本次狀態<select name="status">${Object.entries(UNIT_STATES).map(([v, t]) => `<option value="${v}" ${x.status === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label><label>未完成／無法入內原因<textarea name="reason" rows="2">${esc(x.reason)}</textarea></label><label>本次會勘範圍<textarea name="scope" rows="2">${esc(x.scope)}</textarea></label>
       <div class="statement-preview"><strong>簽署前聲明</strong><p>${esc(x.statement.text)}</p></div><p class="micro">建議完成紀錄後再簽。若先簽，表單會列出簽署時待補項目。</p>
-      <label>簽署人角色<select name="role">${Object.entries(SIGNER_ROLES).filter(([key]) => unitId || !['resident', 'proxy', 'management'].includes(key)).map(([v, t]) => `<option value="${v}" ${v === defaultRole ? 'selected' : ''}>${t}</option>`).join('')}</select></label><label>姓名<input name="name" required maxlength="200" autocomplete="off"></label><div class="two-col"><label>單位<input name="org" maxlength="200"></label><label>職稱<input name="title" maxlength="200"></label></div><label>與住戶關係（代理人必填）<input name="relation" maxlength="200"></label>
-      <label>簽認方式<select name="signerStatus">${Object.entries(SIGNER_STATUSES).map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>${profile ? '<label class="check-label"><input name="useProfile" type="checkbox">鑑定人員使用裝置預存簽名（只適用鑑定人員，表上會註明）</label>' : ''}<label>拒簽原因<input name="signerReason" maxlength="500"></label><label>紙本簽章照片<input name="paper" type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" capture="environment"></label><p class="micro">拒簽、不在場須先由鑑定人員在本表簽名見證。紙本簽章照片只存於本機案件與匯出的案件檔。</p><button type="submit" class="primary full">下一步：簽名／保存紀錄</button></form>
+      <label>簽署人角色<select name="role">${Object.entries(SIGNER_ROLES).filter(([key]) => unitId || !['resident', 'proxy', 'management'].includes(key)).map(([v, t]) => `<option value="${v}" ${v === defaultRole ? 'selected' : ''}>${t}</option>`).join('')}</select></label><label><span id="signoffNameLabel">姓名（觸控簽名選填，可直接簽）</span><input name="name" maxlength="200" autocomplete="off"></label><div class="two-col"><label>單位<input name="org" maxlength="200"></label><label>職稱<input name="title" maxlength="200"></label></div><label>與住戶關係（代理人必填）<input name="relation" maxlength="200"></label>
+      <label>簽認方式<select name="signerStatus">${Object.entries(SIGNER_STATUSES).map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>${profile ? '<label class="check-label"><input name="useProfile" type="checkbox">鑑定人員使用裝置預存簽名（只適用鑑定人員，表上會註明）</label>' : ''}<label>拒簽原因<input name="signerReason" maxlength="500"></label><label>紙本簽章照片<input name="paper" type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" capture="environment"></label><p class="micro">拒簽、不在場須先由鑑定人員在本表簽名見證。紙本簽章照片只存於本機案件與匯出的案件檔。</p><button type="submit" class="primary full">交付手機開始觸控簽名</button></form>
       <div class="choice-chips"><button type="button" id="blankSignoff">空白簽認單</button>${x.signers.length ? '<button type="button" id="exportSignoff">預覽／匯出簽認單</button>' : ''}</div>`);
+    const updateSignerMode = () => {
+      const signed = $('#signoffForm [name=signerStatus]').value === 'signed';
+      $('#signoffForm [name=name]').required = !signed;
+      $('#signoffNameLabel').textContent = signed ? '姓名（選填，可直接觸控簽名）' : '姓名（此紀錄必填）';
+      $('#signoffForm button[type=submit]').textContent = signed ? '交付手機開始觸控簽名' : '保存簽認紀錄';
+    };
+    $('#signoffForm [name=signerStatus]').onchange = updateSignerMode;
+    updateSignerMode();
     $('#signoffForm').onsubmit = event => {
       event.preventDefault();
       const draft = clone(x);
@@ -79,7 +88,7 @@ export function createSignoffController(api) {
         const signer = snapshotForm(draft), file = $('#signoffForm [name=paper]').files[0];
         if (signer.status === 'signed' && $('#signoffForm [name=useProfile]')?.checked) action(async () => {
           assert(signer.group === 'surveyor' && p.signingSettings?.allowProfileSignature && profile, '預存簽名只供已啟用的鑑定人員使用');
-          const asset = await assetFromBlob(profile.blob, `${signer.name}-預存簽名.png`, 'signature');
+          const asset = await assetFromBlob(profile.blob, `${signer.name || SIGNER_ROLES[signer.role]}-預存簽名.png`, 'signature');
           signer.mediaId = asset.meta.id; signer.strokes = clone(profile.strokes); signer.source = 'profile'; draft.signers.push(signer);
           await persist(draft, asset); closeModal(true); await render(); await open(unitId, visitId, date);
         });
@@ -119,7 +128,7 @@ export function createSignoffController(api) {
     const p = getProject(), s = p.signingSettings || { statement: { resident: '', attendee: '' }, attendeePolicy: 'visit-sheet', allowProfileSignature: false };
     const existing = (p.signoffs || []).flatMap(x => x.signers.filter(y => y.group === 'surveyor' && y.status === 'signed' && y.source === 'live' && !y.voided).map(y => ({ y, x })));
     const profile = await getProfileSignature();
-    openModal('會勘簽認設定', `<form id="signoffSettings"><label>住戶側聲明<textarea name="resident" rows="5" required>${esc(s.statement.resident)}</textarea></label><label>會同人員聲明<textarea name="attendee" rows="4" required>${esc(s.statement.attendee)}</textarea></label><label>會同人員簽認方式<select name="attendeePolicy"><option value="visit-sheet" ${s.attendeePolicy === 'visit-sheet' ? 'selected' : ''}>每批次每日簽到一次</option><option value="per-unit" ${s.attendeePolicy === 'per-unit' ? 'selected' : ''}>每戶重簽</option></select></label><label class="check-label"><input name="allowProfileSignature" type="checkbox" ${s.allowProfileSignature ? 'checked' : ''}>允許鑑定人員使用本裝置預存簽名</label><button class="primary" type="submit">保存簽認設定</button></form><hr><p>本裝置預存簽名：${profile ? esc(profile.updatedAt) : '尚無'}。先在本案親簽一次，再選擇下方簽名存到本裝置；其他案件可使用，但不會隨程式發布。</p>${existing.length ? `<label>選擇已親簽的鑑定人員<select id="profileSource">${existing.map(({ y }) => `<option value="${esc(y.id)}">${esc(y.name)} · ${esc(y.signedAt)}</option>`).join('')}</select></label><button id="saveSignatureProfile" class="secondary">存為本裝置預存簽名</button>` : '<p class="micro">本案尚無鑑定人員親簽。</p>'}`);
+    openModal('會勘簽認設定', `<form id="signoffSettings"><label>住戶側聲明<textarea name="resident" rows="5" required>${esc(s.statement.resident)}</textarea></label><label>會同人員聲明<textarea name="attendee" rows="4" required>${esc(s.statement.attendee)}</textarea></label><label>會同人員簽認方式<select name="attendeePolicy"><option value="visit-sheet" ${s.attendeePolicy === 'visit-sheet' ? 'selected' : ''}>每批次每日簽到一次</option><option value="per-unit" ${s.attendeePolicy === 'per-unit' ? 'selected' : ''}>每戶重簽</option></select></label><label class="check-label"><input name="allowProfileSignature" type="checkbox" ${s.allowProfileSignature ? 'checked' : ''}>允許鑑定人員使用本裝置預存簽名</label><button class="primary" type="submit">保存簽認設定</button></form><hr><p>本裝置預存簽名：${profile ? esc(profile.updatedAt) : '尚無'}。先在本案親簽一次，再選擇下方簽名存到本裝置；其他案件可使用，但不會隨程式發布。</p>${existing.length ? `<label>選擇已親簽的鑑定人員<select id="profileSource">${existing.map(({ y }) => `<option value="${esc(y.id)}">${esc(y.name || '姓名未另填')} · ${esc(y.signedAt)}</option>`).join('')}</select></label><button id="saveSignatureProfile" class="secondary">存為本裝置預存簽名</button>` : '<p class="micro">本案尚無鑑定人員親簽。</p>'}`);
     $('#signoffSettings').onsubmit = event => { event.preventDefault(); action(async () => {
       const form = new FormData($('#signoffSettings'));
       await commit(next => { next.signingSettings = { ...next.signingSettings, statement: { resident: String(form.get('resident')).trim(), attendee: String(form.get('attendee')).trim() }, attendeePolicy: String(form.get('attendeePolicy')), allowProfileSignature: form.has('allowProfileSignature'), surveyors: next.signingSettings?.surveyors || [] }; });
@@ -167,14 +176,14 @@ export function createSignoffController(api) {
     const host = $('#signoffHandoff'); overlay = host;
     host.hidden = false; $('#app').inert = true;
     host.requestFullscreen?.().catch?.(() => {});
-    host.innerHTML = `<div class="signoff-handoff-body"><h1>${esc(p.code)} · ${esc(u?.code || '批次簽到')}</h1><p>${esc(draft.date)} · ${esc(draft.scope || '本次會勘範圍如前頁')}</p><p>${esc(draft.statement.text)}</p><p class="micro">簽名與姓名僅用於本案現況鑑定紀錄，隨案件資料保存於本裝置，不會上傳。觸控簽名不是數位簽章。</p><h2>${esc(signer.name)} · ${esc(SIGNER_ROLES[signer.role])}</h2><p id="signoffTurnHint" class="micro">請在下方簽名；橫放手機較方便，直放仍可簽。</p><canvas id="signoffCanvas" aria-label="手寫簽名區"></canvas><p id="signoffDrawError" role="alert"></p><div class="choice-chips"><button id="signoffClear" class="secondary">清除重簽</button><button id="signoffSave" class="primary">確認簽名</button></div></div>`;
+    host.innerHTML = `<div class="signoff-handoff-body"><h1>${esc(p.code)} · ${esc(u?.code || '批次簽到')}</h1><p>${esc(draft.date)} · ${esc(draft.scope || '本次會勘範圍如前頁')}</p><p>${esc(draft.statement.text)}</p><p class="micro">本次簽名資料僅用於本案現況鑑定紀錄，保存在本裝置，不會上傳。觸控簽名不是數位簽章。</p><h2>${esc([signer.name, SIGNER_ROLES[signer.role]].filter(Boolean).join(' · '))}</h2><p id="signoffTurnHint" class="micro">請在下方簽名；橫放手機較方便，直放仍可簽。</p><canvas id="signoffCanvas" aria-label="手寫簽名區"></canvas><p id="signoffDrawError" role="alert"></p><div class="choice-chips"><button id="signoffClear" class="secondary">清除重簽</button><button id="signoffSave" class="primary">確認簽名</button></div></div>`;
     drawing = createDrawing($('#signoffCanvas'));
     $('#signoffClear').onclick = () => drawing.clear();
     $('#signoffSave').onclick = async () => {
       if (!drawing.valid()) { $('#signoffDrawError').textContent = '筆跡過短，請重新簽名。'; return; }
       $('#signoffSave').disabled = true;
       try {
-        const blob = await drawing.png(), asset = await assetFromBlob(blob, `${signer.name}-簽名.png`, 'signature');
+        const blob = await drawing.png(), asset = await assetFromBlob(blob, `${signer.name || SIGNER_ROLES[signer.role]}-簽名.png`, 'signature');
         signer.mediaId = asset.meta.id; signer.strokes = drawing.data(); draft.signers.push(signer);
         await persist(draft, asset);
         host.innerHTML = '<div class="signoff-handoff-body signoff-saved"><h1>簽名已保存</h1><p>請將手機交還鑑定人員。</p><button id="signoffReturn" class="primary">長按 1.5 秒：交還確認</button></div>';

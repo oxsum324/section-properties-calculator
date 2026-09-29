@@ -5,7 +5,7 @@ let database;
 export async function openStore() {
   if (database) return database;
   // A version upgrade prevents older windows from overwriting signature records.
-  const req = indexedDB.open('condition-survey-v1', 17);
+  const req = indexedDB.open('condition-survey-v1', 18);
   req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups', 'profile', 'templates']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   // Another window (a background tab or the home-screen app) can keep the old database open and block
   // the version upgrade; never hang silently, say what to close.

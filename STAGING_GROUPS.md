@@ -540,6 +540,8 @@ Schema v27 RC STM 補充正式附件：深梁、基礎深梁與樁帽三維 STM 
 
 V0.30.0 會勘簽認階段 A：`field-survey/signoff.js`、`signoff-ui.js` 與現有紀錄、備份、附件頁碼整合；新 runtime 要進 `sw.js` 和 `release.mjs`。資料庫及備份格式 17，舊案件檔仍可讀；更新前關閉其他開著的舊視窗。`結構工具箱/tools/build-pages-artifact.js` 與 `pages-release-governance.contract.test.js` 同批檢查簽認 HTML、簽名資料包、範本 JSON 的改名私密輸出。發布只含程式，簽認案例及 PNG 均留在私有案件與 `output/`。實體 iPhone／Android 檢核待使用者試用，不得以模擬標記完成。
 
+V0.30.1 調整觸控簽名入口與姓名選填。IndexedDB 及 `.csurvey` 版本 18，讀取 1～17；以 V0.30.0 實際已發布提交做升級來源，確認舊視窗拒寫、舊案件保存與離線更新。公開成品仍只疊加 `field-survey/` 執行檔；使用者簽名資料不進 Pages。
+
 ## 現況鑑定現場紀錄 V0.7.0
 
 本次包含 `field-survey/report.js`、`report-ui.js` 與 `tests/report-browser.js`：U 型裂縫條數不列總長、磁磚塊數、房間整理、各照片機位與主照片／附件選片、同步流水號與獨立 HTML／列印 PDF。新備份版本 3，資料庫版本 3，舊資料保留。另同步 `結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/pages-live-smoke.js` 及 `pages-release-governance.contract.test.js`；附件 HTML 與 JSON 編號對照是私人案件輸出，不得發布。公開只有產生附件的程式。

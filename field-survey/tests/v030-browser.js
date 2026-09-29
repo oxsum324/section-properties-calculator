@@ -26,8 +26,11 @@ export async function verifyV030(browser, base, out) {
       const u = m.newUnit('A101', '測試地址'); p.units.push(u); await s.saveProject(p, 0);
     });
     await page.reload(); await page.locator('#unitSignoff').waitFor();
+    assert.match(await page.locator('#unitSignoff').textContent(), /開始觸控簽名/);
     await clickSurvey(page, '#unitSignoff');
-    await page.locator('#signoffForm [name=name]').fill('測試住戶');
+    assert.equal(await page.locator('#signoffForm [name=name]').evaluate(el => el.required), false);
+    assert.match(await page.locator('#signoffForm button[type=submit]').textContent(), /交付手機開始觸控簽名/);
+    await page.screenshot({ path: path.join(out, 'v0.30-signoff-start-mobile.png') });
     await clickSurvey(page, '#signoffForm button[type=submit]');
     await page.locator('#signoffCanvas').waitFor();
     assert.equal(await page.locator('#app').evaluate(el => el.inert), true, 'handoff locks the main interface');
@@ -47,12 +50,13 @@ export async function verifyV030(browser, base, out) {
       const multiProject = structuredClone(p); multiProject.signoffs[0].signers = many.signers; multiProject.signoffs[0].snapshotHash = await m.signoffHash(multiProject, multiProject.signoffs[0]);
       const multiAttachment = await r.renderAttachment(multiProject, get, { format: 'standard', includeEmpty: true, includeSignoffs: true });
       const backup = await b.readBundle((await b.makeBundle(p, get)).blob);
-      return { html, signers: x.signers.length, kind: asset.blob.type, imageSize: asset.blob.size, pngSize: png.size, multiPages: (manyHtml.match(/class="sheet"/g) || []).length, multiPNGs: manyPNGs.length, multiAttachmentPages: multiAttachment.index.sections.filter(x => x.type === 'signoff-sheet').length, meta: html.includes('condition-survey-private" content="signoff"'), attachment: attachment.html.includes('signoff-sheet'), sections: attachment.index.sections.map(x => x.type), backupVersion: backup.manifest.version, equal: JSON.stringify(backup.project) === JSON.stringify(p) };
+      return { html, unnamed: x.signers[0].name === '', signers: x.signers.length, kind: asset.blob.type, imageSize: asset.blob.size, pngSize: png.size, multiPages: (manyHtml.match(/class="sheet"/g) || []).length, multiPNGs: manyPNGs.length, multiAttachmentPages: multiAttachment.index.sections.filter(x => x.type === 'signoff-sheet').length, meta: html.includes('condition-survey-private" content="signoff"'), attachment: attachment.html.includes('signoff-sheet'), sections: attachment.index.sections.map(x => x.type), backupVersion: backup.manifest.version, equal: JSON.stringify(backup.project) === JSON.stringify(p) };
     });
     assert.equal(result.signers, 1); assert.equal(result.kind, 'image/png'); assert(result.imageSize > 0 && result.pngSize > 0);
     assert.equal(result.multiPages, 3); assert.equal(result.multiPNGs, 3); assert.equal(result.multiAttachmentPages, 2);
+    assert(result.unnamed && result.html.includes('姓名：未另填'));
     assert(result.meta && result.attachment && result.sections.includes('signoff-sheet'));
-    assert.equal(result.backupVersion, 17); assert(result.equal);
+    assert.equal(result.backupVersion, 18); assert(result.equal);
     await page.locator('#signoffForm [name=role]').selectOption('surveyor');
     await page.locator('#signoffForm [name=name]').fill('甲技師');
     await clickSurvey(page, '#signoffForm button[type=submit]'); await signAndReturn(page);

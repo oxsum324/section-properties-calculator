@@ -78,13 +78,13 @@ async function signoffHTMLPage(p, x, getMedia, { blank = false, changed = false,
         image = `<img src="data:${asset.blob.type};base64,${btoa(binary)}" alt="${esc(y.name)}${y.status === 'paper' ? '紙本簽章照片' : '簽名'}">`;
       }
       const note = y.status === 'refused' ? `住戶當場表示不願簽名，由鑑定人員記載如上。原因：${y.reason}` : y.status === 'absent' ? '本次會勘住戶未在場或未能簽名，由鑑定人員記載如上。' : y.status === 'paper' ? '紙本簽章，原件照片存於案件備份。' : y.source === 'profile' ? '（預存簽名）' : '';
-      cells.push(`<div class="signer"><div class="ink">${image}</div><div>${esc(y.name)}　${esc(SIGNER_ROLES[y.role])}${y.relation ? '（' + esc(y.relation) + '）' : ''}</div><small>${esc([y.org, y.title, y.signedAt].filter(Boolean).join(' · '))}</small><small>${esc(note)}</small></div>`);
+      cells.push(`<div class="signer"><div class="ink">${image}</div><div>姓名：${esc(y.name || '未另填')}　${esc(SIGNER_ROLES[y.role])}${y.relation ? '（' + esc(y.relation) + '）' : ''}</div><small>${esc([y.org, y.title, y.signedAt].filter(Boolean).join(' · '))}</small><small>${esc(note)}</small></div>`);
     }
     if (blank || !cells.length) cells.push('<div class="signer"><div class="ink"></div><div>姓名：＿＿＿＿＿＿　簽名／蓋章：＿＿＿＿＿＿</div></div>');
     return `<section class="signer-group"><h2>${SIGNER_GROUPS[group]}</h2><div class="signers">${cells.join('')}</div></section>`;
   };
   const groups = await Promise.all(Object.keys(SIGNER_GROUPS).map(signerHTML));
-  const visitAttendees = (p.signoffs || []).filter(v => v.level === 'visit' && v.visitId === x.visitId && v.date === x.date).flatMap(v => v.signers.filter(y => y.group === 'attendee' && !y.voided && y.status === 'signed').map(y => y.name));
+  const visitAttendees = (p.signoffs || []).filter(v => v.level === 'visit' && v.visitId === x.visitId && v.date === x.date).flatMap(v => v.signers.filter(y => y.group === 'attendee' && !y.voided && y.status === 'signed').map(y => y.name || `${SIGNER_ROLES[y.role]}（姓名未另填）`));
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="condition-survey-private" content="signoff"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'"><title>${esc(p.code)} ${esc(fields['unit.code'])} 會勘簽認單</title><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif;color:#111;margin:0;background:#eee}.sheet{width:210mm;min-height:297mm;margin:auto;background:white;padding:10mm;page-break-after:always;display:flex;flex-direction:column}h1{text-align:center;font-size:18pt;margin:2mm 0 4mm}h2{font-size:11pt;margin:2mm 0 1mm}table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:1mm;text-align:left;font-size:9pt}th{width:34mm;background:#f5f5f5}.statement{border:1px solid #555;padding:2mm;margin:2mm 0;white-space:pre-wrap;font-size:9pt}.signers{display:flex;flex-wrap:wrap;gap:3mm}.signer{border:1px solid #888;width:48%;min-height:22mm;padding:1.5mm;font-size:8pt}.ink{height:12mm}.ink img{max-width:100%;max-height:100%;object-fit:contain}.signer small{display:block}footer{margin-top:auto;padding-top:2mm;font-size:8pt;color:#555}@media print{body{background:white}.sheet{margin:0;padding:0;width:auto;min-height:273mm}}</style></head><body><article class="sheet"><h1>建築物現況會勘簽認單</h1><p>案號：${esc(p.code)}　案名：${esc(p.name)}</p><table>${entries}</table><p>簽署時本戶待補 ${x.summary.pending} 項${x.summary.inaccessible ? `；無法觀察位置 ${x.summary.inaccessible} 處` : ''}。</p><div class="statement">${esc(x.statement.text)}</div>${groups.join('')}${visitAttendees.length ? `<p>當日會同人員：${esc(visitAttendees.join('、'))}；詳 ${esc(x.date)} 簽到表。</p>` : ''}${changed ? '<p>簽署後紀錄有更動，請核對案件紀錄。</p>' : ''}<footer>簽認識別短碼：${esc(fields['signoff.code'])}　｜　觸控簽名，非數位簽章　｜　第 ${page} 頁</footer></article></body></html>`;
 }
 export async function signoffHTML(p, x, getMedia, options = {}) {
@@ -137,7 +137,7 @@ export async function signoffPNG(p, x, getMedia, { blank = false, changed = fals
         ctx.drawImage(bitmap, left + 12, y + 5 + (86 - bitmap.height * scale) / 2, bitmap.width * scale, bitmap.height * scale);
         bitmap.close();
       }
-      font(21); ctx.fillText(`${signer.name}　${SIGNER_ROLES[signer.role] || ''}　${signer.relation || ''}`, 520, y + 38);
+      font(21); ctx.fillText(`姓名：${signer.name || '未另填'}　${SIGNER_ROLES[signer.role] || ''}　${signer.relation || ''}`, 520, y + 38);
       font(17); for (const part of wrap(`${signer.signedAt || ''}　${signer.status === 'refused' ? '拒簽：' + signer.reason : signer.status === 'absent' ? '不在場' : signer.status === 'paper' ? '紙本簽章' : ''}`, 625)) ctx.fillText(part, 520, y + 73);
       y += 124;
     }

@@ -69,14 +69,14 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
         if (x) {
           const changed = x.sourceChanged || x.recordsDigest !== await recordsDigest(project, x.unitId, x.visitId);
           const visitAttendees = (project.signoffs || []).filter(v => v.level === 'visit' && v.visitId === x.visitId && v.date === x.date)
-            .flatMap(v => v.signers.filter(y => y.group === 'attendee' && y.status === 'signed' && !y.voided).map(y => y.name));
+            .flatMap(v => v.signers.filter(y => y.group === 'attendee' && y.status === 'signed' && !y.voided).map(y => y.name || '會同人員（姓名未另填）'));
           const participants = x.signers.filter(y => !y.voided);
           const chunks = participants.length ? Array.from({ length: Math.ceil(participants.length / 4) }, (_, i) => participants.slice(i * 4, i * 4 + 4)) : [[]];
           for (const [i, batch] of chunks.entries()) {
             const cards = [];
             for (const y of batch) {
               const src = y.status === 'signed' ? await encodeSignature(y.mediaId) : y.status === 'paper' ? await encodeSignature(y.mediaId, 'image') : '';
-              cards.push(`<div class="signoff-card"><div class="signoff-ink">${src ? `<img src="${src}" alt="${e(y.name)}${y.status === 'paper' ? '紙本簽章照片' : '簽名'}">` : ''}</div><div>${e(y.name)}　${e(y.role)}　${e(y.relation || '')}</div><small>${e(y.signedAt || '')}　${y.status === 'refused' ? '拒簽：' + e(y.reason) : y.status === 'absent' ? '不在場' : y.status === 'paper' ? '紙本簽章照片' : ''}</small></div>`);
+              cards.push(`<div class="signoff-card"><div class="signoff-ink">${src ? `<img src="${src}" alt="${e(y.name || '姓名未另填')}${y.status === 'paper' ? '紙本簽章照片' : '簽名'}">` : ''}</div><div>姓名：${e(y.name || '未另填')}　${e(y.role)}　${e(y.relation || '')}</div><small>${e(y.signedAt || '')}　${y.status === 'refused' ? '拒簽：' + e(y.reason) : y.status === 'absent' ? '不在場' : y.status === 'paper' ? '紙本簽章照片' : ''}</small></div>`);
             }
             add(unit, `<h2>建築物現況會勘簽認單${i ? '（續）' : ''}</h2><p>會勘日期：${e(x.date)}　天氣：${e(x.weather)}　狀態：${e(UNIT_STATES[x.status] || '')}</p><p>本次範圍：${e(x.scope)}　原因：${e(x.reason)}</p><p>簽署時：${x.summary.records} 處紀錄、${x.summary.photos} 張採用照片、${x.summary.pending} 項待補。</p>${changed ? '<p class="signoff-changed">簽署後紀錄有更動，請核對案件紀錄。</p>' : ''}${i ? '' : `<p class="signoff-statement">${e(x.statement.text)}</p>${visitAttendees.length ? `<p>當日會同人員：${e(visitAttendees.join('、'))}；詳 ${e(x.date)} 簽到表。</p>` : ''}`}<div class="signoff-grid">${cards.join('') || '<p>尚無簽署人</p>'}</div><p>簽認識別短碼：${e(x.snapshotHash.slice(0, 8))}　｜　觸控簽名，非數位簽章</p>`, 'signoff-sheet', { signoffId: x.id });
           }

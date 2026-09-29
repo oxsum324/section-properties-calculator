@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.30.0';
+export const VERSION = '0.30.1';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -445,7 +445,7 @@ function validateSignoffs(p, units, visits, meta) {
         (y.group === 'attendee' && ['contractor', 'supervisor', 'owner', 'other'].includes(y.role)) ||
         (y.group === 'surveyor' && y.role === 'surveyor'), '簽署人群組不正確');
       for (const key of ['name', 'org', 'title', 'relation', 'reason', 'signedAt', 'timeZone']) text(y[key], key, 500);
-      assert(y.name.trim() && (!['signed', 'paper'].includes(y.status) || Number.isFinite(Date.parse(y.signedAt))), '簽署人姓名或時間不正確');
+      assert((y.status === 'signed' || y.name.trim()) && (!['signed', 'paper'].includes(y.status) || Number.isFinite(Date.parse(y.signedAt))), '簽署人姓名或時間不正確');
       assert(y.role !== 'proxy' || y.relation.trim(), '代理人須填與住戶關係');
       if (y.status === 'signed') {
         assert(meta.get(y.mediaId)?.kind === 'signature', '簽名影像關聯遺失');
