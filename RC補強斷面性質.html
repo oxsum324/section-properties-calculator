@@ -517,6 +517,7 @@
 </div>
 
 <script src="結構工具箱/core/ui/report.js"></script>
+<script src="結構工具箱/core/materials/concrete.js"></script>
 <script src="鋼筋混凝土/shared/common.js"></script>
 <script src="鋼筋混凝土/shared/report.js?v=8"></script>
 <script>
@@ -1042,14 +1043,12 @@ function Vf_frp(n, tf_cm, wf_cm, Ef_ksc, eps_fe, alpha_deg, dfv_cm, sf_cm) {
 
 // ============ 共用：混凝土 β1、Ec ============
 function beta1(fc_ksc) {
-  // 112 規範：fc' ≤ 280 kgf/cm² → 0.85；280 < fc' ≤ 560 → 線性內插至 0.65；> 560 → 0.65
-  if (fc_ksc <= 280) return 0.85;
-  if (fc_ksc >= 560) return 0.65;
-  return 0.85 - 0.05 * (fc_ksc - 280) / 70;
+  // 112 規範 β1：統一取自 結構工具箱/core/materials/concrete.js
+  return Concrete.calcBeta1(fc_ksc);
 }
 function Ec_ksc(fc_ksc) {
-  // 112 規範 19.2.2：Ec = 12000·√fc'  (kgf/cm²)
-  return 12000 * Math.sqrt(fc_ksc);
+  // 112 規範 19.2.2 Ec = 12000·√fc'：統一取自 結構工具箱/core/materials/concrete.js
+  return Concrete.calcEc(fc_ksc);
 }
 
 // ============ ACI 440.2R-17 — εfd 脫層應變 ============

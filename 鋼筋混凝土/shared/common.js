@@ -13,7 +13,8 @@
 window.PHI           = window.PHI           || window.Concrete?.PHI           || {};
 window.FC_OPTIONS    = window.FC_OPTIONS    || window.Concrete?.FC_OPTIONS    || [210, 245, 280, 350, 420, 490, 560];
 window.LAMBDA_NORMAL = window.LAMBDA_NORMAL || window.Concrete?.LAMBDA_NORMAL || 1.0;
-window.calcBeta1     = window.calcBeta1     || window.Concrete?.calcBeta1     || (fc => 0.85);
+// β1 不設常數備援：未載入 core/materials/concrete.js 時直接報錯，避免 fc' > 280 靜默採用 0.85。
+window.calcBeta1     = window.calcBeta1     || window.Concrete?.calcBeta1     || (() => { throw new Error('calcBeta1 需先載入 結構工具箱/core/materials/concrete.js'); });
 window.calcEc        = window.calcEc        || window.Concrete?.calcEc        || (fc => 12000 * Math.sqrt(fc));
 
 window.REBAR_TABLE   = window.REBAR_TABLE   || window.Rebar?.REBAR_TABLE || {};

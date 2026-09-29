@@ -23,8 +23,11 @@ for (const wiring of requiredFormalWiring) {
 const coreStart = formalPageSource.indexOf('function Vc_beam_ksc');
 const coreEnd = formalPageSource.indexOf('// ============ 梁主計算', coreStart);
 if (coreStart < 0 || coreEnd <= coreStart) throw new Error('rc-retrofit-production-core-boundary-drift');
-const context = { Math };
+const concreteCorePath = path.resolve(__dirname, '../../core/materials/concrete.js');
+const context = { Math, window: {} };
 vm.createContext(context);
+vm.runInContext(fs.readFileSync(concreteCorePath, 'utf8'), context, { filename:concreteCorePath });
+context.Concrete = context.window.Concrete;
 vm.runInContext(`${formalPageSource.slice(coreStart, coreEnd)}\nthis.__production = { Vc_beam_ksc, Vc_col_ksc, Vs_stirrup, Vf_frp, beta1, Ec_ksc, epsilon_fd, activeBondLength_mm, kappaV_shear, pmCurvePoints, findMnAtP, solveBeamMn, uncrackedTransSection, crackedTransSection };`, context, { filename:formalPagePath });
 const Production = context.__production;
 
