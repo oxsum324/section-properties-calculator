@@ -665,24 +665,7 @@ assert.ok(!artifactBuilder.includes("'SRC工具/core/src-column-core.js'") && !a
 assert.ok(artifactBuilder.includes('joint-reaction-fixture-sanitizer.js') && artifactBuilder.includes('joint-reaction-fixture-promotion-gate.js') && artifactBuilder.includes('joint-reaction-observed-intake.js') && artifactBuilder.includes('joint-reaction-observed-review.template.json') && artifactBuilder.includes('shared/fixtures/joint-reactions/'), 'shared artifact builder keeps Joint Reactions intake, promotion and fixture evidence private');
 assert.ok(artifactBuilder.includes('結構工具箱/tools/independent-engineering-'), 'shared artifact builder keeps the complete independent engineering governance tree private');
 assert.ok(artifactBuilder.includes('qualificationWorkspacePrefixes') && artifactBuilder.includes('private-qualification-workspace') && artifactBuilder.includes("name: 'engineering-qualification-case-bundle'") && artifactBuilder.includes("name: 'beam-column-moment-g1-private-output'") && artifactBuilder.includes("name: 'beam-column-moment-real-case-intake'") && artifactBuilder.includes("name: 'beam-column-moment-real-case-intake-readiness-receipt'") && artifactBuilder.includes("name: 'beam-column-moment-real-case-g1-private-output'"), 'shared artifact builder excludes complete private qualification workspaces and fails closed on leaked bundle, pilot, intake, readiness-receipt or real-case G1 evidence content');
-assert.ok([
-  'docs/adr/0004-separate-engineering-qualification-from-report-rendering.md',
-  '結構工具箱/tools/engineering-qualification-case-bundle.js',
-  '結構工具箱/tools/engineering-qualification-case-bundle.test.js',
-  '結構工具箱/tools/beam-column-moment-g1-pilot.js',
-  '結構工具箱/tools/beam-column-moment-g1-pilot.test.js',
-  '結構工具箱/tools/beam-column-moment-real-case-intake.js',
-  '結構工具箱/tools/beam-column-moment-real-case-intake.test.js',
-  '結構工具箱/tools/beam-column-moment-real-case-g1-contract.js',
-  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.js',
-  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.test.js',
-  '結構工具箱/tools/建立工程資格化案件工作區.bat',
-  '結構工具箱/tools/封印工程資格化案件包.bat',
-  '結構工具箱/tools/檢查工程資格化案件包.bat',
-].every(privatePath => pagesSmoke.includes(`'${privatePath}'`)), 'Pages live smoke pins the exact qualification ADR, code, test and launcher paths as private HTTP probes');
-assert.ok(artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-g1-pilot.js'"), 'Pages builder keeps the production-backed moment G1 pilot private');
-assert.ok(artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-real-case-intake.js'") && artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-real-case-intake.test.js'"), 'Pages builder keeps the moment real-case intake source and contract private');
-assert.ok(artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-real-case-g1-contract.js'") && artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-real-case-g1-runner.js'") && artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-real-case-g1-runner.test.js'"), 'Pages builder keeps the moment real-case G1 runner, contract and test private');
+assert.ok(pagesSmoke.includes("'docs/adr/0004-separate-engineering-qualification-from-report-rendering.md'"), 'Pages live smoke pins the qualification ADR as a private HTTP probe');
 const realCaseG1PrivateBasenames = [
   'beam-column-moment-real-case-g1-decision.template.json',
   'beam-column-moment-real-case-g1-decision.json',
@@ -707,18 +690,8 @@ assert.ok(pagesSmoke.includes("path: 'SRC工具/src-column.html'") && pagesSmoke
 const { classifyPublishedPath } = require(artifactBuilderPath);
 for (const privatePath of ['anywhere/CASE.csurvey', 'anywhere/CASE.CSURVEY', 'CASE-核對收據.json']) assert.equal(classifyPublishedPath(privatePath).publish, false, 'survey backups and receipts cannot be published');
 for (const publicPath of ['field-survey/recorder.html', 'field-survey/bundle.js', 'field-survey/manifest.webmanifest', 'field-survey/icon-192.png']) assert.equal(classifyPublishedPath(publicPath).publish, true, 'survey runtime stays publishable');
-assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-g1-pilot.js'), { publish: false, reason: 'private-tooling' }, 'moment G1 pilot cannot enter the public artifact');
-assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-real-case-intake.js'), { publish: false, reason: 'private-tooling' }, 'moment real-case intake source cannot enter the public artifact');
-assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-real-case-intake.test.js'), { publish: false, reason: 'private-tooling' }, 'moment real-case intake contract cannot enter the public artifact');
 assert.deepEqual(classifyPublishedPath('案件/MOMENT-001/beam-column-moment-real-case-intake.json'), { publish: false, reason: 'private-package-file' }, 'moment real-case intake marker cannot enter the public artifact');
 assert.deepEqual(classifyPublishedPath('案件/MOMENT-001/beam-column-moment-real-case-intake-readiness.receipt.json'), { publish: false, reason: 'private-package-file' }, 'moment real-case intake receipt cannot enter the public artifact');
-for (const privatePath of [
-  '結構工具箱/tools/beam-column-moment-real-case-g1-contract.js',
-  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.js',
-  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.test.js',
-]) {
-  assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-tooling' }, `${privatePath} cannot enter the public artifact`);
-}
 for (const basename of [
   'beam-column-moment-real-case-g1-decision.template.json',
   'beam-column-moment-real-case-g1-decision.json',

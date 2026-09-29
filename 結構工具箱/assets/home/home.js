@@ -212,7 +212,7 @@
       '/floor-slab-westergaard': '2026-08-30',
       '/cable-tension-frequency': '2026-09-07',
       '/decking': '2026-08-29',
-      '/excavation-support': '2026-09-01'
+      '/excavation-support': '2026-09-29'
     }
   };
 
