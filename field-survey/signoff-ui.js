@@ -49,6 +49,24 @@ export function createSignoffController(api) {
     }
     return signer;
   }
+  function openVoidForm(button, save) {
+    for (const other of $('#modalBody').querySelectorAll('.signoff-void')) other.remove();
+    for (const other of $('#modalBody').querySelectorAll('[data-void-signer]')) other.hidden = false;
+    const form = document.createElement('form');
+    form.className = 'signoff-void'; form.noValidate = true;
+    form.innerHTML = '<label>作廢原因（必填）<textarea name="voidReason" rows="2" maxlength="500" required></textarea></label><p class="micro">原簽名與紀錄會保留於案件備份，簽認單改列作廢。</p><p class="signoff-void-error danger-text" role="alert" hidden></p><div class="signoff-void-actions"><button type="button" class="secondary" data-void-cancel>取消</button><button type="submit" class="primary">確認作廢</button></div>';
+    button.closest('.panel').append(form); button.hidden = true;
+    const field = form.elements.voidReason, error = form.querySelector('.signoff-void-error');
+    field.oninput = () => { error.hidden = true; };
+    form.querySelector('[data-void-cancel]').onclick = () => { form.remove(); button.hidden = false; button.focus(); };
+    form.onsubmit = event => {
+      event.preventDefault();
+      const reason = field.value.trim();
+      if (!reason) { error.textContent = '請填作廢原因；未填原因不會作廢。'; error.hidden = false; field.focus(); return; }
+      save(reason);
+    };
+    field.focus(); form.scrollIntoView({ block: 'nearest' });
+  }
   async function open(unitId, visitId, date = '') {
     const p = getProject(); assert(p && p.visits.some(v => v.id === visitId), '請先選擇會勘批次');
     context = { level: unitId ? 'unit' : 'visit', unitId, visitId, date };
@@ -102,11 +120,7 @@ export function createSignoffController(api) {
     };
     $('#modalBody').onclick = event => {
       const voidButton = event.target.closest('[data-void-signer]');
-      if (voidButton) {
-        const reason = window.prompt('請填作廢原因；原簽名與紀錄會保留於案件備份。');
-        if (!reason?.trim()) return;
-        action(async () => { const draft = clone(x); draft.signers.find(y => y.id === voidButton.dataset.voidSigner).voided = { at: now(), reason: reason.trim() }; await persist(draft); closeModal(true); await render(); await open(unitId, visitId, date); });
-      }
+      if (voidButton) openVoidForm(voidButton, reason => action(async () => { const draft = clone(x); draft.signers.find(y => y.id === voidButton.dataset.voidSigner).voided = { at: now(), reason }; await persist(draft); closeModal(true); await render(); await open(unitId, visitId, date); }, '作廢簽認紀錄'));
       if (event.target.closest('#blankSignoff')) action(async () => output(x, true));
       if (event.target.closest('#exportSignoff')) action(async () => output(x, false));
     };
