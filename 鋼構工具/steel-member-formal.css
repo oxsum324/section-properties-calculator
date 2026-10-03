@@ -484,3 +484,19 @@
     width: 100%;
   }
 }
+
+/* 本機輸入草稿清除鈕（頁面專用） */
+.member-draft-clear {
+  appearance: none;
+  margin: -4px 0 10px;
+  padding: 4px 12px;
+  border: 1px solid #b7c3d4;
+  border-radius: 999px;
+  background: #fff;
+  color: #123b68;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.member-draft-clear:hover { background: #f3f5fa; }
+@media print { .member-draft-clear { display: none !important; } }
