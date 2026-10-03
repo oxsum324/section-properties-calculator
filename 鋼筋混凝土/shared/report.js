@@ -710,7 +710,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           });
         }
         async function buildCurrentReportWordHtml() {
-          var paper = document.querySelector('.rep-paper');
+          var paper = document.querySelector('.rep-paper, .paper');
           if (!paper) return '';
           var clone = paper.cloneNode(true);
           clone.querySelectorAll('script, button, input, select, textarea, .rep-toolbar, .rep-approval-control, .rep-approval-meta-control, .rep-download-control, .rep-window-status').forEach(function (node) { node.remove(); });
@@ -743,7 +743,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           var styles = Array.from(document.querySelectorAll('style')).map(function (node) { return node.textContent; }).join('\\n');
           var currentStatus = document.querySelector('.rep-document-status-line');
           var documentLabel = currentStatus && currentStatus.dataset.documentClass === 'formal-attachment' ? '正式附件' : '內部審閱';
-          var title = (document.querySelector('.rep-header h1') || {}).textContent || document.title || '計算書';
+          var title = (document.querySelector('.rep-header h1') || document.querySelector('h1') || {}).textContent || document.title || '計算書';
           return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
             + '<head><meta charset="utf-8"><title>' + title.replace(/[<>&]/g, '') + '</title>'
             + '<!' + '--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-' + '->'
