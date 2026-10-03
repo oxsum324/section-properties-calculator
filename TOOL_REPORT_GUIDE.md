@@ -572,3 +572,9 @@ node .\結構工具箱\tests\wind.test.js
 ## 2026-10-03：鋼構專用正文與共用外框
 
 `openReport(cfg, presentation)` 回傳計算書視窗；`buildReportDocumentHtml` 使用同一份組版。鋼構提供強度、細部、有效面積、示意圖、計算流程、適用邊界與結論，共用 renderer 負責封面資訊、工具列、頁尾、核可與封印。presentation 不改變計算資料，CSS 與排版調整不改 CF；正文變更仍受內容封印檢查。不得為讓組包 ready 而放寬現有核可資格。
+
+## 2026-10-03：DOCX 文字備查版
+
+計算書工具列在 `textExport` 啟用時提供「下載 Word 文書版 DOCX」。輸出為可編輯的 A4 OpenXML 文件，保留正文表格、合併儲存格、上下標、PNG 圖像及 PAGE／NUMPAGES 頁碼；它不攜帶 HTML 核可封印，也不具正式附件資格。Word 文首與頁尾須明示文字備查身分，來源核可狀態另列，不可用來源資格替 Word 升格。表格數、列與儲存格數值須與來源 HTML 對照；Word 開啟及轉 PDF 的逐頁檢查與 ZIP 結構測試分別記錄。
+
+圖像轉換、元件載入或 2 MB 上限失敗時顯示原因，不下載缺少內容的檔案。大型元件按需載入，下載期間按鈕暫停；另存 HTML 不得夾帶其暫存外部 script。網路中斷時既有 HTML 仍可離線列印與下載 TXT；不宣稱離線首次建立 DOCX 必然可用。

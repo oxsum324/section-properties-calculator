@@ -900,7 +900,7 @@ function detectReadyDocumentClass(text) {
 }
 
 function detectNonFormalReferenceText(text, type = '') {
-  if (String(type || '').toLowerCase() !== 'txt') return [];
+  if (!['txt', 'docx'].includes(String(type || '').toLowerCase())) return [];
   const normalized = normalizeText(text);
   return NON_FORMAL_REFERENCE_TEXT_NEEDLES.filter(needle => normalized.includes(needle));
 }

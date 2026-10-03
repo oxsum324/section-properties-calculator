@@ -1202,6 +1202,24 @@ try {
   assert.equal(docxRecord.approvalTime, '2026/07/21 21:05:00');
   assert.deepEqual(docxRecord.readyDocumentNeedles, ['文件狀態：正式附件']);
   assert.deepEqual(docxRecord.fingerprints, ['CF-1234ABCD5678EF90']);
+  // 即使來源與其他欄位宣稱正式核可，Word 文書版自身資格仍是「否」。
+  const referenceDocxRoot = path.join(tempDir, 'reference-docx-root');
+  fs.mkdirSync(path.join(referenceDocxRoot, 'word'), { recursive: true });
+  const formalSourceXml = fs.readFileSync(path.join(fixtureDir, 'word', 'document.xml'), 'utf8');
+  const referenceLabels = Checker.NON_FORMAL_REFERENCE_TEXT_NEEDLES.map(label => `<w:p><w:r><w:t>${label}</w:t></w:r></w:p>`).join('');
+  assert(formalSourceXml.includes('</w:document>'));
+  fs.writeFileSync(path.join(referenceDocxRoot, 'word', 'document.xml'), formalSourceXml.replace('</w:document>', `${referenceLabels}</w:document>`));
+  fs.copyFileSync(path.join(fixtureDir, 'word', 'footer1.xml'), path.join(referenceDocxRoot, 'word', 'footer1.xml'));
+  const referenceDocxPath = path.join(tempDir, 'reference-from-approved.docx');
+  const referenceArchive = spawnSync(TAR_COMMAND, ['-a', '-cf', referenceDocxPath, '-C', referenceDocxRoot, 'word'], { encoding: 'utf8' });
+  assert.equal(referenceArchive.status, 0);
+  const referenceDocx = Checker.inspectAttachment(referenceDocxPath, tempDir);
+  assert.deepEqual(referenceDocx.errors, []);
+  assert.equal(referenceDocx.nonFormalReferenceNeedles.length, 3);
+  assert.deepEqual(referenceDocx.readyDocumentNeedles, [], '正式來源文字不能升格文書版 DOCX');
+  const referenceDocxPackage = Checker.analyzePackage([referenceDocx]);
+  assert.equal(referenceDocxPackage.status, 'blocked');
+  assert(referenceDocxPackage.issues.some(issue => issue.code === 'non-formal-reference-text'));
   assert.deepEqual(xlsxRecord.errors, []);
   assert.equal(xlsxRecord.sourceSha256, Checker.sha256File(path.join(tempDir, 'sample.xlsx')));
   assert.equal(xlsxRecord.projectNo, 'PKG-001');

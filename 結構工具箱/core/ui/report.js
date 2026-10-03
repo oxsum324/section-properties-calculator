@@ -373,6 +373,8 @@ function buildAttachmentApprovalReport(options = {}) {
       <script data-attachment-approval-script>
       (function () {
         var reportUtils = (${globalThis.StructReportUtilsFactory.toString()})(window);
+        var reportDocx = ${globalThis.ReportDocxFactory ? "(" + globalThis.ReportDocxFactory.toString() + ")()" : "null"};
+        var reportDocxLibraryURL = ${JSON.stringify(globalThis.ReportDocxLibraryURL || "").replace(/</g, "\\u003c")};
         var CONTENT_SEAL_START = '<!--formal-content-seal:start-->';
         var CONTENT_SEAL_END = '<!--formal-content-seal:end-->';
         function canonicalSealedContent(serializedHtml) {
@@ -596,7 +598,7 @@ function buildAttachmentApprovalReport(options = {}) {
             if (!root) return '';
             var savedSource = root.querySelector('.rep-attachment-approval-source');
             if (savedSource) savedSource.removeAttribute('data-initialized');
-            root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control').forEach(function (node) {
+            root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control, script[data-report-docx-runtime]').forEach(function (node) {
               node.remove();
             });
             root.querySelectorAll('.rep-window-status').forEach(function (node) {
@@ -836,94 +838,21 @@ function buildAttachmentApprovalReport(options = {}) {
             reportUtils.downloadBlob(new Blob([html], { type:'text/html;charset=utf-8' }), fileName);
             showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、時間、選填核可紀錄、計算指紋與獨立 SHA-256 內容／核可封印。');
           }
-          function svgToPngDataUrl(svgNode) {
-            return new Promise(function (resolve, reject) {
-              try {
-                var rect = svgNode.getBoundingClientRect();
-                var width = Math.max(1, Math.round(rect.width || Number(svgNode.getAttribute('width')) || 640));
-                var height = Math.max(1, Math.round(rect.height || Number(svgNode.getAttribute('height')) || 400));
-                var clone = svgNode.cloneNode(true);
-                if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-                clone.setAttribute('width', String(width));
-                clone.setAttribute('height', String(height));
-                var xml = new XMLSerializer().serializeToString(clone);
-                var image = new Image();
-                image.onload = function () {
-                  var scale = 2;
-                  var canvas = document.createElement('canvas');
-                  canvas.width = width * scale;
-                  canvas.height = height * scale;
-                  var context = canvas.getContext('2d');
-                  context.fillStyle = '#fff';
-                  context.fillRect(0, 0, canvas.width, canvas.height);
-                  context.scale(scale, scale);
-                  context.drawImage(image, 0, 0, width, height);
-                  resolve({ dataUrl: canvas.toDataURL('image/png'), width: width, height: height });
-                };
-                image.onerror = function () { reject(new Error('SVG 轉圖失敗')); };
-                image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
-              } catch (error) {
-                reject(error);
-              }
-            });
-          }
-          async function buildCurrentReportWordHtml() {
-            var paper = document.querySelector('.rep-paper, .paper');
-            if (!paper) return '';
-            var clone = paper.cloneNode(true);
-            clone.querySelectorAll('script, button, input, select, textarea, .rep-toolbar, .rep-approval-control, .rep-approval-meta-control, .rep-download-control, .rep-window-status').forEach(function (node) { node.remove(); });
-            var liveSvgs = Array.from(paper.querySelectorAll('svg'));
-            var cloneSvgs = Array.from(clone.querySelectorAll('svg'));
-            for (var i = 0; i < cloneSvgs.length; i += 1) {
-              var replacement = document.createElement('img');
-              try {
-                var png = await svgToPngDataUrl(liveSvgs[i] || cloneSvgs[i]);
-                replacement.src = png.dataUrl;
-                replacement.width = Math.min(png.width, 640);
-                replacement.height = Math.round(Math.min(png.width, 640) * png.height / png.width);
-                cloneSvgs[i].replaceWith(replacement);
-              } catch (error) {
-                cloneSvgs[i].remove();
-              }
-            }
-            var liveCanvases = Array.from(paper.querySelectorAll('canvas'));
-            Array.from(clone.querySelectorAll('canvas')).forEach(function (node, index) {
-              var live = liveCanvases[index];
-              try {
-                var img = document.createElement('img');
-                img.src = live.toDataURL('image/png');
-                img.width = Math.min(live.width, 640);
-                node.replaceWith(img);
-              } catch (error) {
-                node.remove();
-              }
-            });
-            var styles = Array.from(document.querySelectorAll('style')).map(function (node) { return node.textContent; }).join('\\n');
-            var currentStatus = document.querySelector('.rep-document-status-line');
-            var documentLabel = currentStatus && currentStatus.dataset.documentClass === 'formal-attachment' ? '正式附件' : '內部審閱';
-            var title = (document.querySelector('.rep-header h1') || document.querySelector('h1') || {}).textContent || document.title || '計算書';
-            return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
-              + '<head><meta charset="utf-8"><title>' + title.replace(/[<>&]/g, '') + '</title>'
-              + '<!' + '--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-' + '->'
-              + '<' + 'style>@page { size: A4; margin: 20mm 18mm; } body { font-family: "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", sans-serif; font-size: 10.5pt; line-height: 1.5; color: #111; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #94a3b8; padding: 4px 6px; vertical-align: top; } img { max-width: 100%; }\\n' + styles + '\\n.rep-paper { box-shadow: none; max-width: none; padding: 0; } .rep-footer { position: static; } .rep-toolbar { display: none; }</' + 'style></head>'
-              + '<body><div class="rep-word-boundary" style="font-size:9pt;color:#7c2d12;border:1px solid #fdba74;background:#fff7ed;padding:6px 10px;margin:0 0 12px;">Word 文書整理版（' + documentLabel + '）：由計算書預覽匯出，供報告書編排與文字引用；不含核可封印與可執行的完整性驗證，不作為正式附件。正式附件請使用核可 HTML 或列印 / 存 PDF。</div>'
-              + clone.innerHTML + '</body></html>';
+          async function buildCurrentReportDocx() {
+            if (source.dataset.textExportEnabled !== 'true') throw new Error('此工具尚未啟用 Word 文書版。');
+            if (!reportDocx) throw new Error('Word 元件尚未就緒，請回原工具頁重新開啟計算書。');
+            return reportDocx.buildWithRuntime(document, reportDocxLibraryURL);
           }
           async function downloadCurrentReportWord() {
-            var html = await buildCurrentReportWordHtml();
-            if (!html) {
-              showDownloadStatus('無法建立 Word 檔案，請改用列印 / 存 PDF。');
-              return;
-            }
-            var currentStatus = document.querySelector('.rep-document-status-line');
-            var documentLabel = currentStatus && currentStatus.dataset.documentClass === 'formal-attachment' ? '正式附件' : '內部審閱';
-            var fileName = buildArtifactBaseName(documentLabel) + '-word.doc';
-            reportUtils.downloadBlob(new Blob(['\\ufeff', html], { type: 'application/msword;charset=utf-8' }), fileName);
-            showDownloadStatus('已下載 Word 文書整理版 (.doc)；供報告書編排使用，不含核可封印與完整性驗證，不作為正式附件。');
+            var result = await buildCurrentReportDocx();
+            var fileName = buildArtifactBaseName('文字備查') + '-word.docx';
+            reportUtils.downloadBlob(result.blob, fileName);
+            showDownloadStatus('已下載 Word 文書整理版 (.docx)；正式附件資格：否。表格與圖片已內嵌，供報告書編排使用。');
+            return result.stats;
           }
           window.serializeReportDocumentHtml = serializeCurrentReportHtml;
           window.downloadReportWord = downloadCurrentReportWord;
-          window.buildReportWordHtml = buildCurrentReportWordHtml;
+          window.buildReportDocx = buildCurrentReportDocx;
           window.downloadReportHtml = downloadCurrentReportHtml;
           var downloadButton = document.getElementById('repDownloadCurrentHtml');
           if (!downloadButton && toolbar) {
@@ -961,12 +890,20 @@ function buildAttachmentApprovalReport(options = {}) {
               wordDownloadButton.type = 'button';
               wordDownloadButton.id = 'repDownloadCurrentWord';
               wordDownloadButton.className = 'rep-download-control rep-word-download-control';
-              wordDownloadButton.textContent = '⬇ 下載 Word 文書版 DOC';
+              wordDownloadButton.textContent = '⬇ 下載 Word 文書版 DOCX';
               wordDownloadButton.title = '文書整理用，不含核可封印與完整性驗證，不作為正式附件';
-              wordDownloadButton.addEventListener('click', function () {
-                downloadCurrentReportWord().catch(function (error) {
+              wordDownloadButton.addEventListener('click', async function () {
+                if (wordDownloadButton.disabled) return;
+                wordDownloadButton.disabled = true;
+                wordDownloadButton.textContent = '正在建立 Word 文書版…';
+                try {
+                  await downloadCurrentReportWord();
+                } catch (error) {
                   showDownloadStatus('無法下載 Word 文書版：' + (error && error.message || error));
-                });
+                } finally {
+                  wordDownloadButton.disabled = false;
+                  wordDownloadButton.textContent = '⬇ 下載 Word 文書版 DOCX';
+                }
               });
               var wordAnchor = document.getElementById('repDownloadCurrentText') || downloadButton;
               toolbar.insertBefore(wordDownloadButton, wordAnchor ? wordAnchor.nextSibling : toolbar.firstChild);
