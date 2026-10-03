@@ -157,60 +157,60 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-09-29',
+    generatedAt: '2026-10-03',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
       '/condition-survey': '2026-09-29',
-      '/beam-analysis': '2026-08-30',
-      '/frame-analysis': '2026-08-30',
+      '/beam-analysis': '2026-10-03',
+      '/frame-analysis': '2026-10-03',
       '/struct-dx': '2026-08-13',
-      '/section': '2026-09-29',
-      '/composite-section': '2026-09-29',
-      '/rc-beam': '2026-08-29',
-      '/rc-deep-beam-stm': '2026-08-28',
-      '/rc-column': '2026-08-29',
-      '/rc-slab': '2026-08-29',
-      '/rc-wall': '2026-08-29',
-      '/rc-shear-wall': '2026-08-29',
-      '/rc-foundation': '2026-08-29',
-      '/rc-foundation-deep-beam-stm': '2026-08-28',
-      '/rc-pile-cap-3d-stm': '2026-08-28',
-      '/rc-pile': '2026-08-29',
-      '/rc-retrofit-section': '2026-09-29',
-      '/rc-column-cover-deviation': '2026-08-30',
-      '/src-beam': '2026-08-29',
-      '/src-column': '2026-08-29',
-      '/steel-formal': '2026-08-31',
-      '/steel-beam-formal': '2026-08-29',
-      '/steel-column-formal': '2026-08-29',
-      '/steel-plate': '2026-08-31',
+      '/section': '2026-10-03',
+      '/composite-section': '2026-10-03',
+      '/rc-beam': '2026-10-03',
+      '/rc-deep-beam-stm': '2026-10-03',
+      '/rc-column': '2026-10-03',
+      '/rc-slab': '2026-10-03',
+      '/rc-wall': '2026-10-03',
+      '/rc-shear-wall': '2026-10-03',
+      '/rc-foundation': '2026-10-03',
+      '/rc-foundation-deep-beam-stm': '2026-10-03',
+      '/rc-pile-cap-3d-stm': '2026-10-03',
+      '/rc-pile': '2026-10-03',
+      '/rc-retrofit-section': '2026-10-03',
+      '/rc-column-cover-deviation': '2026-10-03',
+      '/src-beam': '2026-10-03',
+      '/src-column': '2026-10-03',
+      '/steel-formal': '2026-10-03',
+      '/steel-beam-formal': '2026-10-03',
+      '/steel-column-formal': '2026-10-03',
+      '/steel-plate': '2026-10-03',
       '/steel-beam': '2026-08-29',
       '/steel-column': '2026-08-29',
       '/wind-overview': '2026-09-29',
       '/wind-kzt': '2026-08-29',
       '/wind-special': '2026-09-29',
-      '/wind-force': '2026-09-29',
-      '/wind-cc': '2026-09-29',
-      '/wind-parapet': '2026-09-29',
-      '/wind-open-roof': '2026-09-29',
-      '/wind-object-solid': '2026-09-29',
-      '/wind-object-frame': '2026-09-29',
-      '/wind-lattice-tower': '2026-09-29',
-      '/wind-object-tower': '2026-09-29',
-      '/wind-fence-sign': '2026-09-29',
-      '/wind-sign-pole': '2026-09-29',
-      '/seismic-force': '2026-08-29',
-      '/seismic-dynamic': '2026-08-29',
-      '/seismic-appendage': '2026-08-29',
-      '/seismic-misc': '2026-08-29',
+      '/wind-force': '2026-10-03',
+      '/wind-cc': '2026-10-03',
+      '/wind-parapet': '2026-10-03',
+      '/wind-open-roof': '2026-10-03',
+      '/wind-object-solid': '2026-10-03',
+      '/wind-object-frame': '2026-10-03',
+      '/wind-lattice-tower': '2026-10-03',
+      '/wind-object-tower': '2026-10-03',
+      '/wind-fence-sign': '2026-10-03',
+      '/wind-sign-pole': '2026-10-03',
+      '/seismic-force': '2026-10-03',
+      '/seismic-dynamic': '2026-10-03',
+      '/seismic-appendage': '2026-10-03',
+      '/seismic-misc': '2026-10-03',
       '/anchor': '2026-08-29',
       '/stone-fixing': '2026-09-29',
-      '/foundation-local': '2026-08-30',
-      '/equipment-load': '2026-08-30',
-      '/earth-pressure': '2026-08-30',
-      '/floor-slab-westergaard': '2026-08-30',
-      '/cable-tension-frequency': '2026-09-07',
+      '/foundation-local': '2026-10-03',
+      '/equipment-load': '2026-10-03',
+      '/earth-pressure': '2026-10-03',
+      '/floor-slab-westergaard': '2026-10-03',
+      '/cable-tension-frequency': '2026-10-03',
       '/decking': '2026-08-29',
       '/excavation-support': '2026-09-29'
     }
@@ -243,12 +243,12 @@
       '/frame-analysis': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js'],
       '/section': ['結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/materials/steel.js', '結構工具箱/core/ui/report.js'],
       '/composite-section': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/materials/steel.js', '結構工具箱/core/ui/report.js'],
-      '/rc-beam': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js'],
+      '/rc-beam': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '鋼筋混凝土/shared/calc-verdict-strip.js', '結構工具箱/tools/project-meta-profile.js'],
       '/rc-deep-beam-stm': ['鋼筋混凝土/shared/deep-beam-stm.js', '鋼筋混凝土/shared/beam-applicability.js', '鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js'],
-      '/rc-column': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js'],
+      '/rc-column': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '鋼筋混凝土/shared/calc-verdict-strip.js', '結構工具箱/tools/project-meta-profile.js'],
       '/rc-slab': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js'],
-      '/rc-wall': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js'],
-      '/rc-shear-wall': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js'],
+      '/rc-wall': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '鋼筋混凝土/shared/calc-verdict-strip.js', '結構工具箱/tools/project-meta-profile.js'],
+      '/rc-shear-wall': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '鋼筋混凝土/shared/calc-verdict-strip.js', '結構工具箱/tools/project-meta-profile.js'],
       '/rc-foundation': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js'],
       '/rc-foundation-deep-beam-stm': ['鋼筋混凝土/shared/foundation-deep-beam-stm.js', '鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/rc-pile-cap-3d-stm': ['鋼筋混凝土/shared/pile-cap-3d-stm.js', '鋼筋混凝土/shared/pile-cap-load-combinations.js', '鋼筋混凝土/shared/pile-cap-3d-stm-bridge.js', '鋼筋混凝土/shared/pile-cap-3d-stm-envelope.js', '鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js'],
@@ -1292,11 +1292,35 @@
 
     const profile = document.createElement('div');
     profile.className = 'tool-profile';
-    profile.append(
-      profileItem('定位', tool.summary),
+    const summaryItem = profileItem('定位', tool.summary);
+    summaryItem.classList.add('tool-profile__item--summary');
+    const more = document.createElement('div');
+    more.className = 'tool-profile__more';
+    more.append(
       profileItem('輸出', tool.output),
       profileItem('閱讀狀態', currentState.summary)
     );
+    profile.append(summaryItem, more);
+
+    const moreToggle = document.createElement('span');
+    moreToggle.className = 'tool-card__more';
+    moreToggle.setAttribute('role', 'button');
+    moreToggle.setAttribute('tabindex', '0');
+    moreToggle.setAttribute('aria-expanded', 'false');
+    moreToggle.setAttribute('aria-label', `展開 ${tool.title} 的輸出與閱讀狀態`);
+    moreToggle.textContent = '詳情';
+    const toggleCardDetail = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const expanded = card.classList.toggle('is-expanded');
+      moreToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      moreToggle.textContent = expanded ? '收合' : '詳情';
+    };
+    moreToggle.addEventListener('click', toggleCardDetail);
+    moreToggle.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') toggleCardDetail(event);
+    });
+    badges.append(moreToggle);
 
     const meta = document.createElement('div');
     meta.className = 'tool-meta';
@@ -1305,6 +1329,7 @@
       const stateChip = document.createElement('span');
       stateChip.className = `tool-state tool-state--${currentState.tone}`;
       stateChip.textContent = label;
+      stateChip.title = currentState.summary;
       return stateChip;
     });
     appendUniqueMeta(meta, seenMetaLabels, category?.label || primary, label => tag(label, primary));
@@ -1647,6 +1672,18 @@
   function init() {
     const search = document.getElementById('toolSearch');
     const clear = document.getElementById('clearToolSearch');
+    const detailToggle = document.getElementById('toolDetailToggle');
+    if (detailToggle && elements.grid) {
+      const DETAIL_PREF_KEY = 'structToolbox.home.cardDetail';
+      let detailPref = false;
+      try { detailPref = localStorage.getItem(DETAIL_PREF_KEY) === '1'; } catch (error) { detailPref = false; }
+      detailToggle.checked = detailPref;
+      elements.grid.classList.toggle('tool-grid--detailed', detailPref);
+      detailToggle.addEventListener('change', () => {
+        elements.grid.classList.toggle('tool-grid--detailed', detailToggle.checked);
+        try { localStorage.setItem(DETAIL_PREF_KEY, detailToggle.checked ? '1' : '0'); } catch (error) { /* per-viewer convenience only */ }
+      });
+    }
     search?.addEventListener('input', () => { state.query = search.value; renderTools(); });
     clear?.addEventListener('click', () => { search.value = ''; state.query = ''; renderTools(); search.focus(); });
     renderCategoryOverview();

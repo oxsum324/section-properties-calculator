@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>結構工具箱</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="assets/home/home.css">
+<link rel="stylesheet" href="assets/home/home.css?v=20261003">
 </head>
 <body class="home-page">
   <header class="home-header">
@@ -21,6 +21,7 @@
         <strong>弘一工程顧問</strong>
       </div>
     </div>
+    <div class="home-header__art" aria-hidden="true"></div>
   </header>
 
   <main class="home-shell" data-home-app>
@@ -36,34 +37,12 @@
     </section>
 
     <section class="tool-workspace" aria-labelledby="toolsTitle">
-      <aside class="workspace-side" aria-label="平台狀態與篩選">
+      <aside class="workspace-side" aria-label="分類篩選">
         <div class="filter-panel">
           <p class="home-kicker">Filters</p>
           <h2>分類篩選</h2>
           <div id="categoryFilters" class="filter-list"></div>
-        </div>
-        <div class="status-panel">
-          <p class="home-kicker">Health</p>
-          <h2>平台狀態</h2>
-          <div id="platformStatus" class="status-card" data-status-card role="status" aria-live="polite" aria-atomic="true">
-            <span class="status-card__badge neutral">讀取中</span>
-            <strong>平台巡檢</strong>
-            <p>正在讀取最近一次平台巡檢結果。</p>
-          </div>
-          <div id="preflightStatus" class="status-card" data-status-card role="status" aria-live="polite" aria-atomic="true">
-            <span class="status-card__badge neutral">讀取中</span>
-            <strong>交付前檢查</strong>
-            <p>正在讀取最近一次 preflight 結果。</p>
-          </div>
-          <div id="reportReadinessStatus" class="status-card status-card--ok" role="status" aria-live="polite" aria-atomic="true">
-            <span class="status-card__badge ok">頁面專用</span>
-            <strong>報告閱讀狀態總覽</strong>
-            <p>頁面診斷明細不會寫入計算書、列印或 PDF；計算書預設內部審閱，明確核可後為正式附件，兩者皆可列印。</p>
-          </div>
-          <div class="status-actions">
-            <a href="/結構工具箱/audit-dashboard.html" data-file-href="audit-dashboard.html">巡檢儀表板</a>
-            <a href="/結構工具箱/index-classic.html" data-file-href="index-classic.html">舊網址相容入口</a>
-          </div>
+          <a class="filter-panel__status-link" href="#platformStatusSection">平台狀態與治理 ↓</a>
         </div>
       </aside>
 
@@ -73,7 +52,10 @@
             <p class="home-kicker">Tools</p>
             <h2 id="toolsTitle">工具清單</h2>
           </div>
-          <p id="resultCount" class="result-count" role="status">讀取中</p>
+          <div class="tool-panel__controls">
+            <label class="tool-detail-toggle"><input id="toolDetailToggle" type="checkbox"> 展開卡片詳情</label>
+            <p id="resultCount" class="result-count" role="status">讀取中</p>
+          </div>
         </div>
         <div class="tool-search" role="search" aria-label="搜尋工具">
           <label for="toolSearch">搜尋工具名稱或別名</label>
@@ -94,7 +76,40 @@
       </section>
     </section>
 
-    <section class="info-grid" aria-label="使用說明">
+    <section id="platformStatusSection" class="status-section" aria-labelledby="platformStatusTitle">
+      <details class="status-details" open>
+        <summary>
+          <span class="home-kicker">Health</span>
+          <h2 id="platformStatusTitle">平台狀態與治理</h2>
+          <span class="status-details__hint">巡檢、交付前檢查與報告閱讀狀態；不影響各工具的計算與計算書。</span>
+        </summary>
+        <div class="status-panel status-panel--inline">
+          <div id="platformStatus" class="status-card" data-status-card role="status" aria-live="polite" aria-atomic="true">
+            <span class="status-card__badge neutral">讀取中</span>
+            <strong>平台巡檢</strong>
+            <p>正在讀取最近一次平台巡檢結果。</p>
+          </div>
+          <div id="preflightStatus" class="status-card" data-status-card role="status" aria-live="polite" aria-atomic="true">
+            <span class="status-card__badge neutral">讀取中</span>
+            <strong>交付前檢查</strong>
+            <p>正在讀取最近一次 preflight 結果。</p>
+          </div>
+          <div id="reportReadinessStatus" class="status-card status-card--ok" role="status" aria-live="polite" aria-atomic="true">
+            <span class="status-card__badge ok">頁面專用</span>
+            <strong>報告閱讀狀態總覽</strong>
+            <p>頁面診斷明細不會寫入計算書、列印或 PDF；計算書預設內部審閱，明確核可後為正式附件，兩者皆可列印。</p>
+          </div>
+          <div class="status-actions">
+            <a href="/結構工具箱/audit-dashboard.html" data-file-href="audit-dashboard.html">巡檢儀表板</a>
+            <a href="/結構工具箱/index-classic.html" data-file-href="index-classic.html">舊網址相容入口</a>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <details class="info-details" aria-label="使用說明" open>
+      <summary><span class="home-kicker">Notes</span><h2>施工臨設說明與開發路線</h2></summary>
+    <section class="info-grid">
       <article class="info-panel">
         <h2>施工臨時設施 / 局部檢核</h2>
         <p>此類工具包含覆工板、開挖擋土支撐、基礎局部檢核、設備局部荷重、擋土土壓與地坪 Westergaard 局部快算。若工具標示為快速初估，結果需回到正式模型、配筋或構件檢核流程複核。</p>
@@ -104,6 +119,7 @@
         <p>基礎局部檢核、設備局部荷重、擋土土壓與地坪 Westergaard 已具多案例基準、版本化 JSON 與計算書結果鏈；地坪工具明確限於 Winkler 彈性地基上的載重彎拉應力，疲勞、接縫傳力與沉陷另行檢核。懸臂式主動土壓結果亦可經同版核心驗證後銜接 RC 基礎牆身、趾版底層與踵版頂層設計。覆工板控制柱頂軸力現在可經現行核心重算及雙指紋核對後，以固定柱位 ID 逐階段套用到指定開挖共構柱；同一來源跨柱分配時會封閉檢查啟用柱位比例合計為 100% 並要求逐柱依據，再以各柱採用軸力進行多階段包絡，亦可逐階段明確採用附加 X／Y 偏心與依據。開挖支撐與斜撐匯入已保留完整軸力時序，拆撐承接回簽亦已逐列結構化記錄正式模型、控制組合、傳力、偏心、極限狀態與證據檔。下一波應依成熟度矩陣與巡檢儀表板，開發特定承接型式容量計算模組及 SRC 構件能力；新工具仍須先定義適用範圍、規範依據、golden cases 與計算書邊界。</p>
       </article>
     </section>
+    </details>
 
     <section class="note-panel" aria-label="使用責任提醒">
       <strong>使用邊界</strong>
@@ -113,6 +129,6 @@
 
   <footer class="home-footer">弘一工程顧問有限公司　內部工程工具平台</footer>
 
-<script src="assets/home/home.js"></script>
+<script src="assets/home/home.js?v=20261003"></script>
 </body>
 </html>
