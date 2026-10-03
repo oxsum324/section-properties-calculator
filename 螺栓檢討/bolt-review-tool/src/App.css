@@ -5088,3 +5088,6 @@ strong svg {
     flex: 1 1 140px;
   }
 }
+@media print {
+  .workspace-recalculation-status { display: none !important; }
+}

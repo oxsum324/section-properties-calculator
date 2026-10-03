@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
 } from 'react'
 import './App.css'
 // getAnchorReinforcementOverlay 已下放至 ./GeometrySketch
@@ -119,7 +120,7 @@ import {
 } from './useBrowserIntegration'
 import { useCommandPaletteCommands } from './useCommandPaletteCommands'
 import { useDocumentLibrary } from './useDocumentLibrary'
-import { useKeyboardShortcuts } from './useKeyboardShortcuts'
+import { topWorkspaceDialog, useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { useLayoutVariants } from './useLayoutVariants'
 import {
   useLoadCaseLibrary,
@@ -459,6 +460,7 @@ function App() {
   const [project, setProject] = useState<ProjectCase>(() =>
     cloneProject(defaultProject),
   )
+  const [isProjectUpdating, startProjectUpdate] = useTransition()
   const [documentApproval, setDocumentApproval] = useState({
     approved: false,
     approvedAt: '',
@@ -497,7 +499,10 @@ function App() {
       return undefined
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !event.defaultPrevented && !event.isComposing && !event.repeat
+        && topWorkspaceDialog()?.classList.contains('app-confirm-backdrop')) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
         settleConfirm(false)
       }
     }
@@ -627,6 +632,7 @@ function App() {
   const ruleProfileOptions = getRuleProfileOptions()
   // Review artifact 計算群（deferred + memo + 比較矩陣）已下放至 useReviewArtifacts
   const {
+    isCalculationPending: isArtifactCalculationPending,
     batchReview,
     candidateProductReviews,
     layoutVariantReviews,
@@ -643,6 +649,9 @@ function App() {
     candidateLayoutVariants,
     activeRuleProfile,
   })
+  // commitProject 本身已在 transition 中，useDeferredValue 不會再產生第二次延遲。
+  // 同時追蹤該 transition，才能在來源尚未提交時標示舊結果待更新。
+  const isCalculationPending = isProjectUpdating || isArtifactCalculationPending
   const activeLoadCaseId = project.activeLoadCaseId ?? project.loadCases?.[0]?.id
   const activeLoadCase =
     project.loadCases?.find((item) => item.id === activeLoadCaseId) ??
@@ -1047,7 +1056,7 @@ function App() {
   function commitProject(nextProject: ProjectCase) {
     const normalized = normalizeProjectSelection(nextProject, products)
 
-    startTransition(() => {
+    startProjectUpdate(() => {
       setProject(normalized)
       setProjects((current) => replaceProjectInList(current, normalized))
     })
@@ -1365,6 +1374,12 @@ function App() {
     recordCurrentAuditTrail,
     printReport: () => {
       void openStandaloneReportWindow(true)
+    },
+    calculateAndShowResults: () => {
+      // 新參照走原 useReviewArtifacts 計算鏈；不改來源值、版本或核可欄位。
+      setProject((current) => ({ ...current }))
+      setHasEnteredWorkspace(true)
+      setActiveTab('result')
     },
     selectProject,
     setActiveTab,
@@ -3005,7 +3020,8 @@ function App() {
           </div>
         </section>
 
-        <section className="panel panel-results" data-shows="result">
+        <section className="panel panel-results" data-shows="result" aria-busy={isCalculationPending}>
+          {isCalculationPending ? <p className="workspace-recalculation-status" data-page-only="true" role="status">輸入已變更，正在更新計算結果；下方舊結果尚未更新。</p> : null}
           <div className="panel-title">
             <h2>結果摘要</h2>
             <p>右側聚焦控制條文、正式判定狀態與缺資料警示。</p>
@@ -3786,6 +3802,10 @@ function App() {
             <table className="shortcut-help-table">
               <tbody>
                 <tr>
+                  <td><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd></td>
+                  <td>重新計算目前輸入並查看結果（不核可、不套用候選）</td>
+                </tr>
+                <tr>
                   <td><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>S</kbd></td>
                   <td>手動留痕（auto-save 已自動；此處建立審查 hash 簽章）</td>
                 </tr>
@@ -3820,7 +3840,7 @@ function App() {
               </tbody>
             </table>
             <p className="helper-text shortcut-help-note">
-              在輸入框內時，<kbd>Alt</kbd>/<kbd>Esc</kbd> 不會攔截，以避免干擾輸入；
+              在輸入框內時，<kbd>Alt</kbd> 不會攔截；<kbd>Esc</kbd> 可取消最上層視窗。
               <kbd>Ctrl</kbd>+<kbd>S</kbd>/<kbd>Ctrl</kbd>+<kbd>P</kbd> 皆會覆寫瀏覽器預設行為。
             </p>
             <div className="shortcut-help-actions">

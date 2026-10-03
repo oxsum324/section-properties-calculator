@@ -95,6 +95,7 @@ export function useReviewArtifacts(deps: {
   const bestLayoutVariantReview = layoutVariantReviews[0]
 
   return {
+    isCalculationPending: project !== deferredProject || selectedProduct !== deferredProduct,
     batchReview,
     candidateProductReviews,
     layoutVariantReviews,

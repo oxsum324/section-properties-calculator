@@ -1,0 +1,428 @@
+{
+  "version": 1,
+  "scope": "home state=formal plus /beam-analysis (assist retained)",
+  "core": "結構工具箱/core/ui/tool-workflow.js",
+  "contract": "Explicit callbacks calculate exactly once; result navigation and status mirroring never recalculate; input changes invalidate prior conclusions.",
+  "tools": [
+    {
+      "key": "/frame-analysis",
+      "file": "鋼架/平面剛架分析.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#storyResponseCard",
+      "pageOnly": true
+    },
+    {
+      "key": "/rc-beam",
+      "file": "鋼筋混凝土/tools/beam.html",
+      "state": "formal",
+      "adapter": "rc-summary",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true,
+      "calculateFunction": "calcBeam",
+      "createCalculateButton": false,
+      "entryFunction": "applyPanel",
+      "entryArgument": "summary",
+      "note": "applyPanel 已含單次 calc；showResults 只捲動，不再點分頁。"
+    },
+    {
+      "key": "/rc-deep-beam-stm",
+      "file": "鋼筋混凝土/tools/deep-beam-stm.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#statusBanner",
+      "pageOnly": true
+    },
+    {
+      "key": "/rc-column",
+      "file": "鋼筋混凝土/tools/column.html",
+      "state": "formal",
+      "adapter": "rc-summary",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true,
+      "calculateFunction": "calcColumn",
+      "createCalculateButton": true,
+      "entryFunction": "applyPanel",
+      "entryArgument": "summary",
+      "note": "applyPanel 已含單次 calc；showResults 只捲動，不再點分頁。"
+    },
+    {
+      "key": "/rc-slab",
+      "file": "鋼筋混凝土/tools/slab.html",
+      "state": "formal",
+      "adapter": "callback",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true,
+      "calculateFunction": "calcSlab",
+      "createCalculateButton": true,
+      "note": "立即計算前取消既有 requestAnimationFrame 排程；計算完成才清除待更新。"
+    },
+    {
+      "key": "/rc-wall",
+      "file": "鋼筋混凝土/tools/wall.html",
+      "state": "formal",
+      "adapter": "rc-summary",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true,
+      "calculateFunction": "calcWall",
+      "createCalculateButton": true,
+      "entryFunction": "applyPanel",
+      "entryArgument": "summary",
+      "note": "applyPanel 已含單次 calc；showResults 只捲動，不再點分頁。"
+    },
+    {
+      "key": "/rc-shear-wall",
+      "file": "鋼筋混凝土/tools/shear-wall.html",
+      "state": "formal",
+      "adapter": "rc-summary",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true,
+      "calculateFunction": "calcShearWall",
+      "createCalculateButton": true,
+      "entryFunction": "applyPanel",
+      "entryArgument": "summary",
+      "note": "applyPanel 已含單次 calc；showResults 只捲動，不再點分頁。"
+    },
+    {
+      "key": "/rc-foundation",
+      "file": "鋼筋混凝土/tools/foundation.html",
+      "state": "formal",
+      "adapter": "callback",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true,
+      "calculateFunction": "calcFdtn",
+      "createCalculateButton": true,
+      "note": "沿用目前基礎型式；不可切換到不存在的 summary 分頁。"
+    },
+    {
+      "key": "/rc-foundation-deep-beam-stm",
+      "file": "鋼筋混凝土/tools/foundation-deep-beam-stm.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#statusBanner",
+      "pageOnly": true
+    },
+    {
+      "key": "/rc-pile-cap-3d-stm",
+      "file": "鋼筋混凝土/tools/pile-cap-3d-stm.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#statusBanner",
+      "pageOnly": true
+    },
+    {
+      "key": "/rc-pile",
+      "file": "鋼筋混凝土/tools/single-pile-designer.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#banner",
+      "pageOnly": true
+    },
+    {
+      "key": "/rc-retrofit-section",
+      "file": "RC補強斷面性質.html",
+      "state": "formal",
+      "adapter": "callback",
+      "resultSelector": "#b-results, #c-results",
+      "pageOnly": true,
+      "calculateFunction": "calcBeam / calcCol",
+      "createCalculateButton": true,
+      "note": "依 tabBeam/tabCol active 選擇一個 calculate 與結果區。"
+    },
+    {
+      "key": "/rc-column-cover-deviation",
+      "file": "結構工具箱/tools/rc/column-cover-deviation.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/steel-formal",
+      "file": "鋼構工具/index.html",
+      "state": "formal",
+      "adapter": "steel-explicit",
+      "resultSelector": "#approvalDecision",
+      "pageOnly": true,
+      "owner": "root",
+      "createCalculateButton": true,
+      "sourceFile": "鋼構工具/app.js",
+      "note": "在原 closure 註冊 calculate 與結果鏡射；舊頁 update(false)，不可以產報按鈕代替計算。"
+    },
+    {
+      "key": "/src-beam",
+      "file": "SRC工具/src-beam.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalculate",
+      "resultSelector": "#resultHeadline",
+      "pageOnly": true
+    },
+    {
+      "key": "/src-column",
+      "file": "SRC工具/src-column.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalculate",
+      "resultSelector": "#resultHeadline",
+      "pageOnly": true
+    },
+    {
+      "key": "/steel-beam-formal",
+      "file": "鋼構工具/steel-beam-formal.html",
+      "state": "formal",
+      "adapter": "steel-explicit",
+      "resultSelector": "#summaryResult",
+      "pageOnly": true,
+      "owner": "root",
+      "createCalculateButton": false,
+      "sourceFile": "鋼構工具/steel-beam-formal.js",
+      "note": "在原 closure 註冊 calculate 與結果鏡射；舊頁 update(false)，不可以產報按鈕代替計算。"
+    },
+    {
+      "key": "/steel-column-formal",
+      "file": "鋼構工具/steel-column-formal.html",
+      "state": "formal",
+      "adapter": "steel-explicit",
+      "resultSelector": "#summaryResult",
+      "pageOnly": true,
+      "owner": "root",
+      "createCalculateButton": false,
+      "sourceFile": "鋼構工具/steel-column-formal.js",
+      "note": "在原 closure 註冊 calculate 與結果鏡射；舊頁 update(false)，不可以產報按鈕代替計算。"
+    },
+    {
+      "key": "/steel-plate",
+      "file": "鋼構工具/plate-check.html",
+      "state": "formal",
+      "adapter": "steel-explicit",
+      "resultSelector": "#approvalDecision",
+      "pageOnly": true,
+      "owner": "root",
+      "createCalculateButton": true,
+      "sourceFile": "鋼構工具/app.js",
+      "note": "在原 closure 註冊 calculate 與結果鏡射；舊頁 update(false)，不可以產報按鈕代替計算。"
+    },
+    {
+      "key": "/wind-force",
+      "file": "結構工具箱/tools/風力/wind-force.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#banner",
+      "pageOnly": true
+    },
+    {
+      "key": "/wind-cc",
+      "file": "結構工具箱/tools/風力/wind-cc.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#applicStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/wind-parapet",
+      "file": "結構工具箱/tools/風力/wind-parapet.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#applicStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/wind-open-roof",
+      "file": "結構工具箱/tools/風力/wind-open-roof.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#applicStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/wind-object-solid",
+      "file": "結構工具箱/tools/風力/wind-object-solid.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#resultPanel",
+      "pageOnly": true
+    },
+    {
+      "key": "/wind-object-frame",
+      "file": "結構工具箱/tools/風力/wind-object-frame.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#resultPanel",
+      "pageOnly": true
+    },
+    {
+      "key": "/wind-lattice-tower",
+      "file": "結構工具箱/tools/風力/wind-lattice-tower.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#resultPanel",
+      "pageOnly": true
+    },
+    {
+      "key": "/wind-object-tower",
+      "file": "結構工具箱/tools/風力/wind-object-tower.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#resultPanel",
+      "pageOnly": true
+    },
+    {
+      "key": "/wind-fence-sign",
+      "file": "結構工具箱/tools/風力/wind-fence-sign.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#resultPanel",
+      "pageOnly": true
+    },
+    {
+      "key": "/wind-sign-pole",
+      "file": "結構工具箱/tools/風力/wind-sign-pole.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#resultPanel",
+      "pageOnly": true
+    },
+    {
+      "key": "/seismic-force",
+      "file": "結構工具箱/tools/地震力/seismic-force.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#resultPanel",
+      "pageOnly": true,
+      "note": "依目前主結構／附屬／垂直／雜項分頁選擇對應既有計算鈕，勿固定回主結構。"
+    },
+    {
+      "key": "/seismic-appendage",
+      "file": "結構工具箱/tools/地震力/seismic-appendage.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#resultPanel",
+      "pageOnly": true
+    },
+    {
+      "key": "/seismic-misc",
+      "file": "結構工具箱/tools/地震力/seismic-misc.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#resultPanel",
+      "pageOnly": true
+    },
+    {
+      "key": "/anchor",
+      "file": "anchor/index.html",
+      "state": "formal",
+      "adapter": "native-react",
+      "resultSelector": "native:result",
+      "pageOnly": true,
+      "owner": "root",
+      "sourceFile": "螺栓檢討/bolt-review-tool/src/useKeyboardShortcuts.ts",
+      "note": "原生 React hook；需來源 build/sync，禁止直接改 built anchor。"
+    },
+    {
+      "key": "/stone-fixing",
+      "file": "石材固定/石材計算書產生器_規範版V2.html",
+      "state": "formal",
+      "adapter": "callback",
+      "resultSelector": "#review-dashboard",
+      "pageOnly": true,
+      "calculateFunction": "render",
+      "createCalculateButton": false,
+      "modalSelectors": [
+        "#pdf_picker_modal",
+        "#v2-validation-modal",
+        "#v2-lightbox",
+        "#v2-tpl-mgr",
+        "#v2-check-modal"
+      ]
+    },
+    {
+      "key": "/foundation-local",
+      "file": "結構工具箱/tools/foundation/foundation-local.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/equipment-load",
+      "file": "結構工具箱/tools/equipment/equipment-load.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/earth-pressure",
+      "file": "結構工具箱/tools/earth/earth-pressure.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/floor-slab-westergaard",
+      "file": "結構工具箱/tools/floor-slab/floor-slab-westergaard.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/cable-tension-frequency",
+      "file": "結構工具箱/tools/cable-tension/cable-tension-frequency.html",
+      "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/decking",
+      "file": "覆工板/index.html",
+      "state": "formal",
+      "adapter": "callback",
+      "resultSelector": "#report-output .summary",
+      "pageOnly": true,
+      "calculateFunction": "recalcAll",
+      "createCalculateButton": true
+    },
+    {
+      "key": "/beam-analysis",
+      "file": "連續梁分析.html",
+      "state": "assist",
+      "adapter": "callback",
+      "resultSelector": "#resultsCard",
+      "pageOnly": true,
+      "calculateFunction": "runAnalysis",
+      "createCalculateButton": false,
+      "modalSelectors": [
+        "#saveModal",
+        "#loadModal"
+      ]
+    }
+  ]
+}

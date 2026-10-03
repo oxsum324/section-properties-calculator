@@ -1,4 +1,5 @@
 (function initSteelColumnFormal() {
+  let workflow = null;
   const $ = (id) => document.getElementById(id);
   const f2 = (value) => Number(value || 0).toFixed(2);
   const f1 = (value) => Number(value || 0).toFixed(1);
@@ -567,6 +568,7 @@
   function inputFail(message) {
     setColumnReportValidationMessage(message);
     setInputStatus(message);
+    workflow?.refresh();
     return null;
   }
 
@@ -1625,6 +1627,7 @@
     setColumnReportValidationMessage("");
     renderSummary(result);
     renderFlow(result);
+    workflow?.refresh();
     return result;
   }
 
@@ -1988,4 +1991,17 @@
     applyInputAccordionPreset(currentInputPreset);
     applyReportAccordionPreset(resultState, currentReportPreset);
   }
+
+  workflow = window.HYToolWorkflow.install({
+    key: '/steel-column-formal',
+    calculate: () => { resultState = runCheck(); return resultState || false; },
+    showResults: () => { activatePanel('report'); $('columnSummaryBanner').scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+    anchorSelector: '.page-header',
+    calcButtonSelector: '#runCheckBtn',
+    readSummary: () => {
+      const banner = $('columnSummaryBanner');
+      const inputError = $('columnInputStatus')?.textContent.trim();
+      return { text: inputError || banner.textContent.trim(), tone: inputError ? 'warn' : ['fail','warn','ok'].find(tone => banner.classList.contains(tone)) || 'idle' };
+    }
+  });
 })();

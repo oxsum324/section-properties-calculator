@@ -1,4 +1,5 @@
 (function initSteelConnectionApp() {
+  let workflow = null;
   const { calculateConnection } = window.ShearConnectionCalculator;
   const SteelFormalUI = window.SteelFormalUI;
   const STEEL_TOOL_METADATA = window.SteelToolMetadata;
@@ -3436,6 +3437,7 @@ ${scopeHtml}
     updateReportJumpButtons(result);
     window.latestSteelConnectionResult = result;
     if (autoSave) persistDraft(state);
+    workflow?.refresh();
   }
 
   function getNamedFields(name) {
@@ -3766,4 +3768,17 @@ ${scopeHtml}
   activatePanel(currentPanel);
   loadAuditStatus();
   requestQuickNavSync();
+
+  workflow = window.HYToolWorkflow.install({
+    key: IS_STANDALONE_PLATE ? '/steel-plate' : '/steel-formal',
+    calculate: () => update(true),
+    showResults: () => {
+      activatePanel('report');
+      expandReportBlockForElement(document.getElementById('approvalDecision'));
+      reportBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+    anchorSelector: '.page-header',
+    createCalculateButton: true,
+    readSummary: () => ({ text: reportBanner.textContent.trim(), tone: ['fail','warn','ok'].find(tone => reportBanner.classList.contains(tone)) || 'idle' })
+  });
 })();

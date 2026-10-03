@@ -27,6 +27,7 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
   '結構工具箱/tools/docx-package-integrity.js',
   '結構工具箱/tools/docx-package-integrity.test.js',
+  '結構工具箱/tools/tool-workflow.manifest.json',
   '結構工具箱/tools/xlsx-package-integrity.js',
   '結構工具箱/tools/xlsx-package-integrity.test.js',
   '結構工具箱/tools/xlsx-print-export.py',

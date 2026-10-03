@@ -1,6 +1,14 @@
 import { useEffect, useRef } from 'react'
 import type { ProjectAuditSource } from './domain'
 
+export function topWorkspaceDialog() {
+  return [...document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"], dialog[open]')]
+    .filter((node) => !node.hidden && getComputedStyle(node).display !== 'none' && getComputedStyle(node).visibility !== 'hidden')
+    .sort((a, b) => (Number.parseInt(getComputedStyle(a).zIndex, 10) || 0) - (Number.parseInt(getComputedStyle(b).zIndex, 10) || 0)
+      || (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
+    .at(-1)
+}
+
 interface CaseCardLite {
   id: string
 }
@@ -14,6 +22,7 @@ interface WorkspaceTabLite<TabId extends string = string> {
  *   Ctrl/Cmd+S → 留痕簽章
  *   Ctrl/Cmd+P → 列印報表
  *   Ctrl/Cmd+K → 命令面板
+ *   Ctrl/Cmd+Enter → 重算目前輸入並查看結果（不核可、不套用候選）
  *   Alt+1..N   → 切到對應 tab
  *   Alt+0/R    → 回到首頁 (report tab)
  *   Alt+] / [  → 案例循環切換
@@ -37,6 +46,7 @@ export function useKeyboardShortcuts<
   activeProjectId: string
   recordCurrentAuditTrail: (source: ProjectAuditSource) => Promise<void> | void
   printReport: () => void
+  calculateAndShowResults: () => void
   selectProject: (projectId: string) => void
   /**
    * setActiveTab 支援切到內部某個 tab，或 'report' / 'result' 兩個結構面 tab
@@ -61,6 +71,7 @@ export function useKeyboardShortcuts<
     activeProjectId,
     recordCurrentAuditTrail,
     printReport,
+    calculateAndShowResults,
     selectProject,
     setActiveTab,
     setHasEnteredWorkspace,
@@ -76,12 +87,13 @@ export function useKeyboardShortcuts<
   const handlersRef = useRef({
     recordCurrentAuditTrail,
     printReport,
+    calculateAndShowResults,
   })
   useEffect(() => {
     caseCardsRef.current = caseCards
     activeProjectIdRef.current = activeProjectId
     selectProjectRef.current = selectProject
-    handlersRef.current = { recordCurrentAuditTrail, printReport }
+    handlersRef.current = { recordCurrentAuditTrail, printReport, calculateAndShowResults }
   })
 
   useEffect(() => {
@@ -100,7 +112,32 @@ export function useKeyboardShortcuts<
         target.isContentEditable
       )
     }
+    // capture 只處理工作流程鍵，避免 Ctrl+Enter 在命令搜尋框誤執行匯出／套用命令。
+    const handleWorkflowKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return
+      const modal = topWorkspaceDialog()
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        if (event.isComposing || event.keyCode === 229 || event.repeat) return
+        if (!modal) handlersRef.current.calculateAndShowResults()
+        return
+      }
+      if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229 || event.repeat) return
+      if (modal?.classList.contains('command-palette-backdrop')) {
+        setShowCommandPalette(false)
+      } else if (modal?.classList.contains('shortcut-help-backdrop')) {
+        setShowShortcutHelp(false)
+      } else if (modal) {
+        return // 確認等其他視窗由各自的取消流程接手。
+      } else if (!isTypingTarget(event.target) && activeTab === 'report' && hasEnteredWorkspace) {
+        setActiveTab('result' as ExtraTabId)
+      } else return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat) return
       const meta = event.ctrlKey || event.metaKey
       const alt = event.altKey
       if (
@@ -174,31 +211,17 @@ export function useKeyboardShortcuts<
           return
         }
       }
-      if (event.key === 'Escape') {
-        if (showCommandPalette) {
-          event.preventDefault()
-          setShowCommandPalette(false)
-          return
-        }
-        if (showShortcutHelp) {
-          event.preventDefault()
-          setShowShortcutHelp(false)
-          return
-        }
-        if (activeTab === 'report' && hasEnteredWorkspace) {
-          event.preventDefault()
-          setActiveTab('result' as ExtraTabId)
-        }
-      }
       // Shift+? 或 ? ：切換快捷鍵說明浮層
       if (event.key === '?' || (event.shiftKey && event.key === '/')) {
         event.preventDefault()
         setShowShortcutHelp((current) => !current)
       }
     }
+    window.addEventListener('keydown', handleWorkflowKeyDown, true)
     window.addEventListener('keydown', handleKeyDown)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keydown', handleWorkflowKeyDown, true)
     }
   }, [
     hydrated,

@@ -466,3 +466,6 @@ git add -- field-survey/ "啟動現況鑑定紀錄.bat" serve-local.js vercel.js
 首頁新增工作流卡片後，同步維護 `結構工具箱/tools/public-status-claims.contract.test.js` 與 `結構工具箱/tools/local-quick-browser-smoke.test.js` 的 52 項入口檢查。主頁使用 `field-survey/recorder.html`，維持 clean URL 下相對資源位置一致。
 
 `.gitignore` 也忽略案件備份與核對收據，避免一般 Git staging 收入私人資料。
+# 2026-10-03：T3 計算操作整合
+
+T3 同包提交共用 workflow、一般頁 adapter、41 入口接線與快捷鍵測試；錨栓同包包含 React 來源及 `sync-anchor-deployment.ps1` 的產物。入口清冊由發布分流排除，測試證據保留於 `output/`，不提交。T2 報表純函式、T4 鋼構計算書 renderer 與 T5 文書匯出仍各自分包。
