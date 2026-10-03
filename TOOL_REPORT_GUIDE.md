@@ -568,3 +568,7 @@ node .\結構工具箱\tests\wind.test.js
 # 2026-10-03：工作頁計算操作
 
 共用結論列只鏡射原工具已計算的結果；輸入變更先標示待更新。Ctrl／Cmd+Enter 計算並導向結果，Esc 只關閉最上層對話框，不觸發核可、下載或案件採用。`data-page-only` 提示及 workflow 區塊在列印中隱藏，計算書 renderer 不接收這些節點。41 入口測試包含輸入框焦點、IME、重複按鍵、疊層對話框與 375 px 版面。
+
+## 2026-10-03：鋼構專用正文與共用外框
+
+`openReport(cfg, presentation)` 回傳計算書視窗；`buildReportDocumentHtml` 使用同一份組版。鋼構提供強度、細部、有效面積、示意圖、計算流程、適用邊界與結論，共用 renderer 負責封面資訊、工具列、頁尾、核可與封印。presentation 不改變計算資料，CSS 與排版調整不改 CF；正文變更仍受內容封印檢查。不得為讓組包 ready 而放寬現有核可資格。

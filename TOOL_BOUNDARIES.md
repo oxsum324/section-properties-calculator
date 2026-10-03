@@ -302,3 +302,9 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 `結構工具箱/core/ui/tool-workflow.js` 與 `結構工具箱/tools/tool-workflow-adapters.js` 承接首頁 40 個正式入口及連續梁的計算、結果導覽與既有結論鏡射。Ctrl／Cmd+Enter 只呼叫一次既有計算；Esc 只關閉最上層對話框。錨栓 React 入口由來源 hook 接入並經原部署同步腳本產生 `anchor/`。快捷鍵不核可、不採用資料、不匯出；待更新狀態不重新判定工程合格。提示只用於工作頁，列印與計算書排除。
 
 `tool-workflow.manifest.json` 是 41 入口驗證清冊，屬本機開發資料，不列入 Pages 產物。連續梁維持 assist 身分。
+
+## 2026-10-03：鋼構報表共用外框
+
+鋼構 `app.js` 由共用 `buildReportDocumentHtml(cfg, presentation)`／`openReport` 組成計算書；presentation 只提供既有工程正文、CSS 與公式排版需求，放在共用內容封印範圍內。專用段落仍由鋼構來源產生，原 flat checks、snapshot 與計算指紋投影不變；不可藉 presentation 指定指紋。核可資格維持 `formalApprovalAllowed: result.passes`。本次九條驗收鏈另要求來源 JSON 完整；此為案例驗收條件，未改變通用附件檢查器處理單獨核可 HTML 的既有政策。
+
+附件檢查器一般化解析 CSS 子元素與混合後代選擇器；只有可證明為 absolute／fixed 且零面積的 `clip:rect(...)` 才排除其隱藏內容。未知選擇器、非零／無法解析的裁切、負向偏移與同色隱藏仍須複核或阻擋，不使用公式套件白名單。`鋼構工具/steel-report-package-contract.js` 僅為本機測試 helper，排除 Pages。

@@ -124,7 +124,7 @@ function parseMarkupAttributes(value) {
 
 function parseSimpleCssSelector(value) {
   let rest = String(value || '').trim();
-  if (!rest || /[\s>+~:*]/.test(rest)) return null;
+  if (!rest) return null;
   const tagMatch = /^[a-z][\w-]*/i.exec(rest);
   const selector = { tag: '', id: '', classes: [], attributes: [] };
   if (tagMatch) {
@@ -432,13 +432,66 @@ function isAnchorXlsxSealRequired(record) {
 function parseCssSelector(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
-  const interactiveState = /:(?:hover|focus|focus-visible|focus-within|active)\b/gi;
-  const staticSelector = raw.replace(interactiveState, '');
-  const dynamicOnly = staticSelector !== raw;
-  if (/:/.test(staticSelector) || /[>+~]/.test(staticSelector)) return null;
-  const parts = staticSelector.split(/\s+/).map(parseSimpleCssSelector);
-  if (!parts.length || parts.some(part => !part)) return null;
-  return { parts, dynamicOnly };
+  const parts = [], combinators = [];
+  let buffer = '', quote = '', attribute = false, pending = null, dynamicOnly = false;
+  function finishPart() {
+    if (!buffer) return true;
+    const part = parseSimpleCssSelector(buffer);
+    if (!part || (!parts.length && pending === '>')) return false;
+    if (parts.length) { if (!pending) return false; combinators.push(pending); }
+    parts.push(part); buffer = ''; pending = null; return true;
+  }
+  for (let index = 0; index < raw.length; index += 1) {
+    const char = raw[index];
+    // 尚未實作 CSS escape 的解碼；不把不確定字串拆成另一個選擇器。
+    if (char === '\\') return null;
+    if (quote) { buffer += char; if (char === quote) quote = ''; continue; }
+    if (attribute) {
+      if (char === '[') return null;
+      if (char === '"' || char === "'") quote = char;
+      if (char === ']') attribute = false;
+      buffer += char; continue;
+    }
+    if (char === '[') { attribute = true; buffer += char; continue; }
+    if (char === ':') {
+      const state = /^:(?:focus-visible|focus-within|hover|focus|active)(?![\w-])/i.exec(raw.slice(index));
+      if (!state) return null;
+      dynamicOnly = true; index += state[0].length - 1; continue;
+    }
+    if (/\s/.test(char)) {
+      if (!finishPart()) return null;
+      if (parts.length && pending === null) pending = ' ';
+      continue;
+    }
+    if (char === '>') {
+      if (!finishPart() || !parts.length || pending === '>') return null;
+      pending = '>'; continue;
+    }
+    if (/[+~*,()\]"']/.test(char)) return null;
+    buffer += char;
+  }
+  if (quote || attribute || !finishPart() || pending === '>' || !parts.length) return null;
+  return { parts, combinators, dynamicOnly };
+}
+
+function splitCssSelectorList(value) {
+  const source = String(value || ''), selectors = [];
+  let start = 0, quote = '', attribute = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '\\') return null;
+    if (quote) { if (char === quote) quote = ''; continue; }
+    if (attribute) {
+      if (char === '[') return null;
+      if (char === '"' || char === "'") quote = char;
+      if (char === ']') attribute = false;
+      continue;
+    }
+    if (char === '[') attribute = true;
+    else if (char === ',' ) { selectors.push(source.slice(start, index).trim()); start = index + 1; }
+  }
+  selectors.push(source.slice(start).trim());
+  return quote || attribute || selectors.some(selector => !selector) ? null : selectors;
 }
 
 function collectApplicableCssRules(value, applies = true, rules = []) {
@@ -479,6 +532,24 @@ function hasZeroClippedBoxStyle(value) {
   return zeroDimension('width') && zeroDimension('height') && clippedOverflow;
 }
 
+function hasZeroAreaClipRectStyle(value) {
+  const declarations = new Map(cssDeclarationEntries(mergeCssDeclarations(value)).map(entry => [entry.property, entry.value.replace(/\s*!important\s*$/i, '').trim()]));
+  // clip:rect 僅對 absolute/fixed 生效；static 元素不能僅憑 rect 宣告就當作隱藏。
+  if (!/^(?:absolute|fixed)$/i.test(declarations.get('position') || '')) return false;
+  const match = /^rect\(\s*([^()]*)\s*\)$/i.exec(declarations.get('clip') || '');
+  if (!match) return false;
+  const tokens = match[1].includes(',') ? match[1].split(',').map(token => token.trim()) : match[1].trim().split(/\s+/);
+  if (tokens.length !== 4) return false;
+  const lengths = tokens.map(token => {
+    const length = /^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(px|pt|pc|in|cm|mm|q|em|rem|ex|ch|vw|vh|vmin|vmax)?$/i.exec(token);
+    if (!length || !Number.isFinite(Number(length[1])) || (Number(length[1]) !== 0 && !length[2])) return null;
+    return { number: Number(length[1]), unit: (length[2] || '').toLowerCase() };
+  });
+  if (lengths.some(length => !length)) return false;
+  const equal = (a, b) => a.number === b.number && (a.number === 0 || a.unit === b.unit);
+  return equal(lengths[0], lengths[2]) || equal(lengths[1], lengths[3]);
+}
+
 function hasDefinitelyHiddenStyle(value) {
   const style = String(value || '');
   return /\bdisplay\s*:\s*none\b/i.test(style)
@@ -490,7 +561,8 @@ function hasDefinitelyHiddenStyle(value) {
     || /\bfont-size\s*:\s*0(?:[a-z%]+)?\s*(?:!important\s*)?(?:;|$)/i.test(style)
     || /\btransform\s*:\s*scale(?:3d|x|y)?\(\s*0(?:\s*[,)]|\s*$)/i.test(style)
     || /\bfilter\s*:\s*opacity\(\s*0(?:%|(?:\.0+)?)?\s*\)/i.test(style)
-    || hasZeroClippedBoxStyle(style);
+    || hasZeroClippedBoxStyle(style)
+    || hasZeroAreaClipRectStyle(style);
 }
 
 const CSS_NAMED_COLORS = Object.freeze({
@@ -599,7 +671,9 @@ function hasSameForegroundBackgroundStyle(value) {
 
 function hasAmbiguousVisibilityStyle(value) {
   const style = String(value || '');
-  return /\bclip(?:-path)?\s*:/i.test(style)
+  const ambiguousClip = cssDeclarationEntries(mergeCssDeclarations(style)).some(entry => entry.property === 'clip-path'
+    || (entry.property === 'clip' && !hasZeroAreaClipRectStyle(style)));
+  return ambiguousClip
     || /\b(?:left|right|top|bottom|text-indent)\s*:\s*-\s*[1-9]\d{2,}(?:px|pt|em|rem|vw|vh|%)/i.test(style)
     || /\b(?:left|top)\s*:\s*[1-9]\d{3,}(?:px|pt|em|rem|vw|vh|%)/i.test(style)
     || /\btransform\s*:[^;]*translate(?:3d|x|y)?\([^)]*-\s*[1-9]\d{2,}/i.test(style)
@@ -620,7 +694,9 @@ function collectHiddenCssSelectors(value) {
       const visibilityRelated = hasVisibilityRelatedDeclarations(declarations);
       const definitelyHidden = hasDefinitelyHiddenStyle(declarations);
       const ambiguous = hasAmbiguousVisibilityStyle(declarations);
-      rule.selectors.split(',').map(item => item.trim()).filter(Boolean).forEach(rawSelector => {
+      const selectorList = splitCssSelectorList(rule.selectors);
+      if (!selectorList) { if (definitelyHidden || ambiguous || visibilityRelated) visibilityIssues.push(rule.selectors); return; }
+      selectorList.forEach(rawSelector => {
         const parsed = parseCssSelector(rawSelector);
         if (parsed) {
           if (parsed.dynamicOnly) return;
@@ -644,25 +720,27 @@ function matchesSimpleCssSelector(tagName, attributes, selector) {
 
 function matchesCssSelector(tagName, attributes, ancestors, selector) {
   const parts = selector.parts || [];
-  if (!parts.length || !matchesSimpleCssSelector(tagName, attributes, parts.at(-1))) return false;
-  let ancestorIndex = ancestors.length - 1;
-  for (let partIndex = parts.length - 2; partIndex >= 0; partIndex -= 1) {
-    while (ancestorIndex >= 0 && !matchesSimpleCssSelector(
-      ancestors[ancestorIndex].tagName,
-      ancestors[ancestorIndex].attributes,
-      parts[partIndex],
-    )) ancestorIndex -= 1;
-    if (ancestorIndex < 0) return false;
-    ancestorIndex -= 1;
+  if (!parts.length) return false;
+  const nodes = [...ancestors, { tagName, attributes }], memo = new Map();
+  function matchAt(partIndex, nodeIndex) {
+    const key = partIndex + ':' + nodeIndex;
+    if (memo.has(key)) return memo.get(key);
+    let matched = false;
+    if (nodeIndex >= 0 && matchesSimpleCssSelector(nodes[nodeIndex].tagName, nodes[nodeIndex].attributes, parts[partIndex])) {
+      if (partIndex === 0) matched = true;
+      else if (selector.combinators[partIndex - 1] === '>') matched = matchAt(partIndex - 1, nodeIndex - 1);
+      else for (let index = nodeIndex - 1; index >= 0 && !matched; index -= 1) matched = matchAt(partIndex - 1, index);
+    }
+    memo.set(key, matched); return matched;
   }
-  return true;
+  return matchAt(parts.length - 1, nodes.length - 1);
 }
 
 function extractHtmlVisibleContent(value) {
   const source = String(value || '').replace(/<!--[\s\S]*?-->/g, ' ');
   const css = collectHiddenCssSelectors(source);
   const content = source.replace(/<(?:script|style|template|noscript)\b[^>]*>[\s\S]*?<\/(?:script|style|template|noscript)>/gi, ' ');
-  const tokens = content.match(/<[^>]*>|[^<]+/g) || [];
+  const tokens = content.match(/<(?:[^"'<>]|"[^"]*"|'[^']*')*>|[^<]+/g) || [];
   const stack = [];
   const output = [];
   const visibilityIssues = [...css.visibilityIssues, ...collectLinkedStylesheetIssues(source)];

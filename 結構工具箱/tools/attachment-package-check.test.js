@@ -330,8 +330,56 @@ assert.deepEqual(attributeSelectorHtml.visibilityIssues, [], 'exact attribute se
 const interactiveSelectorHtml = Checker.extractHtmlVisibleContent('<style>.removed-toolbar button:hover{display:none;color:white}</style><main><button>列印內容</button></main>');
 assert.equal(interactiveSelectorHtml.text, '列印內容');
 assert.deepEqual(interactiveSelectorHtml.visibilityIssues, [], 'interactive-only pseudo states do not affect the static print artifact');
-const unsupportedCombinatorHtml = Checker.extractHtmlVisibleContent('<style>.report > .calc{color:white}</style><section class="report"><div class="calc">診斷內容</div></section>');
-assert.deepEqual(unsupportedCombinatorHtml.visibilityIssues, ['.report > .calc'], 'unsupported combinators remain fail-closed');
+const childSameColorHtml = Checker.extractHtmlVisibleContent('<style>.report > .calc{color:white}</style><section class="report"><div class="calc">診斷內容</div></section>');
+assert.equal(childSameColorHtml.text, '', 'supported child rule still excludes same-color text');
+assert.deepEqual(childSameColorHtml.visibilityIssues, ['.report > .calc'], 'same-color child rule still requires review');
+
+// T4_SELECTOR_CLIP_TESTS_START
+const childTree = '<main class="report"><div class="calc">直接</div><section><div class="calc">隔層</div></section></main><div class="calc">外部</div>';
+for (const selector of ['.report>.calc', '.report > .calc', '.report\n>\t.calc']) {
+  const result = Checker.extractHtmlVisibleContent(`<style>${selector}{display:none}</style>${childTree}`);
+  assert.equal(result.text, '隔層 外部', 'child combinator cannot match through an intervening element');
+  assert.deepEqual(result.visibilityIssues, []);
+}
+assert.equal(Checker.extractHtmlText(`<style>.report .calc{display:none}</style>${childTree}`), '外部', 'descendant matching intentionally includes intervening elements');
+const mixedTree = '<main class="report"><section class="group"><div><span class="calc">直接群內</span></div></section><div><section class="group"><span class="calc">隔層群內</span></section></div></main>';
+assert.equal(Checker.extractHtmlText(`<style>.report > .group .calc{display:none}</style>${mixedTree}`), '隔層群內');
+assert.equal(Checker.extractHtmlText(`<style>.report .group > .calc{display:none}</style>${mixedTree}`), '直接群內');
+assert.equal(Checker.extractHtmlText('<style>#root > .group .calc{display:none}</style><main id="root"><div class="group"><section><div class="group"><span class="calc">應被隱藏</span></div></section></div></main>'), '', 'mixed chains backtrack past the nearest unmatched child relationship');
+for (const literal of ['a > b', 'a,b', 'a:hover']) {
+  const selector = `[data-label="${literal}"] > .calc`;
+  const result = Checker.extractHtmlVisibleContent(`<style>${selector}{display:none}</style><section data-label="${literal}"><b class="calc">隱藏</b><div><b class="calc">保留</b></div></section>`);
+  assert.equal(result.text, '保留', 'quoted attribute content cannot become a combinator, selector list or dynamic state');
+  assert.deepEqual(result.visibilityIssues, []);
+}
+for (const selector of ['.report + .calc', '.report ~ .calc', '.report >> .calc', '> .calc', '.report >', '.report > :not(.calc)', '.report > *', '.report,,.calc', '[data-label="broken] > .calc', '.report\\> .calc']) {
+  const result = Checker.extractHtmlVisibleContent(`<style>${selector}{display:none}</style>${childTree}`);
+  assert.ok(result.visibilityIssues.length > 0, 'unsupported or malformed selector remains review: ' + selector);
+  assert.equal(result.text, '直接 隔層 外部', 'uncertain selector never hides text by an invented interpretation');
+}
+const zeroClips = ['rect(1px,1px,1px,1px)', 'rect(0,0,0,0)', 'rect(1px 5px 1px 0px)', 'rect(-1px,2px,7px,2px)', 'rect(.5em,3em,.5em,1em)'];
+for (const clip of zeroClips) {
+  const style = 'position:absolute;clip:' + clip + '!important';
+  assert.equal(Checker.hasDefinitelyHiddenStyle(style), true, clip + ' has zero area on a positioned element');
+  assert.equal(Checker.hasAmbiguousVisibilityStyle(style), false, 'proven zero-area clip alone is not ambiguous');
+  const result = Checker.extractHtmlVisibleContent(`<div style="${style}">${COMPLETE_CALCULATION_CONTENT}</div><p>可見報告</p>`);
+  assert.equal(result.text, '可見報告', 'zero clip cannot provide any required engineering body');
+  assert.deepEqual(result.visibilityIssues, []);
+}
+for (const clip of ['rect(1px,5px,9px,0px)', 'rect(1px,1px,1px)', 'rect(1,1,1,1)', 'rect(auto,1px,1px,1px)', 'rect(1px,1px 1px,1px)', 'rect(1%,1%,1%,1%)', 'rect(calc(1px),1px,1px,1px)', 'rect(1px,1em,1em,1px)']) {
+  const style = 'position:absolute;clip:' + clip;
+  assert.equal(Checker.hasDefinitelyHiddenStyle(style), false, 'nonzero or unparsed rect is not assumed hidden: ' + clip);
+  assert.equal(Checker.hasAmbiguousVisibilityStyle(style), true, 'nonzero or unparsed rect remains review: ' + clip);
+}
+assert.equal(Checker.hasDefinitelyHiddenStyle('clip:rect(1px,1px,1px,1px)'), false, 'clip without absolute/fixed is not a hidden box');
+assert.equal(Checker.hasAmbiguousVisibilityStyle('clip:rect(1px,1px,1px,1px)'), true);
+for (const suffix of ['left:-9999px', 'clip-path:inset(50%)', 'color:white;background:white']) {
+  assert.equal(Checker.hasAmbiguousVisibilityStyle('position:absolute;clip:rect(1px,1px,1px,1px);' + suffix), true, 'a proven clip does not waive other ambiguity: ' + suffix);
+}
+assert.equal(Checker.hasDefinitelyHiddenStyle('position:absolute;clip:rect(1px,1px,1px,1px);clip:rect(0px,5px,5px,0px)'), false, 'later nonzero clip overrides zero clip');
+const generalMathLike = Checker.extractHtmlVisibleContent('<style>render-container[data-render="SVG"] > svg {overflow:visible} g[data-node="table"] > g > svg {overflow:visible} [data-render="SVG"] help-tool > help-tip {display:none} assistive-text {position:absolute;clip:rect(1px,1px,1px,1px);width:1px;height:1px;overflow:hidden}</style><render-container data-render="SVG"><svg><g data-node="table"><g><svg><text>可見公式</text></svg></g></g></svg><help-tool><help-tip>提示</help-tip></help-tool><assistive-text>不得重複正文</assistive-text></render-container>');
+assert.equal(generalMathLike.text, '可見公式'); assert.deepEqual(generalMathLike.visibilityIssues, [], 'behavior is syntax based, independent of MathJax tag names');
+// T4_SELECTOR_CLIP_TESTS_END
 const linkedStylesheetHtml = Checker.extractHtmlVisibleContent('<link rel="stylesheet" href="report.css"><div>外部樣式診斷內容</div>');
 assert.equal(linkedStylesheetHtml.text, '外部樣式診斷內容');
 assert.deepEqual(linkedStylesheetHtml.visibilityIssues, ['link[rel=stylesheet]']);
@@ -963,6 +1011,8 @@ try {
     { name: 'inline-white-default', html: `${visibilitySecurityShell}<div style="color:white">${COMPLETE_CALCULATION_CONTENT}</div>` },
     { name: 'split-same-color', html: `<style>.concealed{color:white}.concealed{background:white}</style>${visibilitySecurityShell}<div class="concealed">${COMPLETE_CALCULATION_CONTENT}</div>` },
     { name: 'zero-clipped-box', html: `${visibilitySecurityShell}<div style="width:0;height:0;overflow:hidden">${COMPLETE_CALCULATION_CONTENT}</div>` },
+    { name: 'zero-area-clip-rect', html: `${visibilitySecurityShell}<div style="position:absolute;clip:rect(1px,1px,1px,1px)">${COMPLETE_CALCULATION_CONTENT}</div>` },
+    { name: 'child-same-color-selector', html: `<style>.report > .calc{color:white}</style>${visibilitySecurityShell}<section class="report"><div class="calc">${COMPLETE_CALCULATION_CONTENT}</div></section>` },
     { name: 'descendant-visibility-selector', html: `<style>.report .calc{color:white}</style>${visibilitySecurityShell}<section class="report"><div class="calc">${COMPLETE_CALCULATION_CONTENT}</div></section>` },
   ];
   visibilitySecurityCases.forEach(testCase => {
@@ -980,7 +1030,9 @@ try {
   });
 
   const visibilityReviewCases = [
-    { name: 'unsupported-combinator-selector', html: `<style>.report > .calc{color:white}</style>${visibilitySecurityShell}<section class="report"><div class="calc">${COMPLETE_CALCULATION_CONTENT}</div></section>` },
+    { name: 'unsupported-combinator-selector', html: `<style>.report + .calc{color:white}</style>${visibilitySecurityShell}<section class="report"><div class="calc">${COMPLETE_CALCULATION_CONTENT}</div></section>` },
+    { name: 'nonzero-clip-rect', html: `${visibilitySecurityShell}<div style="position:absolute;clip:rect(1px,9px,9px,1px)">${COMPLETE_CALCULATION_CONTENT}</div>` },
+    { name: 'malformed-clip-rect', html: `${visibilitySecurityShell}<div style="position:absolute;clip:rect(1px,1px,1px)">${COMPLETE_CALCULATION_CONTENT}</div>` },
     { name: 'external-stylesheet', html: `<link rel="stylesheet" href="report.css">${visibilitySecurityShell}${COMPLETE_CALCULATION_CONTENT}` },
     { name: 'css-import', html: `<style>@import url("report.css");</style>${visibilitySecurityShell}${COMPLETE_CALCULATION_CONTENT}` },
     { name: 'unparsed-color', html: `<style>.tone{color:hsl(0 0% 100%);background:var(--report-background)}</style>${visibilitySecurityShell}<div class="tone">${COMPLETE_CALCULATION_CONTENT}</div>` },

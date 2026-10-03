@@ -469,3 +469,7 @@ git add -- field-survey/ "啟動現況鑑定紀錄.bat" serve-local.js vercel.js
 # 2026-10-03：T3 計算操作整合
 
 T3 同包提交共用 workflow、一般頁 adapter、41 入口接線與快捷鍵測試；錨栓同包包含 React 來源及 `sync-anchor-deployment.ps1` 的產物。入口清冊由發布分流排除，測試證據保留於 `output/`，不提交。T2 報表純函式、T4 鋼構計算書 renderer 與 T5 文書匯出仍各自分包。
+
+T4 提交共用報表 presentation API、鋼構專用正文接線、同步副本／manifest 與相容性、九案證據鏈測試；不混入 T5 DOCX adapter。正式附件資格與公開放行仍由原治理流程決定。
+
+T4 同包包含附件可見性解析器、其隱藏正文負向案例，以及 `steel-report-package-contract.js` 的 Pages 私有排除；來源完整性為定向驗收 wrapper 的條件，不修改通用組包的來源政策。

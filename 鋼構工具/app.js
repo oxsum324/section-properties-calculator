@@ -2831,6 +2831,13 @@
       subtitle: result.reportSubtitle,
       outputSource,
       textExport: true,
+      project: {
+        name: normalizeProjectMetaValue(result.state.projectName),
+        no: normalizeProjectMetaValue(result.state.connectionTag),
+        designer: normalizeProjectMetaValue(result.state.designer),
+      },
+      formalApprovalAllowed: result.passes,
+      reviewItems: result.overallStatus === "warn" ? ["計算結果尚待人工複核"] : [],
       checks: result.checks,
       summary: { ok: result.passes, text: reportBanner.textContent },
       snapshot: {
@@ -3186,20 +3193,7 @@
     }
   }
 
-  function buildReportHtml(result) {
-    const reportTrace = buildConnectionReportTrace(result);
-    const reportDocument = SteelFormalUI.buildFormalDocumentStateReport({
-      project: {
-        name: normalizeProjectMetaValue(result.state.projectName),
-        no: normalizeProjectMetaValue(result.state.connectionTag),
-        designer: normalizeProjectMetaValue(result.state.designer),
-      },
-      calculated: true,
-      readinessLevel: result.passes ? (result.overallStatus === "warn" ? "review" : "ready") : "blocked",
-      formalApprovalAllowed: result.passes,
-      calculationFingerprint: reportTrace.calculationFingerprint,
-      textExport: true,
-    });
+  function buildConnectionReportPresentation(result) {
     const escReport = SteelFormalUI.escapeHtml;
     const inputTablesHtml = getInputGroups(result.state.connectionType).map((group) => `
       <section class="block input-block"><table class="input-table"><thead>
@@ -3211,8 +3205,8 @@
     const scopeHtml = `
       <section class="block"><h3>適用範圍、限制與人工複核責任</h3>
         <div class="review-section"><div class="review-section__title">規範判定與採用模型</div><ul>${(result.assumptions || []).map((item) => `<li>${escReport(item)}</li>`).join("")}</ul></div>
-        <div class="review-section"><div class="review-section__title">引用依據</div><ul>${(result.references || []).map((item) => `<li>${escReport(item)}</li>`).join("")}</ul></div>
-        <div class="review-section"><div class="review-section__title">人工複核責任</div><p>本附件只涵蓋表列模型與極限狀態；設計者仍須核對核定圖說、力流、材料證明、施工條件及所有排除事項，並對專案採用負責。</p></div>
+        <div class="review-section review-section--following"><div class="review-section__title">引用依據</div><ul>${(result.references || []).map((item) => `<li>${escReport(item)}</li>`).join("")}</ul></div>
+        <div class="review-section review-section--following"><div class="review-section__title">人工複核責任</div><p>本附件只涵蓋表列模型與極限狀態；設計者仍須核對核定圖說、力流、材料證明、施工條件及所有排除事項，並對專案採用負責。</p></div>
       </section>`;
     const strengthRows = result.checks.map((check) => `
       <tr>
@@ -3238,7 +3232,7 @@
         <h3>${escReport(check.label)}${check.codeRef || check.equationRef ? `｜${escReport([check.codeRef, check.equationRef].filter(Boolean).join("｜"))}` : ""}</h3>
         <p style="font-size:12px;color:#555;margin:0 0 8px;">${escReport(buildDecisionSentence(check))}</p>
         ${check.latexLines?.length
-          ? `<div class="equation-math-wrap equation-math-wrap--print"><div class="equation-math equation-math--print">${check.latexLines.map((line) => `<div class="equation-math__line">\\[${line}\\]</div>`).join("")}</div><div class="mono mono--fallback">${(check.equationLines || []).map(escReport).join("<br>")}</div></div>`
+          ? `<div class="equation-math-wrap equation-math-wrap--print"><div class="equation-math equation-math--print">${check.latexLines.map((line, index) => `<div class="equation-math__line${index ? ' equation-math__line--following' : ''}">\\[${line}\\]</div>`).join("")}</div><div class="mono mono--fallback">${(check.equationLines || []).map(escReport).join("<br>")}</div></div>`
           : `<div class="mono">${(check.equationLines || []).map(escReport).join("<br>")}</div>`}
       </section>
     `);
@@ -3318,22 +3312,9 @@
           <tr><th>WPS／NDT 證據</th><td>${escReport(result.state.spliceWpsBasis)}｜${escReport(result.state.spliceNdtPlanBasis)}<br>WPS SHA-256：${escReport(result.state.spliceWpsEvidenceSha256)}<br>NDT SHA-256：${escReport(result.state.spliceNdtPlanEvidenceSha256)}</td></tr>
         </tbody></table></section>`
       : "";
-    return `<!doctype html>
-<html lang="zh-Hant">
-<head>
-<meta charset="utf-8">
-<title>${result.reportTitle}</title>
-<script>
-window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] }, svg: { fontCache: "global" } };
-</script>
-<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
-<style>
-body{font-family:"Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif;color:#111;margin:0;padding:24px;background:#f4f4f4}
-.paper{max-width:820px;margin:0 auto;background:#fff;padding:32px 36px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-h1{margin:0 0 6px;font-size:24px}.sub{color:#555;margin-bottom:16px}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:12px;margin-bottom:18px}
-.meta div{border-bottom:1px dotted #888;padding:4px 0}
-.banner{padding:14px 18px;border:2px solid #888;border-radius:6px;text-align:center;font-size:18px;font-weight:700;margin-bottom:18px}
+    return {
+      mathJax: true,
+      css: `.banner{padding:14px 18px;border:2px solid #888;border-radius:6px;text-align:center;font-size:18px;font-weight:700;margin-bottom:18px}
 .block{margin:12px 0}.block h3{margin:0 0 8px;padding:4px 8px;background:#1a3d5c;color:#fff;border-radius:4px;font-size:14px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}
@@ -3342,31 +3323,16 @@ th{background:#eef2f6}
 .check-coderef{margin-top:4px;font-size:11px;color:#64748b}
 .flow-decision{font-size:12px;color:#334155;font-weight:700;margin:0 0 8px}
 .mono{white-space:pre-wrap;font-family:"Cascadia Code","Consolas",monospace;background:#faf5ff;border:1px solid #e9d5ff;border-radius:4px;padding:10px;color:#3b0764;font-size:11px;line-height:1.6}
-.equation-math{background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:10px 12px;color:#3b0764;overflow:auto}.equation-math__line + .equation-math__line{margin-top:8px}.equation-list--fallback,.mono--fallback{display:none}.mathjax-fallback .equation-math{display:none}.mathjax-fallback .equation-list--fallback,.mathjax-fallback .mono--fallback{display:block}
-.review-section{font-size:12px;line-height:1.5}.review-section + .review-section{margin-top:8px}.review-section__title{margin-bottom:4px;font-size:12px;font-weight:700;color:#0e7490}
+.equation-math{background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:10px 12px;color:#3b0764;overflow:auto}.equation-math__line--following{margin-top:8px}.equation-list--fallback,.mono--fallback{display:none}.mathjax-fallback .equation-math{display:none}.mathjax-fallback .equation-list--fallback,.mathjax-fallback .mono--fallback{display:block}
+.review-section{font-size:12px;line-height:1.5}.review-section--following{margin-top:8px}.review-section__title{margin-bottom:4px;font-size:12px;font-weight:700;color:#0e7490}
 .card-placeholder{padding:14px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b}
 .plate-sketch{width:100%;height:auto;min-height:220px}.sketch-plate,.sketch-member{fill:rgba(14,116,144,.08);stroke:#0e7490;stroke-width:2}.sketch-hole{fill:#fff;stroke:#1e293b;stroke-width:1.5}.sketch-net{fill:none;stroke:#c0392b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8 6}.sketch-block{fill:rgba(217,119,6,.12);stroke:#d97706;stroke-width:2.5}.sketch-arrow{stroke:#0e7490;stroke-width:2.5}.sketch-label{fill:#0f172a;font-size:12px;font-weight:700}.sketch-note{fill:#475569;font-size:11px}.sketch-weld{stroke:#b45309;stroke-width:5;stroke-linecap:round}.sketch-weld--transverse{stroke:#c2410c}.sketch-dim{stroke:#64748b;stroke-width:1.4}.sketch-dim-label{fill:#475569;font-size:10px;font-weight:700}
-ul{margin:0;padding-left:20px}.toolbar{max-width:820px;margin:0 auto 12px;text-align:right}.toolbar button{padding:8px 18px}
-@media print{body{background:#fff;padding:0}.toolbar{display:none}.paper{box-shadow:none;max-width:none;padding:0}.block h3,.input-context-header{break-after:avoid-page;page-break-after:avoid}.report-sketch-block,.report-ending,tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}
-</style>
-</head>
-<body>
-<div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button></div>
-<div class="paper">
-${reportDocument.html}
-<h1>${result.reportTitle}</h1>
-<div class="sub">${result.reportSubtitle}</div>
-<div class="meta">
-  ${normalizeProjectMetaValue(result.state.projectName) ? `<div><b>計畫名稱</b> ${escReport(normalizeProjectMetaValue(result.state.projectName))}</div>` : ""}
-  ${normalizeProjectMetaValue(result.state.connectionTag) ? `<div><b>計畫編號</b> ${escReport(normalizeProjectMetaValue(result.state.connectionTag))}</div>` : ""}
-  ${normalizeProjectMetaValue(result.state.designer) ? `<div><b>設計人員</b> ${escReport(normalizeProjectMetaValue(result.state.designer))}</div>` : ""}
-  <div><b>產出工具</b> ${escReport(reportTrace.sourceTrace.tool)}</div>
-  <div><b>工具版本</b> ${escReport(reportTrace.sourceTrace.version)}</div>
-  <div><b>輸出時間</b> ${escReport(reportTrace.generatedAt)}</div>
-  <div><b>計算指紋</b> ${escReport(reportTrace.calculationFingerprint)}</div>
-  <div><b>設計法</b> ${mapValue("designMethod", result.state.designMethod)}</div>
-  <div><b>規範基準</b> ${getCodeBasisText(result.state)}</div>
-  <div><b>控制項</b> ${result.governing.label}</div>
+ul{margin:0;padding-left:20px}
+@media print{.block h3,.input-context-header{break-after:avoid-page;page-break-after:avoid}.block,.report-sketch-block,.report-ending,tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}`,
+      bodyHtml: `<div class="rep-meta rep-steel-meta">
+  <div><b>設計法</b> ${escReport(mapValue("designMethod", result.state.designMethod))}</div>
+  <div><b>規範基準</b> ${escReport(getCodeBasisText(result.state))}</div>
+  <div><b>控制項</b> ${escReport(result.governing.label)}</div>
 </div>
 <section class="block"><h3>強度檢核總表</h3><table><thead><tr><th>檢核項目</th><th>需求值</th><th>可用強度</th><th>DCR</th><th>判定</th></tr></thead><tbody>${strengthRows}</tbody></table></section>
 <section class="block"><h3>細部規定檢核</h3><table><thead><tr><th>檢核項目</th><th>規定條文</th><th>提供值</th><th>規定值</th><th>檢核說明</th><th>判定</th></tr></thead><tbody>${detailRows}</tbody></table></section>
@@ -3382,10 +3348,12 @@ ${flowHtml}
 ${endingFlowHtml}
 ${scopeHtml}
 <section class="block"><h3>檢核結論</h3><div class="banner">${reportBanner.textContent}</div></section>
-</div>
-</div>
-</body>
-</html>`;
+</div>`,
+    };
+  }
+
+  function buildReportHtml(result) {
+    return SteelFormalUI.buildReportDocumentHtml(buildConnectionReportConfig(result), buildConnectionReportPresentation(result));
   }
 
   function exportReport() {
@@ -3397,23 +3365,10 @@ ${scopeHtml}
       setExportReportStatus(`正式報告未開啟｜${error?.message || "未知錯誤"}`);
       return;
     }
-    const reportWindow = window.open("", "_blank", "width=980,height=1100,scrollbars=yes");
+    const reportWindow = window.openReport(buildConnectionReportConfig(result), buildConnectionReportPresentation(result));
     if (!reportWindow) {
       setExportReportStatus("請允許彈出視窗以輸出報表。");
-      return;
     }
-    reportWindow.document.open();
-    reportWindow.document.write(buildReportHtml(result));
-    reportWindow.document.close();
-    setTimeout(() => {
-      if (reportWindow.MathJax?.typesetPromise) {
-        reportWindow.MathJax.typesetPromise()
-          .then(() => reportWindow.document.documentElement.classList.add("mathjax-ready"))
-          .catch(() => reportWindow.document.documentElement.classList.add("mathjax-fallback"));
-      } else {
-        reportWindow.document.documentElement.classList.add("mathjax-fallback");
-      }
-    }, 400);
   }
 
   function update(autoSave = true) {

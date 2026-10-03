@@ -1133,6 +1133,7 @@ if (typeof window !== 'undefined') {
     buildFormalDocumentStateReport,
     getPageReportReadinessLevel,
     buildReportTrace,
+    buildReportDocumentHtml,
     validateCalculationSourcePayload,
     readCalculationSourceFile,
     validateCalculationCasePayload,
@@ -1176,7 +1177,32 @@ function showReportIssue(message) {
   status.textContent = message;
 }
 
-function openReport(cfg) {
+// presentation 僅供工具程式提供可信的版面片段；工程指紋仍由 cfg 原始投影計算。
+function buildReportDocumentHtml(cfg, presentation) {
+  const customPresentation = presentation !== undefined && presentation !== null;
+  if (customPresentation) {
+    if (typeof presentation.bodyHtml !== 'string' || (presentation.css !== undefined && typeof presentation.css !== 'string')) {
+      throw new TypeError('自訂計算書版面必須提供 bodyHtml 字串，css 亦須為字串。');
+    }
+    if (cfg.calculationFingerprint !== undefined && cfg.calculationFingerprint !== null) {
+      throw new TypeError('自訂計算書版面不得指定計算指紋，須由原始計算資料產生。');
+    }
+  }
+  const presentationCss = customPresentation ? (presentation.css || '') : '';
+  const mathJaxHead = customPresentation && presentation.mathJax === true ? `<script>
+window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] }, svg: { fontCache: "global" } };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+` : '';
+  const mathJaxScript = customPresentation && presentation.mathJax === true ? `
+window.addEventListener('load', function () {
+  if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+    window.MathJax.typesetPromise().then(function () {
+      document.documentElement.classList.add('mathjax-ready');
+    }).catch(function () { document.documentElement.classList.add('mathjax-fallback'); });
+  } else { document.documentElement.classList.add('mathjax-fallback'); }
+});
+` : '';
   const today = new Date();
   const todayStr = today.getFullYear() + '/' +
                    String(today.getMonth()+1).padStart(2,'0') + '/' +
@@ -1227,7 +1253,7 @@ function openReport(cfg) {
     group?.keepTogether ? 'rep-block--keep' : '',
     group?.pageBreakBefore ? 'rep-block--new-page' : '',
   ].filter(Boolean).join(' ');
-  const inputsHtml = getCalculationBookInputGroups(cfg.inputs).map(g => `
+  const inputsHtml = customPresentation ? '' : getCalculationBookInputGroups(cfg.inputs).map(g => `
     <section class="${reportBlockClass(g)}">
       <h3>${esc(g.group)}</h3>
       <table class="rep-input">
@@ -1244,7 +1270,7 @@ function openReport(cfg) {
     </section>
   `).join('');
 
-  const checksHtml = (cfg.checks || []).map(g => `
+  const checksHtml = customPresentation ? '' : (cfg.checks || []).map(g => `
     <section class="${reportBlockClass(g)}">
       <h3>${esc(g.group)}</h3>
       <table class="rep-check">
@@ -1268,7 +1294,7 @@ function openReport(cfg) {
     </section>
   `).join('');
 
-  const diagramsHtml = (cfg.diagrams && cfg.diagrams.length) ? `
+  const diagramsHtml = (!customPresentation && cfg.diagrams && cfg.diagrams.length) ? `
     <section class="rep-block rep-diagrams">
       <h3>計算線圖與示意圖</h3>
       <div class="rep-diagrams-grid">
@@ -1282,7 +1308,7 @@ function openReport(cfg) {
       </div>
     </section>` : '';
 
-  const reportSteps = Array.isArray(cfg.steps) ? cfg.steps.filter(Boolean) : [];
+  const reportSteps = !customPresentation && Array.isArray(cfg.steps) ? cfg.steps.filter(Boolean) : [];
   const renderStep = s => `
     <div class="rep-step">
       <h4>${esc(s.group)}</h4>
@@ -1393,8 +1419,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   p, li, .rep-step-body { orphans:3; widows:3; }
   .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
-</style>
-</head>
+${presentationCss}</style>
+${mathJaxHead}</head>
 <body data-document-class="${esc(documentClass.key)}">
 <div class="rep-toolbar">
   <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
@@ -1421,14 +1447,14 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <div><b>計算指紋</b>${esc(calculationFingerprint)}</div>
   </div>
 
-  ${inputsHtml}
+${customPresentation ? presentation.bodyHtml : `  ${inputsHtml}
   ${diagramsHtml}
   ${checksHtml}
   ${stepsHtml}
   <div class="rep-ending">
     ${finalStepHtml}
     ${summaryHtml}
-  </div>
+  </div>`}
 
   <div class="rep-footer"><div class="rep-footer-separator" aria-hidden="true"></div><div class="rep-footer-copyright">版權所有 弘一工程顧問有限公司</div></div>
   </div>
@@ -1448,16 +1474,22 @@ function closeReportWindow() {
     }
   }, 150);
 }
-</script>
+${mathJaxScript}</script>
 </body>
 </html>`;
 
+  return html;
+}
+
+function openReport(cfg, presentation) {
+  const html = buildReportDocumentHtml(cfg, presentation);
   const w = window.open('', '_blank', 'width=900,height=1100,scrollbars=yes');
   if (!w) {
     showReportIssue('請允許彈出視窗以開啟計算書。');
     return;
   }
   w.document.open(); w.document.write(html); w.document.close();
+  return w;
 }
 
 // === 為各工具提供共用 project info 欄位 (HTML 片段) ===

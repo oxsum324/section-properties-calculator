@@ -36,6 +36,7 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/xlsx-seal-verifier.js',
   '結構工具箱/tools/xlsx-seal-verifier.test.js',
   '鋼構工具/core/formal-core-manifest.json',
+  '鋼構工具/steel-report-package-contract.js',
   '鋼筋混凝土/shared/joint-reaction-fixture-sanitizer.js',
   '鋼筋混凝土/shared/joint-reaction-fixture-promotion-gate.js',
   '鋼筋混凝土/shared/joint-reaction-observed-intake.js',

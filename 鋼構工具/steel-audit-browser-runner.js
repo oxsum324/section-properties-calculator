@@ -13,6 +13,7 @@ const {
 const AttachmentPackageChecker = require('../結構工具箱/tools/attachment-package-check');
 const CALCULATION_BOOK_CONTENT_BOUNDARY = require('../結構工具箱/tools/calculation-book-content-boundary.json');
 const { buildSteelResultReconciliation } = require('./steel-result-reconciliation');
+const { verifySteelReportPackage } = require('./steel-report-package-contract');
 
 const args = parseArgs(process.argv.slice(2));
 const baseUrl = String(args['base-url'] || 'http://127.0.0.1:8123').replace(/\/$/, '');
@@ -25,6 +26,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'steel-formal');
 const renderedEvidenceRecords = [];
 const textExportEvidenceRecords = [];
+const reportPackageDir = path.join(outputDir, `report-package-contract-${Date.now()}`);
 const ngSourceEvidenceRecords = [];
 const directPrintOutputDir = path.resolve(String(
   args['direct-print-output-dir']
@@ -67,6 +69,16 @@ const scenarios = [
   { name: 'formal-column-report-popup-placeholder', url: '/steel-column-formal.html', setup: setupFormalProjectMetaPlaceholder, assert: assertFormalColumnReportPopupPlaceholder },
   { name: 'formal-column-invalid', url: '/steel-column-formal.html', setup: setupFormalColumnInvalid, assert: assertFormalColumnReadinessBlocked },
 ];
+
+// T4 定向驗證沿用既有九個實際來源案例；另保留兩項未具資格的預設案例。
+const presentationScenarios = new Set([
+  'main-plate-report-popup-placeholder', 'main-single-plate-report-popup', 'main-column-splice-report-popup',
+  'main-gusset-report-popup', 'main-moment-report-popup', 'main-tension-report-popup',
+  'standalone-plate-report-popup', 'formal-beam-report-popup', 'formal-column-report-popup',
+  'main-column-splice-preset-fail-closed', 'main-moment-preset-fail-closed',
+]);
+const activeScenarios = args['report-presentation-only'] ? scenarios.filter(scenario => presentationScenarios.has(scenario.name)) : scenarios;
+const activeViewports = args['report-presentation-only'] ? viewports.filter(viewport => viewport.label === 'desktop') : viewports;
 
 const STEEL_DIRECT_PRINT_TITLE = '鋼構正式工具主頁列印已封鎖';
 const STEEL_DIRECT_PRINT_BODY = '此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕開啟可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。';
@@ -3069,6 +3081,7 @@ async function captureReportApprovalState(cdp, sessionId, label) {
       approval.dispatchEvent(new Event('change', { bubbles: true }));
     }
     const internalDocumentTitle = document.title || '';
+    const internalHtml = serializerAvailable ? serializeReportDocumentHtml() : '';
     return {
       approvalControl: Boolean(approval),
       downloadControl: Boolean(downloadButton),
@@ -3086,6 +3099,7 @@ async function captureReportApprovalState(cdp, sessionId, label) {
       approvedTableRows,
       downloadedFileName,
       internalDocumentTitle,
+      internalHtml,
     };
   })()`, `${label} approval state`);
 }
@@ -3444,13 +3458,21 @@ async function verifySteelTextDownload(cdp, sessionId, label, evidenceKey, artif
   return evidence;
 }
 
-function saveSteelApprovedHtml(key, approvedHtml) {
+function saveSteelApprovedHtml(key, approvedHtml, sourcePayload, internalHtml) {
   ensureDir(renderedEvidenceDir);
   const htmlArtifact = `${key}-approved-formal-attachment.html`;
   const htmlArtifactPath = path.join(renderedEvidenceDir, htmlArtifact);
   fs.writeFileSync(htmlArtifactPath, approvedHtml, 'utf8');
   const content = fs.readFileSync(htmlArtifactPath);
+  const sourceArtifact = `${key}-source.json`;
+  const sourceBytes = Buffer.from(JSON.stringify(sourcePayload, null, 2) + '\n');
+  fs.writeFileSync(path.join(renderedEvidenceDir, sourceArtifact), sourceBytes);
+  const packageContract = verifySteelReportPackage({ key, approvedHtml, internalHtml, sourcePayload, outputDir: reportPackageDir });
   return {
+    sourceArtifact,
+    sourceArtifactBytes: sourceBytes.length,
+    sourceArtifactSha256: crypto.createHash('sha256').update(sourceBytes).digest('hex'),
+    packageContract,
     htmlArtifact,
     htmlArtifactBytes: content.length,
     htmlArtifactSha256: crypto.createHash('sha256').update(content).digest('hex'),
@@ -3544,6 +3566,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       approval.dispatchEvent(new Event('change', { bubbles: true }));
     }
     const internalDocumentTitle = document.title || '';
+    const internalHtml = serializerAvailable ? serializeReportDocumentHtml() : '';
     return {
       approvalControl: Boolean(approval),
       downloadControl: Boolean(downloadButton),
@@ -3560,6 +3583,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       approvedHtml,
       downloadedFileName,
       internalDocumentTitle,
+      internalHtml,
     };
   })()`, `${options.label} approval state`);
   const headerNeedle = options.headerNeedle || options.titleNeedle;
@@ -3670,7 +3694,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     }
   }
   if (options.renderEvidenceKey) {
-    const htmlEvidence = saveSteelApprovedHtml(options.renderEvidenceKey, approvalState.approvedHtml);
+    const htmlEvidence = saveSteelApprovedHtml(options.renderEvidenceKey, approvalState.approvedHtml, sourcePayload, approvalState.internalHtml);
     const resultReconciliation = buildSteelResultReconciliation({
       caseId: options.renderEvidenceKey,
       sourcePayload,
@@ -3921,8 +3945,8 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     escapeProbeImageCount: Array.from(document.querySelectorAll('img')).filter(node =>
       String(node.getAttribute('onerror') || '').includes('__steelXss')).length,
     escapeProbeExecuted: window.__steelXss === 1,
-    metaRows: Array.from(document.querySelectorAll('.meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
-    sectionHeadings: Array.from(document.querySelectorAll('.paper h3')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
+    metaRows: Array.from(document.querySelectorAll('.rep-meta div, .meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
+    sectionHeadings: Array.from(document.querySelectorAll('.rep-paper h3, .paper h3')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
     tableRows: Array.from(document.querySelectorAll('table tbody tr')).map((row) =>
       Array.from(row.querySelectorAll('th, td')).map((cell) => (cell.innerText || '').replace(/\\s+/g, ' ').trim())),
   }))()`, `${options.label} snapshot`);
@@ -4050,7 +4074,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     }
   }
   if (options.renderEvidenceKey) {
-    const htmlEvidence = saveSteelApprovedHtml(options.renderEvidenceKey, approvalState.approvedHtml);
+    const htmlEvidence = saveSteelApprovedHtml(options.renderEvidenceKey, approvalState.approvedHtml, sourcePayload, approvalState.internalHtml);
     const evidence = await renderAndValidateReportPdf(cdp, {
       html: approvalState.approvedHtml,
       outputDir: renderedEvidenceDir,
@@ -4508,8 +4532,8 @@ async function main() {
         summaryLines.push(`- ${failure}`);
       }
     }
-    for (const scenario of scenarios) {
-      for (const viewport of viewports) {
+    for (const scenario of activeScenarios) {
+      for (const viewport of activeViewports) {
         const record = await withTimeout(runSnapshot(cdp, scenario, viewport), scenarioTimeoutMs, `${scenario.name}-${viewport.label}`);
         records.push(record);
         summaryLines.push(`- ${record.label}: snapshot=${record.snapshot}`);

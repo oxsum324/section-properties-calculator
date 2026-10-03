@@ -542,17 +542,17 @@ const mainReportBuilderSource = appSource.match(/function buildConnectionReportC
 assert.ok(mainReportBuilderSource, "app.js should expose a statically inspectable formal report builder");
 assert.match(
   mainReportBuilderSource,
-  /function buildConnectionReportConfig\(result\)[\s\S]*textExport:\s*true[\s\S]*buildFormalDocumentStateReport\([\s\S]*textExport:\s*true/s,
-  "connection, tension, and standalone plate reports should opt into governed TXT reference export",
+  /function buildConnectionReportConfig\(result\)[\s\S]*textExport:\s*true[\s\S]*function buildReportHtml\(result\)[\s\S]*SteelFormalUI\.buildReportDocumentHtml\(buildConnectionReportConfig\(result\), buildConnectionReportPresentation\(result\)\)/s,
+  "connection, tension, and standalone plate reports should pass governed TXT export through the shared document builder",
 );
 assert.match(
   mainReportBuilderSource,
-  /function buildConnectionReportConfig\(result\)[\s\S]*outputSource[\s\S]*function buildConnectionReportTrace\(result\)[\s\S]*SteelFormalUI\.buildReportTrace\(buildConnectionReportConfig\(result\)\)[\s\S]*reportTrace\.sourceTrace\.tool[\s\S]*reportTrace\.sourceTrace\.version[\s\S]*reportTrace\.generatedAt[\s\S]*reportTrace\.calculationFingerprint/s,
-  "connection and plate reports should emit all four trace fields from the shared report trace core",
+  /function buildConnectionReportConfig\(result\)[\s\S]*outputSource[\s\S]*function buildConnectionReportTrace\(result\)[\s\S]*SteelFormalUI\.buildReportTrace\(buildConnectionReportConfig\(result\)\)[\s\S]*reportTrace\.sourceTrace\.tool[\s\S]*reportTrace\.sourceTrace\.version[\s\S]*function buildReportHtml\(result\)[\s\S]*SteelFormalUI\.buildReportDocumentHtml\(buildConnectionReportConfig\(result\)/s,
+  "connection and plate source/report traces should share the unchanged semantic config and central trace renderer",
 );
 assert.match(
   mainReportBuilderSource,
-  /function buildConnectionSourcePayload\(result = window\.latestSteelConnectionResult[\s\S]*buildConnectionReportConfig\(result\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: \{ \.\.\.reportConfig\.snapshot\.state \}[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*function buildReportHtml\(result\)[\s\S]*buildConnectionReportTrace\(result\)/s,
+  /function buildConnectionSourcePayload\(result = window\.latestSteelConnectionResult[\s\S]*buildConnectionReportConfig\(result\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: \{ \.\.\.reportConfig\.snapshot\.state \}[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*function buildReportHtml\(result\)[\s\S]*buildConnectionReportConfig\(result\)/s,
   "connection, tension, plate, Shear Tab, and Gusset source JSON should reuse the governed report snapshot and calculation fingerprint",
 );
 assert.match(
@@ -617,7 +617,7 @@ assert.match(
 );
 assert.match(
   mainReportBuilderSource,
-  /function buildReportHtml\(result\)[\s\S]*SteelFormalUI\.buildFormalDocumentStateReport\([\s\S]*calculationFingerprint:\s*reportTrace\.calculationFingerprint[\s\S]*\$\{reportDocument\.html\}/s,
+  /function buildReportHtml\(result\)[\s\S]*SteelFormalUI\.buildReportDocumentHtml\(buildConnectionReportConfig\(result\), buildConnectionReportPresentation\(result\)\)/s,
   "connection, tension, and plate reports should use shared printable review, approval, and dual-seal governance",
 );
 assert.match(
@@ -628,8 +628,8 @@ assert.match(
 assert.match(mainReportBuilderSource, /formalApprovalAllowed:\s*result\.passes/, "failed or incomplete modules must not expose formal attachment approval");
 assert.match(
   mainReportBuilderSource,
-  /normalizeProjectMetaValue\(result\.state\.projectName\)\s*\?[^\n]*計畫名稱[\s\S]*normalizeProjectMetaValue\(result\.state\.connectionTag\)\s*\?[^\n]*計畫編號[\s\S]*normalizeProjectMetaValue\(result\.state\.designer\)\s*\?[^\n]*設計人員/s,
-  "connection, tension, and plate reports should omit blank project rows without blocking formal attachment approval",
+  /project:\s*\{\s*name: normalizeProjectMetaValue\(result\.state\.projectName\),\s*no: normalizeProjectMetaValue\(result\.state\.connectionTag\),\s*designer: normalizeProjectMetaValue\(result\.state\.designer\)/s,
+  "connection, tension, and plate reports should normalize metadata before the shared renderer omits blank project rows",
 );
 assert.match(
   appSource,
@@ -902,12 +902,12 @@ assert.match(
   "formal Shear Tab adopted notes should pass through the report HTML escaper",
 );
 assert.match(
-  mainReportBuilderSource,
-  /const escReport = SteelFormalUI\.escapeHtml[\s\S]*normalizeProjectMetaValue\(result\.state\.projectName\)[\s\S]*escReport\(normalizeProjectMetaValue\(result\.state\.projectName\)\)[\s\S]*escReport\(reportTrace\.sourceTrace\.tool\)[\s\S]*escReport\(reportTrace\.calculationFingerprint\)/s,
-  "formal Shear Tab project and output provenance should be HTML-escaped before insertion into the report",
+  sharedReportSource,
+  /function buildReportDocumentHtml\(cfg, presentation\)[\s\S]*const esc = escapeReportHtml[\s\S]*esc\(proj\.name\)[\s\S]*esc\(sourceTrace\.tool\)[\s\S]*esc\(calculationFingerprint\)/s,
+  "shared document rendering should escape the forwarded Shear Tab project and output provenance",
 );
 for (const needle of reportTraceLabels) {
-  assert.ok(mainReportBuilderSource.includes(needle), `connection and plate report builder should include ${needle}`);
+  assert.ok(sharedReportSource.includes(needle), `shared connection and plate report builder should include ${needle}`);
 }
 for (const needle of formalReportReferenceNeedles) {
   assert.equal(mainReportBuilderSource.includes(needle), false, `formal connection report should exclude page-only feature reference ${needle}`);
@@ -1008,8 +1008,8 @@ assert.match(
 );
 assert.doesNotMatch(
   columnFormalHtmlSource,
-  /<script[^>]+src="\.\.\/結構工具箱\/core\//,
-  "steel-column-formal.html should no longer depend on parent-directory core script paths",
+  /<script[^>]+src="\.\.\/結構工具箱\/core\/(?:materials\/steel|ui\/report(?:-utils)?)\.js/,
+  "steel-column-formal.html should keep its material/report core local while allowing shared UI adapters",
 );
 assert.match(
   columnFormalSource,
@@ -1078,8 +1078,8 @@ assert.match(
 );
 assert.doesNotMatch(
   beamFormalHtmlSource,
-  /<script[^>]+src="\.\.\/結構工具箱\/core\//,
-  "steel-beam-formal.html should no longer depend on parent-directory core script paths",
+  /<script[^>]+src="\.\.\/結構工具箱\/core\/(?:materials\/steel|ui\/report(?:-utils)?)\.js/,
+  "steel-beam-formal.html should keep its material/report core local while allowing shared UI adapters",
 );
 assert.match(
   beamFormalHtmlSource,
@@ -1392,7 +1392,7 @@ assert.doesNotMatch(
 );
 assert.match(
   appSource,
-  /function normalizeProjectMetaValue\(value\)[\s\S]*"未填"[\s\S]*function getProjectMetaDisplayValue\(value\)[\s\S]*metaProjectName\.textContent = getProjectMetaDisplayValue\(result\.state\.projectName\)[\s\S]*metaConnectionTag\.textContent = getProjectMetaDisplayValue\(result\.state\.connectionTag\)[\s\S]*metaDesigner\.textContent = getProjectMetaDisplayValue\(result\.state\.designer\)[\s\S]*normalizeProjectMetaValue\(result\.state\.projectName\) \? `<div><b>計畫名稱[\s\S]*normalizeProjectMetaValue\(result\.state\.connectionTag\) \? `<div><b>計畫編號[\s\S]*normalizeProjectMetaValue\(result\.state\.designer\) \? `<div><b>設計人員[\s\S]*`計畫：\$\{getProjectMetaDisplayValue\(result\.state\.projectName\)\}`[\s\S]*`接頭：\$\{getProjectMetaDisplayValue\(result\.state\.connectionTag\)\}`/s,
+  /function normalizeProjectMetaValue\(value\)[\s\S]*"未填"[\s\S]*function getProjectMetaDisplayValue\(value\)[\s\S]*metaProjectName\.textContent = getProjectMetaDisplayValue\(result\.state\.projectName\)[\s\S]*metaConnectionTag\.textContent = getProjectMetaDisplayValue\(result\.state\.connectionTag\)[\s\S]*metaDesigner\.textContent = getProjectMetaDisplayValue\(result\.state\.designer\)[\s\S]*name: normalizeProjectMetaValue\(result\.state\.projectName\)[\s\S]*no: normalizeProjectMetaValue\(result\.state\.connectionTag\)[\s\S]*designer: normalizeProjectMetaValue\(result\.state\.designer\)[\s\S]*`計畫：\$\{getProjectMetaDisplayValue\(result\.state\.projectName\)\}`[\s\S]*`接頭：\$\{getProjectMetaDisplayValue\(result\.state\.connectionTag\)\}`/s,
   "app.js should normalize placeholder project metadata before rendering page meta, printable report output, and copied summaries",
 );
 assert.match(
