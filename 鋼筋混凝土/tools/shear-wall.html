@@ -502,6 +502,8 @@
 <script src="../../結構工具箱/core/ui/formulas.js"></script>
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
+<script src="../../結構工具箱/core/ui/report-utils.js"></script>
+<script src="../shared/report-utils.js"></script>
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../shared/calc-verdict-strip.js?v=1"></script>
@@ -1735,14 +1737,14 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
       designer: window.RCUI.normalizeProjectFieldValue($('projDesigner').value)
     };
     const attachmentReadiness = assessShearWallAttachmentReadiness(r, proj);
-    const fmt = (v, d=1) => (v==null||isNaN(v)) ? '—' : Number(v).toFixed(d);
+
     const lcControls = r.loadCaseControls || {};
     const loadCaseControlItems = r.loadCasesActive ? [
       { label:'工況數', value:r.loadCases.length },
-      { label:'P-M 控制', value:lcControls.pm ? `${lcControls.pm.name} (${lcControls.pm.pmAxialOk ? `Mu/φMn=${fmt(lcControls.pm.pmUtil,2)}` : 'Pu軸力越界'})` : '—' },
-      { label:'剪力控制', value:lcControls.shear ? `${lcControls.shear.name} (Ve/φVn=${fmt(lcControls.shear.shearUtil,2)})` : '—' },
-      { label:'SBE 控制', value:lcControls.sbe ? `${lcControls.sbe.name} (指標=${fmt(lcControls.sbe.sbeIndex,2)})` : '—' },
-      { label:'剪摩擦控制', value:lcControls.shearFric ? `${lcControls.shearFric.name} (${lcControls.shearFric.shearFricActive ? `Avf比=${fmt(lcControls.shearFric.shearFricUtil,2)}` : '未觸發'})` : '—' },
+      { label:'P-M 控制', value:lcControls.pm ? `${lcControls.pm.name} (${lcControls.pm.pmAxialOk ? `Mu/φMn=${RCUI.formatOneDecimal(lcControls.pm.pmUtil,2)}` : 'Pu軸力越界'})` : '—' },
+      { label:'剪力控制', value:lcControls.shear ? `${lcControls.shear.name} (Ve/φVn=${RCUI.formatOneDecimal(lcControls.shear.shearUtil,2)})` : '—' },
+      { label:'SBE 控制', value:lcControls.sbe ? `${lcControls.sbe.name} (指標=${RCUI.formatOneDecimal(lcControls.sbe.sbeIndex,2)})` : '—' },
+      { label:'剪摩擦控制', value:lcControls.shearFric ? `${lcControls.shearFric.name} (${lcControls.shearFric.shearFricActive ? `Avf比=${RCUI.formatOneDecimal(lcControls.shearFric.shearFricUtil,2)}` : '未觸發'})` : '—' },
     ] : [];
 
     const inputs = [
@@ -1782,15 +1784,15 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         ...(r.seismic ? [{ label:"SSW fc'≤350", formula:'規範 18.7.2.4', sub:`fc'=${r.fc}`, value:`${r.fc}`, unit:'kgf/cm²', ok:r.fcOk }] : []),
       ]},
       { group:'面內撓曲 P-M (規範 18.7.5)', items:[
-        { label:'設計軸壓上限', formula:'φPn,max=φc·0.80·Po', sub:`Po=${fmt(r.pm.Po,0)} tf；圖中水平虛線為軸壓上限`, value:`${fmt(r.pm.phiPnMax,1)}`, unit:'tf', ok:null },
-        { label:'Pu 軸力範圍', formula:'Pu 須位於設計 P-M 封包軸力範圍內', sub:`範圍 ${fmt(r.pmPMin,1)} ~ ${fmt(r.pmPMax,1)} tf`, value:`${fmt(r.Pu,1)}`, unit:'tf', ok:r.pmAxialOk },
-        { label:'φMn ≥ Mu', formula:'應變相容 P-M 互制 (εcu=0.003)', sub:r.pmAxialOk ? `@Pu=${fmt(r.Pu,0)} tf, c=${fmt(r.cAtPu,1)} cm` : 'Pu 超出軸力封包，φMn 與 c@Pu 不採用', value:`${fmt(r.phiMn,1)} / ${fmt(r.Mu,1)}`, unit:'tf·m', ok:r.pmAxialOk ? r.pmOk : false },
-        { label:'利用率 Mu/φMn', formula:'≤ 1.0', sub:`Po=${fmt(r.pm.Po,0)} tf, φPn,max=${fmt(r.pm.phiPnMax,0)} tf`, value: isFinite(r.pmUtil)?r.pmUtil.toFixed(2):'不適用', ok:r.pmAxialOk ? r.pmOk : false },
+        { label:'設計軸壓上限', formula:'φPn,max=φc·0.80·Po', sub:`Po=${RCUI.formatOneDecimal(r.pm.Po,0)} tf；圖中水平虛線為軸壓上限`, value:`${RCUI.formatOneDecimal(r.pm.phiPnMax,1)}`, unit:'tf', ok:null },
+        { label:'Pu 軸力範圍', formula:'Pu 須位於設計 P-M 封包軸力範圍內', sub:`範圍 ${RCUI.formatOneDecimal(r.pmPMin,1)} ~ ${RCUI.formatOneDecimal(r.pmPMax,1)} tf`, value:`${RCUI.formatOneDecimal(r.Pu,1)}`, unit:'tf', ok:r.pmAxialOk },
+        { label:'φMn ≥ Mu', formula:'應變相容 P-M 互制 (εcu=0.003)', sub:r.pmAxialOk ? `@Pu=${RCUI.formatOneDecimal(r.Pu,0)} tf, c=${RCUI.formatOneDecimal(r.cAtPu,1)} cm` : 'Pu 超出軸力封包，φMn 與 c@Pu 不採用', value:`${RCUI.formatOneDecimal(r.phiMn,1)} / ${RCUI.formatOneDecimal(r.Mu,1)}`, unit:'tf·m', ok:r.pmAxialOk ? r.pmOk : false },
+        { label:'利用率 Mu/φMn', formula:'≤ 1.0', sub:`Po=${RCUI.formatOneDecimal(r.pm.Po,0)} tf, φPn,max=${RCUI.formatOneDecimal(r.pm.phiPnMax,0)} tf`, value: isFinite(r.pmUtil)?r.pmUtil.toFixed(2):'不適用', ok:r.pmAxialOk ? r.pmOk : false },
         ...(r.mode === 'design' && r.pmFlexureShortfall ? [{
           label:'P-M 初估調整方向',
           formula:'候選搜尋：增加邊界縱筋號數、每端根數或 ℓbe，重新檢核 Mu≤φMn',
-          sub:r.flexuralSuggestion ? (r.flexuralSuggestion.notFound ? r.flexuralSuggestion.message : `估 φMn=${fmt(r.flexuralSuggestion.phiMn,1)} tf·m, Mu/φMn=${fmt(r.flexuralSuggestion.util,2)}；附帶檢核：${r.flexuralSuggestion.followupText}`) : '須先完成模型範圍或幾何修正',
-          value:r.flexuralSuggestion && !r.flexuralSuggestion.notFound ? `${r.flexuralSuggestion.nBE}-${r.flexuralSuggestion.dBE}/端, ℓbe≥${fmt(r.flexuralSuggestion.lbe,0)}` : '未列候選',
+          sub:r.flexuralSuggestion ? (r.flexuralSuggestion.notFound ? r.flexuralSuggestion.message : `估 φMn=${RCUI.formatOneDecimal(r.flexuralSuggestion.phiMn,1)} tf·m, Mu/φMn=${RCUI.formatOneDecimal(r.flexuralSuggestion.util,2)}；附帶檢核：${r.flexuralSuggestion.followupText}`) : '須先完成模型範圍或幾何修正',
+          value:r.flexuralSuggestion && !r.flexuralSuggestion.notFound ? `${r.flexuralSuggestion.nBE}-${r.flexuralSuggestion.dBE}/端, ℓbe≥${RCUI.formatOneDecimal(r.flexuralSuggestion.lbe,0)}` : '未列候選',
           unit:r.flexuralSuggestion && !r.flexuralSuggestion.notFound ? 'cm' : '',
           ok:null,
         }] : []),
@@ -1814,7 +1816,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         ...(r.loadCases || []).map(c => ({
           label:c.name,
           formula:'逐組採同一幾何、配筋與材料，重新檢核 P-M / Ve / SBE / 剪摩擦',
-          sub:`Pu=${fmt(c.Pu,1)} tf, Mu=${fmt(c.Mu,1)} tf·m, Ve=${fmt(c.Ve,1)} tf；P-M=${c.pmAxialOk ? fmt(c.pmUtil,2) : '軸力越界'}, 剪力=${fmt(c.shearUtil,2)}, SBE=${c.sbeReq ? (c.sbeDesignOk?'OK':'待修') : '免'}, 剪摩擦=${c.shearFricActive ? `${c.shearFricOk?'OK':'NG'} ${fmt(c.shearFricAvfProv,1)}/${fmt(c.shearFricAvfReq,1)} cm²` : '未觸發'}`,
+          sub:`Pu=${RCUI.formatOneDecimal(c.Pu,1)} tf, Mu=${RCUI.formatOneDecimal(c.Mu,1)} tf·m, Ve=${RCUI.formatOneDecimal(c.Ve,1)} tf；P-M=${c.pmAxialOk ? RCUI.formatOneDecimal(c.pmUtil,2) : '軸力越界'}, 剪力=${RCUI.formatOneDecimal(c.shearUtil,2)}, SBE=${c.sbeReq ? (c.sbeDesignOk?'OK':'待修') : '免'}, 剪摩擦=${c.shearFricActive ? `${c.shearFricOk?'OK':'NG'} ${RCUI.formatOneDecimal(c.shearFricAvfProv,1)}/${RCUI.formatOneDecimal(c.shearFricAvfReq,1)} cm²` : '未觸發'}`,
           value:c.overallOk ? 'OK' : 'NG',
           ok:c.overallOk,
         })),
@@ -1825,19 +1827,19 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         ...(r.mode === 'design' ? [
           { label:'設計建議可列性', formula:'模型範圍、幾何、P-M 軸力、剪力 φ、剪力上限與剪摩擦皆須可建立', sub:r.designSuggestionReady ? '已可列需求導向初估建議，仍須完成完整檢核' : r.designSuggestionIssues.join('；'), value:r.designSuggestionReady ? '可列初估建議' : '暫停直接建議', ok:r.designSuggestionReady ? true : null },
           ...(r.designSuggestionReady ? [
-            { label:'縱筋初估建議', formula:'s≤min(n·Ab/(tw·ρℓ,min), 間距上限)', sub:`ρℓ,min=${r.rholMin.toFixed(4)}, 建議層數=${r.suggLayers}`, value:`${r.dV} ×${r.suggLayers}層 @ ≤ ${fmt(r.sVSuggFinal,0)}`, unit:'cm', ok:null },
-            { label:'橫筋初估建議', formula:'ρt,req=max(ρt,min, Ve/(φ·Acv·fyt)−αcλ√fc′/fyt)', sub:`${r.hSuggCtrl}, 建議 φ=${fmt(r.shearSuggPhi,2)}`, value:`${r.dH} ×${r.suggLayers}層 @ ≤ ${fmt(r.sHSuggFinal,0)}`, unit:'cm', ok:null },
+            { label:'縱筋初估建議', formula:'s≤min(n·Ab/(tw·ρℓ,min), 間距上限)', sub:`ρℓ,min=${r.rholMin.toFixed(4)}, 建議層數=${r.suggLayers}`, value:`${r.dV} ×${r.suggLayers}層 @ ≤ ${RCUI.formatOneDecimal(r.sVSuggFinal,0)}`, unit:'cm', ok:null },
+            { label:'橫筋初估建議', formula:'ρt,req=max(ρt,min, Ve/(φ·Acv·fyt)−αcλ√fc′/fyt)', sub:`${r.hSuggCtrl}, 建議 φ=${RCUI.formatOneDecimal(r.shearSuggPhi,2)}`, value:`${r.dH} ×${r.suggLayers}層 @ ≤ ${RCUI.formatOneDecimal(r.sHSuggFinal,0)}`, unit:'cm', ok:null },
           ] : []),
         ] : []),
       ]},
       ...(r.seismic ? [{ group:'特殊邊界構材 (規範 18.7.6)', items:[
         { label:'應力法', formula:'σ=Pu/Ag+|Mu|/S (18.7.6.3)', sub:`σ=${r.sigmaFiber.toFixed(1)}, 0.2fc'=${(0.2*r.fc).toFixed(1)}`, value:r.sigmaTrig?'須 SBE':'未觸發', ok:r.sigmaTrig ? null : true },
-        { label:'應變法', formula:'c上限=ℓw/[600·1.5(δu/hw)] (18.7.6.2)', sub:r.pmAxialOk ? `c=${fmt(r.cAtPu,1)}, 上限=${fmt(r.cLimit,1)}` : 'Pu 超出 P-M 封包，c@Pu 不採用', value:r.pmAxialOk ? (r.cTrig?'須 SBE':'未觸發') : 'c@Pu 不採用', ok:r.pmAxialOk ? (r.cTrig ? null : true) : null },
-        { label:'特殊邊界構材需求', formula:'任一法觸發即須設置', sub:r.sbeReq?(isFinite(r.sbeHoriz)?`水平≥${fmt(r.sbeHoriz,0)}, 沿高≥${fmt(r.sbeVert,0)} cm`:'Pu 超出 P-M 封包，SBE 水平長度須另行確認'):'免設置', value:r.sbeReq?'須設置':'免', ok:null },
+        { label:'應變法', formula:'c上限=ℓw/[600·1.5(δu/hw)] (18.7.6.2)', sub:r.pmAxialOk ? `c=${RCUI.formatOneDecimal(r.cAtPu,1)}, 上限=${RCUI.formatOneDecimal(r.cLimit,1)}` : 'Pu 超出 P-M 封包，c@Pu 不採用', value:r.pmAxialOk ? (r.cTrig?'須 SBE':'未觸發') : 'c@Pu 不採用', ok:r.pmAxialOk ? (r.cTrig ? null : true) : null },
+        { label:'特殊邊界構材需求', formula:'任一法觸發即須設置', sub:r.sbeReq?(isFinite(r.sbeHoriz)?`水平≥${RCUI.formatOneDecimal(r.sbeHoriz,0)}, 沿高≥${RCUI.formatOneDecimal(r.sbeVert,0)} cm`:'Pu 超出 P-M 封包，SBE 水平長度須另行確認'):'免設置', value:r.sbeReq?'須設置':'免', ok:null },
         ...(r.sbeReq ? [
-          { label:'ℓbe 水平長度', formula:'≥ max(c−0.1ℓw,c/2) (18.7.6.4(a))', sub:isFinite(r.sbeHoriz)?`需求=${fmt(r.sbeHoriz,1)} cm`:'c@Pu 不採用，需求長度須另行確認', value:`${fmt(r.lbe,1)}`, unit:'cm', ok:r.sbeLengthOk },
+          { label:'ℓbe 水平長度', formula:'≥ max(c−0.1ℓw,c/2) (18.7.6.4(a))', sub:isFinite(r.sbeHoriz)?`需求=${RCUI.formatOneDecimal(r.sbeHoriz,1)} cm`:'c@Pu 不採用，需求長度須另行確認', value:`${RCUI.formatOneDecimal(r.lbe,1)}`, unit:'cm', ok:r.sbeLengthOk },
           { label:'壓力區寬度 b', formula:'b ≥ hu/16 (18.7.6.4(b))', sub:`hu=${r.hu.toFixed(1)} cm`, value:`${r.bComp.toFixed(1)} / ${r.bWidthMin.toFixed(1)}`, unit:'cm', ok:r.sbeBWidthOk },
-          { label:'深中性軸 b 限制', formula:'c/ℓw≥3/8 時 b≥30 cm (18.7.6.4(c))', sub:isFinite(r.cRatio) ? `c/ℓw=${fmt(r.cRatio,3)}` : 'c@Pu 不採用，b≥30 觸發條件須另行確認', value:!isFinite(r.cRatio) ? '待確認' : (r.b30Required ? `${r.bComp.toFixed(1)} / 30` : '未觸發'), unit:r.b30Required?'cm':'', ok:r.sbeCratioBOk },
+          { label:'深中性軸 b 限制', formula:'c/ℓw≥3/8 時 b≥30 cm (18.7.6.4(c))', sub:isFinite(r.cRatio) ? `c/ℓw=${RCUI.formatOneDecimal(r.cRatio,3)}` : 'c@Pu 不採用，b≥30 觸發條件須另行確認', value:!isFinite(r.cRatio) ? '待確認' : (r.b30Required ? `${r.bComp.toFixed(1)} / 30` : '未觸發'), unit:r.b30Required?'cm':'', ok:r.sbeCratioBOk },
           { label:'hx 側向支撐間距', formula:'hx ≤ min(35 cm, 2b/3) (18.7.6.4(f))', sub:`上限=${r.hxLimit.toFixed(1)} cm`, value:`${r.hx.toFixed(1)}`, unit:'cm', ok:r.sbeHxOk },
           { label:'圍束筋間距', formula:'≤ min(邊界最小尺寸/3, 6db, so) (18.7.6.4(e))', sub:`so=${r.so.toFixed(1)}, 上限=${r.sbeSpLimit.toFixed(1)}`, value:`${r.sTie}`, unit:'cm', ok:r.sbeSpOk },
           { label:'Ash 圍束量', formula:'Ash ≥ max[0.3(Ag/Ach−1), 0.09]·s·bc·fc\'/fyt (表 18.7.6.4(g))', sub:`ccore=${r.coreCover.toFixed(1)}（橫向筋外緣）；Ag=${r.sbeAg.toFixed(1)}, Ach=${r.sbeAch.toFixed(1)}, Ag/Ach=${r.sbeAgAchRatio.toFixed(3)}；0.3式=${r.AshReqEqA.toFixed(2)}, 0.09式=${r.AshReqEqB.toFixed(2)}；控制=${r.AshReqControl}`, value:`${r.AshProv.toFixed(2)} / ${r.AshReq.toFixed(2)}`, unit:'cm²', ok:r.sbeAshOk },
@@ -1849,11 +1851,11 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         ...(r.seismic && !r.sbeReq ? [{ label:'免 SBE 邊界細部', formula:'18.7.6.5 水平筋端部與邊界橫向鋼筋要求', sub:`Ve門檻=${(r.noSbeHookThreshold/1000).toFixed(1)} tf, ρb=${r.rhoBoundary.toFixed(4)}`, value:(r.noSbeHookRequired || r.noSbeTieRequired)?'需圖說確認':'未觸發', ok:(r.noSbeHookRequired || r.noSbeTieRequired)?null:true }] : []),
         ...(r.hasJoint ? [
           { label:'施工縫剪摩擦門檻', formula:'Ve>1.1λ√fc′·Acv 時須依 22.9 設計', sub:`門檻=${(r.shearFricLim/1000).toFixed(1)} tf`, value:r.shearFricActive?'已觸發':'未觸發', ok:r.shearFricActive?null:true },
-          { label:'剪力面處理', formula:'表 22.9.4.2 摩擦係數', sub:`μ=${fmt(r.shearFricSurface.mu,2)}, fy_sf=${fmt(r.shearFricFyDesign,0)} kgf/cm²`, value:r.shearFricSurface.label, ok:null },
+          { label:'剪力面處理', formula:'表 22.9.4.2 摩擦係數', sub:`μ=${RCUI.formatOneDecimal(r.shearFricSurface.mu,2)}, fy_sf=${RCUI.formatOneDecimal(r.shearFricFyDesign,0)} kgf/cm²`, value:r.shearFricSurface.label, ok:null },
           ...(r.shearFricActive ? [
-            { label:'Avf 需求', formula:'Avf,req=Ve/(φ·μ·fy_sf)', sub:`φ=${fmt(r.shearFricPhi,2)}, Ve=${fmt(r.Ve,1)} tf`, value:`${fmt(r.shearFricAvfReq,1)}`, unit:'cm²', ok:null },
-            { label:'Avf 提供', formula:'Avf,prov=2nBEAb + nweb·nLayer·Abv', sub:`邊界=${fmt(r.shearFricBoundaryAvf,1)}, 腹筋=${fmt(r.shearFricWebAvf,1)} (${r.shearFricNWeb} 排)`, value:`${fmt(r.shearFricAvfProv,1)} / ${fmt(r.shearFricAvfReq,1)}`, unit:'cm²', ok:r.shearFricDesign.strengthOk },
-            { label:'Vn 上限', formula:'Vn 不得超過表 22.9.4.4 上限', sub:`Vn,max=${fmt(r.shearFricDesign.VnMax/1000,1)} tf`, value:`${fmt(r.shearFricDesign.phiVnMax/1000,1)} / ${fmt(r.Ve,1)}`, unit:'tf', ok:r.shearFricVnMaxOk },
+            { label:'Avf 需求', formula:'Avf,req=Ve/(φ·μ·fy_sf)', sub:`φ=${RCUI.formatOneDecimal(r.shearFricPhi,2)}, Ve=${RCUI.formatOneDecimal(r.Ve,1)} tf`, value:`${RCUI.formatOneDecimal(r.shearFricAvfReq,1)}`, unit:'cm²', ok:null },
+            { label:'Avf 提供', formula:'Avf,prov=2nBEAb + nweb·nLayer·Abv', sub:`邊界=${RCUI.formatOneDecimal(r.shearFricBoundaryAvf,1)}, 腹筋=${RCUI.formatOneDecimal(r.shearFricWebAvf,1)} (${r.shearFricNWeb} 排)`, value:`${RCUI.formatOneDecimal(r.shearFricAvfProv,1)} / ${RCUI.formatOneDecimal(r.shearFricAvfReq,1)}`, unit:'cm²', ok:r.shearFricDesign.strengthOk },
+            { label:'Vn 上限', formula:'Vn 不得超過表 22.9.4.4 上限', sub:`Vn,max=${RCUI.formatOneDecimal(r.shearFricDesign.VnMax/1000,1)} tf`, value:`${RCUI.formatOneDecimal(r.shearFricDesign.phiVnMax/1000,1)} / ${RCUI.formatOneDecimal(r.Ve,1)}`, unit:'tf', ok:r.shearFricVnMaxOk },
             { label:'剪摩擦細部', formula:'22.9.1.4 / 22.9.5.1', sub:'施工文件註明剪力面處理；穿縫筋須在剪力面兩側發展 fy', value:r.shearFricOk?'強度初估 OK，圖說仍須確認':'需修正', ok:r.shearFricOk?null:false },
           ] : []),
         ] : []),
@@ -1862,7 +1864,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
 
     const diagrams = [];
     const pmData = svgToDataURL($('pmSvg'));
-    if (pmData) diagrams.push({ title:'面內 P-M 互制圖', dataURL:pmData, caption:`藍線=設計封包；水平虛線=φPn,max=${fmt(r.pm.phiPnMax,0)} tf；P範圍=${fmt(r.pmPMin,0)}~${fmt(r.pmPMax,0)} tf；標記=需求點 (|Mu|, Pu)`, width:380 });
+    if (pmData) diagrams.push({ title:'面內 P-M 互制圖', dataURL:pmData, caption:`藍線=設計封包；水平虛線=φPn,max=${RCUI.formatOneDecimal(r.pm.phiPnMax,0)} tf；P範圍=${RCUI.formatOneDecimal(r.pmPMin,0)}~${RCUI.formatOneDecimal(r.pmPMax,0)} tf；標記=需求點 (|Mu|, Pu)`, width:380 });
     const secData = svgToDataURL($('sectionSvg'));
     if (secData) diagrams.push({ title:'牆斷面配筋示意', dataURL:secData, caption:$('sectionNote').textContent, width:420 });
 

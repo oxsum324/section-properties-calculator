@@ -1,5 +1,9 @@
 # Staging 分包建議
 
+## 第二階段 T2 共用報表工具包（2026-10-03，本機）
+
+`結構工具箱/core/ui/report-utils.js` 是等價純函式的單一來源；core 報表與鋼構副本、RC 薄 adapter `鋼筋混凝土/shared/report-utils.js`、載入順序與各測試 VM 的依賴須同包提交。RC 的計算指紋／封印仍採獨立契約。`shared/common.js` 提供格式化政策，原頁面 strict／coerce、預設位數與 fallback 差異以等價案例鎖定。`core/direct-print-boundary.css` 同步 RC 副本並保留明列的家族差異；同步脚本的 `-Check` 及首頁依賴日期同批驗證。純 Node 等價測試不能代替真實 popup／下載 HTML 的瀏覽器回歸。
+
 ## 第二階段 T1 操作頁樣式包（2026-10-03，本機）
 
 RC 五頁與 `shared/style.css`、`shared/tool-page.css`，鋼構四頁與兩份操作 CSS、梁柱結果卡 hidden 切換，連續梁／平面剛架與 `assets/hy/*-ui.css` 應同包審查。原 id/class、計算與報表樣式保留；新增的 HY 引用與首頁依賴日期同步同包提交。`test-tool-page-layout.ps1` 是 11 頁 1280／375 px 初始與結果狀態的版面回歸入口；另跑各家族既有 wrapper，RC 共用樣式須涵蓋基礎、單樁與三支 STM。量測截圖、JSON、Office 輸出均留在忽略目錄，不更新正式發布快照。本段不代表公開站已放行。

@@ -183,13 +183,15 @@
 <script src="../../結構工具箱/core/materials/rebar.js"></script>
 <script src="../shared/common.js"></script>
 <script src="../shared/deep-beam-stm.js"></script>
+<script src="../../結構工具箱/core/ui/report-utils.js"></script>
+<script src="../shared/report-utils.js"></script>
 <script src="../shared/report.js"></script>
 <script>
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
   const num = id => Number($(id)?.value);
-  const fmt = (value, digits = 2) => Number.isFinite(value) ? Number(value).toFixed(digits) : '—';
+
   const barTable = window.Rebar?.REBAR_TABLE || window.REBAR_TABLE || {};
   let lastResult = null;
 
@@ -261,13 +263,13 @@
         <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="${green}"/></marker>
       </defs>
       <g font-family="Microsoft JhengHei, sans-serif" fill="${ink}" font-size="15">
-        <text x="405" y="25">Pu = ${fmt(result.input.Pu,1)} tf</text>
-        <text x="20" y="380" fill="${green}">R = ${fmt(result.reaction,1)} tf</text>
-        <text x="610" y="380" fill="${green}">R = ${fmt(result.reaction,1)} tf</text>
-        <text x="180" y="165" fill="#991b1b">C = ${fmt(result.strutDemand,1)} tf</text>
-        <text x="490" y="165" fill="#991b1b">C = ${fmt(result.strutDemand,1)} tf</text>
-        <text x="320" y="302" fill="#1d4ed8">T = ${fmt(result.tieDemand,1)} tf</text>
-        <text x="330" y="368">θ = ${fmt(result.thetaDeg,1)}°</text>
+        <text x="405" y="25">Pu = ${RCUI.formatFinite(result.input.Pu,1)} tf</text>
+        <text x="20" y="380" fill="${green}">R = ${RCUI.formatFinite(result.reaction,1)} tf</text>
+        <text x="610" y="380" fill="${green}">R = ${RCUI.formatFinite(result.reaction,1)} tf</text>
+        <text x="180" y="165" fill="#991b1b">C = ${RCUI.formatFinite(result.strutDemand,1)} tf</text>
+        <text x="490" y="165" fill="#991b1b">C = ${RCUI.formatFinite(result.strutDemand,1)} tf</text>
+        <text x="320" y="302" fill="#1d4ed8">T = ${RCUI.formatFinite(result.tieDemand,1)} tf</text>
+        <text x="330" y="368">θ = ${RCUI.formatFinite(result.thetaDeg,1)}°</text>
         <text x="315" y="105" font-size="13">CCC</text>
         <text x="48" y="300" font-size="13">CCT</text>
         <text x="700" y="300" font-size="13">CCT</text>
@@ -301,8 +303,8 @@
       <rect x="${left+18}" y="${top+18}" width="${right-left-36}" height="${bottom-top-36}" rx="12" fill="none" stroke="#64748b" stroke-width="3"/>
       ${bars}${rowLabels}
       <g fill="#334155" font-family="Microsoft JhengHei, sans-serif" font-size="13">
-        <text x="58" y="306">bw=${fmt(result.input.bw,1)} cm；最多 ${layout.maxBarsPerRow} 支/排；實際最小水平淨距=${fmt(layout.minHorizontalClear,2)} cm</text>
-        <text x="58" y="324">排數=${layout.rowCounts.length}；層間淨距=${fmt(layout.input.verticalClearSpacing,2)} cm；鋼筋群心距底面=${fmt(layout.centroidFromBottom,2)} cm</text>
+        <text x="58" y="306">bw=${RCUI.formatFinite(result.input.bw,1)} cm；最多 ${layout.maxBarsPerRow} 支/排；實際最小水平淨距=${RCUI.formatFinite(layout.minHorizontalClear,2)} cm</text>
+        <text x="58" y="324">排數=${layout.rowCounts.length}；層間淨距=${RCUI.formatFinite(layout.input.verticalClearSpacing,2)} cm；鋼筋群心距底面=${RCUI.formatFinite(layout.centroidFromBottom,2)} cm</text>
       </g>
     </svg>`;
   }
@@ -332,28 +334,28 @@
 
     $('stmDiagram').innerHTML = makeSvg(result);
     $('tieSectionDiagram').innerHTML = makeTieSectionSvg(result);
-    setResult('resTheta', fmt(result.thetaDeg, 2), result.checks.angleOk ? 'ok' : 'fail');
-    setResult('resReaction', fmt(result.reaction, 2));
-    setResult('resStrut', fmt(result.strutDemand, 2), result.checks.strutOk ? 'ok' : 'fail');
-    setResult('resTie', fmt(result.tieDemand, 2), result.checks.tieOk ? 'ok' : 'fail');
-    setResult('resAsReq', fmt(result.tieAsRequired, 2), result.checks.tieOk ? 'ok' : 'fail');
-    setResult('resAsProv', fmt(result.input.tieAsProvided, 2), result.checks.tieOk ? 'ok' : 'fail');
+    setResult('resTheta', RCUI.formatFinite(result.thetaDeg, 2), result.checks.angleOk ? 'ok' : 'fail');
+    setResult('resReaction', RCUI.formatFinite(result.reaction, 2));
+    setResult('resStrut', RCUI.formatFinite(result.strutDemand, 2), result.checks.strutOk ? 'ok' : 'fail');
+    setResult('resTie', RCUI.formatFinite(result.tieDemand, 2), result.checks.tieOk ? 'ok' : 'fail');
+    setResult('resAsReq', RCUI.formatFinite(result.tieAsRequired, 2), result.checks.tieOk ? 'ok' : 'fail');
+    setResult('resAsProv', RCUI.formatFinite(result.input.tieAsProvided, 2), result.checks.tieOk ? 'ok' : 'fail');
     setResult('resTieRows', result.tieLayout?.rowCounts?.join('+') || '—', result.checks.tieLayoutOk ? 'ok' : 'fail');
 
     const rows = [
-      ['深梁適用條件', `ℓn/h = ${fmt(result.input.ln/result.input.h,3)}`, '≤ 4 或 a/h ≤ 2', result.checks.isDeepBeam],
-      ['桿件夾角', 'θ ≥ 25°', `${fmt(result.thetaDeg,2)}°`, result.checks.angleOk],
-      ['底部拉桿', `${fmt(result.tieAsRequired,2)} cm²`, `${fmt(result.input.tieAsProvided,2)} cm²`, result.checks.tieOk],
-      ['拉桿水平淨距', `≥ ${fmt(result.tieLayout.requiredHorizontalClear,2)} cm`, `${fmt(result.tieLayout.minHorizontalClear,2)} cm；最多 ${result.tieLayout.maxBarsPerRow} 支/排`, result.tieLayout.horizontalSpacingOk],
-      ['拉桿層間淨距', '≥ 2.50 cm', `${fmt(result.tieLayout.input.verticalClearSpacing,2)} cm`, result.tieLayout.verticalSpacingOk],
-      ['拉桿斷面容納', `鋼筋帶深 ≤ ${fmt(result.tieLayout.availableDepth,2)} cm`, `${fmt(result.tieLayout.tieBandDepth,2)} cm；${result.tieLayout.rowCounts.join('+')}支`, result.tieLayout.depthFitOk],
-      ['對角壓桿', `${fmt(result.strutDemand,2)} tf`, `${fmt(result.strutDesign,2)} tf`, result.checks.strutOk],
-      ['上部 CCC 節點', `${fmt(result.topNodeDemand,2)} tf`, `${fmt(result.topNodeDesign,2)} tf`, result.checks.topNodeOk],
-      ['下部 CCT 節點', `${fmt(result.bottomNodeDemand,2)} tf`, `${fmt(result.bottomNodeDesign,2)} tf`, result.checks.bottomNodeOk],
-      ['垂直分布筋', 'ρv ≥ 0.0025', `${fmt(result.rhoVertical,5)}；s=${fmt(result.input.verticalSpacing,1)} cm`, result.checks.verticalRatioOk && result.checks.verticalSpacingOk],
-      ['水平分布筋', 'ρh ≥ 0.0025', `${fmt(result.rhoHorizontal,5)}；s=${fmt(result.input.horizontalSpacing,1)} cm`, result.checks.horizontalRatioOk && result.checks.horizontalSpacingOk],
-      ['9.9.2.1 剪力上限', `${fmt(result.reaction,2)} tf`, `${fmt(result.shearDesignLimit99,2)} tf`, result.checks.shearLimit99Ok],
-      ...(result.check2344Required ? [['23.4.4 剪力條件', `${fmt(result.reaction,2)} tf`, result.shearDesignLimit2344 == null ? '分布筋未符合，λs 未採 1.0' : `${fmt(result.shearDesignLimit2344,2)} tf`, result.checks.shearLimit2344Ok]] : []),
+      ['深梁適用條件', `ℓn/h = ${RCUI.formatFinite(result.input.ln/result.input.h,3)}`, '≤ 4 或 a/h ≤ 2', result.checks.isDeepBeam],
+      ['桿件夾角', 'θ ≥ 25°', `${RCUI.formatFinite(result.thetaDeg,2)}°`, result.checks.angleOk],
+      ['底部拉桿', `${RCUI.formatFinite(result.tieAsRequired,2)} cm²`, `${RCUI.formatFinite(result.input.tieAsProvided,2)} cm²`, result.checks.tieOk],
+      ['拉桿水平淨距', `≥ ${RCUI.formatFinite(result.tieLayout.requiredHorizontalClear,2)} cm`, `${RCUI.formatFinite(result.tieLayout.minHorizontalClear,2)} cm；最多 ${result.tieLayout.maxBarsPerRow} 支/排`, result.tieLayout.horizontalSpacingOk],
+      ['拉桿層間淨距', '≥ 2.50 cm', `${RCUI.formatFinite(result.tieLayout.input.verticalClearSpacing,2)} cm`, result.tieLayout.verticalSpacingOk],
+      ['拉桿斷面容納', `鋼筋帶深 ≤ ${RCUI.formatFinite(result.tieLayout.availableDepth,2)} cm`, `${RCUI.formatFinite(result.tieLayout.tieBandDepth,2)} cm；${result.tieLayout.rowCounts.join('+')}支`, result.tieLayout.depthFitOk],
+      ['對角壓桿', `${RCUI.formatFinite(result.strutDemand,2)} tf`, `${RCUI.formatFinite(result.strutDesign,2)} tf`, result.checks.strutOk],
+      ['上部 CCC 節點', `${RCUI.formatFinite(result.topNodeDemand,2)} tf`, `${RCUI.formatFinite(result.topNodeDesign,2)} tf`, result.checks.topNodeOk],
+      ['下部 CCT 節點', `${RCUI.formatFinite(result.bottomNodeDemand,2)} tf`, `${RCUI.formatFinite(result.bottomNodeDesign,2)} tf`, result.checks.bottomNodeOk],
+      ['垂直分布筋', 'ρv ≥ 0.0025', `${RCUI.formatFinite(result.rhoVertical,5)}；s=${RCUI.formatFinite(result.input.verticalSpacing,1)} cm`, result.checks.verticalRatioOk && result.checks.verticalSpacingOk],
+      ['水平分布筋', 'ρh ≥ 0.0025', `${RCUI.formatFinite(result.rhoHorizontal,5)}；s=${RCUI.formatFinite(result.input.horizontalSpacing,1)} cm`, result.checks.horizontalRatioOk && result.checks.horizontalSpacingOk],
+      ['9.9.2.1 剪力上限', `${RCUI.formatFinite(result.reaction,2)} tf`, `${RCUI.formatFinite(result.shearDesignLimit99,2)} tf`, result.checks.shearLimit99Ok],
+      ...(result.check2344Required ? [['23.4.4 剪力條件', `${RCUI.formatFinite(result.reaction,2)} tf`, result.shearDesignLimit2344 == null ? '分布筋未符合，λs 未採 1.0' : `${RCUI.formatFinite(result.shearDesignLimit2344,2)} tf`, result.checks.shearLimit2344Ok]] : []),
       ['STM 幾何確認', '依 23.2.2', result.geometryConfirmed ? '已確認' : '待確認', result.geometryConfirmed ? true : null],
       ['拉桿錨定確認', '依 23.8', result.anchorageConfirmed ? '已確認' : '待確認', result.anchorageConfirmed ? true : null],
     ];
@@ -407,52 +409,52 @@
       { group:'採用模型與幾何', keepTogether:true, items:[
         { label:'結構模型', value:'對稱單跨簡支深梁；頂部跨中單一集中載重' },
         { label:'STM 拓樸', value:'2 支對角壓桿 + 1 道底部拉桿；上 CCC、下 CCT' },
-        { label:'h / ℓn / bw', value:`${fmt(r.input.h,1)} / ${fmt(r.input.ln,1)} / ${fmt(r.input.bw,1)}`, unit:'cm' },
-        { label:'d / z / a', value:`${fmt(r.input.d,1)} / ${fmt(r.input.z,1)} / ${fmt(r.a,1)}`, unit:'cm' },
-        { label:'ws / wn,t / wn,b', value:`${fmt(r.input.strutWidth,1)} / ${fmt(r.input.topNodeWidth,1)} / ${fmt(r.input.bottomNodeWidth,1)}`, unit:'cm' },
-        { label:'載重面 / 支承面寬', value:`${fmt(r.input.loadBearingWidth,1)} / ${fmt(r.input.supportBearingWidth,1)}`, unit:'cm' },
+        { label:'h / ℓn / bw', value:`${RCUI.formatFinite(r.input.h,1)} / ${RCUI.formatFinite(r.input.ln,1)} / ${RCUI.formatFinite(r.input.bw,1)}`, unit:'cm' },
+        { label:'d / z / a', value:`${RCUI.formatFinite(r.input.d,1)} / ${RCUI.formatFinite(r.input.z,1)} / ${RCUI.formatFinite(r.a,1)}`, unit:'cm' },
+        { label:'ws / wn,t / wn,b', value:`${RCUI.formatFinite(r.input.strutWidth,1)} / ${RCUI.formatFinite(r.input.topNodeWidth,1)} / ${RCUI.formatFinite(r.input.bottomNodeWidth,1)}`, unit:'cm' },
+        { label:'載重面 / 支承面寬', value:`${RCUI.formatFinite(r.input.loadBearingWidth,1)} / ${RCUI.formatFinite(r.input.supportBearingWidth,1)}`, unit:'cm' },
       ]},
       { group:'材料、外力與配筋', keepTogether:true, items:[
-        { label:"fc' / fy", value:`${fmt(r.input.fc,0)} / ${fmt(r.input.fy,0)}`, unit:'kgf/cm²' },
-        { label:'λ / βc / βs / φSTM', value:`${fmt(r.input.lambda,2)} / ${fmt(r.input.betaC,2)} / ${fmt(r.input.betaS,2)} / ${fmt(r.phiStm,2)}` },
-        { label:'跨中係數化集中載重 Pu', value:fmt(r.input.Pu,2), unit:'tf' },
-        { label:'底部拉桿', value:`${$('tieCount').value}-${tieKey}，${r.tieLayout.rowCounts.length} 排（${r.tieLayout.rowCounts.join('+')}支），As=${fmt(r.input.tieAsProvided,2)}`, unit:'cm²' },
-        { label:'拉桿配筋幾何', value:`保護層 ${fmt(r.tieLayout.input.sideCover,1)} cm；外圍橫向筋 ${transverseKey}；dagg=${fmt(r.tieLayout.input.maxAggregateSize,1)} cm` },
-        { label:'拉桿鋼筋群心', value:`距底面 ${fmt(r.tieLayout.centroidFromBottom,2)} cm；鋼筋帶深 ${fmt(r.tieLayout.tieBandDepth,2)}`, unit:'cm' },
-        { label:'垂直分布筋', value:`${$('verticalFaces').value} 面-${vKey}@${fmt(r.input.verticalSpacing,1)}`, unit:'cm' },
-        { label:'水平分布筋', value:`${$('horizontalFaces').value} 面-${hKey}@${fmt(r.input.horizontalSpacing,1)}`, unit:'cm' },
+        { label:"fc' / fy", value:`${RCUI.formatFinite(r.input.fc,0)} / ${RCUI.formatFinite(r.input.fy,0)}`, unit:'kgf/cm²' },
+        { label:'λ / βc / βs / φSTM', value:`${RCUI.formatFinite(r.input.lambda,2)} / ${RCUI.formatFinite(r.input.betaC,2)} / ${RCUI.formatFinite(r.input.betaS,2)} / ${RCUI.formatFinite(r.phiStm,2)}` },
+        { label:'跨中係數化集中載重 Pu', value:RCUI.formatFinite(r.input.Pu,2), unit:'tf' },
+        { label:'底部拉桿', value:`${$('tieCount').value}-${tieKey}，${r.tieLayout.rowCounts.length} 排（${r.tieLayout.rowCounts.join('+')}支），As=${RCUI.formatFinite(r.input.tieAsProvided,2)}`, unit:'cm²' },
+        { label:'拉桿配筋幾何', value:`保護層 ${RCUI.formatFinite(r.tieLayout.input.sideCover,1)} cm；外圍橫向筋 ${transverseKey}；dagg=${RCUI.formatFinite(r.tieLayout.input.maxAggregateSize,1)} cm` },
+        { label:'拉桿鋼筋群心', value:`距底面 ${RCUI.formatFinite(r.tieLayout.centroidFromBottom,2)} cm；鋼筋帶深 ${RCUI.formatFinite(r.tieLayout.tieBandDepth,2)}`, unit:'cm' },
+        { label:'垂直分布筋', value:`${$('verticalFaces').value} 面-${vKey}@${RCUI.formatFinite(r.input.verticalSpacing,1)}`, unit:'cm' },
+        { label:'水平分布筋', value:`${$('horizontalFaces').value} 面-${hKey}@${RCUI.formatFinite(r.input.horizontalSpacing,1)}`, unit:'cm' },
       ]},
     ];
     const checks = [
       { group:'模型適用性與平衡', items:[
-        reportCheck('深梁適用條件','9.9.1.1：ℓn ≤ 4h；或集中載重距支承面 a ≤ 2h',`ℓn/h=${fmt(r.input.ln/r.input.h,3)}；a/h=${fmt(r.a/r.input.h,3)}`,r.isDeepBeam ? '深梁' : '非深梁','',r.checks.isDeepBeam),
-        reportCheck('桿件最小夾角','23.2.7：θ ≥ 25°',`θ=tan⁻¹(z/a)=tan⁻¹(${fmt(r.input.z,1)}/${fmt(r.a,1)})`,fmt(r.thetaDeg,2),'deg',r.checks.angleOk),
-        reportCheck('單側支承反力','R = Pu / 2',`${fmt(r.input.Pu,2)} / 2`,fmt(r.reaction,2),'tf',true),
-        reportCheck('對角壓桿力','C = R / sinθ',`${fmt(r.reaction,2)} / sin(${fmt(r.thetaDeg,2)}°)`,fmt(r.strutDemand,2),'tf',true),
-        reportCheck('底部拉桿力','T = R / tanθ',`${fmt(r.reaction,2)} / tan(${fmt(r.thetaDeg,2)}°)`,fmt(r.tieDemand,2),'tf',true),
+        reportCheck('深梁適用條件','9.9.1.1：ℓn ≤ 4h；或集中載重距支承面 a ≤ 2h',`ℓn/h=${RCUI.formatFinite(r.input.ln/r.input.h,3)}；a/h=${RCUI.formatFinite(r.a/r.input.h,3)}`,r.isDeepBeam ? '深梁' : '非深梁','',r.checks.isDeepBeam),
+        reportCheck('桿件最小夾角','23.2.7：θ ≥ 25°',`θ=tan⁻¹(z/a)=tan⁻¹(${RCUI.formatFinite(r.input.z,1)}/${RCUI.formatFinite(r.a,1)})`,RCUI.formatFinite(r.thetaDeg,2),'deg',r.checks.angleOk),
+        reportCheck('單側支承反力','R = Pu / 2',`${RCUI.formatFinite(r.input.Pu,2)} / 2`,RCUI.formatFinite(r.reaction,2),'tf',true),
+        reportCheck('對角壓桿力','C = R / sinθ',`${RCUI.formatFinite(r.reaction,2)} / sin(${RCUI.formatFinite(r.thetaDeg,2)}°)`,RCUI.formatFinite(r.strutDemand,2),'tf',true),
+        reportCheck('底部拉桿力','T = R / tanθ',`${RCUI.formatFinite(r.reaction,2)} / tan(${RCUI.formatFinite(r.thetaDeg,2)}°)`,RCUI.formatFinite(r.tieDemand,2),'tf',true),
       ]},
       { group:'拉桿強度', keepTogether:true, items:[
-        reportCheck('STM 拉桿 As 需求','As,STM = T / (φ fy)',`${fmt(r.tieDemand*1000,0)} / (${fmt(r.phiStm,2)} × ${fmt(r.input.fy,0)})`,fmt(r.tieAsStm,2),'cm²',true),
-        reportCheck('9.6.1 最小鋼筋量','As,min = max(0.8√fc\'/fy, 14/fy) bw d',`max(0.8√${fmt(r.input.fc,0)}/${fmt(Math.min(r.input.fy,5600),0)}, 14/${fmt(Math.min(r.input.fy,5600),0)}) × ${fmt(r.input.bw,1)} × ${fmt(r.input.d,1)}`,fmt(r.tieAsMin,2),'cm²',true),
-        reportCheck('底部拉桿提供量','As,prov ≥ max(As,STM, As,min)',`${fmt(r.input.tieAsProvided,2)} ≥ max(${fmt(r.tieAsStm,2)}, ${fmt(r.tieAsMin,2)})`,fmt(r.tieDcr,3),'DCR',r.checks.tieOk),
-        reportCheck('同層水平淨距','25.2.1：sc ≥ max(2.5 cm, db, 4/3 dagg)',`${fmt(r.tieLayout.minHorizontalClear,2)} ≥ max(2.50, ${fmt(r.tieLayout.input.barDiameter,3)}, ${fmt(4*r.tieLayout.input.maxAggregateSize/3,2)})`,fmt(r.tieLayout.minHorizontalClear,2),'cm',r.tieLayout.horizontalSpacingOk),
-        reportCheck('多層垂直淨距','25.2.2：sv,clear ≥ 2.5 cm；上層鋼筋直接位於下層鋼筋之上',`${fmt(r.tieLayout.input.verticalClearSpacing,2)} ≥ 2.50；各排共用對齊柱線`,fmt(r.tieLayout.input.verticalClearSpacing,2),'cm',r.tieLayout.verticalSpacingOk && r.tieLayout.rowAlignmentOk),
-        reportCheck('斷面容納','各排支數不超過可容納支數，且鋼筋帶深不超過斷面內可用深度',`各排 ${r.tieLayout.rowCounts.join('+')}支；最多 ${r.tieLayout.maxBarsPerRow}支/排；${fmt(r.tieLayout.tieBandDepth,2)} ≤ ${fmt(r.tieLayout.availableDepth,2)} cm`,r.tieLayout.layoutOk ? '符合' : '不符合','',r.tieLayout.layoutOk),
+        reportCheck('STM 拉桿 As 需求','As,STM = T / (φ fy)',`${RCUI.formatFinite(r.tieDemand*1000,0)} / (${RCUI.formatFinite(r.phiStm,2)} × ${RCUI.formatFinite(r.input.fy,0)})`,RCUI.formatFinite(r.tieAsStm,2),'cm²',true),
+        reportCheck('9.6.1 最小鋼筋量','As,min = max(0.8√fc\'/fy, 14/fy) bw d',`max(0.8√${RCUI.formatFinite(r.input.fc,0)}/${RCUI.formatFinite(Math.min(r.input.fy,5600),0)}, 14/${RCUI.formatFinite(Math.min(r.input.fy,5600),0)}) × ${RCUI.formatFinite(r.input.bw,1)} × ${RCUI.formatFinite(r.input.d,1)}`,RCUI.formatFinite(r.tieAsMin,2),'cm²',true),
+        reportCheck('底部拉桿提供量','As,prov ≥ max(As,STM, As,min)',`${RCUI.formatFinite(r.input.tieAsProvided,2)} ≥ max(${RCUI.formatFinite(r.tieAsStm,2)}, ${RCUI.formatFinite(r.tieAsMin,2)})`,RCUI.formatFinite(r.tieDcr,3),'DCR',r.checks.tieOk),
+        reportCheck('同層水平淨距','25.2.1：sc ≥ max(2.5 cm, db, 4/3 dagg)',`${RCUI.formatFinite(r.tieLayout.minHorizontalClear,2)} ≥ max(2.50, ${RCUI.formatFinite(r.tieLayout.input.barDiameter,3)}, ${RCUI.formatFinite(4*r.tieLayout.input.maxAggregateSize/3,2)})`,RCUI.formatFinite(r.tieLayout.minHorizontalClear,2),'cm',r.tieLayout.horizontalSpacingOk),
+        reportCheck('多層垂直淨距','25.2.2：sv,clear ≥ 2.5 cm；上層鋼筋直接位於下層鋼筋之上',`${RCUI.formatFinite(r.tieLayout.input.verticalClearSpacing,2)} ≥ 2.50；各排共用對齊柱線`,RCUI.formatFinite(r.tieLayout.input.verticalClearSpacing,2),'cm',r.tieLayout.verticalSpacingOk && r.tieLayout.rowAlignmentOk),
+        reportCheck('斷面容納','各排支數不超過可容納支數，且鋼筋帶深不超過斷面內可用深度',`各排 ${r.tieLayout.rowCounts.join('+')}支；最多 ${r.tieLayout.maxBarsPerRow}支/排；${RCUI.formatFinite(r.tieLayout.tieBandDepth,2)} ≤ ${RCUI.formatFinite(r.tieLayout.availableDepth,2)} cm`,r.tieLayout.layoutOk ? '符合' : '不符合','',r.tieLayout.layoutOk),
       ]},
       { group:'壓桿與節點區強度', items:[
-        reportCheck('對角壓桿','φFns = φ(0.85 βc βs fc\') bw ws',`${fmt(r.phiStm,2)}×0.85×${fmt(r.input.betaC,2)}×${fmt(r.input.betaS,2)}×${fmt(r.input.fc,0)}×${fmt(r.input.bw,1)}×${fmt(r.input.strutWidth,1)} / 1000 = ${fmt(r.strutDesign,2)} tf`,fmt(r.strutDcr,3),'DCR',r.checks.strutOk),
-        reportCheck('上部 CCC 節點','φFnn = φ(0.85 βc βn fc\') bw wn,t；βn=1.0',`需求 max(Pu,C)=${fmt(r.topNodeDemand,2)}；強度=${fmt(r.topNodeDesign,2)} tf；wn,t≤載重面寬：${fmt(r.input.topNodeWidth,1)}≤${fmt(r.input.loadBearingWidth,1)}`,fmt(r.topNodeDcr,3),'DCR',r.checks.topNodeOk),
-        reportCheck('下部 CCT 節點','φFnn = φ(0.85 βc βn fc\') bw wn,b；βn=0.8',`需求 max(R,C)=${fmt(r.bottomNodeDemand,2)}；強度=${fmt(r.bottomNodeDesign,2)} tf；wn,b≤支承面寬：${fmt(r.input.bottomNodeWidth,1)}≤${fmt(r.input.supportBearingWidth,1)}`,fmt(r.bottomNodeDcr,3),'DCR',r.checks.bottomNodeOk),
+        reportCheck('對角壓桿','φFns = φ(0.85 βc βs fc\') bw ws',`${RCUI.formatFinite(r.phiStm,2)}×0.85×${RCUI.formatFinite(r.input.betaC,2)}×${RCUI.formatFinite(r.input.betaS,2)}×${RCUI.formatFinite(r.input.fc,0)}×${RCUI.formatFinite(r.input.bw,1)}×${RCUI.formatFinite(r.input.strutWidth,1)} / 1000 = ${RCUI.formatFinite(r.strutDesign,2)} tf`,RCUI.formatFinite(r.strutDcr,3),'DCR',r.checks.strutOk),
+        reportCheck('上部 CCC 節點','φFnn = φ(0.85 βc βn fc\') bw wn,t；βn=1.0',`需求 max(Pu,C)=${RCUI.formatFinite(r.topNodeDemand,2)}；強度=${RCUI.formatFinite(r.topNodeDesign,2)} tf；wn,t≤載重面寬：${RCUI.formatFinite(r.input.topNodeWidth,1)}≤${RCUI.formatFinite(r.input.loadBearingWidth,1)}`,RCUI.formatFinite(r.topNodeDcr,3),'DCR',r.checks.topNodeOk),
+        reportCheck('下部 CCT 節點','φFnn = φ(0.85 βc βn fc\') bw wn,b；βn=0.8',`需求 max(R,C)=${RCUI.formatFinite(r.bottomNodeDemand,2)}；強度=${RCUI.formatFinite(r.bottomNodeDesign,2)} tf；wn,b≤支承面寬：${RCUI.formatFinite(r.input.bottomNodeWidth,1)}≤${RCUI.formatFinite(r.input.supportBearingWidth,1)}`,RCUI.formatFinite(r.bottomNodeDcr,3),'DCR',r.checks.bottomNodeOk),
       ]},
       { group:'分布筋與深梁剪力上限', keepTogether:true, items:[
-        reportCheck('垂直分布筋比','9.9.3.1：ρv = Av/(bw sv) ≥ 0.0025',`${fmt(r.verticalAreaWithinSpacing,3)} / (${fmt(r.input.bw,1)}×${fmt(r.input.verticalSpacing,1)})`,fmt(r.rhoVertical,5),'',r.checks.verticalRatioOk),
-        reportCheck('水平分布筋比','9.9.3.1：ρh = Avh/(bw sh) ≥ 0.0025',`${fmt(r.horizontalAreaWithinSpacing,3)} / (${fmt(r.input.bw,1)}×${fmt(r.input.horizontalSpacing,1)})`,fmt(r.rhoHorizontal,5),'',r.checks.horizontalRatioOk),
-        reportCheck('分布筋最大間距','9.9.4.3：s ≤ min(d/5, 30 cm)',`min(${fmt(r.input.d,1)}/5,30)=${fmt(r.distributedSpacingLimit,1)} cm；sv=${fmt(r.input.verticalSpacing,1)}；sh=${fmt(r.input.horizontalSpacing,1)}`,fmt(r.distributedSpacingLimit,1),'cm',r.checks.verticalSpacingOk && r.checks.horizontalSpacingOk),
-        reportCheck('9.9.2.1 剪力上限','Vu ≤ φ 2.65 λ √fc\' bw d',`${fmt(r.reaction,2)} ≤ ${fmt(r.shearDesignLimit99,2)}`,fmt(r.reaction/r.shearDesignLimit99,3),'DCR',r.checks.shearLimit99Ok),
-        ...(r.check2344Required ? [reportCheck('23.4.4 剪力條件','Vu ≤ φ 1.32 tanθ λ λs √fc\' bw d',r.shearDesignLimit2344 == null ? '分布筋未符合，λs 不採 1.0' : `${fmt(r.reaction,2)} ≤ ${fmt(r.shearDesignLimit2344,2)}；λs=1.0`,r.shearDesignLimit2344 == null ? '未成立' : fmt(r.reaction/r.shearDesignLimit2344,3),r.shearDesignLimit2344 == null ? '' : 'DCR',r.checks.shearLimit2344Ok)] : []),
+        reportCheck('垂直分布筋比','9.9.3.1：ρv = Av/(bw sv) ≥ 0.0025',`${RCUI.formatFinite(r.verticalAreaWithinSpacing,3)} / (${RCUI.formatFinite(r.input.bw,1)}×${RCUI.formatFinite(r.input.verticalSpacing,1)})`,RCUI.formatFinite(r.rhoVertical,5),'',r.checks.verticalRatioOk),
+        reportCheck('水平分布筋比','9.9.3.1：ρh = Avh/(bw sh) ≥ 0.0025',`${RCUI.formatFinite(r.horizontalAreaWithinSpacing,3)} / (${RCUI.formatFinite(r.input.bw,1)}×${RCUI.formatFinite(r.input.horizontalSpacing,1)})`,RCUI.formatFinite(r.rhoHorizontal,5),'',r.checks.horizontalRatioOk),
+        reportCheck('分布筋最大間距','9.9.4.3：s ≤ min(d/5, 30 cm)',`min(${RCUI.formatFinite(r.input.d,1)}/5,30)=${RCUI.formatFinite(r.distributedSpacingLimit,1)} cm；sv=${RCUI.formatFinite(r.input.verticalSpacing,1)}；sh=${RCUI.formatFinite(r.input.horizontalSpacing,1)}`,RCUI.formatFinite(r.distributedSpacingLimit,1),'cm',r.checks.verticalSpacingOk && r.checks.horizontalSpacingOk),
+        reportCheck('9.9.2.1 剪力上限','Vu ≤ φ 2.65 λ √fc\' bw d',`${RCUI.formatFinite(r.reaction,2)} ≤ ${RCUI.formatFinite(r.shearDesignLimit99,2)}`,RCUI.formatFinite(r.reaction/r.shearDesignLimit99,3),'DCR',r.checks.shearLimit99Ok),
+        ...(r.check2344Required ? [reportCheck('23.4.4 剪力條件','Vu ≤ φ 1.32 tanθ λ λs √fc\' bw d',r.shearDesignLimit2344 == null ? '分布筋未符合，λs 不採 1.0' : `${RCUI.formatFinite(r.reaction,2)} ≤ ${RCUI.formatFinite(r.shearDesignLimit2344,2)}；λs=1.0`,r.shearDesignLimit2344 == null ? '未成立' : RCUI.formatFinite(r.reaction/r.shearDesignLimit2344,3),r.shearDesignLimit2344 == null ? '' : 'DCR',r.checks.shearLimit2344Ok)] : []),
       ]},
       { group:'模型與構造確認', items:[
-        reportCheck('力流與有效寬度','23.2.2 及 23.8.1：模型幾何、有效寬度與拉桿鋼筋群中心軸應相符',r.geometryConfirmed ? `已確認採用模型；拉桿鋼筋群心距底面 ${fmt(r.tieLayout.centroidFromBottom,2)} cm` : '尚未確認',r.geometryConfirmed ? '已確認' : '待確認','',r.geometryConfirmed ? true : null),
+        reportCheck('力流與有效寬度','23.2.2 及 23.8.1：模型幾何、有效寬度與拉桿鋼筋群中心軸應相符',r.geometryConfirmed ? `已確認採用模型；拉桿鋼筋群心距底面 ${RCUI.formatFinite(r.tieLayout.centroidFromBottom,2)} cm` : '尚未確認',r.geometryConfirmed ? '已確認' : '待確認','',r.geometryConfirmed ? true : null),
         reportCheck('拉桿端部錨定','23.8.2、23.8.3：拉桿力須於兩端節點區完成錨定與發展',r.anchorageConfirmed ? '已由使用者確認配筋圖與錨定細節' : '尚未確認',r.anchorageConfirmed ? '已確認' : '待確認','',r.anchorageConfirmed ? true : null),
       ]},
     ];
@@ -469,8 +471,8 @@
       checks,
       diagramsTitle:'壓拉桿力流示意圖',
       diagrams:[
-        ...(svg ? [{ title:'對稱單跨深梁壓拉桿力流', dataURL:svgDataUrl(svg), caption:`Pu=${fmt(r.input.Pu,1)} tf；θ=${fmt(r.thetaDeg,1)}°；紅色為壓桿、藍色為底部拉桿`, width:300 }] : []),
-        ...(tieSvg ? [{ title:'底部拉桿多排斷面配置', dataURL:svgDataUrl(tieSvg), caption:`${$('tieCount').value}-${tieKey}，${r.tieLayout.rowCounts.length} 排（${r.tieLayout.rowCounts.join('+')}支）；水平最小淨距 ${fmt(r.tieLayout.minHorizontalClear,2)} cm`, width:300 }] : []),
+        ...(svg ? [{ title:'對稱單跨深梁壓拉桿力流', dataURL:svgDataUrl(svg), caption:`Pu=${RCUI.formatFinite(r.input.Pu,1)} tf；θ=${RCUI.formatFinite(r.thetaDeg,1)}°；紅色為壓桿、藍色為底部拉桿`, width:300 }] : []),
+        ...(tieSvg ? [{ title:'底部拉桿多排斷面配置', dataURL:svgDataUrl(tieSvg), caption:`${$('tieCount').value}-${tieKey}，${r.tieLayout.rowCounts.length} 排（${r.tieLayout.rowCounts.join('+')}支）；水平最小淨距 ${RCUI.formatFinite(r.tieLayout.minHorizontalClear,2)} cm`, width:300 }] : []),
       ],
     });
   }

@@ -1,5 +1,5 @@
 ﻿{
-    "generatedAt":  "2026-10-03T12:17:39Z",
+    "generatedAt":  "2026-10-03T13:41:31Z",
     "mode":  "sync",
     "toolRoot":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具",
     "targetRoot":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core",
@@ -19,10 +19,30 @@
                       "label":  "report core",
                       "source":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\結構工具箱\\core\\ui\\report.js",
                       "target":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core\\ui\\report.js",
-                      "sourceHash":  "4D813C7B59E32E34DB9BBA7F143B2036A338D7EC9288E7E0C1F2BD87A9448B8C",
-                      "targetHash":  "4D813C7B59E32E34DB9BBA7F143B2036A338D7EC9288E7E0C1F2BD87A9448B8C",
-                      "sourceLastWriteUtc":  "2026-10-03T12:17:37Z",
-                      "targetLastWriteUtc":  "2026-10-03T12:17:37Z",
+                      "sourceHash":  "23F4C216F3CA7F38D723A440FD68339594B8350C731B44537C3686D337257830",
+                      "targetHash":  "23F4C216F3CA7F38D723A440FD68339594B8350C731B44537C3686D337257830",
+                      "sourceLastWriteUtc":  "2026-10-03T13:41:30Z",
+                      "targetLastWriteUtc":  "2026-10-03T13:41:30Z",
+                      "inSync":  true
+                  },
+                  {
+                      "label":  "report utilities",
+                      "source":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\結構工具箱\\core\\ui\\report-utils.js",
+                      "target":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core\\ui\\report-utils.js",
+                      "sourceHash":  "8A4F5D4335E50D17E6E3D6F17DA81FF8C50B5AF2FB66C20214F2DEC36B93A8CB",
+                      "targetHash":  "8A4F5D4335E50D17E6E3D6F17DA81FF8C50B5AF2FB66C20214F2DEC36B93A8CB",
+                      "sourceLastWriteUtc":  "2026-10-03T13:10:46Z",
+                      "targetLastWriteUtc":  "2026-10-03T13:38:42Z",
+                      "inSync":  true
+                  },
+                  {
+                      "label":  "direct print boundary",
+                      "source":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\結構工具箱\\core\\direct-print-boundary.css",
+                      "target":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼筋混凝土\\shared\\direct-print-boundary.css",
+                      "sourceHash":  "58EB9BE776C4FBD3D9F5AE2F928ABC8A3538E1BA7CB6B5C42F7632D46E12F949",
+                      "targetHash":  "58EB9BE776C4FBD3D9F5AE2F928ABC8A3538E1BA7CB6B5C42F7632D46E12F949",
+                      "sourceLastWriteUtc":  "2026-10-03T13:38:42Z",
+                      "targetLastWriteUtc":  "2026-10-03T13:38:42Z",
                       "inSync":  true
                   }
               ],

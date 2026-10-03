@@ -645,6 +645,8 @@
 <script src="../../結構工具箱/core/ui/formulas.js"></script>
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
+<script src="../../結構工具箱/core/ui/report-utils.js"></script>
+<script src="../shared/report-utils.js"></script>
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../shared/calc-verdict-strip.js?v=1"></script>
@@ -3523,7 +3525,7 @@
 
     // === 計算過程文字 (依 showSteps 顯示) ===
     if ($('showSteps')?.checked) {
-      const fmt = (v,d=2) => (v==null||isNaN(v))?'—':Number(v).toFixed(d);
+
       // 幾何 & 長細
       const stepsGeomTxt =
 `【1】斷面與材料常數

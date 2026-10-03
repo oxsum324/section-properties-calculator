@@ -620,6 +620,8 @@
 </div>
 
 <script src="../shared/common.js?v=4"></script>
+<script src="../../結構工具箱/core/ui/report-utils.js"></script>
+<script src="../shared/report-utils.js"></script>
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../shared/foundation-pile.js?v=1"></script>
@@ -1446,9 +1448,7 @@ ${best.tip.capApplied ? `端承已套用上限 ${best.tip.capValue} tf/m²。` :
 ${gainText}`;
   }
 
-  function fmt(value, digits = 2, fallback = '—') {
-    return Number.isFinite(value) ? Number(value).toFixed(digits) : fallback;
-  }
+
 
   function layerLabel(layer) {
     return layer ? (layer.label || layer.type || '—') : '—';
@@ -1526,7 +1526,7 @@ ${gainText}`;
       ...rows.map(item => {
         const isBest = best && item.diaCm === best.diaCm && Math.abs(item.depthM - best.depthM) < 1e-9;
         const status = isBest ? '採用' : item.pass ? '通過' : '未通過';
-        return `${status} | ${item.diaCm} | ${fmt(item.depthM, 1)} | ${fmt(item.skin.Qs)} | ${fmt(item.tip.Qb)} | ${fmt(item.QallLong)} / ${fmt(item.QallShort)} | ${fmt(item.settlement.Wo_cm)} | ${layerLabel(item.tip.tipLayer)} | ${(item.reasons || []).join('、')}`;
+        return `${status} | ${item.diaCm} | ${RCUI.formatFinite(item.depthM, 1)} | ${RCUI.formatFinite(item.skin.Qs)} | ${RCUI.formatFinite(item.tip.Qb)} | ${RCUI.formatFinite(item.QallLong)} / ${RCUI.formatFinite(item.QallShort)} | ${RCUI.formatFinite(item.settlement.Wo_cm)} | ${layerLabel(item.tip.tipLayer)} | ${(item.reasons || []).join('、')}`;
       })
     ].join('\n');
   }
@@ -1537,10 +1537,10 @@ ${gainText}`;
       '層次 | 深度(m) | 土層 | N | c | φ | γ\' | fs(tf/m²) | ΔQs(tf) | 累計Qs(tf)'
     ];
     (candidate.skin.segments || []).forEach((seg, idx) => {
-      rows.push(`L${idx + 1} | ${fmt(seg.from, 1)}-${fmt(Math.min(seg.to, candidate.depthM), 1)} | ${layerLabel(seg)} | ${fmt(seg.N, 0)} | ${fmt(seg.c)} | ${fmt(seg.phi, 1)} | ${fmt(seg.gammaEff)} | ${fmt(seg.fs)} | ${fmt(seg.dQs)} | ${fmt(seg.accumQs)}`);
+      rows.push(`L${idx + 1} | ${RCUI.formatFinite(seg.from, 1)}-${RCUI.formatFinite(Math.min(seg.to, candidate.depthM), 1)} | ${layerLabel(seg)} | ${RCUI.formatFinite(seg.N, 0)} | ${RCUI.formatFinite(seg.c)} | ${RCUI.formatFinite(seg.phi, 1)} | ${RCUI.formatFinite(seg.gammaEff)} | ${RCUI.formatFinite(seg.fs)} | ${RCUI.formatFinite(seg.dQs)} | ${RCUI.formatFinite(seg.accumQs)}`);
     });
     if (candidate.tip.tipLayer) {
-      rows.push(`Tip | ${fmt(candidate.depthM, 1)} | ${layerLabel(candidate.tip.tipLayer)} | ${fmt(candidate.tip.tipLayer.N, 0)} | ${fmt(candidate.tip.tipLayer.c)} | ${fmt(candidate.tip.tipLayer.phi, 1)} | ${fmt(candidate.tip.tipLayer.gammaEff)} | qb=${fmt(candidate.tip.qbUlt, 1)} | Qb=${fmt(candidate.tip.Qb)} | Qult=${fmt(candidate.Qult)}`);
+      rows.push(`Tip | ${RCUI.formatFinite(candidate.depthM, 1)} | ${layerLabel(candidate.tip.tipLayer)} | ${RCUI.formatFinite(candidate.tip.tipLayer.N, 0)} | ${RCUI.formatFinite(candidate.tip.tipLayer.c)} | ${RCUI.formatFinite(candidate.tip.tipLayer.phi, 1)} | ${RCUI.formatFinite(candidate.tip.tipLayer.gammaEff)} | qb=${RCUI.formatFinite(candidate.tip.qbUlt, 1)} | Qb=${RCUI.formatFinite(candidate.tip.Qb)} | Qult=${RCUI.formatFinite(candidate.Qult)}`);
     }
     return rows.join('\n');
   }
@@ -1563,7 +1563,7 @@ ${gainText}`;
       const y1 = y(layer.from);
       const y2 = y(layer.to);
       const h = Math.max(8, y2 - y1);
-      const depthLabel = h >= 18 ? `<text x="${left + 8}" y="${(y1 + 12).toFixed(1)}" font-size="10" fill="#475569">${fmt(layer.from, 1)}m</text>` : '';
+      const depthLabel = h >= 18 ? `<text x="${left + 8}" y="${(y1 + 12).toFixed(1)}" font-size="10" fill="#475569">${RCUI.formatFinite(layer.from, 1)}m</text>` : '';
       return `<rect x="${left}" y="${y1.toFixed(1)}" width="${layerW}" height="${h.toFixed(1)}" fill="${colors[idx % colors.length]}" stroke="#94a3b8"/>
         ${depthLabel}`;
     }).join('');
@@ -1571,7 +1571,7 @@ ${gainText}`;
       const ly = 68 + idx * 36;
       return `<rect x="${legendX}" y="${ly - 10}" width="12" height="12" fill="${colors[idx % colors.length]}" stroke="#94a3b8"/>
         <text x="${legendX + 18}" y="${ly}" font-size="11" font-weight="700" fill="#1f2937">${esc(layerLabel(layer)).slice(0, 18)}</text>
-        <text x="${legendX + 18}" y="${ly + 14}" font-size="10" fill="#475569">z=${fmt(layer.from, 1)}-${fmt(layer.to, 1)}m, N=${fmt(layer.N, 0)}, c=${fmt(layer.c, 1)}, φ=${fmt(layer.phi, 0)}</text>`;
+        <text x="${legendX + 18}" y="${ly + 14}" font-size="10" fill="#475569">z=${RCUI.formatFinite(layer.from, 1)}-${RCUI.formatFinite(layer.to, 1)}m, N=${RCUI.formatFinite(layer.N, 0)}, c=${RCUI.formatFinite(layer.c, 1)}, φ=${RCUI.formatFinite(layer.phi, 0)}</text>`;
     }).join('');
     const pileTop = y(0);
     const pileBottom = y(candidate.depthM);
@@ -1580,15 +1580,15 @@ ${gainText}`;
       <text x="${left}" y="24" font-size="16" font-weight="700" fill="#111827">單樁土層與採用深度示意</text>
       <line x1="${left - 28}" y1="${top}" x2="${left - 28}" y2="${height - bottom}" stroke="#334155" stroke-width="1"/>
       <text x="${left - 64}" y="${top + 4}" font-size="11" fill="#475569">GL 0m</text>
-      <text x="${left - 78}" y="${height - bottom}" font-size="11" fill="#475569">${fmt(maxDepth, 1)}m</text>
+      <text x="${left - 78}" y="${height - bottom}" font-size="11" fill="#475569">${RCUI.formatFinite(maxDepth, 1)}m</text>
       ${layerSvg}
       ${legendSvg}
       <line x1="${pileX}" y1="${pileTop}" x2="${pileX}" y2="${pileBottom}" stroke="#0f172a" stroke-width="18" stroke-linecap="round"/>
       <line x1="${pileX - 28}" y1="${pileBottom}" x2="${pileX + 28}" y2="${pileBottom}" stroke="#0f172a" stroke-width="5" stroke-linecap="round"/>
       <text x="${pileX + 42}" y="${pileTop + 18}" font-size="13" font-weight="700" fill="#111827">D ${candidate.diaCm} cm</text>
-      <text x="${pileX + 42}" y="${pileBottom - 6}" font-size="13" fill="#111827">L ${fmt(candidate.depthM, 1)} m</text>
+      <text x="${pileX + 42}" y="${pileBottom - 6}" font-size="13" fill="#111827">L ${RCUI.formatFinite(candidate.depthM, 1)} m</text>
       <text x="${pileX + 42}" y="${pileBottom + 16}" font-size="12" fill="#475569">Tip: ${esc(layerLabel(candidate.tip.tipLayer))}</text>
-      <text x="${pileX + 42}" y="${pileBottom + 34}" font-size="12" fill="#475569">Qs/Qb = ${fmt(candidate.skin.Qs)} / ${fmt(candidate.tip.Qb)} tf</text>
+      <text x="${pileX + 42}" y="${pileBottom + 34}" font-size="12" fill="#475569">Qs/Qb = ${RCUI.formatFinite(candidate.skin.Qs)} / ${RCUI.formatFinite(candidate.tip.Qb)} tf</text>
     </svg>`;
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
@@ -1699,37 +1699,37 @@ ${gainText}`;
       documentClass: attachmentReadiness.documentClass,
       inputs: [
         { group: '載重與材料', items: [
-          { label: '長期 / 短期服務載重', value: `${fmt(params.longTermLoad)} / ${fmt(params.shortTermLoad)}`, unit: 'tf' },
-          { label: '樁身設計載重 Pu', value: fmt(params.factoredLoad), unit: 'tf' },
-          { label: "fc'", value: fmt(params.fc, 0), unit: 'kgf/cm²' },
+          { label: '長期 / 短期服務載重', value: `${RCUI.formatFinite(params.longTermLoad)} / ${RCUI.formatFinite(params.shortTermLoad)}`, unit: 'tf' },
+          { label: '樁身設計載重 Pu', value: RCUI.formatFinite(params.factoredLoad), unit: 'tf' },
+          { label: "fc'", value: RCUI.formatFinite(params.fc, 0), unit: 'kgf/cm²' },
           { label: '樁型式 / 施工法', value: `${params.pileType === 'cast-in-place' ? '場鑄混凝土樁' : '鋼管樁'} / ${params.pileInstall === 'driven' ? '打入樁' : '鑽掘樁'}`, unit: '' }
         ]},
         { group: '計算方法與係數', items: [
           { label: '採用計算法', value: `${getModeLabel(params.calcMode)}${params.calcMode === 'regulation' ? ` / ${getRegulationMethodLabel(params.regulationMethod)}` : ''}`, unit: '' },
-          { label: '安全係數', value: params.calcMode === 'regulation' ? '常時 Qs/2.5 + Qb/3.5；短期 Qs/1.8 + Qb/2.5' : `長期 FS=${fmt(params.safetyFactorLong)}；短期 FS=${fmt(params.safetyFactorShort)}`, unit: '' },
-          { label: '沉陷係數 / 容許沉陷', value: `${params.settlementMode === 'manual' ? '採指定係數' : '依材料條件推估'} / ${fmt(params.allowSettlement)}`, unit: 'cm' },
-          { label: '搜尋範圍 D / L', value: `${fmt(params.diameterMin, 0)}-${fmt(params.diameterMax, 0)} cm；${fmt(params.depthMin, 1)}-${fmt(params.depthMax, 1)} m`, unit: '' }
+          { label: '安全係數', value: params.calcMode === 'regulation' ? '常時 Qs/2.5 + Qb/3.5；短期 Qs/1.8 + Qb/2.5' : `長期 FS=${RCUI.formatFinite(params.safetyFactorLong)}；短期 FS=${RCUI.formatFinite(params.safetyFactorShort)}`, unit: '' },
+          { label: '沉陷係數 / 容許沉陷', value: `${params.settlementMode === 'manual' ? '採指定係數' : '依材料條件推估'} / ${RCUI.formatFinite(params.allowSettlement)}`, unit: 'cm' },
+          { label: '搜尋範圍 D / L', value: `${RCUI.formatFinite(params.diameterMin, 0)}-${RCUI.formatFinite(params.diameterMax, 0)} cm；${RCUI.formatFinite(params.depthMin, 1)}-${RCUI.formatFinite(params.depthMax, 1)} m`, unit: '' }
         ]},
         { group: r.bestCandidate ? '採用方案' : '最接近控制方案', keepTogether: true, items: [
-          { label: 'D / L', value: `${candidate.diaCm} / ${fmt(candidate.depthM, 1)}`, unit: 'cm / m' },
+          { label: 'D / L', value: `${candidate.diaCm} / ${RCUI.formatFinite(candidate.depthM, 1)}`, unit: 'cm / m' },
           { label: '控制端點層', value: tipName, unit: '' },
-          { label: 'Qs / Qb / Qult', value: `${fmt(candidate.skin.Qs)} / ${fmt(candidate.tip.Qb)} / ${fmt(candidate.Qult)}`, unit: 'tf' },
-          { label: 'Qall 長期 / 短期', value: `${fmt(candidate.QallLong)} / ${fmt(candidate.QallShort)}`, unit: 'tf' },
-          { label: 'Ra / Wp', value: `${fmt(candidate.upliftRa)} / ${fmt(candidate.upliftWp)}`, unit: 'tf' },
-          { label: 'Wo', value: fmt(candidate.settlement.Wo_cm), unit: 'cm' }
+          { label: 'Qs / Qb / Qult', value: `${RCUI.formatFinite(candidate.skin.Qs)} / ${RCUI.formatFinite(candidate.tip.Qb)} / ${RCUI.formatFinite(candidate.Qult)}`, unit: 'tf' },
+          { label: 'Qall 長期 / 短期', value: `${RCUI.formatFinite(candidate.QallLong)} / ${RCUI.formatFinite(candidate.QallShort)}`, unit: 'tf' },
+          { label: 'Ra / Wp', value: `${RCUI.formatFinite(candidate.upliftRa)} / ${RCUI.formatFinite(candidate.upliftWp)}`, unit: 'tf' },
+          { label: 'Wo', value: RCUI.formatFinite(candidate.settlement.Wo_cm), unit: 'cm' }
         ]}
       ],
       checks: [
         { group: '土層與單樁承載', items: [
           { label: '土層資料有效', value: `共 ${r.soilLayers.length} 層`, ok: true },
-          { label: 'Qall 長期 ≥ 服務需求', formula: 'Qall,long ≥ P,long', sub: `${fmt(candidate.QallLong)} ≥ ${fmt(params.longTermLoad)}`, value: `${fmt(candidate.QallLong)} / ${fmt(params.longTermLoad)}`, unit: 'tf', ok: candidate.okBearingLong },
-          { label: 'Qall 短期 ≥ 服務需求', formula: 'Qall,short ≥ P,short', sub: `${fmt(candidate.QallShort)} ≥ ${fmt(params.shortTermLoad)}`, value: `${fmt(candidate.QallShort)} / ${fmt(params.shortTermLoad)}`, unit: 'tf', ok: candidate.okBearingShort },
-          { label: '抗拔承載力 Ra', formula: params.calcMode === 'regulation' ? 'Ra = Wp + Qs / 5.0' : 'Ra = Wp + Qs / FS', sub: `Wp=${fmt(candidate.upliftWp)}, Qs=${fmt(candidate.skin.Qs)}`, value: fmt(candidate.upliftRa), unit: 'tf', ok: null },
-          { label: '端承上限', value: candidate.tip.capApplied ? `已套用 ${fmt(candidate.tip.capValue, 0)} tf/m²` : '未觸發上限', ok: null }
+          { label: 'Qall 長期 ≥ 服務需求', formula: 'Qall,long ≥ P,long', sub: `${RCUI.formatFinite(candidate.QallLong)} ≥ ${RCUI.formatFinite(params.longTermLoad)}`, value: `${RCUI.formatFinite(candidate.QallLong)} / ${RCUI.formatFinite(params.longTermLoad)}`, unit: 'tf', ok: candidate.okBearingLong },
+          { label: 'Qall 短期 ≥ 服務需求', formula: 'Qall,short ≥ P,short', sub: `${RCUI.formatFinite(candidate.QallShort)} ≥ ${RCUI.formatFinite(params.shortTermLoad)}`, value: `${RCUI.formatFinite(candidate.QallShort)} / ${RCUI.formatFinite(params.shortTermLoad)}`, unit: 'tf', ok: candidate.okBearingShort },
+          { label: '抗拔承載力 Ra', formula: params.calcMode === 'regulation' ? 'Ra = Wp + Qs / 5.0' : 'Ra = Wp + Qs / FS', sub: `Wp=${RCUI.formatFinite(candidate.upliftWp)}, Qs=${RCUI.formatFinite(candidate.skin.Qs)}`, value: RCUI.formatFinite(candidate.upliftRa), unit: 'tf', ok: null },
+          { label: '端承上限', value: candidate.tip.capApplied ? `已套用 ${RCUI.formatFinite(candidate.tip.capValue, 0)} tf/m²` : '未觸發上限', ok: null }
         ]},
         { group: '服務性與樁身', items: [
-          { label: 'Wo ≤ 容許沉陷', formula: 'Ws + Wpp + Wps ≤ Sa', sub: `${fmt(candidate.settlement.Ws_cm)} + ${fmt(candidate.settlement.Wpp_cm)} + ${fmt(candidate.settlement.Wps_cm)} = ${fmt(candidate.settlement.Wo_cm)}`, value: `${fmt(candidate.settlement.Wo_cm)} / ${fmt(params.allowSettlement)}`, unit: 'cm', ok: candidate.okSettlement },
-          { label: '樁身壓應力', formula: 'Pu / Ag ≤ 0.7·0.85·0.85·fc′', sub: `${fmt(candidate.stress)} ≤ ${fmt(candidate.stressAllow)}`, value: `${fmt(candidate.stress)} / ${fmt(candidate.stressAllow)}`, unit: 'kgf/cm²', ok: candidate.okStress },
+          { label: 'Wo ≤ 容許沉陷', formula: 'Ws + Wpp + Wps ≤ Sa', sub: `${RCUI.formatFinite(candidate.settlement.Ws_cm)} + ${RCUI.formatFinite(candidate.settlement.Wpp_cm)} + ${RCUI.formatFinite(candidate.settlement.Wps_cm)} = ${RCUI.formatFinite(candidate.settlement.Wo_cm)}`, value: `${RCUI.formatFinite(candidate.settlement.Wo_cm)} / ${RCUI.formatFinite(params.allowSettlement)}`, unit: 'cm', ok: candidate.okSettlement },
+          { label: '樁身壓應力', formula: 'Pu / Ag ≤ 0.7·0.85·0.85·fc′', sub: `${RCUI.formatFinite(candidate.stress)} ≤ ${RCUI.formatFinite(candidate.stressAllow)}`, value: `${RCUI.formatFinite(candidate.stress)} / ${RCUI.formatFinite(candidate.stressAllow)}`, unit: 'kgf/cm²', ok: candidate.okStress },
           { label: '構造限制', value: candidate.structural.text, ok: candidate.structural.ok }
         ]},
         { group: '規範假設檢核', items: [
@@ -1738,7 +1738,7 @@ ${gainText}`;
           { label: 'N 值經驗式適用性', value: params.calcMode === 'regulation' && params.regulationMethod === 'nvalue' ? '僅適用砂性土，特殊地層需人工複核' : '未採 N 值經驗式', ok: null }
         ]}
       ],
-      diagrams: diagram ? [{ title: '土層與單樁採用深度', dataURL: diagram, caption: `D ${candidate.diaCm} cm、L ${fmt(candidate.depthM, 1)} m；控制端點層：${tipName}`, width: 680 }] : [],
+      diagrams: diagram ? [{ title: '土層與單樁採用深度', dataURL: diagram, caption: `D ${candidate.diaCm} cm、L ${RCUI.formatFinite(candidate.depthM, 1)} m；控制端點層：${tipName}`, width: 680 }] : [],
       steps: [
         { group: '設計判讀', body: r.summaryText || $('summary').textContent.trim() },
         { group: '規範假設檢核', body: r.complianceText || $('complianceSummary').textContent.trim() },

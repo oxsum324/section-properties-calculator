@@ -1,4 +1,4 @@
-param(
+﻿param(
   [switch]$Check,
   [switch]$Quiet
 )
@@ -20,6 +20,9 @@ if ($reportSourceCandidates.Count -ne 1) {
   throw "Unable to resolve a unique source report core from sibling workspaces."
 }
 
+$sourceCoreRoot = Split-Path -Parent (Split-Path -Parent $reportSourceCandidates[0].ProviderPath)
+$rcRoot = Join-Path (Split-Path -Parent $root) "鋼筋混凝土"
+
 $mappings = @(
   [pscustomobject]@{
     Label = "steel core"
@@ -30,6 +33,16 @@ $mappings = @(
     Label = "report core"
     Source = $reportSourceCandidates[0].ProviderPath
     Target = Join-Path $targetRoot "ui\report.js"
+  },
+  [pscustomobject]@{
+    Label = "report utilities"
+    Source = Join-Path $sourceCoreRoot "ui\report-utils.js"
+    Target = Join-Path $targetRoot "ui\report-utils.js"
+  },
+  [pscustomobject]@{
+    Label = "direct print boundary"
+    Source = Join-Path $sourceCoreRoot "direct-print-boundary.css"
+    Target = Join-Path $rcRoot "shared\direct-print-boundary.css"
   }
 )
 

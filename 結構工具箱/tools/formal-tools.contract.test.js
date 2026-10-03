@@ -45,9 +45,16 @@ function assertPrintHidesSelectors(text, selectors, label) {
   });
 }
 
+function loadReportUtilities(context) {
+  for (const relativePath of ['結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js']) {
+    vm.runInContext(readText(repoFile(relativePath)), context, { filename: relativePath });
+  }
+}
+
 function loadWindowScript(filePath) {
   const context = { window: {}, console };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(readText(filePath), context, { filename: filePath });
   return context.window;
 }
@@ -71,6 +78,7 @@ function renderReportHtml(filePath, project = {}, overrides = {}) {
     Date,
   };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(readText(filePath), context, { filename: filePath });
   assert.equal(typeof context.openReport, 'function', `${filePath} openReport exposed`);
   context.openReport({

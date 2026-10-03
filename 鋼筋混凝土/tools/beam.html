@@ -812,6 +812,8 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
+<script src="../../結構工具箱/core/ui/report-utils.js"></script>
+<script src="../shared/report-utils.js"></script>
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../shared/calc-verdict-strip.js?v=1"></script>
@@ -2621,67 +2623,67 @@
 
     // === 計算過程文字 (顯示計算過程開關) ===
     if ($('showSteps') && $('showSteps').checked) {
-      const fmt = (x, n=2) => (Number.isFinite(x) ? Number(x).toFixed(n) : '—');
+
       const Mu_p = num('MuPos'), Mu_n = num('MuNeg');
       const isFullSteps = getStepsVerbosity('full') === 'full';
       // ── 撓曲 ──
       const stepsFlex = [
 `【1】材料常數
   fc' = ${fc} kgf/cm²    fy = ${fy} kgf/cm²
-  β₁ = 0.85 − 0.05·(fc'−280)/70 = ${fmt(beta1,4)}    (規範 22.2.2.4.3)
-  εty = ${fmt(epsTy,5)}    εt,lim = εty + 0.003 = ${fmt(epsTLimit,5)}  (規範表 21.2.2)
+  β₁ = 0.85 − 0.05·(fc'−280)/70 = ${RCUI.formatFinite(beta1,4)}    (規範 22.2.2.4.3)
+  εty = ${RCUI.formatFinite(epsTy,5)}    εt,lim = εty + 0.003 = ${RCUI.formatFinite(epsTLimit,5)}  (規範表 21.2.2)
   ρmax,ref = 0.85·β₁·(fc'/fy)·[0.003/(0.003+εt,lim)]
-           = ${fmt(rhoMax,4)}  (矩形單筋參考值；正式判定採實際 εt)
+           = ${RCUI.formatFinite(rhoMax,4)}  (矩形單筋參考值；正式判定採實際 εt)
 
 【2】撓度用開裂彎矩 Mcr (規範 24.2.3.5)
-  fr = 2·√fc' = 2·√${fc} = ${fmt(fr,1)} kgf/cm²
-  Ig = bw·h³/12 = ${bw}·${h}³/12 = ${fmt(Ig,0)} cm⁴
-  yt⁺ = ${fmt(yt_pos,2)} cm (正彎矩)    yt⁻ = ${fmt(yt_neg,2)} cm (負彎矩)
-  Mcr⁺ = fr·Ig/yt⁺ = ${fmt(fr,1)}·${fmt(Ig,0)}/${fmt(yt_pos,2)}
-       = ${fmt(Mcr_pos_kgcm,0)} kgf·cm = ${fmt(Mcr_pos,2)} tf·m
-  Mcr⁻ = fr·Ig/yt⁻ = ${fmt(Mcr_neg_kgcm,0)} kgf·cm = ${fmt(Mcr_neg,2)} tf·m
+  fr = 2·√fc' = 2·√${fc} = ${RCUI.formatFinite(fr,1)} kgf/cm²
+  Ig = bw·h³/12 = ${bw}·${h}³/12 = ${RCUI.formatFinite(Ig,0)} cm⁴
+  yt⁺ = ${RCUI.formatFinite(yt_pos,2)} cm (正彎矩)    yt⁻ = ${RCUI.formatFinite(yt_neg,2)} cm (負彎矩)
+  Mcr⁺ = fr·Ig/yt⁺ = ${RCUI.formatFinite(fr,1)}·${RCUI.formatFinite(Ig,0)}/${RCUI.formatFinite(yt_pos,2)}
+       = ${RCUI.formatFinite(Mcr_pos_kgcm,0)} kgf·cm = ${RCUI.formatFinite(Mcr_pos,2)} tf·m
+  Mcr⁻ = fr·Ig/yt⁻ = ${RCUI.formatFinite(Mcr_neg_kgcm,0)} kgf·cm = ${RCUI.formatFinite(Mcr_neg,2)} tf·m
   註：非預力 RC 梁之 Mcr 僅供開裂與撓度計算，不作本工具之撓曲強度下限。
 
 【3】正彎矩 +Mu (底拉，壓力面=頂)
-  d⁺ = h − 底層拉力筋形心 = ${fmt(h,1)} − ${fmt(botSum.dCentroid,2)} = ${fmt(d_pos,2)} cm
-  AsBot = ${fmt(AsBot,2)} cm²
-  ρ⁺ = AsBot/(bw·d⁺) = ${fmt(AsBot,2)}/(${bw}·${fmt(d_pos,2)}) = ${fmt(rhoPos,4)}
-  fy,Asmin = min(fy, 5600) = ${fmt(AsMinPosInfo.fyForAsMin,0)} kgf/cm²
+  d⁺ = h − 底層拉力筋形心 = ${RCUI.formatFinite(h,1)} − ${RCUI.formatFinite(botSum.dCentroid,2)} = ${RCUI.formatFinite(d_pos,2)} cm
+  AsBot = ${RCUI.formatFinite(AsBot,2)} cm²
+  ρ⁺ = AsBot/(bw·d⁺) = ${RCUI.formatFinite(AsBot,2)}/(${bw}·${RCUI.formatFinite(d_pos,2)}) = ${RCUI.formatFinite(rhoPos,4)}
+  fy,Asmin = min(fy, 5600) = ${RCUI.formatFinite(AsMinPosInfo.fyForAsMin,0)} kgf/cm²
   As,min⁺ = max(0.8·√fc'/fy,Asmin, 14/fy,Asmin)·b·d⁺
-          = ${fmt(AsMinPosInfo.coef,5)}·${fmt(AsMinPosInfo.bAsMin,1)}·${fmt(d_pos,2)} = ${fmt(AsMinPos,2)} cm²
+          = ${RCUI.formatFinite(AsMinPosInfo.coef,5)}·${RCUI.formatFinite(AsMinPosInfo.bAsMin,1)}·${RCUI.formatFinite(d_pos,2)} = ${RCUI.formatFinite(AsMinPos,2)} cm²
   b 取值來源：${AsMinPosInfo.bSourceText}
-  a⁺ = ${fmt(aPos,2)} cm   (應變相容解)
-  Mn⁺ = ${fmt(MnPos_raw,2)} tf·m    φMn⁺ = ${fmt(phiMnPos,2)} tf·m
-  檢核 φMn⁺ (${fmt(phiMnPos,2)}) ≥ +Mu (${fmt(Mu_p,2)}) → ${okFlexPos?'✓ OK':'✗ NG'}
+  a⁺ = ${RCUI.formatFinite(aPos,2)} cm   (應變相容解)
+  Mn⁺ = ${RCUI.formatFinite(MnPos_raw,2)} tf·m    φMn⁺ = ${RCUI.formatFinite(phiMnPos,2)} tf·m
+  檢核 φMn⁺ (${RCUI.formatFinite(phiMnPos,2)}) ≥ +Mu (${RCUI.formatFinite(Mu_p,2)}) → ${okFlexPos?'✓ OK':'✗ NG'}
 
 【4】負彎矩 −Mu (頂拉，壓力面=底)
-  d⁻ = h − 頂層拉力筋形心 = ${fmt(h,1)} − ${fmt(topSum.dCentroid,2)} = ${fmt(d_neg,2)} cm
-  AsTop = ${fmt(AsTop,2)} cm²
-  ρ⁻ = AsTop/(bw·d⁻) = ${fmt(AsTop,2)}/(${bw}·${fmt(d_neg,2)}) = ${fmt(rhoNeg,4)}
-  As,min⁻ = max(0.8·√fc'/fy,Asmin, 14/fy,Asmin)·${fmt(AsMinNegInfo.bAsMin,1)}·d⁻ = ${fmt(AsMinNeg,2)} cm²
+  d⁻ = h − 頂層拉力筋形心 = ${RCUI.formatFinite(h,1)} − ${RCUI.formatFinite(topSum.dCentroid,2)} = ${RCUI.formatFinite(d_neg,2)} cm
+  AsTop = ${RCUI.formatFinite(AsTop,2)} cm²
+  ρ⁻ = AsTop/(bw·d⁻) = ${RCUI.formatFinite(AsTop,2)}/(${bw}·${RCUI.formatFinite(d_neg,2)}) = ${RCUI.formatFinite(rhoNeg,4)}
+  As,min⁻ = max(0.8·√fc'/fy,Asmin, 14/fy,Asmin)·${RCUI.formatFinite(AsMinNegInfo.bAsMin,1)}·d⁻ = ${RCUI.formatFinite(AsMinNeg,2)} cm²
   b 取值來源：${AsMinNegInfo.bSourceText}
-  a⁻ = ${fmt(aNeg,2)} cm    Mn⁻ = ${fmt(MnNeg_raw,2)} tf·m    φMn⁻ = ${fmt(phiMnNeg,2)} tf·m
-  檢核 φMn⁻ (${fmt(phiMnNeg,2)}) ≥ −Mu (${fmt(Mu_n,2)}) → ${okFlexNeg?'✓ OK':'✗ NG'}
+  a⁻ = ${RCUI.formatFinite(aNeg,2)} cm    Mn⁻ = ${RCUI.formatFinite(MnNeg_raw,2)} tf·m    φMn⁻ = ${RCUI.formatFinite(phiMnNeg,2)} tf·m
+  檢核 φMn⁻ (${RCUI.formatFinite(phiMnNeg,2)}) ≥ −Mu (${RCUI.formatFinite(Mu_n,2)}) → ${okFlexNeg?'✓ OK':'✗ NG'}
 
 【5】規範附加檢核
-  εt⁺ ≥ εty+0.003 : ${fmt(resPos.epsT,5)} ≥ ${fmt(epsTLimit,5)} → ${okTensionPos?'✓':'✗'}
-  εt⁻ ≥ εty+0.003 : ${fmt(resNeg.epsT,5)} ≥ ${fmt(epsTLimit,5)} → ${okTensionNeg?'✓':'✗'}
+  εt⁺ ≥ εty+0.003 : ${RCUI.formatFinite(resPos.epsT,5)} ≥ ${RCUI.formatFinite(epsTLimit,5)} → ${okTensionPos?'✓':'✗'}
+  εt⁻ ≥ εty+0.003 : ${RCUI.formatFinite(resNeg.epsT,5)} ≥ ${RCUI.formatFinite(epsTLimit,5)} → ${okTensionNeg?'✓':'✗'}
   ${seismic ? 'SMRF 底筋須直接符合 As,min⁺' : 'AsBot ≥ As,min⁺ 或 4/3 As需求⁺'} : ${asMinCheckPos.text} → ${okAsMinBot?'✓':'✗'}
   ${seismic ? 'SMRF 頂筋須直接符合 As,min⁻' : 'AsTop ≥ As,min⁻ 或 4/3 As需求⁻'} : ${asMinCheckNeg.text} → ${okAsMinTop?'✓':'✗'}
-  ${seismic ? `SMRF ρ⁺/ρ⁻ ≤ min[(√fc'+100)/(4fy), 0.025] = ${fmt(rhoSmrfLimit,4)} : ${fmt(rhoPos,4)}/${fmt(rhoNeg,4)} → ${(okSmrfRhoPos&&okSmrfRhoNeg)?'✓':'✗'}` : '一般梁無 18.3.3.1 SMRF 鋼筋比附加上限'}
-  主筋裂縫控制 (24.3.2): smax=${fmt(crackSpacingLimit,1)} cm；${crackSpacingText} → ${okCrackSpacing === true ? '✓' : okCrackSpacing === false ? '✗' : '⚠'}
-  表層筋: ${needSkin ? `${skinZoneText}；每側每區 ${nSkin} 根，需求 ≥ ${skinRequiredPerTensionFace} 根；估計間距 ${Number.isFinite(skinSpacing)?fmt(skinSpacing,1):'∞'} ≤ ${fmt(skinSpacingLimit,1)} cm → ${okSkin?'✓':'✗'}` : 'h ≤ 90 cm，免檢核'}
-  排間淨距 sv ≥ max(2.5, db) : ${hasMultiLayer ? `${fmt(sv,2)} ≥ ${fmt(svMin,2)} → ${okLayerSpacing?'✓':'✗'}` : '單排配筋，免檢核'}
+  ${seismic ? `SMRF ρ⁺/ρ⁻ ≤ min[(√fc'+100)/(4fy), 0.025] = ${RCUI.formatFinite(rhoSmrfLimit,4)} : ${RCUI.formatFinite(rhoPos,4)}/${RCUI.formatFinite(rhoNeg,4)} → ${(okSmrfRhoPos&&okSmrfRhoNeg)?'✓':'✗'}` : '一般梁無 18.3.3.1 SMRF 鋼筋比附加上限'}
+  主筋裂縫控制 (24.3.2): smax=${RCUI.formatFinite(crackSpacingLimit,1)} cm；${crackSpacingText} → ${okCrackSpacing === true ? '✓' : okCrackSpacing === false ? '✗' : '⚠'}
+  表層筋: ${needSkin ? `${skinZoneText}；每側每區 ${nSkin} 根，需求 ≥ ${skinRequiredPerTensionFace} 根；估計間距 ${Number.isFinite(skinSpacing)?RCUI.formatFinite(skinSpacing,1):'∞'} ≤ ${RCUI.formatFinite(skinSpacingLimit,1)} cm → ${okSkin?'✓':'✗'}` : 'h ≤ 90 cm，免檢核'}
+  排間淨距 sv ≥ max(2.5, db) : ${hasMultiLayer ? `${RCUI.formatFinite(sv,2)} ≥ ${RCUI.formatFinite(svMin,2)} → ${okLayerSpacing?'✓':'✗'}` : '單排配筋，免檢核'}
 
 【6】排內最大根數 (規範 25.2.1，淨距 ≥ max(db, ${shMin} cm))
   pitch(c-c) = db + max(db, ${shMin})
   avail      = bw − 2·cover − 2·d_tie − db
-             = ${bw} − 2·${cover} − 2·${fmt(tieDb_global,2)} − db
+             = ${bw} − 2·${cover} − 2·${RCUI.formatFinite(tieDb_global,2)} − db
 ${layerBars.map(L => {
   const dbm = REBAR_TABLE[L.barNo].db;
   const sC = Math.max(shMin, dbm);
   const av = bw - 2*cover - 2*tieDb_global - dbm;
-  return `  ${L.side}${L.i}排 ${L.barNo} (db=${fmt(dbm,2)}): n_max = floor(${fmt(av,2)}/(${fmt(dbm,2)}+${fmt(sC,2)}))+1 = ${L.cap}　提供 ${L.n} → ${L.ok?'✓':'✗'}`;
+  return `  ${L.side}${L.i}排 ${L.barNo} (db=${RCUI.formatFinite(dbm,2)}): n_max = floor(${RCUI.formatFinite(av,2)}/(${RCUI.formatFinite(dbm,2)}+${RCUI.formatFinite(sC,2)}))+1 = ${L.cap}　提供 ${L.n} → ${L.ok?'✓':'✗'}`;
 }).join('\n') || '  —'}`
       ].join('\n\n');
       const sf = $('stepsFlexBody'); if (sf) sf.textContent = isFullSteps ? stepsFlex : summarizeStepText(stepsFlex);
@@ -2690,32 +2692,32 @@ ${layerBars.map(L => {
       const stepsShear = [
 `【1】混凝土剪力強度 Vc (規範 22.5.5.1)
   λ = 1.0 (常重混凝土)
-  Av/s = ${fmt(AvProvidedPerS,4)} cm²/cm    Av,min/s = ${fmt(AvMinPerS,4)} cm²/cm → ${hasMinStir?'採 Av ≥ Av,min 路徑':'採 Av < Av,min 路徑，含尺寸效應 λs'}
-  ρw = ${fmt(rhoForVc,4)}    λs = ${fmt(lambdaS,3)}    Nu/(6Ag) = ${fmt(axialStress,2)} kgf/cm²
-  Vc = ${fmt(Vc,0)} kgf = ${fmt(Vc/1000,2)} tf
-  φVc = 0.75·Vc = ${fmt(phiVc/1000,2)} tf${forceVc0?'  ⚠ 耐震塑鉸區強制 Vc=0':''}
+  Av/s = ${RCUI.formatFinite(AvProvidedPerS,4)} cm²/cm    Av,min/s = ${RCUI.formatFinite(AvMinPerS,4)} cm²/cm → ${hasMinStir?'採 Av ≥ Av,min 路徑':'採 Av < Av,min 路徑，含尺寸效應 λs'}
+  ρw = ${RCUI.formatFinite(rhoForVc,4)}    λs = ${RCUI.formatFinite(lambdaS,3)}    Nu/(6Ag) = ${RCUI.formatFinite(axialStress,2)} kgf/cm²
+  Vc = ${RCUI.formatFinite(Vc,0)} kgf = ${RCUI.formatFinite(Vc/1000,2)} tf
+  φVc = 0.75·Vc = ${RCUI.formatFinite(phiVc/1000,2)} tf${forceVc0?'  ⚠ 耐震塑鉸區強制 Vc=0':''}
 
 【2】箍筋剪力強度 Vs (規範 22.5.10)
   箍筋: ${stirrup}, ${legs} 肢, s = ${s} cm
-  剪力採用 d = min(d⁺, d⁻) = ${fmt(d,2)} cm
-  Av = ${legs}·${fmt(REBAR_TABLE[stirrup].area,3)} = ${fmt(Av,2)} cm²
-  Vs = Av·fyt·d/s = ${fmt(Av,2)}·${fyt}·${fmt(d,2)}/${s}
-     = ${fmt(Vs_provided,0)} kgf = ${fmt(Vs_provided/1000,2)} tf
-  φVs = 0.75·Vs = ${fmt(phiVs/1000,2)} tf
+  剪力採用 d = min(d⁺, d⁻) = ${RCUI.formatFinite(d,2)} cm
+  Av = ${legs}·${RCUI.formatFinite(REBAR_TABLE[stirrup].area,3)} = ${RCUI.formatFinite(Av,2)} cm²
+  Vs = Av·fyt·d/s = ${RCUI.formatFinite(Av,2)}·${fyt}·${RCUI.formatFinite(d,2)}/${s}
+     = ${RCUI.formatFinite(Vs_provided,0)} kgf = ${RCUI.formatFinite(Vs_provided/1000,2)} tf
+  φVs = 0.75·Vs = ${RCUI.formatFinite(phiVs/1000,2)} tf
 
 【3】總剪力強度
   φVn = ${forceVc0?'φVs':'φVc + φVs'}
-      = ${fmt(phiVn_eff/1000,2)} tf
+      = ${RCUI.formatFinite(phiVn_eff/1000,2)} tf
 
 【4】檢核
-  Vd = ${fmt(shearDemand/1000,2)} tf (${shearDemandSource} 控制)
-  φVn (${fmt(phiVn_eff/1000,2)}) ≥ Vd (${fmt(shearDemand/1000,2)}) → ${okShear?'✓ OK':'✗ NG'}
+  Vd = ${RCUI.formatFinite(shearDemand/1000,2)} tf (${shearDemandSource} 控制)
+  φVn (${RCUI.formatFinite(phiVn_eff/1000,2)}) ≥ Vd (${RCUI.formatFinite(shearDemand/1000,2)}) → ${okShear?'✓ OK':'✗ NG'}
 
 【5】最少剪力筋與間距
-  Vlimit = φ·0.265·λ·√fc'·bw·d = ${fmt(VuLimit_minStir/1000,2)} tf
+  Vlimit = φ·0.265·λ·√fc'·bw·d = ${RCUI.formatFinite(VuLimit_minStir/1000,2)} tf
   ${needsMinStir ? 'Vd 超過最少剪力筋門檻，需配置 Av,min' : '未超過最少剪力筋門檻'}
-  Av,min/s ≥ max(0.2·√fc'·bw/fyt, 3.5·bw/fyt) = ${fmt(AvMinPerS,4)} cm²/cm → ${okShearMin?'✓':'✗'}
-  長向 s ≤ ${fmt(shearSpacingLimit,1)} cm；寬向肢距 ≤ ${fmt(shearLegSpacingLimit,1)} cm → ${okShearSpacing?'✓':'✗'}`
+  Av,min/s ≥ max(0.2·√fc'·bw/fyt, 3.5·bw/fyt) = ${RCUI.formatFinite(AvMinPerS,4)} cm²/cm → ${okShearMin?'✓':'✗'}
+  長向 s ≤ ${RCUI.formatFinite(shearSpacingLimit,1)} cm；寬向肢距 ≤ ${RCUI.formatFinite(shearLegSpacingLimit,1)} cm → ${okShearSpacing?'✓':'✗'}`
       ].join('\n\n');
       const ss = $('stepsShearBody'); if (ss) ss.textContent = isFullSteps ? stepsShear : summarizeStepText(stepsShear);
 
@@ -2728,20 +2730,20 @@ ${layerBars.map(L => {
           : torsionDesignStatus === 'ng'
             ? '已詳算但不符合 22.7'
             : '未輸入，列人工複核';
-        const torsionAtText = torsionAtPerS == null ? '未輸入' : `${fmt(torsionAtPerS,4)} cm²/cm`;
-        const torsionAlText = torsionAl == null ? '未輸入' : `${fmt(torsionAl,2)} cm²`;
+        const torsionAtText = torsionAtPerS == null ? '未輸入' : `${RCUI.formatFinite(torsionAtPerS,4)} cm²/cm`;
+        const torsionAlText = torsionAl == null ? '未輸入' : `${RCUI.formatFinite(torsionAl,2)} cm²`;
         const stepsTor =
 `【1】扭力門檻值 Tu,th (規範 22.7.4.1)
-  Acp = ${fmt(Acp,1)} cm²    pcp = ${fmt(pcp,1)} cm
+  Acp = ${RCUI.formatFinite(Acp,1)} cm²    pcp = ${RCUI.formatFinite(pcp,1)} cm
   φTth = φ·0.265·λ·√fc'·(Acp²/pcp)
-        = 0.75·0.265·1·√${fc}·(${fmt(Acp,1)}²/${fmt(pcp,1)})
-        = ${fmt(Tu_th,0)} kgf·cm = ${fmt(Tu_th/1e5,2)} tf·m
+        = 0.75·0.265·1·√${fc}·(${RCUI.formatFinite(Acp,1)}²/${RCUI.formatFinite(pcp,1)})
+        = ${RCUI.formatFinite(Tu_th,0)} kgf·cm = ${RCUI.formatFinite(Tu_th/1e5,2)} tf·m
 
 【2】判斷
-  輸入 Tu = ${fmt(num('Tu'),2)} tf·m
+  輸入 Tu = ${RCUI.formatFinite(num('Tu'),2)} tf·m
   ${torNegligible
-      ? `Tu (${fmt(num('Tu'),2)}) < Tu,th (${fmt(Tu_th/1e5,2)}) → 可忽略扭力效應`
-      : `Tu (${fmt(num('Tu'),2)}) ≥ Tu,th (${fmt(Tu_th/1e5,2)}) → 需依規範 22.7 詳算縱向與橫向扭力鋼筋`}
+      ? `Tu (${RCUI.formatFinite(num('Tu'),2)}) < Tu,th (${RCUI.formatFinite(Tu_th/1e5,2)}) → 可忽略扭力效應`
+      : `Tu (${RCUI.formatFinite(num('Tu'),2)}) ≥ Tu,th (${RCUI.formatFinite(Tu_th/1e5,2)}) → 需依規範 22.7 詳算縱向與橫向扭力鋼筋`}
 
 【3】22.7 詳算結論輸入
   結論 = ${torsionStatusText} → ${torsionDetailOk===true?'✓':torsionDetailOk===false?'✗':'人工複核'}
@@ -2761,43 +2763,43 @@ ${layerBars.map(L => {
         stepsD +=
 `【1】跨深比免算撓度 (規範 9.3.1.1)
   支承狀況: ${supName}    係數 = ${fac}
-  hmin = ℓn/${fac} = ${ln}/${fac} = ${fmt(hmin,2)} cm
+  hmin = ℓn/${fac} = ${ln}/${fac} = ${RCUI.formatFinite(hmin,2)} cm
   h = ${h} cm    ${sensitive ? '⚠ 連接易損構造 → 必須做完整撓度' : (h>=hmin ? '✓ h ≥ hmin，免算撓度' : '⚠ h < hmin，未達免算條件，需做完整撓度')}`;
       }
       if (deflResult) {
         const r = deflResult;
         stepsD += (stepsD ? '\n\n' : '') +
 `【2】嚴謹撓度 — Bischoff 有效慣性矩 (規範 24.2.3.5)
-  Ec = 12000·√fc' = 12000·√${fc} = ${fmt(r.Ec,0)} kgf/cm²   (規範 19.2.2 常重)
-  Es = 2.04×10⁶ kgf/cm²    n = Es/Ec = ${fmt(r.n_ratio,2)}
-  Ig = ${fmt(Ig,0)} cm⁴    Mcr⁺ = ${fmt(Mcr_pos,2)} tf·m    Mcr⁻ = ${fmt(Mcr_neg,2)} tf·m
+  Ec = 12000·√fc' = 12000·√${fc} = ${RCUI.formatFinite(r.Ec,0)} kgf/cm²   (規範 19.2.2 常重)
+  Es = 2.04×10⁶ kgf/cm²    n = Es/Ec = ${RCUI.formatFinite(r.n_ratio,2)}
+  Ig = ${RCUI.formatFinite(Ig,0)} cm⁴    Mcr⁺ = ${RCUI.formatFinite(Mcr_pos,2)} tf·m    Mcr⁻ = ${RCUI.formatFinite(Mcr_neg,2)} tf·m
 
 【3】開裂後 Icr (含雙筋換算)
   解 bw·kd²/2 + ((n−1)As' + n·As)·kd − ((n−1)As'·d' + n·As·d) = 0
-  Icr⁺ = ${fmt(r.IcrPos,0)} cm⁴    Icr⁻ = ${fmt(r.IcrNeg,0)} cm⁴
+  Icr⁺ = ${RCUI.formatFinite(r.IcrPos,0)} cm⁴    Icr⁻ = ${RCUI.formatFinite(r.IcrNeg,0)} cm⁴
 
 【4】Bischoff Ie
   若 Ma ≤ (2/3)Mcr，Ie = Ig
   若 Ma > (2/3)Mcr，1/Ie = 1/Icr − ((2Mcr/3Ma)²)·(1/Icr − 1/Ig)
-  +M: Ma⁺ = ${fmt(r.Ma_pos,2)} tf·m → ${r.statePos}    Ie⁺ = ${fmt(r.IePos,0)} cm⁴
-  −M: Ma⁻ = ${fmt(r.Ma_neg,2)} tf·m → ${r.stateNeg}    Ie⁻ = ${fmt(r.IeNeg,0)} cm⁴
-  Ie 用於撓度 = ${fmt(r.IeAvg,0)} cm⁴   (${r.ieUseSource})
+  +M: Ma⁺ = ${RCUI.formatFinite(r.Ma_pos,2)} tf·m → ${r.statePos}    Ie⁺ = ${RCUI.formatFinite(r.IePos,0)} cm⁴
+  −M: Ma⁻ = ${RCUI.formatFinite(r.Ma_neg,2)} tf·m → ${r.stateNeg}    Ie⁻ = ${RCUI.formatFinite(r.IeNeg,0)} cm⁴
+  Ie 用於撓度 = ${RCUI.formatFinite(r.IeAvg,0)} cm⁴   (${r.ieUseSource})
 
 【5】瞬時撓度 Δi
-  K(${support}) = ${fmt(r.K,4)}
+  K(${support}) = ${RCUI.formatFinite(r.K,4)}
   Δi = K·Ma·ℓn²/(Ec·Ie)
-     = ${fmt(r.K,4)}·${fmt(r.Ma_use,0)}·${ln}²/(${fmt(r.Ec,0)}·${fmt(r.IeAvg,0)})
-     = ${fmt(r.deltaImm,4)} cm
+     = ${RCUI.formatFinite(r.K,4)}·${RCUI.formatFinite(r.Ma_use,0)}·${ln}²/(${RCUI.formatFinite(r.Ec,0)}·${RCUI.formatFinite(r.IeAvg,0)})
+     = ${RCUI.formatFinite(r.deltaImm,4)} cm
 
 【6】長期撓度 Δlt (規範 24.2.4)
-  ρ′ = ${r.rhoPrimeSource} = ${fmt(r.rhoPrimeAs,2)}/(${bw}·${fmt(r.rhoPrimeD,2)}) = ${fmt(r.rhoPrime,4)}
+  ρ′ = ${r.rhoPrimeSource} = ${RCUI.formatFinite(r.rhoPrimeAs,2)}/(${bw}·${RCUI.formatFinite(r.rhoPrimeD,2)}) = ${RCUI.formatFinite(r.rhoPrime,4)}
   ξ (持時) = ${r.xi}
-  λΔ = ξ/(1+50ρ′) = ${r.xi}/(1+50·${fmt(r.rhoPrime,4)}) = ${fmt(r.lambdaLT,3)}
-  Δlt = (1+λΔ)·Δi = (1+${fmt(r.lambdaLT,3)})·${fmt(r.deltaImm,4)} = ${fmt(r.deltaLT,4)} cm
+  λΔ = ξ/(1+50ρ′) = ${r.xi}/(1+50·${RCUI.formatFinite(r.rhoPrime,4)}) = ${RCUI.formatFinite(r.lambdaLT,3)}
+  Δlt = (1+λΔ)·Δi = (1+${RCUI.formatFinite(r.lambdaLT,3)})·${RCUI.formatFinite(r.deltaImm,4)} = ${RCUI.formatFinite(r.deltaLT,4)} cm
 
 【7】容許撓度 (規範 9.3.2)
-  Δa = ℓn/${r.limitDiv} = ${ln}/${r.limitDiv} = ${fmt(r.deltaAllow,4)} cm
-  檢核 Δlt (${fmt(r.deltaLT,4)}) ≤ Δa (${fmt(r.deltaAllow,4)}) → ${r.okDefl?'✓ OK':'✗ NG'}`;
+  Δa = ℓn/${r.limitDiv} = ${ln}/${r.limitDiv} = ${RCUI.formatFinite(r.deltaAllow,4)} cm
+  檢核 Δlt (${RCUI.formatFinite(r.deltaLT,4)}) ≤ Δa (${RCUI.formatFinite(r.deltaAllow,4)}) → ${r.okDefl?'✓ OK':'✗ NG'}`;
       }
       if (!stepsD) stepsD = '未啟用跨深比與嚴謹撓度檢核。';
       const sd = $('stepsDeflBody'); if (sd) sd.textContent = isFullSteps ? stepsD : summarizeStepText(stepsD);
@@ -2818,38 +2820,38 @@ ${layerBars.map(L => {
         const lo = 2 * h, sMid = d / 2;
         const stepsSm =
 `【1】縱向鋼筋限值 (規範 18.3.3.1)
-  ρlim = min[(√fc'+100)/(4fy), 0.025] = ${fmt(rhoSmrfLimit,4)}
-  ρ⁺ = ${fmt(rhoPos,4)} ≤ ${fmt(rhoSmrfLimit,4)} → ${okSmrfRhoPos?'✓':'✗'}
-  ρ⁻ = ${fmt(rhoNeg,4)} ≤ ${fmt(rhoSmrfLimit,4)} → ${okSmrfRhoNeg?'✓':'✗'}
+  ρlim = min[(√fc'+100)/(4fy), 0.025] = ${RCUI.formatFinite(rhoSmrfLimit,4)}
+  ρ⁺ = ${RCUI.formatFinite(rhoPos,4)} ≤ ${RCUI.formatFinite(rhoSmrfLimit,4)} → ${okSmrfRhoPos?'✓':'✗'}
+  ρ⁻ = ${RCUI.formatFinite(rhoNeg,4)} ≤ ${RCUI.formatFinite(rhoSmrfLimit,4)} → ${okSmrfRhoNeg?'✓':'✗'}
   上下筋均須直接符合 9.6.1.2 As,min，不適用 9.6.1.3 之 4/3 例外。
   上下各 ≥ 2 根：底 ${totBot} 根 / 頂 ${totTop} 根 → ${(totBot>=2&&totTop>=2)?'✓':'✗'}
 
 【2】支承斷面強度比 (規範 18.3.3.2)
-  Mn⁺ = ${fmt(MnPos_raw,2)} tf·m
-  Mn⁻ = ${fmt(MnNeg_raw,2)} tf·m  →  Mn⁻/2 = ${fmt(MnNeg_raw/2,2)} tf·m
+  Mn⁺ = ${RCUI.formatFinite(MnPos_raw,2)} tf·m
+  Mn⁻ = ${RCUI.formatFinite(MnNeg_raw,2)} tf·m  →  Mn⁻/2 = ${RCUI.formatFinite(MnNeg_raw/2,2)} tf·m
   Mn⁺ ≥ Mn⁻/2 → ${MnPos_raw>=MnNeg_raw/2?'✓':'✗'}
-  跨內任一斷面 Mn ≥ Mn,max/4 = ${fmt(mnQuarterReq,2)} tf·m
-  ${hasMnQuarterInput ? `輸入 Mn,min = ${fmt(smrfMnMin,2)} tf·m → ${okMnQuarter?'✓':'✗'}` : '未輸入 Mn,min → 人工複核'}
+  跨內任一斷面 Mn ≥ Mn,max/4 = ${RCUI.formatFinite(mnQuarterReq,2)} tf·m
+  ${hasMnQuarterInput ? `輸入 Mn,min = ${RCUI.formatFinite(smrfMnMin,2)} tf·m → ${okMnQuarter?'✓':'✗'}` : '未輸入 Mn,min → 人工複核'}
 
 【3】幾何 (規範 18.3.2)
-  bw ≥ max(0.3h, 25) : ${bw} ≥ ${fmt(Math.max(0.3*h,25),1)} → ${okBwRaw?'✓':'✗'}
-  ℓn ≥ 4d : ${ln} ≥ ${fmt(4*d,1)} → ${okLnRaw?'✓':'✗'}
-  梁寬突出柱寬 ≤ 0.75·柱寬 : 突出 ${fmt(overhang,2)} ≤ ${fmt(0.75*colW,1)} → ${(overhang<=0.75*colW)?'✓':'✗'}
+  bw ≥ max(0.3h, 25) : ${bw} ≥ ${RCUI.formatFinite(Math.max(0.3*h,25),1)} → ${okBwRaw?'✓':'✗'}
+  ℓn ≥ 4d : ${ln} ≥ ${RCUI.formatFinite(4*d,1)} → ${okLnRaw?'✓':'✗'}
+  梁寬突出柱寬 ≤ 0.75·柱寬 : 突出 ${RCUI.formatFinite(overhang,2)} ≤ ${RCUI.formatFinite(0.75*colW,1)} → ${(overhang<=0.75*colW)?'✓':'✗'}
 
 【4】塑鉸區圍束 (規範 18.3.4)
-  ℓo = 2h = ${fmt(lo,0)} cm
-  最小縱筋 db,min = ${fmt(dbMinAll,2)} cm
+  ℓo = 2h = ${RCUI.formatFinite(lo,0)} cm
+  最小縱筋 db,min = ${RCUI.formatFinite(dbMinAll,2)} cm
   s ≤ min(d/4, 15, ${dbFactor}·db,min)
-    = min(${fmt(d/4,2)}, 15, ${fmt(dbFactor*dbMinAll,2)})
-    = ${fmt(sLimit,2)} cm
+    = min(${RCUI.formatFinite(d/4,2)}, 15, ${RCUI.formatFinite(dbFactor*dbMinAll,2)})
+    = ${RCUI.formatFinite(sLimit,2)} cm
   目前 s = ${s} cm → ${s<=sLimit?'✓':'✗'}
-  首支箍筋距柱面 ≤ 5 cm → ${hasFirstHoopInput ? `${fmt(firstHoopDist,1)} cm ${okFirstHoop?'✓':'✗'}` : '未輸入，人工複核'}
-  搭接禁區: 0~${fmt(lo,0)} cm
-  中央區 s ≤ d/2 = ${fmt(sMid,2)} cm
+  首支箍筋距柱面 ≤ 5 cm → ${hasFirstHoopInput ? `${RCUI.formatFinite(firstHoopDist,1)} cm ${okFirstHoop?'✓':'✗'}` : '未輸入，人工複核'}
+  搭接禁區: 0~${RCUI.formatFinite(lo,0)} cm
+  中央區 s ≤ d/2 = ${RCUI.formatFinite(sMid,2)} cm
 
 【5】Vc 是否歸零 (規範 18.3.5)
   條件: Ve > 0.5·Vu  且  Pu < Ag·fc'/20
-  Pu = ${fmt(num('Pu'),2)} tf    Ag·fc'/20 = ${fmt(Ag*fc/20/1000,2)} tf
+  Pu = ${RCUI.formatFinite(num('Pu'),2)} tf    Ag·fc'/20 = ${RCUI.formatFinite(Ag*fc/20/1000,2)} tf
   → ${forceVc0?'⚠ Vc 強制 = 0':'一般 (Vc 仍可計入)'}`;
         const sm = $('stepsSeismicBody'); if (sm) sm.textContent = isFullSteps ? stepsSm : summarizeStepText(stepsSm);
       } else {

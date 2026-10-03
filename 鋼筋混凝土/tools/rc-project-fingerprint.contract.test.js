@@ -7,6 +7,8 @@ const ROOT = path.resolve(__dirname, '..');
 const reportPath = path.join(ROOT, 'shared', 'report.js');
 const reportSource = fs.readFileSync(reportPath, 'utf8');
 const context = { window: {}, console };
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, '..', '結構工具箱', 'core', 'ui', 'report-utils.js'), 'utf8'), context);
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'shared', 'report-utils.js'), 'utf8'), context);
 vm.runInNewContext(reportSource, context, { filename: reportPath });
 
 const fingerprintApi = context.window.RCReportFingerprint;

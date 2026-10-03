@@ -54,13 +54,7 @@ function normalizeProjectFieldValue(value) {
 }
 
 function formatReportTimestamp(value) {
-  const date = value instanceof Date ? value : new Date(value);
-  return date.getFullYear() + '/' +
-    String(date.getMonth() + 1).padStart(2, '0') + '/' +
-    String(date.getDate()).padStart(2, '0') + ' ' +
-    String(date.getHours()).padStart(2, '0') + ':' +
-    String(date.getMinutes()).padStart(2, '0') + ':' +
-    String(date.getSeconds()).padStart(2, '0');
+  return globalThis.RCReportUtils.formatTimestamp(value);
 }
 
 const RC_CALCULATION_BOOK_PAGE_ONLY_LABELS = Object.freeze([
@@ -87,27 +81,11 @@ function getRcCalculationBookInputGroups(groups) {
 }
 
 function normalizeFingerprintValue(value) {
-  if (value === null || value === undefined) return null;
-  if (Array.isArray(value)) return value.map(normalizeFingerprintValue);
-  if (typeof value === 'object') {
-    const normalized = {};
-    Object.keys(value).sort().forEach((key) => {
-      if (key === 'dataURL' || key === 'html') return;
-      normalized[key] = normalizeFingerprintValue(value[key]);
-    });
-    return normalized;
-  }
-  if (typeof value === 'number' && !Number.isFinite(value)) return String(value);
-  return String(value);
+  return globalThis.RCReportUtils.normalizeFingerprintValue(value);
 }
 
 function fingerprintHash(text, seed) {
-  let hash = seed >>> 0;
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).toUpperCase().padStart(8, '0');
+  return globalThis.RCReportUtils.fingerprintHash(text, seed);
 }
 
 function buildCalculationFingerprint(cfg) {
@@ -281,14 +259,14 @@ function buildRcAttachmentApprovalReport(options = {}) {
   const approvedAt = String(options.approvedAt || '').trim();
   const approvedBy = String(options.approvedBy || '').trim();
   const approvalBasis = String(options.approvalBasis || '').trim();
-  const esc = s => (s === null || s === undefined ? '' : String(s))
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const esc = globalThis.RCReportUtils.escapeAttribute;
   return `<style data-formal-document-state-style>${RC_ATTACHMENT_APPROVAL_REPORT_CSS}</style>
     <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-text-export-enabled="${textExportEnabled ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" data-approved-by="${esc(approvedBy)}" data-approval-basis="${esc(approvalBasis)}" aria-hidden="true"></span>
     <span class="rep-content-seal-source" data-content-seal-scope="rc-calculation-book-content-v1" data-content-sha256="" aria-hidden="true"></span>
     <span class="rep-approval-seal-source" data-approval-seal-scope="rc-calculation-book-approval-v2" data-approval-sha256="" aria-hidden="true"></span>
     <script data-attachment-approval-script>
     (function () {
+      var reportUtils = (${globalThis.RCReportUtilsFactory.toString()})((${globalThis.StructReportUtilsFactory.toString()})(window), window);
       var CONTENT_SEAL_START = '<!--rc-content-seal:start-->';
       var CONTENT_SEAL_END = '<!--rc-content-seal:end-->';
       function canonicalSealedContent(serializedHtml) {
@@ -308,7 +286,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
         if (sources.length !== 1 || statuses.length !== 1 || contentSeals.length !== 1 || titles.length !== 1) return '';
         var approvalSource = sources[0];
         var statusSource = statuses[0];
-        function clean(value) { return String(value || '').replace(/\\s+/g, ' ').trim(); }
+        var clean = reportUtils.cleanText;
         return JSON.stringify({
           scope:'rc-calculation-book-approval-v2',
           reportTitle:clean(approvalSource.dataset.reportTitle),
@@ -327,54 +305,8 @@ function buildRcAttachmentApprovalReport(options = {}) {
           contentSha256:clean(contentSeals[0].dataset.contentSha256).toLowerCase()
         });
       }
-      function sha256Fallback(value) {
-        var bytes = typeof TextEncoder === 'function'
-          ? Array.from(new TextEncoder().encode(String(value || '')))
-          : Array.from(unescape(encodeURIComponent(String(value || '')))).map(function (char) { return char.charCodeAt(0); });
-        var bitLength = bytes.length * 8;
-        bytes.push(128);
-        while (bytes.length % 64 !== 56) bytes.push(0);
-        var high = Math.floor(bitLength / 4294967296);
-        var low = bitLength >>> 0;
-        [high, low].forEach(function (word) {
-          bytes.push((word >>> 24) & 255, (word >>> 16) & 255, (word >>> 8) & 255, word & 255);
-        });
-        var h = [1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225];
-        var k = [1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298];
-        function rotr(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
-        for (var offset = 0; offset < bytes.length; offset += 64) {
-          var w = new Array(64);
-          for (var index = 0; index < 16; index += 1) {
-            var pos = offset + index * 4;
-            w[index] = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
-          }
-          for (var wi = 16; wi < 64; wi += 1) {
-            var s0 = rotr(w[wi - 15], 7) ^ rotr(w[wi - 15], 18) ^ (w[wi - 15] >>> 3);
-            var s1 = rotr(w[wi - 2], 17) ^ rotr(w[wi - 2], 19) ^ (w[wi - 2] >>> 10);
-            w[wi] = (w[wi - 16] + s0 + w[wi - 7] + s1) >>> 0;
-          }
-          var a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
-          for (var round = 0; round < 64; round += 1) {
-            var sum1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
-            var choice = (e & f) ^ ((~e) & g);
-            var temp1 = (hh + sum1 + choice + k[round] + w[round]) >>> 0;
-            var sum0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
-            var majority = (a & b) ^ (a & c) ^ (b & c);
-            var temp2 = (sum0 + majority) >>> 0;
-            hh = g; g = f; f = e; e = (d + temp1) >>> 0; d = c; c = b; b = a; a = (temp1 + temp2) >>> 0;
-          }
-          h = [(h[0] + a) >>> 0, (h[1] + b) >>> 0, (h[2] + c) >>> 0, (h[3] + d) >>> 0,
-            (h[4] + e) >>> 0, (h[5] + f) >>> 0, (h[6] + g) >>> 0, (h[7] + hh) >>> 0];
-        }
-        return h.map(function (word) { return word.toString(16).padStart(8, '0'); }).join('');
-      }
-      async function sha256Text(value) {
-        if (!window.crypto || !window.crypto.subtle || typeof TextEncoder !== 'function') return sha256Fallback(value);
-        var digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value || '')));
-        return Array.from(new Uint8Array(digest)).map(function (byte) {
-          return byte.toString(16).padStart(2, '0');
-        }).join('');
-      }
+
+      var sha256Text = reportUtils.sha256Text;
       function initAttachmentApproval() {
         var source = document.querySelector('.rep-attachment-approval-source');
         if (!source || source.dataset.initialized === 'true') return;
@@ -399,8 +331,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
         var reportTitle = String(source.dataset.reportTitle || (reportHeading && reportHeading.textContent) || document.title || '計算書').trim();
         source.dataset.reportTitle = reportTitle;
         function buildArtifactBaseName(documentLabel) {
-          return [reportTitle, documentLabel, fingerprint].filter(Boolean).join('_')
-            .replace(/[<>:"/|?*]/g, '-').split(String.fromCharCode(92)).join('-').trim();
+          return reportUtils.artifactBaseName(reportTitle, documentLabel, fingerprint);
         }
         var status = document.querySelector('.rep-document-status-line');
         if (!status) {
@@ -564,9 +495,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           var messageTarget = document.getElementById('repWindowStatus') || document.querySelector('.rep-window-status');
           if (messageTarget) messageTarget.textContent = message;
         }
-        function cleanReportText(value) {
-          return String(value || '').replace(/\\s+/g, ' ').trim();
-        }
+        var cleanReportText = reportUtils.cleanText;
         function reportMetaLine(row) {
           var labelNode = row && row.querySelector('b');
           var label = cleanReportText(labelNode && labelNode.textContent);
@@ -649,14 +578,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
         async function downloadCurrentReportText() {
           var text = await buildCurrentReportText();
           var fileName = buildArtifactBaseName('文字備查') + '.txt';
-          var url = URL.createObjectURL(new Blob([String.fromCharCode(65279), text], { type:'text/plain;charset=utf-8' }));
-          var link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+          reportUtils.downloadBlob(new Blob([String.fromCharCode(65279), text], { type:'text/plain;charset=utf-8' }), fileName);
           showDownloadStatus('已下載文字備查版 TXT；檔案包含來源文件狀態、計算指紋與文字內容 SHA-256，但不作為正式附件。');
         }
         async function downloadCurrentReportHtml() {
@@ -668,14 +590,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           var currentStatus = document.querySelector('.rep-document-status-line');
           var documentLabel = currentStatus && currentStatus.dataset.documentClass === 'formal-attachment' ? '正式附件' : '內部審閱';
           var fileName = buildArtifactBaseName(documentLabel) + '.html';
-          var url = URL.createObjectURL(new Blob([html], { type:'text/html;charset=utf-8' }));
-          var link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+          reportUtils.downloadBlob(new Blob([html], { type:'text/html;charset=utf-8' }), fileName);
           showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、時間、選填核可紀錄、計算指紋與獨立 SHA-256 內容／核可封印。');
         }
         function svgToPngDataUrl(svgNode) {
@@ -760,14 +675,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           var currentStatus = document.querySelector('.rep-document-status-line');
           var documentLabel = currentStatus && currentStatus.dataset.documentClass === 'formal-attachment' ? '正式附件' : '內部審閱';
           var fileName = buildArtifactBaseName(documentLabel) + '-word.doc';
-          var url = URL.createObjectURL(new Blob(['\\ufeff', html], { type: 'application/msword;charset=utf-8' }));
-          var link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+          reportUtils.downloadBlob(new Blob(['\\ufeff', html], { type: 'application/msword;charset=utf-8' }), fileName);
           showDownloadStatus('已下載 Word 文書整理版 (.doc)；供報告書編排使用，不含核可封印與完整性驗證，不作為正式附件。');
         }
         window.serializeReportDocumentHtml = serializeCurrentReportHtml;
@@ -922,8 +830,7 @@ function openReport(cfg) {
     approvalBasis: initialApproval.approvalBasis
   });
 
-  const esc = s => (s===null||s===undefined?'':String(s))
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const esc = globalThis.RCReportUtils.escapeText;
   const checkGroupTitle = value => {
     const label = String(value || '').trim();
     return /(?:檢核|結果)(?:\s*[（(].*[）)])?$/.test(label) ? label : `${label}｜檢核結果`;

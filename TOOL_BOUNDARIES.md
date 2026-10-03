@@ -1,5 +1,7 @@
 # 工具交付邊界
 
+共用報表純工具以 `結構工具箱/core/ui/report-utils.js` 為單一來源，鋼構由 `sync-formal-core.ps1` 同步，RC 以獨立 adapter 明列跳脫／非同步差異；RC `report.js` 不由鋼構腳本同步。可攜 HTML 將純工具 factory 內嵌，不依賴 opener 或外部共用脚本才能驗證／列印。直接列印邊界 CSS 由 core 同步至 RC，家族例外維持明列，不能解除操作頁列印限制。
+
 第二階段操作頁樣式：`結構工具箱/assets/hy/continuous-beam-ui.css`、`frame-analysis-ui.css` 與 `鋼筋混凝土/shared/tool-page.css` 為正式來源碼，只管理操作介面，引用 `colors_and_type.css` 的共用 token；計算書 popup 不引用這些樣式。`tool-page-layout.browser.test.js`／`test-tool-page-layout.ps1` 為可重跑的 11 頁桌機／手機版面契約，截圖與結果 JSON 寫入忽略的 `output/playwright/tool-page-layout/`，不能作為正式交付物或實機驗證證據。新增 CSS 亦須列入首頁相對應工具的 `HOME_TOOL_UPDATE_DEPENDENCIES`。
 
 本檔用來區分「應納入版本控管的工具碼」與「只作為本機案例、輸出或參考資料的檔案」。原則是：可重跑的程式、測試、preflight 與必要部署資產可以進 repo；大型工程案例、Office/PDF 輸出、暫存資料與本機快取不進 repo。

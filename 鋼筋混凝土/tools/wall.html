@@ -663,6 +663,8 @@
 <script src="../../結構工具箱/core/ui/formulas.js"></script>
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
+<script src="../../結構工具箱/core/ui/report-utils.js"></script>
+<script src="../shared/report-utils.js"></script>
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../shared/calc-verdict-strip.js?v=1"></script>
@@ -705,15 +707,15 @@
   function updateQuickSummaryWall() {
     const r = window.wallLast;
     if (!r) return;
-    const fmt = (v, d = 1) => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d);
+
     const quickH = document.getElementById('quickH');
     const quickLoad = document.getElementById('quickLoad');
     const quickChecks = document.getElementById('quickChecks');
     const quickRebar = document.getElementById('quickRebar');
-    if (quickH) quickH.textContent = `${fmt(r.h)} / hmin ${fmt(r.hmin)} cm`;
-    if (quickLoad) quickLoad.textContent = `Pu ${fmt((r.Pu_kgf || 0) / 1000, 1)} tf · Mu ${fmt(r.MuIn, 1)} tf·m · Vu ${fmt((r.Vu_kgf || 0) / 1000, 1)} tf`;
+    if (quickH) quickH.textContent = `${RCUI.formatOneDecimal(r.h)} / hmin ${RCUI.formatOneDecimal(r.hmin)} cm`;
+    if (quickLoad) quickLoad.textContent = `Pu ${RCUI.formatOneDecimal((r.Pu_kgf || 0) / 1000, 1)} tf · Mu ${RCUI.formatOneDecimal(r.MuIn, 1)} tf·m · Vu ${RCUI.formatOneDecimal((r.Vu_kgf || 0) / 1000, 1)} tf`;
     if (quickChecks) quickChecks.textContent = `${r.okH ? '厚度OK' : '厚度NG'} / ${r.okShear ? '剪力OK' : '剪力NG'} / ${r.okPM ? 'P-M OK' : 'P-M NG'}`;
-    if (quickRebar) quickRebar.textContent = `${r.layers >= 2 ? '雙層' : '單層'} ${r.vBar || '—'}@${fmt(r.vSp)} / ${r.hBar || '—'}@${fmt(r.hSp)}`;
+    if (quickRebar) quickRebar.textContent = `${r.layers >= 2 ? '雙層' : '單層'} ${r.vBar || '—'}@${RCUI.formatOneDecimal(r.vSp)} / ${r.hBar || '—'}@${RCUI.formatOneDecimal(r.hSp)}`;
   }
   function applyPanel(tab) {
     document.querySelectorAll('.section-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -2016,7 +2018,7 @@
     // === 計算過程文字 (依 showSteps 顯示) ===
     let stepsGeomTxt = '', stepsLoadTxt = '', stepsRebarTxt = '', stepsMethodsTxt = '';
     if ($('showSteps')?.checked) {
-      const fmt = (v, d=2) => (v==null||isNaN(v)) ? '—' : Number(v).toFixed(d);
+
       const typeLabel2 = ({bearing:'承重牆',nonbearing:'非承重牆',basement:'地下室外牆',shear:'結構剪力牆'})[wallType];
 
       stepsGeomTxt =
@@ -2427,7 +2429,7 @@ ${basementStepTxt}
   function buildSummaryTable() {
     const r = window.wallLast; if (!r) return;
     const host = $('summaryTableHost'); if (!host) return;
-    const fmt = (v, d=2) => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d);
+
     const ok = b => b === true ? '<span data-ui="status" data-ui-tone="success">✓ OK</span>'
                   : b === false ? '<span data-ui="status" data-ui-tone="danger">✗ NG</span>'
                   : '<span data-ui="muted">—</span>';

@@ -3,6 +3,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
+const reportUtilsSource = fs.readFileSync(path.join(__dirname, "..", "結構工具箱", "core", "ui", "report-utils.js"), "utf8");
+
 const calculationBookContentBoundary = require("../結構工具箱/tools/calculation-book-content-boundary.json");
 
 function loadSteelCore() {
@@ -17,6 +19,7 @@ function loadSteelCore() {
 function loadWindowScript(source, filename) {
   const context = { window: {}, console };
   vm.createContext(context);
+  vm.runInContext(reportUtilsSource, context);
   vm.runInContext(source, context, { filename });
   return context.window;
 }
@@ -40,6 +43,7 @@ function renderReportHtml(source, filename, project = {}) {
     Date,
   };
   vm.createContext(context);
+  vm.runInContext(reportUtilsSource, context);
   vm.runInContext(source, context, { filename });
   assert.equal(typeof context.openReport, "function", `${filename} should expose openReport`);
   context.openReport({

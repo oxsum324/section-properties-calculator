@@ -22,8 +22,8 @@ window.FY_OPTIONS    = window.FY_OPTIONS    || window.Rebar?.FY_OPTIONS  || [280
 window.ES            = window.ES            || window.Rebar?.ES          || 2.04e6;
 
 // === RC 專用工具函式 (全域) ===
-function fmt(v, digits = 2) {
-  if (v === null || v === undefined || isNaN(v)) return '—';
+function fmt(v, digits = 2, fallback = '—', strict = false) {
+  if (strict ? !Number.isFinite(v) : (v === null || v === undefined || isNaN(v))) return fallback;
   return Number(v).toFixed(digits);
 }
 
@@ -36,6 +36,8 @@ function makeResult(label, value, unit, status) {
 }
 
 window.RCUI = window.RCUI || {};
+window.RCUI.formatFinite = (v, digits = 2, fallback = '—') => fmt(v, digits, fallback, true);
+window.RCUI.formatOneDecimal = (v, digits = 1) => fmt(v, digits);
 
 window.RCUI.escapeHtml = window.RCUI.escapeHtml || function(value) {
   return String(value ?? '')
