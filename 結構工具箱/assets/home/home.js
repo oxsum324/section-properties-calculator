@@ -938,7 +938,7 @@
       capabilities: ['正式核算', '計算書', 'TXT 備查', '示意圖']
     },
     {
-      title: '擋土土壓局部快算',
+      title: '擋土土壓局部檢核',
       version: 'V0.6',
       href: '/earth-pressure',
       categories: ['temporary'],
@@ -964,7 +964,7 @@
       capabilities: ['正式核算', '計算書', 'TXT 備查', '多載重疊加']
     },
     {
-      title: '鋼索索力評估（頻率法快算）',
+      title: '鋼索索力評估（頻率法）',
       version: 'V0.1',
       href: '/cable-tension-frequency',
       categories: ['temporary'],

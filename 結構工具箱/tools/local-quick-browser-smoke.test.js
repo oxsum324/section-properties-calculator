@@ -3227,7 +3227,7 @@ async function main() {
             restoredCount: document.querySelectorAll('.tool-card').length,
             overflow: document.documentElement.scrollWidth > innerWidth + 2 };
         })()`);
-        assert.deepEqual(searchResults.cable, ['鋼索索力評估（頻率法快算）'], `${label} cable name search`);
+        assert.deepEqual(searchResults.cable, ['鋼索索力評估（頻率法）'], `${label} cable name search`);
         assert.deepEqual(searchResults.shear, ['鋼構正式規範工具'], `${label} normalized English alias search`);
         assert.deepEqual(searchResults.alias, searchResults.shear, `${label} Chinese alias search`);
         assert.deepEqual(searchResults.missing, [], `${label} empty search result`);

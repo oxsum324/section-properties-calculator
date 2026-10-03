@@ -55,7 +55,7 @@
     }
     const payload = parsePayload(raw);
     const tool = payload.tool && typeof payload.tool === 'object' ? payload.tool : {};
-    if (tool.id !== SOURCE_TOOL_ID) throw new Error(`此 JSON 屬於 ${tool.id || '未知工具'}，不是擋土土壓局部快算。`);
+    if (tool.id !== SOURCE_TOOL_ID) throw new Error(`此 JSON 屬於 ${tool.id || '未知工具'}，不是擋土土壓局部檢核。`);
     if (tool.pageVersion !== SOURCE_PAGE_VERSION) {
       throw new Error(`土壓 JSON 版本 ${tool.pageVersion || '未知'} 與支援版本 ${SOURCE_PAGE_VERSION} 不相容。`);
     }

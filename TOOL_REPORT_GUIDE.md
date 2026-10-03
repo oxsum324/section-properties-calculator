@@ -255,7 +255,7 @@ flowchart TD
 
 這些字串集中登記於 `formal-tools.manifest.json` 的 `reportDisclosureNeedles`。同一 manifest 的 `documentStateRequired` 要求全部正式風力 / 地震計算書透過 `core/ui/report.js` 產生一致的核可控制與 `內部審閱／正式附件` 文件狀態；頁面 readiness 只能提供工程狀態，不得把待辦明細複製進計算書。`formal-tools.contract.test.js` 檢查原始頁面與共用 renderer，`formal-browser-smoke.test.js` 則實測空白案件資料、預設內部審閱、勾選核可及輸入變更撤銷核可；若日後文件狀態規則更新，應同步更新頁面、manifest 與 golden / browser smoke，不得只改首頁文案。
 
-高頻 quick 工具若已有列印計算書，簡易結果與詳算式都要保留精簡限制說明，例如「不在本頁範圍」、「正式詳算」或需轉往其他正式工具的提示。這些必要字串集中登記於 `local-quick-tools.manifest.json` 的 `reportNeedles`，由 `local-quick-tools.contract.test.js` 檢查來源頁面，並由 `local-quick-browser-smoke.test.js` 檢查實際開出的兩種報告模式。基礎局部檢核、設備局部荷重與擋土土壓局部快算同時受 manifest 的 `documentStateRequired` 管控；頁面診斷明細不得複製進報告，工程 review / blocked 仍如實顯示於計算結果，但文件預設為可列印的內部審閱，明確核可後才成為正式附件。
+高頻 quick 工具若已有列印計算書，簡易結果與詳算式都要保留精簡限制說明，例如「不在本頁範圍」、「正式詳算」或需轉往其他正式工具的提示。這些必要字串集中登記於 `local-quick-tools.manifest.json` 的 `reportNeedles`，由 `local-quick-tools.contract.test.js` 檢查來源頁面，並由 `local-quick-browser-smoke.test.js` 檢查實際開出的兩種報告模式。基礎局部檢核、設備局部荷重與擋土土壓局部檢核同時受 manifest 的 `documentStateRequired` 管控；頁面診斷明細不得複製進報告，工程 review / blocked 仍如實顯示於計算結果，但文件預設為可列印的內部審閱，明確核可後才成為正式附件。
 
 ### 條文語意追蹤
 
@@ -325,7 +325,7 @@ Schema v28 將地坪 Westergaard 納入局部快算結果鏈第四頁。Aggregat
 
 Schema v29 將柱保護層偏差強度評估納入局部快算結果鏈第五頁。來源 JSON 必須帶案件 schema、工具／頁面／計算引擎版本與計算指紋；匯入忽略內嵌結果，以目前 core 重算輸入並核對指紋，版本或指紋不符時回復原始 raw DOM 值。Aggregate 依 inventory 要求 `5/5`；新頁詳細、內部審閱與阻擋審閱三組 PDF／evidence 使 canonical 完整性成為 `78/78`、公開成品合計 `157/157`。Schema v27 `3/3` 與 Schema v28 `4/4` 只作舊正式快照過渡；Schema v29 缺第五份、重複身分、降回四份或 canonical 未達 `78/78` 都必須失敗關閉。頁面與計算書必須明列 capacity OK 不等於保護層厚度合規，雙軸、二階、剪扭、接頭／握裹、劣化、耐火耐久與施工容許差仍屬人工審查界線。
 
-Schema v30 將鋼索索力評估（頻率法快算）納入局部快算結果鏈第六頁。來源 JSON 必須保存振動有效長度、單位長度總質量、頻率／振型列、諧波容許差及固定 4 項依據文字；提供目標索力時再保存目標容許差與第 5 項「目標索力與容許差」依據。匯入後以目前 core 重算多振型過原點擬合、逐模態殘差、索力與選填目標區間，再核對同一計算指紋。Aggregate 依 inventory 要求 `6/6`；詳細、內部審閱與阻擋審閱三組 PDF／evidence 使 canonical 完整性成為 `84/84`、公開成品合計 `163/163`。Schema v27 `3/3`、Schema v28 `4/4` 與 Schema v29 `5/5` 只作舊正式快照過渡；Schema v30 缺第六份、重複身分、降回五份或 canonical 未達 `84/84` 都必須失敗關閉。計算書須明列 `T(N)=4mL²a²` 與 `T(kN)=4mL²a²/1000`，且理想張緊弦模型不自動修正垂度、彎曲勁度、端部柔度、斜度、阻尼器、集中質量，也不取代強度、疲勞、錨頭與整體安全詳算。
+Schema v30 將鋼索索力評估（頻率法）納入局部快算結果鏈第六頁。來源 JSON 必須保存振動有效長度、單位長度總質量、頻率／振型列、諧波容許差及固定 4 項依據文字；提供目標索力時再保存目標容許差與第 5 項「目標索力與容許差」依據。匯入後以目前 core 重算多振型過原點擬合、逐模態殘差、索力與選填目標區間，再核對同一計算指紋。Aggregate 依 inventory 要求 `6/6`；詳細、內部審閱與阻擋審閱三組 PDF／evidence 使 canonical 完整性成為 `84/84`、公開成品合計 `163/163`。Schema v27 `3/3`、Schema v28 `4/4` 與 Schema v29 `5/5` 只作舊正式快照過渡；Schema v30 缺第六份、重複身分、降回五份或 canonical 未達 `84/84` 都必須失敗關閉。計算書須明列 `T(N)=4mL²a²` 與 `T(kN)=4mL²a²/1000`，且理想張緊弦模型不自動修正垂度、彎曲勁度、端部柔度、斜度、阻尼器、集中質量，也不取代強度、疲勞、錨頭與整體安全詳算。
 
 鋼索快算來源資料採嚴格型別契約：每筆 `mode` 必須滿足 `Number.isSafeInteger(mode) && mode > 0`，布林、物件／陣列、空字串、夾帶單位或其他非嚴格數字不得透過 `Number()`／`parseFloat()` 寬鬆轉型成有效值。重播計算的所有量必須為 finite；凡定義為正值的中間量與結果（含累加值、基本頻率、各模態與擬合索力、目標上下限）均須大於 0，任一不符即失敗關閉。有效振動長度、單位長度總質量、頻率／振型辨識及諧波容許差為固定 4 項可追溯依據；提供目標索力時，「目標索力與容許差」是第 5 項依據。空白、`待確認`、`N/A`、`不適用` 等占位文字不得形成附件。諧波容許差與目標索力容許差的 `0.1%–10%` 都只是頁面有效輸入範圍，不是規範上限；兩者實際採用值須標為專案指定並保存依據。計算書除諧波門檻及依據外，有目標時還須同列目標索力、目標容許差、索力下限、索力上限與「目標索力及容許差依據」，不得只列符合／不符合結論。
 

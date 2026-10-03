@@ -245,7 +245,7 @@ async function applyCase(page, tc) {
     await page.evaluate(input => {
       const result = window.EarthPressureCore.calculate(input);
       window.applyEarthPressurePayload({
-        tool: { id: 'earth-pressure', name: '擋土土壓局部快算', pageVersion: 'V0.6' },
+        tool: { id: 'earth-pressure', name: '擋土土壓局部檢核', pageVersion: 'V0.6' },
         project: { name: 'RC 基礎正式附件測試', no: 'RC-FT-001', designer: 'QA' },
         generatedAt: '2026-08-04T01:00:00.000Z', input, result
       }, { silent: true });

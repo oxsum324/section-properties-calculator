@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>擋土土壓局部快算 V0.6</title>
+<title>擋土土壓局部檢核 V0.6</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
@@ -132,7 +132,7 @@
 <body class="local-quick-output-page">
 <div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>擋土土壓局部快算 <span class="badge-v">V0.6 局部正式檢核</span></h1>
+  <h1>擋土土壓局部檢核 <span class="badge-v">V0.6 正式檢核</span></h1>
   <p>擋土牆型式、牆體位移條件、Rankine 主動 / 靜止土壓、均佈超載、水壓與簡化穩定檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="../../index.html" class="back">← 回工具箱</a>
@@ -1063,7 +1063,7 @@
     if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
     const toolId = payload.tool && payload.tool.id;
     if (toolId && toolId !== 'earth-pressure') {
-      throw new Error(`此 JSON 屬於 ${toolId}，不是擋土土壓局部快算案例。`);
+      throw new Error(`此 JSON 屬於 ${toolId}，不是擋土土壓局部檢核案例。`);
     }
     return payload.input || (payload.result && payload.result.input) || payload.result || payload;
   }
@@ -1113,7 +1113,7 @@
     Exporter.downloadResultJson({
       tool: {
         id: 'earth-pressure',
-        name: '擋土土壓局部快算',
+        name: '擋土土壓局部檢核',
         pageVersion: PUBLIC_TOOL_VERSION,
         calculationEngine: Core.version
       },
@@ -1128,7 +1128,7 @@
     return Exporter.buildPayload({
       tool: {
         id: 'earth-pressure',
-        name: '擋土土壓局部快算',
+        name: '擋土土壓局部檢核',
         pageVersion: PUBLIC_TOOL_VERSION,
         calculationEngine: Core.version
       },
@@ -1230,8 +1230,8 @@
     ];
     const mode = ($('reportMode') && $('reportMode').value === 'summary') ? 'summary' : 'detailed';
     const reportTrace = ReportUI.buildReportTrace({
-      title: '擋土土壓局部快算計算書',
-      outputSource: { tool: '擋土土壓局部快算', version: PUBLIC_TOOL_VERSION },
+      title: '擋土土壓局部檢核計算書',
+      outputSource: { tool: '擋土土壓局部檢核', version: PUBLIC_TOOL_VERSION },
       snapshot: { mode, calculationEngine: Core.version, result: r }
     });
     const documentStateReport = ReportUI.buildFormalDocumentStateReport({
@@ -1279,7 +1279,7 @@ ${r.seismic.valid ? `<p><code>ψ = atan(kh/(1−kv)) = atan(${fmt(r.kh, 3)}/${fm
 <h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>`;
     const body = mode === 'summary' ? summaryBodyHtml : detailedBodyHtml;
     const reportHtml = `<!DOCTYPE html>
-<html lang="zh-TW"><head><meta charset="UTF-8"><title>擋土土壓局部快算計算書</title>
+<html lang="zh-TW"><head><meta charset="UTF-8"><title>擋土土壓局部檢核計算書</title>
 <style>
 body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:#111827;margin:0;line-height:1.65;}
 .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px 16px;display:flex;gap:8px;z-index:2;}
