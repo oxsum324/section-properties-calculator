@@ -165,8 +165,11 @@ forgedReduction.preflightStatus.releaseHistory.entries.at(-1).change.reductions 
 assert.equal(schema.validatePublicEvidenceBundle(forgedReduction).pass, false, 'release history cannot invent an undeclared reduction');
 
 const unusedReason = clone(bundle);
-unusedReason.preflightStatus.releaseHistory.entries.at(-1).change.reasonCode = 'scope-change';
-unusedReason.preflightStatus.releaseHistory.entries.at(-1).change.reason = '沒有縮減時不得附帶可重用的例外理由。';
+// 最新 release 本身可能是已授權的縮減發布，規則要驗的是「無縮減的項目不得帶理由」，故取最近一筆無縮減項目。
+const unusedReasonEntry = unusedReason.preflightStatus.releaseHistory.entries.filter(entry => entry.change.reductions.length === 0).at(-1)
+  || unusedReason.preflightStatus.releaseHistory.entries.at(-1);
+unusedReasonEntry.change.reasonCode = 'scope-change';
+unusedReasonEntry.change.reason = '沒有縮減時不得附帶可重用的例外理由。';
 assert.equal(schema.validatePublicEvidenceBundle(unusedReason).pass, false, 'non-reduced release cannot carry a reusable reduction reason');
 
 console.log(`public evidence schema OK (v${schema.SCHEMA_VERSION}, history=${valid.releaseHistory.entries.length}/${schema.RELEASE_HISTORY_LIMIT}, dimensions=${schema.DIMENSION_IDS.length}, negativeCases=18)`);

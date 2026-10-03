@@ -136,9 +136,15 @@ if (hasLiveDecisionContext) {
   }
 }
 
+// 鏈結情境固定從「無縮減」的基準 release 出發：追蹤中的最新 release 若是已授權並重設的縮減發布，
+// 其 inactive 授權在真實 repo 屬正常狀態，但不能作為合成鏈的根節點，否則收據建立會要求授權。
+const chainBase = clone(baseBundle);
+if (baselineRelease.change.reductions.length) {
+  chainBase.preflightStatus.releaseHistory = schema.buildReleaseHistory([], chainBase);
+}
 const historyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'public-release-decision-history-'));
 try {
-  writeInputs(historyRoot, baseBundle, basePreflight, baseEvidence, inactive);
+  writeInputs(historyRoot, chainBase, basePreflight, baseEvidence, inactive);
   const first = receipts.writeDecisionReceipt(historyRoot);
   assert.equal(first.changed, true, 'first decision receipt is appended');
   assert.match(first.receipt.receiptId, /^PRD-[0-9A-F]{24}$/, 'decision receipt has content-derived ID');
@@ -146,7 +152,7 @@ try {
   assert.equal(receipts.loadDecisionHistory(historyRoot).entries.length, 1, 'single decision receipt validates as the chain root');
 
   const nextBundle = bundleFor('20990103-020202', '2099-01-03 02:02:02', 'b'.repeat(40));
-  nextBundle.preflightStatus.releaseHistory = schema.buildReleaseHistory(baseBundle, nextBundle, inactive);
+  nextBundle.preflightStatus.releaseHistory = schema.buildReleaseHistory(chainBase, nextBundle, inactive);
   const nextPreflight = preflightFor(nextBundle);
   const nextEvidence = { ...clone(baseEvidence), runId: nextPreflight.runId, pass: true };
   writeInputs(historyRoot, nextBundle, nextPreflight, nextEvidence, inactive);
