@@ -1,0 +1,121 @@
+/* RC 五個構材操作頁共用元件。計算書及可攜式 SVG 不引用本檔。 */
+/* 初始 display:none 保留於 HTML；原顯示切換會讀寫 element.style.display。 */
+
+/* 操作說明、步驟及表頭 */
+header h1 > [data-ui="version"] { font-size: var(--fs-xs); font-weight: var(--fw-medium); opacity: .85; margin-left: var(--space-2); }
+.card h2 > .hint { margin-left: auto; font-style: normal; }
+[data-ui="section-heading"] { font-size: var(--fs-base); color: var(--primary); margin: var(--space-3) 0 var(--space-2); }
+[data-ui="rebar-heading"] { font-size: var(--fs-sm); color: var(--primary); margin: var(--space-3) 0 var(--space-1); }
+[data-ui="aligned-action"] { align-self: end; min-height: 42px; }
+[data-ui="option"] { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-sm); }
+[data-ui="compact-option"] { display: flex; align-items: center; gap: var(--space-1); margin-right: var(--space-2); font-size: var(--fs-sm); white-space: nowrap; }
+[data-ui="numeric"] { font-family: var(--font-mono); }
+[data-ui="muted"] { color: var(--text-light); }
+[data-ui="field-caption"] { font-size: var(--fs-sm); color: var(--text-light); padding-top: var(--space-1); }
+[data-ui="detail-caption"] { font-size: var(--fs-xs); }
+[data-ui="section-actions"] { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+[data-ui-space="section"] { margin-top: var(--space-3); }
+[data-ui-space="field"] { margin-top: var(--space-2); }
+[data-ui-space="tight"] { margin-top: var(--space-1); }
+[data-ui-space="flush"] { margin-top: 0; }
+[data-ui="scroll-region"] { min-width: 0; max-width: 100%; overflow-x: auto; }
+[data-ui="section-divider"] { margin: var(--space-3) 0; border: 0; border-top: 1px dashed var(--border-strong); }
+[data-ui="hint-after"] { margin: var(--space-2) 0 0; }
+[data-ui="hint-before"] { margin: 0 0 var(--space-2); }
+[data-ui="detail-hint"] { margin: var(--space-1) 0 var(--space-2); color: var(--hy-navy-500); }
+[data-ui="field-hint"] { margin: -2px 0 var(--space-2); color: var(--text-light); }
+[data-ui="review-list"] { margin: var(--space-3) 0 0; padding-left: 22px; line-height: var(--lh-relaxed); }
+[data-ui="case-comparison"] { white-space: pre-wrap; line-height: var(--lh-normal); margin-top: var(--space-2); overflow-wrap: anywhere; }
+
+.steps-card h2 { color: var(--hy-navy-500); }
+.steps-body { white-space: pre-wrap; word-break: break-word; font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-normal); background: var(--hy-navy-50); border: 1px solid var(--hy-navy-100); border-radius: var(--radius-lg); padding: var(--space-3) 14px; margin: 0; color: var(--hy-ink-soft); overflow-x: auto; }
+.steps-body .h { color: var(--hy-navy-500); font-weight: var(--fw-bold); }
+.mode-bar__actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.mode-bar__action { padding: 9px var(--space-3); min-height: 38px; border-radius: var(--radius-lg); border: 1px solid var(--primary); background: var(--bg-surface); color: var(--primary); cursor: pointer; font-family: inherit; font-size: var(--fs-sm); font-weight: var(--fw-bold); }
+.mode-bar__action:hover { background: var(--hy-navy-50); }
+.mode-bar__file { display: none; }
+.mode-bar__project-status { flex: 1 1 100%; min-height: 1.2em; text-align: right; color: var(--text-light); font-size: var(--fs-xs); font-style: italic; }
+.tool-toggle { margin-top: var(--space-2); padding: var(--space-2) 10px; background: var(--bg-page); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); }
+.detail-help { display: none; }
+.show-detail-help .detail-help { display: block; }
+.advanced-tools { display: none; margin-top: 14px; }
+.advanced-tools.active { display: block; }
+.advanced-tools summary { cursor: pointer; font-weight: var(--fw-bold); color: var(--hy-navy); list-style: none; display: flex; align-items: center; justify-content: space-between; padding: 10px var(--space-3); background: var(--hy-navy-50); border: 1px solid var(--hy-navy-100); border-radius: var(--radius-lg); }
+.advanced-tools summary::-webkit-details-marker { display: none; }
+.advanced-tools details + details { margin-top: 10px; }
+.advanced-body { margin-top: var(--space-2); padding: var(--space-3); background: var(--bg-page); border: 1px solid var(--border-default); border-radius: var(--radius-lg); }
+.mono-box { width: 100%; font-family: var(--font-mono); font-size: var(--fs-sm); }
+
+/* 狀態色保留成功／警告／失敗語意；資料與判定仍由原計算流程提供。 */
+[data-ui-tone="info"] { --ui-ink: var(--hy-navy-500); --ui-fill: var(--hy-navy-50); --ui-edge: var(--hy-navy-300); }
+[data-ui-tone="success"] { --ui-ink: var(--hy-success); --ui-fill: var(--hy-success-100); --ui-edge: var(--hy-success); }
+[data-ui-tone="warning"] { --ui-ink: var(--rc-warning-ink); --ui-fill: var(--hy-warning-100); --ui-edge: var(--hy-warning); }
+[data-ui-tone="danger"] { --ui-ink: var(--hy-red-deep); --ui-fill: var(--hy-danger-100); --ui-edge: var(--hy-danger); }
+.checkbox-row[data-ui-tone] { background: var(--ui-fill); border-color: var(--ui-edge); }
+.checkbox-row[data-ui-tone] label, [data-ui="tone-label"] { color: var(--ui-ink, var(--hy-navy-500)); }
+[data-ui="notice"], [data-ui="verdict"] { padding: 10px 14px; border: 1px solid var(--ui-edge); border-radius: var(--radius-lg); background: var(--ui-fill); color: var(--ui-ink); font-size: var(--fs-sm); }
+[data-ui="verdict"] { border-width: 2px; font-weight: var(--fw-bold); }
+[data-ui="notice"] ul { margin: 6px 0 0 18px; padding: 0; }
+[data-ui="warning-item"] { margin: 6px 0; color: var(--rc-warning-ink); }
+[data-ui="status"] { color: var(--ui-ink); font-weight: var(--fw-bold); }
+[data-ui="banner-detail"] { font-size: var(--fs-xs); font-weight: var(--fw-medium); opacity: .85; margin-top: 6px; }
+[data-ui="banner-warning"] { font-size: var(--fs-xs); font-weight: var(--fw-bold); margin-top: 6px; padding: 6px 10px; background: var(--hy-warning-100); color: var(--rc-warning-ink); border-left: 3px solid var(--hy-warning); border-radius: var(--radius-md); }
+[data-ui-button] { padding: 6px 14px; background: var(--primary); color: var(--fg-on-navy); border: 0; border-radius: var(--radius-lg); cursor: pointer; font-family: inherit; }
+[data-ui-button="secondary"] { background: var(--hy-slate-700); }
+[data-ui-button="danger"] { padding: 2px var(--space-2); background: var(--hy-danger); }
+[data-ui-button="report"] { padding: var(--space-2) var(--space-4); background: var(--hy-navy); font-weight: var(--fw-bold); }
+[data-ui-button]:focus-visible { outline: 2px solid var(--hy-navy); outline-offset: 2px; }
+[data-ui="audit-badge"] { display: inline-block; padding: 2px var(--space-2); border-radius: var(--radius-pill); border: 1px solid var(--ui-edge); background: var(--ui-fill); color: var(--ui-ink); font-size: var(--fs-sm); font-weight: var(--fw-bold); }
+[data-ui-tone="neutral"] { --ui-ink: var(--hy-slate-700); --ui-fill: var(--bg-subtle); --ui-edge: var(--hy-slate-400); }
+
+/* 配筋列與容量候選表（含新增排數後動態產生的列）。 */
+.rebar-stack { font-size: var(--fs-xs); }
+.rebar-layer { gap: 6px; margin-bottom: var(--space-1); }
+.rebar-layer .form-group { margin: 0; }
+.rebar-layer label { font-size: var(--fs-xs); }
+:is(#beamRebarDesignCandidates, #columnRebarDesignCandidates, #wallRebarDesignCandidates) { margin-top: var(--space-3); }
+[data-ui="candidate-intro"] { font-size: var(--fs-sm); color: var(--text-light); margin-bottom: 6px; }
+[data-ui-table] { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); border: 1px solid var(--border-strong); }
+[data-ui-table="candidates"] { min-width: 760px; }
+#wallRebarDesignCandidates [data-ui-table="candidates"] { min-width: 720px; }
+[data-ui-table] :is(th, td) { padding: 6px 10px; border-bottom: 1px solid var(--border-default); text-align: left; }
+[data-ui-table] th { border-bottom: 2px solid var(--border-strong); }
+[data-ui-table] thead, [data-ui-row="header"] { background: var(--bg-subtle); }
+[data-ui-row="section"] { background: var(--hy-navy); color: var(--fg-on-navy); font-weight: var(--fw-bold); }
+[data-ui-align="center"] { text-align: center !important; }
+[data-ui-align="numeric"] { text-align: right !important; font-family: var(--font-mono); }
+[data-ui-align="right"] { text-align: right !important; }
+[data-ui-table="summary"] { margin-top: 10px; }
+:is(#summaryTableHost, #methodAuditHost) { max-width: 100%; overflow-x: auto; }
+#summaryTableHost [data-ui-table], #methodAuditHost [data-ui-table] { min-width: 540px; }
+#aggTable :is(th, td) { padding: var(--space-1); border: 1px solid var(--border-strong); }
+#aggTable input { width: 70px; padding: 2px var(--space-1); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
+#aggTable input[data-fld="rhot"] { width: 80px; }
+:is(#aggAddBtn, #aggUseCurBtn) { margin-top: var(--space-2); }
+#aggUseCurBtn { margin-left: 6px; }
+
+/* 柱 P-M 診斷與牆／板操作輔助，保持獨立於報告圖形。 */
+:is(#manualLayoutRow, #tieOverrideRow) { margin: 6px 0; }
+:is(#barLayoutInfo, #tieAutoInfo) { color: var(--hy-navy-500); }
+#colSectionHint { margin: 6px 0 0; text-align: center; }
+#pmAlgoDesc { font-size: var(--fs-sm); line-height: var(--lh-normal); color: var(--text); padding: 10px 14px; background: var(--bg-page); border-left: 3px solid var(--primary); border-radius: var(--radius-lg); margin-bottom: 10px; white-space: pre-wrap; font-family: var(--font-mono); }
+[data-ui="diagnostic-grid"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+:is(#pmBarsX, #pmBarsY, #pmPointsX, #pmPointsY) { font-size: var(--fs-xs); max-height: 280px; overflow: auto; background: var(--bg-page); padding: var(--space-2); border-radius: var(--radius-lg); border: 1px solid var(--border); font-family: var(--font-mono); }
+:is(#pmBarsX, #pmBarsY) { max-height: 240px; }
+#rebarDesignInlineSugg { margin: var(--space-2) 0; padding: 10px var(--space-3); background: var(--hy-success-100); border-left: 3px solid var(--hy-success); border-radius: var(--radius-md); font-size: var(--fs-sm); }
+[data-ui="suggestion-title"] { font-weight: var(--fw-bold); color: var(--hy-success); margin-bottom: var(--space-1); }
+#sbeStressData { width: 100%; font-family: var(--font-mono); font-size: var(--fs-sm); padding: 6px; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); }
+#supportModelHint { margin-top: var(--space-2); padding: var(--space-2) 10px; background: var(--bg-page); border: 1px solid var(--border-default); border-radius: var(--radius-lg); }
+[data-ui="model-title"] { font-weight: var(--fw-bold); color: var(--hy-navy); margin-bottom: var(--space-1); }
+#methodBanner { margin: 6px 0 10px; padding: var(--space-2) 10px; background: var(--bg-subtle); border-left: 4px solid var(--primary); font-size: var(--fs-sm); line-height: var(--lh-normal); }
+#methodBannerDist { margin-top: 3px; color: var(--text-light); }
+:is(#pmBoundaryRebarInputs, #basementInputs, #sbeExtCustomBox) { padding: 10px; background: var(--bg-page); border-left: 3px solid var(--primary); border-radius: var(--radius-md); }
+#sbeExtCustomBox { padding: var(--space-2) 10px; }
+
+@media (max-width: 768px) {
+  .mode-bar__actions { width: 100%; }
+  .mode-bar__action { flex: 1 1 calc(50% - 4px); }
+  .mode-bar__project-status { text-align: left; }
+  .steps-body { padding: 10px 11px; }
+  [data-ui="diagnostic-grid"] { grid-template-columns: minmax(0, 1fr); }
+}

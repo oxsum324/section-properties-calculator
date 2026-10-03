@@ -5,61 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>板設計 — RC 工具箱 V3.2</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../shared/style.css">
+<link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
 <style>
-  .moment-table { width:100%; border-collapse:collapse; font-size:0.9em; margin-top:8px; }
-  .moment-table th, .moment-table td { border:1px solid #cbd5e1; padding:6px 8px; text-align:center; }
-  .moment-table th { background:#1a3d5c; color:#fff; font-weight:600; font-size:0.85em; }
-  .moment-table tr.ok td { background:#dcfce7; }
-  .moment-table tr.ng td { background:#fee2e2; }
-  .moment-table tr.info td { background:#f1f5f9; color:#64748b; font-style:italic; }
+  .moment-table { width:100%; border-collapse:collapse; font-size: var(--fs-sm); margin-top:8px; }
+  .moment-table th, .moment-table td { border:1px solid var(--border-strong); padding:6px 8px; text-align:center; }
+  .moment-table th { background:var(--hy-navy); color:var(--bg-surface); font-weight:600; font-size: var(--fs-sm); }
+  .moment-table tr.ok td { background:var(--hy-success-100); }
+  .moment-table tr.ng td { background:var(--hy-danger-100); }
+  .moment-table tr.info td { background:var(--bg-subtle); color:var(--hy-slate-500); font-style:italic; }
   .load-tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
-  .load-tabs button { flex:1 1 120px; padding:8px 12px; border:1px solid #cbd5e1;
-                       background:#fff; cursor:pointer; border-radius:6px;
+  .load-tabs button { flex:1 1 120px; padding:8px 12px; border:1px solid var(--border-strong);
+                       background:var(--bg-surface); cursor:pointer; border-radius: var(--radius-lg);
                        font-family:inherit; font-weight:600; }
-  .load-tabs button.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+  .load-tabs button.active { background:var(--primary); color:var(--bg-surface); border-color:var(--primary); }
   .load-mode-panel { display:none; }
   .load-mode-panel.active { display:block; }
-  .ratio-tag { display:inline-block; padding:2px 10px; border-radius:10px;
-                font-size:0.78em; font-weight:700; margin-left:6px; }
-  .ratio-one { background:#fef3c7; color:#a16207; border:1px solid #fcd34d; }
-  .ratio-two { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
-  .tool-toggle { margin-top:8px; padding:8px 10px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; }
-  .detail-help { display:none; }
-  .show-detail-help .detail-help { display:block; }
-  .advanced-tools { display:none; margin-top:14px; }
-  .advanced-tools.active { display:block; }
-  .advanced-tools summary {
-    cursor:pointer; font-weight:700; color:#1e3a8a; list-style:none;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:10px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
-  }
-  .advanced-tools summary::-webkit-details-marker { display:none; }
-  .advanced-tools details + details { margin-top:10px; }
-  .advanced-body { margin-top:8px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
+  .ratio-tag { display:inline-block; padding:2px 10px; border-radius: var(--radius-xl);
+                font-size: var(--fs-xs); font-weight:700; margin-left:6px; }
+  .ratio-one { background:var(--hy-warning-100); color:var(--rc-warning-ink); border:1px solid var(--hy-warning); }
+  .ratio-two { background:var(--hy-success-100); color:var(--hy-success); border:1px solid var(--hy-success); }
+
   .advanced-grid { display:grid; grid-template-columns:1fr; gap:10px; }
-  .mono-box { width:100%; font-family:Consolas, monospace; font-size:0.82em; }
-  .mode-bar__actions {
-    display:flex; gap:6px; align-items:center; flex-wrap:wrap;
-  }
-  .mode-bar__action {
-    padding:9px 12px; min-height:38px; border-radius:6px;
-    border:1px solid var(--primary); background:#fff; color:var(--primary);
-    cursor:pointer; font-family:inherit; font-size:0.86em; font-weight:700;
-  }
-  .mode-bar__action:hover { background:#ecfeff; }
-  .mode-bar__file { display:none; }
-  .mode-bar__project-status {
-    flex:1 1 100%; min-height:1.2em; text-align:right;
-    color:var(--text-light); font-size:0.76em; font-style:italic;
-  }
+
+
   @media (min-width: 900px) {
-    .advanced-grid.two-col { grid-template-columns:1fr 1fr; }
+    .advanced-grid.two-col { grid-template-columns:repeat(2,minmax(0,1fr)); }
   }
   @media (max-width: 768px) {
     .mode-bar__proj {
-      display:grid !important; grid-template-columns:1fr 1fr; gap:8px; width:100%;
+      display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%;
     }
     .mode-bar__proj .w-name,
     .mode-bar__proj .w-des,
@@ -68,19 +45,17 @@
       grid-column:1 / -1;
     }
     .mode-bar__hint { display:block; width:100%; margin-top:8px; line-height:1.45; }
-    .mode-bar__action { flex:1 1 calc(50% - 4px); }
-    .mode-bar__project-status { text-align:left; }
-    .tool-toggle { font-size:0.88em; }
+
   }
-  .future-note { margin-top:14px; padding:10px 14px; background:#f1f5f9;
-                  border-left:3px solid #94a3b8; border-radius:4px;
-                  font-size:0.82em; color:#64748b; }
+  .future-note { margin-top:14px; padding:10px 14px; background:var(--bg-subtle);
+                  border-left:3px solid var(--hy-slate-400); border-radius: var(--radius-md);
+                  font-size: var(--fs-sm); color:var(--hy-slate-500); }
 </style>
 </head>
 <body class="rc-formal-output-page">
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>板 Slab 設計／檢核 <span style="font-size:0.5em; opacity:0.85; margin-left:8px;">V3.2</span></h1>
+  <h1>板 Slab 設計／檢核 <span data-ui="version">V3.2</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 單向板 + 簡化二向板初步設計、自動配筋</p>
 </header>
 
@@ -98,7 +73,7 @@
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo" class="w-no" placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-      <label style="display:flex; align-items:center; gap:4px; margin-right:8px; font-size:0.85em; white-space:nowrap;">
+      <label data-ui="compact-option">
         <input type="checkbox" id="showSteps"> 顯示計算過程
       </label>
       <div class="mode-bar__actions" aria-label="板專案存讀檔">
@@ -112,7 +87,7 @@
       <button class="mode-bar__report" id="btnPrintReport" type="button">🖨️ 直接列印計算書</button>
       <span id="slabProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
-    <div class="form-row page-only-case-tools" style="margin-top:10px;">
+    <div class="form-row page-only-case-tools" data-ui-space="section">
       <div class="form-group">
         <label>內建案例</label>
         <select id="testCaseSelect">
@@ -125,18 +100,18 @@
           <option value="flat_corner_cons">無梁板角柱保守例</option>
         </select>
       </div>
-      <div class="form-group" style="align-self:end;">
+      <div class="form-group" data-ui="aligned-action">
         <button type="button" id="btnApplyCase" class="mode-bar__report">套用案例</button>
       </div>
     </div>
     <div class="tool-toggle page-only-case-tools">
-      <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
+      <label data-ui="option">
         <input type="checkbox" id="showDetailHelp">
         顯示詳細說明與假設
       </label>
     </div>
     <div class="tool-toggle page-only-case-tools">
-      <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
+      <label data-ui="option">
         <input type="checkbox" id="showCaseTools">
         顯示進階案例工具（JSON / 比較 / 基準報告）
       </label>
@@ -163,7 +138,7 @@
           </div>
           <div class="form-group">
             <label>判定 <span id="ratioTag" class="ratio-tag ratio-two">—</span></label>
-            <div id="ratioInfo" style="font-size:0.85em; color:var(--text-light); padding-top:6px;">Ly/Lx = —</div>
+            <div id="ratioInfo" data-ui="field-caption">Ly/Lx = —</div>
           </div>
         </div>
         <div class="form-row">
@@ -213,12 +188,12 @@
           <div class="form-group">
             <label>支承寬度 c (cm)</label>
             <input type="number" id="supW" value="30" step="1">
-            <span class="hint detail-help" style="font-size:0.78em;">梁寬或柱寬，用以推算淨跨 ℓn = L − c</span>
+            <span class="hint detail-help" data-ui="detail-caption">梁寬或柱寬，用以推算淨跨 ℓn = L − c</span>
           </div>
           <div class="form-group" id="alphaFmGroup" style="display:none;">
             <label>α_fm (有梁雙向板)</label>
             <input type="number" id="alphaFm" value="1.0" step="0.1">
-            <span class="hint detail-help" style="font-size:0.78em;">四邊梁之撓曲勁度比平均值；無梁=0</span>
+            <span class="hint detail-help" data-ui="detail-caption">四邊梁之撓曲勁度比平均值；無梁=0</span>
           </div>
           <div class="form-group" id="panelPosGroup" style="display:none;">
             <label>無梁版位置</label>
@@ -278,7 +253,7 @@
 
         <div class="load-mode-panel" data-load="combo">
           <div id="lcSlabPanel"></div>
-          <div class="form-group" style="margin-top:10px;">
+          <div class="form-group" data-ui-space="section">
             <label>組合結果 wu_combo (tf/m²)</label>
             <input type="number" id="wuCombo" value="1.20" step="0.05" readonly>
           </div>
@@ -289,18 +264,18 @@
 
       <!-- C. 分析方法 -->
       <div class="card">
-        <h2>C. 分析方法 <span class="hint" style="margin-left:auto; font-style:normal;" id="analysisName">—</span></h2>
+        <h2>C. 分析方法 <span class="hint" id="analysisName">—</span></h2>
         <p class="hint detail-help" id="analysisDesc">—</p>
-        <div id="supportModelHint" class="detail-help" style="margin-top:8px; padding:8px 10px; background:#f8fafc; border:1px solid #dbe4ee; border-radius:6px;">
-          <div style="font-weight:700; color:#1a3d5c; margin-bottom:4px;">代表跨模型示意</div>
-          <div id="supportModelText" class="hint" style="margin-bottom:8px;">—</div>
-          <div id="supportModelSketch" style="overflow-x:auto;"></div>
+        <div id="supportModelHint" class="detail-help">
+          <div data-ui="model-title">代表跨模型示意</div>
+          <div id="supportModelText" class="hint" data-ui="hint-before">—</div>
+          <div id="supportModelSketch" data-ui="scroll-region"></div>
         </div>
       </div>
 
       <!-- D. 撓曲鋼筋 -->
       <div class="card">
-        <h2>D. 撓曲鋼筋 <span class="hint" id="flexModeHint" style="margin-left:auto; font-style:normal;">—</span></h2>
+        <h2>D. 撓曲鋼筋 <span class="hint" id="flexModeHint">—</span></h2>
         <div class="form-row">
           <div class="form-group">
             <label>鋼筋層配置</label>
@@ -312,13 +287,13 @@
           </div>
           <div class="form-group">
             <label>判定 <span id="layerTag" class="ratio-tag ratio-two">—</span></label>
-            <div id="layerInfo" style="font-size:0.85em; color:var(--text-light); padding-top:6px;">—</div>
+            <div id="layerInfo" data-ui="field-caption">—</div>
           </div>
         </div>
 
         <!-- 底層 (薄板時為單層) -->
         <div id="botLayerWrap">
-          <h3 style="margin:12px 0 6px; font-size:0.95em; color:var(--primary);" id="botLayerTitle">底層鋼筋 (承 +M 中跨底)</h3>
+          <h3 data-ui="section-heading" id="botLayerTitle">底層鋼筋 (承 +M 中跨底)</h3>
           <div class="form-row">
             <div class="form-group">
               <label>短向主筋號數</label>
@@ -337,7 +312,7 @@
 
         <!-- 頂層 (僅厚板) -->
         <div id="topLayerWrap">
-          <h3 style="margin:12px 0 6px; font-size:0.95em; color:var(--primary);">頂層鋼筋 (承 −M 連續端頂)</h3>
+          <h3 data-ui="section-heading">頂層鋼筋 (承 −M 連續端頂)</h3>
           <div class="form-row">
             <div class="form-group">
               <label>短向主筋號數</label>
@@ -419,10 +394,9 @@
       <!-- 3. 內力分析 -->
       <div class="card">
         <h2>3. 內力分析 (各方向、各位置)</h2>
-        <div id="methodBanner" style="margin:6px 0 10px; padding:8px 10px; background:#eef2f6;
-             border-left:4px solid var(--primary); font-size:0.85em; line-height:1.5;">
+        <div id="methodBanner">
           <b>採用方法：</b><span id="methodBannerName">—</span>
-          <div id="methodBannerDist" style="margin-top:3px; color:#555;">—</div>
+          <div id="methodBannerDist">—</div>
         </div>
         <table class="moment-table" id="momentTable">
           <thead><tr><th>方向 / 位置</th><th>係數</th><th>Mu (tf·m/m)</th><th>Vu (tf/m)</th></tr></thead>
@@ -489,7 +463,7 @@
           </div>
           <div class="form-group"><label>每組肢數 nLeg</label><input type="number" id="swLeg" value="2"></div>
         </div>
-        <div class="checkbox-row" style="margin-top:10px;">
+        <div class="checkbox-row" data-ui-space="section">
           <input type="checkbox" id="puEnable">
           <label for="puEnable">配置衝剪鋼筋（平版柱位，計入 Vs，規範 22.6）</label>
         </div>
@@ -532,7 +506,7 @@
       <!-- 7. 斷面配筋示意 -->
       <div class="card">
         <h2>7. 斷面配筋示意</h2>
-        <div id="sectionSVG" style="overflow-x:auto;"></div>
+        <div id="sectionSVG" data-ui="scroll-region"></div>
         <p class="hint detail-help">示意圖以 1 m 寬條帶斷面繪製；短向(X)筋為外層、長向(Y)筋為內層。</p>
       </div>
 
@@ -546,15 +520,15 @@
     <details open>
       <summary>案例 JSON 匯出 / 匯入</summary>
       <div class="advanced-body">
-        <div class="form-row" style="margin-top:0;">
-          <div class="form-group" style="align-self:end;">
+        <div class="form-row" data-ui-space="flush">
+          <div class="form-group" data-ui="aligned-action">
             <button type="button" id="btnExportCase" class="mode-bar__report">匯出目前設定 JSON</button>
           </div>
-          <div class="form-group" style="align-self:end;">
+          <div class="form-group" data-ui="aligned-action">
             <button type="button" id="btnImportCase" class="mode-bar__report">匯入 JSON</button>
           </div>
         </div>
-        <div class="form-group" style="margin-top:8px;">
+        <div class="form-group" data-ui-space="field">
           <label>案例 JSON</label>
           <textarea id="caseJson" class="mono-box" rows="6" placeholder="可貼上匯出的案例 JSON，按「匯入 JSON」即可還原設定。"></textarea>
         </div>
@@ -564,31 +538,31 @@
     <details>
       <summary>案例比較</summary>
       <div class="advanced-body">
-        <div class="form-row" style="margin-top:0;">
-          <div class="form-group" style="align-self:end;">
+        <div class="form-row" data-ui-space="flush">
+          <div class="form-group" data-ui="aligned-action">
             <button type="button" id="btnCompareCase" class="mode-bar__report">比較兩組 JSON</button>
           </div>
         </div>
         <div class="advanced-grid two-col">
           <div class="hint">案例 A 直接使用上方「案例 JSON」欄位內容；若要比較，請在右側貼上案例 B。</div>
-          <div class="form-group" style="margin-top:0;">
+          <div class="form-group" data-ui-space="flush">
             <label>案例 B JSON</label>
             <textarea id="compareCaseJson" class="mono-box" rows="6" placeholder="貼上另一組案例 JSON，按「比較兩組 JSON」查看差異。"></textarea>
           </div>
         </div>
-        <div id="caseCompareResult" class="hint" style="white-space:pre-wrap; line-height:1.5; margin-top:8px;">尚未比較案例。</div>
+        <div id="caseCompareResult" class="hint" data-ui="case-comparison">尚未比較案例。</div>
       </div>
     </details>
 
     <details>
       <summary>基準報告</summary>
       <div class="advanced-body">
-        <div class="form-row" style="margin-top:0;">
-          <div class="form-group" style="align-self:end;">
+        <div class="form-row" data-ui-space="flush">
+          <div class="form-group" data-ui="aligned-action">
             <button type="button" id="btnExportBaseline" class="mode-bar__report">輸出基準報告</button>
           </div>
         </div>
-        <div class="form-group" style="margin-top:8px;">
+        <div class="form-group" data-ui-space="field">
           <label>基準報告</label>
           <textarea id="baselineReport" class="mono-box" rows="10" placeholder="按「輸出基準報告」後，這裡會產生可保存的文字基準。"></textarea>
         </div>
@@ -720,7 +694,7 @@
     if (!message) return;
     const note = document.createElement('div');
     note.textContent = message;
-    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? '#fee2e2' : '#dcfce7'};color:${status === 'fail' ? '#991b1b' : '#166534'};border:1px solid ${status === 'fail' ? '#fecaca' : '#86efac'};padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:420px;`;
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? 'var(--hy-danger-100)' : 'var(--hy-success-100)'};color:${status === 'fail' ? 'var(--hy-red-deep)' : 'var(--hy-success)'};border:1px solid ${status === 'fail' ? 'var(--hy-danger)' : 'var(--hy-success)'};padding:10px 14px;border-radius:var(--radius-lg);font-size:var(--fs-sm);box-shadow:var(--shadow-md);max-width:min(420px,calc(100vw - 20px));`;
     document.body.appendChild(note);
     setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
   }
@@ -1165,8 +1139,8 @@
     SPACING_IDS.forEach(id => {
       const el = $(id); if (!el) return;
       el.readOnly = isDesign;
-      el.style.background = isDesign ? '#f1f5f9' : '';
-      el.style.color = isDesign ? '#475569' : '';
+      el.style.background = isDesign ? 'var(--bg-subtle)' : '';
+      el.style.color = isDesign ? 'var(--hy-slate-700)' : '';
       el.title = isDesign ? '設計模式：依 Mu 與所選鋼筋號數自動計算所需間距' : '檢核模式：請手動輸入間距';
     });
     const fmh = $('flexModeHint'); if (fmh) {
@@ -2154,19 +2128,19 @@
     const banner = $('bannerStatus');
     banner.className = 'banner-status ' + (summaryOk === true ? 'ok' : summaryOk === false ? 'fail' : 'warn');
     banner.innerHTML = summaryText
-      + `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">`
+      + `<div data-ui="banner-detail">`
       + `${h>=hmin?'✓':'✗'} 板厚 ｜ ${allFlexOk?'✓':'✗'} 撓曲 ｜ ${shearOk?'✓':'✗'} ${isOneWay ? '剪力' : '剪力初估'}`
       + (punchData ? ` ｜ ${punchOk?'✓':'✗'} 雙向衝剪` : '')
       + ` ｜ ${clearOk?'✓':'✗'} 鋼筋淨距`
       + `</div>`;
     if (summaryOk === null) {
-      banner.innerHTML += `<div style="font-size:0.72em; font-weight:600; margin-top:6px; padding:6px 10px; background:#fef3c7; color:#a16207; border-left:3px solid #f59e0b; border-radius:4px;">⚠ 數值檢核通過，但仍須正式二向板 / DDM / 衝剪分布複核，不可列為最終 OK。</div>`;
+      banner.innerHTML += `<div data-ui="banner-warning">⚠ 數值檢核通過，但仍須正式二向板 / DDM / 衝剪分布複核，不可列為最終 OK。</div>`;
     }
     if (upgrades.length) {
       const upTxt = upgrades.map(u =>
         `${u.spId.replace('barSp','')}: ${u.from}→${u.to}` + (u.fail?' (仍不足!)':'')
       ).join('，');
-      banner.innerHTML += `<div style="font-size:0.72em; font-weight:600; margin-top:6px; padding:6px 10px; background:#fef3c7; color:#a16207; border-left:3px solid #f59e0b; border-radius:4px;">⚠ 設計模式自動加大鋼筋號數：${upTxt}</div>`;
+      banner.innerHTML += `<div data-ui="banner-warning">⚠ 設計模式自動加大鋼筋號數：${upTxt}</div>`;
     }
     $('bannerKey').innerHTML = `
       <div class="k"><span class="k-label">類型</span><span class="k-val">${isOneWay?'單向':'雙向'} (Ly/Lx=${ratio.toFixed(2)})</span></div>

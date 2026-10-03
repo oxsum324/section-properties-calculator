@@ -1,5 +1,7 @@
 # 工具交付邊界
 
+第二階段操作頁樣式：`結構工具箱/assets/hy/continuous-beam-ui.css`、`frame-analysis-ui.css` 與 `鋼筋混凝土/shared/tool-page.css` 為正式來源碼，只管理操作介面，引用 `colors_and_type.css` 的共用 token；計算書 popup 不引用這些樣式。`tool-page-layout.browser.test.js`／`test-tool-page-layout.ps1` 為可重跑的 11 頁桌機／手機版面契約，截圖與結果 JSON 寫入忽略的 `output/playwright/tool-page-layout/`，不能作為正式交付物或實機驗證證據。新增 CSS 亦須列入首頁相對應工具的 `HOME_TOOL_UPDATE_DEPENDENCIES`。
+
 本檔用來區分「應納入版本控管的工具碼」與「只作為本機案例、輸出或參考資料的檔案」。原則是：可重跑的程式、測試、preflight 與必要部署資產可以進 repo；大型工程案例、Office/PDF 輸出、暫存資料與本機快取不進 repo。
 
 獨立工程基準現行覆蓋 40 / 40 個正式入口，其中 local-quick 工具家族是重疊的 6 / 6。`independent-engineering-adapters/frame-analysis.js` 直接執行平面剛架頁面求解器，並以懸臂端點力閉式解獨立核對位移、支承剪力與彎矩；`independent-engineering-adapters/cable-tension-frequency.js` 則直接執行鋼索頻率法 production core，鎖定公開頁對 core 的載入、輸入與計算呼叫。鋼索 adapter 所執行的 core regression 另須固定嚴格數字、正安全整數 `mode`、finite／正值與溢位／下溢失敗關閉反例；兩個 oracle 均不得讀取 golden expected，也不得把限定代表案例擴張宣稱為完整工程設計驗證。

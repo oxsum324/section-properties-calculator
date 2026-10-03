@@ -67,26 +67,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>梁設計 — RC 工具箱 V3.1</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../shared/style.css">
+<link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
 <style>
-  .steps-card h2 { color:#5b21b6; }
-  .steps-body {
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, "Cascadia Code", "Consolas", "Microsoft JhengHei", monospace;
-    font-size: 0.82em;
-    line-height: 1.55;
-    background: #faf5ff;
-    border: 1px solid #e9d5ff;
-    border-radius: 6px;
-    padding: 12px 14px;
-    margin: 0;
-    color: #3b0764;
-    overflow-x: auto;
-  }
-.steps-body .h { color:#7c3aed; font-weight:700; }
-  #warningCard { border: 1px solid #fde68a; background: linear-gradient(180deg, #fffbeb, #ffffff); }
+  #warningCard { border: 1px solid var(--hy-warning); background: linear-gradient(180deg, var(--hy-warning-100), var(--bg-surface)); }
   #warningList { font-style: normal; line-height: 1.65; }
   #stepsVerbosityWrap { margin-top: -4px; }
   #stepsVerbosityWrap select { min-height: 42px; }
@@ -110,10 +96,10 @@
     margin:6px 0 10px;
   }
   .rebar-stack-actions button {
-    border:1px solid #94a3b8;
-    background:#fff;
-    color:#334155;
-    border-radius:6px;
+    border:1px solid var(--hy-slate-400);
+    background:var(--bg-surface);
+    color:var(--hy-slate-700);
+    border-radius: var(--radius-lg);
     padding:6px 10px;
     cursor:pointer;
     font-family:inherit;
@@ -122,63 +108,36 @@
   .deep-beam-notice {
     margin-top:8px;
     padding:10px 12px;
-    border:1px solid #cbd5e1;
-    border-radius:6px;
-    background:#f8fafc;
-    color:#334155;
+    border:1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    background:var(--bg-page);
+    color:var(--hy-slate-700);
     line-height:1.55;
-    font-size:0.86em;
+    font-size: var(--fs-sm);
   }
-  .deep-beam-notice.ok { border-color:#86efac; background:#f0fdf4; color:#166534; }
-  .deep-beam-notice.fail { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
+  .deep-beam-notice.ok { border-color:var(--hy-success); background:var(--hy-success-100); color:var(--hy-success); }
+  .deep-beam-notice.fail { border-color:var(--hy-danger); background:var(--hy-danger-100); color:var(--hy-red-deep); }
   .deep-beam-notice .deep-beam-tool-link {
     display:inline-flex;
     margin-top:7px;
     padding:6px 10px;
-    border-radius:6px;
-    background:#7f1d1d;
-    color:#fff;
+    border-radius: var(--radius-lg);
+    background:var(--hy-red-deep);
+    color:var(--bg-surface);
     font-weight:800;
     text-decoration:none;
   }
-  .deep-beam-notice .deep-beam-tool-link:hover { background:#991b1b; }
-  .mode-bar__actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .mode-bar__action {
-    padding: 9px 12px;
-    min-height: 38px;
-    border-radius: 6px;
-    border: 1px solid var(--primary);
-    background: #fff;
-    color: var(--primary);
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.86em;
-    font-weight: 700;
-  }
-  .mode-bar__action:hover { background: #ecfeff; }
-  .mode-bar__file { display: none; }
-  .mode-bar__project-status {
-    flex: 1 1 100%;
-    min-height: 1.2em;
-    text-align: right;
-    color: var(--text-light);
-    font-size: 0.76em;
-    font-style: italic;
-  }
+  .deep-beam-notice .deep-beam-tool-link:hover { background:var(--hy-red-deep); }
+
   .rebar-range-wrap { margin-top:14px; }
   .rebar-range-heading { display:flex; justify-content:space-between; gap:10px; align-items:baseline; margin-bottom:6px; }
-  .rebar-range-heading strong { color:#0f4c5c; }
-  .rebar-range-table { width:100%; border-collapse:collapse; font-size:0.82em; border:1px solid #cbd5e1; min-width:820px; }
-  .rebar-range-table th { padding:7px 6px; background:#e6f4f7; color:#164e63; border-bottom:1px solid #94a3b8; white-space:nowrap; }
-  .rebar-range-table td { padding:7px 6px; border-bottom:1px solid #e2e8f0; text-align:center; }
-  .rebar-range-table td.range-arrangement { text-align:left; font-family:ui-monospace,"Cascadia Code","Consolas",monospace; }
-  .rebar-range-table tr.range-ng td { background:#fff1f2; color:#991b1b; }
-  .rebar-range-note { margin:7px 0 0; color:#64748b; font-size:0.78em; line-height:1.55; }
+  .rebar-range-heading strong { color:var(--hy-navy); }
+  .rebar-range-table { width:100%; border-collapse:collapse; font-size: var(--fs-sm); border:1px solid var(--border-strong); min-width:820px; }
+  .rebar-range-table th { padding:7px 6px; background:var(--hy-navy-100); color:var(--hy-navy-deep); border-bottom:1px solid var(--hy-slate-400); white-space:nowrap; }
+  .rebar-range-table td { padding:7px 6px; border-bottom:1px solid var(--border-default); text-align:center; }
+  .rebar-range-table td.range-arrangement { text-align:left; font-family: var(--font-mono); }
+  .rebar-range-table tr.range-ng td { background:var(--hy-danger-100); color:var(--hy-red-deep); }
+  .rebar-range-note { margin:7px 0 0; color:var(--hy-slate-500); font-size: var(--fs-xs); line-height:1.55; }
   .section-tabs button,
   .mode-bar__btn,
   .mode-bar__report,
@@ -194,11 +153,7 @@
   .section-tabs button { min-height: 44px; }
 }
 @media (max-width: 768px) {
-    .steps-body {
-      font-size: 0.78em;
-      line-height: 1.6;
-      padding: 10px 11px;
-    }
+
     .rebar-hero { padding: 12px; }
     .rebar-hero .line {
       flex-direction: column;
@@ -208,11 +163,11 @@
     }
     .rebar-hero .big,
     .rebar-hero .combo {
-      font-size: 1em;
+      font-size: var(--fs-base);
       text-align: left;
       overflow-wrap: anywhere;
     }
-    #warningList { font-size: 0.88em; }
+    #warningList { font-size: var(--fs-sm); }
     .preset-row {
       grid-template-columns: 1fr;
     }
@@ -220,15 +175,7 @@
     .preset-row select {
       width: 100%;
     }
-    .mode-bar__actions {
-      width: 100%;
-    }
-    .mode-bar__action {
-      flex: 1 1 calc(50% - 4px);
-    }
-    .mode-bar__project-status {
-      text-align: left;
-    }
+
     .section-tabs button,
     .mode-bar__btn,
     .mode-bar__report {
@@ -242,15 +189,12 @@
     #warningCard { scroll-margin-top: 16px; }
   }
   @media (max-width: 480px) {
-    .steps-body {
-      font-size: 0.74em;
-      padding: 9px 10px;
-    }
+
     #stepsVerbosityWrap label,
-    #warningList { font-size: 0.84em; }
+    #warningList { font-size: var(--fs-sm); }
     .section-tabs button {
       padding: 11px 13px;
-      font-size: 0.9em;
+      font-size: var(--fs-sm);
     }
   }
 </style>
@@ -258,7 +202,7 @@
 <body class="rc-formal-output-page">
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>梁 Beam 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
+  <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.1</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 撓曲、剪力、扭力、跨深比；含特殊抗彎矩構架耐震檢核</p>
 </header>
 
@@ -367,19 +311,19 @@
           <input type="number" id="fyt" value="2800">
         </div>
 
-        <div class="checkbox-row" style="background:#fef3c7; border-color:#fcd34d;">
+        <div class="checkbox-row" data-ui-tone="warning">
           <input type="checkbox" id="enableTorsion">
-          <label for="enableTorsion" style="color:#92400e;">考慮扭力 (Tu)</label>
+          <label for="enableTorsion" data-ui="tone-label">考慮扭力 (Tu)</label>
         </div>
 
-        <div class="checkbox-row" style="background:#dbeafe; border-color:#93c5fd;">
+        <div class="checkbox-row" data-ui-tone="info">
           <input type="checkbox" id="enableDefl" checked>
-          <label for="enableDefl" style="color:#1e40af;">考慮跨深比 (撓度免算)</label>
+          <label for="enableDefl" data-ui="tone-label">考慮跨深比 (撓度免算)</label>
         </div>
 
-        <div class="checkbox-row" style="background:#ede9fe; border-color:#c4b5fd;">
+        <div class="checkbox-row" data-ui-tone="info">
           <input type="checkbox" id="showSteps">
-          <label for="showSteps" style="color:#5b21b6;">顯示計算過程 (詳列公式與代入步驟)</label>
+          <label for="showSteps" data-ui="tone-label">顯示計算過程 (詳列公式與代入步驟)</label>
         </div>
         <div class="form-group" id="stepsVerbosityWrap" style="display:none;">
           <label>計算過程等級</label>
@@ -409,9 +353,9 @@
 
         <div class="form-group"><label>保護層 cover (cm)</label><input type="number" id="cover" value="4" step="0.5"></div>
 
-        <div class="checkbox-row" style="background:#ecfdf5; border-color:#86efac;">
+        <div class="checkbox-row" data-ui-tone="success">
           <input type="checkbox" id="autoD" checked>
-          <label for="autoD" style="color:#065f46;">自動由配筋計算 d</label>
+          <label for="autoD" data-ui="tone-label">自動由配筋計算 d</label>
         </div>
         <div class="form-group" id="dManualWrap" style="display:none;">
           <label>有效深 d (cm) — 手動輸入</label><input type="number" id="dManual" value="63">
@@ -423,7 +367,7 @@
         </div>
         <p class="hint">排內淨距 sh：規範 25.2.1 為 max(db, 2.5 cm, 4/3·骨材)；台灣實務常用 4 cm。將用於「每排最多根數」限制。</p>
 
-        <h3 style="font-size:0.9em; color:var(--primary); margin:10px 0 6px;">握裹／搭接檢核</h3>
+        <h3 data-ui="section-heading">握裹／搭接檢核</h3>
         <div class="form-row">
           <div class="form-group"><label>頂層筋 ψt</label><select id="devTopPsi"><option value="1.3" selected>1.3 (上層筋)</option><option value="1.0">1.0</option></select></div>
           <div class="form-group"><label>環氧係數 ψe</label><select id="devEpoxyPsi"><option value="1.0" selected>1.0 (未塗布)</option><option value="1.2">1.2</option><option value="1.5">1.5</option></select></div>
@@ -446,27 +390,27 @@
         </div>
         <p class="hint">直線錨定依 shared/devlength.js 的 25.4.2 簡化式判定；標準彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。SMRF 梁搭接位置需避開距柱面 2h 內塑鉸區。</p>
 
-        <h3 style="font-size:0.85em; color:var(--primary); margin:10px 0 4px;">底層主筋（可新增排數，外排為第 1 排）</h3>
-        <div class="rebar-stack" id="botRebarStack" data-rebar-side="bot" style="font-size:0.78em;">
-          <div class="form-row3 rebar-layer" data-rebar-side="bot" data-rebar-index="1" style="gap:6px; margin-bottom:4px;">
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 1 排 號數</label>
+        <h3 data-ui="rebar-heading">底層主筋（可新增排數，外排為第 1 排）</h3>
+        <div class="rebar-stack" id="botRebarStack" data-rebar-side="bot" data-ui="detail-caption">
+          <div class="form-row3 rebar-layer" data-rebar-side="bot" data-rebar-index="1">
+            <div class="form-group"><label>第 1 排 號數</label>
               <select id="botBar1No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="botBar1N" value="4"></div>
+            <div class="form-group"><label>根數</label><input type="number" id="botBar1N" value="4"></div>
             <div></div>
           </div>
-          <div class="form-row3 rebar-layer" data-rebar-side="bot" data-rebar-index="2" style="gap:6px; margin-bottom:4px;">
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 2 排 號數</label>
+          <div class="form-row3 rebar-layer" data-rebar-side="bot" data-rebar-index="2">
+            <div class="form-group"><label>第 2 排 號數</label>
               <select id="botBar2No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="botBar2N" value="0"></div>
+            <div class="form-group"><label>根數</label><input type="number" id="botBar2N" value="0"></div>
             <div></div>
           </div>
-          <div class="form-row3 rebar-layer" data-rebar-side="bot" data-rebar-index="3" style="gap:6px; margin-bottom:4px;">
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 3 排 號數</label>
+          <div class="form-row3 rebar-layer" data-rebar-side="bot" data-rebar-index="3">
+            <div class="form-group"><label>第 3 排 號數</label>
               <select id="botBar3No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="botBar3N" value="0"></div>
+            <div class="form-group"><label>根數</label><input type="number" id="botBar3N" value="0"></div>
             <div></div>
           </div>
         </div>
@@ -476,27 +420,27 @@
           <span class="hint" id="botLayerCount">目前 3 排</span>
         </div>
 
-        <h3 style="font-size:0.85em; color:var(--primary); margin:10px 0 4px;">頂層主筋（可新增排數，外排為第 1 排）</h3>
-        <div class="rebar-stack" id="topRebarStack" data-rebar-side="top" style="font-size:0.78em;">
-          <div class="form-row3 rebar-layer" data-rebar-side="top" data-rebar-index="1" style="gap:6px; margin-bottom:4px;">
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 1 排 號數</label>
+        <h3 data-ui="rebar-heading">頂層主筋（可新增排數，外排為第 1 排）</h3>
+        <div class="rebar-stack" id="topRebarStack" data-rebar-side="top" data-ui="detail-caption">
+          <div class="form-row3 rebar-layer" data-rebar-side="top" data-rebar-index="1">
+            <div class="form-group"><label>第 1 排 號數</label>
               <select id="topBar1No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option selected>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="topBar1N" value="2"></div>
+            <div class="form-group"><label>根數</label><input type="number" id="topBar1N" value="2"></div>
             <div></div>
           </div>
-          <div class="form-row3 rebar-layer" data-rebar-side="top" data-rebar-index="2" style="gap:6px; margin-bottom:4px;">
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 2 排 號數</label>
+          <div class="form-row3 rebar-layer" data-rebar-side="top" data-rebar-index="2">
+            <div class="form-group"><label>第 2 排 號數</label>
               <select id="topBar2No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option selected>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="topBar2N" value="0"></div>
+            <div class="form-group"><label>根數</label><input type="number" id="topBar2N" value="0"></div>
             <div></div>
           </div>
-          <div class="form-row3 rebar-layer" data-rebar-side="top" data-rebar-index="3" style="gap:6px; margin-bottom:4px;">
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 3 排 號數</label>
+          <div class="form-row3 rebar-layer" data-rebar-side="top" data-rebar-index="3">
+            <div class="form-group"><label>第 3 排 號數</label>
               <select id="topBar3No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option selected>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
-            <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="topBar3N" value="0"></div>
+            <div class="form-group"><label>根數</label><input type="number" id="topBar3N" value="0"></div>
             <div></div>
           </div>
         </div>
@@ -506,7 +450,7 @@
           <span class="hint" id="topLayerCount">目前 3 排</span>
         </div>
 
-        <h3 style="font-size:0.9em; color:var(--primary); margin:8px 0 6px;">表層筋 (skin reinforcement)</h3>
+        <h3 data-ui="section-heading">表層筋 (skin reinforcement)</h3>
         <div class="form-row">
           <div class="form-group"><label>號數</label>
             <select id="skinNo"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
@@ -515,7 +459,7 @@
         </div>
         <p class="hint">當 h > 90 cm 時，正彎矩檢核底受拉區、負彎矩檢核頂受拉區；每側面於各受拉面 h/2 範圍內配置表層筋，間距依規範 24.3.2 控制。</p>
 
-        <h3 style="font-size:0.9em; color:var(--primary); margin:8px 0 6px;">箍筋</h3>
+        <h3 data-ui="section-heading">箍筋</h3>
         <div class="form-row">
           <div class="form-group"><label>號數</label>
             <select id="stirrup"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
@@ -547,8 +491,8 @@
           <div class="form-group" id="TuWrap" style="display:none;"><label>因數化扭矩 Tu (tf·m)</label><input type="number" id="Tu" value="0" data-force="T"></div>
           <div class="form-group" id="VeWrap" style="display:none;"><label>地震引致剪力 Ve (tf)</label><input type="number" id="Ve" value="20"></div>
         </div>
-        <hr style="margin:14px 0; border:none; border-top:1px dashed #cbd5e1;">
-        <h3 style="font-size:0.95em; color:var(--primary); margin:6px 0 8px;">載重組合產生器 (可選)</h3>
+        <hr data-ui="section-divider">
+        <h3 data-ui="section-heading">載重組合產生器 (可選)</h3>
         <div id="lcBeamPanel"></div>
       </div>
 
@@ -588,9 +532,9 @@
           <label>是否連接易損構造</label>
           <select id="sensitive"><option value="no" selected>否</option><option value="yes">是</option></select>
         </div>
-        <div class="checkbox-row" style="background:#fef3c7; border-color:#fcd34d;">
+        <div class="checkbox-row" data-ui-tone="warning">
           <input type="checkbox" id="enableExactDefl">
-<label for="enableExactDefl" style="color:#92400e;">嚴謹撓度計算 (Bischoff Ie + 長期係數)</label>
+<label for="enableExactDefl" data-ui="tone-label">嚴謹撓度計算 (Bischoff Ie + 長期係數)</label>
         </div>
         <div id="exactDeflInputs" style="display:none;">
           <div class="form-row">
@@ -634,8 +578,8 @@
           <div class="form-group"><label>首支箍筋距柱面 (cm，可選)</label><input type="number" id="firstHoopDist" placeholder="未輸入則人工複核" step="any"></div>
         </div>
         <p class="hint">Mn,min 用於 18.3.3.2 跨內任一斷面 ≥ Mn,max/4；首支箍筋距柱面用於 18.3.4 梁端圍束細節。</p>
-        <hr style="margin:14px 0; border:none; border-top:1px dashed #cbd5e1;">
-        <h3 style="font-size:0.95em; color:var(--primary); margin:6px 0 8px;">梁柱接頭整合</h3>
+        <hr data-ui="section-divider">
+        <h3 data-ui="section-heading">梁柱接頭整合</h3>
         <p class="hint">將本梁端標稱彎矩 Mnb 與由 Mpr 推得之梁剪力上限送至柱工具，供強柱弱梁與柱設計剪力檢核使用。</p>
         <div class="form-row">
           <div class="form-group">
@@ -667,7 +611,7 @@
     <div>
       <!-- 綜合結論 banner (所有分頁都顯示) -->
       <div class="card" id="conclusionCard">
-        <h2>綜合結論 <span id="conclusionScope" class="hint" style="margin-left:auto; font-style:normal;">—</span></h2>
+        <h2>綜合結論 <span id="conclusionScope" class="hint">—</span></h2>
         <div id="bannerStatus" class="banner-status">尚未計算</div>
         <div id="bannerKey" class="banner-key"></div>
       </div>
@@ -693,7 +637,7 @@
 
       <!-- 載重摘要 (僅在 loads/summary 顯示) -->
       <div class="card" id="loadSummaryCard" data-shows="loads summary">
-        <h2>載重摘要 <span class="hint" style="margin-left:auto; font-style:normal;">已輸入之外力</span></h2>
+        <h2>載重摘要 <span class="hint">已輸入之外力</span></h2>
         <div class="results-grid">
           <div class="result-item"><span class="label">+Mu (底拉)</span><span><span class="value" id="ls-MuPos">—</span><span class="unit">tf·m</span></span></div>
           <div class="result-item"><span class="label">−Mu (頂拉)</span><span><span class="value" id="ls-MuNeg">—</span><span class="unit">tf·m</span></span></div>
@@ -706,19 +650,19 @@
 
       <!-- 設計建議 (撓曲) -->
       <div class="card" id="designSuggestFlex" data-shows="flex summary">
-        <h2>設計建議 — 撓曲 <span class="hint" style="margin-left:auto; font-style:normal;">由 ±Mu 反算</span></h2>
+        <h2>設計建議 — 撓曲 <span class="hint">由 ±Mu 反算</span></h2>
         <div id="rebarHeroFlex" class="rebar-hero">
           <div class="line"><span class="lbl">主筋 As 需求</span><span class="big" id="heroAsReq">—</span></div>
           <div class="line"><span class="lbl">建議配置</span><span class="combo" id="heroCombo">—</span></div>
           <div class="line"><span class="lbl">目前配置 / 需求</span><span class="big" id="heroAsRatio">—</span></div>
         </div>
-        <div id="beamRebarDesignCandidates" style="margin-top:12px;"></div>
+        <div id="beamRebarDesignCandidates" data-ui-space="section"></div>
         <div id="beamRebarFeasibleRanges" class="rebar-range-wrap" aria-live="polite"></div>
       </div>
 
       <!-- 設計建議 (剪力) -->
       <div class="card" id="designSuggestShear" data-shows="shear summary">
-        <h2>設計建議 — 剪力 <span class="hint" style="margin-left:auto; font-style:normal;">由 Vd 反算</span></h2>
+        <h2>設計建議 — 剪力 <span class="hint">由 Vd 反算</span></h2>
         <div id="rebarHeroShear" class="rebar-hero">
           <div class="line"><span class="lbl">箍筋需求 Vs</span><span class="big" id="heroVsReq">—</span></div>
           <div class="line"><span class="lbl">建議間距 s</span><span class="combo" id="heroStirS">—</span></div>
@@ -990,12 +934,11 @@
     row.className = 'form-row3 rebar-layer';
     row.dataset.rebarSide = side;
     row.dataset.rebarIndex = String(index);
-    row.style.cssText = 'gap:6px; margin-bottom:4px;';
     row.innerHTML = `
-      <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 ${index} 排 號數</label>
+      <div class="form-group"><label>第 ${index} 排 號數</label>
         <select id="${side}Bar${index}No">${rebarNumberOptions(barNo)}</select>
       </div>
-      <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label>
+      <div class="form-group"><label>根數</label>
         <input type="number" id="${side}Bar${index}N" min="0" step="1" value="${Math.max(0, Number(count) || 0)}">
       </div>
       <div></div>`;
@@ -1145,7 +1088,7 @@
     if (!message) return;
     const note = document.createElement('div');
     note.textContent = message;
-    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? '#fee2e2' : '#dcfce7'};color:${status === 'fail' ? '#991b1b' : '#166534'};border:1px solid ${status === 'fail' ? '#fecaca' : '#86efac'};padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:420px;`;
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? 'var(--hy-danger-100)' : 'var(--hy-success-100)'};color:${status === 'fail' ? 'var(--hy-red-deep)' : 'var(--hy-success)'};border:1px solid ${status === 'fail' ? 'var(--hy-danger)' : 'var(--hy-success)'};padding:10px 14px;border-radius:var(--radius-lg);font-size:var(--fs-sm);box-shadow:var(--shadow-md);max-width:min(420px,calc(100vw - 20px));`;
     document.body.appendChild(note);
     setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
   }
@@ -1895,7 +1838,7 @@
       return;
     }
     card.style.display = '';
-    list.innerHTML = warnings.map((msg, idx) => `<div style="margin:6px 0; color:#92400e;">${idx + 1}. ${msg}</div>`).join('');
+    list.innerHTML = warnings.map((msg, idx) => `<div data-ui="warning-item">${idx + 1}. ${msg}</div>`).join('');
   }
 
   function beamCandidateLayerText(barNo, counts) {
@@ -1925,7 +1868,7 @@
     }).join('');
     host.innerHTML = `
       <div class="rebar-range-heading"><strong>主筋可行支數區間</strong><span class="hint">箍筋採 ${result.tieBar}</span></div>
-      <div style="overflow-x:auto;">
+      <div data-ui="scroll-region">
         <table class="rebar-range-table">
           <thead><tr><th>受拉面</th><th>號數</th><th>Ab<br>(cm²)</th><th>可用最少<br>(支)</th><th>下限控制</th><th>規範最多<br>(支)</th><th>幾何最多<br>(支)</th><th>每排最多</th><th>最少支數排列</th></tr></thead>
           <tbody>${body}</tbody>
@@ -1945,23 +1888,23 @@
     host.style.display = '';
     const candidates = result?.candidates || [];
     if (!candidates.length) {
-      host.innerHTML = `<div style="padding:10px 12px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;font-size:0.88em;"><strong>未找到可直接套用方案</strong><br>${result?.reason || '尚無容量式候選。'}。可調整梁寬、梁深、排間距或材料後再計算。</div>`;
+      host.innerHTML = `<div data-ui="notice" data-ui-tone="warning"><strong>未找到可直接套用方案</strong><br>${result?.reason || '尚無容量式候選。'}。可調整梁寬、梁深、排間距或材料後再計算。</div>`;
       return;
     }
     const rows = candidates.map((candidate, index) => `
       <tr>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${index + 1}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${beamCandidateLayerText(candidate.bottomBar, candidate.bottomCounts)}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${beamCandidateLayerText(candidate.topBar, candidate.topCounts)}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.legs} 肢 ${candidate.stirrup} @ ${candidate.spacing} cm</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.flexPosUtilization.toFixed(3)} / ${candidate.flexNegUtilization.toFixed(3)} / ${candidate.shearUtilization.toFixed(3)}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;"><button type="button" class="beam-design-apply" data-candidate-index="${index}" style="padding:5px 10px;border:0;border-radius:5px;background:#0e7490;color:#fff;cursor:pointer;">套用並檢核</button></td>
+        <td data-ui-align="center">${index + 1}</td>
+        <td>${beamCandidateLayerText(candidate.bottomBar, candidate.bottomCounts)}</td>
+        <td>${beamCandidateLayerText(candidate.topBar, candidate.topCounts)}</td>
+        <td>${candidate.legs} 肢 ${candidate.stirrup} @ ${candidate.spacing} cm</td>
+        <td data-ui-align="numeric">${candidate.flexPosUtilization.toFixed(3)} / ${candidate.flexNegUtilization.toFixed(3)} / ${candidate.shearUtilization.toFixed(3)}</td>
+        <td data-ui-align="center"><button type="button" class="beam-design-apply" data-candidate-index="${index}" data-ui-button="primary">套用並檢核</button></td>
       </tr>`).join('');
     host.innerHTML = `
-      <div style="font-size:0.86em;color:#475569;margin-bottom:6px;">容量式候選依鋼筋量、施工擁擠程度與利用率排序；每列均已通過正／負彎矩、剪力、最小配筋、筋距及可配置性篩選。候選僅供頁面比較，套用後才形成正式檢核結果。</div>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.84em;border:1px solid #cbd5e1;min-width:760px;">
-          <thead><tr style="background:#e2e8f0;"><th style="padding:6px;">#</th><th style="padding:6px;">底筋</th><th style="padding:6px;">頂筋</th><th style="padding:6px;">箍筋</th><th style="padding:6px;">M+ / M− / V 利用率</th><th style="padding:6px;">操作</th></tr></thead>
+      <div data-ui="candidate-intro">容量式候選依鋼筋量、施工擁擠程度與利用率排序；每列均已通過正／負彎矩、剪力、最小配筋、筋距及可配置性篩選。候選僅供頁面比較，套用後才形成正式檢核結果。</div>
+      <div data-ui="scroll-region">
+        <table data-ui-table="candidates">
+          <thead><tr data-ui-row="header"><th>#</th><th>底筋</th><th>頂筋</th><th>箍筋</th><th>M+ / M− / V 利用率</th><th>操作</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -2048,8 +1991,8 @@
     const isDesign = (currentMode === 'design');
     document.querySelectorAll('#botRebarStack input[id$="N"], #topRebarStack input[id$="N"]').forEach(el => {
       el.readOnly = isDesign;
-      el.style.background = isDesign ? '#f1f5f9' : '';
-      el.style.color = isDesign ? '#475569' : '';
+      el.style.background = isDesign ? 'var(--bg-subtle)' : '';
+      el.style.color = isDesign ? 'var(--hy-slate-700)' : '';
       el.title = isDesign ? '設計模式：由系統依 +Mu/−Mu 自動計算根數' : '檢核模式：請手動輸入根數';
     });
     const fmh = $('flexModeHint'); if (fmh) {
@@ -2063,8 +2006,8 @@
     document.querySelectorAll('.mode-btn').forEach(b => {
       const active = b.dataset.mode === currentMode;
       b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--primary)' : '#fff';
-      b.style.color = active ? '#fff' : 'var(--primary)';
+      b.style.background = active ? 'var(--primary)' : 'var(--bg-surface)';
+      b.style.color = active ? 'var(--bg-surface)' : 'var(--primary)';
     });
     $('modeHint').textContent = (currentMode === 'design')
       ? '設計模式：給定號數，工具自動推算根數。'
@@ -2112,7 +2055,7 @@
       ['MaPos','MaNeg'].forEach(id => {
         const el = $(id); if (!el) return;
         el.readOnly = autoMa.checked;
-        el.style.background = autoMa.checked ? '#f1f5f9' : '';
+        el.style.background = autoMa.checked ? 'var(--bg-subtle)' : '';
       });
       if (autoMa.checked) {
         if ($('MaPos')) $('MaPos').value = (num('MuPos') / 1.4).toFixed(2);
@@ -2994,7 +2937,7 @@ ${layerBars.map(L => {
     const el = $('beamJointSendStatus');
     if (!el) return;
     el.textContent = message;
-    el.style.color = status === 'fail' ? '#b91c1c' : status === 'ok' ? '#166534' : '';
+    el.style.color = status === 'fail' ? 'var(--hy-red-deep)' : status === 'ok' ? 'var(--hy-success)' : '';
   }
 
   function buildBeamColumnJointPayload() {
@@ -3668,7 +3611,7 @@ ${layerBars.map(L => {
     if (tab === 'geom') {
       // 幾何與材料分頁：不顯示檢核，僅顯示輸入摘要
       banner.className = 'banner-status';
-      banner.innerHTML = '幾何與材料 — 輸入區<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">受力與檢核請至「載重」與其他分頁</div>';
+      banner.innerHTML = '幾何與材料 — 輸入區<div data-ui="banner-detail">受力與檢核請至「載重」與其他分頁</div>';
       key.innerHTML = [
         { label:'bw × h', val:`${r.bw??$('bw').value} × ${r.h??$('h').value} cm`, ok:null },
         { label:"fc'/fy", val:`${$('fc').value}/${$('fy').value}`, ok:null },
@@ -3770,7 +3713,7 @@ ${layerBars.map(L => {
     banner.className = 'banner-status ' + (anyFail ? 'fail' : allOk ? 'ok' : 'warn');
     const icon = anyFail ? '✗' : allOk ? '✓' : '⚠';
     const txt = anyFail ? 'NG — 不符合規範' : pendingManualReview ? `部分項目需人工複核：${manualReviewItems.join('、')}` : allOk ? 'OK — 符合規範' : '部分項目待檢核';
-    banner.innerHTML = `${icon} ${txt}` + (bannerChecks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${bannerChecks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
+    banner.innerHTML = `${icon} ${txt}` + (bannerChecks.length ? `<div data-ui="banner-detail">${bannerChecks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
     key.innerHTML = kv.map(item => {
       const cls = item.ok === true ? 'ok' : item.ok === false ? 'fail' : '';
       return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;
@@ -3924,7 +3867,7 @@ ${layerBars.map(L => {
     navigator.clipboard.writeText(JSON.stringify(r, null, 2)).then(() => {
       const note = document.createElement('div');
       note.textContent = '✓ 已複製輸入 JSON 到剪貼簿';
-      note.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;background:#dcfce7;color:#166534;border:1px solid #86efac;padding:10px 14px;border-radius:6px;font-size:0.9em;';
+      note.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;background:var(--hy-success-100);color:var(--hy-success);border:1px solid var(--hy-success);padding:10px 14px;border-radius:var(--radius-lg);font-size:var(--fs-sm);';
       document.body.appendChild(note);
       setTimeout(() => note.remove(), 2500);
     });
@@ -4008,7 +3951,7 @@ ${layerBars.map(L => {
     // 浮動提示 banner
     const note = document.createElement('div');
     note.textContent = `✓ 已從連續梁分析導入主控組合：Mu=${qp.get('Mu')} tf·m，Vu=${qp.get('Vu')} tf，ℓn=${qp.get('ln')} cm (請依需要拆 +Mu/−Mu)`;
-    note.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;background:#dcfce7;color:#166534;border:1px solid #86efac;padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:380px;';
+    note.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;background:var(--hy-success-100);color:var(--hy-success);border:1px solid var(--hy-success);padding:10px 14px;border-radius:var(--radius-lg);font-size:var(--fs-sm);box-shadow:var(--shadow-md);max-width:min(380px,calc(100vw - 20px));';
     document.body.appendChild(note);
     setTimeout(() => note.remove(), 6000);
   }

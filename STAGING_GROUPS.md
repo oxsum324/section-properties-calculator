@@ -1,5 +1,9 @@
 # Staging 分包建議
 
+## 第二階段 T1 操作頁樣式包（2026-10-03，本機）
+
+RC 五頁與 `shared/style.css`、`shared/tool-page.css`，鋼構四頁與兩份操作 CSS、梁柱結果卡 hidden 切換，連續梁／平面剛架與 `assets/hy/*-ui.css` 應同包審查。原 id/class、計算與報表樣式保留；新增的 HY 引用與首頁依賴日期同步同包提交。`test-tool-page-layout.ps1` 是 11 頁 1280／375 px 初始與結果狀態的版面回歸入口；另跑各家族既有 wrapper，RC 共用樣式須涵蓋基礎、單樁與三支 STM。量測截圖、JSON、Office 輸出均留在忽略目錄，不更新正式發布快照。本段不代表公開站已放行。
+
 本檔目前扮演兩個角色：第一，記錄已發布到 `master` / GitHub Pages 的分包與證據；第二，保留下次同類變更可直接套用的 staging playbook。它不是目前待提交清單；若 `git status` 是 clean，以下 `git add` 區塊只作為未來變更時的審查邊界與 preflight coverage 來源。
 
 ## 已停用治理流程的私有資料防線

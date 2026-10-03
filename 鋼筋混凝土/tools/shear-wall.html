@@ -5,74 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>剪力牆設計／檢核 — RC 工具箱</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../shared/style.css">
+<link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
 <style>
-  .steps-card h2 { color:#5b21b6; }
-  .steps-body {
-    white-space: pre-wrap; word-break: break-word;
-    font-family: ui-monospace, "Cascadia Code", "Consolas", "Microsoft JhengHei", monospace;
-    font-size: 0.82em; line-height: 1.55;
-    background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 6px;
-    padding: 12px 14px; margin: 0; color: #3b0764;
-  }
-  .tool-toggle { margin-top:8px; padding:8px 10px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; }
-  .detail-help { display:none; }
-  .show-detail-help .detail-help { display:block; }
-  .advanced-tools { display:none; margin-top:14px; }
-  .advanced-tools.active { display:block; }
-  .advanced-tools summary {
-    cursor:pointer; font-weight:700; color:#1e3a8a; list-style:none;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:10px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
-  }
-  .advanced-tools summary::-webkit-details-marker { display:none; }
-  .advanced-tools details + details { margin-top:10px; }
-  .advanced-body { margin-top:8px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
-  .mono-box { width:100%; font-family:Consolas, monospace; font-size:0.82em; }
-  .diagram-svg { width:100%; max-width:520px; display:block; margin:0 auto; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; }
-  .design-sugg { margin:8px 0; padding:10px 12px; border-radius:4px; font-size:0.9em; border-left:3px solid #16a34a; background:#ecfdf5; }
-  .design-sugg .design-sugg-title { font-weight:600; color:#166534; margin-bottom:4px; }
-  .design-sugg.warn { border-left-color:#f59e0b; background:#fffbeb; }
-  .design-sugg.warn .design-sugg-title { color:#92400e; }
+  .diagram-svg { width:100%; max-width:520px; display:block; margin:0 auto; background:var(--bg-page); border:1px solid var(--border-strong); border-radius: var(--radius-lg); }
+  .design-sugg { margin:8px 0; padding:10px 12px; border-radius: var(--radius-md); font-size: var(--fs-sm); border-left:3px solid var(--hy-success); background:var(--hy-success-100); }
+  .design-sugg .design-sugg-title { font-weight:600; color:var(--hy-success); margin-bottom:4px; }
+  .design-sugg.warn { border-left-color:var(--hy-warning); background:var(--hy-warning-100); }
+  .design-sugg.warn .design-sugg-title { color:var(--rc-warning-ink); }
   .design-sugg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; }
-  .design-sugg-actions button { padding:6px 12px; background:#1a3d5c; color:#fff; border:0; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600; }
+  .design-sugg-actions button { padding:6px 12px; background:var(--hy-navy); color:var(--bg-surface); border:0; border-radius: var(--radius-lg); cursor:pointer; font-family:inherit; font-weight:600; }
     .design-sugg-actions button[hidden] { display:none; }
-    .design-sugg-note { color:#475569; font-size:0.88em; }
-    .case-list-input { min-height:104px; font-family:Consolas, "Courier New", monospace; line-height:1.45; white-space:pre; overflow-x:auto; }
+    .design-sugg-note { color:var(--hy-slate-700); font-size: var(--fs-sm); }
+    .case-list-input { min-height:104px; font-family: var(--font-mono); line-height:1.45; white-space:pre; overflow-x:auto; }
     .load-case-actions { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
-    .load-case-actions button { padding:6px 10px; border:0; border-radius:6px; background:#1a3d5c; color:#fff; cursor:pointer; font-family:inherit; font-weight:600; }
-    .load-case-actions button.secondary { background:#e2e8f0; color:#1f2937; }
-    .case-editor-wrap { overflow-x:auto; margin-top:8px; border:1px solid #d6e0ea; border-radius:6px; background:#fff; }
-    .case-editor-table { width:100%; min-width:820px; border-collapse:collapse; font-size:0.84em; font-variant-numeric:tabular-nums; }
-    .case-editor-table th, .case-editor-table td { border-bottom:1px solid #e2e8f0; padding:5px 6px; white-space:nowrap; }
-    .case-editor-table th { background:#eef5f9; color:#234; text-align:left; }
-    .case-editor-table input, .case-editor-table select { width:100%; min-width:64px; padding:4px 5px; font:inherit; border:1px solid #cbd5e1; border-radius:4px; }
+    .load-case-actions button { padding:6px 10px; border:0; border-radius: var(--radius-lg); background:var(--hy-navy); color:var(--bg-surface); cursor:pointer; font-family:inherit; font-weight:600; }
+    .load-case-actions button.secondary { background:var(--border-default); color:var(--hy-ink-soft); }
+    .case-editor-wrap { overflow-x:auto; margin-top:8px; border:1px solid var(--border-strong); border-radius: var(--radius-lg); background:var(--bg-surface); }
+    .case-editor-table { width:100%; min-width:820px; border-collapse:collapse; font-size: var(--fs-sm); font-variant-numeric:tabular-nums; }
+    .case-editor-table th, .case-editor-table td { border-bottom:1px solid var(--border-default); padding:5px 6px; white-space:nowrap; }
+    .case-editor-table th { background:var(--hy-navy-100); color:var(--hy-ink-soft); text-align:left; }
+    .case-editor-table input, .case-editor-table select { width:100%; min-width:64px; padding:4px 5px; font:inherit; border:1px solid var(--border-strong); border-radius: var(--radius-md); }
     .case-editor-table .case-name { min-width:120px; }
     .case-editor-table .case-delete { width:36px; min-width:36px; text-align:center; }
-    .case-editor-table .case-delete button { width:26px; height:26px; padding:0; border:0; border-radius:50%; background:#fee2e2; color:#991b1b; cursor:pointer; font-weight:700; }
-    .case-editor-empty { color:#64748b; text-align:center; padding:10px 8px !important; }
+    .case-editor-table .case-delete button { width:26px; height:26px; padding:0; border:0; border-radius:50%; background:var(--hy-danger-100); color:var(--hy-red-deep); cursor:pointer; font-weight:700; }
+    .case-editor-empty { color:var(--hy-slate-500); text-align:center; padding:10px 8px !important; }
     .control-table-wrap { overflow-x:auto; margin-top:8px; }
-    .control-table { width:100%; min-width:640px; border-collapse:collapse; font-size:0.86em; font-variant-numeric:tabular-nums; }
-    .control-table th, .control-table td { border:1px solid #d6e0ea; padding:5px 6px; vertical-align:top; white-space:nowrap; }
-    .control-table th { background:#eef5f9; color:#234; text-align:left; }
-    .control-table tr.ok td { background:#f0fdf4; }
-    .control-table tr.fail td { background:#fff5f5; }
+    .control-table { width:100%; min-width:640px; border-collapse:collapse; font-size: var(--fs-sm); font-variant-numeric:tabular-nums; }
+    .control-table th, .control-table td { border:1px solid var(--border-strong); padding:5px 6px; vertical-align:top; white-space:nowrap; }
+    .control-table th { background:var(--hy-navy-100); color:var(--hy-ink-soft); text-align:left; }
+    .control-table tr.ok td { background:var(--hy-success-100); }
+    .control-table tr.fail td { background:var(--hy-danger-100); }
     .control-kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:8px; }
-    .control-kpi div { background:#f8fafc; border:1px solid #dbe4ee; border-left:3px solid #1a3d5c; border-radius:4px; padding:7px 8px; }
-    .control-kpi span { display:block; color:#64748b; font-size:0.78em; }
-    .control-kpi strong { display:block; color:#123; margin-top:2px; }
+    .control-kpi div { background:var(--bg-page); border:1px solid var(--border-strong); border-left:3px solid var(--hy-navy); border-radius: var(--radius-md); padding:7px 8px; }
+    .control-kpi span { display:block; color:var(--hy-slate-500); font-size: var(--fs-xs); }
+    .control-kpi strong { display:block; color:var(--hy-ink-soft); margin-top:2px; }
   .mobile-summary-card { display:none; }
-  .mode-bar__actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
-  .mode-bar__action {
-    padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px;
-    background:#f8fafc; color:#1f2937; cursor:pointer; font-family:inherit; font-weight:600;
-  }
-  .mode-bar__action:hover { background:#eef2ff; border-color:#93c5fd; }
-  .mode-bar__file { display:none; }
-  .mode-bar__project-status { font-size:0.82em; color:var(--text-light); min-height:1.3em; }
+
   @media (max-width: 768px) {
-    .mode-bar__proj { display:grid !important; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
+    .mode-bar__proj { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%; }
     .mode-bar__proj .w-name,
     .mode-bar__proj .w-des,
     .mode-bar__proj .mode-bar__actions,
@@ -84,14 +57,14 @@
     .mobile-summary-card { display:block; }
     .mobile-fold h2 { cursor:pointer; }
     .mobile-fold.mobile-collapsed > :not(h2) { display:none; }
-    .mobile-fold h2::after { float:right; font-size:0.76em; color:#64748b; font-weight:600; }
+    .mobile-fold h2::after { float:right; font-size: var(--fs-xs); color:var(--hy-slate-500); font-weight:600; }
     .mobile-fold.mobile-collapsed h2::after { content:'展開'; }
     .mobile-fold:not(.mobile-collapsed) h2::after { content:'收合'; }
   }
-  .quick-summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .quick-pill { padding:10px 12px; background:#f8fafc; border:1px solid #dbe4ee; border-radius:8px; }
-  .quick-pill .k { font-size:0.78em; color:#64748b; display:block; margin-bottom:4px; }
-  .quick-pill .v { font-size:0.96em; font-weight:700; color:#1f2937; }
+  .quick-summary-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .quick-pill { padding:10px 12px; background:var(--bg-page); border:1px solid var(--border-strong); border-radius: var(--radius-lg); }
+  .quick-pill .k { font-size: var(--fs-xs); color:var(--hy-slate-500); display:block; margin-bottom:4px; }
+  .quick-pill .v { font-size: var(--fs-base); font-weight:700; color:var(--hy-ink-soft); }
   .summary-checklist { margin-top:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:8px; }
   .summary-warning-list { margin-top:10px; display:grid; gap:8px; }
   .summary-warning-list[hidden] { display:none; }
@@ -106,7 +79,7 @@
 <body class="rc-formal-output-page">
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>剪力牆 Shear Wall 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V0.4</span></h1>
+  <h1>剪力牆 Shear Wall 設計／檢核 <span data-ui="version">V0.4</span></h1>
   <p><a class="back" href="../index.html">← 回 RC 工具箱</a> ｜ 面內撓曲 P-M 互制、面內剪力、特殊邊界構材 (依 112 規範 11 章 ＋ 18.7 章)</p>
 </header>
 
@@ -136,7 +109,7 @@
     </div>
   </div>
 
-  <div class="card page-only-case-tools" style="margin-top:10px;">
+  <div class="card page-only-case-tools" data-ui-space="section">
     <div class="form-row">
       <div class="form-group">
         <label>內建案例</label>
@@ -147,17 +120,17 @@
           <option value="bearing_shear">承重兼結構牆例</option>
         </select>
       </div>
-      <div class="form-group" style="align-self:end;">
+      <div class="form-group" data-ui="aligned-action">
         <button id="btnApplyCase" class="mode-bar__report" type="button">套用案例</button>
       </div>
     </div>
     <div class="tool-toggle">
-      <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
+      <label data-ui="option">
         <input type="checkbox" id="showDetailHelp"> 顯示詳細說明與假設
       </label>
     </div>
     <div class="tool-toggle">
-      <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
+      <label data-ui="option">
         <input type="checkbox" id="showCaseTools"> 顯示進階案例工具（JSON 匯出／匯入）
       </label>
     </div>
@@ -183,9 +156,9 @@
           <input type="checkbox" id="seismicMode" checked>
           <label for="seismicMode">套用特殊結構牆耐震規定 (規範 18.7)</label>
         </div>
-        <div class="checkbox-row" style="background:#ede9fe; border-color:#c4b5fd;">
+        <div class="checkbox-row" data-ui-tone="info">
           <input type="checkbox" id="showSteps">
-          <label for="showSteps" style="color:#5b21b6;">顯示計算過程 (詳列公式與代入步驟，並印在計算書中)</label>
+          <label for="showSteps" data-ui="tone-label">顯示計算過程 (詳列公式與代入步驟，並印在計算書中)</label>
         </div>
         <div class="checkbox-row">
           <input type="checkbox" id="scopeSingleWall" checked>
@@ -309,10 +282,10 @@
         </div>
         <div id="rebarDesignInlineSugg" class="design-sugg">
           <div id="inlineSuggTitle" class="design-sugg-title">📐 依規範下限之建議</div>
-          <div id="inlineVSugg" style="font-family:monospace;">縱筋 —</div>
-          <div id="inlineHSugg" style="font-family:monospace;">橫筋 —</div>
-          <div id="inlineBESugg" style="font-family:monospace;">邊界 —</div>
-          <div id="inlineShearFricSugg" style="font-family:monospace;">剪摩擦 —</div>
+          <div id="inlineVSugg" data-ui="numeric">縱筋 —</div>
+          <div id="inlineHSugg" data-ui="numeric">橫筋 —</div>
+          <div id="inlineBESugg" data-ui="numeric">邊界 —</div>
+          <div id="inlineShearFricSugg" data-ui="numeric">剪摩擦 —</div>
           <div class="design-sugg-actions">
             <button id="btnApplyFlexSuggestion" type="button" hidden>套用 P-M 候選</button>
             <span id="inlineApplyNote" class="design-sugg-note"></span>
@@ -361,7 +334,7 @@
     <div>
       <!-- 綜合結論 banner -->
       <div class="card" id="conclusionCard">
-        <h2>綜合結論 <span id="conclusionScope" class="hint" style="margin-left:auto; font-style:normal;">—</span></h2>
+        <h2>綜合結論 <span id="conclusionScope" class="hint">—</span></h2>
         <div id="bannerStatus" class="banner-status">尚未計算</div>
         <div id="bannerKey" class="banner-key"></div>
       </div>
@@ -397,9 +370,9 @@
 
       <!-- 面內 P-M -->
       <div class="card mobile-fold" data-shows="pm summary">
-        <h2>面內撓曲 P-M 互制 <span class="hint" style="margin-left:auto; font-style:normal;">應變相容纖維法</span></h2>
+        <h2>面內撓曲 P-M 互制 <span class="hint">應變相容纖維法</span></h2>
         <svg id="pmSvg" class="diagram-svg" viewBox="0 0 460 360" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div class="results-grid" style="margin-top:10px;">
+        <div class="results-grid" data-ui-space="section">
           <div class="result-item" id="r-Po"><span class="label">Po (標稱軸壓)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
           <div class="result-item" id="r-phiPnMax"><span class="label">φPn,max</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
           <div class="result-item" id="r-cNA"><span class="label">中性軸 c @Pu</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
@@ -413,9 +386,9 @@
 
       <!-- 斷面配筋示意 -->
       <div class="card mobile-fold" data-shows="pm rebar summary">
-        <h2>牆斷面配筋示意 <span class="hint" style="margin-left:auto; font-style:normal;">水平切面 plan cut</span></h2>
+        <h2>牆斷面配筋示意 <span class="hint">水平切面 plan cut</span></h2>
         <svg id="sectionSvg" class="diagram-svg" viewBox="0 0 520 150" xmlns="http://www.w3.org/2000/svg"></svg>
-        <p class="hint" id="sectionNote" style="text-align:center;">—</p>
+        <p class="hint" id="sectionNote" data-ui-align="center">—</p>
       </div>
 
       <!-- 面內剪力 -->
@@ -493,12 +466,12 @@
       </div>
 
       <div class="card mobile-fold" data-shows="summary" id="masterSummaryCard">
-        <h2>📋 綜合報告彙整 <span class="hint" style="margin-left:auto; font-style:normal;">所有檢核項目一覽</span></h2>
+        <h2>📋 綜合報告彙整 <span class="hint">所有檢核項目一覽</span></h2>
         <p class="hint detail-help" id="summaryModeNote">設計模式：依當前載重給出建議；可切換至檢核模式核對既有配筋。</p>
         <div id="summaryChecklist" class="summary-checklist" aria-live="polite"></div>
         <div id="summaryWarnings" class="summary-warning-list" aria-live="polite" hidden></div>
-        <div style="margin-top:10px; display:flex; gap:8px;">
-          <button type="button" id="btnReport2" style="padding:8px 16px; background:#1a3d5c; color:#fff; border:0; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600;">📄 產生完整計算書</button>
+        <div data-ui="section-actions">
+          <button type="button" id="btnReport2" data-ui-button="report">📄 產生完整計算書</button>
         </div>
       </div>
     </div>
@@ -509,11 +482,11 @@
     <details open>
       <summary>案例 JSON 匯出 / 匯入</summary>
       <div class="advanced-body">
-        <div class="form-row" style="margin-top:0;">
-          <div class="form-group" style="align-self:end;"><button id="btnExportCase" class="mode-bar__report" type="button">匯出目前設定 JSON</button></div>
-          <div class="form-group" style="align-self:end;"><button id="btnImportCase" class="mode-bar__report" type="button">匯入 JSON</button></div>
+        <div class="form-row" data-ui-space="flush">
+          <div class="form-group" data-ui="aligned-action"><button id="btnExportCase" class="mode-bar__report" type="button">匯出目前設定 JSON</button></div>
+          <div class="form-group" data-ui="aligned-action"><button id="btnImportCase" class="mode-bar__report" type="button">匯入 JSON</button></div>
         </div>
-        <div class="form-group" style="margin-top:8px;">
+        <div class="form-group" data-ui-space="field">
           <label>案例 JSON</label>
           <textarea id="caseJson" class="mono-box" rows="8" placeholder="可貼上匯出的案例 JSON，按「匯入 JSON」即可還原設定。"></textarea>
         </div>
@@ -597,8 +570,8 @@
       document.querySelectorAll('.mode-btn').forEach(b => {
         const active = b === btn;
         b.classList.toggle('active', active);
-        b.style.background = active ? 'var(--primary)' : '#fff';
-        b.style.color = active ? '#fff' : 'var(--primary)';
+        b.style.background = active ? 'var(--primary)' : 'var(--bg-surface)';
+        b.style.color = active ? 'var(--bg-surface)' : 'var(--primary)';
       });
       $('modeHint').textContent = (currentMode === 'design')
         ? '設計模式：給定載重，建議配筋與邊界構材。'
@@ -622,8 +595,8 @@
     document.querySelectorAll('.mode-btn').forEach(b => {
       const active = b.dataset.mode === currentMode;
       b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--primary)' : '#fff';
-      b.style.color = active ? '#fff' : 'var(--primary)';
+      b.style.background = active ? 'var(--primary)' : 'var(--bg-surface)';
+      b.style.color = active ? 'var(--bg-surface)' : 'var(--primary)';
     });
     $('modeHint').textContent = (currentMode === 'design')
       ? '設計模式：給定載重，建議配筋與邊界構材。'
@@ -642,7 +615,7 @@
     if (!message) return;
     const note = document.createElement('div');
     note.textContent = message;
-    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? '#fee2e2' : '#dcfce7'};color:${status === 'fail' ? '#991b1b' : '#166534'};border:1px solid ${status === 'fail' ? '#fecaca' : '#86efac'};padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:420px;`;
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? 'var(--hy-danger-100)' : 'var(--hy-success-100)'};color:${status === 'fail' ? 'var(--hy-red-deep)' : 'var(--hy-success)'};border:1px solid ${status === 'fail' ? 'var(--hy-danger)' : 'var(--hy-success)'};padding:10px 14px;border-radius:var(--radius-lg);font-size:var(--fs-sm);box-shadow:var(--shadow-md);max-width:min(420px,calc(100vw - 20px));`;
     document.body.appendChild(note);
     setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
   }
@@ -1110,7 +1083,7 @@
       ${controlText('SBE 控制', r.loadCaseControls.sbe, c => `指標=${f(c.sbeIndex,2)}`)}
       ${controlText('剪摩擦控制', r.loadCaseControls.shearFric, c => c.shearFricActive ? `Avf比=${f(c.shearFricUtil,2)}` : '未觸發')}
     </div>`;
-    const errHtml = errs.length ? `<div class="warn" style="margin-top:8px;">${errs.map(escHtml).join('；')}</div>` : '';
+    const errHtml = errs.length ? `<div class="warn" data-ui-space="field">${errs.map(escHtml).join('；')}</div>` : '';
     const rows = cases.map(c => `<tr class="${c.overallOk ? 'ok' : 'fail'}">
       <td>${escHtml(c.name)}</td>
       <td>${f(c.Pu,1)}</td>
@@ -1683,9 +1656,9 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         ? 'OK — 符合規範'
         : (reviewWarnings.length ? `待確認 — ${reviewWarnings.length} 項需補充設計或圖說確認` : '部分項目待確認');
     const reviewText = (tab === 'summary' && reviewWarnings.length)
-      ? `<div style="font-size:0.68em; font-weight:500; opacity:0.9; margin-top:6px;">待確認：${reviewWarnings.join(' ｜ ')}</div>`
+      ? `<div data-ui="banner-detail">待確認：${reviewWarnings.join(' ｜ ')}</div>`
       : '';
-    banner.innerHTML = `${icon} ${txt}` + (checks.length? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c=>`${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>`:'') + reviewText;
+    banner.innerHTML = `${icon} ${txt}` + (checks.length? `<div data-ui="banner-detail">${checks.map(c=>`${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>`:'') + reviewText;
     key.innerHTML = kv.map(item=>{
       const cls = item.ok===true?'ok':item.ok===false?'fail':'';
       return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;

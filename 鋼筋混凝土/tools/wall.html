@@ -5,43 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>牆設計 — RC 工具箱 V3.2</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../shared/style.css">
+<link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
 <style>
-  .steps-card h2 { color:#5b21b6; }
-  .steps-body {
-    white-space: pre-wrap; word-break: break-word;
-    font-family: ui-monospace, "Cascadia Code", "Consolas", "Microsoft JhengHei", monospace;
-    font-size: 0.82em; line-height: 1.55;
-    background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 6px;
-    padding: 12px 14px; margin: 0; color: #3b0764;
-  }
-  .tool-toggle { margin-top:8px; padding:8px 10px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; }
-  .detail-help { display:none; }
-  .show-detail-help .detail-help { display:block; }
-  .advanced-tools { display:none; margin-top:14px; }
-  .advanced-tools.active { display:block; }
-  .advanced-tools summary {
-    cursor:pointer; font-weight:700; color:#1e3a8a; list-style:none;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:10px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
-  }
-  .advanced-tools summary::-webkit-details-marker { display:none; }
-  .advanced-tools details + details { margin-top:10px; }
-  .advanced-body { margin-top:8px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
-  .mono-box { width:100%; font-family:Consolas, monospace; font-size:0.82em; }
   .mobile-summary-card { display:none; }
-  .mode-bar__actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
-  .mode-bar__action {
-    padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px;
-    background:#f8fafc; color:#1f2937; cursor:pointer; font-family:inherit; font-weight:600;
-  }
-  .mode-bar__action:hover { background:#eef2ff; border-color:#93c5fd; }
-  .mode-bar__file { display:none; }
-  .mode-bar__project-status { font-size:0.82em; color:var(--text-light); min-height:1.3em; }
+
   @media (max-width: 768px) {
     .mode-bar__proj {
-      display:grid !important; grid-template-columns:1fr 1fr; gap:8px; width:100%;
+      display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%;
     }
     .mode-bar__proj .w-name,
     .mode-bar__proj .w-des,
@@ -61,23 +34,23 @@
     .mobile-fold h2 { cursor:pointer; }
     .mobile-fold.mobile-collapsed > :not(h2) { display:none; }
     .mobile-fold h2::after {
-      float:right; font-size:0.76em; color:#64748b; font-weight:600;
+      float:right; font-size: var(--fs-xs); color:var(--hy-slate-500); font-weight:600;
     }
     .mobile-fold.mobile-collapsed h2::after { content:'展開'; }
     .mobile-fold:not(.mobile-collapsed) h2::after { content:'收合'; }
   }
-  .quick-summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .quick-summary-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
   .quick-pill {
-    padding:10px 12px; background:#f8fafc; border:1px solid #dbe4ee; border-radius:8px;
+    padding:10px 12px; background:var(--bg-page); border:1px solid var(--border-strong); border-radius: var(--radius-lg);
   }
-  .quick-pill .k { font-size:0.78em; color:#64748b; display:block; margin-bottom:4px; }
-  .quick-pill .v { font-size:0.96em; font-weight:700; color:#1f2937; }
+  .quick-pill .k { font-size: var(--fs-xs); color:var(--hy-slate-500); display:block; margin-bottom:4px; }
+  .quick-pill .v { font-size: var(--fs-base); font-weight:700; color:var(--hy-ink-soft); }
 </style>
 </head>
 <body class="rc-formal-output-page">
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>牆 Wall 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.2</span></h1>
+  <h1>牆 Wall 設計／檢核 <span data-ui="version">V3.2</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 承重牆／結構牆 P-M 互制、軸壓與軸拉、面內剪力、牆端配筋與特殊邊界構材</p>
 </header>
 
@@ -107,7 +80,7 @@
     </div>
   </div>
 
-  <div class="card page-only-case-tools" style="margin-top:10px;">
+  <div class="card page-only-case-tools" data-ui-space="section">
     <div class="form-row">
       <div class="form-group">
         <label>內建案例</label>
@@ -120,18 +93,18 @@
           <option value="basement_pass_warn">地下室外牆通過待確認例</option>
         </select>
       </div>
-      <div class="form-group" style="align-self:end;">
+      <div class="form-group" data-ui="aligned-action">
         <button id="btnApplyCase" class="mode-bar__report" type="button">套用案例</button>
       </div>
     </div>
     <div class="tool-toggle">
-      <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
+      <label data-ui="option">
         <input type="checkbox" id="showDetailHelp">
         顯示詳細說明與假設
       </label>
     </div>
     <div class="tool-toggle">
-      <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
+      <label data-ui="option">
         <input type="checkbox" id="showCaseTools">
         顯示進階案例工具（JSON / 比較 / 基準報告）
       </label>
@@ -157,9 +130,9 @@
           <label for="seismicMode">套用特殊結構牆耐震規定</label>
         </div>
 
-        <div class="checkbox-row" style="background:#ede9fe; border-color:#c4b5fd;">
+        <div class="checkbox-row" data-ui-tone="info">
           <input type="checkbox" id="showSteps">
-          <label for="showSteps" style="color:#5b21b6;">顯示計算過程 (詳列公式與代入步驟，並印在計算書中)</label>
+          <label for="showSteps" data-ui="tone-label">顯示計算過程 (詳列公式與代入步驟，並印在計算書中)</label>
         </div>
 
         <div class="form-group">
@@ -231,11 +204,11 @@
             <select id="hBar"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
           </div>
         </div>
-        <div id="rebarDesignInlineSugg" style="margin:8px 0; padding:10px 12px; background:#ecfdf5; border-left:3px solid #16a34a; border-radius:4px; font-size:0.9em;">
-          <div style="font-weight:600; color:#166534; margin-bottom:4px;">📐 依目標號數之建議配筋規格</div>
-          <div id="inlineVSugg" style="font-family:monospace;">縱筋 —</div>
-          <div id="inlineHSugg" style="font-family:monospace;">橫筋 —</div>
-          <div id="inlineLayerSugg" style="font-family:monospace;">層數 —</div>
+        <div id="rebarDesignInlineSugg">
+          <div data-ui="suggestion-title">📐 依目標號數之建議配筋規格</div>
+          <div id="inlineVSugg" data-ui="numeric">縱筋 —</div>
+          <div id="inlineHSugg" data-ui="numeric">橫筋 —</div>
+          <div id="inlineLayerSugg" data-ui="numeric">層數 —</div>
         </div>
         <div class="form-row" data-rebar-spacing>
           <div class="form-group"><label>縱筋間距 (cm)</label><input type="number" id="vSp" value="20"></div>
@@ -247,12 +220,12 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>保護層厚度 (cm)</label><input type="number" id="cover" value="2" min="0" step="0.5"></div>
-          <div class="form-group checkbox-row" data-check-only style="align-self:end; min-height:42px;">
+          <div class="form-group checkbox-row" data-check-only data-ui="aligned-action">
             <input type="checkbox" id="pmBoundaryRebar">
             <label for="pmBoundaryRebar">計入兩端附加集中縱筋</label>
           </div>
         </div>
-        <div id="pmBoundaryRebarInputs" data-check-only style="display:none; padding:10px; background:#f8fafc; border-left:3px solid #0e7490; border-radius:4px;">
+        <div id="pmBoundaryRebarInputs" data-check-only style="display:none;">
           <div class="form-row">
             <div class="form-group"><label>附加縱筋號數</label>
               <select id="pmBoundaryBar"><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
@@ -271,11 +244,11 @@
         </div>
         <p class="hint detail-help">適用條件: kℓc/h ≤ 30, Pu ≤ 0.06 fc'·Ag, ρℓ ≥ 0.01。Mua 為含 P-δ 二階放大後的彎矩需求 (tf·m/m)。</p>
 
-        <div class="checkbox-row" style="margin-top:12px;">
+        <div class="checkbox-row" data-ui-space="section">
           <input type="checkbox" id="basementWall">
           <label for="basementWall">地下室外牆 (土壓自動計算)</label>
         </div>
-        <div id="basementInputs" style="display:none; padding:10px; background:#f8fafc; border-left:3px solid #0e7490; border-radius:4px;">
+        <div id="basementInputs" style="display:none;">
           <div class="form-group">
             <label>牆體模型</label>
             <select id="bwSupport">
@@ -300,11 +273,11 @@
       </div>
 
       <div class="card subpanel" data-panel="load">
-        <h2>耐震載重 ＆ 邊界構材參數 <span class="badge-seismic" style="font-size:0.7em;">SSW</span></h2>
+        <h2>耐震載重 ＆ 邊界構材參數 <span class="badge-seismic" data-ui="detail-caption">SSW</span></h2>
         <div class="form-group"><label>邊緣最大壓應力 σmax (kgf/cm²)</label><input type="number" id="sigmaMax" value="80"></div>
         <p class="hint detail-help">用於檢核是否需要特殊邊界構材 (>0.2fc')。僅在勾選耐震模式或結構牆時適用。</p>
-        <hr style="margin:12px 0; border:0; border-top:1px dashed #cbd5e1;">
-        <h3 style="font-size:0.95em; margin:8px 0;">邊界構材詳細 (若需設置)</h3>
+        <hr data-ui="section-divider">
+        <h3 data-ui="section-heading">邊界構材詳細 (若需設置)</h3>
         <div class="form-row">
           <div class="form-group"><label>柱(設計彎矩) Mu (tf·m)</label><input type="number" id="MuW" value="800"></div>
           <div class="form-group"><label>柱(設計剪力) δu/hw</label><input type="number" id="duhw" value="0.012" step="0.001"></div>
@@ -320,7 +293,7 @@
         <h2>計算法選擇</h2>
         <p class="hint detail-help">本頁集中所有「演算法／求解選項」，與輸入分離以利對照。</p>
 
-        <h3 style="font-size:0.95em; margin:14px 0 6px;">面外撓曲 P-Δ 求解法 (規範 11.8)</h3>
+        <h3 data-ui="section-heading">面外撓曲 P-Δ 求解法 (規範 11.8)</h3>
         <div class="form-group">
           <label>方法</label>
           <select id="slenderMethod">
@@ -329,8 +302,8 @@
           </select>
         </div>
 
-        <hr style="margin:14px 0; border:0; border-top:1px dashed #cbd5e1;">
-        <h3 style="font-size:0.95em; margin:8px 0;">SBE 沿水平延伸 (壓應力 ≤0.15fc' 終止, 規範 18.7.6.3)</h3>
+        <hr data-ui="section-divider">
+        <h3 data-ui="section-heading">SBE 沿水平延伸 (壓應力 ≤0.15fc' 終止, 規範 18.7.6.3)</h3>
         <div class="form-group">
           <label>延伸計算方法</label>
           <select id="sbeExtMethod">
@@ -338,9 +311,9 @@
             <option value="custom">輸入完整應力分布</option>
           </select>
         </div>
-        <div id="sbeExtCustomBox" style="display:none; padding:8px 10px; background:#f8fafc; border-left:3px solid #0e7490; border-radius:4px;">
+        <div id="sbeExtCustomBox" style="display:none;">
           <p class="hint detail-help">輸入沿牆長離壓側距離 x (cm) 與對應壓應力 σ (kgf/cm²)，每行一組，逗號或空白分隔。例：<br>0, 80<br>50, 60<br>120, 30<br>200, 0</p>
-          <textarea id="sbeStressData" rows="5" style="width:100%; font-family:monospace; font-size:0.85em; padding:6px; border:1px solid #cbd5e1; border-radius:5px;">0, 80
+          <textarea id="sbeStressData" rows="5">0, 80
 50, 60
 120, 30
 200, 0</textarea>
@@ -375,23 +348,25 @@
       <div class="card subpanel" data-panel="load">
         <h2>多片牆聚合檢核</h2>
         <p class="hint detail-help">輸入同層各片牆段，檢核 ΣVn ≤ 2.12·λ·√fc'·ΣAcv (規範 18.7.4.4) 並警示力集中。</p>
-        <table id="aggTable" style="width:100%; border-collapse:collapse; font-size:0.88em;">
+        <div data-ui="scroll-region">
+        <table id="aggTable" data-ui-table="aggregate">
           <thead>
-            <tr style="background:#e2e8f0;">
-              <th style="padding:6px; border:1px solid #cbd5e1;">#</th>
-              <th style="padding:6px; border:1px solid #cbd5e1;">標記</th>
-              <th style="padding:6px; border:1px solid #cbd5e1;">h (cm)</th>
-              <th style="padding:6px; border:1px solid #cbd5e1;">ℓw (cm)</th>
-              <th style="padding:6px; border:1px solid #cbd5e1;">hw/ℓw</th>
-              <th style="padding:6px; border:1px solid #cbd5e1;">ρt</th>
-              <th style="padding:6px; border:1px solid #cbd5e1;">Vu (tf)</th>
-              <th style="padding:6px; border:1px solid #cbd5e1;"></th>
+            <tr data-ui-row="header">
+              <th>#</th>
+              <th>標記</th>
+              <th>h (cm)</th>
+              <th>ℓw (cm)</th>
+              <th>hw/ℓw</th>
+              <th>ρt</th>
+              <th>Vu (tf)</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="aggBody"></tbody>
         </table>
-        <button type="button" id="aggAddBtn" style="margin-top:8px; padding:6px 14px; background:#0e7490; color:#fff; border:0; border-radius:5px; cursor:pointer; font-family:inherit;">+ 新增牆段</button>
-        <button type="button" id="aggUseCurBtn" style="margin-top:8px; margin-left:6px; padding:6px 14px; background:#475569; color:#fff; border:0; border-radius:5px; cursor:pointer; font-family:inherit;">帶入目前牆</button>
+        </div>
+        <button type="button" id="aggAddBtn" data-ui-button="primary">+ 新增牆段</button>
+        <button type="button" id="aggUseCurBtn" data-ui-button="secondary">帶入目前牆</button>
       </div>
 
       <div class="card subpanel" data-panel="rebar">
@@ -411,7 +386,7 @@
     <div>
       <!-- 綜合結論 banner -->
       <div class="card" id="conclusionCard">
-        <h2>綜合結論 <span id="conclusionScope" class="hint" style="margin-left:auto; font-style:normal;">—</span></h2>
+        <h2>綜合結論 <span id="conclusionScope" class="hint">—</span></h2>
         <div id="bannerStatus" class="banner-status">尚未計算</div>
         <div id="bannerKey" class="banner-key"></div>
       </div>
@@ -433,7 +408,7 @@
 
       <!-- 設計建議 hero -->
       <div class="card" id="designSuggestCard" data-shows="rebar summary">
-        <h2>設計建議 <span class="hint" style="margin-left:auto; font-style:normal;">由 Pu / Vu 反算</span></h2>
+        <h2>設計建議 <span class="hint">由 Pu / Vu 反算</span></h2>
         <div id="rebarHeroH" class="rebar-hero">
           <div class="line"><span class="lbl">建議牆厚</span><span class="combo" id="heroHSugg">—</span></div>
           <div class="line"><span class="lbl">建議層數</span><span class="combo" id="heroLayerSugg">—</span></div>
@@ -442,7 +417,7 @@
           <div class="line"><span class="lbl">建議縱筋</span><span class="combo" id="heroVBarSugg">—</span></div>
           <div class="line"><span class="lbl">建議橫筋</span><span class="combo" id="heroHBarSugg">—</span></div>
         </div>
-        <div id="wallRebarDesignCandidates" style="margin-top:12px;"></div>
+        <div id="wallRebarDesignCandidates" data-ui-space="section"></div>
       </div>
 
       <div class="card mobile-fold" data-shows="geom summary">
@@ -458,7 +433,7 @@
       </div>
 
       <div class="card mobile-fold" data-shows="rebar summary">
-        <h2>斷面強度結果 <span class="hint" style="margin-left:auto; font-style:normal;">依目前配筋</span></h2>
+        <h2>斷面強度結果 <span class="hint">依目前配筋</span></h2>
         <div class="results-grid">
           <div class="result-item" id="r-phiPn"><span class="label">φPn (簡易)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
           <div class="result-item" id="r-phiMnInplane"><span class="label">φMn @ Pu</span><span><span class="value">—</span><span class="unit">tf·m</span></span></div>
@@ -470,15 +445,15 @@
       </div>
 
       <div class="card mobile-fold" data-shows="rebar summary">
-        <h2>牆斷面配筋示意 <span class="hint" style="margin-left:auto; font-style:normal;">水平切面 plan cut</span></h2>
+        <h2>牆斷面配筋示意 <span class="hint">水平切面 plan cut</span></h2>
         <svg id="wallRebarSvg" viewBox="0 0 520 220" style="width:100%; max-width:560px; display:block; margin:0 auto; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px;"></svg>
-        <p class="hint" id="wallRebarSvgNote" style="text-align:center;">—</p>
+        <p class="hint" id="wallRebarSvgNote" data-ui-align="center">—</p>
       </div>
 
       <div class="card mobile-fold" data-shows="load rebar summary">
-        <h2>P-M 設計互制圖 <span class="hint" style="margin-left:auto; font-style:normal;">設計強度與需求點</span></h2>
+        <h2>P-M 設計互制圖 <span class="hint">設計強度與需求點</span></h2>
         <svg id="wallPMDiagram" viewBox="0 0 520 300" style="width:100%; max-width:560px; display:block; margin:0 auto; background:#fff; border:1px solid #cbd5e1; border-radius:6px;"></svg>
-        <p class="hint" id="wallPMDiagramNote" style="text-align:center;">—</p>
+        <p class="hint" id="wallPMDiagramNote" data-ui-align="center">—</p>
       </div>
 
       <div class="card mobile-fold" data-shows="rebar summary">
@@ -597,16 +572,16 @@
       </div>
 
       <div class="card mobile-fold" data-shows="summary" id="masterSummaryCard">
-        <h2>📋 綜合報告彙整 <span class="hint" style="margin-left:auto; font-style:normal;">所有檢核項目一覽</span></h2>
+        <h2>📋 綜合報告彙整 <span class="hint">所有檢核項目一覽</span></h2>
         <p class="hint detail-help" id="summaryModeNote">設計模式：依當前載重給出建議鋼筋配置；可切換至檢核模式核對既有配筋。</p>
         <div id="summaryTableHost"></div>
-        <div style="margin-top:10px; display:flex; gap:8px;">
-          <button type="button" id="btnReport2" style="padding:8px 16px; background:#1a3d5c; color:#fff; border:0; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600;">📄 產生完整計算書</button>
+        <div data-ui="section-actions">
+          <button type="button" id="btnReport2" data-ui-button="report">📄 產生完整計算書</button>
         </div>
       </div>
 
       <div class="card mobile-fold" data-shows="summary" id="methodAuditCard">
-        <h2>條文對照 ＆ 方法分級 <span class="hint" style="margin-left:auto; font-style:normal;">避免把近似法誤當正式檢核</span></h2>
+        <h2>條文對照 ＆ 方法分級 <span class="hint">避免把近似法誤當正式檢核</span></h2>
         <p class="hint detail-help">本表說明目前工具各功能的定位：`規範檢核` 可作為條文檢核依據；`工程近似` 適合初步設計與比對；`概算` 僅供前置估算。</p>
         <div id="methodAuditHost"></div>
       </div>
@@ -633,15 +608,15 @@
     <details open>
       <summary>案例 JSON 匯出 / 匯入</summary>
       <div class="advanced-body">
-        <div class="form-row" style="margin-top:0;">
-          <div class="form-group" style="align-self:end;">
+        <div class="form-row" data-ui-space="flush">
+          <div class="form-group" data-ui="aligned-action">
             <button id="btnExportCase" class="mode-bar__report" type="button">匯出目前設定 JSON</button>
           </div>
-          <div class="form-group" style="align-self:end;">
+          <div class="form-group" data-ui="aligned-action">
             <button id="btnImportCase" class="mode-bar__report" type="button">匯入 JSON</button>
           </div>
         </div>
-        <div class="form-group" style="margin-top:8px;">
+        <div class="form-group" data-ui-space="field">
           <label>案例 JSON</label>
           <textarea id="caseJson" class="mono-box" rows="8" placeholder="可貼上匯出的案例 JSON，按「匯入 JSON」即可還原設定。"></textarea>
         </div>
@@ -655,24 +630,24 @@
           <label>比對用 JSON</label>
           <textarea id="compareCaseJson" class="mono-box" rows="8" placeholder="貼上另一組案例 JSON，按下方按鈕比較兩組差異。"></textarea>
         </div>
-        <div class="form-row" style="margin-top:6px;">
-          <div class="form-group" style="align-self:end;">
+        <div class="form-row" data-ui="hint-after">
+          <div class="form-group" data-ui="aligned-action">
             <button id="btnCompareCase" class="mode-bar__report" type="button">比較兩組 JSON</button>
           </div>
         </div>
-        <div id="caseCompareResult" class="hint" style="white-space:pre-wrap; line-height:1.5; margin-top:8px;">尚未比較案例。</div>
+        <div id="caseCompareResult" class="hint" data-ui="case-comparison">尚未比較案例。</div>
       </div>
     </details>
 
     <details>
       <summary>基準報告</summary>
       <div class="advanced-body">
-        <div class="form-row" style="margin-top:0;">
-          <div class="form-group" style="align-self:end;">
+        <div class="form-row" data-ui-space="flush">
+          <div class="form-group" data-ui="aligned-action">
             <button id="btnExportBaseline" class="mode-bar__report" type="button">輸出基準報告</button>
           </div>
         </div>
-        <div class="form-group" style="margin-top:8px;">
+        <div class="form-group" data-ui-space="field">
           <label>基準報告</label>
           <textarea id="baselineReport" class="mono-box" rows="12" placeholder="按「輸出基準報告」後，這裡會產生可保存的文字基準。"></textarea>
         </div>
@@ -781,8 +756,8 @@
       document.querySelectorAll('.mode-btn').forEach(b => {
         const active = b === btn;
         b.classList.toggle('active', active);
-        b.style.background = active ? 'var(--primary)' : '#fff';
-        b.style.color = active ? '#fff' : 'var(--primary)';
+        b.style.background = active ? 'var(--primary)' : 'var(--bg-surface)';
+        b.style.color = active ? 'var(--bg-surface)' : 'var(--primary)';
       });
       document.getElementById('modeHint').textContent = (currentMode === 'design')
         ? '設計模式：給定載重，建議鋼筋配置。'
@@ -909,7 +884,7 @@
     if (!message) return;
     const note = document.createElement('div');
     note.textContent = message;
-    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? '#fee2e2' : '#dcfce7'};color:${status === 'fail' ? '#991b1b' : '#166534'};border:1px solid ${status === 'fail' ? '#fecaca' : '#86efac'};padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:420px;`;
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? 'var(--hy-danger-100)' : 'var(--hy-success-100)'};color:${status === 'fail' ? 'var(--hy-red-deep)' : 'var(--hy-success)'};border:1px solid ${status === 'fail' ? 'var(--hy-danger)' : 'var(--hy-success)'};padding:10px 14px;border-radius:var(--radius-lg);font-size:var(--fs-sm);box-shadow:var(--shadow-md);max-width:min(420px,calc(100vw - 20px));`;
     document.body.appendChild(note);
     setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
   }
@@ -1329,14 +1304,14 @@
     const tr = document.createElement('tr');
     tr.dataset.aggId = id;
     tr.innerHTML = `
-      <td style="padding:4px; border:1px solid #cbd5e1; text-align:center;">${id}</td>
-      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="text" data-fld="tag" value="${data.tag || 'W' + id}" style="width:60px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
-      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="h" value="${data.h ?? 20}" style="width:60px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
-      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="lw" value="${data.lw ?? 500}" style="width:70px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
-      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="hwlw" value="${data.hwlw ?? 3.0}" step="0.1" style="width:60px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
-      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="rhot" value="${data.rhot ?? 0.0025}" step="0.0001" style="width:80px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
-      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="Vu" value="${data.Vu ?? 50}" style="width:70px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
-      <td style="padding:4px; border:1px solid #cbd5e1; text-align:center;"><button type="button" class="aggDelBtn" style="padding:2px 8px; background:#dc2626; color:#fff; border:0; border-radius:3px; cursor:pointer;">×</button></td>
+      <td data-ui-align="center">${id}</td>
+      <td><input type="text" data-fld="tag" value="${data.tag || 'W' + id}"></td>
+      <td><input type="number" data-fld="h" value="${data.h ?? 20}"></td>
+      <td><input type="number" data-fld="lw" value="${data.lw ?? 500}"></td>
+      <td><input type="number" data-fld="hwlw" value="${data.hwlw ?? 3.0}" step="0.1"></td>
+      <td><input type="number" data-fld="rhot" value="${data.rhot ?? 0.0025}" step="0.0001"></td>
+      <td><input type="number" data-fld="Vu" value="${data.Vu ?? 50}"></td>
+      <td data-ui-align="center"><button type="button" class="aggDelBtn" data-ui-button="danger">×</button></td>
     `;
     document.getElementById('aggBody').appendChild(tr);
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calcWall));
@@ -2258,23 +2233,23 @@ ${basementStepTxt}
     const candidates = result?.candidates || [];
     if (!candidates.length) {
       const reason = result?.reason || '尚無容量式候選。';
-      host.innerHTML = `<div style="padding:10px 12px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;font-size:0.88em;"><strong>未找到可直接套用方案</strong><br>${reason}。可調整牆厚、材料或擴大配筋範圍後再計算。</div>`;
+      host.innerHTML = `<div data-ui="notice" data-ui-tone="warning"><strong>未找到可直接套用方案</strong><br>${reason}。可調整牆厚、材料或擴大配筋範圍後再計算。</div>`;
       return;
     }
     const rows = candidates.map((candidate, index) => `
       <tr>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${index + 1}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.vBar} @ ${candidate.vSp} cm × ${candidate.layers} 層</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.boundaryEnabled ? `每端 ${candidate.boundaryCountEach}-${candidate.boundaryBar}` : '無'}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.hBar} @ ${candidate.hSp} cm × ${candidate.layers} 層</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.pmUtilization.toFixed(3)} / ${candidate.shearUtilization.toFixed(3)}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;"><button type="button" class="wall-design-apply" data-candidate-index="${index}" style="padding:5px 10px;border:0;border-radius:5px;background:#0e7490;color:#fff;cursor:pointer;">套用並檢核</button></td>
+        <td data-ui-align="center">${index + 1}</td>
+        <td>${candidate.vBar} @ ${candidate.vSp} cm × ${candidate.layers} 層</td>
+        <td>${candidate.boundaryEnabled ? `每端 ${candidate.boundaryCountEach}-${candidate.boundaryBar}` : '無'}</td>
+        <td>${candidate.hBar} @ ${candidate.hSp} cm × ${candidate.layers} 層</td>
+        <td data-ui-align="numeric">${candidate.pmUtilization.toFixed(3)} / ${candidate.shearUtilization.toFixed(3)}</td>
+        <td data-ui-align="center"><button type="button" class="wall-design-apply" data-candidate-index="${index}" data-ui-button="primary">套用並檢核</button></td>
       </tr>`).join('');
     host.innerHTML = `
-      <div style="font-size:0.86em;color:#475569;margin-bottom:6px;">容量式候選依總鋼筋量、施工擁擠程度與利用率排序；所有列均已通過 P-M、剪力、最小配筋、筋距及可配置性篩選。</div>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.84em;border:1px solid #cbd5e1;min-width:720px;">
-          <thead><tr style="background:#e2e8f0;"><th style="padding:6px;">#</th><th style="padding:6px;">均布縱筋</th><th style="padding:6px;">兩端附加筋</th><th style="padding:6px;">水平筋</th><th style="padding:6px;">P-M / V 利用率</th><th style="padding:6px;">操作</th></tr></thead>
+      <div data-ui="candidate-intro">容量式候選依總鋼筋量、施工擁擠程度與利用率排序；所有列均已通過 P-M、剪力、最小配筋、筋距及可配置性篩選。</div>
+      <div data-ui="scroll-region">
+        <table data-ui-table="candidates">
+          <thead><tr data-ui-row="header"><th>#</th><th>均布縱筋</th><th>兩端附加筋</th><th>水平筋</th><th>P-M / V 利用率</th><th>操作</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -2453,12 +2428,12 @@ ${basementStepTxt}
     const r = window.wallLast; if (!r) return;
     const host = $('summaryTableHost'); if (!host) return;
     const fmt = (v, d=2) => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d);
-    const ok = b => b === true ? '<span style="color:#16a34a;font-weight:600;">✓ OK</span>'
-                  : b === false ? '<span style="color:#dc2626;font-weight:600;">✗ NG</span>'
-                  : '<span style="color:#64748b;">—</span>';
+    const ok = b => b === true ? '<span data-ui="status" data-ui-tone="success">✓ OK</span>'
+                  : b === false ? '<span data-ui="status" data-ui-tone="danger">✗ NG</span>'
+                  : '<span data-ui="muted">—</span>';
     const rows = [];
-    const sec = (title) => rows.push(`<tr style="background:#1a3d5c;color:#fff;"><td colspan="3" style="padding:6px 10px;font-weight:600;">${title}</td></tr>`);
-    const row = (label, val, status) => rows.push(`<tr><td style="padding:5px 10px;border-bottom:1px solid #e2e8f0;">${label}</td><td style="padding:5px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${val}</td><td style="padding:5px 10px;border-bottom:1px solid #e2e8f0;text-align:center;width:70px;">${status}</td></tr>`);
+    const sec = (title) => rows.push(`<tr data-ui-row="section"><td colspan="3">${title}</td></tr>`);
+    const row = (label, val, status) => rows.push(`<tr><td>${label}</td><td data-ui-align="numeric">${val}</td><td data-ui-align="center">${status}</td></tr>`);
 
     sec('① 幾何 ＆ 材料');
     row('Wall Pier 判定', `Hw/ℓw=${fmt(r.hwlw_pier)}, ℓw/bw=${fmt(r.lwbw)}`, ok(!r.isWallPier));
@@ -2518,19 +2493,19 @@ ${basementStepTxt}
     const totalCount = allCheckBools.filter(b => b === true || b === false).length;
     const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : collectWallReviewWarnings(r);
     const overall = failCount > 0
-      ? `<div style="padding:10px 14px;background:#fee2e2;color:#991b1b;border:2px solid #dc2626;border-radius:6px;font-weight:600;">✗ ${failCount} / ${totalCount} 項主要檢核未通過</div>`
+      ? `<div data-ui="verdict" data-ui-tone="danger">✗ ${failCount} / ${totalCount} 項主要檢核未通過</div>`
       : reviewWarnings.length
-        ? `<div style="padding:10px 14px;background:#fef3c7;color:#92400e;border:2px solid #d97706;border-radius:6px;font-weight:600;">⚠ ${totalCount} 項主要檢核數值通過；${reviewWarnings.length} 項仍須正式分析確認</div>`
-        : `<div style="padding:10px 14px;background:#dcfce7;color:#166534;border:2px solid #16a34a;border-radius:6px;font-weight:600;">✓ 全部 ${totalCount} 項主要檢核通過</div>`;
+        ? `<div data-ui="verdict" data-ui-tone="warning">⚠ ${totalCount} 項主要檢核數值通過；${reviewWarnings.length} 項仍須正式分析確認</div>`
+        : `<div data-ui="verdict" data-ui-tone="success">✓ 全部 ${totalCount} 項主要檢核通過</div>`;
     const reviewBox = reviewWarnings.length
-      ? `<div style="margin-top:8px;padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;color:#9a3412;font-size:0.88em;"><strong>待確認 / 正式分析需求</strong><ul style="margin:6px 0 0 18px;padding:0;">${reviewWarnings.map(w=>`<li>${w}</li>`).join('')}</ul></div>`
+      ? `<div data-ui="notice" data-ui-tone="warning" data-ui-space="field"><strong>待確認 / 正式分析需求</strong><ul>${reviewWarnings.map(w=>`<li>${w}</li>`).join('')}</ul></div>`
       : '';
 
     host.innerHTML = `
       ${overall}
       ${reviewBox}
-      <table style="width:100%;border-collapse:collapse;font-size:0.88em;margin-top:10px;border:1px solid #cbd5e1;">
-        <thead><tr style="background:#e2e8f0;"><th style="padding:6px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">項目</th><th style="padding:6px 10px;text-align:right;border-bottom:2px solid #cbd5e1;">數值 / 比較</th><th style="padding:6px 10px;text-align:center;border-bottom:2px solid #cbd5e1;">狀態</th></tr></thead>
+      <table data-ui-table="summary">
+        <thead><tr data-ui-row="header"><th>項目</th><th data-ui-align="right">數值 / 比較</th><th data-ui-align="center">狀態</th></tr></thead>
         <tbody>${rows.join('')}</tbody>
       </table>`;
   }
@@ -2601,32 +2576,32 @@ ${basementStepTxt}
     const host = $('methodAuditHost'); if (!host) return;
     const badge = (kind) => {
       const map = {
-        code:  ['規範檢核', '#dcfce7', '#166534', '#16a34a'],
-        approx:['工程近似', '#fef3c7', '#92400e', '#d97706'],
-        rough: ['概算',     '#fee2e2', '#991b1b', '#dc2626'],
-        na:    ['不適用',   '#e2e8f0', '#475569', '#94a3b8'],
+        code:  ['規範檢核', 'success'],
+        approx:['工程近似', 'warning'],
+        rough: ['概算',     'danger'],
+        na:    ['不適用',   'neutral'],
       };
-      const [label, bg, fg, bd] = map[kind] || map.approx;
-      return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid ${bd};background:${bg};color:${fg};font-size:0.82em;font-weight:600;">${label}</span>`;
+      const [label, tone] = map[kind] || map.approx;
+      return `<span data-ui="audit-badge" data-ui-tone="${tone}">${label}</span>`;
     };
     const rows = getWallMethodAuditRows(r);
     host.innerHTML = `
-      <table style="width:100%;border-collapse:collapse;font-size:0.88em;border:1px solid #cbd5e1;">
+      <table data-ui-table="audit">
         <thead>
-          <tr style="background:#e2e8f0;">
-            <th style="padding:6px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">功能</th>
-            <th style="padding:6px 10px;text-align:center;border-bottom:2px solid #cbd5e1;width:110px;">分級</th>
-            <th style="padding:6px 10px;text-align:left;border-bottom:2px solid #cbd5e1;width:120px;">條文 / 依據</th>
-            <th style="padding:6px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">說明</th>
+          <tr data-ui-row="header">
+            <th>功能</th>
+            <th data-ui-align="center">分級</th>
+            <th>條文 / 依據</th>
+            <th>說明</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map(row => `
             <tr>
-              <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;">${row.item}</td>
-              <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${badge(row.kind)}</td>
-              <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-family:monospace;">${row.ref}</td>
-              <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;">${row.note}</td>
+              <td>${row.item}</td>
+              <td data-ui-align="center">${badge(row.kind)}</td>
+              <td data-ui="numeric">${row.ref}</td>
+              <td>${row.note}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -2940,14 +2915,14 @@ ${basementStepTxt}
       const summary = summarizeWallResult(r, checks);
       banner.className = 'banner-status ' + (summary.ok === false ? 'fail' : summary.ok === true ? 'ok' : 'warn');
       const reviewText = summary.reviewWarnings.length
-        ? `<div style="font-size:0.68em; font-weight:500; opacity:0.9; margin-top:6px;">待確認：${summary.reviewWarnings.join(' ｜ ')}</div>`
+        ? `<div data-ui="banner-detail">待確認：${summary.reviewWarnings.join(' ｜ ')}</div>`
         : '';
-      banner.innerHTML = summary.text + (checks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '') + reviewText;
+      banner.innerHTML = summary.text + (checks.length ? `<div data-ui="banner-detail">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '') + reviewText;
     } else {
       banner.className = 'banner-status ' + (anyFail ? 'fail' : allOk ? 'ok' : 'warn');
       const icon = anyFail ? '✗' : allOk ? '✓' : '⚠';
       const txt = anyFail ? 'NG — 不符合規範' : allOk ? 'OK — 符合規範' : '部分項目待檢核';
-      banner.innerHTML = `${icon} ${txt}` + (checks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
+      banner.innerHTML = `${icon} ${txt}` + (checks.length ? `<div data-ui="banner-detail">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
     }
     key.innerHTML = kv.map(item => {
       const cls = item.ok === true ? 'ok' : item.ok === false ? 'fail' : '';

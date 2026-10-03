@@ -7,73 +7,45 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 <link rel="stylesheet" href="../結構工具箱/core/report-readiness.css">
+<link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
 <style>
-  :root {
-    --primary: #2563eb;
-    --primary-dark: #1d4ed8;
-    --bg: #f8fafc;
-    --card: #ffffff;
-    --border: #e2e8f0;
-    --text: #1e293b;
-    --text-light: #64748b;
-    --accent: #059669;
-    --danger: #dc2626;
-    --warn: #d97706;
-  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
-  header { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: white; padding: 18px 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
-  header h1 { font-size: 1.45em; }
-  header p { font-size: 0.83em; opacity: 0.85; margin-top: 3px; }
+  body { line-height: 1.5; }
+  header { padding: 18px 28px; }
+  header p { margin-top: 3px; }
   .container { max-width: 1500px; margin: 16px auto; padding: 0 16px; }
   .main-layout { display: grid; grid-template-columns: minmax(560px, 0.9fr) minmax(0, 1.1fr); gap: 18px; align-items: start; min-width: 0; }
   .main-layout > * { min-width: 0; }
-  .card { background: var(--card); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 14px; min-width: 0; overflow-x: auto; }
-  .card h2 { font-size: 1em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--border); color: var(--primary); display: flex; justify-content: space-between; align-items: center; }
-  .card h3 { font-size: 0.9em; margin: 10px 0 6px; color: var(--text); }
-  .hint { font-size: 0.75em; color: var(--text-light); margin-top: 2px; font-style: italic; }
+  .card { padding: 16px; margin-bottom: 14px; min-width: 0; overflow-x: auto; }
+  .card h2 { margin-bottom: 10px; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+  .card h3 { margin: 10px 0 6px; }
+  .hint { margin-top: 2px; }
+  input, select { padding: 5px 8px; outline: none; transition: border-color 0.15s; }
+  input[type=number] { text-align: right; }
 
-  label { font-size: 0.78em; font-weight: 600; color: var(--text-light); }
-  input, select { padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 0.86em; font-family: inherit; outline: none; transition: border-color 0.15s; background: white; }
-  input:focus, select:focus { border-color: var(--primary); }
-  input[type=number] { text-align: right; font-family: 'Consolas', monospace; }
+  .btn { padding: 6px 12px; cursor: pointer; transition: all 0.15s; }
+  .btn-sm { padding: 3px 8px; }
+  .btn-calc { width: 100%; padding: 12px; cursor: pointer; margin-top: 6px; }
 
-  .btn { padding: 6px 12px; border: none; border-radius: 6px; font-size: 0.82em; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
-  .btn-primary { background: var(--primary); color: white; }
-  .btn-primary:hover { background: var(--primary-dark); }
-  .btn-accent { background: var(--accent); color: white; }
-  .btn-danger { background: var(--danger); color: white; }
-  .btn-ghost { background: white; color: var(--text-light); border: 1.5px solid var(--border); }
-  .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
-  .btn-sm { padding: 3px 8px; font-size: 0.76em; }
-  .btn-calc { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 6px; }
-  .btn-calc:hover { background: var(--primary-dark); }
-
-  table.data-tbl { width: 100%; border-collapse: collapse; font-size: 0.83em; }
-  table.data-tbl th, table.data-tbl td { padding: 4px 5px; border-bottom: 1px solid var(--border); text-align: center; vertical-align: middle; }
-  table.data-tbl th { background: #f1f5f9; font-weight: 600; color: var(--text-light); font-size: 0.78em; }
-  table.data-tbl td input, table.data-tbl td select { width: 100%; padding: 4px 6px; font-size: 0.85em; }
-  table.data-tbl td.id-col { font-weight: 600; color: var(--primary); }
-  table.data-tbl td .del-btn { background: #fee2e2; border: none; color: var(--danger); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 0.8em; }
-  table.data-tbl td .del-btn:hover { background: #fecaca; }
+  table.data-tbl { width: 100%; }
+  table.data-tbl th, table.data-tbl td { padding: 4px 5px; text-align: center; vertical-align: middle; }
+  table.data-tbl td input, table.data-tbl td select { width: 100%; padding: 4px 6px; }
+  table.data-tbl td .del-btn { padding: 2px 6px; cursor: pointer; }
 
   .support-check { display: inline-flex; gap: 4px; justify-content: center; }
-  .support-check label { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72em; }
+  .support-check label { display: inline-flex; align-items: center; gap: 2px; }
   .support-check input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; }
   .support-cell { min-width: 250px; text-align: left; }
   .support-fixed { display: flex; gap: 8px; align-items: center; justify-content: center; margin-bottom: 4px; }
   .support-springs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
-  .support-springs label { display: flex; flex-direction: column; gap: 2px; font-size: 0.68em; }
-  .support-springs input { min-width: 0; padding: 3px 4px; font-size: 0.78em; }
-  .support-springs input:disabled { background: #f1f5f9; color: #94a3b8; }
+  .support-springs label { display: flex; flex-direction: column; gap: 2px; }
+  .support-springs input { min-width: 0; padding: 3px 4px; }
 
-  .canvas-wrap { background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); padding: 8px; overflow: auto; }
+  .canvas-wrap { padding: 8px; overflow: auto; }
   canvas { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 
-  .results-table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
-  .results-table th, .results-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: center; }
-  .results-table th { background: #f1f5f9; font-weight: 600; color: var(--text-light); font-size: 0.76em; }
-  .results-table td { font-family: 'Consolas', monospace; }
+  .results-table { width: 100%; }
+  .results-table th, .results-table td { padding: 5px 8px; text-align: center; }
 
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
@@ -81,37 +53,23 @@
   .row2 input, .row2 select, .row3 input, .row3 select { width: 100%; min-width: 0; }
   .flex-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 
-  .error-msg { background: #fef2f2; color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
-  .warn-msg { background: #fef3c7; color: var(--warn); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
-  .report-status { min-height: 20px; flex-basis: 100%; color: var(--warn); font-size: 0.8em; line-height: 1.5; }
+  .error-msg { padding: 8px 12px; margin-top: 8px; display: none; }
+  .warn-msg { padding: 8px 12px; margin-top: 8px; display: none; }
+  .report-status { min-height: 20px; flex-basis: 100%; line-height: 1.5; }
   .report-status:empty { display: none; }
-  .report-link { display: none; color: var(--primary); font-size: 0.8em; font-weight: 700; text-decoration: none; }
-  .check-panel { display: grid; gap: 6px; font-size: 0.8em; }
-  .check-line { border-left: 3px solid var(--border); background: #f8fafc; padding: 6px 8px; border-radius: 4px; }
-  .check-line.ok { border-color: var(--accent); }
-  .check-line.warn { border-color: var(--warn); background: #fffbeb; }
-  .check-line.error { border-color: var(--danger); background: #fef2f2; }
+  .report-link { display: none; }
+  .check-panel { display: grid; gap: 6px; }
+  .check-line { padding: 6px 8px; }
   .summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
-  .summary-grid div { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
-  .summary-grid b { display: block; font-size: 0.72em; color: var(--text-light); }
-  .summary-grid span { font-family: Consolas, monospace; font-size: 0.86em; }
-  .frame-benchmark { border-left-color: #2563eb; background: #eff6ff; }
-  .frame-benchmark.inactive { border-left-color: var(--border); background: #f8fafc; }
-  .frame-benchmark.pass { border-left-color: var(--accent); background: #f0fdf4; }
-  .frame-benchmark.fail { border-left-color: var(--danger); background: #fef2f2; }
+  .summary-grid div { padding: 6px 8px; }
+  .summary-grid b { display: block; }
   .frame-benchmark-table-wrap { overflow-x: auto; margin-top: 8px; }
-  .frame-benchmark-table { width: 100%; min-width: 650px; border-collapse: collapse; font-size: 0.78em; }
+  .frame-benchmark-table { width: 100%; min-width: 650px; }
   .frame-benchmark-table th,
-  .frame-benchmark-table td { padding: 5px 7px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  .frame-benchmark-table td { padding: 5px 7px; text-align: right; white-space: nowrap; }
   .frame-benchmark-table th:first-child,
   .frame-benchmark-table td:first-child { text-align: left; }
-  .frame-benchmark-table th { color: var(--text-light); background: rgba(255,255,255,0.7); }
-  .frame-benchmark-table td { font-family: Consolas, monospace; }
-  .frame-benchmark-table td:first-child { font-family: inherit; font-weight: 600; }
-  .frame-benchmark-status { font-weight: 800; }
-  .frame-benchmark-status.pass { color: var(--accent); }
-  .frame-benchmark-status.fail { color: var(--danger); }
-  .frame-benchmark-library { margin-top: 10px; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; }
+  .frame-benchmark-library { margin-top: 10px; padding: 10px 12px; }
   .frame-benchmark-library .flex-row { margin-top: 6px; }
   .frame-benchmark-library select { flex: 1 1 280px; min-width: 0; }
   .story-response-wrap { overflow-x: auto; }
@@ -121,21 +79,15 @@
   #nodeEnvelopeTbl th, #nodeEnvelopeTbl td { white-space: nowrap; }
   #memberEnvelopeTbl { min-width: 920px; }
   #memberEnvelopeTbl th, #memberEnvelopeTbl td { white-space: nowrap; }
-  .node-envelope-control td, .member-envelope-control td { background: #eff6ff; font-weight: 700; }
-  .story-response-summary { margin: 2px 0 8px; padding: 8px 10px; border-left: 4px solid #2563eb; background: #eff6ff; color: #1e3a8a; }
-  .story-response-summary.inactive { border-left-color: var(--border); background: #f8fafc; color: var(--text-light); }
-  .story-response-control td { background: #eff6ff; font-weight: 700; }
+  .story-response-summary { margin: 2px 0 8px; padding: 8px 10px; }
   .foundation-transfer-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
   .foundation-transfer-cases { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:8px; }
   .foundation-transfer-grid > div, .foundation-transfer-cases > div { min-width:0; }
   .foundation-transfer-grid select, .foundation-transfer-cases select { width:100%; }
-  .foundation-transfer-preview { margin-top:8px; padding:8px 10px; border:1px solid var(--border); border-radius:7px; background:#f8fafc; color:#334155; font:0.78em/1.55 Consolas,'Microsoft JhengHei',sans-serif; white-space:pre-wrap; }
-  .foundation-transfer-preview.pass { border-color:#86efac; background:#f0fdf4; color:#166534; }
-  .foundation-transfer-preview.fail { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
+  .foundation-transfer-preview { margin-top:8px; padding:8px 10px; white-space:pre-wrap; }
 
   .diag-card .canvas-wrap { min-height: 120px; display: flex; align-items: center; justify-content: center; }
   .diag-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .diag-title .legend { font-size: 0.75em; color: var(--text-light); }
 
   @media (max-width: 1180px) {
     .main-layout { grid-template-columns: 1fr; }
@@ -146,6 +98,7 @@
     .page-only-frame-benchmark { display: none !important; }
   }
 </style>
+<link rel="stylesheet" href="../結構工具箱/assets/hy/frame-analysis-ui.css">
 </head>
 <body class="formal-tool-output-page">
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>分析工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的計算書輸出按鈕產生只包含案件資料、分析輸入、計算結果與必要結論的計算書；本頁不得作為附件。</span></div>
@@ -175,7 +128,7 @@
           </div>
         </div>
         <div class="hint">鋼材 E ≈ 2040 tf/cm² (200 GPa)。範例斷面：H350×175×7×11。</div>
-        <h2 style="margin-top:16px;">案件資料</h2>
+        <h2 data-ui-heading="project">案件資料</h2>
         <div class="row2">
           <div>
             <label>計畫名稱</label>
@@ -186,7 +139,7 @@
             <input type="text" id="projNo" placeholder="例：2026-001" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
           </div>
         </div>
-        <div style="margin-top:8px;">
+        <div data-ui-part="project-basis">
           <label>分析模型／圖說／專案文件依據</label>
           <input type="text" id="projBasis" placeholder="例：S-201、結構分析模型 Rev.3；採專案指定支承、釋放與彈簧" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
           <div class="hint">使用端部釋放、彈性支承或其他需人工確認的分析假設時，須填入專案指定依據，才可核可正式附件。</div>
@@ -201,7 +154,7 @@
             <input type="text" id="projNote" placeholder="選填" oninput="invalidateFrameReportArtifact()">
           </div>
         </div>
-        <div class="flex-row page-only-tool-actions" style="margin-top:8px;">
+        <div class="flex-row page-only-tool-actions">
           <button class="btn btn-ghost btn-sm" onclick="loadExample('portal')">門型剛架</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('portalHinge')">門型剛架(梁端鉸接)</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('springPortal')">彈性支承</button>
@@ -225,16 +178,16 @@
           </div>
           <div class="hint">以獨立參考值核對求解器；各案例的推導方法列於比對面板，且不會寫入計算書。</div>
         </div>
-        <div class="flex-row" style="margin-top:10px; gap:12px; align-items:center;">
-          <label style="display:inline-flex;align-items:center;gap:5px;font-weight:600;">
-            <input type="checkbox" id="selfWeight" style="width:14px;height:14px;" onchange="invalidateAnalysisState()"> 含自重
+        <div class="flex-row" data-ui-part="self-weight">
+          <label>
+            <input type="checkbox" id="selfWeight" onchange="invalidateAnalysisState()"> 含自重
           </label>
-          <span style="display:inline-flex;align-items:center;gap:5px;">
+          <span>
             <label>γ (tf/m³)</label>
-            <input type="number" id="density" value="7.85" step="0.05" style="width:60px;" oninput="invalidateAnalysisState()">
+            <input type="number" id="density" value="7.85" step="0.05" oninput="invalidateAnalysisState()">
           </span>
         </div>
-        <div class="flex-row page-only-tool-actions" style="margin-top:8px;">
+        <div class="flex-row page-only-tool-actions">
           <button class="btn btn-accent btn-sm" id="btnExportCase" onclick="exportJSON()">存檔 JSON</button>
           <button class="btn btn-ghost btn-sm" id="btnImportCase" onclick="document.getElementById('jsonFile').click()">讀取 JSON</button>
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none" onchange="importJSONFile(this)">
@@ -248,21 +201,21 @@
 
       <div class="card">
         <h2>載重案例 / 分析組合 <button class="btn btn-primary btn-sm" onclick="addLoadCaseRow()">+ 案例</button></h2>
-        <div class="flex-row" style="margin-bottom:8px;">
+        <div class="flex-row" data-ui-part="load-combination">
           <label for="loadCombinationSelect">目前組合</label>
-          <select id="loadCombinationSelect" onchange="selectLoadCombination(this.value)" style="min-width:130px;"></select>
+          <select id="loadCombinationSelect" onchange="selectLoadCombination(this.value)"></select>
           <label for="loadCombinationName">組合名稱</label>
-          <input type="text" id="loadCombinationName" maxlength="40" onchange="updateLoadCombinationName(this.value)" style="width:130px;">
+          <input type="text" id="loadCombinationName" maxlength="40" onchange="updateLoadCombinationName(this.value)">
           <button class="btn btn-primary btn-sm" onclick="addLoadCombination()">+ 複製組合</button>
           <button class="btn btn-ghost btn-sm" id="deleteLoadCombinationButton" onclick="deleteLoadCombination()">刪除組合</button>
         </div>
         <table class="data-tbl">
           <thead>
             <tr>
-              <th style="width:38px;">#</th>
+              <th data-ui-col="index">#</th>
               <th>案例名稱</th>
-              <th style="width:90px;">組合因子</th>
-              <th style="width:30px;"></th>
+              <th data-ui-col="factor">組合因子</th>
+              <th data-ui-col="action"></th>
             </tr>
           </thead>
           <tbody id="loadCaseTbody"></tbody>
@@ -284,7 +237,7 @@
           <div><label for="foundationTransferCaseE">E 地震力</label><select id="foundationTransferCaseE" onchange="updateFoundationTransferCase('E',this.value)"></select></div>
         </div>
         <div class="hint">逐一以因子 1.0 重算選定的基本案例，不從已因數化組合反推。P 採節點向上支承反力為壓力正；基礎作用矩 = −構架支承反力矩 Mz × 座標方向倍率，另一方向為 0。勾選「含自重」時，D 必須對應第一個載重案例。</div>
-        <div class="flex-row" style="margin-top:8px;">
+        <div class="flex-row" data-ui-part="foundation-actions">
           <button class="btn btn-ghost btn-sm" onclick="previewFoundationLoadComponents()">預覽分量</button>
           <button class="btn btn-accent btn-sm" onclick="downloadFoundationLoadComponents()">下載分析 JSON</button>
           <button class="btn btn-primary btn-sm" onclick="sendFoundationLoadComponents()">送至樁帽三維 STM</button>
@@ -297,11 +250,11 @@
         <table class="data-tbl">
           <thead>
             <tr>
-              <th style="width:38px;">#</th>
+              <th data-ui-col="index">#</th>
               <th>X (m)</th>
               <th>Y (m)</th>
-              <th style="width:250px;">支承 / 彈簧</th>
-              <th style="width:30px;"></th>
+              <th data-ui-col="support">支承 / 彈簧</th>
+              <th data-ui-col="action"></th>
             </tr>
           </thead>
           <tbody id="nodeTbody"></tbody>
@@ -314,14 +267,14 @@
         <table class="data-tbl">
           <thead>
             <tr>
-              <th style="width:38px;">#</th>
+              <th data-ui-col="index">#</th>
               <th>i 節點</th>
               <th>j 節點</th>
               <th>E (tf/cm²)</th>
               <th>A (cm²)</th>
               <th>I (cm⁴)</th>
-              <th style="width:62px;">端鉸接</th>
-              <th style="width:30px;"></th>
+              <th data-ui-col="release">端鉸接</th>
+              <th data-ui-col="action"></th>
             </tr>
           </thead>
           <tbody id="memberTbody"></tbody>
@@ -333,12 +286,12 @@
         <table class="data-tbl">
           <thead>
             <tr>
-              <th style="width:72px;">案例</th>
-              <th style="width:38px;">節點</th>
+              <th data-ui-col="case">案例</th>
+              <th data-ui-col="index">節點</th>
               <th>Fx (tf)</th>
               <th>Fy (tf)</th>
               <th>M (tf·m)</th>
-              <th style="width:30px;"></th>
+              <th data-ui-col="action"></th>
             </tr>
           </thead>
           <tbody id="nodalLoadTbody"></tbody>
@@ -351,11 +304,11 @@
         <table class="data-tbl">
           <thead>
             <tr>
-              <th style="width:72px;">案例</th>
-              <th style="width:38px;">桿件</th>
+              <th data-ui-col="case">案例</th>
+              <th data-ui-col="index">桿件</th>
               <th>w (tf/m)</th>
               <th>方向</th>
-              <th style="width:30px;"></th>
+              <th data-ui-col="action"></th>
             </tr>
           </thead>
           <tbody id="memberLoadTbody"></tbody>
@@ -368,12 +321,12 @@
         <table class="data-tbl">
           <thead>
             <tr>
-              <th style="width:72px;">案例</th>
-              <th style="width:38px;">桿件</th>
+              <th data-ui-col="case">案例</th>
+              <th data-ui-col="index">桿件</th>
               <th>P (tf)</th>
               <th>a (m)</th>
               <th>方向</th>
-              <th style="width:30px;"></th>
+              <th data-ui-col="action"></th>
             </tr>
           </thead>
           <tbody id="memberPointLoadTbody"></tbody>
@@ -402,22 +355,22 @@
       </div>
 
       <div class="card diag-card">
-        <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">幾何 / 變形圖</h2><span class="legend">灰 = 原始, 藍 = 變形 (放大顯示)</span></div>
+        <div class="diag-title"><h2>幾何 / 變形圖</h2><span class="legend">灰 = 原始, 藍 = 變形 (放大顯示)</span></div>
         <div class="canvas-wrap"><canvas id="geomCanvas" width="800" height="500"></canvas></div>
       </div>
 
       <div class="card diag-card">
-        <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">彎矩圖 M</h2><span class="legend">紅 = 正彎矩 (內側張力), 藍 = 負彎矩</span></div>
+        <div class="diag-title"><h2>彎矩圖 M</h2><span class="legend">紅 = 正彎矩 (內側張力), 藍 = 負彎矩</span></div>
         <div class="canvas-wrap"><canvas id="momCanvas" width="800" height="400"></canvas></div>
       </div>
 
       <div class="card diag-card">
-        <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">剪力圖 V</h2></div>
+        <div class="diag-title"><h2>剪力圖 V</h2></div>
         <div class="canvas-wrap"><canvas id="shearCanvas" width="800" height="400"></canvas></div>
       </div>
 
       <div class="card diag-card">
-        <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">軸力圖 N</h2><span class="legend">紅 = 拉力 (+), 藍 = 壓力 (−)</span></div>
+        <div class="diag-title"><h2>軸力圖 N</h2><span class="legend">紅 = 拉力 (+), 藍 = 壓力 (−)</span></div>
         <div class="canvas-wrap"><canvas id="axialCanvas" width="800" height="400"></canvas></div>
       </div>
 

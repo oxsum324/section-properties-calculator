@@ -484,7 +484,7 @@
         <tr><td>ry</td><td>${f2(sec.ry)}</td><td>cm</td></tr>
       </tbody>
     `;
-    $("propsCard").style.display = "";
+    $("propsCard").hidden = false;
   }
 
   function getClassificationFlowLines(result) {
@@ -1600,27 +1600,27 @@
     const result = { sectionType, sec, clsC, pn, E, Fy, Kx, Ky, Lx, Ly, KLrX, KLrY, KLrMax, ctrlAxis, PuTf, MuxTf, MuyTf, Lbx, Cbx, isLRFD, designPcTf, axialOk, interOk, ratioAx, interRatioText, flexX, flexY, interDetail };
     renderProps(sec);
     $("clsResult").innerHTML = classificationCards;
-    $("clsCard").style.display = "";
+    $("clsCard").hidden = false;
     $("slenderResult").innerHTML = `
       <div class="result-item"><span class="label">KxLx / rx</span><span class="value">${f1(KLrX)}</span></div>
       <div class="result-item"><span class="label">KyLy / ry</span><span class="value">${f1(KLrY)}</span></div>
       <div class="result-item ${KLrMax <= 200 ? "ok" : "warn"}"><span class="label">控制 KL/r</span><span class="value">${f1(KLrMax)} (${ctrlAxis})</span></div>
     `;
-    $("slenderCard").style.display = "";
+    $("slenderCard").hidden = false;
     $("axialResult").innerHTML = `
       <div class="result-item ${axialOk ? "ok" : "fail"}"><span class="label">${isLRFD ? "φPn" : "Pa"} vs |${isLRFD ? "Pu" : "Pa"}|</span><span class="value">${formatDisplayValue(designPcTf, "force", 2)} / ${formatDisplayValue(PuTf, "force", 2)} ${getQuantityUnit("force")}</span></div>
       <div class="result-item"><span class="label">Fe</span><span class="value">${formatDisplayValue(pn.Fe, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}</span></div>
       <div class="result-item"><span class="label">Fcr</span><span class="value">${formatDisplayValue(pn.Fcr, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}</span></div>
       ${pn.Q < 1 ? `<div class="result-item warn"><span class="label">Q</span><span class="value">${f2(pn.Q)}</span></div>` : ""}
     `;
-    $("axialCard").style.display = "";
+    $("axialCard").hidden = false;
     $("interResult").innerHTML = `
       <div class="result-item ${(MuxTf > 0 || MuyTf > 0) ? (interOk ? "ok" : "fail") : "warn"}"><span class="label">互制狀態</span><span class="value">${interRatioText}</span></div>
       ${interDetail.map((line) => `<div class="result-item"><span class="label">互制資訊</span><span class="value">${line}</span></div>`).join("")}
     `;
-    $("interCard").style.display = "";
+    $("interCard").hidden = false;
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk(result) ? "本次鋼柱斷面於細長比、軸壓與互制檢核均通過。" : "本次鋼柱斷面至少有一項控制條件未通過，請優先檢視 KL/r、Fcr 與互制項目。"}</div>`;
-    $("summaryCard").style.display = "";
+    $("summaryCard").hidden = false;
     resultState = result;
     setColumnReportValidationMessage("");
     renderSummary(result);

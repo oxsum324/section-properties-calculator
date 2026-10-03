@@ -6,53 +6,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>柱設計 — RC 工具箱 V3.1</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../shared/style.css">
+<link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
 <style>
-  .steps-card h2 { color:#5b21b6; }
-  .steps-body {
-    white-space: pre-wrap; word-break: break-word;
-    font-family: ui-monospace, "Cascadia Code", "Consolas", "Microsoft JhengHei", monospace;
-    font-size: 0.82em; line-height: 1.55;
-    background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 6px;
-    padding: 12px 14px; margin: 0; color: #3b0764;
-  }
-  .mode-bar__actions {
-    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
-  }
-  .mode-bar__action {
-    padding: 9px 12px; min-height: 38px; border-radius: 6px;
-    border: 1px solid var(--primary); background: #fff; color: var(--primary);
-    cursor: pointer; font-family: inherit; font-size: 0.86em; font-weight: 700;
-  }
-  .mode-bar__action:hover { background: #ecfeff; }
-  .mode-bar__file { display: none; }
-  .mode-bar__project-status {
-    flex: 1 1 100%; text-align: right; min-height: 1.2em;
-    color: var(--text-light); font-size: 0.76em; font-style: italic;
-  }
   .column-review-resolution { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px; }
   .column-review-resolution[hidden] { display: none; }
-  .column-review-resolution__title { margin: 0 0 6px; color: var(--primary-dark); font-size: 0.94em; }
-  .column-review-resolution__lead { margin: 0 0 10px; color: var(--text-light); font-size: 0.8em; line-height: 1.5; }
-  .column-review-item { border: 1px solid var(--border); border-left: 4px solid var(--warn); border-radius: 7px; padding: 11px; margin-top: 9px; background: #fffdf7; }
-  .column-review-item.is-complete { border-left-color: var(--accent); background: #f0fdf4; }
-  .column-review-item.is-stale { border-left-color: var(--danger); background: #fff7f7; }
+  .column-review-resolution__title { margin: 0 0 6px; color: var(--primary-dark); font-size: var(--fs-base); }
+  .column-review-resolution__lead { margin: 0 0 10px; color: var(--text-light); font-size: var(--fs-sm); line-height: 1.5; }
+  .column-review-item { border: 1px solid var(--border); border-left: 4px solid var(--warn); border-radius: var(--radius-lg); padding: 11px; margin-top: 9px; background: var(--hy-warning-100); }
+  .column-review-item.is-complete { border-left-color: var(--accent); background: var(--hy-success-100); }
+  .column-review-item.is-stale { border-left-color: var(--danger); background: var(--hy-danger-100); }
   .column-review-item__head { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-weight: 800; }
-  .column-review-item__state { font-size: 0.76em; color: var(--text-light); }
-  .column-review-item__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-  .column-review-item__grid label { display: grid; gap: 4px; color: var(--text-light); font-size: 0.76em; font-weight: 700; }
+  .column-review-item__state { font-size: var(--fs-xs); color: var(--text-light); }
+  .column-review-item__grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+  .column-review-item__grid label { display: grid; gap: 4px; color: var(--text-light); font-size: var(--fs-xs); font-weight: 700; }
   .column-review-item__grid input,
-  .column-review-item__grid select { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 5px; font: inherit; color: var(--text); background: #fff; }
+  .column-review-item__grid select { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-lg); font: inherit; color: var(--text); background: var(--bg-surface); }
   .column-review-item__grid .wide { grid-column: 1 / -1; }
-  .column-review-item__record { margin-top: 8px; color: #166534; font-size: 0.8em; line-height: 1.55; }
-  .column-review-item__error { margin: 7px 0 0; color: var(--danger); font-size: 0.78em; font-weight: 700; }
+  .column-review-item__record { margin-top: 8px; color: var(--hy-success); font-size: var(--fs-sm); line-height: 1.55; }
+  .column-review-item__error { margin: 7px 0 0; color: var(--danger); font-size: var(--fs-xs); font-weight: 700; }
   .column-review-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
   .column-review-actions .btn-secondary { width: auto; margin-top: 0; padding: 8px 12px; }
   @media (max-width: 768px) {
-    .mode-bar__actions { width: 100%; }
-    .mode-bar__action { flex: 1 1 calc(50% - 4px); }
-    .mode-bar__project-status { text-align: left; }
+
     .column-review-item__grid { grid-template-columns: 1fr; }
     .column-review-item__grid .wide { grid-column: auto; }
   }
@@ -61,7 +39,7 @@
 <body class="rc-formal-output-page">
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>柱 Column 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
+  <h1>柱 Column 設計／檢核 <span data-ui="version">V3.1</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ P-M 互制圖、軸壓上限、橫向圍束、強柱弱梁</p>
 </header>
 
@@ -112,9 +90,9 @@
           <label for="seismicMode">套用特殊抗彎矩構架耐震規定</label>
         </div>
 
-        <div class="checkbox-row" style="background:#ede9fe; border-color:#c4b5fd;">
+        <div class="checkbox-row" data-ui-tone="info">
           <input type="checkbox" id="showSteps">
-          <label for="showSteps" style="color:#5b21b6;">顯示計算過程 (詳列公式與代入步驟)</label>
+          <label for="showSteps" data-ui="tone-label">顯示計算過程 (詳列公式與代入步驟)</label>
         </div>
 
         <div class="form-group">
@@ -157,12 +135,12 @@
         </div>
         <div class="form-group" id="nBarFG"><label>主筋總根數 (自動)</label><input type="number" id="nBar" value="12"></div>
 
-        <div class="checkbox-row" id="manualLayoutRow" style="margin:6px 0;">
+        <div class="checkbox-row" id="manualLayoutRow">
           <input type="checkbox" id="manualLayout">
           <label for="manualLayout">手動指定配筋 — 含束筋 (規範 25.6.1)</label>
         </div>
         <div id="manualLayoutFields" style="display:none;">
-          <p class="hint" style="margin:0 0 6px; color:#5b21b6;">含 4 角筋；束筋上限 4 根 (規範 25.6.1.1)；角隅與內部可分別設定。</p>
+          <p class="hint" data-ui="detail-hint">含 4 角筋；束筋上限 4 根 (規範 25.6.1.1)；角隅與內部可分別設定。</p>
           <div class="form-group">
             <label>配筋方式</label>
             <select id="layoutMode">
@@ -199,7 +177,7 @@
 
           <!-- 四面獨立模式 -->
           <div id="indepFields" style="display:none;">
-            <p class="hint" style="margin:4px 0 6px; color:#5b21b6;">四面位置數含兩端角筋；角筋為四面共用，故每面至少 2。</p>
+            <p class="hint" data-ui="detail-hint">四面位置數含兩端角筋；角筋為四面共用，故每面至少 2。</p>
             <div class="form-row">
               <div class="form-group"><label>上邊位置數</label><input type="number" id="nFaceTop" value="3" min="2" step="1"></div>
               <div class="form-group"><label>下邊位置數</label><input type="number" id="nFaceBot" value="3" min="2" step="1"></div>
@@ -242,8 +220,8 @@
           <div class="form-group"><label>柱頂可用直線錨定長度 (cm，可選)</label><input type="number" id="columnDevTop" placeholder="直線錨定時輸入" step="any"></div>
           <div class="form-group"><label>柱底可用直線錨定長度 (cm，可選)</label><input type="number" id="columnDevBottom" placeholder="直線錨定時輸入" step="any"></div>
         </div>
-        <p class="hint" style="margin:-2px 0 6px; color:#64748b;">直線錨定依最大主筋直徑計算 25.4.2 拉力開發長度 ℓd；彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。</p>
-        <p class="hint" id="barLayoutInfo" style="margin:4px 0 6px; color:#5b21b6;">—</p>
+        <p class="hint" data-ui="field-hint">直線錨定依最大主筋直徑計算 25.4.2 拉力開發長度 ℓd；彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。</p>
+        <p class="hint" id="barLayoutInfo" data-ui="detail-hint">—</p>
       </div>
 
       <!-- 配筋 — 橫向鋼筋 (rebar only, 矩形柱) -->
@@ -265,21 +243,21 @@
           <div class="form-group"><label>fyt 箍筋降伏強度 (kgf/cm²)</label><input type="number" id="tieFy" value="2800" step="any"></div>
           <div class="form-group"><label>fyt,ct 繫筋降伏強度 (kgf/cm²)</label><input type="number" id="crossTieFy" value="2800" step="any"></div>
         </div>
-        <p class="hint" style="margin:-2px 0 6px; color:#64748b;">預設 SD280W = 2800；剪力 Vs 會分別採用箍筋與繫筋降伏強度。</p>
-        <div class="checkbox-row" id="tieOverrideRow" style="margin:6px 0;">
+        <p class="hint" data-ui="field-hint">預設 SD280W = 2800；剪力 Vs 會分別採用箍筋與繫筋降伏強度。</p>
+        <div class="checkbox-row" id="tieOverrideRow">
           <input type="checkbox" id="tieOverride">
           <label for="tieOverride">工程師核可自訂繫筋數 (覆蓋規範自動值)</label>
         </div>
-        <p class="hint" id="tieOverrideHint" style="margin:-2px 0 8px;">未勾選：依規範 25.7.2.3 自動填入最少繫筋數 (欄位為唯讀)。</p>
+        <p class="hint" id="tieOverrideHint" data-ui="field-hint">未勾選：依規範 25.7.2.3 自動填入最少繫筋數 (欄位為唯讀)。</p>
         <div class="form-row" id="crossTieNumsRow">
           <div class="form-group"><label>X 向繫筋數 nct,x (條)</label><input type="number" id="nCrossTieX" value="2" min="0"></div>
           <div class="form-group"><label>Y 向繫筋數 nct,y (條)</label><input type="number" id="nCrossTieY" value="2" min="0"></div>
         </div>
-        <p class="hint" style="margin:-2px 0 6px; color:#64748b;">總肢數 = 2 (周邊箍) + 繫筋數。X 向繫筋為水平方向跨越，用於繞 y 軸彎曲檢核。</p>
+        <p class="hint" data-ui="field-hint">總肢數 = 2 (周邊箍) + 繫筋數。X 向繫筋為水平方向跨越，用於繞 y 軸彎曲檢核。</p>
         <input type="hidden" id="legsX" value="4">
         <input type="hidden" id="legsY" value="4">
         <input type="hidden" id="legs" value="4">
-        <p class="hint" id="tieAutoInfo" style="margin:-2px 0 6px; color:#5b21b6;">—</p>
+        <p class="hint" id="tieAutoInfo" data-ui="detail-hint">—</p>
       </div>
 
       <!-- 配筋 — 圓柱螺箍筋 (rebar only, 圓柱) -->
@@ -368,7 +346,7 @@
         <h2>耐震 — 強柱弱梁</h2>
         <div class="form-group"><label>快速梁彎矩強度合 ΣMnb,x (tf·m)</label><input type="number" id="SMnb" value="80"></div>
         <p class="hint">若下方 X 向梁端彎矩未填，會沿用此快速值；完整檢核建議填入各梁端標稱彎矩。</p>
-        <h3 style="margin:10px 0 6px; color:#5b21b6; font-size:0.95em;">X 向接頭 (對應 Mux)</h3>
+        <h3 data-ui="section-heading">X 向接頭 (對應 Mux)</h3>
         <div class="form-row">
           <div class="form-group"><label>上柱 Mnc,x (tf·m, 0=自動)</label><input type="number" id="scwbColXTop" value="0" step="any"></div>
           <div class="form-group"><label>下柱 Mnc,x (tf·m, 0=自動)</label><input type="number" id="scwbColXBot" value="0" step="any"></div>
@@ -377,7 +355,7 @@
           <div class="form-group"><label>左梁 Mnb,x (tf·m)</label><input type="number" id="scwbBeamXLeft" value="0" step="any"></div>
           <div class="form-group"><label>右梁 Mnb,x (tf·m)</label><input type="number" id="scwbBeamXRight" value="0" step="any"></div>
         </div>
-        <h3 style="margin:10px 0 6px; color:#5b21b6; font-size:0.95em;">Y 向接頭 (對應 Muy)</h3>
+        <h3 data-ui="section-heading">Y 向接頭 (對應 Muy)</h3>
         <div class="form-row">
           <div class="form-group"><label>上柱 Mnc,y (tf·m, 0=自動)</label><input type="number" id="scwbColYTop" value="0" step="any"></div>
           <div class="form-group"><label>下柱 Mnc,y (tf·m, 0=自動)</label><input type="number" id="scwbColYBot" value="0" step="any"></div>
@@ -407,23 +385,23 @@
     <div>
       <!-- 綜合結論 banner -->
       <div class="card" id="conclusionCard">
-        <h2>綜合結論 <span id="conclusionScope" class="hint" style="margin-left:auto; font-style:normal;">—</span></h2>
+        <h2>綜合結論 <span id="conclusionScope" class="hint">—</span></h2>
         <div id="bannerStatus" class="banner-status">尚未計算</div>
         <div id="bannerKey" class="banner-key"></div>
       </div>
 
       <!-- 剖面示意圖 -->
       <div class="card" id="colSectionCard" data-shows="geom rebar pm shear summary">
-        <h2>斷面示意圖 <span id="colSectionHeadHint" class="hint" style="margin-left:auto; font-style:normal;">含主筋 / 箍筋 / 束筋</span></h2>
+        <h2>斷面示意圖 <span id="colSectionHeadHint" class="hint">含主筋 / 箍筋 / 束筋</span></h2>
         <div class="canvas-wrap">
           <canvas id="colSectionCanvas" width="420" height="360"></canvas>
         </div>
-        <p class="hint" id="colSectionHint" style="margin:6px 0 0; text-align:center;">—</p>
+        <p class="hint" id="colSectionHint">—</p>
       </div>
 
       <!-- 設計建議 hero -->
       <div class="card" id="designSuggestCard" data-shows="rebar pm summary">
-        <h2>設計建議 <span class="hint" style="margin-left:auto; font-style:normal;">由 Pu / Mu 反算</span></h2>
+        <h2>設計建議 <span class="hint">由 Pu / Mu 反算</span></h2>
         <div id="rebarHeroMain" class="rebar-hero">
           <div class="line"><span class="lbl">主筋 Ast 需求</span><span class="big" id="heroAstReq">—</span></div>
           <div class="line"><span class="lbl">建議配置</span><span class="combo" id="heroCombo">—</span></div>
@@ -432,7 +410,7 @@
         <div id="rebarHeroTie" class="rebar-hero">
           <div class="line"><span class="lbl">建議箍筋間距</span><span class="combo" id="heroTieS">—</span></div>
         </div>
-        <div id="columnRebarDesignCandidates" style="margin-top:12px;"></div>
+        <div id="columnRebarDesignCandidates" data-ui-space="section"></div>
       </div>
 
       <div class="card" data-shows="pm summary">
@@ -451,26 +429,26 @@
 
       <div class="card" data-shows="pm summary">
         <h2>P-M 曲線計算明細</h2>
-        <div class="checkbox-row" style="background:#f0f9ff; border-color:#bae6fd;">
+        <div class="checkbox-row" data-ui-tone="info">
           <input type="checkbox" id="pmShowDetails">
-          <label for="pmShowDetails" style="color:#0369a1;">顯示計算邏輯與取點過程 (供工程師查核)</label>
+          <label for="pmShowDetails" data-ui="tone-label">顯示計算邏輯與取點過程 (供工程師查核)</label>
         </div>
         <div id="pmDetailsBox" style="display:none;">
-          <div id="pmAlgoDesc" style="font-size:0.85em; line-height:1.65; color:#334155; padding:10px 14px; background:#f8fafc; border-left:3px solid var(--primary); border-radius:6px; margin-bottom:10px; white-space:pre-wrap; font-family:'Consolas','Microsoft JhengHei',monospace;"></div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div id="pmAlgoDesc"></div>
+          <div data-ui="diagnostic-grid">
             <div>
-              <h3 style="font-size:0.9em; color:var(--primary); margin-bottom:6px;">主筋分布 (X 向)</h3>
-              <div id="pmBarsX" style="font-size:0.78em; max-height:240px; overflow:auto; background:#fafbfc; padding:8px; border-radius:6px; border:1px solid var(--border); font-family:'Consolas',monospace;"></div>
+              <h3 data-ui="section-heading">主筋分布 (X 向)</h3>
+              <div id="pmBarsX"></div>
             </div>
             <div>
-              <h3 style="font-size:0.9em; color:var(--primary); margin-bottom:6px;">主筋分布 (Y 向)</h3>
-              <div id="pmBarsY" style="font-size:0.78em; max-height:240px; overflow:auto; background:#fafbfc; padding:8px; border-radius:6px; border:1px solid var(--border); font-family:'Consolas',monospace;"></div>
+              <h3 data-ui="section-heading">主筋分布 (Y 向)</h3>
+              <div id="pmBarsY"></div>
             </div>
           </div>
-          <h3 style="font-size:0.9em; color:var(--primary); margin:12px 0 6px;">PM 曲線取點 (X 向，c/h 取樣)</h3>
-          <div id="pmPointsX" style="font-size:0.78em; max-height:280px; overflow:auto; background:#fafbfc; padding:8px; border-radius:6px; border:1px solid var(--border); font-family:'Consolas',monospace;"></div>
-          <h3 style="font-size:0.9em; color:var(--primary); margin:12px 0 6px;">PM 曲線取點 (Y 向，c/h 取樣)</h3>
-          <div id="pmPointsY" style="font-size:0.78em; max-height:280px; overflow:auto; background:#fafbfc; padding:8px; border-radius:6px; border:1px solid var(--border); font-family:'Consolas',monospace;"></div>
+          <h3 data-ui="section-heading">PM 曲線取點 (X 向，c/h 取樣)</h3>
+          <div id="pmPointsX"></div>
+          <h3 data-ui="section-heading">PM 曲線取點 (Y 向，c/h 取樣)</h3>
+          <div id="pmPointsY"></div>
         </div>
       </div>
 
@@ -494,7 +472,7 @@
           <div class="result-item" id="g-minBars"><span class="label">主筋下限根數 (規範)</span><span class="value">—</span></div>
           <div class="result-item" id="g-AgHint"><span class="label">Ag 配置性提示 (實務參考)</span><span class="value">—</span></div>
         </div>
-        <p class="hint" id="g-feasNote" style="margin:8px 0 0;">主筋號數 / 根數與排內間距檢核請至「配筋」分頁。</p>
+        <p class="hint" id="g-feasNote" data-ui-space="field">主筋號數 / 根數與排內間距檢核請至「配筋」分頁。</p>
       </div>
 
       <!-- 配筋摘要 + 規範檢核 (rebar + summary) -->
@@ -532,7 +510,7 @@
           <div class="result-item" id="i-seismicDetailInput"><span class="label">首支 / 外區間距</span><span class="value">—</span></div>
           <div class="result-item" id="i-lapInput"><span class="label">耐震搭接輸入</span><span class="value">—</span></div>
         </div>
-        <p class="hint" id="inputRiskHint" style="margin:8px 0 0;">尚未計算。</p>
+        <p class="hint" id="inputRiskHint" data-ui-space="field">尚未計算。</p>
       </div>
       <div class="card report-readiness-card" data-shows="summary" id="columnAttachmentReadinessCard">
         <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
@@ -542,14 +520,14 @@
       <div class="card" data-shows="summary" id="columnMethodBoundaryCard">
         <details>
           <summary><strong>計算方法與適用邊界</strong> <span class="scope-badge">頁面輔助</span></summary>
-          <ul class="hint" style="margin:12px 0 0; padding-left:22px; line-height:1.8;">
+          <ul class="hint" data-ui="review-list">
             <li>P-M 強度採應變相容法與強度折減；雙向彎矩以纖維斷面角度掃描檢核，Bresler 僅作近似對照。</li>
             <li>剪力結果同時檢核 φVn、最小剪力鋼筋量與斷面尺度上限。</li>
             <li>細長效應採 δns / δs 簡化放大；複雜二階分析、搖擺分量與施工階段效應須由專案模型確認。</li>
             <li>直線柱端錨定可依輸入長度自動判定；彎鉤、機械錨定及其他端部構造須依配筋圖或產品資料複核。</li>
             <li>耐震搭接、梁柱接頭與施工細部須與梁設計及施工圖一致。</li>
           </ul>
-          <p class="hint" style="margin:10px 0 0;">本區僅供操作與判讀，不會寫入計算書或列印 PDF；計算書只保留採用資料、計算式、檢核結果、結論及已完成的可追溯複核紀錄。</p>
+          <p class="hint" data-ui-space="section">本區僅供操作與判讀，不會寫入計算書或列印 PDF；計算書只保留採用資料、計算式、檢核結果、結論及已完成的可追溯複核紀錄。</p>
         </details>
       </div>
       <div class="card force-candidate-card" id="columnForceCandidateCard" style="display:none;">
@@ -793,8 +771,8 @@
     document.querySelectorAll('.mode-btn').forEach(b => {
       const active = b.dataset.mode === currentMode;
       b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--primary)' : '#fff';
-      b.style.color = active ? '#fff' : 'var(--primary)';
+      b.style.background = active ? 'var(--primary)' : 'var(--bg-surface)';
+      b.style.color = active ? 'var(--bg-surface)' : 'var(--primary)';
     });
     document.getElementById('modeHint').textContent = (currentMode === 'design')
       ? '設計模式：給定載重，建議鋼筋配置。'
@@ -972,7 +950,7 @@
   function showBeamColumnJointImportNotice(message, status = 'ok') {
     const note = document.createElement('div');
     note.textContent = message;
-    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? '#fee2e2' : '#dcfce7'};color:${status === 'fail' ? '#991b1b' : '#166534'};border:1px solid ${status === 'fail' ? '#fecaca' : '#86efac'};padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:420px;`;
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? 'var(--hy-danger-100)' : 'var(--hy-success-100)'};color:${status === 'fail' ? 'var(--hy-red-deep)' : 'var(--hy-success)'};border:1px solid ${status === 'fail' ? 'var(--hy-danger)' : 'var(--hy-success)'};padding:10px 14px;border-radius:var(--radius-lg);font-size:var(--fs-sm);box-shadow:var(--shadow-md);max-width:min(420px,calc(100vw - 20px));`;
     document.body.appendChild(note);
     setTimeout(() => note.remove(), status === 'fail' ? 6000 : 5000);
   }
@@ -1000,27 +978,27 @@
       const reason = window.RCUI?.escapeHtml
         ? window.RCUI.escapeHtml(result?.reason || '尚無容量式候選。')
         : '尚無容量式候選。';
-      host.innerHTML = `<div style="padding:10px 12px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;font-size:0.88em;"><strong>未找到可直接套用方案</strong><br>${reason}。可調整柱寬、柱深、保護層、材料或載重後再計算。</div>`;
+      host.innerHTML = `<div data-ui="notice" data-ui-tone="warning"><strong>未找到可直接套用方案</strong><br>${reason}。可調整柱寬、柱深、保護層、材料或載重後再計算。</div>`;
       return;
     }
     const candidateType = window.colLast?.colType || $('colType')?.value || 'rect';
     const circular = candidateType === 'circle' || candidateType === 'circleTied';
     const rows = candidates.map((candidate, index) => `
       <tr>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${index + 1}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.nBar}-${candidate.barNo}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${circular ? '圓周均布' : candidate.nSide}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${circular ? `淨距 ${candidate.clear.toFixed(1)} cm` : (candidate.bundle > 1 ? `×${candidate.bundle} 束筋` : '單筋')}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.transverse ? (circular ? `${candidateType === 'circle' ? '螺箍筋' : '圓形閉合箍筋'} ${candidate.transverse.hoopNo} @ ${candidate.transverse.spacing} cm` : `${candidate.transverse.tieNo} @ ${candidate.transverse.spacing} cm；X/Y 繫筋 ${candidate.transverse.nCrossTieX}/${candidate.transverse.nCrossTieY}`) : '—'}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.Ast.toFixed(2)} / ${(candidate.rhog * 100).toFixed(2)}%</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.pmUtilization.toFixed(3)} / ${candidate.transverse?.utilization?.toFixed(3) || '—'}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;"><button type="button" class="column-design-apply" data-candidate-index="${index}" style="padding:5px 10px;border:0;border-radius:5px;background:#0e7490;color:#fff;cursor:pointer;">套用並檢核</button></td>
+        <td data-ui-align="center">${index + 1}</td>
+        <td>${candidate.nBar}-${candidate.barNo}</td>
+        <td data-ui-align="center">${circular ? '圓周均布' : candidate.nSide}</td>
+        <td data-ui-align="center">${circular ? `淨距 ${candidate.clear.toFixed(1)} cm` : (candidate.bundle > 1 ? `×${candidate.bundle} 束筋` : '單筋')}</td>
+        <td>${candidate.transverse ? (circular ? `${candidateType === 'circle' ? '螺箍筋' : '圓形閉合箍筋'} ${candidate.transverse.hoopNo} @ ${candidate.transverse.spacing} cm` : `${candidate.transverse.tieNo} @ ${candidate.transverse.spacing} cm；X/Y 繫筋 ${candidate.transverse.nCrossTieX}/${candidate.transverse.nCrossTieY}`) : '—'}</td>
+        <td data-ui-align="numeric">${candidate.Ast.toFixed(2)} / ${(candidate.rhog * 100).toFixed(2)}%</td>
+        <td data-ui-align="numeric">${candidate.pmUtilization.toFixed(3)} / ${candidate.transverse?.utilization?.toFixed(3) || '—'}</td>
+        <td data-ui-align="center"><button type="button" class="column-design-apply" data-candidate-index="${index}" data-ui-button="primary">套用並檢核</button></td>
       </tr>`).join('');
     host.innerHTML = `
-      <div style="font-size:0.86em;color:#475569;margin-bottom:6px;">${circular ? '圓柱' : '矩形柱'}整體配筋候選依主筋量、橫向筋量、擁擠程度與利用率排序；每列已預先通過雙軸 P–M、配筋率、${circular ? '圓周淨距' : '排內配置與側撐'}、兩向剪力、Av,min、斷面上限、間距及耐震圍束量。套用後仍由正式流程重算；錨定、搭接、首支箍筋、ℓo 外間距及施工圖維持正式／人工複核。候選只留在工作頁。</div>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.84em;border:1px solid #cbd5e1;min-width:760px;">
-          <thead><tr style="background:#e2e8f0;"><th style="padding:6px;">#</th><th style="padding:6px;">主筋</th><th style="padding:6px;">${circular ? '主筋配置' : '每邊位置數'}</th><th style="padding:6px;">${circular ? '圓周淨距' : '配置'}</th><th style="padding:6px;">${circular ? '橫向筋' : '箍筋／繫筋'}</th><th style="padding:6px;">Ast / ρg</th><th style="padding:6px;">P–M / 橫向利用率</th><th style="padding:6px;">操作</th></tr></thead>
+      <div data-ui="candidate-intro">${circular ? '圓柱' : '矩形柱'}整體配筋候選依主筋量、橫向筋量、擁擠程度與利用率排序；每列已預先通過雙軸 P–M、配筋率、${circular ? '圓周淨距' : '排內配置與側撐'}、兩向剪力、Av,min、斷面上限、間距及耐震圍束量。套用後仍由正式流程重算；錨定、搭接、首支箍筋、ℓo 外間距及施工圖維持正式／人工複核。候選只留在工作頁。</div>
+      <div data-ui="scroll-region">
+        <table data-ui-table="candidates">
+          <thead><tr data-ui-row="header"><th>#</th><th>主筋</th><th>${circular ? '主筋配置' : '每邊位置數'}</th><th>${circular ? '圓周淨距' : '配置'}</th><th>${circular ? '橫向筋' : '箍筋／繫筋'}</th><th>Ast / ρg</th><th>P–M / 橫向利用率</th><th>操作</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -2196,10 +2174,10 @@
       if (note) {
         if (!agAmple) {
           note.textContent = `Ag 偏小：建議放大斷面，或改以較高 fc' 提升軸向承載。鋼筋號數與排列檢核請至「配筋」分頁。`;
-          note.style.color = '#92400e';
+          note.style.color = 'var(--rc-warning-ink)';
         } else {
           note.textContent = `斷面與材料符合規範範圍。鋼筋號數 / 根數與排內間距檢核請至「配筋」分頁。`;
-          note.style.color = '#475569';
+          note.style.color = 'var(--hy-slate-700)';
         }
       }
     }
@@ -4869,8 +4847,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       const isShortChk = r.klr <= 22;
       banner.className = 'banner-status';
       banner.innerHTML = isShortChk
-        ? `📐 短柱 (k·ℓu/r = ${r.klr.toFixed(1)} ≤ 22)<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">可忽略細長效應，直接以斷面強度設計</div>`
-        : `📐 長柱 (k·ℓu/r = ${r.klr.toFixed(1)} > 22)<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">需考慮 δns / δs 細長放大效應</div>`;
+        ? `📐 短柱 (k·ℓu/r = ${r.klr.toFixed(1)} ≤ 22)<div data-ui="banner-detail">可忽略細長效應，直接以斷面強度設計</div>`
+        : `📐 長柱 (k·ℓu/r = ${r.klr.toFixed(1)} > 22)<div data-ui="banner-detail">需考慮 δns / δs 細長放大效應</div>`;
       key.innerHTML = [
         { label:'Ag', val:`${r.Ag.toFixed(0)} cm²` },
         { label:'k·ℓu/r', val:`${r.klr.toFixed(1)}` },
@@ -4963,7 +4941,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         : allOk
           ? (resolvedManualReviewItems.length ? '複核完成 — 可核可' : 'OK — 符合規範')
           : '部分項目待檢核';
-    banner.innerHTML = `${icon} ${txt}` + (bannerChecks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${bannerChecks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
+    banner.innerHTML = `${icon} ${txt}` + (bannerChecks.length ? `<div data-ui="banner-detail">${bannerChecks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
     key.innerHTML = kv.map(item => {
       const cls = item.ok === true ? 'ok' : item.ok === false ? 'fail' : '';
       return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;

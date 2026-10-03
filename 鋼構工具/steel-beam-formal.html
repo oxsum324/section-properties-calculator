@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>鋼梁正式規範核算工具 V1.0</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./steel-member-formal.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -419,30 +420,30 @@
               <h2>提醒與適用範圍 <span class="report-block-status neutral" id="beamReminderBadge">待計算</span></h2>
               <div id="beamReminderList" class="member-reminder-list"></div>
             </div>
-            <div class="card" id="propsCard" style="display:none;">
+            <div class="card" id="propsCard" hidden>
               <h2>斷面性質</h2>
               <div class="member-table-wrap">
                 <table class="member-mini-table" id="propsTable"></table>
               </div>
             </div>
             <div id="resultWrap">
-              <div class="card" id="clsCard" style="display:none;">
+              <div class="card" id="clsCard" hidden>
                 <h2>斷面分類</h2>
                 <div id="clsResult"></div>
               </div>
-              <div class="card report-block" id="flexCard" style="display:none;">
+              <div class="card report-block" id="flexCard" hidden>
                 <h2>撓曲構材強度檢核 <span class="report-block-status neutral" id="beamFlexBadge">待計算</span></h2>
                 <div id="flexResult"></div>
               </div>
-              <div class="card report-block" id="shearCard" style="display:none;">
+              <div class="card report-block" id="shearCard" hidden>
                 <h2>剪力強度檢核 <span class="report-block-status neutral" id="beamShearBadge">待計算</span></h2>
                 <div id="shearResult"></div>
               </div>
-              <div class="card report-block" id="deflCard" style="display:none;">
+              <div class="card report-block" id="deflCard" hidden>
                 <h2>撓度檢核 <span class="report-block-status neutral" id="beamDeflBadge">待計算</span></h2>
                 <div id="deflResult"></div>
               </div>
-              <div class="card" id="summaryCard" style="display:none;">
+              <div class="card" id="summaryCard" hidden>
                 <h2>總結</h2>
                 <div id="summaryResult"></div>
               </div>

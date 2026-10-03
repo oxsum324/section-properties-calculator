@@ -10,111 +10,73 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="結構工具箱/core/direct-print-boundary.css">
 <link rel="stylesheet" href="結構工具箱/core/report-readiness.css">
+<link rel="stylesheet" href="結構工具箱/assets/hy/colors_and_type.css">
 <style>
-  :root {
-    --primary: #2563eb;
-    --primary-dark: #1d4ed8;
-    --bg: #f8fafc;
-    --card: #ffffff;
-    --border: #e2e8f0;
-    --text: #1e293b;
-    --text-light: #64748b;
-    --accent: #059669;
-    --danger: #dc2626;
-  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
-  header { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: white; padding: 20px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
-  header h1 { font-size: 1.5em; }
-  header p { font-size: 0.85em; opacity: 0.85; margin-top: 4px; }
+  body { line-height: 1.6; }
+  header { padding: 20px 30px; }
+  header p { margin-top: 4px; }
   .container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
   .top-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: end; }
   .top-bar .form-group { margin: 0; }
   .main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
   .diagrams-section { margin-top: 16px; }
-  .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
-  .card h2 { font-size: 1.05em; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border); color: var(--primary); }
-  .card h3 { font-size: 0.92em; margin: 12px 0 8px; color: var(--text); }
+  .card { padding: 20px; margin-bottom: 16px; }
+  .card h2 { margin-bottom: 12px; padding-bottom: 8px; }
+  .card h3 { margin: 12px 0 8px; }
   .form-group { margin-bottom: 8px; }
-  .form-group label { display: block; font-size: 0.8em; font-weight: 600; color: var(--text-light); margin-bottom: 2px; }
-  .form-group input, .form-group select { width: 100%; padding: 7px 10px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.92em; font-family: inherit; outline: none; transition: border-color 0.2s; }
-  .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-group label { display: block; margin-bottom: 2px; }
+  .form-group input, .form-group select { width: 100%; padding: 7px 10px; outline: none; transition: border-color 0.2s; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-  .btn { padding: 6px 12px; border: none; border-radius: 8px; font-size: 0.82em; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
-  .btn-primary { background: var(--primary); color: white; }
-  .btn-primary:hover { background: var(--primary-dark); }
-  .btn-accent { background: var(--accent); color: white; }
-  .btn-accent:hover { background: #047857; }
-  .btn-danger { background: var(--danger); color: white; }
-  .btn-danger:hover { background: #b91c1c; }
-  .btn-sm { padding: 4px 8px; font-size: 0.78em; }
-  .btn-calc { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
-  .btn-calc:hover { background: var(--primary-dark); }
+  .btn { padding: 6px 12px; cursor: pointer; transition: all 0.2s; }
+  .btn-sm { padding: 4px 8px; }
+  .btn-calc { width: 100%; padding: 12px; cursor: pointer; margin-top: 8px; }
   .right-panel { display: flex; flex-direction: column; }
-  .canvas-wrap { display: flex; justify-content: center; align-items: center; background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); min-height: 160px; overflow-x: auto; }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; min-height: 160px; overflow-x: auto; }
   canvas { display: block; max-width: 100%; }
-  .span-row { display: grid; grid-template-columns: auto 1fr 1fr 1.4fr; gap: 6px; align-items: end; margin-bottom: 4px; padding: 5px 8px; background: #f8fafc; border-radius: 6px; }
+  .span-row { display: grid; grid-template-columns: auto 1fr 1fr 1.4fr; gap: 6px; align-items: end; margin-bottom: 4px; padding: 5px 8px; }
   .support-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: end; margin-bottom: 3px; }
-  .load-item { background: #f1f5f9; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; border-left: 3px solid var(--primary); }
+  .load-item { padding: 8px 10px; margin-bottom: 6px; }
   .load-item .load-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-  .load-item .load-header span { font-size: 0.8em; font-weight: 600; color: var(--text-light); }
-  .results-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-  .results-table th, .results-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
-  .results-table th { background: #f1f5f9; font-weight: 600; color: var(--text-light); font-size: 0.8em; }
-  .results-table td { font-family: 'Consolas', monospace; }
-  .section-divider { height: 1px; background: var(--border); margin: 10px 0; }
-  .error-msg { background: #fef2f2; color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
+  .results-table { width: 100%; }
+  .results-table th, .results-table td { padding: 6px 8px; text-align: center; }
+  .section-divider { height: 1px; margin: 10px 0; }
+  .error-msg { padding: 8px 12px; margin-top: 8px; display: none; }
   .il-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .hint { font-size: 0.75em; color: var(--text-light); margin-top: 2px; font-style: italic; }
+  .hint { margin-top: 2px; }
   .material-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; align-items: end; }
-  .ei-row { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: end; margin-bottom: 4px; padding: 5px 8px; background: #f0fdf4; border-radius: 6px; }
-  .link-btn { background: none; border: 1px solid var(--primary); color: var(--primary); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.75em; font-family: inherit; white-space: nowrap; }
-  .link-btn:hover { background: var(--primary); color: white; }
-  /* ===== Tablet (<= 1024px) ===== */
+  .ei-row { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: end; margin-bottom: 4px; padding: 5px 8px; }
+  .link-btn { padding: 4px 8px; cursor: pointer; white-space: nowrap; }
   @media (max-width: 1024px) {
     .container { max-width: 100%; padding: 0 16px; margin: 16px auto; }
     .main-layout { grid-template-columns: 320px 1fr; gap: 14px; }
     header { padding: 16px 20px; }
   }
-  /* ===== Tablet portrait / single column (<= 900px) ===== */
   @media (max-width: 900px) {
     .main-layout { grid-template-columns: 1fr; }
     .right-panel { min-width: 0; }
     .canvas-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   }
-  /* ===== Phone (<= 640px) ===== */
   @media (max-width: 640px) {
     header { padding: 14px 16px; }
-    header h1 { font-size: 1.2em; }
-    header p { font-size: 0.78em; }
     .container { margin: 10px auto; padding: 0 10px; }
-    .card { padding: 14px; border-radius: 10px; margin-bottom: 12px; }
-    .card h2 { font-size: 1em; }
-    /* 避免 iOS 聚焦時自動放大: 輸入框字級 >= 16px */
-    .form-group input, .form-group select { font-size: 16px; padding: 9px 10px; min-height: 40px; }
-    .form-group label { font-size: 0.78em; }
-    .btn { padding: 8px 12px; font-size: 0.85em; min-height: 36px; }
-    .btn-sm { padding: 6px 10px; font-size: 0.78em; min-height: 32px; }
-    .btn-calc { padding: 14px; font-size: 1.02em; min-height: 48px; }
-    .link-btn { padding: 6px 10px; font-size: 0.78em; min-height: 32px; }
-    /* 跨、支承、EI 列改為較緊湊的兩欄配置 */
+    .card { padding: 14px; margin-bottom: 12px; }
+    .form-group input, .form-group select { padding: 9px 10px; min-height: 40px; }
+    .btn { padding: 8px 12px; min-height: 36px; }
+    .btn-sm { padding: 6px 10px; min-height: 32px; }
+    .btn-calc { padding: 14px; min-height: 48px; }
+    .link-btn { padding: 6px 10px; min-height: 32px; }
     .span-row { grid-template-columns: auto 1fr 1fr; row-gap: 4px; }
     .span-row > div:last-child { grid-column: 1 / -1; }
     .ei-row { grid-template-columns: auto 1fr 1fr; }
     .form-row3 { grid-template-columns: 1fr 1fr; }
     .material-row { grid-template-columns: 1fr; }
     .il-controls { grid-template-columns: 1fr; }
-    .results-table { font-size: 0.78em; }
     .results-table th, .results-table td { padding: 5px 4px; }
-    /* top-bar 項目自動排列 */
     .top-bar .form-group { flex: 1 1 45%; min-width: 0 !important; }
-    .top-bar .form-group input,
-    .top-bar .form-group select { font-size: 16px; }
   }
-  /* ===== Small phone (<= 420px) ===== */
   @media (max-width: 420px) {
-    header h1 { font-size: 1.08em; }
     .container { padding: 0 8px; }
     .card { padding: 12px 10px; }
     .form-row { grid-template-columns: 1fr; gap: 6px; }
@@ -123,27 +85,17 @@
     .ei-row { grid-template-columns: 1fr 1fr; }
     .top-bar .form-group { flex: 1 1 100%; }
   }
-  /* ===== 觸控裝置共通 ===== */
   @media (hover: none) and (pointer: coarse) {
-    .btn:hover, .btn-primary:hover, .btn-accent:hover, .btn-danger:hover, .btn-calc:hover, .link-btn:hover { background: initial; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-accent { background: var(--accent); color: white; }
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-calc { background: var(--primary); color: white; }
-    .link-btn { background: none; color: var(--primary); }
-    /* 放大點擊目標 */
     input[type="number"], input[type="text"], select { min-height: 40px; }
   }
-  /* ===== Firebase Save/Load Modal ===== */
-  .save-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 20px; background: var(--card); border-bottom: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .save-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 20px; }
   .save-bar .btn { display: inline-flex; align-items: center; gap: 4px; }
-  .save-bar .current-file { font-size: 0.82em; color: var(--text-light); margin-left: 8px; }
-  .save-bar .current-file strong { color: var(--text); }
+  .save-bar .current-file { margin-left: 8px; }
   .save-bar .status-msg { flex-basis: 100%; }
-  .status-msg { display: none; border-radius: 8px; padding: 6px 10px; font-size: 0.82em; line-height: 1.45; }
-  .status-msg.ok { display: block; background: #ecfdf5; color: #047857; }
-  .status-msg.warn { display: block; background: #fffbeb; color: #92400e; }
-  .status-msg.error { display: block; background: #fef2f2; color: var(--danger); }
+  .status-msg { display: none; padding: 6px 10px; line-height: 1.45; }
+  .status-msg.ok { display: block; }
+  .status-msg.warn { display: block; }
+  .status-msg.error { display: block; }
   .status-msg .status-inline-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 8px; vertical-align: middle; }
   .status-msg .status-inline-actions .btn { margin: 2px 0; }
   @media print {
@@ -152,35 +104,33 @@
     .modal-overlay { display: none !important; }
   }
   .modal-status { margin-top: 10px; }
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9999; justify-content: center; align-items: center; }
+  .modal-overlay { display: none; position: fixed; inset: 0; z-index: 9999; justify-content: center; align-items: center; }
   .modal-overlay.active { display: flex; }
-  .modal-box { background: var(--card); border-radius: 14px; padding: 24px; width: 94vw; max-width: 520px; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
-  .modal-box h2 { font-size: 1.1em; margin-bottom: 16px; color: var(--primary); }
+  .modal-box { padding: 24px; width: 94vw; max-width: 520px; max-height: 85vh; overflow-y: auto; }
+  .modal-box h2 { margin-bottom: 16px; }
   .modal-box .form-group { margin-bottom: 12px; }
-  .modal-box .form-group label { font-size: 0.82em; font-weight: 600; color: var(--text-light); margin-bottom: 4px; display: block; }
-  .modal-box .form-group input { width: 100%; padding: 8px 10px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.92em; font-family: inherit; outline: none; }
-  .modal-box .form-group input:focus { border-color: var(--primary); }
+  .modal-box .form-group label { margin-bottom: 4px; display: block; }
+  .modal-box .form-group input { width: 100%; padding: 8px 10px; outline: none; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
   .load-list { list-style: none; padding: 0; margin: 0; }
-  .load-list li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); gap: 6px; }
-  .load-list li:last-child { border-bottom: none; }
+  .load-list li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 10px 12px; gap: 6px; }
   .load-list .li-info { flex: 1; min-width: 0; }
-  .load-list .li-name { font-weight: 600; font-size: 0.9em; color: var(--text); }
-  .load-list .li-meta { font-size: 0.75em; color: var(--text-light); margin-top: 2px; }
+  .load-list .li-meta { margin-top: 2px; }
   .load-list .li-actions { display: flex; gap: 6px; flex-shrink: 0; }
-  .load-list .empty-msg { text-align: center; padding: 20px; color: var(--text-light); font-size: 0.88em; }
+  .load-list .empty-msg { text-align: center; padding: 20px; }
   @media (max-width: 640px) {
     .save-bar { padding: 8px 12px; gap: 6px; }
-    .save-bar .btn { font-size: 0.8em; padding: 6px 10px; }
+    .save-bar .btn { padding: 6px 10px; }
     .modal-box { padding: 18px 14px; }
   }
 </style>
+<link rel="stylesheet" href="結構工具箱/assets/hy/continuous-beam-ui.css">
 </head>
 <body class="formal-tool-output-page">
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>分析工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的計算書輸出按鈕產生只包含案件資料、分析輸入、計算結果與必要結論的計算書；本頁不得作為附件。</span></div>
 <header>
-  <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>連續梁分析工具 <span id="continuousBeamVersion" style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;"></span></h1>
+  <p><a href="結構工具箱/index.html">← 回主選單</a></p>
+  <h1>連續梁分析工具 <span id="continuousBeamVersion"></span></h1>
   <p>Direct Stiffness Method | 剪力圖 / 彎矩圖 / 撓度曲線 / 影響線 / 計算書輸出</p>
 </header>
 <div class="save-bar">
@@ -213,7 +163,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="window._fbDoSave()">確認儲存</button>
-      <button class="btn" style="background:var(--border);" onclick="document.getElementById('saveModal').classList.remove('active')">取消</button>
+      <button class="btn" data-ui-action="dismiss" onclick="document.getElementById('saveModal').classList.remove('active')">取消</button>
     </div>
     <div class="status-msg modal-status" id="saveModalStatus" role="status" aria-live="polite"></div>
   </div>
@@ -221,23 +171,23 @@
 
 <!-- Load Modal -->
 <div class="modal-overlay" id="loadModal">
-  <div class="modal-box" style="max-width:600px;">
+  <div class="modal-box">
     <h2>📂 載入存檔</h2>
     <ul class="load-list" id="loadList">
       <li class="empty-msg">讀取中...</li>
     </ul>
     <div class="status-msg modal-status" id="loadModalStatus" role="status" aria-live="polite"></div>
     <div class="modal-actions">
-      <button class="btn" style="background:var(--border);" onclick="document.getElementById('loadModal').classList.remove('active')">關閉</button>
+      <button class="btn" data-ui-action="dismiss" onclick="document.getElementById('loadModal').classList.remove('active')">關閉</button>
     </div>
   </div>
 </div>
 
 <div class="container">
   <!-- Top Bar: Unit system -->
-  <div class="card" style="padding:12px 20px;">
+  <div class="card" data-ui-panel="settings">
     <div class="top-bar">
-      <div class="form-group" style="min-width:120px;">
+      <div class="form-group">
         <label>單位系統</label>
         <select id="unitSystem" onchange="onUnitChange()">
           <option value="kN-m" selected>kN - m</option>
@@ -245,7 +195,7 @@
           <option value="kgf-cm">kgf - cm</option>
         </select>
       </div>
-      <div class="form-group" style="min-width:80px;">
+      <div class="form-group">
         <label>跨數</label>
         <select id="numSpans" onchange="onSpanCountChange()">
           <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
@@ -253,7 +203,7 @@
           <option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
         </select>
       </div>
-      <div class="form-group" style="min-width:140px;">
+      <div class="form-group">
         <label>材料 E 值</label>
         <select id="matSelect" onchange="onMatChange()">
           <option value="steel">鋼材 (2.04×10⁶)</option>
@@ -261,22 +211,22 @@
           <option value="custom">自訂</option>
         </select>
       </div>
-      <div class="form-group" id="fcGroup" style="display:none;min-width:100px;">
+      <div class="form-group" id="fcGroup" style="display:none;">
         <label>fc' (<span class="unit-stress">kgf/cm²</span>)</label>
         <input type="number" id="fcVal" value="280" step="any" onchange="calcEc()">
       </div>
-      <div class="form-group" style="min-width:140px;">
+      <div class="form-group">
         <label>E (<span class="unit-E"></span>)</label>
         <input type="number" id="eVal" value="" step="any" onchange="invalidateAnalysis()">
       </div>
-      <div class="form-group" style="min-width:120px;">
+      <div class="form-group">
         <label>I 值輸入方式</label>
         <select id="iMode" onchange="onIModeChange()">
           <option value="direct">直接輸入 I</option>
           <option value="section">選擇斷面</option>
         </select>
       </div>
-      <div class="form-group" id="globalIGroup" style="min-width:130px;">
+      <div class="form-group" id="globalIGroup">
         <label>I (<span class="unit-I"></span>)</label>
         <input type="number" id="globalI" value="0.0003" step="any" onchange="invalidateAnalysis()">
       </div>
@@ -284,15 +234,15 @@
         <button class="link-btn" onclick="openSectionTool()">開啟斷面性質工具</button>
       </div>
     </div>
-    <div id="pickedSectionPanel" style="display:none; margin-top:10px; padding:10px 14px; background:#ecfeff; border:1px solid #67e8f9; border-left:4px solid #0891b2; border-radius:6px; font-size:0.88em; color:#155e75;">
+    <div id="pickedSectionPanel" style="display:none;">
       <strong>已選定斷面：</strong><span id="pickedSectionText">—</span>
-      <button class="link-btn" style="margin-left:10px; font-size:0.85em;" onclick="clearPickedSection()">✕ 清除</button>
+      <button class="link-btn" onclick="clearPickedSection()">✕ 清除</button>
     </div>
   </div>
 
-  <div class="card" style="padding:12px 20px; margin-bottom:16px;">
-    <div style="font-size:0.88em; font-weight:700; color:var(--primary); margin-bottom:8px;">附件識別資料（選填，可由主文承接）</div>
-    <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr 1fr; gap:10px;">
+  <div class="card" data-ui-panel="project">
+    <div>附件識別資料（選填，可由主文承接）</div>
+    <div class="form-row">
       <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 大樓新建工程"></div>
       <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
       <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
@@ -314,7 +264,7 @@
           <select id="loadSpanSelect" onchange="renderLoadInputs()"></select>
         </div>
         <div id="loadInputs"></div>
-        <button class="btn btn-accent btn-sm" onclick="addLoad()" style="margin-top:4px;">+ 新增載重</button>
+        <button class="btn btn-accent btn-sm" onclick="addLoad()" data-ui-action="add-load">+ 新增載重</button>
 
         <div class="section-divider"></div>
         <h3>影響線設定</h3>
@@ -358,15 +308,15 @@
     <div class="card" id="deflCard" style="display:none;"><h2>撓度曲線</h2><div class="canvas-wrap"><canvas id="deflCanvas"></canvas></div></div>
     <div class="card" id="ilCard" style="display:none;"><h2 id="ilTitle">影響線</h2><div class="canvas-wrap"><canvas id="ilCanvas"></canvas></div></div>
     <div class="card" id="resultsCard" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">
-        <span style="font-size:1.05em;font-weight:700;color:var(--primary);">分析結果</span>
-        <div style="display:flex;gap:6px;">
+      <div data-ui-part="result-heading">
+        <span>分析結果</span>
+        <div>
           <button class="btn btn-accent btn-sm" onclick="exportJPG()">JPG</button>
           <button class="btn btn-danger btn-sm" onclick="exportPDF()">📄 計算書</button>
           <span id="designBtns"></span>
         </div>
       </div>
-      <h3 style="margin-top:0;">支承反力</h3>
+      <h3>支承反力</h3>
       <div id="reactionTable"></div>
       <h3>各跨極值</h3>
       <div id="extremeTable"></div>
@@ -667,9 +617,9 @@ function renderSpanInputs() {
   let html = '';
   for (let i = 0; i <= model.numSpans; i++) {
     html += `<div class="support-row">
-      <span style="font-size:0.8em;font-weight:600;color:var(--text-light);min-width:50px;">支承${i}</span>
-      <div class="form-group" style="margin:0;">
-        <select onchange="setSupportType(${i},this.value)" style="padding:5px 8px;font-size:0.85em;">
+      <span>支承${i}</span>
+      <div class="form-group">
+        <select onchange="setSupportType(${i},this.value)">
           <option value="pin" ${model.supports[i].type==='pin'?'selected':''}>鉸支</option>
           <option value="roller" ${model.supports[i].type==='roller'?'selected':''}>滾支</option>
           <option value="fixed" ${model.supports[i].type==='fixed'?'selected':''}>固定端</option>
@@ -679,13 +629,13 @@ function renderSpanInputs() {
     </div>`;
     if (i < model.numSpans) {
       html += `<div class="span-row">
-        <span style="font-size:0.8em;font-weight:600;color:var(--primary);min-width:40px;">跨${i+1}</span>
-        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">L (${u.length})</label>
-          <input type="number" value="${model.spans[i].L}" step="any" onchange="setSpanLength(${i},this)" style="padding:5px;font-size:0.85em;"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">EI 倍率</label>
-          <input type="number" value="${model.spans[i].eiMul}" step="any" onchange="setSpanEiMultiplier(${i},this)" style="padding:5px;font-size:0.85em;"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">內絞點位置 (${u.length}, 逗號分隔)</label>
-          <input type="text" value="${(model.spans[i].hinges||[]).join(',')}" placeholder="例: 2,4" onchange="updateHinges(${i},this.value)" style="padding:5px;font-size:0.85em;"></div>
+        <span>跨${i+1}</span>
+        <div class="form-group"><label>L (${u.length})</label>
+          <input type="number" value="${model.spans[i].L}" step="any" onchange="setSpanLength(${i},this)"></div>
+        <div class="form-group"><label>EI 倍率</label>
+          <input type="number" value="${model.spans[i].eiMul}" step="any" onchange="setSpanEiMultiplier(${i},this)"></div>
+        <div class="form-group"><label>內絞點位置 (${u.length}, 逗號分隔)</label>
+          <input type="text" value="${(model.spans[i].hinges||[]).join(',')}" placeholder="例: 2,4" onchange="updateHinges(${i},this.value)"></div>
       </div>`;
     }
   }
@@ -709,32 +659,31 @@ function renderLoadInputs() {
   loads.forEach((ld, li) => {
     html += `<div class="load-item"><div class="load-header"><span>載重${li+1}</span>
       <button class="btn btn-danger btn-sm" onclick="removeLoad(${si},${li})">移除</button></div>
-      <div class="form-group" style="margin-bottom:4px;">
-        <select onchange="changeLoadType(${si},${li},this.value)" style="padding:4px;font-size:0.85em;">
+      <div class="form-group">
+        <select onchange="changeLoadType(${si},${li},this.value)">
           <option value="udl" ${ld.type==='udl'?'selected':''}>均佈載重</option>
           <option value="trapezoid" ${ld.type==='trapezoid'?'selected':''}>梯形載重</option>
           <option value="point" ${ld.type==='point'?'selected':''}>集中力</option>
           <option value="moment" ${ld.type==='moment'?'selected':''}>集中彎矩</option>
         </select></div>`;
-    const sty = 'padding:4px;font-size:0.85em;';
     if (ld.type === 'udl') {
-      html += `<div class="form-group" style="margin:0;"><label style="font-size:0.72em;">w (${u.dist})</label>
-        <input type="number" value="${ld.w||0}" step="any" onchange="setLoadField(${si},${li},'w',this)" style="${sty}"></div>`;
+      html += `<div class="form-group"><label>w (${u.dist})</label>
+        <input type="number" value="${ld.w||0}" step="any" onchange="setLoadField(${si},${li},'w',this)"></div>`;
     } else if (ld.type === 'trapezoid') {
-      html += `<div class="form-row"><div class="form-group" style="margin:0;"><label style="font-size:0.72em;">w1 左 (${u.dist})</label>
-        <input type="number" value="${ld.w1||0}" step="any" onchange="setLoadField(${si},${li},'w1',this)" style="${sty}"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">w2 右 (${u.dist})</label>
-        <input type="number" value="${ld.w2||0}" step="any" onchange="setLoadField(${si},${li},'w2',this)" style="${sty}"></div></div>`;
+      html += `<div class="form-row"><div class="form-group"><label>w1 左 (${u.dist})</label>
+        <input type="number" value="${ld.w1||0}" step="any" onchange="setLoadField(${si},${li},'w1',this)"></div>
+        <div class="form-group"><label>w2 右 (${u.dist})</label>
+        <input type="number" value="${ld.w2||0}" step="any" onchange="setLoadField(${si},${li},'w2',this)"></div></div>`;
     } else if (ld.type === 'point') {
-      html += `<div class="form-row"><div class="form-group" style="margin:0;"><label style="font-size:0.72em;">P (${u.force})</label>
-        <input type="number" value="${ld.P||0}" step="any" onchange="setLoadField(${si},${li},'P',this)" style="${sty}"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">a (${u.length})</label>
-        <input type="number" value="${ld.a||0}" step="any" min="0" max="${model.spans[si].L}" onchange="clampLoadPosition(${si},${li},this)" style="${sty}"></div></div>`;
+      html += `<div class="form-row"><div class="form-group"><label>P (${u.force})</label>
+        <input type="number" value="${ld.P||0}" step="any" onchange="setLoadField(${si},${li},'P',this)"></div>
+        <div class="form-group"><label>a (${u.length})</label>
+        <input type="number" value="${ld.a||0}" step="any" min="0" max="${model.spans[si].L}" onchange="clampLoadPosition(${si},${li},this)"></div></div>`;
     } else if (ld.type === 'moment') {
-      html += `<div class="form-row"><div class="form-group" style="margin:0;"><label style="font-size:0.72em;">M (${u.moment})</label>
-        <input type="number" value="${ld.M||0}" step="any" onchange="setLoadField(${si},${li},'M',this)" style="${sty}"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">a (${u.length})</label>
-        <input type="number" value="${ld.a||0}" step="any" min="0" max="${model.spans[si].L}" onchange="clampLoadPosition(${si},${li},this)" style="${sty}"></div></div>`;
+      html += `<div class="form-row"><div class="form-group"><label>M (${u.moment})</label>
+        <input type="number" value="${ld.M||0}" step="any" onchange="setLoadField(${si},${li},'M',this)"></div>
+        <div class="form-group"><label>a (${u.length})</label>
+        <input type="number" value="${ld.a||0}" step="any" min="0" max="${model.spans[si].L}" onchange="clampLoadPosition(${si},${li},this)"></div></div>`;
     }
     html += '</div>';
   });

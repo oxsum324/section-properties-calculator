@@ -638,7 +638,7 @@
         <tr><td>${shearLabel}</td><td>${f2(shearValue)}</td><td>cm²</td></tr>
       </tbody>
     `;
-    $("propsCard").style.display = "";
+    $("propsCard").hidden = false;
   }
 
   function renderFillStatus() {
@@ -1840,25 +1840,25 @@
       `;
     renderProps(sec);
     $("clsResult").innerHTML = clsCards;
-    $("clsCard").style.display = "";
+    $("clsCard").hidden = false;
     $("flexResult").innerHTML = `
       <div class="result-item ${flexOk ? "ok" : "fail"}"><span class="label">${isLRFD ? "φMn" : "Mn/Ω"} vs |${isLRFD ? "Mu" : "Ma"}|</span><span class="value">${formatDisplayValue(strengthMoment, "moment", 2)} / ${formatDisplayValue(demandMoment, "moment", 2)} ${getQuantityUnit("moment")}</span></div>
       ${flexDetails}
     `;
-    $("flexCard").style.display = "";
+    $("flexCard").hidden = false;
     $("shearResult").innerHTML = `
       <div class="result-item ${shearOk ? "ok" : "fail"}"><span class="label">${isLRFD ? "φVn" : "Vn/Ω"} vs |${isLRFD ? "Vu" : "Va"}|</span><span class="value">${formatDisplayValue(strengthShear, "force", 2)} / ${formatDisplayValue(demandShear, "force", 2)} ${getQuantityUnit("force")}</span></div>
       ${shearDetails}
     `;
-    $("shearCard").style.display = "";
+    $("shearCard").hidden = false;
     $("deflResult").innerHTML = `
       <div class="result-item ${deflStatus === "ok" ? "ok" : deflStatus === "fail" ? "fail" : "warn"}"><span class="label">撓度狀態</span><span class="value">${deflStatus === "ok" ? "OK" : deflStatus === "fail" ? "NG" : "未檢核"}</span></div>
       <div class="result-item"><span class="label">ΔL / 容許值</span><span class="value">${formatDisplayValue(deflection.deltaL, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(allowLive, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}</span></div>
       <div class="result-item"><span class="label">ΔT / 容許值</span><span class="value">${formatDisplayValue(deflection.deltaT, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(allowTotal, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}</span></div>
     `;
-    $("deflCard").style.display = "";
+    $("deflCard").hidden = false;
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk({ flexOk, shearOk, deflStatus }) ? "本次鋼梁斷面於主軸彎矩、剪力與撓度檢核均通過。" : "本次鋼梁斷面至少有一項控制條件未通過，請優先檢視控制模式、剪力條件與撓度條件。"}</div>`;
-    $("summaryCard").style.display = "";
+    $("summaryCard").hidden = false;
 
     const result = { sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, adoptedInputSource: adoptedBeamImportSourceText() };
     resultState = result;

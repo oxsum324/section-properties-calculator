@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>鋼柱正式規範核算工具 V1.0</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./steel-member-formal.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -351,30 +352,30 @@
               <h2>提醒與適用範圍 <span class="report-block-status neutral" id="columnReminderBadge">待計算</span></h2>
               <div id="columnReminderList" class="member-reminder-list"></div>
             </div>
-            <div class="card" id="propsCard" style="display:none;">
+            <div class="card" id="propsCard" hidden>
               <h2>斷面性質</h2>
               <div class="member-table-wrap">
                 <table class="member-mini-table" id="propsTable"></table>
               </div>
             </div>
             <div id="resultWrap">
-              <div class="card" id="clsCard" style="display:none;">
+              <div class="card" id="clsCard" hidden>
                 <h2>斷面分類 (壓力構材)</h2>
                 <div id="clsResult"></div>
               </div>
-              <div class="card" id="slenderCard" style="display:none;">
+              <div class="card" id="slenderCard" hidden>
                 <h2>細長比檢核</h2>
                 <div id="slenderResult"></div>
               </div>
-              <div class="card report-block" id="axialCard" style="display:none;">
+              <div class="card report-block" id="axialCard" hidden>
                 <h2>軸壓強度檢核 <span class="report-block-status neutral" id="columnAxialBadge">待計算</span></h2>
                 <div id="axialResult"></div>
               </div>
-              <div class="card report-block" id="interCard" style="display:none;">
+              <div class="card report-block" id="interCard" hidden>
                 <h2>軸力—彎矩互制檢核 <span class="report-block-status neutral" id="columnInterBadge">待計算</span></h2>
                 <div id="interResult"></div>
               </div>
-              <div class="card" id="summaryCard" style="display:none;">
+              <div class="card" id="summaryCard" hidden>
                 <h2>總結</h2>
                 <div id="summaryResult"></div>
               </div>
