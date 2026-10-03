@@ -2093,7 +2093,20 @@
     status.insertAdjacentElement("afterend", button);
   }
 
+  function hasPendingBeamImportCandidate() {
+    try {
+      const raw = localStorage.getItem(PENDING_FORCE_STORAGE_KEY);
+      if (!raw) return false;
+      const payload = JSON.parse(raw);
+      return !!payload && payload.target === "steel-beam";
+    } catch {
+      return false;
+    }
+  }
+
   function restoreInputDraft() {
+    // 連續梁候選值待確認時，正式輸入必須維持原狀直到使用者明確套用；此時不還原草稿。
+    if (hasPendingBeamImportCandidate()) return false;
     let draft = null;
     try {
       const raw = localStorage.getItem(INPUT_DRAFT_KEY);

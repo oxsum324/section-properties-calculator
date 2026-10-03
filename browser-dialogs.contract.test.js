@@ -15,6 +15,9 @@ const SKIP_DIRS = new Set([
   'backups',
   // 水準測量紀錄另於獨立 repo 發布，本機副本已 gitignore，不屬本 repo 內容
   'level-survey',
+  // 派工規格與暫存草稿目錄已 gitignore，不屬本 repo 發布內容
+  '_tmp',
+  'tmp',
 ]);
 const SKIP_FILES = [/\.(test|spec)\.[cm]?[jt]sx?$/i];
 const EXTENSIONS = new Set(['.html', '.js', '.ts', '.tsx']);
