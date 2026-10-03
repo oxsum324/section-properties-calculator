@@ -6,6 +6,8 @@
 <title>結構工具箱</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="assets/home/home.css?v=20261003">
+<link rel="preload" as="image" href="assets/home/hero-art.jpg?v=20261003" fetchpriority="high">
+<script src="assets/home/home.js?v=20261003" defer></script>
 </head>
 <body class="home-page">
   <header class="home-header">
@@ -33,15 +35,15 @@
         </div>
         <p>先區分力量怎麼來，再選構件、連接、資料查詢或施工快算；進入工具前再看卡片標籤確認責任邊界。</p>
       </div>
-      <div id="categoryOverview" class="category-grid"></div>
+      <!-- home-initial:categoryOverview:start --><div id="categoryOverview" class="category-grid"><button type="button" class="category-card" aria-label="篩選 結構分析力量" disabled><span class="category-icon category-icon--analysis" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16"/><path d="M5 16l4-5 4 3 6-8"/><circle cx="9" cy="11" r="1.4"/><circle cx="13" cy="14" r="1.4"/><circle cx="19" cy="6" r="1.4"/></svg><span class="icon-mark">S</span></span><div class="category-card__body"><strong>結構分析力量<span>3</span></strong><p>純分析、模型或力學求解取得內力、反力與變位。</p></div></button><button type="button" class="category-card" aria-label="篩選 風力規範外力" disabled><span class="category-icon category-icon--wind" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h10a3 3 0 1 0-3-3"/><path d="M3 13h15a3 3 0 1 1-3 3"/><path d="M5 18h7"/></svg><span class="icon-mark">W</span></span><div class="category-card__body"><strong>風力規範外力<span>13</span></strong><p>依耐風規範取得設計風壓、風力與相關係數。</p></div></button><button type="button" class="category-card" aria-label="篩選 地震力規範外力" disabled><span class="category-icon category-icon--seismic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16"/><path d="M7 18l2-5 3 3 3-7 2 9"/><path d="M9 6h6"/><path d="M12 3v6"/></svg><span class="icon-mark">E</span></span><div class="category-card__body"><strong>地震力規範外力<span>4</span></strong><p>依耐震規範取得等值靜力、附屬構造物與雜項工作物地震力。</p></div></button><button type="button" class="category-card" aria-label="篩選 構件承載力檢核" disabled><span class="category-icon category-icon--member" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 19h14"/><path d="M8 5v14"/><path d="M16 5v14"/><path d="M8 9h8"/><path d="M8 15h8"/></svg><span class="icon-mark">F</span></span><div class="category-card__body"><strong>構件承載力檢核<span>19</span></strong><p>拿已知力量檢核 RC、鋼構、基礎與補強構件容量。</p></div></button><button type="button" class="category-card" aria-label="篩選 連接、附掛物與外牆構件" disabled><span class="category-icon category-icon--attachments" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10"/><path d="M12 4v8"/><path d="M9 12h6"/><path d="M10 16l2 4 2-4"/><path d="M5 8h3"/><path d="M16 8h3"/></svg><span class="icon-mark">B</span></span><div class="category-card__body"><strong>連接、附掛物與外牆構件<span>3</span></strong><p>連接板、錨栓、石材固定與外牆固定構件本身檢核。</p></div></button><button type="button" class="category-card" aria-label="篩選 斷面與資料查詢" disabled><span class="category-icon category-icon--reference" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M5 10h14"/><path d="M10 5v14"/><path d="M14 5v14"/><path d="M7 16h1"/></svg><span class="icon-mark">P</span></span><div class="category-card__body"><strong>斷面與資料查詢<span>2</span></strong><p>斷面性質、材料表與幾何資料查詢。</p></div></button><button type="button" class="category-card" aria-label="篩選 施工臨設與現場快算" disabled><span class="category-icon category-icon--temporary" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14"/><path d="M7 17l2-9h6l2 9"/><path d="M8 11h8"/><path d="M6 20h12"/><path d="M10 8V5h4v3"/></svg><span class="icon-mark">T</span></span><div class="category-card__body"><strong>施工臨設與現場快算<span>8</span></strong><p>覆工板、開挖支撐、局部基礎與現場初判。</p></div></button></div><!-- home-initial:categoryOverview:end -->
     </section>
 
-    <section class="tool-workspace" aria-labelledby="toolsTitle">
+    <section class="tool-workspace" aria-label="工具查找工作區">
       <aside class="workspace-side" aria-label="分類篩選">
         <div class="filter-panel">
           <p class="home-kicker">Filters</p>
           <h2>分類篩選</h2>
-          <div id="categoryFilters" class="filter-list"></div>
+          <!-- home-initial:categoryFilters:start --><div id="categoryFilters" class="filter-list"><button type="button" class="filter-button is-active" aria-pressed="true" disabled><strong>全部</strong><span>52</span></button><button type="button" class="filter-button" aria-pressed="false" disabled><strong>結構分析力量</strong><span>3</span></button><button type="button" class="filter-button" aria-pressed="false" disabled><strong>風力規範外力</strong><span>13</span></button><button type="button" class="filter-button" aria-pressed="false" disabled><strong>地震力規範外力</strong><span>4</span></button><button type="button" class="filter-button" aria-pressed="false" disabled><strong>構件承載力檢核</strong><span>19</span></button><button type="button" class="filter-button" aria-pressed="false" disabled><strong>連接、附掛物與外牆構件</strong><span>3</span></button><button type="button" class="filter-button" aria-pressed="false" disabled><strong>斷面與資料查詢</strong><span>2</span></button><button type="button" class="filter-button" aria-pressed="false" disabled><strong>施工臨設與現場快算</strong><span>8</span></button></div><!-- home-initial:categoryFilters:end -->
           <a class="filter-panel__status-link" href="#platformStatusSection">平台狀態與治理 ↓</a>
         </div>
       </aside>
@@ -129,6 +131,5 @@
 
   <footer class="home-footer">弘一工程顧問有限公司　內部工程工具平台</footer>
 
-<script src="assets/home/home.js?v=20261003"></script>
 </body>
 </html>

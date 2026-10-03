@@ -1203,18 +1203,44 @@
     if (!elements.memberSystemPanel) return;
     const isMemberMode = state.category === 'member';
     elements.memberSystemPanel.hidden = !isMemberMode;
-    if (!isMemberMode) return;
+    if (!isMemberMode) {
+      elements.grid.removeAttribute('role');
+      elements.grid.removeAttribute('aria-labelledby');
+      elements.grid.removeAttribute('tabindex');
+      return;
+    }
+    elements.grid.setAttribute('role', 'tabpanel');
+    elements.grid.setAttribute('aria-labelledby', `member-tab-${state.memberSystem}`);
+    elements.grid.setAttribute('tabindex', '0');
+
+    const selectSystem = id => {
+      state.memberSystem = id;
+      renderMemberSystemPanel();
+      renderTools();
+      document.getElementById(`member-tab-${id}`).focus();
+    };
 
     elements.memberSystemTabs.replaceChildren(...memberSystems.map(system => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `member-system-tab${state.memberSystem === system.id ? ' is-active' : ''}`;
       button.setAttribute('role', 'tab');
+      button.id = `member-tab-${system.id}`;
+      button.setAttribute('aria-controls', 'toolGrid');
+      button.tabIndex = state.memberSystem === system.id ? 0 : -1;
       button.setAttribute('aria-selected', state.memberSystem === system.id ? 'true' : 'false');
-      button.addEventListener('click', () => {
-        state.memberSystem = system.id;
-        renderMemberSystemPanel();
-        renderTools();
+      button.addEventListener('click', () => selectSystem(system.id));
+      button.addEventListener('keydown', event => {
+        if (event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+        const current = memberSystems.findIndex(item => item.id === system.id);
+        let next;
+        if (event.key === 'ArrowRight') next = (current + 1) % memberSystems.length;
+        else if (event.key === 'ArrowLeft') next = (current + memberSystems.length - 1) % memberSystems.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = memberSystems.length - 1;
+        else return;
+        event.preventDefault();
+        selectSystem(memberSystems[next].id);
       });
       const label = document.createElement('strong');
       label.textContent = system.label;

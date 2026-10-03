@@ -308,3 +308,7 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 鋼構 `app.js` 由共用 `buildReportDocumentHtml(cfg, presentation)`／`openReport` 組成計算書；presentation 只提供既有工程正文、CSS 與公式排版需求，放在共用內容封印範圍內。專用段落仍由鋼構來源產生，原 flat checks、snapshot 與計算指紋投影不變；不可藉 presentation 指定指紋。核可資格維持 `formalApprovalAllowed: result.passes`。本次九條驗收鏈另要求來源 JSON 完整；此為案例驗收條件，未改變通用附件檢查器處理單獨核可 HTML 的既有政策。
 
 附件檢查器一般化解析 CSS 子元素與混合後代選擇器；只有可證明為 absolute／fixed 且零面積的 `clip:rect(...)` 才排除其隱藏內容。未知選擇器、非零／無法解析的裁切、負向偏移與同色隱藏仍須複核或阻擋，不使用公式套件白名單。`鋼構工具/steel-report-package-contract.js` 僅為本機測試 helper，排除 Pages。
+
+## 2026-10-03：首頁品質與初始版面
+
+首頁沿用 home.js 單一工具清冊；sync-home-initial-view.js 由同源清冊產生初始分類／篩選骨架，僅供開發使用並排除 Pages。defer、hero 預載與固定初始版面降低載入位移，材料頁籤維持完整 tablist／tab／tabpanel 關聯及鍵盤焦點。琥珀文字提高對比；不改工具資格、工程結果或公開狀態 JSON。Lighthouse／axe 與瀏覽器證據只存 output；本機模擬子目錄不等於公開 Pages 或實體裝置驗收。

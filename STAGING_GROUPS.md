@@ -477,3 +477,7 @@ T4 同包包含附件可見性解析器、其隱藏正文負向案例，以及 `
 ## 2026-10-03：T5 真正 DOCX 文書版
 
 T5 同包提交共用 report-docx、core／鋼構同步副本與 RC 獨立 adapter、45 份 renderer 消費頁的輕量依賴、首頁依賴登錄、附件檢查器 DOCX 非正式辨識及負向契約。沿用已追蹤的 docx 9.6.1 vendor 與 MIT LICENSE，不新增 CDN。一起提交 DOCX 單元／整合／瀏覽器／合成文件入口與 Word 渲染入口；產生的 DOCX、HTML、PDF、PNG、trace 及案例只保留 ignored output，不加入 Pages 或提交。T6 首頁介面與效能仍另包。
+
+## 2026-10-03：T6 首頁品質
+
+T6 同包提交首頁 HTML／CSS／JS、sync-home-initial-view.js 及其精確 Pages 私有排除、homepage-quality.browser.test.js 與 PowerShell 入口／依賴準備。量測相依版本固定為 Lighthouse 13.5.0、Playwright 1.63.0、axe-playwright 4.13.0，package／lock／報告保存在 ignored output；固定三輪取中位數且保留全部分數及錯誤。未證明主腳本解析為主要瓶頸，因此不拆工具清冊；不修改 assets/status 與 public-release JSON、不執行正式預檢或發布。
