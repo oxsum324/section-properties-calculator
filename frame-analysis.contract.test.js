@@ -5,6 +5,13 @@ const crypto = require('crypto');
 const LoadCombo = require('./結構工具箱/core/loads/loadcombo.js');
 const calculationBookContentBoundary = require('./結構工具箱/tools/calculation-book-content-boundary.json');
 const analysisSectionMetadata = require('./結構工具箱/tools/analysis-section-tool-metadata.js');
+
+function loadReportUtilities(context) {
+  // report.js 自 T2 起依賴共用 report-utils（core 與 RC 適配層），任何 vm 情境都先載入。
+  for (const relativePath of ['結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, ...relativePath.split('/')), 'utf8').replace(/^﻿/, ''), context, { filename: relativePath });
+  }
+}
 const frameMetadata = analysisSectionMetadata['frame-analysis'];
 
 function read(relPath) {
@@ -196,6 +203,7 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     },
   };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(sharedReportSource, context, { filename: 'shared-report-runtime' });
   [
     'asNonNegativeNumber',
@@ -320,6 +328,7 @@ function createFrameAnalysisContext(source) {
     isFinite,
   };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(sharedReportSource, context, { filename: 'shared-report-analysis-runtime' });
   [
     'asNonNegativeNumber', 'makeNode', 'springValue', 'activeSpring', 'hasSupportDof',

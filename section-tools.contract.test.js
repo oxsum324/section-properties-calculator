@@ -15,6 +15,13 @@ function assert(pass, title, detail) {
   console.log(`PASS | ${title} | ${detail}`);
 }
 
+function loadReportUtilities(context) {
+  // report.js 自 T2 起依賴共用 report-utils（core 與 RC 適配層），任何 vm 情境都先載入。
+  for (const relativePath of ['結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js']) {
+    vm.runInContext(read(relativePath), context, { filename: relativePath });
+  }
+}
+
 function assertThrows(fn, pattern, title) {
   let error = null;
   try { fn(); } catch (caught) { error = caught; }
@@ -126,6 +133,7 @@ function renderSharedReportPayload(source, filename, payload) {
     Date,
   };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(source, context, { filename });
   assert(typeof context.openReport === 'function', `${filename} exposes openReport`, 'openReport');
   context.openReport(payload);
@@ -135,6 +143,7 @@ function renderSharedReportPayload(source, filename, payload) {
 function assessSharedFormalAttachment(source, filename, state) {
   const context = { window: {}, document: { title: 'QA' }, console, Date };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(source, context, { filename });
   return context.window.ToolReportUI.assessFormalAttachment(state);
 }
@@ -236,6 +245,7 @@ function createCompositeRuntimeContext(source) {
     isFinite,
   };
   vm.createContext(context);
+  loadReportUtilities(context);
   [
     'val', 'valOrNull', 'fmt', 'pct', 'setReportStatus', 'normalizeProjectFieldValue',
     'getProjectFieldValue', 'setCaseStatus', 'collectCompositeProjectData',
@@ -356,6 +366,7 @@ function captureCompositeReportPayload(source) {
     isFinite,
   };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(sharedReportSource, context, { filename: 'shared-report-runtime' });
   context.openReport = nextPayload => {
     payload = nextPayload;
@@ -434,6 +445,7 @@ function captureRetrofitReportPayload(source, functionName, stateKey, stateValue
     [stateKey]: stateValue,
   };
   vm.createContext(context);
+  loadReportUtilities(context);
   [
     'fmt',
     'normalizeProjectFieldValue',
@@ -842,7 +854,7 @@ assert(readySharedReportHtml.includes('核可紀錄已異動，正式核可已�
 assert(readySharedReportHtml.includes('下載目前版本 HTML'), 'shared renderer exposes current-state HTML download', 'download current HTML');
 assert(readySharedReportHtml.includes('window.serializeReportDocumentHtml = serializeCurrentReportHtml'), 'shared renderer serializes the current approval state before download', 'HTML serializer');
 assert(readySharedReportHtml.includes("var status = document.querySelector('.rep-document-status-line')"), 'shared renderer reuses the statically saved document-state line', 'static document state');
-assert(readySharedReportHtml.includes("root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control')"), 'shared renderer removes interactive controls without removing the static state line', 'static attachment evidence');
+assert(readySharedReportHtml.includes("root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control, script[data-report-docx-runtime]')"), 'shared renderer removes interactive controls without removing the static state line', 'static attachment evidence');
 assert(readySharedReportHtml.includes("document.title = buildArtifactBaseName(checkbox.checked ? '正式附件' : '內部審閱')"), 'shared renderer keeps PDF default title aligned with document state and fingerprint', 'traceable document title');
 const readyRcReportHtml = renderSharedReportHtml(
   rcReportSource,

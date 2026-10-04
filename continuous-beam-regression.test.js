@@ -12,6 +12,13 @@ const sharedReportSource = fs.readFileSync(sharedReportPath, 'utf8');
 const analysisSectionMetadataPath = path.join(__dirname, '結構工具箱', 'tools', 'analysis-section-tool-metadata.js');
 const analysisSectionMetadataSource = fs.readFileSync(analysisSectionMetadataPath, 'utf8');
 const analysisSectionMetadata = require(analysisSectionMetadataPath);
+
+function loadReportUtilities(context) {
+  // report.js 自 T2 起依賴共用 report-utils（core 與 RC 適配層），任何 vm 情境都先載入。
+  for (const relativePath of ['結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, ...relativePath.split('/')), 'utf8').replace(/^﻿/, ''), context, { filename: relativePath });
+  }
+}
 const forcePickerPath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'force-picker.js');
 const forcePickerSource = fs.readFileSync(forcePickerPath, 'utf8');
 const forcesReceivePath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'forces-receive.js');
@@ -105,6 +112,7 @@ assert(!forcePickerSource.includes("'steel-column':"), 'ForcePicker exposes no g
     Object,
   };
   vm.createContext(forcePickerContext);
+  loadReportUtilities(forcePickerContext);
   vm.runInContext(forcePickerSource, forcePickerContext, { filename: forcePickerPath });
   forcePickerContext.window.ForcePicker.stash({
     target: 'steel-beam',
@@ -159,6 +167,7 @@ function bootForceReceiver({ mode = 'candidate', payload }) {
     JSON, Number, Set, Date
   };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(forcesReceiveSource, context, { filename: forcesReceivePath });
   return { api: context.window.ForcePickerReceive, fields, events, documentEvents, getStored: () => stored, getBanner: () => banner };
 }
@@ -389,6 +398,7 @@ function renderSharedReportPayload(payload) {
     Date,
   };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(analysisSectionMetadataSource, context, { filename: analysisSectionMetadataPath });
   context.window.AnalysisSectionToolMetadata = context.AnalysisSectionToolMetadata || analysisSectionMetadata;
   vm.runInContext(sharedReportSource, context, { filename: sharedReportPath });
@@ -509,6 +519,7 @@ function bootPage() {
   context.removeEventListener = () => {};
 
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(analysisSectionMetadataSource, context, { filename: analysisSectionMetadataPath });
   context.window.AnalysisSectionToolMetadata = context.AnalysisSectionToolMetadata || analysisSectionMetadata;
   vm.runInContext(sharedReportSource, context, { filename: sharedReportPath });
