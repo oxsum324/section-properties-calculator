@@ -14,6 +14,12 @@ const directPrintCss = fs.readFileSync(path.join(repoRoot, '結構工具箱', 'c
 const boundary = JSON.parse(fs.readFileSync(path.join(repoRoot, '結構工具箱', 'tools', 'calculation-book-content-boundary.json'), 'utf8'));
 const traceability = JSON.parse(fs.readFileSync(path.join(__dirname, 'src-column-traceability.catalog.json'), 'utf8'));
 const reportRuntimePath = path.join(repoRoot, '結構工具箱', 'core', 'ui', 'report.js');
+function loadReportUtilities(context) {
+  // report.js 自 T2 起依賴共用 report-utils（core 與 RC 適配層），任何 vm 情境都先載入。
+  for (const relativePath of ['結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js']) {
+    vm.runInContext(fs.readFileSync(path.join(repoRoot, ...relativePath.split('/')), 'utf8').replace(/^﻿/, ''), context, { filename: relativePath });
+  }
+}
 const governanceDocs = ['README.md', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md']
   .map(file => fs.readFileSync(path.join(repoRoot, file), 'utf8'))
   .join('\n');
@@ -100,6 +106,7 @@ function exampleInput() {
 function loadReportRuntime(windowOverrides = {}) {
   const context = { window: { ...windowOverrides }, console, Date, setTimeout, clearTimeout };
   vm.createContext(context);
+  loadReportUtilities(context);
   vm.runInContext(fs.readFileSync(reportRuntimePath, 'utf8'), context, { filename: reportRuntimePath });
   return context;
 }

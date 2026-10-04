@@ -81,7 +81,7 @@ assert.equal((retrofitTool.match(/textExport:\s*true/g) || []).length, 2, 'RC re
   '.rep-summary { break-before:avoid-page',
   'page-break-after:avoid',
   'rc-calculation-book-content-v1',
-  'sha256Fallback',
+  'sha256Text',
   'rep-content-integrity-alert',
   '非數位簽章',
 ].forEach(needle => assertIncludes(sharedReport, needle, 'RC formal report closing-page print boundary'));

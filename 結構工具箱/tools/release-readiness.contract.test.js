@@ -568,7 +568,7 @@ for (const { name, source } of rcStmFormalAttachmentSources) {
 }
 [
   'rc-calculation-book-content-v1',
-  'sha256Fallback',
+  'sha256Text',
   'verifyReportContentSeal',
   '內容完整性異常',
   '非數位簽章',
