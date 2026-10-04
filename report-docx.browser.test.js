@@ -10,14 +10,15 @@ const MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.doc
 const MAX_BYTES = 2000000;
 const BOUNDARY = ['文件類別：文字備查', '正式附件資格：否', '文件用途：文字備查版（不作為正式附件）'];
 const RC_PROJECT = { projectName: '臺灣地區公共設施耐震補強與鋼筋混凝土梁構件詳細設計暨施工品質整合審查示範工程', projectNo: 'DOCX-QA', designer: 'QA' };
-// 與 T2 實測入口一致；不以 selector 猜測或任意更換計算入口。
+// T9 四案固定由實際工具頁產生；不以 selector 猜測或任意更換計算入口。
 const CASES = [
   { key: 'rc-beam', file: '鋼筋混凝土/tools/beam.html', calculate: 'applyPanel', argument: 'summary', report: '#btnReport', paper: '.rep-paper' },
+  { key: 'steel-beam-formal', file: '鋼構工具/steel-beam-formal.html', sourceFiles: ['鋼構工具/steel-beam-formal.js'], button: '#runCheckBtn', report: '#btnReport', paper: '.rep-paper, .paper' },
+  { key: 'wind-force', file: '結構工具箱/tools/風力/wind-force.html', button: '#btnCalc', report: '.btn-print', paper: '.rep-paper, .paper' },
   { key: 'earth-pressure', file: '結構工具箱/tools/earth/earth-pressure.html', button: '#btnCalc', report: '#btnPrint', paper: '.paper' },
-  { key: 'steel-plate', file: '鋼構工具/plate-check.html', button: '#loadExampleBtn', report: '#exportReportBtn', paper: '.rep-paper, .paper' }
 ];
 const RUNTIME = '石材固定/vendor/package/dist/index.iife.js';
-const SOURCES = ['結構工具箱/core/ui/report-docx.js', '結構工具箱/core/ui/report.js', '鋼筋混凝土/shared/report.js', '鋼構工具/core/ui/report.js', RUNTIME, ...CASES.map(item => item.file)];
+const SOURCES = ['結構工具箱/core/ui/report-docx.js', '結構工具箱/core/ui/report.js', '鋼筋混凝土/shared/report.js', '鋼構工具/core/ui/report.js', RUNTIME, ...CASES.flatMap(item => [item.file, ...(item.sourceFiles || [])])];
 const arg = name => { const index = process.argv.indexOf(name); return index < 0 ? '' : process.argv[index + 1] || ''; };
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const compact = value => String(value || '').replace(/\s+/g, '');
@@ -43,6 +44,9 @@ function sourceInventory() {
   }
   const tables = [...paper.querySelectorAll('table')].filter(node => !excluded(node)).map(table => ({
     caption: table.caption ? words(table.caption) : '',
+    className: String(table.className || ''),
+    sectionHeading: (table.closest('.rep-block, .block')?.querySelector('h3, h4') || {}).textContent || '',
+    headerRows: table.tHead ? table.tHead.rows.length : (table.rows[0] && [...table.rows[0].cells].every(cell => cell.tagName === 'TH') ? 1 : 0),
     rows: [...table.rows].filter(row => row.closest('table') === table && !excluded(row)).map(row => [...row.cells].filter(cell => !excluded(cell)).map(cell => ({ text: words(cell), colSpan: cell.colSpan, rowSpan: cell.rowSpan })))
   }));
   const images = [...paper.querySelectorAll('svg,img,canvas')].filter(node => !excluded(node) && !node.parentElement.closest('svg')).map(node => ({ tag: node.tagName, label: node.getAttribute('aria-label') || node.getAttribute('alt') || '', width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height }));

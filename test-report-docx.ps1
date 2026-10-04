@@ -20,3 +20,7 @@ if (-not $List) {
 }
 node (Join-Path $repoRoot 'report-docx.browser.test.js') @scriptArgs
 if ($LASTEXITCODE -ne 0) { throw "Report DOCX browser checks failed with exit code $LASTEXITCODE" }
+if (-not $List) {
+  node (Join-Path $repoRoot 'report-format-parity.test.js')
+  if ($LASTEXITCODE -ne 0) { throw "Report format parity checks failed with exit code $LASTEXITCODE" }
+}

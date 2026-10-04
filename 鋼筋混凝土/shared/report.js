@@ -509,6 +509,21 @@ function buildRcAttachmentApprovalReport(options = {}) {
           if (source.dataset.textExportEnabled !== 'true') throw new Error('此工具尚未啟用文字計算書下載。');
           var lineBreak = String.fromCharCode(13, 10);
           var lines = [];
+          var tableIndex = 0;
+          function appendGenericTable(table) {
+            var tableNumber = ++tableIndex;
+            lines.push('【表格 ' + tableNumber + ' 開始】');
+            var headers = Array.from(table.querySelectorAll('thead th')).map(function (cell) { return cleanReportText(cell.textContent); });
+            Array.from(table.querySelectorAll('tbody tr')).forEach(function (row) {
+              var cells = Array.from(row.querySelectorAll('th, td')).map(function (cell) { return cleanReportText(cell.textContent); });
+              if (!cells.some(Boolean)) return;
+              if (headers.length === cells.length && headers.some(Boolean)) {
+                lines.push('- ' + cells.map(function (value, index) { return (headers[index] || '欄位 ' + (index + 1)) + '：' + (value || '—'); }).join('｜'));
+              } else if (cells.length === 2) lines.push('- ' + cells[0] + '：' + cells[1]);
+              else lines.push('- ' + cells.join('｜'));
+            });
+            lines.push('【表格 ' + tableNumber + ' 結束】');
+          }
           var heading = cleanReportText((document.querySelector('.rep-header h1, .header h1, h1') || {}).textContent) || reportTitle;
           lines.push(heading);
           lines.push(Array(Math.max(9, heading.length + 1)).join('='));
@@ -530,15 +545,22 @@ function buildRcAttachmentApprovalReport(options = {}) {
             lines.push('[' + sectionHeading + ']');
             var inputTable = section.querySelector('.rep-input');
             var checkTable = section.querySelector('.rep-check');
+            var genericTables = Array.from(section.querySelectorAll('table')).filter(function (table) { return table !== inputTable && table !== checkTable; });
             var figures = Array.from(section.querySelectorAll('.rep-diagram'));
             var steps = Array.from(section.querySelectorAll('.rep-step'));
             if (inputTable) {
+              var inputTableIndex = ++tableIndex;
+              lines.push('【表格 ' + inputTableIndex + ' 開始】');
               Array.from(inputTable.querySelectorAll('tbody tr')).forEach(function (row) {
                 var label = cleanReportText((row.querySelector('th') || {}).textContent);
                 var value = cleanReportText((row.querySelector('td') || {}).textContent);
                 if (label || value) lines.push('- ' + label + '：' + value);
               });
-            } else if (checkTable) {
+              lines.push('【表格 ' + inputTableIndex + ' 結束】');
+            }
+            if (checkTable) {
+              var checkTableIndex = ++tableIndex;
+              lines.push('【表格 ' + checkTableIndex + ' 開始】');
               Array.from(checkTable.querySelectorAll('tbody tr')).forEach(function (row) {
                 var label = cleanReportText((row.querySelector('.lbl') || {}).textContent) || '檢核項';
                 lines.push('- ' + label);
@@ -547,14 +569,17 @@ function buildRcAttachmentApprovalReport(options = {}) {
                 lines.push('  結果：' + (cleanReportText((row.querySelector('.value') || {}).textContent) || '—'));
                 lines.push('  判定：' + (cleanReportText((row.querySelector('.judge') || {}).textContent) || '—'));
               });
-            } else if (figures.length) {
+              lines.push('【表格 ' + checkTableIndex + ' 結束】');
+            }
+            genericTables.forEach(appendGenericTable);
+            if (!inputTable && !checkTable && !genericTables.length && figures.length) {
               figures.forEach(function (figure, index) {
                 var title = cleanReportText((figure.querySelector('.rep-diagram-title') || {}).textContent) || '圖 ' + (index + 1);
                 var caption = cleanReportText((figure.querySelector('.rep-diagram-caption') || {}).textContent);
                 lines.push('- ' + title + (caption ? '：' + caption : ''));
               });
               lines.push('  圖形內容請參閱 HTML／PDF 計算書。');
-            } else if (steps.length) {
+            } else if (!inputTable && !checkTable && !genericTables.length && steps.length) {
               steps.forEach(function (step) {
                 var title = cleanReportText((step.querySelector('h4') || {}).textContent) || '計算步驟';
                 var body = String((step.querySelector('.rep-step-body') || {}).textContent || '').trim();

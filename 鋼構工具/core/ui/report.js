@@ -647,7 +647,8 @@ function buildAttachmentApprovalReport(options = {}) {
             var value = cleanReportText(row && row.textContent).slice(label.length).trim();
             return label && value ? label + '：' + value : cleanReportText(row && row.textContent);
           }
-          function appendGenericTable(lines, table) {
+          function appendGenericTable(lines, table, tableIndex) {
+            lines.push('【表格 ' + tableIndex + ' 開始】');
             var headers = Array.from(table.querySelectorAll('thead th')).map(function (cell) {
               return cleanReportText(cell.textContent);
             });
@@ -666,8 +667,9 @@ function buildAttachmentApprovalReport(options = {}) {
                 lines.push('- ' + cells.join('｜'));
               }
             });
+            lines.push('【表格 ' + tableIndex + ' 結束】');
           }
-          function appendGenericReportContent(lines, root) {
+          function appendGenericReportContent(lines, root, appendTable) {
             if (!root) return false;
             var appended = false;
             var candidates = Array.from(root.querySelectorAll('h2, h3, p, table, .rpt-step, .rpt-diagram, .report-diagram, .note, .conclusion'));
@@ -693,7 +695,7 @@ function buildAttachmentApprovalReport(options = {}) {
                 return;
               }
               if (node.tagName === 'TABLE') {
-                appendGenericTable(lines, node);
+                appendTable(node);
                 appended = true;
                 return;
               }
@@ -705,7 +707,7 @@ function buildAttachmentApprovalReport(options = {}) {
                   if (paragraphText) lines.push('  ' + paragraphText);
                 });
                 Array.from(node.querySelectorAll('table')).forEach(function (table) {
-                  appendGenericTable(lines, table);
+                  appendTable(table);
                 });
                 appended = true;
                 return;
@@ -726,6 +728,8 @@ function buildAttachmentApprovalReport(options = {}) {
             if (source.dataset.textExportEnabled !== 'true') throw new Error('此工具尚未啟用文字計算書下載。');
             var lineBreak = String.fromCharCode(13, 10);
             var lines = [];
+            var tableIndex = 0;
+            function appendTable(table) { appendGenericTable(lines, table, ++tableIndex); }
             var heading = cleanReportText((document.querySelector('.rep-header h1, .header h1, .paper h1, h1') || {}).textContent) || reportTitle;
             lines.push(heading);
             lines.push(Array(Math.max(9, heading.length + 1)).join('='));
@@ -758,12 +762,18 @@ function buildAttachmentApprovalReport(options = {}) {
               });
               var steps = Array.from(section.querySelectorAll('.rep-step, .step, .rpt-step'));
               if (inputTable) {
+                var inputTableIndex = ++tableIndex;
+                lines.push('【表格 ' + inputTableIndex + ' 開始】');
                 Array.from(inputTable.querySelectorAll('tbody tr')).forEach(function (row) {
                   var label = cleanReportText((row.querySelector('th') || {}).textContent);
                   var value = cleanReportText((row.querySelector('td') || {}).textContent);
                   if (label || value) lines.push('- ' + label + '：' + value);
                 });
-              } else if (checkTable) {
+                lines.push('【表格 ' + inputTableIndex + ' 結束】');
+              }
+              if (checkTable) {
+                var checkTableIndex = ++tableIndex;
+                lines.push('【表格 ' + checkTableIndex + ' 開始】');
                 Array.from(checkTable.querySelectorAll('tbody tr')).forEach(function (row) {
                   var label = cleanReportText((row.querySelector('.lbl') || {}).textContent) || '檢核項';
                   lines.push('- ' + label);
@@ -772,9 +782,11 @@ function buildAttachmentApprovalReport(options = {}) {
                   lines.push('  結果：' + (cleanReportText((row.querySelector('.value') || {}).textContent) || '—'));
                   lines.push('  判定：' + (cleanReportText((row.querySelector('.judge') || {}).textContent) || '—'));
                 });
-              } else if (genericTables.length) {
-                genericTables.forEach(function (table) { appendGenericTable(lines, table); });
-              } else if (steps.length) {
+                lines.push('【表格 ' + checkTableIndex + ' 結束】');
+              }
+              if (genericTables.length) {
+                genericTables.forEach(appendTable);
+              } else if (!inputTable && !checkTable && steps.length) {
                 steps.forEach(function (step) {
                   var title = cleanReportText((step.querySelector('h3, h4, .step-title') || {}).textContent) || '計算步驟';
                   var body = multilineReportText(step.querySelector('.rep-step-body, .step-body'));
@@ -784,7 +796,7 @@ function buildAttachmentApprovalReport(options = {}) {
                     if (value) lines.push('  ' + value);
                   });
                 });
-              } else {
+              } else if (!inputTable && !checkTable) {
                 var monoNode = section.querySelector('.mono:not(.mono--fallback), .mono');
                 var mono = multilineReportText(monoNode);
                 if (mono) {
@@ -806,7 +818,7 @@ function buildAttachmentApprovalReport(options = {}) {
               if (banner) lines.push(banner);
             });
             if (!structuredSections.length) {
-              appendGenericReportContent(lines, document.querySelector('.rep-sealed-content'));
+              appendGenericReportContent(lines, document.querySelector('.rep-sealed-content'), appendTable);
             }
             var summary = cleanReportText((document.querySelector('.rep-summary') || {}).textContent);
             if (summary) {
