@@ -202,6 +202,28 @@ async function main() {
       }
     }
     const docx = await checkDocxRuntime(browser, baseUrl);
+    if (process.argv.includes('--write-baseline')) {
+      // 委託人明確接受目前載入量後，以本次實測重設 T8 基準；不會在一般檢查模式下自動改寫。
+      const sourceCommit = require('child_process').execSync('git rev-parse HEAD', { cwd: repo, encoding: 'utf8' }).trim();
+      const nextBaseline = {
+        schemaVersion: baseline.schemaVersion,
+        capturedAt: new Date().toISOString(),
+        sourceCommit,
+        routeCount: results.length,
+        totalJsBytes: results.reduce((sum, item) => sum + item.jsBytes, 0),
+        docxRuntimePath: baseline.docxRuntimePath,
+        docxRuntimeBytes: docx.runtimeSizeOnDisk,
+        routes: results.map(result => ({
+          route: result.route,
+          jsBytes: result.jsBytes,
+          sharedScripts: [...summedByPath(result.scripts, baseUrl)].map(([scriptPath, bytes]) => ({ path: scriptPath, bytes })),
+        })),
+      };
+      fs.writeFileSync(baselinePath, `${JSON.stringify(nextBaseline, null, 2)}
+`, 'utf8');
+      console.log(`baseline rewritten: ${baselinePath} (${nextBaseline.totalJsBytes} bytes, ${sourceCommit})`);
+      failures.length = 0;
+    }
     const summary = {
       schemaVersion: 1,
       baselineCommit: baseline.sourceCommit,

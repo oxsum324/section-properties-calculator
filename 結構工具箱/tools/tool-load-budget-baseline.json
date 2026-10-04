@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-10-04T08:18:16.169Z",
-  "sourceCommit": "a6a3e861",
+  "capturedAt": "2026-10-04T10:19:43.235Z",
+  "sourceCommit": "943392f6f9eae81f55c0de36e3187ad859dceacc",
   "routeCount": 52,
-  "totalJsBytes": 22512113,
+  "totalJsBytes": 22520627,
   "docxRuntimePath": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/package/dist/index.iife.js",
   "docxRuntimeBytes": 857630,
   "routes": [
@@ -19,7 +19,7 @@
     },
     {
       "route": "/beam-analysis",
-      "jsBytes": 756647,
+      "jsBytes": 757159,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -31,7 +31,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -39,7 +39,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -61,7 +61,7 @@
     },
     {
       "route": "/frame-analysis",
-      "jsBytes": 261913,
+      "jsBytes": 262425,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -73,7 +73,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
@@ -89,7 +89,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -104,7 +104,7 @@
     },
     {
       "route": "/section",
-      "jsBytes": 154089,
+      "jsBytes": 154796,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -120,13 +120,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         }
       ]
     },
     {
       "route": "/composite-section",
-      "jsBytes": 225665,
+      "jsBytes": 226372,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -142,7 +142,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -152,7 +152,7 @@
     },
     {
       "route": "/rc-beam",
-      "jsBytes": 310379,
+      "jsBytes": 304698,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -192,15 +192,11 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
           "bytes": 8056
-        },
-        {
-          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/calc-verdict-strip.js?v=1",
-          "bytes": 7305
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/beam-applicability.js?v=1",
@@ -232,7 +228,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -242,7 +238,7 @@
     },
     {
       "route": "/rc-deep-beam-stm",
-      "jsBytes": 210312,
+      "jsBytes": 211936,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -274,7 +270,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -282,7 +278,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -292,7 +288,7 @@
     },
     {
       "route": "/rc-column",
-      "jsBytes": 309226,
+      "jsBytes": 303545,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -328,15 +324,11 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
           "bytes": 8056
-        },
-        {
-          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/calc-verdict-strip.js?v=1",
-          "bytes": 7305
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=3",
@@ -372,7 +364,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -382,7 +374,7 @@
     },
     {
       "route": "/rc-slab",
-      "jsBytes": 271875,
+      "jsBytes": 273499,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -426,7 +418,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -446,7 +438,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -456,7 +448,7 @@
     },
     {
       "route": "/rc-wall",
-      "jsBytes": 312235,
+      "jsBytes": 306554,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -492,15 +484,11 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
           "bytes": 8056
-        },
-        {
-          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/calc-verdict-strip.js?v=1",
-          "bytes": 7305
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
@@ -536,7 +524,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -546,7 +534,7 @@
     },
     {
       "route": "/rc-shear-wall",
-      "jsBytes": 307521,
+      "jsBytes": 301840,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -582,15 +570,11 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
           "bytes": 8056
-        },
-        {
-          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/calc-verdict-strip.js?v=1",
-          "bytes": 7305
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
@@ -626,7 +610,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -636,7 +620,7 @@
     },
     {
       "route": "/rc-foundation",
-      "jsBytes": 413047,
+      "jsBytes": 414671,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -704,7 +688,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -740,7 +724,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -750,7 +734,7 @@
     },
     {
       "route": "/rc-foundation-deep-beam-stm",
-      "jsBytes": 229295,
+      "jsBytes": 230919,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -786,7 +770,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -794,7 +778,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -804,7 +788,7 @@
     },
     {
       "route": "/rc-pile-cap-3d-stm",
-      "jsBytes": 261656,
+      "jsBytes": 263280,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -848,7 +832,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -856,7 +840,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -866,7 +850,7 @@
     },
     {
       "route": "/rc-pile",
-      "jsBytes": 212739,
+      "jsBytes": 214363,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
@@ -886,7 +870,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -902,7 +886,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -912,7 +896,7 @@
     },
     {
       "route": "/rc-retrofit-section",
-      "jsBytes": 273103,
+      "jsBytes": 275434,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -924,7 +908,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -940,7 +924,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=8",
-          "bytes": 57867
+          "bytes": 59686
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -948,7 +932,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -958,7 +942,7 @@
     },
     {
       "route": "/rc-column-cover-deviation",
-      "jsBytes": 241561,
+      "jsBytes": 242073,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -970,7 +954,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js",
@@ -982,7 +966,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -992,7 +976,7 @@
     },
     {
       "route": "/src-beam",
-      "jsBytes": 254722,
+      "jsBytes": 255234,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1004,7 +988,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-beam-core.js",
@@ -1016,7 +1000,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1026,7 +1010,7 @@
     },
     {
       "route": "/src-column",
-      "jsBytes": 441661,
+      "jsBytes": 442173,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1038,7 +1022,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js",
@@ -1078,7 +1062,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1088,7 +1072,7 @@
     },
     {
       "route": "/steel-formal",
-      "jsBytes": 2641765,
+      "jsBytes": 2642472,
       "sharedScripts": [
         {
           "path": "/npm/mathjax@3/es5/tex-svg.js",
@@ -1108,13 +1092,13 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         }
       ]
     },
     {
       "route": "/steel-beam-formal",
-      "jsBytes": 353057,
+      "jsBytes": 353764,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
@@ -1134,7 +1118,7 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1144,7 +1128,7 @@
     },
     {
       "route": "/steel-column-formal",
-      "jsBytes": 337093,
+      "jsBytes": 337800,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
@@ -1164,7 +1148,7 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1174,7 +1158,7 @@
     },
     {
       "route": "/steel-plate",
-      "jsBytes": 2641765,
+      "jsBytes": 2642472,
       "sharedScripts": [
         {
           "path": "/npm/mathjax@3/es5/tex-svg.js",
@@ -1194,13 +1178,13 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         }
       ]
     },
     {
       "route": "/steel-beam",
-      "jsBytes": 321666,
+      "jsBytes": 322373,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -1236,7 +1220,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1246,7 +1230,7 @@
     },
     {
       "route": "/steel-column",
-      "jsBytes": 321666,
+      "jsBytes": 322373,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -1282,7 +1266,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1322,7 +1306,7 @@
     },
     {
       "route": "/wind-kzt",
-      "jsBytes": 304052,
+      "jsBytes": 304759,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1338,7 +1322,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1348,7 +1332,7 @@
     },
     {
       "route": "/wind-special",
-      "jsBytes": 129515,
+      "jsBytes": 130222,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1360,13 +1344,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         }
       ]
     },
     {
       "route": "/wind-force",
-      "jsBytes": 375873,
+      "jsBytes": 376385,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1382,7 +1366,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
@@ -1394,7 +1378,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1404,7 +1388,7 @@
     },
     {
       "route": "/wind-cc",
-      "jsBytes": 375873,
+      "jsBytes": 376385,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1420,7 +1404,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
@@ -1432,7 +1416,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1442,7 +1426,7 @@
     },
     {
       "route": "/wind-parapet",
-      "jsBytes": 375873,
+      "jsBytes": 376385,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1458,7 +1442,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
@@ -1470,7 +1454,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1480,7 +1464,7 @@
     },
     {
       "route": "/wind-open-roof",
-      "jsBytes": 375873,
+      "jsBytes": 376385,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1496,7 +1480,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
@@ -1508,7 +1492,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1518,7 +1502,7 @@
     },
     {
       "route": "/wind-object-solid",
-      "jsBytes": 327941,
+      "jsBytes": 328453,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1534,7 +1518,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1542,7 +1526,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1552,7 +1536,7 @@
     },
     {
       "route": "/wind-object-frame",
-      "jsBytes": 327941,
+      "jsBytes": 328453,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1568,7 +1552,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1576,7 +1560,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1586,7 +1570,7 @@
     },
     {
       "route": "/wind-lattice-tower",
-      "jsBytes": 327941,
+      "jsBytes": 328453,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1602,7 +1586,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1610,7 +1594,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1620,7 +1604,7 @@
     },
     {
       "route": "/wind-object-tower",
-      "jsBytes": 327941,
+      "jsBytes": 328453,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1636,7 +1620,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1644,7 +1628,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1654,7 +1638,7 @@
     },
     {
       "route": "/wind-fence-sign",
-      "jsBytes": 327941,
+      "jsBytes": 328453,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1670,7 +1654,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1678,7 +1662,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1688,7 +1672,7 @@
     },
     {
       "route": "/wind-sign-pole",
-      "jsBytes": 327941,
+      "jsBytes": 328453,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1704,7 +1688,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1712,7 +1696,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1722,7 +1706,7 @@
     },
     {
       "route": "/seismic-force",
-      "jsBytes": 625186,
+      "jsBytes": 625698,
       "sharedScripts": [
         {
           "path": "/npm/chart.js@4.4.7/dist/chart.umd.min.js",
@@ -1758,7 +1742,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1766,7 +1750,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1776,7 +1760,7 @@
     },
     {
       "route": "/seismic-dynamic",
-      "jsBytes": 603850,
+      "jsBytes": 604557,
       "sharedScripts": [
         {
           "path": "/npm/chart.js@4.4.7/dist/chart.umd.min.js",
@@ -1812,7 +1796,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1822,7 +1806,7 @@
     },
     {
       "route": "/seismic-appendage",
-      "jsBytes": 419297,
+      "jsBytes": 419809,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
@@ -1854,7 +1838,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1862,7 +1846,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1872,7 +1856,7 @@
     },
     {
       "route": "/seismic-misc",
-      "jsBytes": 419297,
+      "jsBytes": 419809,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
@@ -1904,7 +1888,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1912,7 +1896,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -1927,7 +1911,7 @@
     },
     {
       "route": "/stone-fixing",
-      "jsBytes": 1817301,
+      "jsBytes": 1817106,
       "sharedScripts": [
         {
           "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/seismic-zones.js",
@@ -1971,13 +1955,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         }
       ]
     },
     {
       "route": "/foundation-local",
-      "jsBytes": 236258,
+      "jsBytes": 236770,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1989,7 +1973,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1997,7 +1981,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -2007,7 +1991,7 @@
     },
     {
       "route": "/equipment-load",
-      "jsBytes": 226499,
+      "jsBytes": 227011,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -2019,7 +2003,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -2027,7 +2011,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -2037,7 +2021,7 @@
     },
     {
       "route": "/earth-pressure",
-      "jsBytes": 233171,
+      "jsBytes": 233683,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -2049,7 +2033,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -2057,7 +2041,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -2067,7 +2051,7 @@
     },
     {
       "route": "/floor-slab-westergaard",
-      "jsBytes": 217455,
+      "jsBytes": 217967,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -2079,7 +2063,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -2087,7 +2071,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -2097,7 +2081,7 @@
     },
     {
       "route": "/cable-tension-frequency",
-      "jsBytes": 225249,
+      "jsBytes": 225761,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -2109,7 +2093,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 78551
+          "bytes": 79258
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -2117,7 +2101,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
@@ -2127,7 +2111,7 @@
     },
     {
       "route": "/decking",
-      "jsBytes": 23745,
+      "jsBytes": 23550,
       "sharedScripts": [
         {
           "path": "/%E8%A6%86%E5%B7%A5%E6%9D%BF/shared/h-section-table.js",
@@ -2139,7 +2123,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
-          "bytes": 9743
+          "bytes": 9548
         }
       ]
     },
