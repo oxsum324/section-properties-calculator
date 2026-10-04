@@ -235,7 +235,7 @@ git add -- "結構工具箱/tools/attachment-package-upgrade-workspace-check.js"
 git add -- "結構工具箱/index.html" "結構工具箱/index-classic.html" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json" "結構工具箱/assets/hy/colors_and_type.css" "結構工具箱/audit-dashboard.html" "結構工具箱/tools/audit-dashboard.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "vercel.json" "preflight-tools.ps1" "toolbox-entrypoints.contract.test.js"
 ```
 
-首頁科技版實驗殘留清理範圍為 `結構工具箱/assets/home2/`，只允許以 `git add -u` staging 已追蹤的刪除；正式首頁仍使用 `結構工具箱/assets/home/home.css`，其 `@import` 所需的 `結構工具箱/assets/hy/colors_and_type.css` 必須保留。
+首頁科技版實驗殘留清理範圍為 `結構工具箱/assets/home2/`，只允許以 `git add -u` staging 已追蹤的刪除；正式首頁仍使用 `結構工具箱/assets/home/home.css`，共用 token `結構工具箱/assets/hy/colors_and_type.css` 必須保留並由首頁 `index.html` 先於 `home.css` 直接載入，不能改動資產位置。
 
 局部快算計算書文件狀態變更必須把四個頁面、manifest、共用 renderer、共同契約、Edge/CDP browser smoke、成熟度矩陣與上述文件一起 staging。smoke 必須驗證空白案件欄位、預設內部審閱、核可正式附件及輸入變更撤銷核可；工程 review / blocked 不得再產生 DRAFT。工作頁直接列印仍只允許邊界通知。
 

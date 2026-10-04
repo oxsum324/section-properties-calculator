@@ -1,9 +1,8 @@
 /* =========================================================================
    結構工具箱 — 首頁樣式（弘一工程顧問設計系統）
    以 home.js 既有 DOM 為對象，套用弘一品牌 tokens 的公文／文件風格。
-   依賴 colors_and_type.css（以 @import 載入）。
+   色彩與字體 token 由 index.html 先載入；本檔只放首頁元件樣式。
    ========================================================================= */
-@import url('../hy/colors_and_type.css');
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -33,15 +32,14 @@ a { color: inherit; text-decoration: none; }
    HEADER（深藍 hero）
    ========================================================================= */
 .home-header { background: var(--hy-navy); color: #fff; position: relative; overflow: hidden; isolation: isolate; }
-.home-header { --home-hero-art: url('hero-art.jpg?v=20261003'); }
 .home-header__art {
   position: absolute;
   inset: 0 0 0 auto;
   width: min(50%, 760px);
-  background-image: var(--home-hero-art, none);
-  background-size: cover;
-  background-position: 62% center;
-  background-repeat: no-repeat;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: 62% center;
   opacity: 0.88;
   pointer-events: none;
   z-index: -1;
@@ -430,6 +428,11 @@ a { color: inherit; text-decoration: none; }
 /* tool grid */
 .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 14px; }
 .tool-grid--grouped { display: block; }
+.tool-grid > .tool-card,
+.tool-group__grid > .tool-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 15rem;
+}
 
 /* tool card（精簡：預設只顯示定位一段，輸出與閱讀狀態收在「詳情」） */
 .tool-card {

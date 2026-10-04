@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>結構工具箱</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="assets/home/home.css?v=20261003">
-<link rel="preload" as="image" href="assets/home/hero-art.jpg?v=20261003" fetchpriority="high">
+<link rel="stylesheet" href="assets/hy/colors_and_type.css?v=20261004">
+<link rel="stylesheet" href="assets/home/home.css?v=20261004">
+<link rel="preload" as="image" href="assets/home/hero-art.webp?v=20261004" type="image/webp" fetchpriority="high">
 <script src="assets/home/home.js?v=20261003" defer></script>
 </head>
 <body class="home-page">
@@ -23,7 +24,10 @@
         <strong>弘一工程顧問</strong>
       </div>
     </div>
-    <div class="home-header__art" aria-hidden="true"></div>
+  <picture>
+    <source type="image/webp" srcset="assets/home/hero-art.webp?v=20261004">
+    <img class="home-header__art" src="assets/home/hero-art.jpg?v=20261003" alt="" aria-hidden="true" fetchpriority="high" decoding="async">
+  </picture>
   </header>
 
   <main class="home-shell" data-home-app>

@@ -15,7 +15,7 @@ const deps = path.join(repo, 'output', 'playwright', 'phase2-quality-deps');
 const outputRoot = path.join(repo, 'output', 'playwright', 'homepage-quality');
 const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const expected = { lighthouse: '13.5.0', playwright: '1.63.0', '@axe-core/playwright': '4.13.0' };
-const sourceFiles = ['結構工具箱/index.html', '結構工具箱/assets/home/home.js', '結構工具箱/assets/home/home.css'];
+const sourceFiles = ['結構工具箱/index.html', '結構工具箱/assets/home/home.js', '結構工具箱/assets/home/home.css', '結構工具箱/assets/home/hero-art.jpg', '結構工具箱/assets/home/hero-art.webp'];
 const interactionsOnly = process.argv.includes('--interactions-only');
 
 function pkgVersion(name) {
@@ -130,6 +130,8 @@ async function runLighthouse(baseUrl, out, summary) {
   for (const key of ['performance', 'accessibility', 'fcp', 'lcp', 'tbt', 'cls']) summary.lighthouse.medians[key] = median(summary.lighthouse.attempts.map(attempt => attempt.metrics?.[key]).filter(Number.isFinite));
   summary.lighthouse.acceptance = {
     performanceMedianAtLeast90: summary.lighthouse.attempts.length === 3 && summary.lighthouse.medians.performance >= 90,
+    lcpMedianAtMost2500: summary.lighthouse.attempts.length === 3 && summary.lighthouse.medians.lcp <= 2500,
+    tbtMedianAtMost100: summary.lighthouse.attempts.length === 3 && summary.lighthouse.medians.tbt <= 100,
     everyAccessibilityAtLeast95: summary.lighthouse.attempts.length === 3 && summary.lighthouse.attempts.every(attempt => Number.isFinite(attempt.metrics?.accessibility) && attempt.metrics.accessibility >= 95),
   };
   if (!Object.values(summary.lighthouse.acceptance).every(Boolean)) summary.failed = true;
@@ -160,14 +162,15 @@ async function runAxe(baseUrl, out, summary) {
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: 1, isMobile: viewport.name === 'mobile', hasTouch: viewport.name === 'mobile' });
       const page = await context.newPage(), errors = recordErrorListeners(page), started = Date.now();
       try {
-        const response = await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        const requestedUrl = new URL('toolbox-home', baseUrl).toString();
+        const response = await page.goto(requestedUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
         await page.waitForFunction(() => document.querySelector('#resultCount')?.textContent.includes('項工具'), null, { timeout: 30000 });
         await page.waitForTimeout(700);
         const axe = await new AxeBuilder({ page }).analyze();
         const seriousCritical = axe.violations.filter(item => item.impact === 'serious' || item.impact === 'critical');
-        const run = { viewport, durationMs: Date.now() - started, goto: { status: response?.status(), finalUrl: page.url(), title: await page.title() }, violationCount: axe.violations.length, seriousCount: axe.violations.filter(item => item.impact === 'serious').length, criticalCount: axe.violations.filter(item => item.impact === 'critical').length, seriousCritical: seriousCritical.map(v => ({ id: v.id, impact: v.impact, help: v.help, description: v.description, helpUrl: v.helpUrl, nodes: v.nodes.map(n => ({ target: n.target, html: n.html, failureSummary: n.failureSummary })) })), violations: axe.violations, incomplete: axe.incomplete, passes: axe.passes.length, inapplicable: axe.inapplicable.length, errors, screenshot: `axe-${viewport.name}.png` };
+        const run = { viewport, durationMs: Date.now() - started, goto: { requestedUrl, status: response?.status(), finalUrl: page.url(), title: await page.title() }, violationCount: axe.violations.length, seriousCount: axe.violations.filter(item => item.impact === 'serious').length, criticalCount: axe.violations.filter(item => item.impact === 'critical').length, seriousCritical: seriousCritical.map(v => ({ id: v.id, impact: v.impact, help: v.help, description: v.description, helpUrl: v.helpUrl, nodes: v.nodes.map(n => ({ target: n.target, html: n.html, failureSummary: n.failureSummary })) })), violations: axe.violations, incomplete: axe.incomplete, passes: axe.passes.length, inapplicable: axe.inapplicable.length, errors, screenshot: `axe-${viewport.name}.png` };
         await page.screenshot({ path: path.join(out, run.screenshot), fullPage: false }); result.viewports.push(run);
-        if (!response || response.status() >= 400 || errors.pageErrors.length || seriousCritical.length > 0) failed = true;
+        if (!response || response.status() >= 400 || errors.pageErrors.length || errors.httpErrors.length || seriousCritical.length > 0) failed = true;
       } catch (error) { failed = true; result.viewports.push({ viewport, durationMs: Date.now() - started, error: error.stack || String(error), errors }); }
       finally { await context.close(); }
     }
@@ -284,7 +287,9 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
     const serverReady = await waitForServer(serverProc); summary.baseUrl = serverReady.url;
     fixture = await startPagesFixture(); summary.pagesSubdirectoryUrl = fixture.url;
     if (!interactionsOnly) {
-      await runLighthouse(summary.baseUrl, out, summary);
+      const homepageUrl = new URL('結構工具箱/', summary.baseUrl).toString();
+      summary.homepageUrl = homepageUrl;
+      await runLighthouse(homepageUrl, out, summary);
       await runAxe(summary.baseUrl, out, summary);
     }
     await runInteractions(summary.baseUrl, fixture, out, summary);

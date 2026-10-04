@@ -863,6 +863,10 @@ function newHomeExpression(tools) {
       hasDoNotReplaceCopy: text.includes('不取代原本首頁'),
       hasLocalSection: text.includes('施工臨時設施 / 局部檢核'),
       imageCount: document.querySelectorAll('img').length,
+      heroImageCount: document.querySelectorAll('img.home-header__art').length,
+      heroImageAlt: document.querySelector('img.home-header__art')?.getAttribute('alt') ?? null,
+      heroImageFetchPriority: document.querySelector('img.home-header__art')?.getAttribute('fetchpriority') ?? null,
+      heroImageWebpSource: document.querySelector('picture source[type="image/webp"]')?.getAttribute('srcset') ?? null,
       categoryIconCount,
       toolIconCount,
       toolUpdatedCount,
@@ -1776,7 +1780,11 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
   assert.ok(state.hasOriginalHomeLink, `${label} new home links to classic menu`);
   // 新版已成為正式首頁，不再保留「不取代原本首頁」文案
   assert.ok(state.hasLocalSection, `${label} new home local section`);
-  assert.equal(state.imageCount, 0, `${label} new home image elements`);
+  assert.equal(state.imageCount, 1, `${label} only the decorative hero image is a raster element`);
+  assert.equal(state.heroImageCount, 1, `${label} new home has one hero image element`);
+  assert.equal(state.heroImageAlt, '', `${label} decorative hero image has empty alternative text`);
+  assert.equal(state.heroImageFetchPriority, 'high', `${label} hero image has high fetch priority`);
+  assert.equal(state.heroImageWebpSource, 'assets/home/hero-art.webp?v=20261004', `${label} hero image prefers the optimized WebP asset`);
   assert.equal(state.categoryIconCount, 7, `${label} new home category icons`);
   assert.equal(state.toolIconCount, state.cardCount, `${label} new home tool card icons`);
   assert.equal(state.toolUpdatedCount, state.cardCount, `${label} new home tool updated dates`);
