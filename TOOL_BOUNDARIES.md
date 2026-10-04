@@ -123,7 +123,6 @@
 | `結構工具箱/index.html` | 納入 | 正式工具箱首頁（弘一設計系統新版，依 `home.js` 單一資料源）；原公文版主選單保留為 `結構工具箱/index-classic.html` 可回退，clean route `/toolbox-home` 導向首頁。首頁的下一步建議須對齊最新成熟度矩陣，不得把已具多案例基準、版本化 JSON 與結果重播的工具重新描述成待補案例；當 upgrade gap 為零時，規劃文字應明確轉向適用範圍更深的新能力，並保留規範、案例與計算書邊界前置條件。 |
 | `結構工具箱/assets/home/` | 納入 | 首頁 Web App 的資料驅動工具清單、分類樣式與 inline SVG 小圖示；不再使用分類圖片資產。唯一插畫為 hero 右側裝飾圖 `hero-art.webp`（1600×893、約 59 KB），現代瀏覽器優先載入 WebP，並保留同內容的 `hero-art.jpg` 後備；首頁以高優先權圖片載入並套用遮罩，手機版降為淡背景。純裝飾、不含文字，與任何工具內容、計算書無關。 |
 | `結構工具箱/index.html`、`結構工具箱/assets/home/home.css`（卡片精簡） | 納入 | 首頁工具卡預設只顯示名稱、版本、更新日、定位與標籤；「輸出」與「閱讀狀態」收在每張卡的「詳情」或工具清單右上的「展開卡片詳情」（偏好只存於瀏覽器 localStorage）。閱讀狀態同時以狀態標籤 tooltip 呈現。平台狀態三張卡與開發路線移到工具清單下方的收合區，DOM id、`role="status"` 與 live region 屬性不變，仍由 `home.js` 以快照驅動。手機版分類總覽改橫向捲動、篩選改 chips、搜尋列置頂。 |
-| `鋼筋混凝土/shared/calc-verdict-strip.js` | 納入 | RC 梁、柱、牆、剪力牆共用的「目前結論」導向列：鏡射綜合結果的 `bannerStatus` 整體狀態，於輸入分頁按「開始計算」時自動切到綜合結果分頁，其他分頁則短暫提示已重算。只存在於 HTML 操作頁（`@media print` 隱藏），不進計算書、列印、直接列印或 PDF；不改變任何計算與核可邏輯。 |
 | `鋼構工具/steel-beam-formal.js`、`鋼構工具/steel-column-formal.js`（本機輸入草稿） | 納入 | 正式頁輸入變更後 0.4 秒自動存入 localStorage（`steel-*-formal-input-draft-v1`），重新開頁時以同一 `apply*SourceState` 路徑還原並顯示保存時間，可按「清除本機草稿」移除。草稿只是操作便利，不是來源 JSON、不是計算書，不影響匯入指紋重現與核可流程。鋼梁頁若 localStorage 內仍有連續梁候選值（`structToolbox.pendingForces`，target `steel-beam`）待確認，開頁時不還原草稿，正式輸入維持原狀直到使用者明確套用。 |
 | `結構工具箱/core/ui/report-docx.js`、core／鋼構／RC `report.js`（Word 文書版） | 納入 | 只有明確啟用 `textExport` 的工具提供 DOCX。輕量轉換器讀取 `.rep-paper, .paper`，使用既有 MIT 授權 docx 9.6.1 本機 vendor，按下載需求才載入大型元件；保留資料表、數值、合併格、上下標與內嵌 PNG。文首明列「文件類別：文字備查」「正式附件資格：否」「文件用途：文字備查版（不作為正式附件）」，與來源核可狀態分開；即使來源 HTML 已核可，本 DOCX 仍必須被正式組包拒絕。上限 2,000,000 bytes，超限或缺圖即停止，不刪工程內容。可攜 HTML 不保存下載中的暫存 vendor script；HTML 的既有雙封印、TXT、離線重開及列印流程保持，離線 Word 元件可用性不保證。core→鋼構由同步腳本維護，RC 仍為獨立分支。 |
 | `結構工具箱/assets/status/` | 納入 | GitHub Pages 可讀的首頁公開狀態快照；由 `tool-maturity-matrix.js --write` 從 git ignored `output/` 精簡產生，只保留狀態、runId、失敗數、筆數、耗時與 sourceHash 等公開欄位，不保留本機絕對路徑。報告閱讀狀態快照另保留最近一次正式放行的實際交付物渲染完成數、工具家族、release runId 與相對證據路徑；RC 附件完整性只保留各工具類別的 required／actual／verified／issue／pass，不得發布 scope、交付檔名、bytes、逐檔或集合 SHA-256、案件內容。首頁健康卡需直接用這組快照顯示 `完整檢查` / `快速檢查` / `正式放行` 與 `runId`，避免讀者把 quick run 誤判成正式交付證據；quick preflight 應保留這組 tracked 快照，正式放行或刻意刷新首頁狀態時才 staging。 |
@@ -299,7 +298,7 @@ V0.7.0 另提供照片紀錄附件整理：梁 U 型裂縫以條數、選填單�
 V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間不可代填成精確尺寸，初記與實測狀態分存。手繪簡圖以筆畫及 PNG 一起備份，明示未按比例；修訂另存新圖，只有再次保存位置才更換紀錄的圖面關聯。舊版精確量測與備份仍須能讀取。
 # 2026-10-03：共用計算操作
 
-`結構工具箱/core/ui/tool-workflow.js` 與 `結構工具箱/tools/tool-workflow-adapters.js` 承接首頁 40 個正式入口及連續梁的計算、結果導覽與既有結論鏡射。Ctrl／Cmd+Enter 只呼叫一次既有計算；Esc 只關閉最上層對話框。錨栓 React 入口由來源 hook 接入並經原部署同步腳本產生 `anchor/`。快捷鍵不核可、不採用資料、不匯出；待更新狀態不重新判定工程合格。提示只用於工作頁，列印與計算書排除。
+`結構工具箱/core/ui/tool-workflow.js` 與 `結構工具箱/tools/tool-workflow-adapters.js` 承接首頁 40 個正式入口、RC 梁柱牆剪力牆及連續梁的計算、結果導覽與既有結論鏡射。RC 摘要沿用 `bannerStatus` 原始文字與狀態 class；輸入分頁按計算後切至綜合結果，操作提示列印隱藏。Ctrl／Cmd+Enter 只呼叫一次既有計算；Esc 只關閉最上層對話框。錨栓 React 入口由來源 hook 接入並經原部署同步腳本產生 `anchor/`。快捷鍵不核可、不採用資料、不匯出；待更新狀態不重新判定工程合格。提示只用於工作頁，列印與計算書排除。
 
 `tool-workflow.manifest.json` 是 41 入口驗證清冊，屬本機開發資料，不列入 Pages 產物。連續梁維持 assist 身分。
 

@@ -1102,6 +1102,53 @@ async function exerciseDynamicRebarAndDeepBeamBoundary(page) {
   assert(ordinary?.status === 'ordinary-beam' && ordinary?.methodApplicable === true, 'beam exits deep-beam boundary when both criteria are clear', JSON.stringify(ordinary));
 }
 
+async function exerciseRCWorkflowSummary(page) {
+  const before = await page.evaluate(() => ({
+    activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || '',
+    hasLegacyStrip: !!document.getElementById('rcCalcVerdictStrip'),
+    hasWorkflow: !!document.querySelector('[data-hy-workflow="/rc-beam"]')
+  }));
+  assert(before.activeTab === 'geom', 'RC workflow starts on an input tab', `active=${before.activeTab}`);
+  assert(!before.hasLegacyStrip, 'RC workflow no longer inserts the removed verdict strip', 'legacy strip node is absent');
+  assert(before.hasWorkflow, 'RC workflow operation panel is installed', 'adapter panel exists');
+
+  await page.evaluate(() => {
+    const original = window.calcBeam;
+    window.__rcCalcCalls = 0;
+    window.calcBeam = function (...args) {
+      window.__rcCalcCalls += 1;
+      return original.apply(this, args);
+    };
+  });
+  await page.locator('.btn-calc:visible').first().click();
+  await page.waitForFunction(() => document.querySelector('.section-tabs button.active')?.dataset.tab === 'summary');
+  const after = await page.evaluate(() => {
+    const banner = document.getElementById('bannerStatus');
+    const panel = document.querySelector('[data-hy-workflow="/rc-beam"]');
+    const summary = panel?.querySelector('[data-workflow-summary]');
+    const tone = banner.classList.contains('fail') || banner.classList.contains('ng') ? 'fail'
+      : banner.classList.contains('warn') ? 'warn'
+        : banner.classList.contains('ok') ? 'ok' : 'idle';
+    return {
+      activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || '',
+      calcCalls: window.__rcCalcCalls,
+      bannerText: banner.textContent.replace(/\s+/g, ' ').trim(),
+      summaryText: summary?.textContent.replace(/\s+/g, ' ').trim() || '',
+      panelTone: panel?.dataset.tone,
+      bannerTone: tone
+    };
+  });
+  assert(after.activeTab === 'summary', 'RC input calculation opens combined results', `active=${after.activeTab}`);
+  assert(after.calcCalls === 1, 'RC calculation adapter calls the existing engine once', `calls=${after.calcCalls}`);
+  assert(after.summaryText === after.bannerText, 'RC operation panel mirrors bannerStatus text', `panel=${after.summaryText}; banner=${after.bannerText}`);
+  assert(after.panelTone === after.bannerTone, 'RC operation panel mirrors bannerStatus class state', `panel=${after.panelTone}; banner=${after.bannerTone}`);
+
+  await page.emulateMedia({ media: 'print' });
+  const hiddenForPrint = await page.locator('[data-hy-workflow="/rc-beam"]').evaluate(node => getComputedStyle(node).display === 'none');
+  assert(hiddenForPrint, 'RC operation panel is hidden in print', 'workflow panel display is none under print media');
+  await page.emulateMedia({ media: 'screen' });
+}
+
 async function runBrowserCases() {
   section('Browser Regression Cases');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
@@ -1125,6 +1172,10 @@ async function runBrowserCases() {
     await wait(300);
     assert(pageErrors.length === 0, 'beam page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'beam page resources', 'no missing static resources during initial load');
+    await exerciseRCWorkflowSummary(page);
+    await page.reload({ waitUntil: 'networkidle' });
+    await wait(300);
+    assert(pageErrors.length === 0, 'RC workflow summary behavior', 'no page errors during result mirroring or tab navigation');
     await exerciseBeamReportOutputActions(page);
     assert(pageErrors.length === 0, 'beam report output actions', 'no page errors during text-export and direct-print wiring');
     await exerciseBeamRebarDesignCandidates(page);

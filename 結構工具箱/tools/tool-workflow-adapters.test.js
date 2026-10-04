@@ -26,6 +26,11 @@ assert.equal(connections, 36);
 
 for (const [key, engine] of [['/rc-beam', 'calcBeam'], ['/rc-column', 'calcColumn'], ['/rc-wall', 'calcWall'], ['/rc-shear-wall', 'calcShearWall']]) {
   const tool = manifest.tools.find(item => item.key === key), html = fs.readFileSync(path.join(root, tool.file), 'utf8');
+  assert.ok(!html.includes('calc-verdict-strip.js'), `${key}: obsolete verdict strip is not loaded`);
+  const scriptTags = [...html.matchAll(/<script\b[^>]*>/g)];
+  const lastScript = scriptTags.at(-1);
+  assert.ok(lastScript?.[0].includes('project-meta-profile.js'), `${key}: project metadata script remains last`);
+  assert.ok(html.indexOf('</body>', lastScript.index) - (lastScript.index + lastScript[0].length) <= 200, `${key}: final project script remains close to body end`);
   const start = html.indexOf('  function applyPanel(tab) {'), end = html.indexOf('\n  }', start) + 4;
   assert.ok(start >= 0 && end > start, `${key}: real applyPanel source exists`);
   const env = windowStub(); let calculations = 0;
@@ -52,11 +57,10 @@ adapters.createOptions(slab, slabEnv).calculate();
 assert.equal(slabCalls, 1, 'slab immediate operation calculates once');
 assert.equal(pendingFrames.size, 0, 'slab pending automatic frame is cancelled before explicit calculation');
 
-let legacyCalls = 0, calculated = 0; const handlers = [], legacyStrip = { hidden: false };
+let originalCalcCalls = 0, calculated = 0; const handlers = [];
 const button = { addEventListener(type, callback, capture) { handlers.push({ callback, capture: !!capture }); } };
-button.addEventListener('click', () => { legacyCalls++; }, false);
+button.addEventListener('click', () => { originalCalcCalls++; }, false);
 const rcDocument = documentStub();
-rcDocument.getElementById = id => id === 'rcCalcVerdictStrip' ? legacyStrip : null;
 rcDocument.querySelectorAll = selector => selector === '.btn-calc' ? [button] : [];
 const rcEnv = windowStub(rcDocument);
 rcEnv.applyPanel = () => { calculated++; };
@@ -66,8 +70,10 @@ rcEnv.HYToolWorkflow = { ...workflow, install(options) { return { ...workflow.cr
 adapters.install(manifest.tools.find(item => item.key === '/rc-beam'), rcEnv);
 const event = { stopped: false, preventDefault() {}, stopImmediatePropagation() { this.stopped = true; } };
 for (const handler of handlers.sort((a, b) => Number(b.capture) - Number(a.capture))) { if (!event.stopped) handler.callback(event); }
-assert.deepEqual([calculated, legacyCalls], [1, 0], 'RC calculation capture excludes legacy calc plus summary recalc path');
-assert.equal(legacyStrip.hidden, true, 'old mirror remains in DOM but is replaced by the pending-aware operation strip');
+assert.deepEqual([calculated, originalCalcCalls], [1, 0], 'RC calculation capture runs the adapter once and suppresses the original click callback');
+
+const homeSource = fs.readFileSync(path.join(root, '結構工具箱', 'assets', 'home', 'home.js'), 'utf8');
+assert.ok(!homeSource.includes('鋼筋混凝土/shared/calc-verdict-strip.js'), 'homepage dependency map no longer tracks the removed strip');
 
 let clicked = 0, scrolled = 0;
 const genericDocument = documentStub();
@@ -104,4 +110,4 @@ beamDocument.getElementById = id => id === 'errorMsg' ? { textContent: '模型�
 const beamEnv = windowStub(beamDocument); beamEnv.runAnalysis = () => {};
 const invalid = adapters.createOptions({ key: '/beam-analysis', resultSelector: '#resultsCard' }, beamEnv);
 assert.equal(invalid.calculate(), false); assert.equal(errorFocused, 1, 'invalid continuous-beam input points to the original error and never navigates to stale results');
-console.log('workflow adapters: 36 local connections, four real RC summary functions, slab frame cancellation, legacy-handler suppression, seismic card routing, result mirroring and error routing passed');
+console.log('workflow adapters: 36 local connections, four real RC summary functions, obsolete strip removal, single-call RC capture, slab frame cancellation, seismic card routing, result mirroring and error routing passed');

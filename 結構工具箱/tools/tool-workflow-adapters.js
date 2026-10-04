@@ -120,10 +120,8 @@
     const handle = windowRef.HYToolWorkflow.install(options);
     if (!handle) return null;
     if (RC_SUMMARY.has(config.key)) {
-      const legacy = windowRef.document.getElementById('rcCalcVerdictStrip');
-      if (legacy) legacy.hidden = true; // 新列承接原導向列，保留既有 id / class 與計算書邊界。
       windowRef.document.querySelectorAll('.btn-calc').forEach(button => {
-        // 舊 calc callback 與舊 strip 都在 bubble；接管這個明確計算按鈕，保證只算一次。
+        // 接管明確計算按鈕，再由同一操作切到摘要，避免原按鈕 callback 重複計算。
         button.addEventListener('click', event => {
           event.preventDefault(); event.stopImmediatePropagation(); handle.run();
         }, true);
