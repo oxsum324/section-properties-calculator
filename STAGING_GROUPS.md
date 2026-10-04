@@ -1,5 +1,9 @@
 # Staging 分包建議
 
+## 報表與載入稽核修正包（2026-10-04，本機）
+
+`report-format-parity.core.js`、`report-format-parity.contract.test.js`、報表 browser／parity／PowerShell 入口，以及 `結構工具箱/tools/tool-load-budget-contract.js`、`結構工具箱/tools/tool-load-budget-contract.test.js` 與載入 browser 檢查器同包審閱。`preflight-tools.ps1` 的 `report-format-parity-contract`／`tool-load-budget-contract` 是 quick、CI 與正式模式皆執行的輕量門檻；它們不代表已重跑四案 Word 或 52 頁載入。新 helper、載入基準及測試屬私人驗收工具，必須同時維護 Pages 排除與治理契約。基準只能接受容量差異，功能錯誤與來源漂移不得寫入；本包不重設既有基準、不更改公開狀態快照。
+
 ## 第二階段 T2 共用報表工具包（2026-10-03，本機）
 
 `結構工具箱/core/ui/report-utils.js` 是等價純函式的單一來源；core 報表與鋼構副本、RC 薄 adapter `鋼筋混凝土/shared/report-utils.js`、載入順序與各測試 VM 的依賴須同包提交。RC 的計算指紋／封印仍採獨立契約。`shared/common.js` 提供格式化政策，原頁面 strict／coerce、預設位數與 fallback 差異以等價案例鎖定。`core/direct-print-boundary.css` 同步 RC 副本並保留明列的家族差異；同步脚本的 `-Check` 及首頁依賴日期同批驗證。純 Node 等價測試不能代替真實 popup／下載 HTML 的瀏覽器回歸。

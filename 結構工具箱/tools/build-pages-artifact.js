@@ -4,6 +4,9 @@ const os = require('os');
 const path = require('path');
 
 const PRIVATE_FILES = new Set([
+  'report-format-parity.core.js',
+  '結構工具箱/tools/tool-load-budget-contract.js',
+  '結構工具箱/tools/tool-load-budget-baseline.json',
   '結構工具箱/tools/pages-live-smoke.js',
   '結構工具箱/tools/pages-live-browser-smoke.js',
   '結構工具箱/tools/run-pages-browser-smoke.sh',

@@ -3,7 +3,9 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
+const crypto = require('crypto');
 const { chromium } = require(path.join(process.cwd(), 'output', 'playwright', 'phase2-quality-deps', 'node_modules', 'playwright'));
+const { analyzeResults, collectFailureRecords, resetBaseline, sourceDriftPaths, validateBaseline } = require('./tool-load-budget-contract');
 
 const repo = path.resolve(__dirname, '../..');
 const baselinePath = path.join(__dirname, 'tool-load-budget-baseline.json');
@@ -14,6 +16,7 @@ const edge = [
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
 ].find(candidate => fs.existsSync(candidate));
 assert(edge, 'Microsoft Edge was not found');
+let activeAudit = null;
 
 function extractLiteral(source, name) {
   const prefix = `const ${name} = `;
@@ -73,9 +76,33 @@ function summedByPath(scripts, baseUrl) {
   for (const script of scripts) {
     if (!isThirdPartyOrShared(script.url, baseUrl)) continue;
     const key = normalizedScriptPath(script.url);
-    result.set(key, (result.get(key) || 0) + (script.bytes || 0));
+    result.set(key, (result.get(key) || 0) + script.bytes);
   }
   return result;
+}
+
+function sourceHashes() {
+  const trackedAndUnignored = gitValue(['ls-files', '--cached', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean);
+  const auditedSources = trackedAndUnignored.filter(relativePath =>
+    /\.(?:html?|m?js|cjs)$/i.test(relativePath)
+    && !/(^|[\\/])(?:node_modules|output)(?:[\\/]|$)/i.test(relativePath));
+  auditedSources.push('結構工具箱/tools/tool-load-budget-baseline.json');
+  return Object.fromEntries(auditedSources.map(relativePath => [relativePath.replace(/\\/g, '/'),
+    fs.existsSync(path.join(repo, relativePath))
+      ? crypto.createHash('sha256').update(fs.readFileSync(path.join(repo, relativePath))).digest('hex')
+      : '<missing>']));
+}
+
+function gitValue(args) {
+  return require('child_process').execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
+}
+
+function sourceReceipt() {
+  return {
+    testedHead: gitValue(['rev-parse', 'HEAD']),
+    worktreeStatus: gitValue(['status', '--porcelain=v1']),
+    sourceSha256: sourceHashes(),
+  };
 }
 
 async function loadRoutes(browser, baseUrl, routes) {
@@ -175,8 +202,13 @@ async function checkDocxRuntime(browser, baseUrl) {
 }
 
 async function main() {
+  const startedAt = new Date().toISOString();
+  const sourceAtStart = sourceReceipt();
+  activeAudit = { startedAt, sourceAtStart, results: [], docx: null, baseUrl: null, analysis: null };
   const homeJs = fs.readFileSync(path.join(repo, '結構工具箱', 'assets', 'home', 'home.js'), 'utf8');
   const routes = Object.keys(extractLiteral(homeJs, 'HOME_TOOL_UPDATES').routes);
+  const baselineErrors = validateBaseline(baseline, routes);
+  assert.deepEqual(baselineErrors, [], `Invalid existing load budget baseline: ${baselineErrors.join('; ')}`);
   assert.equal(routes.length, baseline.routeCount, 'Homepage route count differs from T8 baseline');
   assert.deepEqual(routes, baseline.routes.map(item => item.route), 'Homepage route list/order differs from T8 baseline');
 
@@ -184,31 +216,27 @@ async function main() {
   let browser;
   try {
     const baseUrl = await waitForServer(server);
+    activeAudit.baseUrl = baseUrl;
     browser = await chromium.launch({ headless: true, executablePath: edge, args: ['--no-first-run', '--no-default-browser-check'] });
     const results = await loadRoutes(browser, baseUrl, routes);
-    const failures = [];
-    const baselineByRoute = new Map(baseline.routes.map(item => [item.route, item]));
-    for (const result of results) {
-      const expected = baselineByRoute.get(result.route);
-      if (result.status !== 200) failures.push(`${result.route}: HTTP ${result.status}`);
-      if (result.navigationError) failures.push(`${result.route}: ${result.navigationError}`);
-      const scriptErrors = result.scripts.filter(script => script.error || script.status !== 200 || script.bytes == null);
-      for (const script of scriptErrors) failures.push(`${result.route}: script ${script.url} status=${script.status} error=${script.error}`);
-      if (result.workflowScripts.length && !result.workflowPanel) failures.push(`${result.route}: workflow script loaded without a workflow panel`);
-      const before = new Map(expected.sharedScripts.map(script => [script.path, script.bytes]));
-      for (const [scriptPath, bytes] of summedByPath(result.scripts, baseUrl)) {
-        if (!before.has(scriptPath)) failures.push(`${result.route}: new third-party/shared script ${scriptPath} (${bytes} bytes)`);
-        else if (bytes > before.get(scriptPath)) failures.push(`${result.route}: third-party/shared script grew ${scriptPath} ${before.get(scriptPath)} -> ${bytes} bytes`);
-      }
-    }
+    activeAudit.results = results;
+    const analysis = analyzeResults(results, baseline, baseUrl);
+    activeAudit.analysis = analysis;
     const docx = await checkDocxRuntime(browser, baseUrl);
+    activeAudit.docx = docx;
+    const sourceAtFinish = sourceReceipt();
+    const sourceDrift = sourceDriftPaths(sourceAtStart.sourceSha256, sourceAtFinish.sourceSha256);
+    const functionalFailures = [...analysis.functionalFailures];
+    if (sourceAtStart.testedHead !== sourceAtFinish.testedHead) functionalFailures.push(`HEAD changed during audit: ${sourceAtStart.testedHead} -> ${sourceAtFinish.testedHead}`);
+    if (sourceDrift.length) functionalFailures.push(`source changed during audit: ${sourceDrift.join(', ')}`);
+    const failures = [...functionalFailures];
+    if (!process.argv.includes('--write-baseline')) failures.push(...analysis.capacityDifferences);
     if (process.argv.includes('--write-baseline')) {
-      // 委託人明確接受目前載入量後，以本次實測重設 T8 基準；不會在一般檢查模式下自動改寫。
-      const sourceCommit = require('child_process').execSync('git rev-parse HEAD', { cwd: repo, encoding: 'utf8' }).trim();
+      // 只有功能健康、DOCX guard 已通過、來源未漂移且新資料完整時才接受容量增量。
       const nextBaseline = {
         schemaVersion: baseline.schemaVersion,
         capturedAt: new Date().toISOString(),
-        sourceCommit,
+        sourceCommit: sourceAtFinish.testedHead,
         routeCount: results.length,
         totalJsBytes: results.reduce((sum, item) => sum + item.jsBytes, 0),
         docxRuntimePath: baseline.docxRuntimePath,
@@ -219,16 +247,31 @@ async function main() {
           sharedScripts: [...summedByPath(result.scripts, baseUrl)].map(([scriptPath, bytes]) => ({ path: scriptPath, bytes })),
         })),
       };
-      fs.writeFileSync(baselinePath, `${JSON.stringify(nextBaseline, null, 2)}
-`, 'utf8');
-      console.log(`baseline rewritten: ${baselinePath} (${nextBaseline.totalJsBytes} bytes, ${sourceCommit})`);
-      failures.length = 0;
+      const decision = resetBaseline({
+        docxCheck: () => {},
+        functionalFailures,
+        sourceDrift,
+        capacityDifferences: analysis.capacityDifferences,
+        nextBaseline,
+        expectedRoutes: routes,
+        write: value => fs.writeFileSync(baselinePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8'),
+      });
+      if (decision.errors.length) failures.push(...decision.errors);
+      if (decision.written) console.log(`baseline rewritten: ${baselinePath} (${nextBaseline.totalJsBytes} bytes, ${sourceAtFinish.testedHead})`);
     }
     const summary = {
       schemaVersion: 1,
       baselineCommit: baseline.sourceCommit,
       baselineCapturedAt: baseline.capturedAt,
-      startedAt: new Date().toISOString(),
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      testedHead: sourceAtFinish.testedHead,
+      worktreeStatusAtStart: sourceAtStart.worktreeStatus,
+      worktreeStatusAtFinish: sourceAtFinish.worktreeStatus,
+      sourceSha256AtStart: sourceAtStart.sourceSha256,
+      sourceSha256: sourceAtFinish.sourceSha256,
+      sourceCount: Object.keys(sourceAtFinish.sourceSha256).length,
+      sourceDrift,
       baseUrl,
       routeCount: results.length,
       totalJsBytes: results.reduce((sum, item) => sum + item.jsBytes, 0),
@@ -236,6 +279,8 @@ async function main() {
       docx,
       results,
       failures,
+      functionalFailures,
+      capacityDifferences: analysis.capacityDifferences,
       pass: failures.length === 0,
     };
     fs.mkdirSync(outputRoot, { recursive: true });
@@ -243,10 +288,51 @@ async function main() {
     fs.writeFileSync(output, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
     console.log(`summary: ${JSON.stringify({ output, routeCount: summary.routeCount, totalJsBytes: summary.totalJsBytes, baselineTotalJsBytes: summary.baselineTotalJsBytes, failures: failures.length, docxRuntimeBytes: docx.runtimeSizeOnDisk })}`);
     if (failures.length) { console.error(failures.join('\n')); process.exitCode = 1; }
+    activeAudit = null;
   } finally {
     if (browser) await browser.close();
     if (server.exitCode == null) server.kill();
   }
 }
 
-main().catch(error => { console.error(error.stack || error); process.exitCode = 1; });
+main().catch(error => {
+  console.error(error.stack || error);
+  if (activeAudit) {
+    try {
+      const finishedAt = new Date().toISOString();
+      const sourceAtFinish = sourceReceipt();
+      const sourceDrift = sourceDriftPaths(activeAudit.sourceAtStart.sourceSha256, sourceAtFinish.sourceSha256);
+      const failures = collectFailureRecords(activeAudit.analysis?.functionalFailures || [], error, sourceDrift);
+      if (activeAudit.sourceAtStart.testedHead !== sourceAtFinish.testedHead) failures.push(`HEAD changed during audit: ${activeAudit.sourceAtStart.testedHead} -> ${sourceAtFinish.testedHead}`);
+      const summary = {
+        schemaVersion: 1,
+        baselineCommit: baseline.sourceCommit,
+        baselineCapturedAt: baseline.capturedAt,
+        startedAt: activeAudit.startedAt,
+        finishedAt,
+        testedHead: sourceAtFinish.testedHead,
+        worktreeStatusAtStart: activeAudit.sourceAtStart.worktreeStatus,
+        worktreeStatusAtFinish: sourceAtFinish.worktreeStatus,
+        sourceSha256AtStart: activeAudit.sourceAtStart.sourceSha256,
+        sourceSha256: sourceAtFinish.sourceSha256,
+        sourceCount: Object.keys(sourceAtFinish.sourceSha256).length,
+        sourceDrift,
+        baseUrl: activeAudit.baseUrl,
+        routeCount: activeAudit.results.length,
+        totalJsBytes: activeAudit.results.reduce((sum, item) => sum + (Number.isSafeInteger(item.jsBytes) ? item.jsBytes : 0), 0),
+        baselineTotalJsBytes: baseline.totalJsBytes,
+        docx: activeAudit.docx,
+        results: activeAudit.results,
+        failures,
+        functionalFailures: failures,
+        capacityDifferences: activeAudit.analysis?.capacityDifferences || [],
+        pass: false,
+      };
+      fs.mkdirSync(outputRoot, { recursive: true });
+      const output = path.join(outputRoot, `tool-load-budget-${finishedAt.replace(/[:.]/g, '-')}.json`);
+      fs.writeFileSync(output, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
+      console.error(`failure summary: ${output}`);
+    } catch (receiptError) { console.error(`Could not write failure summary: ${receiptError.stack || receiptError}`); }
+  }
+  process.exitCode = 1;
+});

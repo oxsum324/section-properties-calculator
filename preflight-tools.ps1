@@ -1376,6 +1376,16 @@ node 結構工具箱/tools/report-disclosure.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$reportFormatParityContractCommand = @'
+node report-format-parity.contract.test.js
+exit $LASTEXITCODE
+'@
+
+$toolLoadBudgetContractCommand = @'
+node 結構工具箱/tools/tool-load-budget-contract.test.js
+exit $LASTEXITCODE
+'@
+
 $deliveryArtifactsContractCommand = @'
 node 結構工具箱/tools/delivery-artifacts.contract.test.js
 exit $LASTEXITCODE
@@ -2395,6 +2405,20 @@ $checks = @(
     label = "Cross-family report disclosure contract"
     workdir = $root
     command = $reportDisclosureContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "report-format-parity-contract"
+    label = "Report format semantics and selected-run contract"
+    workdir = $root
+    command = $reportFormatParityContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "tool-load-budget-contract"
+    label = "Load budget reset and source evidence contract"
+    workdir = $root
+    command = $toolLoadBudgetContractCommand
     slow = $false
   },
   [pscustomobject]@{

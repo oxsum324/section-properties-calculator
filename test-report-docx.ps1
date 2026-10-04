@@ -18,9 +18,16 @@ if (-not $List) {
     }
   }
 }
-node (Join-Path $repoRoot 'report-docx.browser.test.js') @scriptArgs
+$browserOutput = @(& node (Join-Path $repoRoot 'report-docx.browser.test.js') @scriptArgs)
+$browserOutput | ForEach-Object { Write-Output $_ }
 if ($LASTEXITCODE -ne 0) { throw "Report DOCX browser checks failed with exit code $LASTEXITCODE" }
 if (-not $List) {
-  node (Join-Path $repoRoot 'report-format-parity.test.js')
+  $runMarkers = @($browserOutput | Where-Object { $_ -is [string] -and $_.StartsWith('REPORT_DOCX_RUN_DIR=') })
+  if ($runMarkers.Count -ne 1) { throw "Browser run must return exactly one REPORT_DOCX_RUN_DIR marker; got $($runMarkers.Count)." }
+  $runDir = $runMarkers[0].Substring('REPORT_DOCX_RUN_DIR='.Length)
+  if (-not (Test-Path -LiteralPath (Join-Path $runDir 'summary.json'))) { throw "Browser run directory has no summary.json: $runDir" }
+  $parityArgs = @('--run-dir', $runDir)
+  if ($Tools) { $parityArgs += @('--only', $Tools) }
+  node (Join-Path $repoRoot 'report-format-parity.test.js') @parityArgs
   if ($LASTEXITCODE -ne 0) { throw "Report format parity checks failed with exit code $LASTEXITCODE" }
 }

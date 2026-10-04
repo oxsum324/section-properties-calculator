@@ -1,5 +1,7 @@
 # 工具交付邊界
 
+報表與載入稽核修正：`report-format-parity.core.js`／`report-format-parity.contract.test.js` 檢查 TXT 表、列、格及標籤／單位／判定，完整四案與指定子集分開驗收，browser 與後段必須明確傳遞同輪輸出目錄；不得以最新目錄推定來源。`結構工具箱/tools/tool-load-budget-contract.js`／`結構工具箱/tools/tool-load-budget-contract.test.js`分開容量差異與 HTTP／導覽／腳本／工作流故障，功能錯誤、缺漏路由、無效 bytes 或來源漂移皆不得重設基準。兩個純 Node 契約接入 quick／CI／正式 preflight；完整 Word／52 頁 browser 仍為獨立派工驗收。helper、基準、測試與來源收據不發布至 Pages 或進入計算書；開發檢查不得冒充正式放行。
+
 共用報表純工具以 `結構工具箱/core/ui/report-utils.js` 為單一來源，鋼構由 `sync-formal-core.ps1` 同步，RC 以獨立 adapter 明列跳脫／非同步差異；RC `report.js` 不由鋼構腳本同步。可攜 HTML 將純工具 factory 內嵌，不依賴 opener 或外部共用脚本才能驗證／列印。直接列印邊界 CSS 由 core 同步至 RC，家族例外維持明列，不能解除操作頁列印限制。
 
 第二階段操作頁樣式：`結構工具箱/assets/hy/continuous-beam-ui.css`、`frame-analysis-ui.css` 與 `鋼筋混凝土/shared/tool-page.css` 為正式來源碼，只管理操作介面，引用 `colors_and_type.css` 的共用 token；計算書 popup 不引用這些樣式。`tool-page-layout.browser.test.js`／`test-tool-page-layout.ps1` 為可重跑的 11 頁桌機／手機版面契約，截圖與結果 JSON 寫入忽略的 `output/playwright/tool-page-layout/`，不能作為正式交付物或實機驗證證據。新增 CSS 亦須列入首頁相對應工具的 `HOME_TOOL_UPDATE_DEPENDENCIES`。

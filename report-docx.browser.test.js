@@ -19,9 +19,28 @@ const CASES = [
 ];
 const RUNTIME = '石材固定/vendor/package/dist/index.iife.js';
 const SOURCES = ['結構工具箱/core/ui/report-docx.js', '結構工具箱/core/ui/report.js', '鋼筋混凝土/shared/report.js', '鋼構工具/core/ui/report.js', RUNTIME, ...CASES.flatMap(item => [item.file, ...(item.sourceFiles || [])])];
-const arg = name => { const index = process.argv.indexOf(name); return index < 0 ? '' : process.argv[index + 1] || ''; };
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const compact = value => String(value || '').replace(/\s+/g, '');
+function parseArgs(argv) {
+  const options = { list: false, only: '', baseUrl: '' };
+  for (let index = 2; index < argv.length; index += 1) {
+    const name = argv[index];
+    if (name === '--list') { assert.equal(options.list, false, '--list 不可重複'); options.list = true; continue; }
+    assert.ok(name === '--only' || name === '--base-url', `未知 T5 選項：${name}`);
+    assert.ok(index + 1 < argv.length && !argv[index + 1].startsWith('--'), `${name} 必須有值`);
+    const value = argv[++index];
+    if (name === '--only') { assert.equal(options.only, '', '--only 不可重複'); options.only = value; }
+    else { assert.equal(options.baseUrl, '', '--base-url 不可重複'); options.baseUrl = value; }
+  }
+  assert.ok(!options.list || (!options.only && !options.baseUrl), '--list 不可與其他選項併用');
+  if (options.only) {
+    const keys = options.only.split(',').map(value => value.trim().replace(/^\//, ''));
+    assert.ok(keys.every(Boolean), '--only 不可含空案例');
+    assert.equal(new Set(keys).size, keys.length, '重複 T5 工具入口');
+    if (keys.some(key => !CASES.some(item => item.key === key))) throw Error('未知 T5 工具入口');
+  }
+  return options;
+}
 function sourceHashes() { return SOURCES.map(file => ({ file, sha256: sha(fs.readFileSync(path.join(ROOT, file))) })); }
 
 // 此函數在來源報告視窗執行，保留可見文字而排除明確的操作控制項與圖形。
@@ -332,9 +351,9 @@ async function createCdpReportNetworkProbe(context, report, record, requestOwner
 }
 
 async function main() {
-  if (process.argv.includes('--list')) { CASES.forEach(item => console.log(`${item.key} | ${item.file}`)); return; }
-  const only = arg('--only').split(',').map(value => value.trim().replace(/^\//, '')).filter(Boolean);
-  if (only.some(key => !CASES.some(item => item.key === key))) throw Error('未知 T5 工具入口');
+  const options = parseArgs(process.argv);
+  if (options.list) { CASES.forEach(item => console.log(`${item.key} | ${item.file}`)); return; }
+  const only = options.only ? options.only.split(',').map(value => value.trim().replace(/^\//, '')) : [];
   const selected = CASES.filter(item => !only.length || only.includes(item.key));
   const output = path.join(ROOT, 'output/playwright/report-docx', new Date().toISOString().replace(/[:.]/g, '-') + '-' + crypto.randomUUID().slice(0, 8));
   fs.mkdirSync(output, { recursive: true });
@@ -342,7 +361,7 @@ async function main() {
   const save = () => fs.writeFileSync(path.join(output, 'summary.json'), JSON.stringify(summary, null, 2)); save();
   let server, browser;
   try {
-    let baseUrl = arg('--base-url');
+    let baseUrl = options.baseUrl;
     if (!baseUrl) {
       server = spawn(process.execPath, [path.join(ROOT, 'serve-local.js'), '--no-open'], { cwd: ROOT, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
       let serverText = ''; const log = fs.createWriteStream(path.join(output, 'server.log'));
@@ -510,8 +529,9 @@ async function main() {
     summary.finished = new Date().toISOString(); summary.elapsedMs = Date.parse(summary.finished) - Date.parse(summary.started);
     summary.artifacts = fs.readdirSync(output).filter(file => !['summary.json', 'server.log'].includes(file)).map(file => ({ file, bytes: fs.statSync(path.join(output, file)).size, sha256: sha(fs.readFileSync(path.join(output, file))) }));
     save(); console.log(JSON.stringify({ cases: summary.cases.length, failures: summary.failures.length, output }));
+    console.log(`REPORT_DOCX_RUN_DIR=${output}`);
     if (summary.failures.length) process.exitCode = 1;
   }
 }
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });
-module.exports = { CASES, sourceInventory, inspectDocx, prepareCalculationSource, createCdpReportNetworkProbe };
+module.exports = { CASES, parseArgs, sourceInventory, inspectDocx, prepareCalculationSource, createCdpReportNetworkProbe };
