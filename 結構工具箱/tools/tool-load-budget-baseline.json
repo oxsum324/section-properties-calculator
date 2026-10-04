@@ -1,0 +1,2152 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-04T08:18:16.169Z",
+  "sourceCommit": "a6a3e861",
+  "routeCount": 52,
+  "totalJsBytes": 22512113,
+  "docxRuntimePath": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/package/dist/index.iife.js",
+  "docxRuntimeBytes": 857630,
+  "routes": [
+    {
+      "route": "/condition-survey",
+      "jsBytes": 497399,
+      "sharedScripts": [
+        {
+          "path": "/field-survey/report.js",
+          "bytes": 22293
+        }
+      ]
+    },
+    {
+      "route": "/beam-analysis",
+      "jsBytes": 756647,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/force-picker.js",
+          "bytes": 15487
+        },
+        {
+          "path": "/firebasejs/11.6.0/firebase-app.js",
+          "bytes": 103053
+        },
+        {
+          "path": "/firebasejs/11.6.0/firebase-firestore.js",
+          "bytes": 439939
+        }
+      ]
+    },
+    {
+      "route": "/frame-analysis",
+      "jsBytes": 261913,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
+          "bytes": 48258
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/force-picker.js",
+          "bytes": 15487
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/struct-dx",
+      "jsBytes": 0,
+      "sharedScripts": []
+    },
+    {
+      "route": "/section",
+      "jsBytes": 154089,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
+          "bytes": 48833
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        }
+      ]
+    },
+    {
+      "route": "/composite-section",
+      "jsBytes": 225665,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
+          "bytes": 48833
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-beam",
+      "jsBytes": 310379,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/rebar.js",
+          "bytes": 880
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
+          "bytes": 1291
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/formulas.js",
+          "bytes": 1542
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/flexure.js?v=1",
+          "bytes": 7127
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
+          "bytes": 8056
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/calc-verdict-strip.js?v=1",
+          "bytes": 7305
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/beam-applicability.js?v=1",
+          "bytes": 2901
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/beam-evaluator.js?v=1",
+          "bytes": 8863
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/beam-rebar-designer.js?v=1",
+          "bytes": 21432
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
+          "bytes": 48258
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=2",
+          "bytes": 3008
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/forces-receive.js",
+          "bytes": 5164
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-deep-beam-stm",
+      "jsBytes": 210312,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/rebar.js",
+          "bytes": 880
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/deep-beam-stm.js",
+          "bytes": 14880
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-column",
+      "jsBytes": 309226,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/rebar.js",
+          "bytes": 880
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
+          "bytes": 1291
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/formulas.js",
+          "bytes": 1542
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
+          "bytes": 8056
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/calc-verdict-strip.js?v=1",
+          "bytes": 7305
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=3",
+          "bytes": 10384
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/column-evaluator.js?v=1",
+          "bytes": 5991
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/column-rebar-designer.js?v=2",
+          "bytes": 6998
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/column-transverse-designer.js?v=2",
+          "bytes": 15797
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
+          "bytes": 48258
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=2",
+          "bytes": 3008
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/forces-receive.js",
+          "bytes": 5164
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-slab",
+      "jsBytes": 271875,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/rebar.js",
+          "bytes": 880
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
+          "bytes": 1291
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/formulas.js",
+          "bytes": 1542
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/flexure.js?v=1",
+          "bytes": 7127
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/slab-evaluator.js?v=1",
+          "bytes": 7161
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
+          "bytes": 8056
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
+          "bytes": 48258
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=2",
+          "bytes": 3008
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-wall",
+      "jsBytes": 312235,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/rebar.js",
+          "bytes": 880
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
+          "bytes": 1291
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/formulas.js",
+          "bytes": 1542
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
+          "bytes": 8056
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/calc-verdict-strip.js?v=1",
+          "bytes": 7305
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
+          "bytes": 48258
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=2",
+          "bytes": 3008
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/flexure.js?v=1",
+          "bytes": 7127
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/wall.js?v=2",
+          "bytes": 8169
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=3",
+          "bytes": 10384
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/wall-inplane-evaluator.js?v=2",
+          "bytes": 12981
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/wall-rebar-designer.js?v=1",
+          "bytes": 8682
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-shear-wall",
+      "jsBytes": 307521,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/rebar.js",
+          "bytes": 880
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
+          "bytes": 1291
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/formulas.js",
+          "bytes": 1542
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
+          "bytes": 8056
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/calc-verdict-strip.js?v=1",
+          "bytes": 7305
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
+          "bytes": 48258
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=2",
+          "bytes": 3008
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/wall.js?v=2",
+          "bytes": 8169
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/loadcases.js?v=1",
+          "bytes": 3902
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=3",
+          "bytes": 10384
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/wall-base.js?v=2",
+          "bytes": 7593
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/wall-evaluator.js?v=2",
+          "bytes": 12581
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-foundation",
+      "jsBytes": 413047,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/rebar.js",
+          "bytes": 880
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
+          "bytes": 1291
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/formulas.js",
+          "bytes": 1542
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/flexure.js?v=1",
+          "bytes": 7127
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/foundation-isolated.js?v=1",
+          "bytes": 5444
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/foundation-pile.js?v=1",
+          "bytes": 11217
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/retaining-base-demand.js?v=1",
+          "bytes": 6078
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-group-lateral.js?v=1",
+          "bytes": 4997
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-py-table-adapter.js?v=1",
+          "bytes": 11167
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-py-result-bridge.js?v=1",
+          "bytes": 16375
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-cap-3d-stm-bridge.js?v=2",
+          "bytes": 22932
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
+          "bytes": 8056
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
+          "bytes": 48258
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/joint-reaction-load-adapter.js?v=2",
+          "bytes": 12540
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/joint-reaction-fixture-sanitizer-core.js?v=1",
+          "bytes": 8194
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-cap-load-combinations.js?v=1",
+          "bytes": 3836
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/forces-receive.js",
+          "bytes": 5164
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=2",
+          "bytes": 3008
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-foundation-deep-beam-stm",
+      "jsBytes": 229295,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/rebar.js",
+          "bytes": 880
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/deep-beam-stm.js",
+          "bytes": 14880
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/foundation-deep-beam-stm.js",
+          "bytes": 18983
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-pile-cap-3d-stm",
+      "jsBytes": 261656,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/rebar.js",
+          "bytes": 880
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/deep-beam-stm.js",
+          "bytes": 14880
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-cap-3d-stm-bridge.js",
+          "bytes": 22932
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-cap-3d-stm.js",
+          "bytes": 23055
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-cap-3d-stm-envelope.js",
+          "bytes": 5357
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-pile",
+      "jsBytes": 212739,
+      "sharedScripts": [
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
+          "bytes": 8056
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/foundation-pile.js?v=1",
+          "bytes": 11217
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-retrofit-section",
+      "jsBytes": 273103,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
+          "bytes": 1086
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js",
+          "bytes": 16028
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
+          "bytes": 1263
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=8",
+          "bytes": 57867
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/rc-column-cover-deviation",
+      "jsBytes": 241561,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js",
+          "bytes": 10384
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/src-beam",
+      "jsBytes": 254722,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-beam-core.js",
+          "bytes": 21048
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/src-column",
+      "jsBytes": 441661,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js",
+          "bytes": 10384
+        },
+        {
+          "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-column-h-section-catalog.js",
+          "bytes": 3514
+        },
+        {
+          "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-column-rc-biaxial.js",
+          "bytes": 13620
+        },
+        {
+          "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-column-shear.js",
+          "bytes": 17957
+        },
+        {
+          "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-column-weak-axis-shear-reference.js",
+          "bytes": 4289
+        },
+        {
+          "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-column-seismic-detailing.js",
+          "bytes": 21553
+        },
+        {
+          "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-column-seismic-axial.js",
+          "bytes": 13756
+        },
+        {
+          "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-column-core.js",
+          "bytes": 56731
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/steel-formal",
+      "jsBytes": 2641765,
+      "sharedScripts": [
+        {
+          "path": "/npm/mathjax@3/es5/tex-svg.js",
+          "bytes": 2108580
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
+          "bytes": 78551
+        }
+      ]
+    },
+    {
+      "route": "/steel-beam-formal",
+      "jsBytes": 353057,
+      "sharedScripts": [
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
+          "bytes": 48833
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/steel-column-formal",
+      "jsBytes": 337093,
+      "sharedScripts": [
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
+          "bytes": 48833
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/steel-plate",
+      "jsBytes": 2641765,
+      "sharedScripts": [
+        {
+          "path": "/npm/mathjax@3/es5/tex-svg.js",
+          "bytes": 2108580
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
+          "bytes": 78551
+        }
+      ]
+    },
+    {
+      "route": "/steel-beam",
+      "jsBytes": 321666,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
+          "bytes": 48833
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
+          "bytes": 1291
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
+          "bytes": 48258
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/formulas.js",
+          "bytes": 1542
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/force-picker.js",
+          "bytes": 15487
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/forces-receive.js",
+          "bytes": 5164
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/steel-column",
+      "jsBytes": 321666,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
+          "bytes": 48833
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
+          "bytes": 1291
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
+          "bytes": 48258
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/formulas.js",
+          "bytes": 1542
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/force-picker.js",
+          "bytes": 15487
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/forces-receive.js",
+          "bytes": 5164
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-overview",
+      "jsBytes": 305452,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic-zones.js",
+          "bytes": 45542
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
+          "bytes": 43293
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/regulatory-locations.js",
+          "bytes": 3506
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
+          "bytes": 13006
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-kzt",
+      "jsBytes": 304052,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-special",
+      "jsBytes": 129515,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        }
+      ]
+    },
+    {
+      "route": "/wind-force",
+      "jsBytes": 375873,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
+          "bytes": 47932
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-cc",
+      "jsBytes": 375873,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
+          "bytes": 47932
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-parapet",
+      "jsBytes": 375873,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
+          "bytes": 47932
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-open-roof",
+      "jsBytes": 375873,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
+          "bytes": 47932
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-object-solid",
+      "jsBytes": 327941,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-object-frame",
+      "jsBytes": 327941,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-lattice-tower",
+      "jsBytes": 327941,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-object-tower",
+      "jsBytes": 327941,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-fence-sign",
+      "jsBytes": 327941,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/wind-sign-pole",
+      "jsBytes": 327941,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/seismic-force",
+      "jsBytes": 625186,
+      "sharedScripts": [
+        {
+          "path": "/npm/chart.js@4.4.7/dist/chart.umd.min.js",
+          "bytes": 205889
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic-zones.js",
+          "bytes": 45542
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
+          "bytes": 43293
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/regulatory-locations.js",
+          "bytes": 3506
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
+          "bytes": 13006
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/seismic-dynamic",
+      "jsBytes": 603850,
+      "sharedScripts": [
+        {
+          "path": "/npm/chart.js@4.4.7/dist/chart.umd.min.js",
+          "bytes": 205889
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
+          "bytes": 43293
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic-zones.js",
+          "bytes": 45542
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/regulatory-locations.js",
+          "bytes": 3506
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
+          "bytes": 13006
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/seismic-appendage",
+      "jsBytes": 419297,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
+          "bytes": 43293
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic-zones.js",
+          "bytes": 45542
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/regulatory-locations.js",
+          "bytes": 3506
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
+          "bytes": 13006
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/seismic-misc",
+      "jsBytes": 419297,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
+          "bytes": 43293
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic-zones.js",
+          "bytes": 45542
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/regulatory-locations.js",
+          "bytes": 3506
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
+          "bytes": 13006
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/anchor",
+      "jsBytes": 692591,
+      "sharedScripts": []
+    },
+    {
+      "route": "/stone-fixing",
+      "jsBytes": 1817301,
+      "sharedScripts": [
+        {
+          "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/seismic-zones.js",
+          "bytes": 45542
+        },
+        {
+          "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/regulatory-locations.js",
+          "bytes": 3506
+        },
+        {
+          "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/seismic.js",
+          "bytes": 43293
+        },
+        {
+          "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/wind.js",
+          "bytes": 88970
+        },
+        {
+          "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/project-location.js",
+          "bytes": 13006
+        },
+        {
+          "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/pdfjs/pdf.min.js",
+          "bytes": 320004
+        },
+        {
+          "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/katex/katex.min.js",
+          "bytes": 275414
+        },
+        {
+          "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/katex/contrib/auto-render.min.js",
+          "bytes": 3481
+        },
+        {
+          "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/package/dist/index.iife.js",
+          "bytes": 857630
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        }
+      ]
+    },
+    {
+      "route": "/foundation-local",
+      "jsBytes": 236258,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/equipment-load",
+      "jsBytes": 226499,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/earth-pressure",
+      "jsBytes": 233171,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/floor-slab-westergaard",
+      "jsBytes": 217455,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/cable-tension-frequency",
+      "jsBytes": 225249,
+      "sharedScripts": [
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
+          "bytes": 6245
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
+          "bytes": 19151
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
+          "bytes": 78551
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
+          "bytes": 71576
+        }
+      ]
+    },
+    {
+      "route": "/decking",
+      "jsBytes": 23745,
+      "sharedScripts": [
+        {
+          "path": "/%E8%A6%86%E5%B7%A5%E6%9D%BF/shared/h-section-table.js",
+          "bytes": 2409
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
+          "bytes": 11593
+        },
+        {
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/tool-workflow-adapters.js",
+          "bytes": 9743
+        }
+      ]
+    },
+    {
+      "route": "/excavation-support",
+      "jsBytes": 0,
+      "sharedScripts": []
+    }
+  ]
+}
