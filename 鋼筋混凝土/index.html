@@ -36,6 +36,11 @@
   .audit-status-card__links { display:flex; flex-wrap:wrap; gap:8px; }
   .audit-status-card__links a { color:var(--primary); font-size:0.78em; font-weight:700; text-decoration:none; }
   .audit-status-card__links a:hover { text-decoration:underline; }
+/* 分區 banner（T11，純裝飾；列印隱藏） */
+header.family-banner { position: relative; overflow: hidden; isolation: isolate; }
+header.family-banner::after { content: ''; position: absolute; inset: 0 0 0 auto; width: min(55%, 760px); background: url('shared/banner-art.webp?v=20261004') right center / cover no-repeat; opacity: 0.9; z-index: -1; pointer-events: none; -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 35%); mask-image: linear-gradient(90deg, transparent 0%, #000 35%); }
+@media (max-width: 720px) { header.family-banner::after { width: 100%; opacity: 0.3; -webkit-mask-image: none; mask-image: none; } }
+@media print { header.family-banner::after { display: none; } }
 </style>
 </head>
 <body class="formal-tool-output-page">
@@ -43,7 +48,7 @@
   <strong>RC 工具箱入口列印已封鎖</strong>
   <span>此頁是構件選擇與巡檢狀態入口，不是計算書。請關閉列印視窗，進入個別 RC 工具後產生可列印的內部審閱文件，或在核可後產生正式附件；本頁不得作為附件。</span>
 </aside>
-<header>
+<header class="family-banner">
   <p><a class="back" href="../結構工具箱/index.html">← 回結構工具箱主選單</a></p>
   <h1>鋼筋混凝土構件設計工具箱</h1>
   <p>依 112 年「混凝土結構設計規範」與「耐震特別規定」 ｜ 單位：cm, kgf ｜ 各工具版本以工具卡與輸出文件為準</p>

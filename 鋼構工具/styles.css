@@ -2101,3 +2101,9 @@ body {
     padding: 0;
   }
 }
+
+/* 分區 banner（T11，只掛在主頁 index.html；純裝飾，列印隱藏） */
+.page-header--banner { position: relative; overflow: hidden; isolation: isolate; }
+.page-header--banner::after { content: ''; position: absolute; inset: 0 0 0 auto; width: min(55%, 760px); background: url('banner-art.webp?v=20261004') right center / cover no-repeat; opacity: 0.9; z-index: -1; pointer-events: none; -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 35%); mask-image: linear-gradient(90deg, transparent 0%, #000 35%); }
+@media (max-width: 720px) { .page-header--banner::after { width: 100%; opacity: 0.3; -webkit-mask-image: none; mask-image: none; } }
+@media print { .page-header--banner::after { display: none; } }
