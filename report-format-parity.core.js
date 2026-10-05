@@ -41,7 +41,13 @@ function compareTxtTable(block, sourceTable, tableNumber, label) {
   bodyRows.forEach((row, rowIndex) => {
     const actualLines = lines.slice(rowIndex * rowWidth, (rowIndex + 1) * rowWidth);
     const actualCellsRaw = checkTable
-      ? actualLines.map(line => String(line).replace(/^[-•]\s*/, '').replace(/^(?:公式|代入值|結果|判定)：/, ''))
+      ? actualLines.map((line, cellIndex) => {
+        const value = String(line).replace(/^[-•]\s*/, '');
+        if (cellIndex === 0) return value;
+        const prefix = ['公式：', '代入值：', '結果：', '判定：'][cellIndex - 1];
+        assert.ok(value.startsWith(prefix), `${label} TXT table ${tableNumber} row ${rowIndex + 1} cell ${cellIndex + 1} field label must be ${prefix}`);
+        return value.slice(prefix.length);
+      })
       : renderedCells(actualLines[0], row, sourceTable);
     const actualCells = actualCellsRaw.map(compact);
     assert.equal(actualCells.length, row.length, `${label} TXT table ${tableNumber} row ${rowIndex + 1} cell count`);

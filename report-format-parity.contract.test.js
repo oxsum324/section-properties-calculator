@@ -29,6 +29,11 @@ const checkTable = {
 
 assert.doesNotThrow(() => compareTxtTable('- 梁腹寬 bw：40 cm\n- 全深 h：70 cm', inputTable, 1, 'contract'));
 assert.doesNotThrow(() => compareTxtTable('- φVn ≥ Vd\n  公式：φVn=4 tf\n  代入值：Vd=2 tf\n  結果：4 / 2 tf\n  判定：✓ OK', checkTable, 5, 'contract'));
+for (const mutation of [
+  '- φVn ≥ Vd\n  判定：φVn=4 tf\n  代入值：Vd=2 tf\n  結果：4 / 2 tf\n  公式：✓ OK',
+  '- φVn ≥ Vd\n  φVn=4 tf\n  代入值：Vd=2 tf\n  結果：4 / 2 tf\n  判定：✓ OK',
+  '- φVn ≥ Vd\n  公式：φVn=4 tf\n  公式：Vd=2 tf\n  結果：4 / 2 tf\n  判定：✓ OK',
+]) assert.throws(() => compareTxtTable(mutation, checkTable, 5, 'field label mutation'), /field label/);
 assert.throws(() => compareTxtTable('- 梁腹寬 bw：40 mm\n- 全深 h：70 cm', inputTable, 1, 'unit mutation'), /cell/);
 assert.throws(() => compareTxtTable('- 梁腹寬 bw：40 cm or mm\n- 全深 h：70 cm', inputTable, 1, 'unit suffix mutation'), /cell/);
 assert.throws(() => compareTxtTable('- φVn ≥ Vd\n  公式：φVn=4 tf\n  代入值：Vd=2 tf\n  結果：4 / 2 tf\n  判定：✗ NG', checkTable, 5, 'verdict mutation'), /cell/);
