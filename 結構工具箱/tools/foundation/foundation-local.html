@@ -1224,7 +1224,8 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 ${documentStateReport.html}
 <div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>設計人：${escapeHtml(proj.designer)}</span>` : ''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(PUBLIC_TOOL_VERSION)}</span><span>計算引擎：${escapeHtml(Core.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>
 ${body}
-</main></body></html>`;
+</main>
+</body></html>`;
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.open();
@@ -1367,5 +1368,6 @@ ${body}
 <script src="../../core/ui/tool-workflow.js"></script>
 <script src="../tool-workflow-adapters.js" data-tool-key="/foundation-local" data-workflow-result="#bannerStatus" data-workflow-calculate="#btnCalc"></script>
 <script src="../project-meta-profile.js"></script>
+  <script src="../../../tool-page-a11y.js" defer></script>
 </body>
 </html>

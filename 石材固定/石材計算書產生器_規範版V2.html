@@ -2537,9 +2537,10 @@ function v2RefreshKeyboardSemanticStates(){
     el.setAttribute('aria-pressed', el.classList.contains('active') ? 'true' : 'false');
   });
   document.querySelectorAll('#v2_method_grid .v2-method-card').forEach(el=>{
-    el.setAttribute('role', 'button');
+    el.setAttribute('role', 'group');
     el.setAttribute('tabindex', '0');
-    el.setAttribute('aria-pressed', el.classList.contains('active') ? 'true' : 'false');
+    el.setAttribute('aria-label', el.getAttribute('title') || el.querySelector('.mtxt')?.textContent?.trim() || '固定工法');
+    el.setAttribute('aria-current', el.classList.contains('active') ? 'true' : 'false');
   });
   const status = document.getElementById('v2-status-pill');
   if(status){
@@ -2578,6 +2579,7 @@ function v2PickMethod(el){
   window.V2_METHOD = m;
   document.querySelectorAll('#v2_method_grid .v2-method-card').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
+  document.querySelectorAll('#v2_method_grid .v2-method-card').forEach(c=>c.setAttribute('aria-current', c === el ? 'true' : 'false'));
   v2RefreshKeyboardSemanticStates();
   const note = document.getElementById('v2_method_note');
   if(note) note.textContent = V2_METHOD_MAP[m]?.note || '';
@@ -6909,7 +6911,7 @@ function v2ExportXlsxSummary(){
   <p>產出時間：${new Date().toLocaleString('zh-TW')}</p>
   <table border="1" cellspacing="0" cellpadding="4">${head1}${rows}</table>
   <p style="margin-top:12px;color:#666;font-size:12px">※ DCR 需求容量比；&lt;0.9 綠、0.9–1.0 黃、&gt;1.0 紅。本摘要應與完整計算書並用。</p>
-  </body></html>`;
+</body></html>`;
   downloadBlob(new Blob(['\uFEFF'+html], {type:'application/vnd.ms-excel'}), `石材計算_檢核摘要_${new Date().toISOString().slice(0,10)}.xls`);
 }
 
@@ -16494,5 +16496,6 @@ window.addEventListener('load', ()=>{
 </script>
 <script src="../結構工具箱/core/ui/tool-workflow.js"></script>
 <script src="../結構工具箱/tools/tool-workflow-adapters.js" data-tool-key="/stone-fixing" data-workflow-result="#review-dashboard"></script>
+  <script src="../tool-page-a11y.js" defer></script>
 </body>
 </html>
