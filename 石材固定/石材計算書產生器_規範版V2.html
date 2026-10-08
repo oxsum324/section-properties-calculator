@@ -771,12 +771,6 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 <script src="./js/formula-registry.spec.js"></script>
 <script src="./js/version-sync.js"></script>
 <script src="./js/review-dashboard.js"></script>
-<script src="./vendor/pdfjs/pdf.min.js"></script>
-<script>
-  if (window.pdfjsLib) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.min.js';
-  }
-</script>
 <!-- V2: KaTeX 數學公式渲染（離線版，本專案 vendor/katex/，約 604 KB） -->
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <script defer src="vendor/katex/katex.min.js"></script>
@@ -13141,6 +13135,36 @@ function addCertImages(event){
 
 /* ── PDF 附件頁面挑選 ──────────────────────── */
 let _pdfPickerReturnFocus = null;
+let _v2PdfJsLoaderPromise = null;
+function v2LoadPdfJs(){
+  if(window.pdfjsLib?.getDocument){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.min.js';
+    return Promise.resolve(window.pdfjsLib);
+  }
+  if(_v2PdfJsLoaderPromise) return _v2PdfJsLoaderPromise;
+
+  const script = document.createElement('script');
+  script.src = './vendor/pdfjs/pdf.min.js';
+  script.async = true;
+  _v2PdfJsLoaderPromise = new Promise((resolve, reject) => {
+    script.onload = () => {
+      const pdfjs = window.pdfjsLib;
+      if(!pdfjs?.getDocument || !pdfjs?.GlobalWorkerOptions){
+        reject(new Error('PDF.js 載入失敗：套件未提供必要功能'));
+        return;
+      }
+      pdfjs.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.min.js';
+      resolve(pdfjs);
+    };
+    script.onerror = () => reject(new Error('PDF.js 載入失敗：無法下載 PDF 處理元件'));
+    document.head.appendChild(script);
+  }).catch(err => {
+    _v2PdfJsLoaderPromise = null;
+    script.remove();
+    throw err;
+  });
+  return _v2PdfJsLoaderPromise;
+}
 function v2PdfPickerFocusable(){
   const modal = document.getElementById('pdf_picker_modal');
   if(!modal || modal.style.display === 'none') return [];
@@ -13183,7 +13207,6 @@ function v2ClosePdfPagePicker(){
 }
 
 async function openPdfPagePicker(file, target='extra'){
-  if (!window.pdfjsLib) { v2Notify('PDF.js 尚未載入，無法處理 PDF 附件', 'error', 'PDF 附件'); return; }
   const modal   = document.getElementById('pdf_picker_modal');
   const thumbs  = document.getElementById('pdf_picker_thumbs');
   const titleEl = document.getElementById('pdf_picker_title');
@@ -13193,23 +13216,27 @@ async function openPdfPagePicker(file, target='extra'){
     _pdfPickerReturnFocus = active;
   }
   titleEl.textContent = `挑選要納入的頁面：${attachmentTargetLabel(target)}｜${file.name}`;
-  thumbs.innerHTML = '<p class="note">正在解析 PDF…</p>';
+  thumbs.innerHTML = '<p class="note">正在載入 PDF 元件並解析檔案…</p>';
   applyBt.disabled = true;
   applyBt.textContent = '加入所選頁面';
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden', 'false');
   setTimeout(()=>modal.focus({preventScroll:true}), 0);
 
-  const buf = await file.arrayBuffer();
   let pdf;
   try {
-    pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+    const pdfjs = await v2LoadPdfJs();
+    const buf = await file.arrayBuffer();
+    pdf = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
   } catch(err){
     thumbs.innerHTML = '';
     const msg = document.createElement('p');
     msg.className = 'note';
     msg.style.color = '#c00';
-    msg.textContent = `PDF 解析失敗：${err?.message || err}`;
+    const detail = err?.message || String(err || '未知錯誤');
+    msg.textContent = detail.startsWith('PDF.js 載入失敗')
+      ? detail
+      : `PDF 解析失敗：${detail}`;
     thumbs.appendChild(msg);
     return;
   }

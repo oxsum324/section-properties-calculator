@@ -7,12 +7,14 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import server
 
 
 ROOT_URL = 'http://127.0.0.1:8765'
 TOOL_URL = f'{ROOT_URL}/石材固定/石材計算書產生器_規範版V2.html'
+SCRIPT_DIR = Path(__file__).resolve().parent
 CHECK_MODAL_CLOSED_JS = """() => {
   const modal = document.querySelector('#v2-check-modal');
   return {
@@ -74,14 +76,133 @@ def assert_validation_modal_closed(page, label: str) -> None:
         raise AssertionError(f'Expected {label} to restore focus outside validation modal: {state}')
 
 
+def build_single_page_pdf() -> bytes:
+    objects = [
+        b'<< /Type /Catalog /Pages 2 0 R >>',
+        b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 72 72] /Resources << >> /Contents 4 0 R >>',
+        b'<< /Length 0 >>\nstream\n\nendstream',
+    ]
+    document = bytearray(b'%PDF-1.4\n%\xe2\xe3\xcf\xd3\n')
+    offsets = [0]
+    for index, body in enumerate(objects, start=1):
+        offsets.append(len(document))
+        document.extend(f'{index} 0 obj\n'.encode('ascii'))
+        document.extend(body)
+        document.extend(b'\nendobj\n')
+    xref_offset = len(document)
+    document.extend(f'xref\n0 {len(objects) + 1}\n'.encode('ascii'))
+    document.extend(b'0000000000 65535 f \n')
+    for offset in offsets[1:]:
+        document.extend(f'{offset:010d} 00000 n \n'.encode('ascii'))
+    document.extend(
+        f'trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n'
+        f'startxref\n{xref_offset}\n%%EOF\n'.encode('ascii')
+    )
+    return bytes(document)
+
+
+def pdf_request_counts(requests: list[str]) -> dict[str, int]:
+    return {
+        'main': sum(url.endswith('/vendor/pdfjs/pdf.min.js') for url in requests),
+        'worker': sum(url.endswith('/vendor/pdfjs/pdf.worker.min.js') for url in requests),
+    }
+
+
+def assert_pdf_lazy_load_contract(browser) -> None:
+    context = browser.new_context(viewport={'width': 1440, 'height': 1000})
+    page = context.new_page()
+    requests: list[str] = []
+    page.on('request', lambda request: requests.append(request.url))
+    page.goto(TOOL_URL, wait_until='networkidle', timeout=60000)
+    page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+    if page.evaluate('() => Boolean(window.pdfjsLib)'):
+        raise AssertionError('PDF.js must not exist after cold page load')
+    if pdf_request_counts(requests) != {'main': 0, 'worker': 0}:
+        raise AssertionError(f'PDF.js must not be requested on cold page load: {pdf_request_counts(requests)}')
+
+    page.set_input_files(
+        '#extra_img_input',
+        {
+            'name': 'phase4-lazy-load.png',
+            'mimeType': 'image/png',
+            'buffer': bytes.fromhex(
+                '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489'
+                '0000000b49444154789c636000020000050001a5f645400000000049454e44ae426082'
+            ),
+        },
+    )
+    page.wait_for_timeout(150)
+    if pdf_request_counts(requests) != {'main': 0, 'worker': 0}:
+        raise AssertionError(f'Adding a PNG must not request PDF.js: {pdf_request_counts(requests)}')
+
+    pdf_file = {
+        'name': 'phase4-one-page.pdf',
+        'mimeType': 'application/pdf',
+        'buffer': build_single_page_pdf(),
+    }
+    page.set_input_files('#extra_img_input', pdf_file)
+    page.wait_for_selector('#pdf_picker_thumbs input[data-page="1"]', timeout=30000)
+    page.wait_for_function("() => document.querySelector('#pdf_picker_apply')?.disabled === false", timeout=10000)
+    if pdf_request_counts(requests) != {'main': 1, 'worker': 1}:
+        raise AssertionError(f'First PDF selection must load PDF.js and its worker once: {pdf_request_counts(requests)}')
+    if page.get_attribute('#pdf_picker_modal', 'aria-hidden') != 'false':
+        raise AssertionError('First PDF selection must open the page picker immediately')
+    page.click('#pdf_picker_cancel')
+    page.wait_for_function("() => document.querySelector('#pdf_picker_modal')?.getAttribute('aria-hidden') === 'true'")
+
+    page.set_input_files(
+        '#extra_img_input',
+        {'name': 'phase4-invalid.pdf', 'mimeType': 'application/pdf', 'buffer': b'%PDF-invalid'},
+    )
+    page.wait_for_function(
+        "() => document.querySelector('#pdf_picker_thumbs')?.innerText.includes('PDF 解析失敗')",
+        timeout=15000,
+    )
+    if pdf_request_counts(requests) != {'main': 1, 'worker': 2}:
+        raise AssertionError(f'Parsing a second PDF must reuse the main script and load its document worker once: {pdf_request_counts(requests)}')
+    page.click('#pdf_picker_cancel')
+    context.close()
+
+    retry_context = browser.new_context(viewport={'width': 1440, 'height': 1000})
+    retry_page = retry_context.new_page()
+    retry_requests: list[str] = []
+    retry_page.on('request', lambda request: retry_requests.append(request.url))
+    blocked_main_count = 0
+
+    def fail_first_pdfjs_request(route):
+        nonlocal blocked_main_count
+        if route.request.url.endswith('/vendor/pdfjs/pdf.min.js') and blocked_main_count == 0:
+            blocked_main_count += 1
+            route.abort()
+            return
+        route.continue_()
+
+    retry_context.route('**/vendor/pdfjs/pdf.min.js', fail_first_pdfjs_request)
+    retry_page.goto(TOOL_URL, wait_until='networkidle', timeout=60000)
+    retry_page.set_input_files('#extra_img_input', pdf_file)
+    retry_page.wait_for_function(
+        "() => document.querySelector('#pdf_picker_thumbs')?.innerText.includes('PDF.js 載入失敗')",
+        timeout=15000,
+    )
+    if retry_page.get_attribute('#pdf_picker_modal', 'aria-hidden') != 'false':
+        raise AssertionError('PDF.js load failure must remain in the page picker dialog')
+    retry_page.set_input_files('#extra_img_input', pdf_file)
+    retry_page.wait_for_selector('#pdf_picker_thumbs input[data-page="1"]', timeout=30000)
+    retry_page.wait_for_function("() => document.querySelector('#pdf_picker_apply')?.disabled === false", timeout=10000)
+    if pdf_request_counts(retry_requests) != {'main': 2, 'worker': 1}:
+        raise AssertionError(f'PDF.js load must recover on retry without duplicate worker loads: {pdf_request_counts(retry_requests)}')
+    retry_context.close()
+
+
 def main() -> int:
     started = None
     if not server_alive():
         started = subprocess.Popen(
-            [sys.executable, 'server.py'],
+            [sys.executable, str(SCRIPT_DIR / 'server.py')],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            cwd='.',
+            cwd=SCRIPT_DIR,
         )
         if not wait_for_server():
             if started:
@@ -94,6 +215,7 @@ def main() -> int:
 
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
+            assert_pdf_lazy_load_contract(browser)
             page = browser.new_page(viewport={'width': 1440, 'height': 1000})
             page.goto(TOOL_URL, wait_until='networkidle', timeout=60000)
             page.wait_for_selector('#review-dashboard .dash-card', timeout=30000)
@@ -134,6 +256,11 @@ def main() -> int:
                 """() => document.getElementById('s_ssd')?.value === '0.6'
                   && document.getElementById('s_fa')?.value === '1.100'
                   && document.getElementById('s_sds')?.value === '0.66'""",
+                timeout=10000,
+            )
+            site_page.wait_for_function(
+                """() => Array.from(document.querySelectorAll('#preview-sheets .v2-math-inline[data-tex]'))
+                  .some(el => (el.getAttribute('data-tex') || '').startsWith('S_{DS} = Fa'))""",
                 timeout=10000,
             )
             seismic_site_state = site_page.evaluate(

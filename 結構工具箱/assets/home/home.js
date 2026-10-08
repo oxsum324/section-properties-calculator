@@ -157,7 +157,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-10-04',
+    generatedAt: '2026-10-08',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -205,7 +205,7 @@
       '/seismic-appendage': '2026-10-04',
       '/seismic-misc': '2026-10-04',
       '/anchor': '2026-10-03',
-      '/stone-fixing': '2026-10-04',
+      '/stone-fixing': '2026-10-08',
       '/foundation-local': '2026-10-04',
       '/equipment-load': '2026-10-04',
       '/earth-pressure': '2026-10-04',
