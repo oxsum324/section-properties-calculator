@@ -3228,16 +3228,36 @@ async function main() {
           const cable = search('鋼索');
           const shear = search('  sHeAr   TaB  ');
           const alias = search('剪力板');
+          const aliasCases = [
+            ['Continuous beam', search('Continuous beam')],
+            ['plane frame', search('plane frame')],
+            ['Main Wind Force Resisting System', search('Main Wind Force Resisting System')],
+            ['Components and Cladding', search('Components and Cladding')],
+            ['Strut-and-Tie Model', search('Strut-and-Tie Model')],
+          ];
+          const windCategory = search('風力規範外力');
           const missing = search('不存在的工具xyz');
           const emptyVisible = document.getElementById('emptyState').getClientRects().length > 0;
           document.getElementById('clearToolSearch').click();
-          return { cable, shear, alias, missing, emptyVisible, cleared: input.value === '',
+          return { cable, shear, alias, aliasCases, windCategory, missing, emptyVisible, cleared: input.value === '',
             restoredCount: document.querySelectorAll('.tool-card').length,
             overflow: document.documentElement.scrollWidth > innerWidth + 2 };
         })()`);
         assert.deepEqual(searchResults.cable, ['鋼索索力評估（頻率法）'], `${label} cable name search`);
         assert.deepEqual(searchResults.shear, ['鋼構正式規範工具'], `${label} normalized English alias search`);
         assert.deepEqual(searchResults.alias, searchResults.shear, `${label} Chinese alias search`);
+        const expectedAliasTitles = [
+          ['連續梁分析'],
+          ['平面剛架分析'],
+          ['矩形建物 MWFRS'],
+          ['區域風壓 C&C'],
+          ['RC 深梁 STM'],
+        ];
+        searchResults.aliasCases.forEach(([query, results], index) => {
+          assert.deepEqual(results, expectedAliasTitles[index], `${label} alias search: ${query}`);
+        });
+        assert.ok(searchResults.windCategory.includes('矩形建物 MWFRS'), `${label} category-label search includes MWFRS tool`);
+        assert.ok(searchResults.windCategory.includes('區域風壓 C&C'), `${label} category-label search includes C&C tool`);
         assert.deepEqual(searchResults.missing, [], `${label} empty search result`);
         assert.equal(searchResults.emptyVisible, true, `${label} empty result is visible`);
         assert.equal(searchResults.cleared, true, `${label} clear search`);

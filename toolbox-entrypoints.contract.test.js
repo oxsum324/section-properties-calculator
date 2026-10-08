@@ -525,6 +525,19 @@ assert.ok(Array.isArray(vercel.redirects), 'vercel redirects array');
 assert.ok(Array.isArray(vercel.rewrites), 'vercel rewrites array');
 assert.ok(Array.isArray(homeTools), 'home tools array');
 assert.ok(homeTools.length >= 40, 'home tool count should cover the governed platform');
+const allowedHomeToolFields = new Set([
+  'aliases', 'capabilities', 'categories', 'fit', 'governance', 'href', 'limit', 'memberSystem', 'output', 'state', 'summary', 'title', 'version'
+]);
+for (const tool of homeTools) {
+  assert.deepEqual(
+    Object.keys(tool).filter(field => !allowedHomeToolFields.has(field)).sort(),
+    [],
+    `${tool.title} home card field whitelist`
+  );
+  assert.ok(Array.isArray(tool.aliases), `${tool.title} home aliases array`);
+  assert.ok(tool.aliases.every(alias => typeof alias === 'string' && alias.trim()), `${tool.title} home aliases are non-empty strings`);
+}
+assert.ok(homeTools.filter(tool => tool.aliases.length >= 2).length >= 40, 'at least 40 home cards have two or more aliases');
 assert.equal(homeSource.includes('HOME_DATA_UPDATED'), false, 'home cards must not share one fallback update date');
 assert.equal(homeToolUpdates.version, 2, 'home tool update catalog version');
 assert.equal(homeToolUpdateDependencies.version, 1, 'home tool update dependency catalog version');
