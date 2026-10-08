@@ -69,8 +69,8 @@
   .diagram-wrap { border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; padding:10px; }
   .pressure-diagram { display:block; width:100%; max-width:100%; height:auto; }
   .pressure-diagram text { font-family:"Microsoft JhengHei",Arial,sans-serif; fill:#334155; font-size:13px; }
-  .pressure-diagram .small { font-size:11px; fill:#64748b; }
-  .pressure-diagram .tiny { font-size:10px; fill:#64748b; }
+  .pressure-diagram .small { font-size:11px; fill:#475569; }
+  .pressure-diagram .tiny { font-size:10px; fill:#475569; }
   .pressure-diagram .label-strong { font-weight:800; fill:#0f172a; }
   .pressure-diagram .label-panel { fill:#f8fafc; stroke:#e2e8f0; stroke-width:1; }
   .pressure-diagram .wall { fill:#94a3b8; stroke:#475569; stroke-width:2; }
@@ -84,7 +84,7 @@
   .pressure-diagram .arrow { stroke:#0f172a; stroke-width:2.2; marker-end:url(#arrowHead); fill:none; }
   .pressure-diagram .load-arrow { stroke:#0f172a; stroke-width:2; marker-end:url(#arrowHead); fill:none; }
   .pressure-diagram .dimension { stroke:#64748b; stroke-width:1.2; marker-start:url(#dimTick); marker-end:url(#dimTick); fill:none; }
-  .pressure-diagram .dimension-text { font-size:11px; fill:#475569; font-weight:700; }
+  .pressure-diagram .dimension-text { font-size:11px; fill:#334155; font-weight:700; }
   .pressure-diagram .datum { stroke:#94a3b8; stroke-dasharray:4 4; stroke-width:1.2; }
   .pressure-diagram .danger-line { stroke:#ef4444; stroke-width:1.6; }
   .pressure-diagram .ok-line { stroke:#10b981; stroke-width:1.6; }
@@ -833,7 +833,7 @@
       : '';
     const surchargeShape = r.surcharge > 0
       ? `<rect class="surcharge" opacity="0.54" x="${pressureX}" y="${top}" width="${surchargeW}" height="${height}"></rect>
-         <text class="tiny" x="${pressureX + surchargeW + 8}" y="${top + 50}">Pq=${fmt(r.surchargeForce)} tf/m</text>`
+         <text class="tiny" x="${pressureX + surchargeW + 8}" y="${top + 66}">Pq=${fmt(r.surchargeForce)} tf/m</text>`
       : '';
     const contactNote = r.fullContact ? '全壓縮' : '偏心超出核心或有拉力';
 
@@ -852,7 +852,7 @@
 
   <rect x="${pressureX}" y="${top}" width="${soilPanelW}" height="${height}" fill="#fffbeb" stroke="#fde68a"></rect>
   <text class="small" x="${pressureX + 12}" y="${top + 20}">${escapeHtml(r.modeLabel)}</text>
-  <text class="tiny" x="${pressureX + 12}" y="${top + 37}">${escapeHtml(r.wallConditionLabel)}</text>
+  <text class="tiny" x="${pressureX + 12}" y="${top + 45}">${escapeHtml(r.wallConditionLabel)}</text>
   ${wallShape}
   ${baseZones}
   <rect class="base" x="${baseX}" y="${baseY}" width="${baseW}" height="${baseH}"></rect>
@@ -873,7 +873,7 @@
   <text class="label-strong" x="${arrowStartX - 8}" y="${resultantY - 8}" text-anchor="end">P=${fmt(r.totalForce)} tf/m</text>
   <text class="small" x="${arrowStartX - 8}" y="${resultantY + 12}" text-anchor="end">h=${fmt(r.resultantHeight)} m</text>
   <line class="load-arrow" x1="${wallX + wallW + 8}" y1="${top - 28}" x2="${wallX + wallW + 8}" y2="${top + 6}"></line>
-  <text class="small" x="${wallX + wallW + 16}" y="${top - 12}">V=${fmt(r.verticalLoad)} tf/m</text>
+  <text class="small" x="${pressureX + soilPanelW + 8}" y="${top - 12}">V=${fmt(r.verticalLoad)} tf/m</text>
 
   <rect class="label-panel" x="438" y="58" width="274" height="128" rx="10"></rect>
   <text class="label-strong" x="456" y="82">計算值</text>
@@ -889,11 +889,11 @@
   <rect class="water" x="640" y="244" width="14" height="10"></rect><text class="tiny" x="660" y="253">水壓 Pw</text>
   <line class="${qStatusClass}" x1="456" y1="270" x2="482" y2="270"></line><text class="tiny" x="490" y="274">基底反力 / 接觸狀態</text>
 
-  <text class="label-strong" x="38" y="348">基底反力示意</text>
+  <text class="label-strong" x="330" y="348">基底反力示意</text>
   <line class="datum" x1="${baseX}" y1="${qBaseY}" x2="${baseX + baseW}" y2="${qBaseY}"></line>
   <polygon class="reaction-fill" data-diagram-role="base-reaction" points="${baseX},${qBaseY} ${baseX},${qMaxY} ${baseX + baseW},${qMinY} ${baseX + baseW},${qBaseY}" fill="${qFill}" stroke="none"></polygon>
   <line class="${qStatusClass}" x1="${baseX}" y1="${qMaxY}" x2="${baseX + baseW}" y2="${qMinY}"></line>
-  <text class="small" x="${baseX - 4}" y="${qMaxY - 8}">qmax=${fmt(r.qmax)} tf/m²</text>
+  <text class="small" x="${baseX - 14}" y="${qMaxY - 8}">qmax=${fmt(r.qmax)} tf/m²</text>
   <text class="small" x="${baseX + baseW - 8}" y="${qMinY - 8}" text-anchor="end">qmin=${fmt(r.qmin)} tf/m²</text>
   <text class="small" x="${baseX}" y="438">qa=${fmt(r.qa)} tf/m²；${contactNote}</text>
 </svg>`;
@@ -1297,8 +1297,8 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 .report-diagram{border:1px solid #d1d5db;border-radius:8px;background:#f8fafc;padding:8px;margin-top:8px;}
 .pressure-diagram{width:100%;height:auto;display:block;}
 .pressure-diagram text{font-family:"Microsoft JhengHei",Arial,sans-serif;fill:#334155;font-size:13px;}
-.pressure-diagram .small{font-size:11px;fill:#64748b;}
-.pressure-diagram .tiny{font-size:10px;fill:#64748b;}
+.pressure-diagram .small{font-size:11px;fill:#475569;}
+.pressure-diagram .tiny{font-size:10px;fill:#475569;}
 .pressure-diagram .label-strong{font-weight:800;fill:#0f172a;}
 .pressure-diagram .label-panel{fill:#f8fafc;stroke:#e2e8f0;stroke-width:1;}
 .pressure-diagram .wall{fill:#94a3b8;stroke:#475569;stroke-width:2;}
@@ -1312,7 +1312,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 .pressure-diagram .arrow{stroke:#0f172a;stroke-width:2.2;marker-end:url(#arrowHead);fill:none;}
 .pressure-diagram .load-arrow{stroke:#0f172a;stroke-width:2;marker-end:url(#arrowHead);fill:none;}
 .pressure-diagram .dimension{stroke:#64748b;stroke-width:1.2;marker-start:url(#dimTick);marker-end:url(#dimTick);fill:none;}
-.pressure-diagram .dimension-text{font-size:11px;fill:#475569;font-weight:700;}
+.pressure-diagram .dimension-text{font-size:11px;fill:#334155;font-weight:700;}
 .pressure-diagram .datum{stroke:#94a3b8;stroke-dasharray:4 4;stroke-width:1.2;}
 .pressure-diagram .danger-line{stroke:#ef4444;stroke-width:1.6;}
 .pressure-diagram .ok-line{stroke:#10b981;stroke-width:1.6;}

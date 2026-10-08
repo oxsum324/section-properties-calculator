@@ -2146,13 +2146,13 @@
     `).join("");
   }
 
-  function buildDimensionLine({ x1, y1, x2, y2, label, cls = "sketch-dim", textOffsetX = 0, textOffsetY = 0, markerId = "" }) {
+  function buildDimensionLine({ x1, y1, x2, y2, label, cls = "sketch-dim", textOffsetX = 0, textOffsetY = 0, textAnchor = "middle", markerId = "" }) {
     const textX = (x1 + x2) / 2 + textOffsetX;
     const textY = (y1 + y2) / 2 + textOffsetY;
     const markerAttrs = markerId ? ` marker-start="url(#${markerId})" marker-end="url(#${markerId})"` : "";
     return `
       <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${cls}"${markerAttrs} />
-      <text x="${textX}" y="${textY}" text-anchor="middle" class="sketch-dim-label">${label}</text>
+      <text x="${textX}" y="${textY}" text-anchor="${textAnchor}" class="sketch-dim-label">${label}</text>
     `;
   }
 
@@ -2317,6 +2317,7 @@
       label: `構材寬度 b = ${formatNumber(memberWidth, 1)} mm`,
       cls: "sketch-dim sketch-dim--vertical",
       textOffsetX: 34,
+      textAnchor: "start",
       markerId: "tensionDimArrow",
     });
     const localDim = connectionMode === "bolted" && holes.length
@@ -2342,7 +2343,7 @@
         : "";
 
     return `
-      <svg class="plate-sketch${inline ? " plate-sketch--print" : ""}" viewBox="0 0 ${toX(memberLength) + 84} ${toY(memberWidth) + 88}" xmlns="http://www.w3.org/2000/svg" aria-label="拉力構件與接合示意">
+      <svg class="plate-sketch${inline ? " plate-sketch--print" : ""}" viewBox="0 -16 ${toX(memberLength) + 180} ${toY(memberWidth) + 128}" xmlns="http://www.w3.org/2000/svg" aria-label="拉力構件與接合示意">
         <defs>
           <marker id="tensionArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
             <path d="M0,0 L8,4 L0,8 z" fill="#0e7490"></path>
@@ -2362,8 +2363,8 @@
         ${widthDim}
         ${depthDim}
         ${localDim}
-        <text x="${toX(memberLength / 2)}" y="${toY(memberWidth) + 18}" text-anchor="middle" class="sketch-label">拉力作用方向</text>
-        <text x="${toX(memberLength / 2)}" y="${toY(memberWidth) + 34}" text-anchor="middle" class="sketch-note">${caption || "構材與接合示意"}</text>
+        <text x="${toX(memberLength / 2)}" y="${toY(memberWidth) + 68}" text-anchor="middle" class="sketch-label">拉力作用方向</text>
+        <text x="${toX(memberLength / 2)}" y="${toY(memberWidth) + 102}" text-anchor="middle" class="sketch-note">${caption || "構材與接合示意"}</text>
       </svg>
     `;
   }
