@@ -575,7 +575,7 @@ def main() -> int:
         ('UI smoke selector guard coverage', 'selectorGuardOk' in ui_smoke),
     ], 'V2 template loading should escape dynamic selector values from stored templates and built-in keys', errors)
     require_all([
-        ('PDF parse errors rendered with textContent', 'msg.textContent = `PDF 解析失敗：${err?.message || err}`' in html),
+        ('PDF parse errors rendered with textContent', 'msg.textContent = detail.startsWith(\'PDF.js 載入失敗\')' in html),
         ('PDF parse errors avoid raw HTML injection', '<p class="note" style="color:#c00">PDF 解析失敗：${err.message||err}</p>' not in html),
     ], 'V2 PDF picker should render parse failures as text, not raw HTML', errors)
     require_all([

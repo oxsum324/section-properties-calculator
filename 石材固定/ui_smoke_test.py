@@ -4,17 +4,25 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import os
 import time
 import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
 
+SMOKE_PORT = int(os.environ.get('STONE_UI_SMOKE_PORT', '8766'))
+os.environ['STONE_SERVER_PORT'] = str(SMOKE_PORT)
 import server
 
 
-ROOT_URL = 'http://127.0.0.1:8765'
+ROOT_URL = f'http://127.0.0.1:{SMOKE_PORT}'
 TOOL_URL = f'{ROOT_URL}/石材固定/石材計算書產生器_規範版V2.html'
+_probe_port_env = os.environ.get('STONE_UI_SMOKE_LOCAL_PORT')
+LOCAL_PROBE_PORT = str(SMOKE_PORT) if _probe_port_env is None else _probe_port_env.strip()
+if LOCAL_PROBE_PORT:
+    TOOL_URL += f'?localPort={LOCAL_PROBE_PORT}'
+EXPECT_LOCAL_SERVER = os.environ.get('STONE_UI_SMOKE_EXPECT_LOCAL_SERVER', '1') != '0'
 SCRIPT_DIR = Path(__file__).resolve().parent
 CHECK_MODAL_CLOSED_JS = """() => {
   const modal = document.querySelector('#v2-check-modal');
@@ -329,11 +337,14 @@ def assert_pdf_lazy_load_contract(browser) -> None:
 def main() -> int:
     started = None
     if not server_alive():
+        server_env = os.environ.copy()
+        server_env['STONE_SERVER_PORT'] = str(SMOKE_PORT)
         started = subprocess.Popen(
             [sys.executable, str(SCRIPT_DIR / 'server.py')],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             cwd=SCRIPT_DIR,
+            env=server_env,
         )
         if not wait_for_server():
             if started:
@@ -370,8 +381,11 @@ def main() -> int:
                 raise AssertionError(f'Expected at least 10 dashboard cards, got {data["cards"]}')
             if data['pages'] < 1:
                 raise AssertionError('Expected preview pages to render')
-            if f'v{server.SERVER_VERSION} 一致' not in data['dashboard']:
-                raise AssertionError('Expected dashboard to show server consistency')
+            if EXPECT_LOCAL_SERVER:
+                if f'v{server.SERVER_VERSION} 一致' not in data['dashboard']:
+                    raise AssertionError('Expected dashboard to show server consistency')
+            elif '公開版免檢查' not in data['dashboard']:
+                raise AssertionError('Expected unidentified service to downgrade to public static mode')
             if f'V{server.SERVER_VERSION} 任務導向介面' not in data['header']:
                 raise AssertionError('Expected header version to match server version')
 

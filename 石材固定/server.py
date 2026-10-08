@@ -9,12 +9,18 @@ import http.server
 from pathlib import Path
 from urllib.parse import unquote
 
-PORT     = 8765
+try:
+    PORT = int(os.environ.get('STONE_SERVER_PORT', '8765'))
+except ValueError:
+    PORT = 8765
+if not 1 <= PORT <= 65535:
+    PORT = 8765
 TOOL_DIR = Path(__file__).parent          # …/石材固定/
 ROOT_DIR = TOOL_DIR.parent                # …/小工具製作/，僅用來保留 /石材固定/... URL
 TOOL_HTML = '石材計算書產生器_規範版V2.html'
 TOOL_URL_PATH = f'/石材固定/{TOOL_HTML}'
 SERVER_VERSION = '3.1.0'
+SERVER_ID = 'stonecalc-local'
 LOCAL_HTTP_ORIGINS = {
     f'http://127.0.0.1:{PORT}',
     f'http://localhost:{PORT}',
@@ -61,6 +67,7 @@ def _idle_watchdog():
 def server_status():
     return {
         'ok': True,
+        'service_id': SERVER_ID,
         'server_version': SERVER_VERSION,
         'tool_html': TOOL_HTML,
         'tool_url': TOOL_URL_PATH,
@@ -381,6 +388,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Vary', 'Origin')
         self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        if self.path == '/status':
+            self.send_header('Access-Control-Expose-Headers', 'X-Stone-Calc-Service')
 
     def _reject_forbidden_origin(self):
         if self._is_allowed_cors_origin(allow_file_status=False):
@@ -580,6 +589,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_response(code)
         self._cors_headers()
         self.send_header('Content-Type', 'application/json')
+        if self.path == '/status':
+            self.send_header('X-Stone-Calc-Service', SERVER_ID)
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)

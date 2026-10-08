@@ -3362,7 +3362,7 @@ function v2CollectExportChecklist(payload, serverStatus){
     items.push({level:'warn', text:'規範對照附錄已啟用，但尚未選取設計依據。'});
   }
   // 19. server 錯誤
-  if(serverStatus && !serverStatus.ok && location.protocol.startsWith('http')){
+  if(serverStatus && !serverStatus.ok && !serverStatus.skipped && location.protocol.startsWith('http')){
     items.push({level:'warn', text:`無法取得本機伺服器狀態：${serverStatus.error || '未知錯誤'}。`});
   }
   // 20. calc_source_hash 缺失
@@ -3845,6 +3845,34 @@ function v2UpdateStatusPill(){
     pill.setAttribute('aria-label', '檢核狀態：核心欄與案例皆通過，可正式匯出，可開啟狀態提醒');
   }
 }
+const V2_LOCAL_SERVER_ID = 'stonecalc-local';
+const V2_LOCAL_SERVER_PORT_KEY = 'stonecalc.localServerPort';
+const V2_LOCAL_SERVER_DEFAULT_PORT = 8765;
+const V2_LOCAL_SERVER_TIMEOUT_MS = 1400;
+function v2ParseLocalServerPort(value){
+  const raw = String(value ?? '').trim();
+  if(!/^\d{1,5}$/.test(raw)) return null;
+  const port = Number(raw);
+  return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : null;
+}
+function v2ResolveLocalServerPort(){
+  const queryPort = v2ParseLocalServerPort(new URLSearchParams(window.location.search).get('localPort'));
+  if(queryPort) return queryPort;
+  try{
+    const storedPort = v2ParseLocalServerPort(localStorage.getItem(V2_LOCAL_SERVER_PORT_KEY));
+    if(storedPort) return storedPort;
+  }catch(_){ }
+  return V2_LOCAL_SERVER_DEFAULT_PORT;
+}
+function v2PublicStaticServerStatus(error, port){
+  return {
+    ok:false,
+    skipped:true,
+    mode:'public_static',
+    error:error || '本機服務未識別，已使用公開靜態模式。',
+    port:port || null,
+  };
+}
 async function v2FetchServerStatus(){
   const hostname = String(window.location?.hostname || '').toLowerCase();
   const localContext = window.location?.protocol === 'file:'
@@ -3852,19 +3880,36 @@ async function v2FetchServerStatus(){
     || hostname === '127.0.0.1'
     || hostname === '[::1]';
   if(!localContext){
-    return {
-      ok:false,
-      skipped:true,
-      mode:'public_static',
-      error:'公開靜態版不檢查本機服務',
-    };
+    return v2PublicStaticServerStatus('公開靜態版不檢查本機服務');
   }
+  const port = v2ResolveLocalServerPort();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=>controller.abort(), V2_LOCAL_SERVER_TIMEOUT_MS);
   try{
-    const r = await fetch('http://127.0.0.1:8765/status', { cache:'no-store' });
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    return await r.json();
-  }catch(err){
-    return { ok:false, error: err?.message || String(err || '無法連線') };
+    const response = await fetch(`http://127.0.0.1:${port}/status`, {
+      cache:'no-store',
+      signal:controller.signal,
+    });
+    if(!response.ok || !/application\/json/i.test(response.headers.get('content-type') || '')){
+      return v2PublicStaticServerStatus('本機服務未識別，已使用公開靜態模式。', port);
+    }
+    const headerServiceId = String(response.headers.get('X-Stone-Calc-Service') || '').trim();
+    const status = await response.json();
+    const expectedToolUrl = `/石材固定/${TOOL_HTML_FILENAME}`;
+    const identified = headerServiceId === V2_LOCAL_SERVER_ID
+      && status?.service_id === V2_LOCAL_SERVER_ID
+      && status?.ok === true
+      && Number(status?.port) === port
+      && status?.tool_html === TOOL_HTML_FILENAME
+      && status?.tool_url === expectedToolUrl;
+    if(!identified){
+      return v2PublicStaticServerStatus('本機服務未識別，已使用公開靜態模式。', port);
+    }
+    return { ...status, skipped:false, mode:'local_server', port };
+  }catch(_){
+    return v2PublicStaticServerStatus('本機服務無回應，已使用公開靜態模式。', port);
+  }finally{
+    clearTimeout(timeoutId);
   }
 }
 function v2StatusRowsHtml(status){

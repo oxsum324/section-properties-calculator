@@ -163,6 +163,24 @@ class ServerSmokeTests(unittest.TestCase):
         self.assertFalse(fake_handler(origin='https://example.com')._is_allowed_cors_origin())
         self.assertFalse(fake_handler(origin='http://127.0.0.1:9999')._is_allowed_cors_origin())
 
+    def test_status_response_identifies_the_local_service(self) -> None:
+        status = server.server_status()
+        self.assertEqual(status['service_id'], server.SERVER_ID)
+        self.assertEqual(status['port'], server.PORT)
+        self.assertEqual(status['tool_html'], server.TOOL_HTML)
+        self.assertEqual(status['tool_url'], server.TOOL_URL_PATH)
+
+        handler = fake_handler()
+        headers = {}
+        handler.send_response = lambda code: None
+        handler.send_header = lambda key, value: headers.__setitem__(key, value)
+        handler.end_headers = lambda: None
+        handler.wfile = io.BytesIO()
+        handler._json_resp(200, status)
+        self.assertEqual(headers['X-Stone-Calc-Service'], server.SERVER_ID)
+        self.assertEqual(headers['Access-Control-Expose-Headers'], 'X-Stone-Calc-Service')
+        self.assertEqual(json.loads(handler.wfile.getvalue())['service_id'], server.SERVER_ID)
+
     def test_static_scope_blocks_parent_directory_targets(self) -> None:
         inside = server.TOOL_DIR / server.TOOL_HTML
         sibling = server.ROOT_DIR / 'outside.html'
