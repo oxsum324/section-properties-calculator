@@ -302,6 +302,8 @@ RC 基礎工具的 `tools/test-foundation.ps1` 已串接獨立基腳 production 
 
 跨工具納入版本控管前，先參考 [TOOL_BOUNDARIES.md](/C:/Users/USER/Desktop/AI/小工具製作/TOOL_BOUNDARIES.md:1) 與 [STAGING_GROUPS.md](/C:/Users/USER/Desktop/AI/小工具製作/STAGING_GROUPS.md:1)，避免把案例輸出、暫存檔、Office 文件或本機依賴一起提交。
 
+報表 core 與 RC 的九個必要等價區段由 `report-core-parity.contract.test.js` 逐段檢查；`report-core-parity-map.json` 是私有測試資料，Pages artifact builder 與 live smoke 均明確排除。
+
 新增或重構工具、示意圖與列印計算書前，請先參考 [TOOL_REPORT_GUIDE.md](/C:/Users/USER/Desktop/AI/小工具製作/TOOL_REPORT_GUIDE.md:1)。此檔固定說明示意圖、詳算式 / 簡易結果版面、計算書出具內容規範、JSON 匯出匯入與回歸檢查重點，避免重複踩到報告格式與工程依據文字問題。
 
 RC 梁、柱、板、牆、剪力牆、基礎與單樁既有專案 JSON 可直接抽取案件、產出工具、版本、輸出時間及計算指紋，並與同頁計算書自動配對，不需另行改寫來源檔。七個計算書固定使用與各自專案 JSON 相同的工具名稱及版本，避免同一次計算因追溯標籤漂移而停在人工複核。

@@ -467,6 +467,7 @@ function buildAttachmentApprovalReport(options = {}) {
           var reportHeading = document.querySelector('.rep-header h1, .header h1, h1');
           var reportTitle = String(source.dataset.reportTitle || (reportHeading && reportHeading.textContent) || document.title || '計算書').trim();
           source.dataset.reportTitle = reportTitle;
+          /* parity:artifact-base-name:start */
           function buildArtifactBaseName(documentLabel) {
             return reportUtils.artifactBaseName(reportTitle, documentLabel, fingerprint);
           }
@@ -477,6 +478,7 @@ function buildAttachmentApprovalReport(options = {}) {
             footer.insertBefore(status, footer.firstChild);
           }
           var checkbox = document.getElementById('repAttachmentApproval');
+          /* parity:artifact-base-name:end */
           if (!checkbox && toolbar) {
             var label = document.createElement('label');
             label.className = 'rep-approval-control';
@@ -536,6 +538,7 @@ function buildAttachmentApprovalReport(options = {}) {
             approvalMetaControl.appendChild(approvalMetaHint);
             toolbar.insertBefore(approvalMetaControl, label.nextSibling);
           }
+          /* parity:integrity-alert-refresh:start */
           function refreshIntegrityAlert() {
             var contentFailed = document.body.dataset.contentIntegrity === 'failed';
             var approvalFailed = document.body.dataset.approvalIntegrity === 'failed';
@@ -551,6 +554,7 @@ function buildAttachmentApprovalReport(options = {}) {
                 : '核可完整性異常：本 HTML 的核可狀態、時間或文件識別與下載時封印不一致，請勿作為正式附件。';
             } else if (alert) alert.remove();
           }
+          /* parity:integrity-alert-refresh:end */
           function setIntegrityStatus(kind, statusValue, message) {
             document.body.dataset[kind === 'approval' ? 'approvalIntegrity' : 'contentIntegrity'] = statusValue;
             var target = document.querySelector('.rep-content-integrity-status[data-integrity-kind="' + kind + '"]');
@@ -623,11 +627,13 @@ function buildAttachmentApprovalReport(options = {}) {
             savedApprovalSealSource.dataset.approvalSha256 = sha256Text(approvalPayload);
             return '<!doctype html>' + String.fromCharCode(10) + root.outerHTML;
           }
+          /* parity:download-status:start */
           function showDownloadStatus(message) {
             var messageTarget = document.getElementById('repWindowStatus') || document.querySelector('.rep-window-status');
             if (messageTarget) messageTarget.textContent = message;
           }
           var cleanReportText = reportUtils.cleanText;
+          /* parity:download-status:end */
           function multilineReportText(node) {
             if (!node) return '';
             var clone = node.cloneNode(true);
@@ -642,12 +648,14 @@ function buildAttachmentApprovalReport(options = {}) {
             });
             return String(clone.textContent || '').trim();
           }
+          /* parity:report-meta-line:start */
           function reportMetaLine(row) {
             var labelNode = row && row.querySelector('b');
             var label = cleanReportText(labelNode && labelNode.textContent);
             var value = cleanReportText(row && row.textContent).slice(label.length).trim();
             return label && value ? label + '：' + value : cleanReportText(row && row.textContent);
           }
+          /* parity:report-meta-line:end */
           function appendGenericTable(lines, table, tableIndex) {
             lines.push('【表格 ' + tableIndex + ' 開始】');
             var headers = Array.from(table.querySelectorAll('thead th')).map(function (cell) {
@@ -851,11 +859,14 @@ function buildAttachmentApprovalReport(options = {}) {
             reportUtils.downloadBlob(new Blob([html], { type:'text/html;charset=utf-8' }), fileName);
             showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、時間、選填核可紀錄、計算指紋與獨立 SHA-256 內容／核可封印。');
           }
+          /* parity:docx-builder:start */
           async function buildCurrentReportDocx() {
             if (source.dataset.textExportEnabled !== 'true') throw new Error('此工具尚未啟用 Word 文書版。');
             if (!reportDocx) throw new Error('Word 元件尚未就緒，請回原工具頁重新開啟計算書。');
             return reportDocx.buildWithRuntime(document, reportDocxLibraryURL);
           }
+          /* parity:docx-builder:end */
+          /* parity:docx-download:start */
           async function downloadCurrentReportWord() {
             var result = await buildCurrentReportDocx();
             var fileName = buildArtifactBaseName('文字備查') + '-word.docx';
@@ -863,6 +874,7 @@ function buildAttachmentApprovalReport(options = {}) {
             showDownloadStatus('已下載 Word 文書整理版 (.docx)；正式附件資格：否。表格與圖片已內嵌，供報告書編排使用。');
             return result.stats;
           }
+          /* parity:docx-download:end */
           window.serializeReportDocumentHtml = serializeCurrentReportHtml;
           window.downloadReportWord = downloadCurrentReportWord;
           window.buildReportDocx = buildCurrentReportDocx;
@@ -926,10 +938,12 @@ function buildAttachmentApprovalReport(options = {}) {
           var approvedAtValue = source.dataset.approvedAt || '';
           if (approvedByInput) approvedByInput.value = source.dataset.approvedBy || '';
           if (approvalBasisInput) approvalBasisInput.value = source.dataset.approvalBasis || '';
+          /* parity:approval-time-format:start */
           function formatApprovedAt(value) {
             var d = new Date(value);
             return Number.isFinite(d.getTime()) ? d.toLocaleString('zh-TW', { timeZone:'Asia/Taipei', hour12:false }) : value;
           }
+          /* parity:approval-time-format:end */
           function updateStatus() {
             if (!formalApprovalAllowed) checkbox.checked = false;
             if (checkbox.checked && !approvedAtValue) approvedAtValue = new Date().toISOString();
@@ -955,6 +969,7 @@ function buildAttachmentApprovalReport(options = {}) {
             document.body.dataset.documentClass = status.dataset.documentClass;
             document.title = buildArtifactBaseName(checkbox.checked ? '正式附件' : '內部審閱');
           }
+          /* parity:approval-metadata-update:start */
           function updateApprovalMetadata() {
             var revoked = checkbox.checked;
             if (revoked) {
@@ -969,10 +984,13 @@ function buildAttachmentApprovalReport(options = {}) {
               showDownloadStatus(revokedMessage);
             }
           }
+          /* parity:approval-metadata-update:end */
+          /* parity:approval-state-update:start */
           function updateApprovalState() {
             if (approvalMetaHint) approvalMetaHint.textContent = '核可後修改上述紀錄會撤銷正式核可，需重新勾選。';
             updateStatus();
           }
+          /* parity:approval-state-update:end */
           checkbox.addEventListener('change', updateApprovalState);
           if (approvedByInput) approvedByInput.addEventListener('input', updateApprovalMetadata);
           if (approvalBasisInput) approvalBasisInput.addEventListener('input', updateApprovalMetadata);

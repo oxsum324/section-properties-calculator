@@ -5,6 +5,7 @@ const path = require('path');
 
 const PRIVATE_FILES = new Set([
   'report-format-parity.core.js',
+  'report-core-parity-map.json',
   '結構工具箱/tools/tool-load-budget-contract.js',
   '結構工具箱/tools/tool-load-budget-baseline.json',
   '結構工具箱/tools/pages-live-smoke.js',

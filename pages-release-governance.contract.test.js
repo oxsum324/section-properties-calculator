@@ -691,6 +691,9 @@ const { classifyPublishedPath } = require(artifactBuilderPath);
 for (const privatePath of ['report-format-parity.core.js', '結構工具箱/tools/tool-load-budget-contract.js', '結構工具箱/tools/tool-load-budget-baseline.json']) {
   assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-tooling' }, `${privatePath} remains private validation tooling`);
 }
+assert.deepEqual(classifyPublishedPath('report-core-parity-map.json'), { publish: false, reason: 'private-tooling' }, 'report core parity map is private tooling');
+assert.deepEqual(classifyPublishedPath('report-core-parity.contract.test.js'), { publish: false, reason: 'private-source-file' }, 'report core parity test is private by suffix');
+assert.ok(pagesSmoke.includes("'report-core-parity-map.json'") && pagesSmoke.includes("'report-core-parity.contract.test.js'"), 'Pages smoke probes both private report core parity files');
 for (const contract of ['report-format-parity-contract', 'tool-load-budget-contract']) {
   assert.ok(preflightTools.includes(`key = "${contract}"`), `${contract} is registered in preflight`);
 }

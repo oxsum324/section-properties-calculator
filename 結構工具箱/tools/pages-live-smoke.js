@@ -67,6 +67,8 @@ const CLEAN_ROUTE_SAMPLES = [
   { path: 'frame-analysis/', source: '/frame-analysis', targetNeedle: encodeURIComponent('平面剛架分析.html') },
 ];
 const PRIVATE_PATHS = [
+  'report-core-parity-map.json',
+  'report-core-parity.contract.test.js',
   'field-survey/tests/browser.test.js',
   'field-survey/tests/model.test.js',
   'field-survey/README.md',

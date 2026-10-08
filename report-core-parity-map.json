@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "sources": {
+    "core": "結構工具箱/core/ui/report.js",
+    "rc": "鋼筋混凝土/shared/report.js"
+  },
+  "embeddedScriptTag": "<script data-attachment-approval-script>",
+  "embeddedScriptCloseTag": "<\\/script>",
+  "markerBoundary": "parity markers are JavaScript comments in the embedded factory script inside each popup HTML template; the contract extracts this script element body before locating markers and comparing its JavaScript tokens",
+  "markerFormat": "/* parity:<id>:start */ ... /* parity:<id>:end */",
+  "requiredEquivalent": [
+    { "id": "artifact-base-name", "purpose": "產出一致的報表檔名基底。" },
+    { "id": "integrity-alert-refresh", "purpose": "依內容與核可完整性狀態顯示或清除警示。" },
+    { "id": "download-status", "purpose": "將下載結果寫入報表狀態列。" },
+    { "id": "report-meta-line", "purpose": "正規化報表中標籤與值的文字列。" },
+    { "id": "docx-builder", "purpose": "檢查 Word 匯出資格並呼叫共用 DOCX builder。" },
+    { "id": "docx-download", "purpose": "建立 Word 檔名、下載 DOCX 並回報統計。" },
+    { "id": "approval-time-format", "purpose": "以臺北時區格式化核可時間，無效值保留原值。" },
+    { "id": "approval-metadata-update", "purpose": "更新核可 metadata 並在必要時撤銷核可。" },
+    { "id": "approval-state-update", "purpose": "處理核可狀態變更與提示。" }
+  ],
+  "allowedDifferences": [
+    {
+      "id": "serialized-report-removal-and-seal",
+      "coreAnchor": "buildAttachmentApprovalReport / serializeCurrentReportHtml",
+      "rcAnchor": "buildRcAttachmentApprovalReport / serializeCurrentReportHtml",
+      "observedDifferences": [
+        "core 將 .rep-content-integrity-status 與 .rep-content-integrity-alert 合併在一個 selector；RC 分開移除兩類節點。",
+        "core 移除未限定值的 data-report-docx-runtime 與 data-report-mathjax-runtime script；RC 只移除值為 true 的兩類 script，且先於其他控制項移除。",
+        "core 使用 .rep-formal-content-seal-source 與 .rep-formal-approval-seal-source，並同步計算 SHA-256；RC 使用 .rep-content-seal-source 與 .rep-approval-seal-source，並 await 非同步 SHA-256。"
+      ],
+      "reason": "序列化、封印節點與雜湊呼叫受兩個既有 family factory 的 DOM schema 和同步／非同步 adapter 約束。這些範圍保持分治，逐項記錄差異供日後審查，不為了字面相同而改變封印或指紋流程。"
+    },
+    {
+      "id": "popup-presentation-and-seal-template",
+      "coreAnchor": "buildAttachmentApprovalReport / popup HTML template",
+      "rcAnchor": "buildRcAttachmentApprovalReport / popup HTML template",
+      "observedDifferences": [
+        "core 將列印呈現 CSS 接到共用 presentationCss；RC 在自身 factory 內保留 RC 樣式。",
+        "footer 的定位、清除浮動與 padding 不同，sealed-content 區塊的 HTML 註解標記亦依 family 區分。",
+        "目前 .rep-toolbar 兩個按鈕與狀態列 markup 相同；整段 popup template 不列為等價區段，避免擴大到 family-specific 樣式、封印與內容結構。"
+      ],
+      "reason": "core 與 RC 報表核心刻意分治，兩個 factory 的列印版面、封印包覆及內容結構各自演進。工具列目前一致仍不構成合併整份 popup template 的理由。"
+    }
+  ]
+}

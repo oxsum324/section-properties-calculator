@@ -525,3 +525,9 @@ T21 同包提交鋼構報表同步重算與真瀏覽器同快照檢查、石材 
 ```powershell
 git add -- "鋼構工具/app.js" "鋼構工具/steel-audit-browser-runner.js" "鋼構工具/steel-formal.regression-test.js" "石材固定/server_smoke_test.py" "石材固定/local-server-probe-smoke.py" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
 ```
+
+## 2026-10-08：第五階段 T22（core／RC 報表漂移契約）
+
+T22 以九組內嵌 approval script marker 比對必要等價區段；lexer 忽略註解與排版空白，保留識別符、運算子、字串、樣板與正規表示式 token，負向自測涵蓋字串差異、程式差異、marker 缺漏／重複及 comment-like literal。序列化移除清單、family seal adapter 與 popup presentation 差異記入 map 並維持 core／RC 分治。report-core-parity-map.json 以 Pages 精確清單排除，契約測試依 .test.js 後綴排除；live smoke 對兩者探測私有 404。
+
+git add -- "report-core-parity-map.json" "report-core-parity.contract.test.js" "結構工具箱/core/ui/report.js" "鋼構工具/core/ui/report.js" "鋼構工具/core/formal-core-manifest.json" "鋼筋混凝土/shared/report.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" "pages-release-governance.contract.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
