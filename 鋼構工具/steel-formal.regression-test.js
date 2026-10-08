@@ -561,6 +561,17 @@ assert.match(
 );
 const mainReportBuilderSource = appSource.match(/function buildConnectionReportConfig\(result\)\s*\{[\s\S]*?\n\s*function exportReport\(\)/)?.[0] || "";
 assert.ok(mainReportBuilderSource, "app.js should expose a statically inspectable formal report builder");
+const reportExportFunction = appSource.match(/function exportReport\(\)\s*\{[\s\S]*?\n\s*function update\(/)?.[0] || "";
+assert.match(
+  reportExportFunction,
+  /function exportReport\(\)[\s\S]*update\(false\);[\s\S]*const result = window\.latestSteelConnectionResult;[\s\S]*window\.openReport\(buildConnectionReportConfig\(result\), buildConnectionReportPresentation\(result\)\)/,
+  "steel report popup should synchronously update every result summary, then open from that same latest result snapshot",
+);
+assert.doesNotMatch(
+  reportExportFunction,
+  /calculateConnection\(collectFormState\(\)\)[\s\S]*renderFlow\(result\)/,
+  "steel report popup should not mix a separately recalculated result with only selected result-managed DOM sections",
+);
 assert.match(
   mainReportBuilderSource,
   /function buildConnectionReportConfig\(result\)[\s\S]*textExport:\s*true[\s\S]*function buildReportHtml\(result\)[\s\S]*SteelFormalUI\.buildReportDocumentHtml\(buildConnectionReportConfig\(result\), buildConnectionReportPresentation\(result\)\)/s,
@@ -1480,6 +1491,16 @@ assert.match(
   browserRunnerSource,
   /main-single-plate'[\s\S]*setup:\s*setupMainSinglePlate[\s\S]*assert:\s*assertMainSinglePlateReady[\s\S]*main-single-plate-report-popup'[\s\S]*setup:\s*setupMainSinglePlate[\s\S]*assert:\s*assertMainSinglePlateReportPopup/s,
   "steel-audit-browser-runner.js should run dedicated Shear Tab page and report-popup scenarios",
+);
+assert.match(
+  browserRunnerSource,
+  /async function assertMainSinglePlateReportPopup[\s\S]*?assertMainReportFreshSnapshot\(cdp, sessionId\)/,
+  "steel browser report scenario should detect an eventless field edit and verify its input, changed conclusion, derived formula, and fresh calculation fingerprint in the popup",
+);
+assert.match(
+  browserRunnerSource,
+  /async function assertMainReportFreshSnapshot[\s\S]*?input\.value = '2000'[\s\S]*?fresh\.formula[\s\S]*?fresh\.fingerprint === stale\.fingerprint[\s\S]*?report\.conclusion !== fresh\.summary[\s\S]*?normalizedBody\.includes\(normalizedFormula\)/,
+  "fresh snapshot behavior assertion should compare the changed conclusion, derived formula, and calculation fingerprint",
 );
 assert.match(
   browserRunnerSource,

@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 import io
+import gc
 import re
+import shutil
 import sys
-import tempfile
+import time
 import unittest
+import uuid
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 
 from docx import Document
@@ -33,6 +37,36 @@ PAGE_ONLY_REPORT_STATUS_NEEDLES = tuple(dict.fromkeys(
     '治理一致性總覽',
     'protocol 1.0.0 compliant',
 )
+
+# Use a normal inherited workspace ACL rather than Python 3.14's private
+# TemporaryDirectory ACL, which the governed non-admin Windows token cannot
+# write through. All ZIP readers close in their contexts; retry cleanup after
+# releasing collected DOCX references so no generated package is left open.
+SMOKE_TEMP_ROOT = Path(__file__).resolve().parents[1] / 'output' / 'stone-server-smoke-temp'
+
+
+@contextmanager
+def smoke_temp_directory():
+    SMOKE_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+    temp_path = SMOKE_TEMP_ROOT / f'test-{uuid.uuid4().hex}'
+    temp_path.mkdir()
+    try:
+        yield temp_path
+    finally:
+        gc.collect()
+        cleanup_path = temp_path.resolve()
+        if cleanup_path.parent != SMOKE_TEMP_ROOT.resolve():
+            raise RuntimeError('Smoke cleanup path escaped its temporary root')
+        for attempt in range(5):
+            try:
+                shutil.rmtree(cleanup_path)
+                break
+            except FileNotFoundError:
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
 
 
 def fake_handler(*, method: str = 'GET', path: str = '/status', origin: str | None = None):
@@ -217,7 +251,7 @@ class ServerSmokeTests(unittest.TestCase):
 
     def test_export_audit_records_summary_and_trace(self) -> None:
         payload = v2_payload()
-        with tempfile.TemporaryDirectory() as tmp:
+        with smoke_temp_directory() as tmp:
             out_path = Path(tmp) / 'smoke.docx'
             out_path.write_bytes(b'smoke-docx')
             audit_path = server.write_export_audit(
@@ -260,7 +294,7 @@ class ServerSmokeTests(unittest.TestCase):
         }
         review_summary['delivery_quality']['reasons'].append('報告閱讀狀態：暫勿作附件')
 
-        with tempfile.TemporaryDirectory() as tmp:
+        with smoke_temp_directory() as tmp:
             payload_path = Path(tmp) / 'stone_payload.json'
             payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
 
@@ -334,7 +368,7 @@ class ServerSmokeTests(unittest.TestCase):
         }
         review_summary['delivery_quality']['reasons'].append('報告閱讀狀態：暫勿作附件')
 
-        with tempfile.TemporaryDirectory() as tmp:
+        with smoke_temp_directory() as tmp:
             out_path = Path(tmp) / 'smoke.docx'
             out_path.write_bytes(b'smoke-docx')
             audit_path = server.write_export_audit(payload, out_path, 'auto_word', result_source='frontend_results')
@@ -354,7 +388,7 @@ class ServerSmokeTests(unittest.TestCase):
             'class': 'ok',
             'reasons': [],
         }
-        with tempfile.TemporaryDirectory() as tmp:
+        with smoke_temp_directory() as tmp:
             out_path = Path(tmp) / 'smoke.docx'
             out_path.write_bytes(b'smoke-docx')
             audit_path = server.write_export_audit(payload, out_path, 'auto_word', result_source='frontend_results')

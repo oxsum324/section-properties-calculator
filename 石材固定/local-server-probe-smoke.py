@@ -10,7 +10,8 @@ import urllib.request
 from functools import partial
 from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from threading import Thread
+from socketserver import BaseRequestHandler, ThreadingTCPServer
+from threading import Lock, Thread
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -54,6 +55,34 @@ class FakeStatusHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
             pass
+
+
+class SilentTcpHandler(BaseRequestHandler):
+    def handle(self) -> None:
+        with self.server.accept_lock:
+            self.server.accepted_connections += 1
+        self.request.settimeout(2)
+        try:
+            request_bytes = self.request.recv(4096)
+        except OSError:
+            return
+        if not request_bytes:
+            return
+        with self.server.accept_lock:
+            self.server.request_lines.append(request_bytes.splitlines()[0].decode("ascii", errors="replace"))
+        time.sleep(4)
+
+
+class SilentTcpServer(ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+    block_on_close = False
+
+    def __init__(self, address: tuple[str, int], handler: type[BaseRequestHandler]) -> None:
+        self.accept_lock = Lock()
+        self.accepted_connections = 0
+        self.request_lines: list[str] = []
+        super().__init__(address, handler)
 
 
 class LocalStaticHandler(SimpleHTTPRequestHandler):
@@ -171,6 +200,40 @@ def run_probe_cases() -> dict[str, object]:
             raise AssertionError(f"慢速服務應靜默降級：{timeout_result['status']}")
         measurements["timeoutMs"] = round(timeout_result["elapsedMs"], 1)
         timeout_page.close()
+
+        silent_server = SilentTcpServer(("127.0.0.1", 0), SilentTcpHandler)
+        silent_port = int(silent_server.server_address[1])
+        silent_server_thread = Thread(target=silent_server.serve_forever, daemon=True)
+        silent_server_thread.start()
+        silent_page = browser.new_page(viewport={"width": 1280, "height": 900})
+        silent_page.on("console", lambda message: console_errors.append(message.text) if message.type == "error" else None)
+        try:
+            silent_page.goto(f"{REAL_URL}?localPort={silent_port}", wait_until="domcontentloaded", timeout=60000)
+            silent_result = silent_page.evaluate("""async () => {
+              const started = performance.now();
+              const status = await v2FetchServerStatus();
+              return { status, elapsedMs: performance.now() - started };
+            }""")
+            if silent_result["elapsedMs"] < 1200 or silent_result["elapsedMs"] > 1700:
+                raise AssertionError(f"TCP 已接受但未回應時應約於 1400 ms 降級：{silent_result['elapsedMs']:.1f} ms")
+            if silent_result["status"].get("ok") or not silent_result["status"].get("skipped") or silent_result["status"].get("mode") != "public_static":
+                raise AssertionError(f"TCP 已接受但未回應時應靜默降級：{silent_result['status']}")
+            if silent_server.accepted_connections < 1 or not any(line.startswith("GET /status HTTP/") for line in silent_server.request_lines):
+                raise AssertionError(f"瀏覽器沒有向靜默 TCP listener 送出 /status HTTP 請求：{silent_server.request_lines}")
+            measurements["nonHttpTcpListener"] = {
+                "probeMs": round(silent_result["elapsedMs"], 1),
+                "acceptedConnections": silent_server.accepted_connections,
+                "requestLines": silent_server.request_lines,
+                "httpResponsesSent": 0,
+                "previewPages": silent_page.locator("#preview-sheets .a4").count(),
+            }
+            if measurements["nonHttpTcpListener"]["previewPages"] < 1:
+                raise AssertionError("靜默 TCP 探測逾時後，頁面計算／預覽未完成")
+        finally:
+            silent_page.close()
+            silent_server.shutdown()
+            silent_server.server_close()
+            silent_server_thread.join(timeout=1)
         browser.close()
 
     if console_errors:
@@ -179,6 +242,7 @@ def run_probe_cases() -> dict[str, object]:
 
 
 def main() -> int:
+    probe_only = "--probe-only" in sys.argv[1:]
     fake_server = ThreadingHTTPServer(
         ("127.0.0.1", FAKE_PORT),
         FakeStatusHandler,
@@ -193,15 +257,18 @@ def main() -> int:
     Thread(target=static_server.serve_forever, daemon=True).start()
     try:
         wait_for_real_server()
-        run_ui_smoke()
+        if not probe_only:
+            run_ui_smoke()
         measurements = run_probe_cases()
         print(json.dumps({
             "result": "通過",
+            "scope": "僅本機服務探測案例；未執行 UI smoke" if probe_only else "完整本機服務探測與 UI smoke",
+            "uiSmoke": "未執行" if probe_only else "通過",
             "occupiedPort": FAKE_PORT,
             "realServerPort": REAL_PORT,
             "desktopMobile": measurements,
             "consoleErrors": 0,
-            "overrides": ["URL localPort", "localStorage stonecalc.localServerPort", "URL 優先於 localStorage"],
+            "overrides": ["URL localPort", "localStorage stonecalc.localServerPort", "URL 優先於 localStorage", "TCP 接受 /status 但不回應時約 1400 ms 降級"],
         }, ensure_ascii=False, indent=2))
         return 0
     finally:

@@ -3414,7 +3414,9 @@ ${scopeHtml}
   }
 
   function exportReport() {
-    const result = window.latestSteelConnectionResult || calculateConnection(collectFormState());
+    // 同步更新計算與所有由結果管理的摘要 DOM，報表再沿用同一份最新快照。
+    update(false);
+    const result = window.latestSteelConnectionResult;
     setExportReportStatus("");
     try {
       assertFormalResultBoundary(result);

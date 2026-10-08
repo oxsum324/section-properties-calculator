@@ -1439,6 +1439,9 @@ async function assertMainSinglePlateReportPopup(cdp, sessionId, context = {}) {
   await assertMainSinglePlateXssIsolation(cdp, sessionId);
   await setupMainSinglePlate(cdp, sessionId);
   await assertMainSinglePlateReady(cdp, sessionId);
+  await assertMainReportFreshSnapshot(cdp, sessionId);
+  await setupMainSinglePlate(cdp, sessionId);
+  await assertMainSinglePlateReady(cdp, sessionId);
   return assertLegacyReportPopup(cdp, sessionId, {
     label: 'main single plate report popup',
     buttonSelector: '#printReportBtn',
@@ -1474,6 +1477,70 @@ async function assertMainSinglePlateReportPopup(cdp, sessionId, context = {}) {
     continuationContextLabels: ['暴露條件', '銲腳尺寸 a', 'φRn,h', 'Vavailable', '自由邊距 g', '板淨剪力面積 Anv', '端距 e', '採用偏心 e_b'],
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-shear-tab' : '',
   });
+}
+
+async function assertMainReportFreshSnapshot(cdp, sessionId) {
+  const stale = await evaluate(cdp, sessionId, `(() => {
+    const payload = window.buildSteelConnectionSourcePayload?.();
+    const result = window.latestSteelConnectionResult;
+    if (!payload || !result) throw new Error('missing initial report snapshot');
+    return {
+      fingerprint: payload.calculationFingerprint,
+      overallStatus: result.overallStatus,
+      summary: document.querySelector('#reportBanner')?.textContent?.trim() || '',
+    };
+  })()`, 'main report initial cached snapshot');
+
+  await evaluate(cdp, sessionId, `(() => {
+    const input = document.querySelector('[name="requiredShear"]');
+    if (!input) throw new Error('missing requiredShear field');
+    input.value = '2000';
+    return true;
+  })()`, 'main report eventless input mutation');
+
+  const popup = await openLegacyReportPopup(cdp, sessionId, 'main report fresh snapshot', '#printReportBtn');
+  try {
+    const fresh = await evaluate(cdp, sessionId, `(() => {
+      const result = window.latestSteelConnectionResult;
+      const payload = window.buildSteelConnectionSourcePayload?.();
+      return {
+        fingerprint: payload?.calculationFingerprint || '',
+        fieldValue: result?.state?.requiredShear,
+        overallStatus: result?.overallStatus || '',
+        summary: document.querySelector('#reportBanner')?.textContent?.trim() || '',
+        formula: result?.pathSummary?.netSection || '',
+      };
+    })()`, 'main report refreshed result snapshot');
+    const report = await evaluate(cdp, popup.sessionId, `(() => {
+      const fingerprint = document.querySelector('.rep-attachment-approval-source')?.dataset.calculationFingerprint || '';
+      const conclusionBlock = Array.from(document.querySelectorAll('.block'))
+        .find(block => (block.querySelector('h3')?.textContent || '').includes('檢核結論'));
+      const demandRow = Array.from(document.querySelectorAll('.input-table tr'))
+        .find(row => (row.querySelector('th')?.textContent || '').includes('需求剪力'));
+      return {
+        bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
+        conclusion: conclusionBlock?.querySelector('.banner')?.textContent?.trim() || '',
+        fingerprint,
+        demandLabel: (demandRow?.querySelector('th')?.textContent || '').trim(),
+        demandValue: (demandRow?.querySelector('td')?.textContent || '').trim(),
+      };
+    })()`, 'main report popup fresh snapshot content');
+    const normalizedBody = String(report.bodyText || '').replace(/\s+/g, ' ').trim();
+    const normalizedFormula = String(fresh.formula || '').replace(/\s+/g, ' ').trim();
+    if (fresh.fieldValue !== 2000
+        || fresh.fingerprint === stale.fingerprint
+        || fresh.overallStatus === stale.overallStatus
+        || report.fingerprint !== fresh.fingerprint
+        || report.conclusion !== fresh.summary
+        || !report.demandLabel.includes('需求剪力')
+        || !/2,?000/.test(report.demandValue)
+        || !normalizedFormula
+        || !normalizedBody.includes(normalizedFormula)) {
+      throw new Error(`main report must keep the freshly recalculated inputs, conclusion, formula, and fingerprint in one snapshot: ${JSON.stringify({ stale, fresh, report })}`);
+    }
+  } finally {
+    await cdp.send('Target.closeTarget', { targetId: popup.targetId }).catch(() => {});
+  }
 }
 
 async function assertMainFailClosedPreset(cdp, sessionId, options) {

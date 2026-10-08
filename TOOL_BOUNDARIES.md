@@ -322,3 +322,9 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 ## 2026-10-03：首頁品質與初始版面
 
 首頁沿用 home.js 單一工具清冊；sync-home-initial-view.js 由同源清冊產生初始分類／篩選骨架，僅供開發使用並排除 Pages。defer、hero 預載與固定初始版面降低載入位移，材料頁籤維持完整 tablist／tab／tabpanel 關聯及鍵盤焦點。琥珀文字提高對比；不改工具資格、工程結果或公開狀態 JSON。Lighthouse／axe 與瀏覽器證據只存 output；本機模擬子目錄不等於公開 Pages 或實體裝置驗收。
+
+## 2026-10-08：第五階段 T21 測試穩定性
+
+`鋼構工具/app.js` 在報表匯出前執行 `update(false)`，以同步更新輸入計算與所有結果摘要，再由 `window.latestSteelConnectionResult` 建立報表；真瀏覽器以未觸發事件的 `requiredShear=2000` 驗證輸入、結論、公式及 fingerprint 同屬一份快照。`鋼構工具/steel-audit-browser-runner.js` 與 `steel-formal.regression-test.js` 負責該情境的實測及契約。
+
+`石材固定/server_smoke_test.py` 將產物放在 `output/stone-server-smoke-temp/test-<uuid>/`，ZIP context 關閉、釋放參照後才進行最多五次有限清理；清理前必須驗證 resolved path 是暫存根目錄的直接子項。`石材固定/local-server-probe-smoke.py` 新增 TCP 接受 `/status` 但不送 HTTP 回應的負向情境，驗證約 1,400 ms 後靜默回到 `public_static` 且頁面預覽仍可用。`--probe-only` 明確跳過既有 UI smoke；完整入口的 UI smoke 失敗仍使整體失敗，probe-only 通過不可代稱完整通過。這些測試與 output 證據不屬公開執行期或正式 release 證據。

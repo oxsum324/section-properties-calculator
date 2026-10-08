@@ -517,3 +517,11 @@ T20 將計算書 popup 改為共用 Blob HTML 導覽，修正 Edge 空白 popup 
 ```powershell
 git add -- "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "shared-report-utils.contract.test.js" "report-mathjax-popup.browser.test.js" "section-tools.contract.test.js" "continuous-beam-regression.test.js" "結構工具箱/tools/formal-tools.contract.test.js" "鋼構工具/steel-formal.regression-test.js" "SRC工具/src-beam.contract.test.js" "SRC工具/src-column-page.contract.test.js" "結構工具箱/assets/home/home.js" "結構工具箱/core/ui/report-utils.js" "結構工具箱/core/ui/report.js" "鋼構工具/app.js" "鋼構工具/core/ui/report-utils.js" "鋼構工具/core/ui/report.js" "鋼構工具/core/formal-core-manifest.json" "鋼筋混凝土/shared/report.js"
 ```
+
+## 2026-10-08：第五階段 T21（測試穩定性）
+
+T21 同包提交鋼構報表同步重算與真瀏覽器同快照檢查、石材 server smoke 的 UUID 暫存與受限清理重試，以及本機服務探測的靜默 TCP 負向案例。`--probe-only` 僅驗服務探測；完整入口仍含 UI smoke，既有 `badMethods=4` 失敗不得被 probe-only 通過取代。既有報表五連跑與三次一般權限 server smoke 證據引用於 T21 回報；不把 ignored output 或 `_tmp/派工/回報` 納入版控。
+
+```powershell
+git add -- "鋼構工具/app.js" "鋼構工具/steel-audit-browser-runner.js" "鋼構工具/steel-formal.regression-test.js" "石材固定/server_smoke_test.py" "石材固定/local-server-probe-smoke.py" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
+```
