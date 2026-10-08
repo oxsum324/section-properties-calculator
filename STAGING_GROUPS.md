@@ -485,3 +485,9 @@ T5 同包提交共用 report-docx、core／鋼構同步副本與 RC 獨立 adapt
 ## 2026-10-03：T6 首頁品質
 
 T6 同包提交首頁 HTML／CSS／JS、sync-home-initial-view.js 及其精確 Pages 私有排除、homepage-quality.browser.test.js 與 PowerShell 入口／依賴準備。量測相依版本固定為 Lighthouse 13.5.0、Playwright 1.63.0、axe-playwright 4.13.0，package／lock／報告保存在 ignored output；固定三輪取中位數且保留全部分數及錯誤。未證明主腳本解析為主要瓶頸，因此不拆工具清冊；不修改 assets/status 與 public-release JSON、不執行正式預檢或發布。
+
+## 2026-10-08：第四階段 T12～T16（按需載入、本機服務辨識、圖像、無障礙、別名）
+
+T12-A／B 同包提交石材 HTML 與 `ui_smoke_test.py`；T12-C 同包提交鋼構 `app.js`、兩個入口 HTML 與 `mathjax-lazy-load-smoke.py`；T13 同包提交石材 HTML、`server.py`、`server_smoke_test.py`、`self_check.py`、`local-server-probe-smoke.py`；T14 同包提交 `earth-pressure.html`、鋼構 `app.js` 與 `sketch-presentation-smoke.py`；T15 同包提交 `tool-page-a11y.js`、瀏覽器測試、PowerShell 入口與 40 頁 script 接線（a11y 腳本一律在 `project-meta-profile.js` 之前）；T16 同包提交 `home.js` aliases、入口契約與 local-quick smoke。Python smoke、`.ps1` 與 `*.test.js` 依既有私有後綴規則不進 Pages；`tool-page-a11y.js` 為公開執行期。
+
+git add -- "tool-page-a11y.js" "tool-page-a11y.browser.test.js" "test-tool-page-a11y.ps1" "鋼構工具/app.js" "鋼構工具/index.html" "鋼構工具/plate-check.html" "鋼構工具/mathjax-lazy-load-smoke.py" "鋼構工具/sketch-presentation-smoke.py" "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/server_smoke_test.py" "石材固定/self_check.py" "石材固定/ui_smoke_test.py" "石材固定/local-server-probe-smoke.py" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/assets/home/home.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
