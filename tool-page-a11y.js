@@ -152,9 +152,13 @@
       if (element.matches('.v2-method-card[role="button"]')) element.setAttribute('role', 'group');
       const style = getComputedStyle(element);
       const canScroll = /(auto|scroll)/.test(`${style.overflowX} ${style.overflowY}`) && element.getClientRects().length > 0;
-      if (canScroll && !element.hasAttribute('tabindex')) element.setAttribute('tabindex', '0');
-      if (canScroll && !element.hasAttribute('role')) element.setAttribute('role', 'region');
-      if (canScroll && !element.hasAttribute('aria-label') && !element.hasAttribute('aria-labelledby')) {
+      const hasScrollableOverflow = canScroll && (element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1);
+      const nativeSemantics = element.matches('a[href], button, input, select, textarea, nav, main, header, footer, aside, form, table, thead, tbody, tfoot, tr, th, td, ul, ol, li, figure');
+      const nestedDiagramScroller = element.matches('.diag-card') && element.querySelector('.canvas-wrap');
+      const nativelyFocusable = element.matches('a[href], button, input, select, textarea, summary, [tabindex]');
+      if (hasScrollableOverflow && !nativelyFocusable) element.setAttribute('tabindex', '0');
+      if (hasScrollableOverflow && !nativeSemantics && !nestedDiagramScroller && !element.hasAttribute('role')) element.setAttribute('role', 'region');
+      if (hasScrollableOverflow && !element.hasAttribute('aria-label') && !element.hasAttribute('aria-labelledby')) {
         const caption = text(element.querySelector('caption, h1, h2, h3, th')) || text(element.previousElementSibling);
         element.setAttribute('aria-label', caption || (element.querySelector('table') ? '可捲動資料表' : '可捲動內容區'));
       }
@@ -277,9 +281,18 @@
       }
     });
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
-    requestAnimationFrame(() => requestAnimationFrame(() => fixContrast()));
-    window.addEventListener('load', () => fixContrast(), { once: true });
-    window.addEventListener('resize', () => requestAnimationFrame(() => fixContrast()), { passive: true });
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      fixScrollAndImages();
+      fixContrast();
+    }));
+    window.addEventListener('load', () => {
+      fixScrollAndImages();
+      fixContrast();
+    }, { once: true });
+    window.addEventListener('resize', () => requestAnimationFrame(() => {
+      fixScrollAndImages();
+      fixContrast();
+    }), { passive: true });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });

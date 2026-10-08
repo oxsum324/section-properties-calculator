@@ -206,6 +206,15 @@ async function main() {
           record.incompleteCount = axe.incomplete.length;
           record.passes = axe.passes.length;
           record.interactions = await verifyInteractions(page);
+          if (record.interactions.checks.length) {
+            summary.tabChecks.push({
+              viewport: viewport.name,
+              href: tool.href,
+              title: record.title,
+              groupCount: record.interactions.groupCount,
+              checks: record.interactions.checks,
+            });
+          }
         } catch (error) {
           record.error = error.stack || String(error);
         }
@@ -238,7 +247,7 @@ async function main() {
     summary.finishedAt = new Date().toISOString();
     writeJson(path.join(out, 'summary.json'), summary);
   }
-  console.log(JSON.stringify({ output: out, toolCount: summary.toolCount, counts: summary.counts, failures: summary.failures.length, baseline: runBaseline }));
+  console.log(JSON.stringify({ output: out, toolCount: summary.toolCount, counts: summary.counts, tabChecks: summary.tabChecks.length, failures: summary.failures.length, baseline: runBaseline }));
   if (!summary.passed) process.exitCode = 1;
 }
 
