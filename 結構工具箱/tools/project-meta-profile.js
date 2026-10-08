@@ -1005,7 +1005,8 @@
 
   function createBar(rootWindow, meta) {
     const doc = rootWindow.document;
-    const bar = doc.createElement('div');
+    const bar = doc.createElement('section');
+    bar.setAttribute('aria-label', '跨工具共用表頭');
     bar.className = CONTROL_CLASS;
     bar.innerHTML = [
       '<strong>跨工具共用表頭</strong>',

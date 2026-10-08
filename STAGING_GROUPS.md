@@ -499,3 +499,12 @@ T18 提交根目錄 `run-phase-gates.ps1`、`run-phase-gates.contract.test.js`�
 ```powershell
 git add -- "run-phase-gates.ps1" "run-phase-gates.contract.test.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
+
+
+## 2026-10-08：第五階段 T19（40 頁 × 2 viewport axe 違規歸零）
+
+T19 清除基線中 26 條缺少 main landmark 的正式頁與空表頭違規，並為共用表頭、覆工板狀態列及石材工址列補上具名稱的 region；石材報表引用標題維持原視覺樣式並調整語意層級。無障礙瀏覽器測試對 40 頁 × 2 viewport 的每一項 axe violation 設為失敗，另檢查恰有一個 main 與 H1。首頁清冊已含 40 頁 tool-page-a11y.js；另將石材工址執行期登錄於該路由更新依賴。
+
+```powershell
+git add -- "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "tool-page-a11y.browser.test.js" "test-tool-page-a11y.ps1" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/assets/home/home.js" "石材固定/vendor/loads/project-location.js" "RC補強斷面性質.html" "石材固定/石材計算書產生器_規範版V2.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/foundation/foundation-local.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "覆工板/index.html" "鋼架/平面剛架分析.html" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html"
+```

@@ -4,6 +4,7 @@
 
 這個資料夾目前已整理成一套分層式結構工具平台，並正式進入 `V1.6`。工具箱首頁已升級為弘一設計系統新版 `結構工具箱/index.html`（深藍 hero、構件子分頁與治理卡，依 `home.js` 單一資料源驅動）；原公文版主選單保留為 `結構工具箱/index-classic.html` 可隨時回退，本機伺服器 clean route 為 `/toolbox-home`。2026-10-03 首頁改為精簡卡片（定位一段＋標籤，「輸出／閱讀狀態」收在「詳情」或「展開卡片詳情」），平台狀態與開發路線移至工具清單下方收合區，手機版分類橫向捲動、篩選 chips、搜尋列置頂；RC 梁／柱／牆／剪力牆改由共用計算操作列鏡射摘要，並在輸入分頁計算後切到綜合結果；鋼梁／鋼柱正式頁新增本機輸入草稿自動保存，啟用 TXT 的計算書預覽另可下載 Word 文書版（10/04 起為真正 `.docx`，非正式附件）。2026-10-08 第四階段：鋼構主頁 MathJax、石材頁 PDF.js 與 DOCX 執行期改為首次使用才載入（鋼構主頁初始 JS 2.64 MB → 0.55 MB、石材頁 1.82 MB → 0.66 MB）；石材本機服務探測改為服務辨識＋埠覆寫；拉力草圖與土壓示意圖版面修正；40 個正式工具頁加入共用無障礙腳本 `tool-page-a11y.js`（axe serious／critical 0）；首頁工具卡加入搜尋別名。平台目前區分：
 第五階段開發門檻使用根目錄 `run-phase-gates.ps1`，直接從 V3 派工第 0 節解析 26 條命令；每個 package 完成並提交後執行，摘要保存在忽略版控的 `output/phase-gates/<時間戳>/summary.json`，不代表正式預檢或發布。
+T19 工具頁無障礙檢查使用 `test-tool-page-a11y.ps1`，40 頁各以桌機／手機掃描；axe 任一違規、主地標或 H1 數量不是 1 都會失敗，詳細節點與截取結果寫入 ignored `output/playwright/tool-page-a11y/`。
 
 Windows 本機可直接雙擊根目錄的 `啟動斷面計算工具.bat` 或 `啟動螺栓檢討工具.bat`，啟動必要的 localhost 服務後直接進入指定工具，不必先經過平台首頁。螺栓工具是模組化 Web App，不應直接雙擊 `anchor/index.html` 以 `file://` 開啟；專用啟動檔可避開瀏覽器模組安全限制，資料仍只在本機處理。命令列亦可使用 `node serve-local.js --route /section` 或 `node serve-local.js --route /anchor`。`serve-local-browser-smoke.test.js` 會以桌機與手機瀏覽器實測鋼構、RC、斷面、錨栓及巡檢儀表板入口，避免資料夾 redirect 或尾斜線造成相對資源與頁內連結失效；本機未產生的部署清冊與 GSM 監控 JSON 只會在明列白名單內回傳帶標記的 `null`，其他遺失資源仍維持 404。
 

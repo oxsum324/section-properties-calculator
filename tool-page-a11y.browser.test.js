@@ -139,6 +139,7 @@ async function main() {
   const summary = {
     startedAt: new Date().toISOString(),
     baseline: runBaseline,
+    strictZeroViolations: process.argv.includes('--require-zero-violations'),
     axeVersion: require(path.join(deps, '@axe-core/playwright/package.json')).version,
     toolCount: tools.length,
     viewports,
@@ -186,6 +187,8 @@ async function main() {
           record.title = await page.title();
           await page.waitForTimeout(250);
           const axe = await new AxeBuilder({ page }).analyze();
+          record.mainCount = await page.getByRole('main').count();
+          record.h1Count = await page.getByRole('heading', { level: 1 }).count();
           const severe = axe.violations.filter(item => item.impact === 'serious' || item.impact === 'critical');
           record.violations = axe.violations.map(violation => ({
             id: violation.id,
@@ -225,19 +228,25 @@ async function main() {
     }
 
     summary.failures = summary.records.filter(record => record.status !== 200 || record.error
-      || record.seriousCount > 0 || record.criticalCount > 0 || record.errors.page.length || record.errors.http.length
+      || record.violationCount > 0 || record.mainCount !== 1 || record.h1Count !== 1
+      || record.errors.page.length || record.errors.http.length
       || (record.interactions?.issues?.length || 0) > 0)
       .map(record => ({ viewport: record.viewport, title: record.title, href: record.href, status: record.status,
+        violationCount: record.violationCount, mainCount: record.mainCount, h1Count: record.h1Count,
         seriousCount: record.seriousCount, criticalCount: record.criticalCount, error: record.error || null,
-        violations: record.seriousCritical, interactionIssues: record.interactions?.issues || [], pageErrors: record.errors.page, httpErrors: record.errors.http }));
+        violations: record.violations || [], interactionIssues: record.interactions?.issues || [], pageErrors: record.errors.page, httpErrors: record.errors.http }));
     summary.counts = {
       pageScans: summary.records.length,
+      scansWithViolations: summary.records.filter(record => record.violationCount > 0).length,
+      totalViolations: summary.records.reduce((sum, record) => sum + record.violationCount, 0),
+      scansWithMainCountMismatch: summary.records.filter(record => record.mainCount !== 1).length,
+      scansWithH1CountMismatch: summary.records.filter(record => record.h1Count !== 1).length,
       scansWithSerious: summary.records.filter(record => record.seriousCount > 0).length,
       scansWithCritical: summary.records.filter(record => record.criticalCount > 0).length,
       seriousNodes: summary.records.reduce((sum, record) => sum + record.seriousCritical.filter(item => item.impact === 'serious').reduce((n, item) => n + item.nodes.length, 0), 0),
       criticalNodes: summary.records.reduce((sum, record) => sum + record.seriousCritical.filter(item => item.impact === 'critical').reduce((n, item) => n + item.nodes.length, 0), 0),
     };
-    summary.passed = runBaseline || summary.failures.length === 0;
+    summary.passed = summary.failures.length === 0;
   } finally {
     if (browser) await browser.close().catch(() => {});
     if (server && server.exitCode === null) {

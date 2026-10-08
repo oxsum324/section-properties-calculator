@@ -18,5 +18,6 @@ foreach ($name in $required.Keys) {
   if ($actual -ne $required[$name]) { throw "Expected $name $($required[$name]); found $actual" }
 }
 
-& node $driver @args
+$driverArgs = @('--require-zero-violations') + $args
+& node $driver @driverArgs
 if ($LASTEXITCODE -ne 0) { throw "Tool page accessibility checks failed with exit code $LASTEXITCODE" }
