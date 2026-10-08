@@ -491,3 +491,11 @@ T6 同包提交首頁 HTML／CSS／JS、sync-home-initial-view.js 及其精確 P
 T12-A／B 同包提交石材 HTML 與 `ui_smoke_test.py`；T12-C 同包提交鋼構 `app.js`、兩個入口 HTML 與 `mathjax-lazy-load-smoke.py`；T13 同包提交石材 HTML、`server.py`、`server_smoke_test.py`、`self_check.py`、`local-server-probe-smoke.py`；T14 同包提交 `earth-pressure.html`、鋼構 `app.js` 與 `sketch-presentation-smoke.py`；T15 同包提交 `tool-page-a11y.js`、瀏覽器測試、PowerShell 入口與 40 頁 script 接線（a11y 腳本一律在 `project-meta-profile.js` 之前）；T16 同包提交 `home.js` aliases、入口契約與 local-quick smoke。Python smoke、`.ps1` 與 `*.test.js` 依既有私有後綴規則不進 Pages；`tool-page-a11y.js` 為公開執行期。
 
 git add -- "tool-page-a11y.js" "tool-page-a11y.browser.test.js" "test-tool-page-a11y.ps1" "鋼構工具/app.js" "鋼構工具/index.html" "鋼構工具/plate-check.html" "鋼構工具/mathjax-lazy-load-smoke.py" "鋼構工具/sketch-presentation-smoke.py" "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/server_smoke_test.py" "石材固定/self_check.py" "石材固定/ui_smoke_test.py" "石材固定/local-server-probe-smoke.py" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/assets/home/home.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
+
+## 2026-10-08：第五階段 T18（V3 26 條快速門檻執行器）
+
+T18 提交根目錄 `run-phase-gates.ps1`、`run-phase-gates.contract.test.js`、README 與治理文件。執行器直接解析 `_tmp/派工/小工具優化派工指示-20261008-V3.md` 第 0 節命令區塊，不複製或改寫清單；`-SelfTestFailure` 僅供故障記錄契約測試，不屬正式 26 條清單。每次 package 先提交再執行，輸出 `output/phase-gates/<yyyyMMdd-HHmmss>/summary.json`；output 與回報資料夾忽略、不 staging、不發布。
+
+```powershell
+git add -- "run-phase-gates.ps1" "run-phase-gates.contract.test.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
