@@ -7,6 +7,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from pathlib import Path
 
 import server
@@ -107,6 +108,136 @@ def pdf_request_counts(requests: list[str]) -> dict[str, int]:
         'main': sum(url.endswith('/vendor/pdfjs/pdf.min.js') for url in requests),
         'worker': sum(url.endswith('/vendor/pdfjs/pdf.worker.min.js') for url in requests),
     }
+
+
+def docx_runtime_request_count(requests: list[str]) -> int:
+    return sum(url.endswith('/vendor/package/dist/index.iife.js') for url in requests)
+
+
+def assert_download_format(download, extension: str) -> None:
+    filename = download.suggested_filename.lower()
+    if not filename.endswith(extension):
+        raise AssertionError(f'Expected Word download ending in {extension}, got {download.suggested_filename}')
+    artifact_path = download.path()
+    if not artifact_path:
+        raise AssertionError(f'Expected downloaded Word artifact for {download.suggested_filename}')
+    if extension == '.docx':
+        try:
+            with zipfile.ZipFile(artifact_path) as package:
+                if 'word/document.xml' not in package.namelist():
+                    raise AssertionError('DOCX package is missing word/document.xml')
+                bad_file = package.testzip()
+                if bad_file:
+                    raise AssertionError(f'DOCX package contains a damaged member: {bad_file}')
+        except zipfile.BadZipFile as err:
+            raise AssertionError(f'DOCX download is not a valid ZIP package: {err}') from err
+    else:
+        with open(artifact_path, 'rb') as artifact:
+            preview = artifact.read(256).decode('utf-8-sig', errors='replace').lower()
+        if '<html' not in preview:
+            raise AssertionError('HTML .doc fallback is missing its HTML document')
+
+
+def dismiss_unrelated_modals(page) -> None:
+    check_modal = page.locator('#v2-check-modal.show')
+    if check_modal.count():
+        page.locator('#v2_check_cancel').click()
+        page.wait_for_selector('#v2-check-modal.show', state='hidden', timeout=10000)
+    validation_modal = page.locator('#v2-validation-modal.show')
+    if validation_modal.count():
+        page.locator('#v2_validation_close').click()
+        page.wait_for_selector('#v2-validation-modal.show', state='hidden', timeout=10000)
+
+
+def proceed_export_confirmation(page) -> None:
+    page.wait_for_selector('#v2-check-modal.show', timeout=15000)
+    page.locator('#v2_check_proceed').click()
+    page.wait_for_selector('#v2-check-modal.show', state='hidden', timeout=10000)
+
+
+def assert_docx_lazy_load_contract(browser) -> None:
+    context = browser.new_context(viewport={'width': 1440, 'height': 1000}, accept_downloads=True)
+    page = context.new_page()
+    requests: list[str] = []
+    page.on('request', lambda request: requests.append(request.url))
+    page.goto(TOOL_URL, wait_until='networkidle', timeout=60000)
+    if page.evaluate('() => Boolean(window.docx)'):
+        raise AssertionError('DOCX runtime must not exist after cold page load')
+    if docx_runtime_request_count(requests) != 0:
+        raise AssertionError('DOCX runtime must not be requested on cold page load')
+
+    page.evaluate('() => render()')
+    page.wait_for_timeout(120)
+    dismiss_unrelated_modals(page)
+    if docx_runtime_request_count(requests) != 0:
+        raise AssertionError('Calculation must not request the DOCX runtime')
+
+    page.evaluate('() => { window.openPagedPrintWindow = () => null; }')
+    page.click('button[onclick="exportPDF()"]')
+    proceed_export_confirmation(page)
+    page.wait_for_timeout(180)
+    if docx_runtime_request_count(requests) != 0:
+        raise AssertionError('PDF export must not request the DOCX runtime')
+
+    page.click('#chips_w_src .chip[data-v="manual"]')
+    page.wait_for_function(
+        "() => document.querySelector('#chips_w_src .chip[data-v=\"manual\"]')?.getAttribute('aria-pressed') === 'true'",
+        timeout=10000,
+    )
+    with page.expect_download(timeout=120000) as download_info:
+        page.click('button[onclick="exportForWord()"]')
+        proceed_export_confirmation(page)
+    assert_download_format(download_info.value, '.docx')
+    if docx_runtime_request_count(requests) != 1:
+        raise AssertionError(f'First Word export must request the DOCX runtime once: {docx_runtime_request_count(requests)}')
+    if not page.evaluate('() => Boolean(window.docx?.Document && window.docx?.Packer)'):
+        raise AssertionError('First Word export must leave a usable DOCX runtime loaded')
+    context.close()
+
+    retry_context = browser.new_context(viewport={'width': 1440, 'height': 1000}, accept_downloads=True)
+    retry_page = retry_context.new_page()
+    retry_requests: list[str] = []
+    retry_page.on('request', lambda request: retry_requests.append(request.url))
+    blocked_runtime_count = 0
+
+    def fail_first_docx_runtime_request(route):
+        nonlocal blocked_runtime_count
+        if route.request.url.endswith('/vendor/package/dist/index.iife.js') and blocked_runtime_count == 0:
+            blocked_runtime_count += 1
+            route.abort()
+            return
+        route.continue_()
+
+    retry_context.route('**/vendor/package/dist/index.iife.js', fail_first_docx_runtime_request)
+    retry_page.goto(TOOL_URL, wait_until='networkidle', timeout=60000)
+    dismiss_unrelated_modals(retry_page)
+    retry_page.click('#chips_w_src .chip[data-v="manual"]')
+    retry_page.evaluate("""() => {
+      const save = window.save;
+      window.save = async function(...args){
+        await new Promise(resolve => setTimeout(resolve, 700));
+        return save.apply(this, args);
+      };
+    }""")
+    with retry_page.expect_download(timeout=120000) as fallback_info:
+        retry_page.click('button[onclick="exportForWord()"]')
+        proceed_export_confirmation(retry_page)
+        retry_page.wait_for_function(
+            "() => document.querySelector('button[onclick=\"exportForWord()\"]')?.disabled === true",
+            timeout=10000,
+        )
+        retry_page.locator('button[onclick="exportForWord()"]').evaluate('(button) => button.click()')
+    assert_download_format(fallback_info.value, '.doc')
+    if docx_runtime_request_count(retry_requests) != 1:
+        raise AssertionError('Repeated clicks during a blocked DOCX load must make one request and one .doc fallback')
+
+    with retry_page.expect_download(timeout=120000) as recovered_info:
+        retry_page.click('button[onclick="exportForWord()"]')
+        proceed_export_confirmation(retry_page)
+    assert_download_format(recovered_info.value, '.docx')
+    if docx_runtime_request_count(retry_requests) != 2:
+        raise AssertionError(f'Word retry must reload the DOCX runtime once: {docx_runtime_request_count(retry_requests)}')
+    retry_context.close()
 
 
 def assert_pdf_lazy_load_contract(browser) -> None:
@@ -216,6 +347,7 @@ def main() -> int:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
             assert_pdf_lazy_load_contract(browser)
+            assert_docx_lazy_load_contract(browser)
             page = browser.new_page(viewport={'width': 1440, 'height': 1000})
             page.goto(TOOL_URL, wait_until='networkidle', timeout=60000)
             page.wait_for_selector('#review-dashboard .dash-card', timeout=30000)

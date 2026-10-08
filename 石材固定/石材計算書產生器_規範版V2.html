@@ -2083,7 +2083,6 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
   </div>
 </template>
 
-<script src="vendor/package/dist/index.iife.js"></script>
 <script>
 /* ══════════════════ DETAIL IMG DATA ══════════ */
 const DETAIL_IMG = {
@@ -16010,41 +16009,86 @@ async function exportDocxDirect(inp, results){
 }
 
 /* ══════════════════ WORD EXPORT ══════════════ */
-async function exportForWord(){
-  await save();
-  render();
+let _v2DocxRuntimePromise = null;
+let _v2WordExportInProgress = false;
+function v2LoadDocxRuntime(){
+  if(window.docx?.Document && window.docx?.Packer) return Promise.resolve(window.docx);
+  if(_v2DocxRuntimePromise) return _v2DocxRuntimePromise;
 
-  const wSrc = chipVal('chips_w_src');
-  const activeCC = currentCCReportSnapshot(inputs());
-  if(wSrc !== 'manual' && !activeCC){
-    if(!(await v2ConfirmAction('尚未套用 C&C 風壓計算結果（請展開「C&C 設計風壓計算」並按「✔ 套用」）。\n\n仍要繼續匯出（風力附件將不產生）？', {
-      title: 'C&C 風壓尚未套用',
-      proceedLabel: '仍要匯出',
-      cancelLabel: '返回修正',
-    })))
-      return;
-  }
+  const script = document.createElement('script');
+  script.src = 'vendor/package/dist/index.iife.js';
+  script.async = true;
+  _v2DocxRuntimePromise = new Promise((resolve, reject) => {
+    script.onload = () => {
+      const runtime = window.docx;
+      if(!runtime?.Document || !runtime?.Packer){
+        reject(new Error('DOCX runtime 載入失敗：套件未提供 Word 輸出功能'));
+        return;
+      }
+      resolve(runtime);
+    };
+    script.onerror = () => reject(new Error('DOCX runtime 載入失敗：無法下載 Word 輸出元件'));
+    document.head.appendChild(script);
+  }).catch(err => {
+    _v2DocxRuntimePromise = null;
+    script.remove();
+    throw err;
+  });
+  return _v2DocxRuntimePromise;
+}
+
+async function exportForWord(){
+  if(_v2WordExportInProgress) return;
+  _v2WordExportInProgress = true;
+  const exportButtons = Array.from(document.querySelectorAll('button[onclick*="exportForWord"]'));
+  const buttonDisabledStates = exportButtons.map(button => button.disabled);
+  exportButtons.forEach(button => { button.disabled = true; });
 
   try{
-    const payload = await buildProjectPayload();
-    const inp = payload.inp;
-    const results = payload.results;
-    if(window.docx?.Document && window.docx?.Packer){
-      try{
-        await exportDocxDirect(inp, results);
+    await save();
+    render();
+
+    const wSrc = chipVal('chips_w_src');
+    const activeCC = currentCCReportSnapshot(inputs());
+    if(wSrc !== 'manual' && !activeCC){
+      if(!(await v2ConfirmAction('尚未套用 C&C 風壓計算結果（請展開「C&C 設計風壓計算」並按「✔ 套用」）。\n\n仍要繼續匯出（風力附件將不產生）？', {
+        title: 'C&C 風壓尚未套用',
+        proceedLabel: '仍要匯出',
+        cancelLabel: '返回修正',
+      })))
         return;
-      }catch(docxErr){
-        console.warn('DOCX 匯出失敗，改用相容 HTML .doc 備援', docxErr);
-      }
     }
-    const pages = await buildWordPages(inp, results);
-    const title = exportBaseFilename('計算書');
-    const html  = buildWordHtml(joinWordPages(pages), title);
-    const blob  = new Blob(['\ufeff', html], {type:'application/msword'});
-    downloadBlob(blob, `${title}.doc`);
-  }catch(e){
-    console.error(e);
-    v2Notify('Word 直接匯出失敗：\n' + (e?.message || e), 'error', 'Word 匯出');
+
+    try{
+      const payload = await buildProjectPayload();
+      const inp = payload.inp;
+      const results = payload.results;
+      let runtime = null;
+      try{
+        runtime = await v2LoadDocxRuntime();
+      }catch(loadErr){
+        console.warn('DOCX runtime 載入失敗，改用相容 HTML .doc 備援', loadErr);
+      }
+      if(runtime?.Document && runtime?.Packer){
+        try{
+          await exportDocxDirect(inp, results);
+          return;
+        }catch(docxErr){
+          console.warn('DOCX 匯出失敗，改用相容 HTML .doc 備援', docxErr);
+        }
+      }
+      const pages = await buildWordPages(inp, results);
+      const title = exportBaseFilename('計算書');
+      const html  = buildWordHtml(joinWordPages(pages), title);
+      const blob  = new Blob(['\ufeff', html], {type:'application/msword'});
+      downloadBlob(blob, `${title}.doc`);
+    }catch(e){
+      console.error(e);
+      v2Notify('Word 直接匯出失敗：\n' + (e?.message || e), 'error', 'Word 匯出');
+    }
+  }finally{
+    _v2WordExportInProgress = false;
+    exportButtons.forEach((button, index) => { button.disabled = buttonDisabledStates[index]; });
   }
 }
 
