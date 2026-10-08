@@ -103,8 +103,43 @@ function exampleInput() {
   };
 }
 
-function loadReportRuntime(windowOverrides = {}) {
-  const context = { window: { ...windowOverrides }, console, Date, setTimeout, clearTimeout };
+function createBlobReportWindow(onReportHtml) {
+  const blobContents = new Map();
+  let blobSequence = 0;
+  return {
+    Blob: class MockBlob {
+      constructor(parts, options = {}) { this.parts = parts; this.type = options.type || ''; }
+    },
+    URL: {
+      createObjectURL(blob) {
+        const url = `blob:contract/${++blobSequence}`;
+        blobContents.set(url, blob.parts.map(String).join(''));
+        return url;
+      },
+      revokeObjectURL(url) { blobContents.delete(url); },
+    },
+    setInterval() { return 1; },
+    clearInterval() {},
+    open(url) {
+      assert.equal(url, 'about:blank', 'SRC report opens a blank popup before Blob navigation');
+      const listeners = new Map();
+      const location = {
+        href: 'about:blank',
+        replace(nextUrl) {
+          this.href = nextUrl;
+          const nextHtml = blobContents.get(nextUrl);
+          assert.equal(typeof nextHtml, 'string', 'SRC report navigates to a live Blob URL');
+          onReportHtml(nextHtml);
+          listeners.get('load')?.();
+        },
+      };
+      return { closed: false, location, addEventListener(type, listener) { listeners.set(type, listener); }, focus() {} };
+    },
+  };
+}
+
+function loadReportRuntime(onReportHtml = () => {}) {
+  const context = { window: createBlobReportWindow(onReportHtml), console, Date, setTimeout, clearTimeout };
   vm.createContext(context);
   loadReportUtilities(context);
   vm.runInContext(fs.readFileSync(reportRuntimePath, 'utf8'), context, { filename: reportRuntimePath });
@@ -452,14 +487,7 @@ assert.notEqual(changedTrace.calculationFingerprint, payload.calculationFingerpr
 assert.throws(() => reportUi.assertCalculationCaseReplay(payload, changedTrace.calculationFingerprint), /重現失敗/);
 
 let renderedHtml = '';
-const renderContext = loadReportRuntime({
-  open() {
-    return {
-      document: { open() {}, write(nextHtml) { renderedHtml += String(nextHtml || ''); }, close() {} },
-      focus() {},
-    };
-  },
-});
+const renderContext = loadReportRuntime(nextHtml => { renderedHtml += nextHtml; });
 renderContext.openReport(config);
 const renderedText = visibleText(renderedHtml);
 for (const needle of [
@@ -478,14 +506,7 @@ assert.match(renderedHtml, /data-formal-approval-allowed="true"/);
 assert.match(renderedHtml, /rep-block rep-block--keep rep-block--new-page/, 'selected report groups start on a clean printed page');
 
 let renderedDualHtml = '';
-const renderDualContext = loadReportRuntime({
-  open() {
-    return {
-      document: { open() {}, write(nextHtml) { renderedDualHtml += String(nextHtml || ''); }, close() {} },
-      focus() {},
-    };
-  },
-});
+const renderDualContext = loadReportRuntime(nextHtml => { renderedDualHtml += nextHtml; });
 renderDualContext.openReport(Page.buildDualAxisReportConfig({
   x: { ...dualReplay.snapshots.x },
   y: { ...dualReplay.snapshots.y },

@@ -117,18 +117,40 @@ function renderSharedReportHtml(source, filename, project = {}) {
 
 function renderSharedReportPayload(source, filename, payload) {
   let html = '';
-  const context = {
-    window: {
-      open() {
-        return {
-          document: {
-            open() {},
-            write(nextHtml) { html += String(nextHtml || ''); },
-            close() {},
-          },
-        };
-      },
+  const blobContents = new Map();
+  let blobSequence = 0;
+  const reportWindow = {
+    Blob: class MockBlob {
+      constructor(parts, options = {}) { this.parts = parts; this.type = options.type || ''; }
     },
+    URL: {
+      createObjectURL(blob) {
+        const url = `blob:contract/${++blobSequence}`;
+        blobContents.set(url, blob.parts.map(String).join(''));
+        return url;
+      },
+      revokeObjectURL(url) { blobContents.delete(url); },
+    },
+    setInterval() { return 1; },
+    clearInterval() {},
+    open(url) {
+      assert(url === 'about:blank', `${filename} opens a blank popup before Blob navigation`, url);
+      const listeners = new Map();
+      const location = {
+        href: 'about:blank',
+        replace(nextUrl) {
+          this.href = nextUrl;
+          const nextHtml = blobContents.get(nextUrl);
+          assert(typeof nextHtml === 'string', `${filename} navigates to a live report Blob URL`, nextUrl);
+          html = nextHtml;
+          listeners.get('load')?.();
+        },
+      };
+      return { closed: false, location, addEventListener(type, listener) { listeners.set(type, listener); }, focus() {} };
+    },
+  };
+  const context = {
+    window: reportWindow,
     console,
     Date,
   };
@@ -854,7 +876,7 @@ assert(readySharedReportHtml.includes('核可紀錄已異動，正式核可已�
 assert(readySharedReportHtml.includes('下載目前版本 HTML'), 'shared renderer exposes current-state HTML download', 'download current HTML');
 assert(readySharedReportHtml.includes('window.serializeReportDocumentHtml = serializeCurrentReportHtml'), 'shared renderer serializes the current approval state before download', 'HTML serializer');
 assert(readySharedReportHtml.includes("var status = document.querySelector('.rep-document-status-line')"), 'shared renderer reuses the statically saved document-state line', 'static document state');
-assert(readySharedReportHtml.includes("root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control, script[data-report-docx-runtime]')"), 'shared renderer removes interactive controls without removing the static state line', 'static attachment evidence');
+assert(readySharedReportHtml.includes("root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control, script[data-report-docx-runtime], script[data-report-mathjax-runtime]')"), 'shared renderer removes interactive controls and runtime scripts without removing the static state line', 'static attachment evidence');
 assert(readySharedReportHtml.includes("document.title = buildArtifactBaseName(checkbox.checked ? '正式附件' : '內部審閱')"), 'shared renderer keeps PDF default title aligned with document state and fingerprint', 'traceable document title');
 const readyRcReportHtml = renderSharedReportHtml(
   rcReportSource,

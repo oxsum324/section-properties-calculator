@@ -55,9 +55,44 @@ function officialBeamExample() {
   };
 }
 
-function loadReportRuntime(windowOverrides = {}) {
+function createBlobReportWindow(onReportHtml) {
+  const blobContents = new Map();
+  let blobSequence = 0;
+  return {
+    Blob: class MockBlob {
+      constructor(parts, options = {}) { this.parts = parts; this.type = options.type || ''; }
+    },
+    URL: {
+      createObjectURL(blob) {
+        const url = `blob:contract/${++blobSequence}`;
+        blobContents.set(url, blob.parts.map(String).join(''));
+        return url;
+      },
+      revokeObjectURL(url) { blobContents.delete(url); },
+    },
+    setInterval() { return 1; },
+    clearInterval() {},
+    open(url) {
+      assert.equal(url, 'about:blank', 'SRC report opens a blank popup before Blob navigation');
+      const listeners = new Map();
+      const location = {
+        href: 'about:blank',
+        replace(nextUrl) {
+          this.href = nextUrl;
+          const nextHtml = blobContents.get(nextUrl);
+          assert.equal(typeof nextHtml, 'string', 'SRC report navigates to a live Blob URL');
+          onReportHtml(nextHtml);
+          listeners.get('load')?.();
+        },
+      };
+      return { closed: false, location, addEventListener(type, listener) { listeners.set(type, listener); }, focus() {} };
+    },
+  };
+}
+
+function loadReportRuntime(onReportHtml = () => {}) {
   const context = {
-    window: { ...windowOverrides },
+    window: createBlobReportWindow(onReportHtml),
     console,
     Date,
     setTimeout,
@@ -174,18 +209,7 @@ assert.throws(
 );
 
 let renderedHtml = '';
-const renderContext = loadReportRuntime({
-  open() {
-    return {
-      document: {
-        open() {},
-        write(nextHtml) { renderedHtml += String(nextHtml || ''); },
-        close() {},
-      },
-      focus() {},
-    };
-  },
-});
+const renderContext = loadReportRuntime(nextHtml => { renderedHtml += nextHtml; });
 renderContext.openReport(config);
 const renderedText = visibleText(renderedHtml);
 for (const needle of [

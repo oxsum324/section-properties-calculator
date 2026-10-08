@@ -373,6 +373,7 @@ function buildAttachmentApprovalReport(options = {}) {
       <script data-attachment-approval-script>
       (function () {
         var reportUtils = (${globalThis.StructReportUtilsFactory.toString()})(window);
+        window.StructReportUtils = reportUtils;
         var reportDocx = ${globalThis.ReportDocxFactory ? "(" + globalThis.ReportDocxFactory.toString() + ")()" : "null"};
         var reportDocxLibraryURL = ${JSON.stringify(globalThis.ReportDocxLibraryURL || "").replace(/</g, "\\u003c")};
         var CONTENT_SEAL_START = '<!--formal-content-seal:start-->';
@@ -598,7 +599,7 @@ function buildAttachmentApprovalReport(options = {}) {
             if (!root) return '';
             var savedSource = root.querySelector('.rep-attachment-approval-source');
             if (savedSource) savedSource.removeAttribute('data-initialized');
-            root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control, script[data-report-docx-runtime]').forEach(function (node) {
+            root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control, script[data-report-docx-runtime], script[data-report-mathjax-runtime]').forEach(function (node) {
               node.remove();
             });
             root.querySelectorAll('.rep-window-status').forEach(function (node) {
@@ -1138,20 +1139,6 @@ function buildReportDocumentHtml(cfg, presentation) {
     }
   }
   const presentationCss = customPresentation ? (presentation.css || '') : '';
-  const mathJaxHead = customPresentation && presentation.mathJax === true ? `<script>
-window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] }, svg: { fontCache: "global" } };
-</script>
-<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
-` : '';
-  const mathJaxScript = customPresentation && presentation.mathJax === true ? `
-window.addEventListener('load', function () {
-  if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-    window.MathJax.typesetPromise().then(function () {
-      document.documentElement.classList.add('mathjax-ready');
-    }).catch(function () { document.documentElement.classList.add('mathjax-fallback'); });
-  } else { document.documentElement.classList.add('mathjax-fallback'); }
-});
-` : '';
   const today = new Date();
   const todayStr = today.getFullYear() + '/' +
                    String(today.getMonth()+1).padStart(2,'0') + '/' +
@@ -1281,6 +1268,28 @@ window.addEventListener('load', function () {
     <h3>檢核結論</h3>
     <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
   </section>`;
+  const rawReportContentHtml = customPresentation ? presentation.bodyHtml : `  ${inputsHtml}
+  ${diagramsHtml}
+  ${checksHtml}
+  ${stepsHtml}
+  <div class="rep-ending">
+    ${finalStepHtml}
+    ${summaryHtml}
+  </div>`;
+  const hasTexFormula = globalThis.StructReportUtils.containsTexFormula(rawReportContentHtml);
+  const reportContentHtml = globalThis.StructReportUtils.prepareMathFallbackMarkup(rawReportContentHtml, globalThis.document);
+  const mathJaxFallbackCss = hasTexFormula ? `
+.mathjax-readable-fallback { display:none; }
+.mathjax-fallback .mathjax-source { display:none; }
+.mathjax-fallback .mathjax-readable-fallback { display:inline; }
+.mathjax-fallback .equation-math-wrap.mathjax-use-text-fallback .equation-math { display:none; }
+.mathjax-fallback .equation-list--fallback, .mathjax-fallback .mono--fallback { display:block; }
+` : '';
+  const mathJaxScript = hasTexFormula ? `
+window.addEventListener('load', function () {
+  window.StructReportUtils.loadMathJaxOrFallback(window, document, { timeoutMs: 12000 });
+}, { once: true });
+` : '';
   const documentStateHtml = approvalReport.html;
 
   const html = `<!doctype html>
@@ -1299,6 +1308,7 @@ body { font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif
 .rep-header h1 { margin:0 0 4px; font-size:22px; }
 .rep-header .sub { color:#555; font-size:13px; }
 ${FORMAL_DOCUMENT_STATE_REPORT_CSS}
+${mathJaxFallbackCss}
 .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px;
             font-size:12px; margin:14px 0 18px; }
 .rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
@@ -1369,7 +1379,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
 ${presentationCss}</style>
-${mathJaxHead}</head>
+</head>
 <body data-document-class="${esc(documentClass.key)}">
 <div class="rep-toolbar">
   <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
@@ -1396,14 +1406,7 @@ ${mathJaxHead}</head>
     <div><b>計算指紋</b>${esc(calculationFingerprint)}</div>
   </div>
 
-${customPresentation ? presentation.bodyHtml : `  ${inputsHtml}
-  ${diagramsHtml}
-  ${checksHtml}
-  ${stepsHtml}
-  <div class="rep-ending">
-    ${finalStepHtml}
-    ${summaryHtml}
-  </div>`}
+${reportContentHtml}
 
   <div class="rep-footer"><div class="rep-footer-separator" aria-hidden="true"></div><div class="rep-footer-copyright">版權所有 弘一工程顧問有限公司</div></div>
   </div>
@@ -1432,12 +1435,11 @@ ${mathJaxScript}</script>
 
 function openReport(cfg, presentation) {
   const html = buildReportDocumentHtml(cfg, presentation);
-  const w = window.open('', '_blank', 'width=900,height=1100,scrollbars=yes');
+  const w = globalThis.StructReportUtils.openReportDocument(html, window, 'width=900,height=1100,scrollbars=yes');
   if (!w) {
     showReportIssue('請允許彈出視窗以開啟計算書。');
     return;
   }
-  w.document.open(); w.document.write(html); w.document.close();
   return w;
 }
 

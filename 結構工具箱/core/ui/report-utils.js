@@ -53,6 +53,282 @@
     return String(value || '').replace(/\s+/g, ' ').trim();
   }
 
+  function containsTexFormula(value) {
+    const text = String(value == null ? '' : value)
+      .replace(new RegExp('<scr' + 'ipt\\b[^>]*>[\\s\\S]*?<\\/' + 'scr' + 'ipt>', 'gi'), '')
+      .replace(new RegExp('<sty' + 'le\\b[^>]*>[\\s\\S]*?<\\/' + 'sty' + 'le>', 'gi'), '');
+    return text.indexOf('\\(') >= 0 || text.indexOf('\\[') >= 0;
+  }
+
+  function readTexCommand(text, index) {
+    let end = index + 1;
+    if (/[A-Za-z]/.test(text[end] || '')) {
+      while (/[A-Za-z]/.test(text[end] || '')) end += 1;
+    } else if (end < text.length) end += 1;
+    return { name: text.slice(index + 1, end), next: end };
+  }
+
+  function readTexGroup(text, index) {
+    let cursor = index;
+    while (/\s/.test(text[cursor] || '')) cursor += 1;
+    if (text[cursor] !== '{') {
+      if (text[cursor] === '\\') {
+        const command = readTexCommand(text, cursor);
+        return { value: text.slice(cursor, command.next), next: command.next };
+      }
+      return { value: text[cursor] || '', next: Math.min(cursor + 1, text.length) };
+    }
+    const start = cursor + 1;
+    let depth = 1;
+    cursor = start;
+    while (cursor < text.length && depth > 0) {
+      if (text[cursor] === '\\') cursor += 1;
+      else if (text[cursor] === '{') depth += 1;
+      else if (text[cursor] === '}') depth -= 1;
+      cursor += 1;
+    }
+    return { value: text.slice(start, depth === 0 ? cursor - 1 : cursor), next: cursor };
+  }
+
+  function formatTexFallback(value) {
+    const source = String(value == null ? '' : value);
+    const symbols = {
+      alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', theta: 'θ', lambda: 'λ', mu: 'μ',
+      nu: 'ν', pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', phi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω',
+      Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+      times: '×', cdot: '·', pm: '±', mp: '∓', le: '≤', leq: '≤', ge: '≥', geq: '≥', neq: '≠', ne: '≠',
+      approx: '≈', equiv: '≡', infty: '∞', sum: 'Σ', prod: 'Π', int: '∫', to: '→', rightarrow: '→',
+      leftarrow: '←', degree: '°', percent: '%',
+    };
+
+    function convert(text) {
+      let output = '';
+      for (let index = 0; index < text.length;) {
+        const pair = text.slice(index, index + 2);
+        if (pair === '\\(' || pair === '\\)' || pair === '\\[' || pair === '\\]') { index += 2; continue; }
+        if (text[index] === '\\') {
+          const command = readTexCommand(text, index);
+          index = command.next;
+          const name = command.name;
+          if (name === 'frac') {
+            const numerator = readTexGroup(text, index); index = numerator.next;
+            const denominator = readTexGroup(text, index); index = denominator.next;
+            output += '(' + convert(numerator.value) + ') / (' + convert(denominator.value) + ')';
+          } else if (name === 'sqrt') {
+            const argument = readTexGroup(text, index); index = argument.next;
+            output += '√(' + convert(argument.value) + ')';
+          } else if (['text', 'mathrm', 'mathbf', 'mathit', 'operatorname'].includes(name)) {
+            const argument = readTexGroup(text, index); index = argument.next;
+            output += convert(argument.value);
+          } else if (['left', 'right', 'displaystyle', 'textstyle', 'limits'].includes(name)) {
+            continue;
+          } else if ([',', ';', ':', '!', 'quad', 'qquad', 'enspace', 'thinspace'].includes(name)) {
+            output += ' ';
+          } else if (name === '{' || name === '}' || name === '_' || name === '%') {
+            output += name;
+          } else if (name === '\\') {
+            output += ' ';
+          } else {
+            output += symbols[name] || name;
+          }
+          continue;
+        }
+        if (text[index] === '{' || text[index] === '}') { index += 1; continue; }
+        if (text[index] === '_' || text[index] === '^') {
+          const marker = text[index++];
+          const argument = readTexGroup(text, index);
+          index = argument.next;
+          output += marker + '(' + convert(argument.value) + ')';
+          continue;
+        }
+        output += text[index++];
+      }
+      return output;
+    }
+
+    return convert(source).replace(/\s+/g, ' ').trim();
+  }
+
+  function setMathJaxFallbackState(documentRef) {
+    const doc = documentRef || runtime.document;
+    const root = doc && doc.documentElement;
+    if (!root || !root.classList) return false;
+    markAlternativeEquationFallbacks(doc);
+    root.classList.remove('mathjax-ready');
+    root.classList.add('mathjax-fallback');
+    return true;
+  }
+
+  function setMathJaxReadyState(documentRef) {
+    const doc = documentRef || runtime.document;
+    const root = doc && doc.documentElement;
+    if (!root || !root.classList) return false;
+    root.classList.remove('mathjax-fallback');
+    root.classList.add('mathjax-ready');
+    return true;
+  }
+
+  function markAlternativeEquationFallbacks(documentRef) {
+    const doc = documentRef || runtime.document;
+    if (!doc || typeof doc.querySelectorAll !== 'function') return 0;
+    let count = 0;
+    doc.querySelectorAll('.equation-math-wrap').forEach(function (wrap) {
+      if (wrap.querySelector('.mono--fallback, .equation-list--fallback')) {
+        wrap.classList.add('mathjax-use-text-fallback');
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  function prepareMathFallbackMarkup(value, documentRef) {
+    const html = String(value == null ? '' : value);
+    const doc = documentRef || runtime.document;
+    if (!containsTexFormula(html) || !doc || typeof doc.createElement !== 'function' || typeof doc.createTreeWalker !== 'function') return html;
+    const template = doc.createElement('template');
+    template.innerHTML = html;
+    const root = template.content || template;
+    const showText = doc.defaultView?.NodeFilter?.SHOW_TEXT || 4;
+    const walker = doc.createTreeWalker(root, showText);
+    const nodes = [];
+    let node = walker.nextNode();
+    while (node) { nodes.push(node); node = walker.nextNode(); }
+    const expression = /\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g;
+    nodes.forEach(function (textNode) {
+      const parent = textNode.parentElement;
+      if (!parent || parent.closest('script, style, noscript, textarea, .mathjax-source, .mathjax-readable-fallback')) return;
+      const equation = parent.closest('.equation-math');
+      const wrap = equation && equation.closest('.equation-math-wrap');
+      if (wrap && wrap.querySelector('.mono--fallback, .equation-list--fallback')) {
+        wrap.classList.add('mathjax-use-text-fallback');
+        return;
+      }
+      const source = textNode.nodeValue || '';
+      if (!containsTexFormula(source)) return;
+      expression.lastIndex = 0;
+      let match, cursor = 0;
+      const fragment = doc.createDocumentFragment();
+      while ((match = expression.exec(source))) {
+        if (match.index > cursor) fragment.appendChild(doc.createTextNode(source.slice(cursor, match.index)));
+        const formulaSource = doc.createElement('span');
+        formulaSource.className = 'mathjax-source';
+        formulaSource.textContent = match[0];
+        const fallback = doc.createElement('span');
+        fallback.className = 'mathjax-readable-fallback';
+        fallback.textContent = formatTexFallback(match[0]);
+        fragment.appendChild(formulaSource);
+        fragment.appendChild(fallback);
+        cursor = match.index + match[0].length;
+      }
+      if (cursor === 0) return;
+      if (cursor < source.length) fragment.appendChild(doc.createTextNode(source.slice(cursor)));
+      textNode.parentNode.replaceChild(fragment, textNode);
+    });
+    markAlternativeEquationFallbacks(root);
+    return template.innerHTML;
+  }
+
+  function applyMathJaxFallback(documentRef) {
+    const doc = documentRef || runtime.document;
+    if (!doc) return 0;
+    setMathJaxFallbackState(doc);
+    return doc.querySelectorAll ? doc.querySelectorAll('.mathjax-readable-fallback, .mathjax-use-text-fallback').length : 0;
+  }
+
+  function openReportDocument(html, windowRef, features, onLoad) {
+    const win = windowRef || runtime;
+    if (!win || typeof win.open !== 'function' || typeof win.Blob !== 'function' || !win.URL
+      || typeof win.URL.createObjectURL !== 'function') return null;
+    const blob = new win.Blob([String(html == null ? '' : html)], { type: 'text/html;charset=utf-8' });
+    const reportUrl = win.URL.createObjectURL(blob);
+    let popup;
+    try {
+      popup = win.open('about:blank', '_blank', features || '');
+    } catch (error) {
+      win.URL.revokeObjectURL(reportUrl);
+      throw error;
+    }
+    if (!popup) {
+      win.URL.revokeObjectURL(reportUrl);
+      return null;
+    }
+
+    let released = false;
+    let reportLoaded = false;
+    let closePoll = null;
+    const releaseUrl = function () {
+      if (released) return;
+      released = true;
+      if (closePoll !== null && typeof win.clearInterval === 'function') win.clearInterval(closePoll);
+      win.URL.revokeObjectURL(reportUrl);
+    };
+    const handleLoad = function () {
+      let currentUrl = '';
+      try { currentUrl = popup.location.href; } catch (_) {}
+      if (reportLoaded || currentUrl !== reportUrl) return;
+      reportLoaded = true;
+      releaseUrl();
+      if (typeof onLoad === 'function') onLoad(popup);
+    };
+    if (typeof popup.addEventListener === 'function') popup.addEventListener('load', handleLoad);
+    if (typeof win.setInterval === 'function') {
+      closePoll = win.setInterval(function () {
+        if (popup.closed) releaseUrl();
+      }, 250);
+    }
+    try {
+      popup.location.replace(reportUrl);
+    } catch (error) {
+      releaseUrl();
+      try { popup.close(); } catch (_) {}
+      throw error;
+    }
+    return popup;
+  }
+
+  function loadMathJaxOrFallback(windowRef, documentRef, options) {
+    const win = windowRef || runtime;
+    const doc = documentRef || win?.document || runtime.document;
+    const timeoutMs = Number.isFinite(options?.timeoutMs) && options.timeoutMs > 0 ? options.timeoutMs : 12000;
+    if (!win || !doc || !doc.head || doc.documentElement?.classList?.contains('mathjax-fallback')
+      || !containsTexFormula(doc.body?.innerHTML || '')) return Promise.resolve(false);
+
+    const typeset = function () {
+      if (!win.MathJax || typeof win.MathJax.typesetPromise !== 'function') return Promise.reject(new Error('MathJax 未就緒'));
+      return Promise.resolve(win.MathJax.typesetPromise([doc.body]));
+    };
+    if (win.MathJax && typeof win.MathJax.typesetPromise === 'function') {
+      return typeset().then(function () { setMathJaxReadyState(doc); return true; }, function () { applyMathJaxFallback(doc); return false; });
+    }
+
+    win.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+      svg: { fontCache: 'global' },
+      startup: { typeset: false },
+    };
+    setMathJaxFallbackState(doc);
+    const script = doc.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+    script.async = true;
+    script.setAttribute('data-report-mathjax-runtime', 'true');
+    return new Promise(function (resolve) {
+      let settled = false;
+      let timeoutId;
+      const finish = function (ready) {
+        if (settled) return;
+        settled = true;
+        win.clearTimeout(timeoutId);
+        if (!ready && script.parentNode) script.parentNode.removeChild(script);
+        if (ready) { setMathJaxReadyState(doc); resolve(true); }
+        else { applyMathJaxFallback(doc); resolve(false); }
+      };
+      timeoutId = win.setTimeout(function () { finish(false); }, timeoutMs);
+      script.onload = function () { typeset().then(function () { finish(true); }, function () { finish(false); }); };
+      script.onerror = function () { finish(false); };
+      doc.head.appendChild(script);
+    });
+  }
+
   function artifactBaseName(reportTitle, documentLabel, fingerprint) {
     return [reportTitle, documentLabel, fingerprint].filter(Boolean).join('_')
       .replace(/[<>:"/|?*]/g, '-').split(String.fromCharCode(92)).join('-').trim();
@@ -114,5 +390,6 @@
   }
 
   return Object.freeze({ escapeHtml, formatTimestamp, normalizeFingerprintValue, fingerprintHash,
-    cleanText, artifactBaseName, sha256Text, downloadBlob });
+    cleanText, artifactBaseName, sha256Text, downloadBlob, containsTexFormula, formatTexFallback, prepareMathFallbackMarkup,
+    setMathJaxFallbackState, setMathJaxReadyState, applyMathJaxFallback, openReportDocument, loadMathJaxOrFallback });
 });

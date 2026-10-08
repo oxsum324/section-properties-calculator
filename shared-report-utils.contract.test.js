@@ -13,6 +13,12 @@ const legacyEscape = {
   all: value => (value == null ? '' : String(value)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'),
 };
 const utils = createReportUtils({ TextEncoder });
+assert.equal(utils.containsTexFormula('plain text'), false);
+assert.equal(utils.containsTexFormula('<script>var sample = "\\\\(";</script>plain text'), false);
+assert.equal(utils.containsTexFormula('<p>\\(V_u\\)</p>'), true);
+assert.equal(utils.containsTexFormula('<style>.x::after{content:"\\\\["}</style><p>plain</p>'), false);
+assert.equal(utils.formatTexFallback('\\(V_u = \\frac{V_u}{\\phi V_n}\\)'), 'V_(u) = (V_(u)) / (φ V_(n))');
+assert.equal(utils.formatTexFallback('\\[A_{s} \\geq 0.01\\%\\]'), 'A_(s) ≥ 0.01%');
 for (const value of [null, undefined, 0, false, NaN, '&<>"\' 中文 😀', { value: 1 }]) {
   for (const mode of Object.keys(legacyEscape)) assert.equal(utils.escapeHtml(value, mode), legacyEscape[mode](value));
 }
@@ -72,12 +78,63 @@ assert.deepEqual(effects, [['create-url'], ['create-element', 'a'], ['append'],
 revokeCallback();
 assert.deepEqual(effects.at(-1), ['revoke', 'blob:test']);
 
+const openingEffects = [];
+let openedUrl = '';
+let popupLoadHandler;
+let closePoll;
+let loadedCallback = false;
+const popupWindow = {
+  closed: false,
+  location: { replace(value) { openedUrl = value; this.href = value; openingEffects.push(['navigate', value]); } },
+  addEventListener(type, callback) { assert.equal(type, 'load'); popupLoadHandler = callback; openingEffects.push(['listen-load']); },
+  close() { this.closed = true; },
+};
+const reportWindow = {
+  Blob,
+  URL: {
+    createObjectURL(blob) { assert.equal(blob.type, 'text/html;charset=utf-8'); openingEffects.push(['create-url', blob.size]); return 'blob:report'; },
+    revokeObjectURL(value) { openingEffects.push(['revoke', value]); },
+  },
+  open(url, target, features) { openingEffects.push(['open', url, target, features]); return popupWindow; },
+  setInterval(callback, delay) { closePoll = callback; openingEffects.push(['poll', delay]); return 7; },
+  clearInterval(id) { openingEffects.push(['clear-poll', id]); },
+};
+const opening = createReportUtils(reportWindow);
+assert.equal(opening.openReportDocument('<html>報告</html>', reportWindow, 'width=900', () => { loadedCallback = true; }), popupWindow);
+assert.deepEqual(openingEffects.slice(0, 4), [
+  ['create-url', Buffer.byteLength('<html>報告</html>')],
+  ['open', 'about:blank', '_blank', 'width=900'],
+  ['listen-load'],
+  ['poll', 250],
+]);
+assert.deepEqual(openingEffects[4], ['navigate', 'blob:report']);
+assert.equal(loadedCallback, false, 'HTML URL must remain alive until popup load');
+popupLoadHandler();
+assert.deepEqual(openingEffects.slice(-2), [['clear-poll', 7], ['revoke', 'blob:report']]);
+assert.equal(loadedCallback, true);
+
+const blockedEffects = [];
+const blockedWindow = {
+  Blob,
+  URL: {
+    createObjectURL() { blockedEffects.push('create'); return 'blob:blocked'; },
+    revokeObjectURL(value) { blockedEffects.push(`revoke:${value}`); },
+  },
+  open() { blockedEffects.push('open'); return null; },
+};
+assert.equal(createReportUtils(blockedWindow).openReportDocument('<html></html>', blockedWindow), null);
+assert.deepEqual(blockedEffects, ['create', 'open', 'revoke:blob:blocked'], 'blocked popup releases its Blob URL');
+
 async function verifyAsyncAndPortable() {
   for (const runtime of [{}, { TextEncoder }, { TextEncoder, crypto: crypto.webcrypto }]) {
     const shared = createReportUtils(runtime);
     const rc = createRcReportUtils(shared, runtime);
     assert.equal(rc.downloadBlob, shared.downloadBlob);
     assert.equal(rc.normalizeFingerprintValue, shared.normalizeFingerprintValue);
+    assert.equal(rc.containsTexFormula, shared.containsTexFormula);
+    assert.equal(rc.formatTexFallback, shared.formatTexFallback);
+    assert.equal(rc.openReportDocument, shared.openReportDocument);
+    assert.equal(rc.loadMathJaxOrFallback, shared.loadMathJaxOrFallback);
     assert.equal(rc.escapeText('&"\''), '&amp;"\'');
     assert.equal(rc.escapeAttribute('&"\''), '&amp;&quot;\'');
     for (const value of shaSamples) {

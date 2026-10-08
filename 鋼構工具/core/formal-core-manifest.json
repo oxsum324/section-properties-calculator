@@ -1,5 +1,5 @@
 ﻿{
-    "generatedAt":  "2026-10-04T08:39:57Z",
+    "generatedAt":  "2026-10-08T13:45:38Z",
     "mode":  "sync",
     "toolRoot":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具",
     "targetRoot":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core",
@@ -19,20 +19,20 @@
                       "label":  "report core",
                       "source":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\結構工具箱\\core\\ui\\report.js",
                       "target":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core\\ui\\report.js",
-                      "sourceHash":  "8D9BE799BE780850C1C152AE5E4749CFD278C5E5FF4558C07F681409C0102E8F",
-                      "targetHash":  "8D9BE799BE780850C1C152AE5E4749CFD278C5E5FF4558C07F681409C0102E8F",
-                      "sourceLastWriteUtc":  "2026-10-04T08:39:10Z",
-                      "targetLastWriteUtc":  "2026-10-04T08:39:10Z",
+                      "sourceHash":  "74574DB9FECE179951F67A34123373FECCC388E8506BE298F061B54191B63DBE",
+                      "targetHash":  "74574DB9FECE179951F67A34123373FECCC388E8506BE298F061B54191B63DBE",
+                      "sourceLastWriteUtc":  "2026-10-08T13:44:22Z",
+                      "targetLastWriteUtc":  "2026-10-08T13:44:22Z",
                       "inSync":  true
                   },
                   {
                       "label":  "report utilities",
                       "source":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\結構工具箱\\core\\ui\\report-utils.js",
                       "target":  "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core\\ui\\report-utils.js",
-                      "sourceHash":  "8EBAB43226A9775C945F3C7B4508B54796C01E68015DC783728808D6825E9B31",
-                      "targetHash":  "8EBAB43226A9775C945F3C7B4508B54796C01E68015DC783728808D6825E9B31",
-                      "sourceLastWriteUtc":  "2026-10-04T02:41:58Z",
-                      "targetLastWriteUtc":  "2026-10-04T02:41:58Z",
+                      "sourceHash":  "A902FAD529916664E4F08C0808939F60CCC6339CF7A0D69BAA76E3CE8C0654D4",
+                      "targetHash":  "A902FAD529916664E4F08C0808939F60CCC6339CF7A0D69BAA76E3CE8C0654D4",
+                      "sourceLastWriteUtc":  "2026-10-08T13:44:18Z",
+                      "targetLastWriteUtc":  "2026-10-08T13:44:18Z",
                       "inSync":  true
                   },
                   {
@@ -47,6 +47,7 @@
                   }
               ],
     "syncedLabels":  [
-                         "report core"
+                         "report core",
+                         "report utilities"
                      ]
 }

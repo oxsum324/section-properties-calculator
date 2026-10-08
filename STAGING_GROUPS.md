@@ -508,3 +508,12 @@ T19 清除基線中 26 條缺少 main landmark 的正式頁與空表頭違規，
 ```powershell
 git add -- "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "tool-page-a11y.browser.test.js" "test-tool-page-a11y.ps1" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/assets/home/home.js" "石材固定/vendor/loads/project-location.js" "RC補強斷面性質.html" "石材固定/石材計算書產生器_規範版V2.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/foundation/foundation-local.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "覆工板/index.html" "鋼架/平面剛架分析.html" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html"
 ```
+
+
+## 2026-10-08：第五階段 T20（計算書 popup MathJax 與離線 fallback）
+
+T20 將計算書 popup 改為共用 Blob HTML 導覽，修正 Edge 空白 popup `document.write` 不發出外部腳本請求；只在正文含公式時才啟動 MathJax，逾時／載入失敗顯示共用可讀 fallback，RC 仍由獨立報表 factory 呼叫共用 utility adapter。下載 HTML 由產品按鈕實際落盤後以 `file://` 離線重開，核對 fallback、文件類別與內容／核可封印。`report-mathjax-popup.browser.test.js` 使用明示 loader stub（不代表真實公式排版），另外保留真實 route.abort 與 production 12 秒無回應案例的所有 console/page errors；Edge 原生 `ERR_INTERNET_DISCONNECTED` 與「零 console error」指標衝突時，測試及回報必須標示未通過並列原始錯誤。
+
+```powershell
+git add -- "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "shared-report-utils.contract.test.js" "report-mathjax-popup.browser.test.js" "section-tools.contract.test.js" "continuous-beam-regression.test.js" "結構工具箱/tools/formal-tools.contract.test.js" "鋼構工具/steel-formal.regression-test.js" "SRC工具/src-beam.contract.test.js" "SRC工具/src-column-page.contract.test.js" "結構工具箱/assets/home/home.js" "結構工具箱/core/ui/report-utils.js" "結構工具箱/core/ui/report.js" "鋼構工具/app.js" "鋼構工具/core/ui/report-utils.js" "鋼構工具/core/ui/report.js" "鋼構工具/core/formal-core-manifest.json" "鋼筋混凝土/shared/report.js"
+```

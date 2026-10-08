@@ -26,19 +26,40 @@ function loadWindowScript(source, filename) {
 
 function renderReportHtml(source, filename, project = {}) {
   let html = "";
-  const context = {
-    window: {
-      open() {
-        return {
-          document: {
-            open() {},
-            write(nextHtml) { html += String(nextHtml || ""); },
-            close() {},
-          },
-          focus() {},
-        };
-      },
+  const blobContents = new Map();
+  let blobSequence = 0;
+  const reportWindow = {
+    Blob: class MockBlob {
+      constructor(parts, options = {}) { this.parts = parts; this.type = options.type || ""; }
     },
+    URL: {
+      createObjectURL(blob) {
+        const url = `blob:contract/${++blobSequence}`;
+        blobContents.set(url, blob.parts.map(String).join(""));
+        return url;
+      },
+      revokeObjectURL(url) { blobContents.delete(url); },
+    },
+    setInterval() { return 1; },
+    clearInterval() {},
+    open(url) {
+      assert.equal(url, "about:blank", `${filename} opens a blank popup before Blob navigation`);
+      const listeners = new Map();
+      const location = {
+        href: "about:blank",
+        replace(nextUrl) {
+          this.href = nextUrl;
+          const nextHtml = blobContents.get(nextUrl);
+          assert.equal(typeof nextHtml, "string", `${filename} navigates to a live report Blob URL`);
+          html = nextHtml;
+          listeners.get("load")?.();
+        },
+      };
+      return { closed: false, location, addEventListener(type, listener) { listeners.set(type, listener); }, focus() {} };
+    },
+  };
+  const context = {
+    window: reportWindow,
     console,
     Date,
   };
@@ -423,8 +444,8 @@ assert.match(sharedReportHtml, /window\.serializeReportDocumentHtml\s*=\s*serial
 assert.match(localReportHtml, /window\.serializeReportDocumentHtml\s*=\s*serializeCurrentReportHtml/, "steel local report generator should serialize the current approval state for download");
 assert.match(sharedReportHtml, /var status\s*=\s*document\.querySelector\('\.rep-document-status-line'\)/, "shared report generator should reuse the statically saved document-state line");
 assert.match(localReportHtml, /var status\s*=\s*document\.querySelector\('\.rep-document-status-line'\)/, "steel local report generator should reuse the statically saved document-state line");
-assert.match(sharedReportHtml, /root\.querySelectorAll\('\.rep-approval-control, \.rep-approval-meta-control, \.rep-download-control(?:, script\[data-report-docx-runtime\])?'\)/, "shared report generator should preserve static state while removing interactive controls");
-assert.match(localReportHtml, /root\.querySelectorAll\('\.rep-approval-control, \.rep-approval-meta-control, \.rep-download-control(?:, script\[data-report-docx-runtime\])?'\)/, "steel local report generator should preserve static state while removing interactive controls");
+assert.match(sharedReportHtml, /root\.querySelectorAll\('\.rep-approval-control, \.rep-approval-meta-control, \.rep-download-control(?:, script\[data-report-docx-runtime\])?(?:, script\[data-report-mathjax-runtime\])?'\)/, "shared report generator should preserve static state while removing interactive controls and runtime scripts");
+assert.match(localReportHtml, /root\.querySelectorAll\('\.rep-approval-control, \.rep-approval-meta-control, \.rep-download-control(?:, script\[data-report-docx-runtime\])?(?:, script\[data-report-mathjax-runtime\])?'\)/, "steel local report generator should preserve static state while removing interactive controls and runtime scripts");
 assert.match(sharedReportHtml, /document\.title\s*=\s*buildArtifactBaseName\(checkbox\.checked\s*\?\s*'正式附件'\s*:\s*'內部審閱'\)/, "shared report generator should align the PDF default title with document state and fingerprint");
 assert.match(localReportHtml, /document\.title\s*=\s*buildArtifactBaseName\(checkbox\.checked\s*\?\s*'正式附件'\s*:\s*'內部審閱'\)/, "steel local report generator should align the PDF default title with document state and fingerprint");
 assert.match(sharedReportHtml, /文件狀態：內部審閱/, "shared report generator should default every newly generated report to internal review");
@@ -1407,8 +1428,8 @@ assert.doesNotMatch(
 );
 assert.match(
   sharedReportSource,
-  /CALCULATION_BOOK_PAGE_ONLY_LABELS[\s\S]*getCalculationBookInputGroups[\s\S]*showReportIssue[\s\S]*const summaryHtml[\s\S]*檢核結論[\s\S]*repWindowStatus[\s\S]*\$\{inputsHtml\}[\s\S]*\$\{checksHtml\}[\s\S]*\$\{stepsHtml\}[\s\S]*\$\{summaryHtml\}/s,
-  "shared report generator should filter page-only fields and render calculation content before the conclusion",
+  /CALCULATION_BOOK_PAGE_ONLY_LABELS[\s\S]*getCalculationBookInputGroups[\s\S]*showReportIssue[\s\S]*const summaryHtml[\s\S]*檢核結論[\s\S]*const rawReportContentHtml = customPresentation \? presentation\.bodyHtml : `[\s\S]*\$\{inputsHtml\}[\s\S]*\$\{checksHtml\}[\s\S]*\$\{stepsHtml\}[\s\S]*\$\{summaryHtml\}[\s\S]*const reportContentHtml = globalThis\.StructReportUtils\.prepareMathFallbackMarkup[\s\S]*repWindowStatus[\s\S]*\$\{reportContentHtml\}/s,
+  "shared report generator should filter page-only fields, preserve report section order, and insert the prepared content after the popup status",
 );
 assert.doesNotMatch(
   sharedReportSource,

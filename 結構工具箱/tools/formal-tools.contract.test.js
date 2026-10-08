@@ -61,19 +61,40 @@ function loadWindowScript(filePath) {
 
 function renderReportHtml(filePath, project = {}, overrides = {}) {
   let html = '';
-  const context = {
-    window: {
-      open() {
-        return {
-          document: {
-            open() {},
-            write(nextHtml) { html += String(nextHtml || ''); },
-            close() {}
-          },
-          focus() {}
-        };
-      }
+  const blobContents = new Map();
+  let blobSequence = 0;
+  const reportWindow = {
+    Blob: class MockBlob {
+      constructor(parts, options = {}) { this.parts = parts; this.type = options.type || ''; }
     },
+    URL: {
+      createObjectURL(blob) {
+        const url = `blob:contract/${++blobSequence}`;
+        blobContents.set(url, blob.parts.map(String).join(''));
+        return url;
+      },
+      revokeObjectURL(url) { blobContents.delete(url); },
+    },
+    setInterval() { return 1; },
+    clearInterval() {},
+    open(url) {
+      assert.equal(url, 'about:blank', `${filePath} opens a blank popup before Blob navigation`);
+      const listeners = new Map();
+      const location = {
+        href: 'about:blank',
+        replace(nextUrl) {
+          this.href = nextUrl;
+          const nextHtml = blobContents.get(nextUrl);
+          assert.equal(typeof nextHtml, 'string', `${filePath} navigates to a live report Blob URL`);
+          html = nextHtml;
+          listeners.get('load')?.();
+        },
+      };
+      return { closed: false, location, addEventListener(type, listener) { listeners.set(type, listener); }, focus() {} };
+    },
+  };
+  const context = {
+    window: reportWindow,
     console,
     Date,
   };

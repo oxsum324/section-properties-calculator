@@ -267,6 +267,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
     <script data-attachment-approval-script>
     (function () {
       var reportUtils = (${globalThis.RCReportUtilsFactory.toString()})((${globalThis.StructReportUtilsFactory.toString()})(window), window);
+      window.RCReportUtils = reportUtils;
       var reportDocx = ${globalThis.ReportDocxFactory ? "(" + globalThis.ReportDocxFactory.toString() + ")()" : "null"};
       var reportDocxLibraryURL = ${JSON.stringify(globalThis.ReportDocxLibraryURL || "").replace(/</g, "\\u003c")};
       var CONTENT_SEAL_START = '<!--rc-content-seal:start-->';
@@ -466,7 +467,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
         async function serializeCurrentReportHtml() {
           var root = document.documentElement ? document.documentElement.cloneNode(true) : null;
           if (!root) return '';
-          root.querySelectorAll('script[data-report-docx-runtime="true"]').forEach(function (node) { node.remove(); });
+          root.querySelectorAll('script[data-report-docx-runtime="true"], script[data-report-mathjax-runtime="true"]').forEach(function (node) { node.remove(); });
           var savedSource = root.querySelector('.rep-attachment-approval-source');
           if (savedSource) savedSource.removeAttribute('data-initialized');
           root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control').forEach(function (node) {
@@ -887,6 +888,25 @@ function openReport(cfg) {
   if (approved && initialApprovalBasis) initialDocumentStatusParts.push(`核可依據：${initialApprovalBasis}`);
   initialDocumentStatusParts.push(`計算指紋：${calculationFingerprint}`);
   const initialDocumentStatusHtml = `<span class="rep-document-status-line" data-document-class="${esc(documentClass.key)}" data-approved="${approved ? 'true' : 'false'}" data-approved-at="${esc(initialApprovedAt)}" data-approved-by="${esc(approved ? initialApprovedBy : '')}" data-approval-basis="${esc(approved ? initialApprovalBasis : '')}">${esc(initialDocumentStatusParts.filter(Boolean).join('｜'))}</span>`;
+  const rawReportContentHtml = `${inputsHtml}
+  ${diagramsHtml}
+  ${checksHtml}
+  ${stepsHtml}
+  ${summaryHtml}`;
+  const hasTexFormula = globalThis.RCReportUtils.containsTexFormula(rawReportContentHtml);
+  const reportContentHtml = globalThis.RCReportUtils.prepareMathFallbackMarkup(rawReportContentHtml, globalThis.document);
+  const mathJaxFallbackCss = hasTexFormula ? `
+.mathjax-readable-fallback { display:none; }
+.mathjax-fallback .mathjax-source { display:none; }
+.mathjax-fallback .mathjax-readable-fallback { display:inline; }
+.mathjax-fallback .equation-math-wrap.mathjax-use-text-fallback .equation-math { display:none; }
+.mathjax-fallback .equation-list--fallback, .mathjax-fallback .mono--fallback { display:block; }
+` : '';
+  const mathJaxScript = hasTexFormula ? `
+window.addEventListener('load', function () {
+  window.RCReportUtils.loadMathJaxOrFallback(window, document, { timeoutMs: 12000 });
+}, { once: true });
+` : '';
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -904,6 +924,7 @@ body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-
 .rep-header h1 { margin:0 0 4px; font-size:22px; }
 .rep-header .sub { color:#555; font-size:13px; }
 ${RC_ATTACHMENT_APPROVAL_REPORT_CSS}
+${mathJaxFallbackCss}
 .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px;
             font-size:12px; margin:14px 0 18px; }
 .rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
@@ -997,11 +1018,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <div><b>計算指紋</b>${esc(calculationFingerprint)}</div>
   </div>
 
-  ${inputsHtml}
-  ${diagramsHtml}
-  ${checksHtml}
-  ${stepsHtml}
-  ${summaryHtml}
+  ${reportContentHtml}
 
   <div class="rep-footer"><div class="rep-footer-separator" aria-hidden="true"></div><div class="rep-footer-copyright">版權所有 弘一工程顧問有限公司</div></div>
 </div>
@@ -1021,23 +1038,22 @@ function closeReportWindow() {
     }
   }, 150);
 }
+${mathJaxScript}
 </script>
 </body>
 </html>`;
 
-  const w = window.open('', '_blank', 'width=900,height=1100,scrollbars=yes');
-  if (!w) {
-    showRcReportIssue('請允許彈出視窗以開啟計算書。');
-    return;
-  }
-  w.document.open(); w.document.write(html); w.document.close();
-  if (cfg.autoPrint === true) {
+  const w = globalThis.RCReportUtils.openReportDocument(html, window, 'width=900,height=1100,scrollbars=yes', cfg.autoPrint === true ? function (loadedWindow) {
     try {
-      w.focus();
-      w.print();
+      loadedWindow.focus();
+      loadedWindow.print();
     } catch (error) {
       showRcReportIssue('無法直接開啟列印，請在計算書預覽視窗按「列印 / 存 PDF」。');
     }
+  } : null);
+  if (!w) {
+    showRcReportIssue('請允許彈出視窗以開啟計算書。');
+    return;
   }
   return w;
 }

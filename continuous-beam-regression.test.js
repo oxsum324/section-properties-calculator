@@ -382,18 +382,40 @@ for (const needle of pageOnlyNeedles) {
 
 function renderSharedReportPayload(payload) {
   let reportHtml = '';
-  const context = {
-    window: {
-      open() {
-        return {
-          document: {
-            open() {},
-            write(nextHtml) { reportHtml += String(nextHtml || ''); },
-            close() {},
-          },
-        };
-      },
+  const blobContents = new Map();
+  let blobSequence = 0;
+  const reportWindow = {
+    Blob: class MockBlob {
+      constructor(parts, options = {}) { this.parts = parts; this.type = options.type || ''; }
     },
+    URL: {
+      createObjectURL(blob) {
+        const url = `blob:contract/${++blobSequence}`;
+        blobContents.set(url, blob.parts.map(String).join(''));
+        return url;
+      },
+      revokeObjectURL(url) { blobContents.delete(url); },
+    },
+    setInterval() { return 1; },
+    clearInterval() {},
+    open(url) {
+      assert(url === 'about:blank', 'shared report opens a blank popup before Blob navigation', url);
+      const listeners = new Map();
+      const location = {
+        href: 'about:blank',
+        replace(nextUrl) {
+          this.href = nextUrl;
+          const nextHtml = blobContents.get(nextUrl);
+          assert(typeof nextHtml === 'string', 'shared report navigates to a live Blob URL', nextUrl);
+          reportHtml = nextHtml;
+          listeners.get('load')?.();
+        },
+      };
+      return { closed: false, location, addEventListener(type, listener) { listeners.set(type, listener); }, focus() {} };
+    },
+  };
+  const context = {
+    window: reportWindow,
     console,
     Date,
   };

@@ -2570,8 +2570,7 @@
   async function renderMathIfReady() {
     if (!showFlow.checked) return false;
 
-    document.documentElement.classList.remove("mathjax-ready");
-    document.documentElement.classList.add("mathjax-fallback");
+    window.StructReportUtils?.setMathJaxFallbackState(document);
     try {
       const runtime = window.MathJax?.typesetPromise
         ? window.MathJax
@@ -2580,12 +2579,10 @@
           : null;
       if (!runtime?.typesetPromise) return false;
       await runtime.typesetPromise([flowCards]);
-      document.documentElement.classList.remove("mathjax-fallback");
-      document.documentElement.classList.add("mathjax-ready");
+      window.StructReportUtils?.setMathJaxReadyState(document);
       return true;
     } catch {
-      document.documentElement.classList.remove("mathjax-ready");
-      document.documentElement.classList.add("mathjax-fallback");
+      window.StructReportUtils?.applyMathJaxFallback(document);
       return false;
     }
   }
@@ -3383,7 +3380,7 @@ th{background:#eef2f6}
 .check-coderef{margin-top:4px;font-size:11px;color:#64748b}
 .flow-decision{font-size:12px;color:#334155;font-weight:700;margin:0 0 8px}
 .mono{white-space:pre-wrap;font-family:"Cascadia Code","Consolas",monospace;background:#faf5ff;border:1px solid #e9d5ff;border-radius:4px;padding:10px;color:#3b0764;font-size:11px;line-height:1.6}
-.equation-math{background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:10px 12px;color:#3b0764;overflow:auto}.equation-math__line--following{margin-top:8px}.equation-list--fallback,.mono--fallback{display:none}.mathjax-fallback .equation-math{display:none}.mathjax-fallback .equation-list--fallback,.mathjax-fallback .mono--fallback{display:block}
+.equation-math{background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:10px 12px;color:#3b0764;overflow:auto}.equation-math__line--following{margin-top:8px}.equation-list--fallback,.mono--fallback{display:none}.mathjax-fallback .equation-math-wrap.mathjax-use-text-fallback .equation-math{display:none}.mathjax-fallback .equation-list--fallback,.mathjax-fallback .mono--fallback{display:block}
 .review-section{font-size:12px;line-height:1.5}.review-section--following{margin-top:8px}.review-section__title{margin-bottom:4px;font-size:12px;font-weight:700;color:#0e7490}
 .card-placeholder{padding:14px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b}
 .plate-sketch{width:100%;height:auto;min-height:220px}.sketch-plate,.sketch-member{fill:rgba(14,116,144,.08);stroke:#0e7490;stroke-width:2}.sketch-hole{fill:#fff;stroke:#1e293b;stroke-width:1.5}.sketch-net{fill:none;stroke:#c0392b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8 6}.sketch-block{fill:rgba(217,119,6,.12);stroke:#d97706;stroke-width:2.5}.sketch-arrow{stroke:#0e7490;stroke-width:2.5}.sketch-label{fill:#0f172a;font-size:12px;font-weight:700}.sketch-note{fill:#475569;font-size:11px}.sketch-weld{stroke:#b45309;stroke-width:5;stroke-linecap:round}.sketch-weld--transverse{stroke:#c2410c}.sketch-dim{stroke:#64748b;stroke-width:1.4}.sketch-dim-label{fill:#475569;font-size:10px;font-weight:700}
