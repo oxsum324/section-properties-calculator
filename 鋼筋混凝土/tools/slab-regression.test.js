@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
+const { installReportPopupFixture } = require('../../report-popup-fixture.test.js');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_TEST_PORT || 8123);
@@ -265,40 +266,33 @@ async function exerciseSlabProjectStorage(page) {
 }
 
 async function exerciseSlabReportOutputActions(page) {
-  const state = await page.evaluate(() => {
+  await page.evaluate(installReportPopupFixture);
+  const state = await page.evaluate(async () => {
     window.calcSlab();
-    let html = '';
-    let focusCalls = 0;
-    let printCalls = 0;
-    const popup = {
-      document: {
-        open() {},
-        write(chunk) { html += String(chunk); },
-        close() {}
-      },
-      focus() { focusCalls += 1; },
-      print() { printCalls += 1; },
-      close() {},
-      closed: false
-    };
-    const previousOpen = window.open;
-    window.open = () => popup;
-    let returnedPopup = null;
+    const fixture = window.__t23ReportPopupFixture;
     try {
-      returnedPopup = window.buildSlabReport({ autoPrint:true });
+      const returnedPopup = window.buildSlabReport({ autoPrint:true });
+      await fixture.waitForLoads();
+      const popup = fixture.windows[0];
+      const html = fixture.lastHtml;
+      return {
+        focusCalls: fixture.focusCalls,
+        printCalls: fixture.printCalls,
+        returnsPopup:returnedPopup === popup,
+        textExportEnabled:html.includes('data-text-export-enabled="true"'),
+        hasTextDownloadLabel:html.includes('下載文字計算書 TXT'),
+        hasPrintButton:Boolean(document.getElementById('btnPrintReport')),
+        navigatedToBlob:fixture.navigatedToBlob,
+        loadEventFired:fixture.loadEventFired,
+        documentParsed:fixture.documentParsed,
+        blobType:fixture.lastBlobType,
+      };
     } finally {
-      window.open = previousOpen;
+      fixture.restore();
     }
-    return {
-      focusCalls,
-      printCalls,
-      returnsPopup:returnedPopup === popup,
-      textExportEnabled:html.includes('data-text-export-enabled="true"'),
-      hasTextDownloadLabel:html.includes('下載文字計算書 TXT'),
-      hasPrintButton:Boolean(document.getElementById('btnPrintReport')),
-    };
   });
   assert(state.focusCalls === 1 && state.printCalls === 1 && state.returnsPopup, 'slab direct-print action prints the generated report window once', JSON.stringify(state));
+  assert(state.navigatedToBlob && state.loadEventFired && state.documentParsed && state.blobType === 'text/html;charset=utf-8', 'slab direct-print waits for parsed Blob report load', JSON.stringify(state));
   assert(state.textExportEnabled && state.hasTextDownloadLabel, 'slab report enables governed TXT download', JSON.stringify(state));
   assert(state.hasPrintButton, 'slab page exposes direct-print calculation-book control', JSON.stringify(state));
 }

@@ -7,6 +7,7 @@
 T19 工具頁無障礙檢查使用 `test-tool-page-a11y.ps1`，40 頁各以桌機／手機掃描；axe 任一違規、主地標或 H1 數量不是 1 都會失敗，詳細節點與截取結果寫入 ignored `output/playwright/tool-page-a11y/`。
 T20 含 TeX 公式的計算書 popup 才請求 MathJax；報表以 Blob HTML 導覽載入，離線或逾時會顯示可讀文字 fallback，下載 HTML 可直接以 `file://` 離線重開。
 T21 鋼構報表匯出前同步更新計算與摘要並沿用同一結果快照；石材 smoke 暫存以 UUID 子目錄清理，另有約 1,400 ms 靜默 TCP 降級案例。`--probe-only` 只驗本機服務探測，完整入口仍須先通過既有 UI smoke。
+T23 家族慢測使用根目錄 `run-family-wrappers.ps1` 依序執行 14 個既有 wrapper，保存完整逐項 log 與 HEAD／dirty 證據；`-ListCommands` 只列清單供契約檢查。RC、鋼構及 local-quick 中採 Blob 導覽的 legacy 報表案例使用私有 `report-popup-fixture.test.js`，實際讀取 HTML Blob 並等待 Blob URL 文件 load 後再檢查自動列印與內容；六個獨立 local-quick 工具仍以原 `document.write` 測試替身覆蓋其既有輸出 API。測試檔不進 Pages。
 
 Windows 本機可直接雙擊根目錄的 `啟動斷面計算工具.bat` 或 `啟動螺栓檢討工具.bat`，啟動必要的 localhost 服務後直接進入指定工具，不必先經過平台首頁。螺栓工具是模組化 Web App，不應直接雙擊 `anchor/index.html` 以 `file://` 開啟；專用啟動檔可避開瀏覽器模組安全限制，資料仍只在本機處理。命令列亦可使用 `node serve-local.js --route /section` 或 `node serve-local.js --route /anchor`。`serve-local-browser-smoke.test.js` 會以桌機與手機瀏覽器實測鋼構、RC、斷面、錨栓及巡檢儀表板入口，避免資料夾 redirect 或尾斜線造成相對資源與頁內連結失效；本機未產生的部署清冊與 GSM 監控 JSON 只會在明列白名單內回傳帶標記的 `null`，其他遺失資源仍維持 404。
 

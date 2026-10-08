@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
+const { installReportPopupFixture } = require('../../report-popup-fixture.test.js');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_TEST_PORT || 8123);
@@ -351,13 +352,7 @@ async function runColumnForceCandidateReviewCase(page) {
   assert(after.cardHidden, 'column candidate card closes after adoption', JSON.stringify(after));
   assert(after.Pu === '333' && after.Mux === '71' && after.Muy === '10' && after.Vu === '31' && after.Vuy === '5', 'column candidate writes confirmed formal inputs', JSON.stringify(after));
   assert(after.stored == null, 'column candidate clears pending storage only after adoption', String(after.stored));
-  const reportHtml = await page.evaluate(() => {
-    let html = '';
-    const previousOpen = window.open;
-    window.open = () => ({ document: { open() {}, write(chunk) { html += String(chunk); }, close() {} }, close() {}, closed: false });
-    try { window.buildColumnReport(); } finally { window.open = previousOpen; }
-    return html;
-  });
+  const reportHtml = await captureColumnReportHtml(page);
   ['上游內力採用記錄', '已確認採用', '構架分析', 'ULS-01'].forEach(fragment => {
     assert(reportHtml.includes(fragment), 'column report records confirmed upstream source', fragment);
   });
@@ -368,67 +363,70 @@ async function runColumnForceCandidateReviewCase(page) {
     const saved = window.collectColumnProjectData();
     document.getElementById('Pu').value = '1';
     window.applyColumnProjectData(saved, { silent: true });
-    let html = '';
-    const previousOpen = window.open;
-    window.open = () => ({ document: { open() {}, write(chunk) { html += String(chunk); }, close() {} }, close() {}, closed: false });
-    try { window.buildColumnReport(); } finally { window.open = previousOpen; }
-    return { forceImport: saved.forceImport, Pu: document.getElementById('Pu').value, html };
+    return { forceImport: saved.forceImport, Pu: document.getElementById('Pu').value };
   });
+  restored.html = await captureColumnReportHtml(page);
   assert(restored.forceImport?.fields?.length === 5, 'column project saves adopted force provenance', JSON.stringify(restored.forceImport));
   assert(restored.Pu === '333', 'column project restores adopted force inputs', restored.Pu);
   assert(restored.html.includes('人工確認作為係數化設計外力'), 'column project restores adopted force decision into report', 'adoption decision preserved');
 }
 
 async function captureColumnReportHtml(page) {
-  return page.evaluate(() => {
-    let html = '';
-    const previousOpen = window.open;
-    window.open = () => ({
-      document: { open() {}, write(chunk) { html += String(chunk); }, close() {} },
-      close() {},
-      closed: false
-    });
-    try { window.buildColumnReport(); } finally { window.open = previousOpen; }
-    return html;
+  const payload = await captureColumnReportPayload(page);
+  return payload.html;
+}
+
+async function captureColumnReportPayload(page) {
+  await page.evaluate(installReportPopupFixture);
+  return page.evaluate(async () => {
+    const fixture = window.__t23ReportPopupFixture;
+    try {
+      window.buildColumnReport();
+      await fixture.waitForLoads();
+      if (!fixture.navigatedToBlob || !fixture.loadEventFired || !fixture.documentParsed || fixture.lastBlobType !== 'text/html;charset=utf-8') {
+        throw new Error(`column report popup did not load parsed HTML from a text/html Blob: ${JSON.stringify({ navigatedToBlob:fixture.navigatedToBlob, loadEventFired:fixture.loadEventFired, documentParsed:fixture.documentParsed, blobType:fixture.lastBlobType })}`);
+      }
+      return {
+        html: fixture.lastHtml,
+        summary: (window.lastColumnReportConfig && window.lastColumnReportConfig.summary),
+        coverage: (window.lastColumnReportDiagnostics && window.lastColumnReportDiagnostics.coverage) || [],
+        coverageSummary: (window.lastColumnReportConfig && window.lastColumnReportConfig.coverageSummary) || []
+      };
+    } finally {
+      fixture.restore();
+    }
   });
 }
 
 async function exerciseColumnReportOutputActions(page) {
-  const state = await page.evaluate(() => {
+  await page.evaluate(installReportPopupFixture);
+  const state = await page.evaluate(async () => {
     window.calcColumn();
-    let html = '';
-    let focusCalls = 0;
-    let printCalls = 0;
-    const popup = {
-      document: {
-        open() {},
-        write(chunk) { html += String(chunk); },
-        close() {}
-      },
-      focus() { focusCalls += 1; },
-      print() { printCalls += 1; },
-      close() {},
-      closed: false
-    };
-    const previousOpen = window.open;
-    window.open = () => popup;
-    let returnedPopup = null;
+    const fixture = window.__t23ReportPopupFixture;
     try {
-      returnedPopup = window.buildColumnReport({ autoPrint:true });
+      const returnedPopup = window.buildColumnReport({ autoPrint:true });
+      await fixture.waitForLoads();
+      const popup = fixture.windows[0];
+      const html = fixture.lastHtml;
+      return {
+        focusCalls: fixture.focusCalls,
+        printCalls: fixture.printCalls,
+        returnsPopup:returnedPopup === popup,
+        textExportEnabled:html.includes('data-text-export-enabled="true"'),
+        hasTextDownloadLabel:html.includes('下載文字計算書 TXT'),
+        hasTopPrintButton:Boolean(document.getElementById('btnPrintReport')),
+        hasSummaryPrintButton:Boolean(document.getElementById('btnPrintReportSummary')),
+        navigatedToBlob:fixture.navigatedToBlob,
+        loadEventFired:fixture.loadEventFired,
+        documentParsed:fixture.documentParsed,
+        blobType:fixture.lastBlobType,
+      };
     } finally {
-      window.open = previousOpen;
+      fixture.restore();
     }
-    return {
-      focusCalls,
-      printCalls,
-      returnsPopup:returnedPopup === popup,
-      textExportEnabled:html.includes('data-text-export-enabled="true"'),
-      hasTextDownloadLabel:html.includes('下載文字計算書 TXT'),
-      hasTopPrintButton:Boolean(document.getElementById('btnPrintReport')),
-      hasSummaryPrintButton:Boolean(document.getElementById('btnPrintReportSummary')),
-    };
   });
   assert(state.focusCalls === 1 && state.printCalls === 1 && state.returnsPopup, 'column direct-print action prints the generated report window once', JSON.stringify(state));
+  assert(state.navigatedToBlob && state.loadEventFired && state.documentParsed && state.blobType === 'text/html;charset=utf-8', 'column direct-print waits for parsed Blob report load', JSON.stringify(state));
   assert(state.textExportEnabled && state.hasTextDownloadLabel, 'column report enables governed TXT download', JSON.stringify(state));
   assert(state.hasTopPrintButton && state.hasSummaryPrintButton, 'column page exposes direct-print calculation-book controls', JSON.stringify(state));
 }
@@ -1106,30 +1104,7 @@ async function main() {
       });
 
       if (tc.reportExpectedIncludes || tc.reportExpectedExcludes || tc.reportCoverageExpected || tc.reportCoverageIncludes) {
-        const reportPayload = await page.evaluate(() => {
-          let html = '';
-          const previousOpen = window.open;
-          window.open = () => ({
-            document: {
-              open() {},
-              write(chunk) { html += String(chunk); },
-              close() {}
-            },
-            close() {},
-            closed: false
-          });
-          try {
-            window.buildColumnReport();
-          } finally {
-            window.open = previousOpen;
-          }
-          return {
-            html,
-            summary: (window.lastColumnReportConfig && window.lastColumnReportConfig.summary),
-            coverage: (window.lastColumnReportDiagnostics && window.lastColumnReportDiagnostics.coverage) || [],
-            coverageSummary: (window.lastColumnReportConfig && window.lastColumnReportConfig.coverageSummary) || []
-          };
-        });
+        const reportPayload = await captureColumnReportPayload(page);
         if (tc.reportExpectedIncludes) {
           const fragments = Array.isArray(tc.reportExpectedIncludes) ? tc.reportExpectedIncludes : [tc.reportExpectedIncludes];
           fragments.forEach(fragment => {

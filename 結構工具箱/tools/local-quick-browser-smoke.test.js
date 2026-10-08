@@ -15,10 +15,12 @@ const {
 } = require('./rendered-delivery-evidence');
 const calculationBookContentBoundary = require('./calculation-book-content-boundary.json');
 const AttachmentPackageChecker = require('./attachment-package-check');
+const { installReportPopupFixture } = require('../../report-popup-fixture.test.js');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
 const repoRoot = path.resolve(toolboxRoot, '..');
+const REPORT_POPUP_FIXTURE_INSTALL = `(${installReportPopupFixture.toString()})()`;
 
 const EDGE_CANDIDATES = [
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
@@ -1609,34 +1611,8 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
 }
 
 function legacyReportExpression(reportButtonId = 'btnReport', purposeId, confirmId, projectMetaState = 'complete') {
-  return `(() => {
-    const originalOpen = window.open;
-    const opened = [];
-    const writes = [];
-    let documentOpened = false;
-    let closed = false;
-    let focused = false;
-
-    window.open = function (url, target) {
-      opened.push({ url: url || '', target: target || '' });
-      return {
-        document: {
-          open() {
-            documentOpened = true;
-          },
-          write(html) {
-            writes.push(String(html || ''));
-          },
-          close() {
-            closed = true;
-          }
-        },
-        focus() {
-          focused = true;
-        }
-      };
-    };
-
+  return `${REPORT_POPUP_FIXTURE_INSTALL}, (async () => {
+    const fixture = window.__t23ReportPopupFixture;
     try {
       const projectState = ${JSON.stringify(projectMetaState)};
       const setProjectField = (id, value) => {
@@ -1661,7 +1637,7 @@ function legacyReportExpression(reportButtonId = 'btnReport', purposeId, confirm
       if (!reportButton || !purpose || !useConfirm) throw new Error('legacy output controls missing');
       const initialReportDisabled = reportButton.disabled;
       reportButton.click();
-      const blockedOpenCount = opened.length;
+      const blockedOpenCount = fixture.opened.length;
       useConfirm.click();
       const checkboxOnlyReportDisabled = reportButton.disabled;
       purpose.value = 'review-change';
@@ -1671,7 +1647,8 @@ function legacyReportExpression(reportButtonId = 'btnReport', purposeId, confirm
       useConfirm.click();
       const confirmedReportDisabled = reportButton.disabled;
       reportButton.click();
-      const html = writes.join('');
+      await fixture.waitForLoads();
+      const html = fixture.lastHtml;
       const pageOnlyReadinessText = (document.querySelector('.page-only-report-status.report-readiness')?.textContent || '').replace(/\\s+/g, ' ').trim();
       const savedFields = window.ToolProjectStorage?.collectFields?.() || {};
       setProjectField('projNo', 'LOCAL-VERIFY-CHANGED');
@@ -1700,17 +1677,19 @@ function legacyReportExpression(reportButtonId = 'btnReport', purposeId, confirm
         purposeChangeReportDisabled,
         purposeChangeUseConfirmed,
         restoredReportDisabled: reportButton.disabled,
-        openCount: opened.length,
-        opened,
-        documentOpened,
-        closed,
-        focused,
+        openCount: fixture.opened.length,
+        opened: fixture.opened,
+        navigatedToBlob: fixture.navigatedToBlob,
+        loadEventFired: fixture.loadEventFired,
+        documentParsed: fixture.documentParsed,
+        blobType: fixture.lastBlobType,
+        focused: fixture.focusCalls > 0,
         htmlLength: html.length,
         html,
         pageOnlyReadinessText
       };
     } finally {
-      window.open = originalOpen;
+      fixture.restore();
     }
   })()`;
 }
@@ -2840,6 +2819,13 @@ function assertCalculationBookDocumentState(state, tool, label) {
   assert.ok(state.html.includes('本計算內容已完成審閱，核可作為正式附件'), `${label} ${tool.key} report carries approval checkbox`);
 }
 
+function assertBlobReportNavigation(state, label) {
+  assert.equal(state.navigatedToBlob, true, `${label} navigates to a Blob URL`);
+  assert.equal(state.loadEventFired, true, `${label} waits for the Blob document load`);
+  assert.equal(state.documentParsed, true, `${label} parses the Blob HTML document`);
+  assert.equal(state.blobType, 'text/html;charset=utf-8', `${label} uses the HTML Blob MIME type`);
+}
+
 function assertReportState(state, tool, label, mode = 'detailed') {
   assert.equal(state.projectMetaState, 'complete', `${label} ${tool.key} report project state`);
   assert.equal(state.openCount, 1, `${label} ${tool.key} report open count`);
@@ -2889,8 +2875,7 @@ function assertLegacyReportState(state, legacyTool, label) {
   assert.equal(state.purposeChangeUseConfirmed, false, `${label} ${legacyTool.key} purpose change clears confirmation`);
   assert.equal(state.restoredReportDisabled, false, `${label} ${legacyTool.key} restores report authorization`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} report open count`);
-  assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} report document open`);
-  assert.equal(state.closed, true, `${label} ${legacyTool.key} report document close`);
+  assertBlobReportNavigation(state, `${label} ${legacyTool.key} report`);
   assert.ok(state.htmlLength > 1500, `${label} ${legacyTool.key} report HTML length`);
   assert.ok(state.html.includes(legacyTool.reportTitle), `${label} ${legacyTool.key} report title`);
   assert.ok(state.html.includes('不得作為新案正式計算附件'), `${label} ${legacyTool.key} output classification`);
@@ -2933,8 +2918,7 @@ function assertLegacyPlaceholderReportState(state, legacyTool, label) {
   assert.equal(state.purposeChangeUseConfirmed, false, `${label} ${legacyTool.key} placeholder purpose change clears confirmation`);
   assert.equal(state.restoredReportDisabled, false, `${label} ${legacyTool.key} placeholder restores report authorization`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} placeholder report open count`);
-  assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} placeholder report document open`);
-  assert.equal(state.closed, true, `${label} ${legacyTool.key} placeholder report document close`);
+  assertBlobReportNavigation(state, `${label} ${legacyTool.key} placeholder report`);
   assert.ok(state.htmlLength > 1500, `${label} ${legacyTool.key} placeholder report HTML length`);
   assert.ok(state.html.includes(legacyTool.reportTitle), `${label} ${legacyTool.key} placeholder report title`);
   assert.ok(state.html.includes('不得作為新案正式計算附件'), `${label} ${legacyTool.key} placeholder output classification`);

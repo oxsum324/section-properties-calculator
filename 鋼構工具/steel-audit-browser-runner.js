@@ -14,6 +14,7 @@ const AttachmentPackageChecker = require('../結構工具箱/tools/attachment-pa
 const CALCULATION_BOOK_CONTENT_BOUNDARY = require('../結構工具箱/tools/calculation-book-content-boundary.json');
 const { buildSteelResultReconciliation } = require('./steel-result-reconciliation');
 const { verifySteelReportPackage } = require('./steel-report-package-contract');
+const { installReportPopupFixture } = require('../report-popup-fixture.test.js');
 
 const args = parseArgs(process.argv.slice(2));
 const baseUrl = String(args['base-url'] || 'http://127.0.0.1:8123').replace(/\/$/, '');
@@ -1058,7 +1059,9 @@ async function assertFormalBeamReadinessBlocked(cdp, sessionId) {
 }
 
 async function assertFormalBeamImportCandidate(cdp, sessionId) {
-  const state = await evaluate(cdp, sessionId, `(() => {
+  const state = await evaluate(cdp, sessionId, `((${installReportPopupFixture.toString()}))(), (async () => {
+    const fixture = window.__t23ReportPopupFixture;
+    try {
     const read = id => document.getElementById(id);
     const initial = {
       panelHidden: read('beamImportReview')?.hidden,
@@ -1089,29 +1092,23 @@ async function assertFormalBeamImportCandidate(cdp, sessionId) {
       pendingStorage: localStorage.getItem('structToolbox.pendingForces'),
     };
 
-    const originalOpen = window.open;
-    const writes = [];
-    window.open = () => ({
-      document: {
-        open() {},
-        write(html) { writes.push(String(html || '')); },
-        close() {},
-      },
-      focus() {},
-    });
-    try {
-      read('btnReport').click();
-    } finally {
-      window.open = originalOpen;
-    }
-    const reportHtml = writes.join('');
+    read('btnReport').click();
+    await fixture.waitForLoads();
+    const reportHtml = fixture.lastHtml;
     const reportDocument = new DOMParser().parseFromString(reportHtml, 'text/html');
     return {
       initial,
       enabledAfterConfirm,
       adopted,
       reportText: (reportDocument.body?.innerText || reportDocument.body?.textContent || '').replace(/\\s+/g, ' ').trim(),
+      reportNavigatedToBlob: fixture.navigatedToBlob,
+      reportLoadEventFired: fixture.loadEventFired,
+      reportDocumentParsed: fixture.documentParsed,
+      reportBlobType: fixture.lastBlobType,
     };
+    } finally {
+      fixture.restore();
+    }
   })()`, 'formal beam import candidate adoption');
 
   if (state.initial.panelHidden !== false || state.initial.applyDisabled !== true) {
@@ -1137,6 +1134,9 @@ async function assertFormalBeamImportCandidate(cdp, sessionId) {
   }
   if (!state.reportText.includes('內力來源') || !state.reportText.includes('連續梁分析') || !state.reportText.includes('人工確認採用') || !state.reportText.includes('載重基準：已人工確認')) {
     throw new Error(`beam formal report should record the adopted source: ${state.reportText}`);
+  }
+  if (!state.reportNavigatedToBlob || !state.reportLoadEventFired || !state.reportDocumentParsed || state.reportBlobType !== 'text/html;charset=utf-8') {
+    throw new Error(`beam formal report should load parsed HTML from a text/html Blob URL: ${JSON.stringify(state)}`);
   }
   for (const forbidden of ['候選輸入值', '候選值尚未套用', '優先建議報告閱讀狀態', '不會寫入計算書或列印 PDF']) {
     if (state.reportText.includes(forbidden)) {

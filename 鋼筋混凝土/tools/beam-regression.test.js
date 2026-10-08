@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const vm = require('vm');
 const { chromium } = require('playwright');
+const { installReportPopupFixture } = require('../../report-popup-fixture.test.js');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const RC_ROOT = path.resolve(__dirname, '..');
@@ -377,24 +378,19 @@ async function captureBeamSnapshot(page) {
 }
 
 async function captureBeamReportHtml(page) {
-  return page.evaluate(() => {
-    let html = '';
-    const previousOpen = window.open;
-    window.open = () => ({
-      document: {
-        open() {},
-        write(chunk) { html += String(chunk); },
-        close() {}
-      },
-      close() {},
-      closed: false
-    });
+  await page.evaluate(installReportPopupFixture);
+  return page.evaluate(async () => {
+    const fixture = window.__t23ReportPopupFixture;
     try {
       window.buildBeamReport();
+      await fixture.waitForLoads();
+      if (!fixture.navigatedToBlob || !fixture.loadEventFired || !fixture.documentParsed || fixture.lastBlobType !== 'text/html;charset=utf-8') {
+        throw new Error(`beam report popup did not load parsed HTML from a text/html Blob: ${JSON.stringify({ navigatedToBlob:fixture.navigatedToBlob, loadEventFired:fixture.loadEventFired, documentParsed:fixture.documentParsed, blobType:fixture.lastBlobType })}`);
+      }
+      return fixture.lastHtml;
     } finally {
-      window.open = previousOpen;
+      fixture.restore();
     }
-    return html;
   });
 }
 
@@ -669,41 +665,34 @@ async function exerciseBeamProjectStorage(page) {
 
 async function exerciseBeamReportOutputActions(page) {
   section('Beam Report Output Actions');
-  const state = await page.evaluate(() => {
+  await page.evaluate(installReportPopupFixture);
+  const state = await page.evaluate(async () => {
     window.calcBeam();
-    let html = '';
-    let focusCalls = 0;
-    let printCalls = 0;
-    const popup = {
-      document: {
-        open() {},
-        write(chunk) { html += String(chunk); },
-        close() {}
-      },
-      focus() { focusCalls += 1; },
-      print() { printCalls += 1; },
-      close() {},
-      closed: false
-    };
-    const previousOpen = window.open;
-    window.open = () => popup;
-    let returnedPopup = null;
+    const fixture = window.__t23ReportPopupFixture;
     try {
-      returnedPopup = window.buildBeamReport({ autoPrint:true });
+      const returnedPopup = window.buildBeamReport({ autoPrint:true });
+      await fixture.waitForLoads();
+      const popup = fixture.windows[0];
+      const html = fixture.lastHtml;
+      return {
+        focusCalls: fixture.focusCalls,
+        printCalls: fixture.printCalls,
+        returnsPopup: returnedPopup === popup,
+        textExportEnabled:html.includes('data-text-export-enabled="true"'),
+        hasTextDownloadLabel:html.includes('下載文字計算書 TXT'),
+        hasTopPrintButton:Boolean(document.getElementById('btnPrintReport')),
+        hasSummaryPrintButton:Boolean(document.getElementById('btnPrintReport2')),
+        navigatedToBlob:fixture.navigatedToBlob,
+        loadEventFired:fixture.loadEventFired,
+        documentParsed:fixture.documentParsed,
+        blobType:fixture.lastBlobType,
+      };
     } finally {
-      window.open = previousOpen;
+      fixture.restore();
     }
-    return {
-      focusCalls,
-      printCalls,
-      returnsPopup:returnedPopup === popup,
-      textExportEnabled:html.includes('data-text-export-enabled="true"'),
-      hasTextDownloadLabel:html.includes('下載文字計算書 TXT'),
-      hasTopPrintButton:Boolean(document.getElementById('btnPrintReport')),
-      hasSummaryPrintButton:Boolean(document.getElementById('btnPrintReport2')),
-    };
   });
   assert(state.focusCalls === 1 && state.printCalls === 1 && state.returnsPopup, 'beam direct-print action prints the generated report window once', JSON.stringify(state));
+  assert(state.navigatedToBlob && state.loadEventFired && state.documentParsed && state.blobType === 'text/html;charset=utf-8', 'beam direct-print waits for parsed Blob report load', JSON.stringify(state));
   assert(state.textExportEnabled && state.hasTextDownloadLabel, 'beam report enables governed TXT download', JSON.stringify(state));
   assert(state.hasTopPrintButton && state.hasSummaryPrintButton, 'beam page exposes direct-print calculation-book controls', JSON.stringify(state));
 }
@@ -917,12 +906,9 @@ async function runBeamForceCandidateReviewCase(page) {
     const saved = window.collectBeamProjectData();
     document.getElementById('MuPos').value = '1';
     window.applyBeamProjectData(saved, { silent: true });
-    let html = '';
-    const previousOpen = window.open;
-    window.open = () => ({ document: { open() {}, write(chunk) { html += String(chunk); }, close() {} }, close() {}, closed: false });
-    try { window.buildBeamReport(); } finally { window.open = previousOpen; }
-    return { forceImport: saved.forceImport, MuPos: document.getElementById('MuPos').value, html };
+    return { forceImport: saved.forceImport, MuPos: document.getElementById('MuPos').value };
   });
+  restored.html = await captureBeamReportHtml(page);
   assert(restored.forceImport?.fields?.length === 3, 'beam project saves adopted force provenance', JSON.stringify(restored.forceImport));
   assert(restored.MuPos === '88', 'beam project restores adopted force inputs', restored.MuPos);
   assert(restored.html.includes('人工確認作為係數化設計外力'), 'beam project restores adopted force decision into report', 'adoption decision preserved');
@@ -964,13 +950,6 @@ async function exerciseBeamRebarDesignCandidates(page) {
   await wait(100);
   const applied = await page.evaluate(expected => {
     const numbers = prefix => [1, 2, 3].map(index => Number(document.getElementById(`${prefix}Bar${index}N`)?.value || 0));
-    const report = (() => {
-      let html = '';
-      const previousOpen = window.open;
-      window.open = () => ({ document:{ open(){}, write(chunk){ html += String(chunk); }, close(){} }, close(){}, closed:false });
-      try { window.buildBeamReport(); } finally { window.open = previousOpen; }
-      return html;
-    })();
     return {
       mode: document.querySelector('.mode-btn.active')?.dataset.mode,
       bottomCounts: numbers('bot'), topCounts: numbers('top'),
@@ -987,10 +966,10 @@ async function exerciseBeamRebarDesignCandidates(page) {
         crackSpacing: window.beamLast?.okCrackSpacing,
       },
       candidateVisible: !!document.querySelector('#beamRebarDesignCandidates .beam-design-apply'),
-      report,
       expected,
     };
   }, before.first);
+  applied.report = await captureBeamReportHtml(page);
   assert(applied.mode === 'check', 'beam candidate adoption switches to formal check mode', applied.mode);
   assert(JSON.stringify(applied.bottomCounts) === JSON.stringify(before.first.bottomCounts) && JSON.stringify(applied.topCounts) === JSON.stringify(before.first.topCounts), 'beam candidate adoption preserves full layer counts', JSON.stringify({ bottom:applied.bottomCounts, top:applied.topCounts }));
   assert(applied.bottomBar === before.first.bottomBar && applied.topBar === before.first.topBar && applied.stirrup === before.first.stirrup && applied.legs === before.first.legs && applied.spacing === before.first.spacing, 'beam candidate adoption preserves bar and stirrup configuration', JSON.stringify({ bottomBar:applied.bottomBar, topBar:applied.topBar, stirrup:applied.stirrup, legs:applied.legs, spacing:applied.spacing }));

@@ -330,3 +330,9 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 `鋼構工具/app.js` 在報表匯出前執行 `update(false)`，以同步更新輸入計算與所有結果摘要，再由 `window.latestSteelConnectionResult` 建立報表；真瀏覽器以未觸發事件的 `requiredShear=2000` 驗證輸入、結論、公式及 fingerprint 同屬一份快照。`鋼構工具/steel-audit-browser-runner.js` 與 `steel-formal.regression-test.js` 負責該情境的實測及契約。
 
 `石材固定/server_smoke_test.py` 將產物放在 `output/stone-server-smoke-temp/test-<uuid>/`，ZIP context 關閉、釋放參照後才進行最多五次有限清理；清理前必須驗證 resolved path 是暫存根目錄的直接子項。`石材固定/local-server-probe-smoke.py` 新增 TCP 接受 `/status` 但不送 HTTP 回應的負向情境，驗證約 1,400 ms 後靜默回到 `public_static` 且頁面預覽仍可用。`--probe-only` 明確跳過既有 UI smoke；完整入口的 UI smoke 失敗仍使整體失敗，probe-only 通過不可代稱完整通過。這些測試與 output 證據不屬公開執行期或正式 release 證據。
+
+## 2026-10-08：第五階段 T23 家族慢測執行器
+
+根目錄 `run-family-wrappers.ps1` 以 repo-relative 清單和 `$PSScriptRoot`，依序執行 10 個 RC PowerShell wrapper、鋼構 batch audit、連續梁 PowerShell wrapper，以及兩個 Node browser smoke；每次只啟動一個 child，完整 stdout／stderr 寫入 ignored `output/family-wrappers/<時間戳>/` 個別 log。摘要記錄命令、exit code、耗時、log 路徑、起訖 HEAD 與 dirty 狀態。`-ListCommands` 僅列出 14 項供契約檢查，不啟動測試。執行器與契約測試依 `.ps1`／`.test.js` 私有後綴規則不進 Pages。
+
+`report-popup-fixture.test.js` 僅供 RC beam／column／slab、鋼構 audit 與 local-quick 中採 Blob 導覽的 legacy 報表案例使用，攔截實際 HTML Blob、解析 Blob 文字、以 Blob URL 導覽並在文件載入後送出 `load`。六個獨立 local-quick 工具仍使用原 `window.open` 加 `document.open/write/close` 替身，依其實際輸出 API 驗證；不得混用 fixture 或略過內容斷言。Blob 報表的 autoPrint focus／print 觀察必須等 load callback 完成；共用 fixture 及其呼叫端均為 `.test.js` 私有測試檔，不進 Pages。

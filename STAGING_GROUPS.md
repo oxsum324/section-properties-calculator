@@ -531,3 +531,11 @@ git add -- "鋼構工具/app.js" "鋼構工具/steel-audit-browser-runner.js" "�
 T22 以九組內嵌 approval script marker 比對必要等價區段；lexer 忽略註解與排版空白，保留識別符、運算子、字串、樣板與正規表示式 token，負向自測涵蓋字串差異、程式差異、marker 缺漏／重複及 comment-like literal。序列化移除清單、family seal adapter 與 popup presentation 差異記入 map 並維持 core／RC 分治。report-core-parity-map.json 以 Pages 精確清單排除，契約測試依 .test.js 後綴排除；live smoke 對兩者探測私有 404。
 
 git add -- "report-core-parity-map.json" "report-core-parity.contract.test.js" "結構工具箱/core/ui/report.js" "鋼構工具/core/ui/report.js" "鋼構工具/core/formal-core-manifest.json" "鋼筋混凝土/shared/report.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" "pages-release-governance.contract.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
+
+## 2026-10-08：第五階段 T23（家族慢測統一執行器）
+
+`run-family-wrappers.ps1` 與 `run-family-wrappers.contract.test.js` 一起提交；tracked 清單以 repo-relative 路徑加 `$PSScriptRoot` 定位，清單順序固定為 10 個 RC PowerShell wrapper、鋼構 `run-audit.bat`、連續梁 PowerShell wrapper、剛架與 local-quick Node smoke。執行輸出與摘要只寫 ignored `output/family-wrappers/`，14 個 child 序列執行，失敗仍保存 stdout／stderr log 並計入總失敗。新增 `report-popup-fixture.test.js` 配合 beam／column／slab regression、steel audit runner 與 local-quick 中採 Blob 導覽的 legacy 報表案例：測試替身讀取真實 HTML Blob、等候 Blob URL 文件 load 後再觀察 autoPrint，保留既有 HTML、來源、popup 回傳及 focus／print 斷言，不修改 production Blob 導覽。六個獨立 local-quick 工具仍以原 `document.write` 測試替身覆蓋原有輸出 API。所有新增 `.ps1`／`.test.js` 檔依私有後綴規則排除 Pages。
+
+```powershell
+git add -- "run-family-wrappers.ps1" "run-family-wrappers.contract.test.js" "report-popup-fixture.test.js" "鋼筋混凝土/tools/beam-regression.test.js" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/slab-regression.test.js" "鋼構工具/steel-audit-browser-runner.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
+```
