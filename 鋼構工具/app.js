@@ -2520,14 +2520,73 @@
     `).join("")}</ul>`;
   }
 
-  function renderMathIfReady() {
-    if (window.MathJax?.typesetPromise) {
-      window.MathJax.typesetPromise()
-        .then(() => document.documentElement.classList.add("mathjax-ready"))
-        .catch(() => document.documentElement.classList.add("mathjax-fallback"));
-      return;
-    }
+  let mathJaxLoaderPromise = null;
+  let allowMathJaxLoad = false;
+
+  function loadMathJaxRuntime() {
+    if (window.MathJax?.typesetPromise) return Promise.resolve(window.MathJax);
+    if (mathJaxLoaderPromise) return mathJaxLoaderPromise;
+
+    window.MathJax = {
+      tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+      svg: { fontCache: "global" },
+      startup: { typeset: false },
+    };
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
+    script.async = true;
+
+    mathJaxLoaderPromise = new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (error, runtime) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        if (error) reject(error);
+        else resolve(runtime);
+      };
+      const timeoutId = window.setTimeout(
+        () => finish(new Error("MathJax 載入逾時")),
+        12000,
+      );
+      script.onload = () => {
+        if (!window.MathJax?.typesetPromise) {
+          finish(new Error("MathJax 載入完成，但公式排版功能未就緒"));
+          return;
+        }
+        finish(null, window.MathJax);
+      };
+      script.onerror = () => finish(new Error("MathJax CDN 載入失敗"));
+      document.head.appendChild(script);
+    }).catch((error) => {
+      mathJaxLoaderPromise = null;
+      script.remove();
+      throw error;
+    });
+    return mathJaxLoaderPromise;
+  }
+
+  async function renderMathIfReady() {
+    if (!showFlow.checked) return false;
+
+    document.documentElement.classList.remove("mathjax-ready");
     document.documentElement.classList.add("mathjax-fallback");
+    try {
+      const runtime = window.MathJax?.typesetPromise
+        ? window.MathJax
+        : allowMathJaxLoad
+          ? await loadMathJaxRuntime()
+          : null;
+      if (!runtime?.typesetPromise) return false;
+      await runtime.typesetPromise([flowCards]);
+      document.documentElement.classList.remove("mathjax-fallback");
+      document.documentElement.classList.add("mathjax-ready");
+      return true;
+    } catch {
+      document.documentElement.classList.remove("mathjax-ready");
+      document.documentElement.classList.add("mathjax-fallback");
+      return false;
+    }
   }
 
   function buildEquationMarkup(check) {
@@ -2622,7 +2681,7 @@
         </article>
       `;
     }).join("");
-    renderMathIfReady();
+    void renderMathIfReady();
   }
 
   function updateMethodPresentation(state) {
@@ -3720,6 +3779,7 @@ ${scopeHtml}
   window.buildSteelConnectionSourcePayload = buildConnectionSourcePayload;
   window.importSteelConnectionSourceJson = importConnectionSourceJson;
   setFormState(loadSavedDraft() || getCurrentExampleState(), false);
+  allowMathJaxLoad = true;
   activatePanel(currentPanel);
   loadAuditStatus();
   requestQuickNavSync();
