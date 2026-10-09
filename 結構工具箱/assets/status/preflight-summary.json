@@ -2,12 +2,12 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-10-08 18:20:41",
-  "runId": "20261008-172602",
+  "generatedAt": "2026-10-09 19:25:14",
+  "runId": "20261009-183246",
   "quick": false,
   "forcePlatformAudit": true,
   "forceSlowChecks": true,
-  "sourceCommitSha": "bd2d2afa87d3df0e7f256ab1879d5d2f0410e696",
+  "sourceCommitSha": "1aa9f999f0df5b690f671193c82227073f793506",
   "sourceBranch": "master",
   "sourceDirty": false,
   "pass": true,
@@ -18,109 +18,18 @@
   "platformAuditReused": false,
   "recordsCount": 70,
   "passedCount": 70,
-  "totalSeconds": 3186.3,
+  "totalSeconds": 3055.3,
   "slowestKey": "platform-audit",
-  "slowestSeconds": 1484.6,
+  "slowestSeconds": 1421.4,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20261008-172602/preflight-summary.json",
-  "sourceHash": "9a58aebafac3022c53e52c06b2673572917d95ac9cf31c45fe15216ce8ad7b57",
+  "sourcePath": "output/preflight/history/20261009-183246/preflight-summary.json",
+  "sourceHash": "8a9cb07300dbf0755c4586dfe455eb5b3eaec99d7820b9234d62338c501e695c",
   "releaseHistory": {
     "schemaVersion": 2,
     "limit": 8,
     "entries": [
-      {
-        "runId": "20260909-161017",
-        "generatedAt": "2026-09-09 16:53:47",
-        "sourceCommitSha": "aa7d33ee38ef839fa48085d1b851ea28f534be18",
-        "records": {
-          "passed": 91,
-          "required": 91
-        },
-        "postChecks": {
-          "passed": 3,
-          "required": 3
-        },
-        "dimensions": [
-          {
-            "id": "release",
-            "pass": true
-          },
-          {
-            "id": "steel",
-            "pass": true
-          },
-          {
-            "id": "rc",
-            "pass": true
-          },
-          {
-            "id": "delivery",
-            "pass": true
-          }
-        ],
-        "metrics": [
-          {
-            "id": "steelResult",
-            "complete": 9,
-            "required": 9
-          },
-          {
-            "id": "steelContentSeal",
-            "complete": 9,
-            "required": 9
-          },
-          {
-            "id": "steelApprovalSeal",
-            "complete": 9,
-            "required": 9
-          },
-          {
-            "id": "rcResult",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPrint",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPackage",
-            "complete": 32,
-            "required": 32
-          },
-          {
-            "id": "formalResult",
-            "complete": 14,
-            "required": 14
-          },
-          {
-            "id": "localQuickResult",
-            "complete": 6,
-            "required": 6
-          },
-          {
-            "id": "rendered",
-            "complete": 40,
-            "required": 40
-          },
-          {
-            "id": "delivery",
-            "complete": 179,
-            "required": 179
-          }
-        ],
-        "change": {
-          "policyVersion": 1,
-          "classification": "baseline",
-          "increases": [],
-          "reductions": [],
-          "reasonCode": "",
-          "reason": ""
-        }
-      },
       {
         "runId": "20260929-180044",
         "generatedAt": "2026-09-29 18:43:53",
@@ -205,17 +114,11 @@
         ],
         "change": {
           "policyVersion": 1,
-          "classification": "reduced",
+          "classification": "baseline",
           "increases": [],
-          "reductions": [
-            {
-              "id": "records",
-              "from": 91,
-              "to": 68
-            }
-          ],
-          "reasonCode": "tool-retirement",
-          "reason": "工具箱治理流程精簡，退役流程之預檢一併移除。"
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
         }
       },
       {
@@ -683,6 +586,97 @@
         "runId": "20261008-172602",
         "generatedAt": "2026-10-08 18:20:41",
         "sourceCommitSha": "bd2d2afa87d3df0e7f256ab1879d5d2f0410e696",
+        "records": {
+          "passed": 70,
+          "required": 70
+        },
+        "postChecks": {
+          "passed": 3,
+          "required": 3
+        },
+        "dimensions": [
+          {
+            "id": "release",
+            "pass": true
+          },
+          {
+            "id": "steel",
+            "pass": true
+          },
+          {
+            "id": "rc",
+            "pass": true
+          },
+          {
+            "id": "delivery",
+            "pass": true
+          }
+        ],
+        "metrics": [
+          {
+            "id": "steelResult",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "steelContentSeal",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "steelApprovalSeal",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "rcResult",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPrint",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPackage",
+            "complete": 32,
+            "required": 32
+          },
+          {
+            "id": "formalResult",
+            "complete": 14,
+            "required": 14
+          },
+          {
+            "id": "localQuickResult",
+            "complete": 6,
+            "required": 6
+          },
+          {
+            "id": "rendered",
+            "complete": 40,
+            "required": 40
+          },
+          {
+            "id": "delivery",
+            "complete": 179,
+            "required": 179
+          }
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "unchanged",
+          "increases": [],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
+      },
+      {
+        "runId": "20261009-183246",
+        "generatedAt": "2026-10-09 19:25:14",
+        "sourceCommitSha": "1aa9f999f0df5b690f671193c82227073f793506",
         "records": {
           "passed": 70,
           "required": 70
