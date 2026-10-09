@@ -27,8 +27,8 @@ function Get-V3PhaseCommands {
             ForEach-Object { $_.Trim() } |
             Where-Object { $_.Length -gt 0 }
     )
-    if ($commands.Count -ne 26) {
-        throw "V3 section 0 must contain exactly 26 commands; found $($commands.Count)."
+    if ($commands.Count -ne 28) {
+        throw "V3 section 0 must contain exactly 28 commands; found $($commands.Count)."
     }
     return $commands
 }

@@ -90,7 +90,7 @@ git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GR
 
 上述逐檔清冊現由 schema v3 延續並增列 `releaseEvidence`。Pages provenance 變更必須同批 staging `結構工具箱/audit-dashboard.html`、dashboard contract / browser smoke、deployment manifest builder、HTTP smoke、safe push wrapper、release governance contract 與三份治理文件。builder 必須從實際發布的 tracked preflight / report-readiness 快照驗證正式 release 條件並綁定 release runId、產生時間與受測來源 SHA；公開 smoke 再核對 manifest 與兩份快照。artifact 完成複製後須逐檔掃描 Windows 使用者目錄與目前建置機 repo／家目錄的原始、斜線及 JSON 跳脫變體；掃描數與發布檔數不同或 findings 非 0 都要失敗關閉，已知私有 manifest 的精確排除不能取代這項通用守門。公開證據 schema v3／歷程 v2 另以 12 個 required counter 比較相鄰 release；先以 `public-release-change-assistant.js --json` 唯讀預覽，只有實際縮減才可用同一助手寫入一次性 `.github/public-release-reduction-authorization.json`，精確列出上一個 runId、全部縮減欄位／前後值與可公開理由。未使用、過期或不同 active 授權均阻擋；該輪發布後也只有 tracked 公開歷程證明完全相同縮減已使用時，`--reset-authorization` 才可重設 inactive。dashboard 必須分開顯示一般巡檢與正式 release 新鮮度，並揭露門檻基準、維持、提升、縮減或混合分類；7 日／30 日只作重驗提醒，缺 manifest 顯示「未部署證據」，身分不一致顯示紅色「未對齊」。
 
-正式 release 私人決策收據與公開歷程同屬 A0，但收據本身固定留在 ignored `output/preflight/history/<runId>/`，不得 staging。`public-release-decision-receipt.js` 只在正式／後置檢查及三份公開快照完成後新增封閉 `PRD-` 收據，並以 canonical SHA-256 鏈回上一輪；Git-tracked `.github/public-release-decision-anchor.json` 只保存最新鏈尖身分，使整批 ignored 收據被刪除仍會阻擋。同 run 不得改寫不同內容，斷鏈、錨點不符、舊收據竄改或前輪縮減核准仍 pending 都會失敗關閉。使用核准的 release 必須由 `public-release-change-assistant.js --reset-authorization` 另增 `PRA-` 重設收據才算結案；若收據交易失敗，active 授權必須復原。產生器、測試、收據、核准設定、錨點及其中證據雜湊都不進 Pages、dashboard、計算書或正式附件。
+正式 release 私人決策收據與公開歷程同屬 A0，但收據本身固定留在 ignored `output/preflight/history/`，不得 staging。`public-release-decision-receipt.js` 只在正式／後置檢查及三份公開快照完成後新增封閉 `PRD-` 收據，並以 canonical SHA-256 鏈回上一輪；Git-tracked `.github/public-release-decision-anchor.json` 只保存最新鏈尖身分，使整批 ignored 收據被刪除仍會阻擋。同 run 不得改寫不同內容，斷鏈、錨點不符、舊收據竄改或前輪縮減核准仍 pending 都會失敗關閉。使用核准的 release 必須由 `public-release-change-assistant.js --reset-authorization` 另增 `PRA-` 重設收據才算結案；若收據交易失敗，active 授權必須復原。產生器、測試、收據、核准設定、錨點及其中證據雜湊都不進 Pages、dashboard、計算書或正式附件。
 
 dashboard 公開／本機資料範圍變更也屬 A0 同包。有效 v3 manifest 必須使公開頁只讀 manifest 與三份 tracked status，禁止發出任何 `output/` 請求並隱藏私人摘要連結；四張公開卡片必須各自以 tracked 結構化欄位驗證正式 release、鋼構、RC、風震／跨家族交付完成數，不得複製同一 platform pass 或以文案推定。localhost 只有明確 `?audit_scope=local` 才啟用完整診斷。`audit-dashboard-browser-smoke.test.js` 應以 request audit 同時證明本機資料仍完整、公開桌面與手機皆零 private-output 請求，並核對四個證據面向及完成數；不能只忽略 404 console 訊息。
 
@@ -494,7 +494,7 @@ git add -- "tool-page-a11y.js" "tool-page-a11y.browser.test.js" "test-tool-page-
 
 ## 2026-10-08：第五階段 T18（V3 26 條快速門檻執行器）
 
-T18 提交根目錄 `run-phase-gates.ps1`、`run-phase-gates.contract.test.js`、README 與治理文件。執行器直接解析 `_tmp/派工/小工具優化派工指示-20261008-V3.md` 第 0 節命令區塊，不複製或改寫清單；`-SelfTestFailure` 僅供故障記錄契約測試，不屬正式 26 條清單。每次 package 先提交再執行，輸出 `output/phase-gates/<yyyyMMdd-HHmmss>/summary.json`；output 與回報資料夾忽略、不 staging、不發布。
+T18 提交根目錄 `run-phase-gates.ps1`、`run-phase-gates.contract.test.js`、README 與治理文件。執行器直接解析 `_tmp/派工/小工具優化派工指示-20261008-V3.md` 第 0 節命令區塊，不複製或改寫清單；`-SelfTestFailure` 僅供故障記錄契約測試，不屬正式 26 條清單。每次 package 先提交再執行，輸出 `output/phase-gates/`；output 與回報資料夾忽略、不 staging、不發布。
 
 ```powershell
 git add -- "run-phase-gates.ps1" "run-phase-gates.contract.test.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
@@ -546,4 +546,12 @@ git add -- "run-family-wrappers.ps1" "run-family-wrappers.contract.test.js" "rep
 
 ```powershell
 git add -- "結構工具箱/core/loads/project-location.js" "石材固定/vendor/loads/project-location.js" "結構工具箱/assets/home/home.js" "preflight-tools.ps1" "STAGING_GROUPS.md" "TOOL_BOUNDARIES.md"
+```
+
+## 2026-10-09：第六階段 T27（規範鏡像與首頁日期門檻）
+
+T27 將 V3 第 0 節命令區塊末尾追加規範資料 core／vendor 同步契約與首頁日期唯讀檢查，執行器及逐字清單契約同步要求 28 條，保留隔離故障注入的非零退出驗證。V3 與每包回報位於 ignored `_tmp/派工/`，只更新本機權威清單，不強制加入版控；summary.json 留在 ignored `output/phase-gates/`。每包最終提交後在乾淨樹執行全部門檻，不改正式預檢或公開狀態。治理文件行內輸出路徑以實際目錄表示，不含角括號佔位符。
+
+```powershell
+git add -- run-phase-gates.ps1 run-phase-gates.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
