@@ -329,7 +329,7 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 
 `鋼構工具/app.js` 在報表匯出前執行 `update(false)`，以同步更新輸入計算與所有結果摘要，再由 `window.latestSteelConnectionResult` 建立報表；真瀏覽器以未觸發事件的 `requiredShear=2000` 驗證輸入、結論、公式及 fingerprint 同屬一份快照。`鋼構工具/steel-audit-browser-runner.js` 與 `steel-formal.regression-test.js` 負責該情境的實測及契約。
 
-`石材固定/server_smoke_test.py` 將產物放在 `output/stone-server-smoke-temp/test-<uuid>/`，ZIP context 關閉、釋放參照後才進行最多五次有限清理；清理前必須驗證 resolved path 是暫存根目錄的直接子項。`石材固定/local-server-probe-smoke.py` 新增 TCP 接受 `/status` 但不送 HTTP 回應的負向情境，驗證約 1,400 ms 後靜默回到 `public_static` 且頁面預覽仍可用。`--probe-only` 明確跳過既有 UI smoke；完整入口的 UI smoke 失敗仍使整體失敗，probe-only 通過不可代稱完整通過。這些測試與 output 證據不屬公開執行期或正式 release 證據。
+`石材固定/server_smoke_test.py` 將產物放在 `output/stone-server-smoke-temp/test-<uuid>/`，ZIP context 關閉、釋放參照後才進行最多五次有限清理；清理前必須驗證 resolved path 是暫存根目錄的直接子項。`石材固定/local-server-probe-smoke.py` 新增 TCP 接受 `/status` 但不送 HTTP 回應的負向情境，驗證約 1,400 ms 後靜默回到 `public_static` 且頁面預覽仍可用。`--probe-only` 明確跳過既有 UI smoke；完整入口的 UI smoke 失敗仍使整體失敗，probe-only 通過不可代稱完整通過。T26 工法卡維持 group 語意，UI smoke 驗群組名稱、唯一 aria-current 選取狀態及每個具名稱的 button／input 子控制項實際可 Tab 到；放大子按鈕以 Tab／Enter 操作，燈箱 Esc 關閉並回復焦點，工法選取既有 Enter 行為另保留驗證。這些測試與 output 證據不屬公開執行期或正式 release 證據。
 
 ## 2026-10-08：第五階段 T23 家族慢測執行器
 

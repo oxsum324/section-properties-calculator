@@ -44,6 +44,41 @@ VALIDATION_MODAL_CLOSED_JS = """() => {
     focusInside: modal?.contains(document.activeElement) || false,
   };
 }"""
+METHOD_GROUPS_JS = """() => {
+  const name = el => {
+    const references = (el.getAttribute('aria-labelledby') || '').trim().split(/\\s+/).filter(Boolean);
+    const referenced = references.map(id => document.getElementById(id)?.textContent?.trim() || '').join(' ').trim();
+    return referenced || el.getAttribute('aria-label')?.trim()
+      || Array.from(el.labels || []).map(label => label.textContent.trim()).join(' ').trim()
+      || (el.matches('button') ? el.textContent.trim() : '')
+      || (el.matches('input[type="button"],input[type="submit"]') ? el.value.trim() : '') || '';
+  };
+  return Array.from(document.querySelectorAll('#v2_method_grid .v2-method-card')).map(group => ({
+    method: group.dataset.method, role: group.getAttribute('role'), name: name(group), tabIndex: group.tabIndex,
+    current: group.getAttribute('aria-current'), active: group.classList.contains('active'),
+    controls: Array.from(group.querySelectorAll('button,input:not([type="hidden"])')).map(control => ({
+      tag: control.tagName.toLowerCase(), role: control.getAttribute('role'), name: name(control),
+      tabIndex: control.tabIndex, disabled: control.disabled,
+      visible: !!control.getClientRects().length && getComputedStyle(control).visibility !== 'hidden',
+    })),
+  }));
+}"""
+
+
+def assert_method_groups(page) -> list[dict]:
+    groups = page.evaluate(METHOD_GROUPS_JS)
+    if len(groups) != 4 or sum(group['current'] == 'true' for group in groups) != 1:
+        raise AssertionError(f'Expected four method groups with exactly one current selection: {groups}')
+    for group in groups:
+        if (group['role'] != 'group' or not group['name'] or group['tabIndex'] != 0
+                or group['current'] != ('true' if group['active'] else 'false') or not group['controls']):
+            raise AssertionError(f'Expected named method group and matching selection state: {group}')
+        for control in group['controls']:
+            if (control['tag'] not in ('button', 'input') or not control['name']
+                    or control['tabIndex'] < 0 or control['disabled'] or not control['visible']
+                    or (control['role'] and control['role'] != 'button' and control['tag'] == 'button')):
+                raise AssertionError(f'Expected named, enabled and tabbable child control: {group}')
+    return groups
 
 
 def server_alive() -> bool:
@@ -883,12 +918,13 @@ def main() -> int:
                 )
             project_profile_context.close()
 
+            method_groups = assert_method_groups(page)
             keyboard_semantics = page.evaluate(
                 """async () => ({
                   badAccordions: Array.from(document.querySelectorAll('#sidebar .acc-hd')).filter(el => el.getAttribute('role') !== 'button' || el.getAttribute('tabindex') !== '0' || !el.getAttribute('aria-controls') || !el.getAttribute('aria-expanded')).length,
                   badChips: Array.from(document.querySelectorAll('.chip')).filter(el => el.getAttribute('role') !== 'button' || el.getAttribute('tabindex') !== '0' || !el.hasAttribute('aria-pressed')).length,
                   badChipGroups: Array.from(document.querySelectorAll('.chips')).filter(el => el.getAttribute('role') !== 'group' || !el.getAttribute('aria-label')).length,
-                  badMethods: Array.from(document.querySelectorAll('#v2_method_grid .v2-method-card')).filter(el => el.getAttribute('role') !== 'button' || el.getAttribute('tabindex') !== '0' || !el.hasAttribute('aria-pressed')).length,
+                  badMethods: Array.from(document.querySelectorAll('#v2_method_grid .v2-method-card')).filter(el => el.getAttribute('role') !== 'group' || el.getAttribute('tabindex') !== '0' || !['true','false'].includes(el.getAttribute('aria-current')) || !(el.getAttribute('aria-label')?.trim() || el.getAttribute('aria-labelledby')?.trim()) || !el.querySelector('button,input:not([type="hidden"])')).length,
                   badToggleButtons: Array.from(document.querySelectorAll('.v2-mode-switch .mode-btn,.v2-tier-bar .tier-btn')).filter(el => !el.hasAttribute('aria-pressed')).length,
                   toolbarRole: document.querySelector('#v2-toolbar')?.getAttribute('role') || '',
                   toolbarLabel: document.querySelector('#v2-toolbar')?.getAttribute('aria-label') || '',
@@ -2169,14 +2205,32 @@ def main() -> int:
                 timeout=10000,
             )
 
-            page.evaluate("() => document.querySelector('#v2_method_grid .v2-method-card[data-method=\"bk_4h\"]')?.focus({preventScroll:true})")
+            # 真實 Tab 驗證各群組子控制項；不以程式直接 focus 子按鈕取代鍵盤測試。
+            for group in method_groups:
+                group_selector = f'#v2_method_grid .v2-method-card[data-method="{group["method"]}"]'
+                page.focus(group_selector)
+                for control_index, control in enumerate(group['controls']):
+                    page.keyboard.press('Tab')
+                    focused_child = page.evaluate(
+                        """({selector, index}) => document.activeElement === document.querySelector(selector)
+                          ?.querySelectorAll('button,input:not([type="hidden"])')[index]""",
+                        {'selector': group_selector, 'index': control_index},
+                    )
+                    if not focused_child:
+                        raise AssertionError(f'Expected Tab to reach method child {control_index}: {group}')
+
+            # 工法選取由 group 的既有 Enter 事件處理，狀態為 aria-current；子按鈕負責放大。
+            page.focus('#v2_method_grid .v2-method-card[data-method="bk_4h"]')
             page.keyboard.press('Enter')
             page.wait_for_function(
-                "() => document.querySelector('#v2_method_grid .v2-method-card[data-method=\"bk_4h\"]')?.getAttribute('aria-pressed') === 'true'",
+                "() => document.querySelector('#v2_method_grid .v2-method-card[data-method=\"bk_4h\"]')?.getAttribute('aria-current') === 'true' && window.V2_METHOD === 'bk_4h'",
                 timeout=10000,
             )
+            assert_method_groups(page)
 
-            page.focus('#v2_method_grid .v2-method-card[data-method="bk_4h"] .zoom-btn')
+            page.keyboard.press('Tab')
+            if not page.evaluate("() => document.activeElement === document.querySelector('#v2_method_grid .v2-method-card[data-method=\"bk_4h\"] .zoom-btn')"):
+                raise AssertionError('Expected Tab from the selected method group to focus its zoom button')
             page.keyboard.press('Enter')
             page.wait_for_selector('#v2-lightbox.show', timeout=10000)
             page.wait_for_function(
@@ -2210,6 +2264,8 @@ def main() -> int:
                 'closeType': 'button',
             }:
                 raise AssertionError(f'Expected lightbox dialog semantics and focus: {lightbox_a11y}')
+            if page.evaluate("() => window.V2_METHOD") != 'bk_4h':
+                raise AssertionError('Expected child zoom activation to preserve the selected method')
             page.keyboard.press('Escape')
             page.wait_for_selector('#v2-lightbox.show', state='hidden', timeout=10000)
             page.wait_for_function(
