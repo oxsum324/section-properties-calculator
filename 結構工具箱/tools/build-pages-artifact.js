@@ -4,6 +4,8 @@ const os = require('os');
 const path = require('path');
 
 const PRIVATE_FILES = new Set([
+  '結構工具箱/tools/a11y/tool-page-a11y.source.js',
+  '結構工具箱/tools/build-tool-page-a11y.js',
   'report-format-parity.core.js',
   'report-core-parity-map.json',
   '結構工具箱/tools/tool-load-budget-contract.js',

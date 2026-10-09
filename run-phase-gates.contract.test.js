@@ -14,11 +14,12 @@ const dispatch = fs.readFileSync(dispatchPath, 'utf8');
 const section = dispatch.match(/^## 0\.[\s\S]*?^```(?:bash|sh)?\s*\r?\n([\s\S]*?)^```/m);
 assert.ok(section, 'V3 section 0 command block must exist');
 const expectedCommands = section[1].split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-assert.equal(expectedCommands.length, 28, 'V3 section 0 must contain the original 26 commands and two governance checks');
-assert.deepEqual(expectedCommands.slice(-2), [
+assert.equal(expectedCommands.length, 29, 'V3 section 0 must contain the original 26 commands and three added contracts');
+assert.deepEqual(expectedCommands.slice(-3), [
   'node 結構工具箱/tools/regulatory-data.contract.test.js',
   'node 結構工具箱/tools/sync-home-update-dates.js --check',
-], 'the mirror parity and clean-tree homepage date checks must be appended in order');
+  'node tool-page-a11y-build.contract.test.js',
+], 'the mirror parity, clean-tree homepage dates and generated a11y checks must be appended in order');
 
 const invokePowerShell = (args) => spawnSync('powershell', [
   '-NoProfile',

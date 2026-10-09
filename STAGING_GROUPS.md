@@ -555,3 +555,13 @@ T27 將 V3 第 0 節命令區塊末尾追加規範資料 core／vendor 同步契
 ```powershell
 git add -- run-phase-gates.ps1 run-phase-gates.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
+
+## 2026-10-09：第六階段 T24（無障礙公開執行期確定性壓縮）
+
+可讀 source 僅新增必要註解，固定 Terser 5.44.0 建置原 `tool-page-a11y.js`，由 16,500 bytes 降至 9,972 bytes，減少 6,528 bytes；公開檔名、40 頁相對引用及 script 順序不變。source／build 精確列入 Pages PRIVATE_FILES；build contract 依測試後綴排除。`.gitattributes` 固定生成檔與 source 為 LF，避免 Windows checkout 換行造成逐位元組檢查漂移。Terser 只安裝於 ignored `output/playwright/phase2-quality-deps/`，版本、manifest 與 lock 由既有依賴入口核對，套件及 package／lock 不 staging。
+
+首頁維持公開 JS 並將 source 同時加入相同 40 條路由更新依賴；先提交以取得真實來源日期，再在乾淨樹執行日期同步並 amend 同一任務提交，最終乾淨樹 `--check` 無差異。V3 命令區塊末尾追加 `node tool-page-a11y-build.contract.test.js` 為第 29 條；每包門檻完整重跑，T24 另跑 40 頁 × 2 viewport 無障礙、52 頁載入預算及 14 組家族慢測。載入量與原始 sourceDrift 如實回報，不重設基準。
+
+```powershell
+git add -- .gitattributes tool-page-a11y.js tool-page-a11y-build.contract.test.js ensure-homepage-quality-deps.ps1 run-phase-gates.ps1 run-phase-gates.contract.test.js "結構工具箱/tools/a11y/tool-page-a11y.source.js" "結構工具箱/tools/build-tool-page-a11y.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```

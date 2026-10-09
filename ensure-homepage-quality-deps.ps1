@@ -9,6 +9,7 @@ $required = [ordered]@{
   'lighthouse' = '13.5.0'
   'playwright' = '1.63.0'
   '@axe-core/playwright' = '4.13.0'
+  'terser' = '5.44.0'
 }
 
 New-Item -ItemType Directory -Path $depsRoot -Force | Out-Null
@@ -32,7 +33,8 @@ if (Test-Path -LiteralPath $packageFile) {
   $manifest = Get-Content -Raw -Encoding UTF8 $packageFile | ConvertFrom-Json
   $manifestMatches = $true
   foreach ($name in $required.Keys) {
-    if ($manifest.dependencies.PSObject.Properties[$name].Value -ne $required[$name]) { $manifestMatches = $false }
+    $dependency = $manifest.dependencies.PSObject.Properties[$name]
+    if ($null -eq $dependency -or $dependency.Value -ne $required[$name]) { $manifestMatches = $false }
   }
 }
 $installed = Get-InstalledVersions
@@ -61,8 +63,9 @@ if ($manifestMatches -and (Test-Path -LiteralPath $lockFile) -and $installedMatc
     $command = 'npm.cmd ci --prefix "' + $depsRoot + '" --no-audit --no-fund'
   } else {
     $mode = 'first-install-pinned-exact-versions'
-    $arguments = @('install', '--prefix', $depsRoot, '--save-exact', 'lighthouse@13.5.0', 'playwright@1.63.0', '@axe-core/playwright@4.13.0', '--no-audit', '--no-fund')
-    $command = 'npm.cmd install --prefix "' + $depsRoot + '" --save-exact lighthouse@13.5.0 playwright@1.63.0 @axe-core/playwright@4.13.0 --no-audit --no-fund'
+    $packages = @($required.GetEnumerator() | ForEach-Object { "$($_.Key)@$($_.Value)" })
+    $arguments = @('install', '--prefix', $depsRoot, '--save-exact') + $packages + @('--no-audit', '--no-fund')
+    $command = 'npm.cmd install --prefix "' + $depsRoot + '" --save-exact ' + ($packages -join ' ') + ' --no-audit --no-fund'
   }
   $header = "startedAt=$startedAt`nmode=$mode`ncommand=$command`nlockFile=$lockFile`n"
   Set-Content -Encoding UTF8 $installLog $header
@@ -75,5 +78,5 @@ foreach ($name in $required.Keys) {
   if ($null -eq $final -or $final[$name] -ne $required[$name]) { throw "Dependency setup did not produce the pinned $name $($required[$name])" }
 }
 if (-not (Test-Path -LiteralPath $lockFile)) { throw "npm did not create the ignored dependency lock: $lockFile" }
-Write-Output "Homepage quality dependencies ready: Lighthouse 13.5.0, Playwright 1.63.0, axe-playwright 4.13.0"
+Write-Output "Homepage quality dependencies ready: Lighthouse 13.5.0, Playwright 1.63.0, axe-playwright 4.13.0, Terser 5.44.0"
 Write-Output "Ignored package lock: $lockFile"
