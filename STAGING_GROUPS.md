@@ -539,3 +539,11 @@ git add -- "report-core-parity-map.json" "report-core-parity.contract.test.js" "
 ```powershell
 git add -- "run-family-wrappers.ps1" "run-family-wrappers.contract.test.js" "report-popup-fixture.test.js" "鋼筋混凝土/tools/beam-regression.test.js" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/slab-regression.test.js" "鋼構工具/steel-audit-browser-runner.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
 ```
+
+## 2026-10-09：第五階段放行前修正（工址列 core／vendor 同步、staging 覆蓋佔位符）
+
+第五階段 T19 只在 `石材固定/vendor/loads/project-location.js` 把共用工址列改為具 `aria-label` 的 `section`，未同步到來源 `結構工具箱/core/loads/project-location.js`，正式預檢 `regulatory-data-contract` 的 SHA-256 同步比對因此失敗；修正方式是把同一變更寫回 core，再以 `結構工具箱/tools/sync-stone-regulatory-vendor.js` 重新產生 vendor 副本，並重跑 `sync-home-update-dates.js`（五條風力／耐震路由與石材頁更新日）。另 `preflight-tools.ps1` 的 staging 覆蓋檢查改為略過含 `<`、`>` 佔位符的行內路徑（例如時間戳目錄），避免 `Test-Path` 擲回不合法字元。vendor 檔必須由同步腳本產生、不得手改。
+
+```powershell
+git add -- "結構工具箱/core/loads/project-location.js" "石材固定/vendor/loads/project-location.js" "結構工具箱/assets/home/home.js" "preflight-tools.ps1" "STAGING_GROUPS.md" "TOOL_BOUNDARIES.md"
+```

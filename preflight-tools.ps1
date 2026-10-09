@@ -1595,7 +1595,7 @@ function Get-DocumentedCoveragePaths {
   $inlineText = [regex]::Replace($Text, '(?s)```.*?```', '')
   foreach ($match in [regex]::Matches($inlineText, '`([^`]+)`')) {
     $token = [string]$match.Groups[1].Value
-    if ([string]::IsNullOrWhiteSpace($token) -or $token.Contains(" ") -or $token.Contains("*") -or $token.Contains("`r") -or $token.Contains("`n")) { continue }
+    if ([string]::IsNullOrWhiteSpace($token) -or $token.Contains(" ") -or $token.Contains("*") -or $token.Contains("<") -or $token.Contains(">") -or $token.Contains("`r") -or $token.Contains("`n")) { continue }
     if ($token -match '^(git|node|powershell|\.\|/)') { continue }
     $clean = Normalize-PathText $token
     $testPath = $clean.TrimEnd("/")

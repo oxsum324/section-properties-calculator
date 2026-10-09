@@ -227,7 +227,8 @@
     const map = detectFieldMap(doc);
     if (!doc?.body || !map || doc.querySelector(`.${CONTROL_CLASS}`)) return null;
     addStyles(doc);
-    const bar = doc.createElement('div');
+    const bar = doc.createElement('section');
+    bar.setAttribute('aria-label', '共用工址設定');
     bar.className = `${CONTROL_CLASS} page-only-report-status`;
     bar.innerHTML = `<strong>共用工址：</strong><button type="button" data-location-apply>套用已存工址</button>${map.kind === 'wind' ? '' : '<button type="button" data-location-save>儲存目前工址</button>'}<span data-location-status>尚未儲存工址。</span>`;
     const anchor = doc.querySelector('.project-meta-profile-bar') || doc.querySelector('.mode-bar') || doc.querySelector('header');

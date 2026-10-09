@@ -157,7 +157,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-10-08',
+    generatedAt: '2026-10-09',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -187,7 +187,7 @@
       '/steel-plate': '2026-10-08',
       '/steel-beam': '2026-10-08',
       '/steel-column': '2026-10-08',
-      '/wind-overview': '2026-10-08',
+      '/wind-overview': '2026-10-09',
       '/wind-kzt': '2026-10-08',
       '/wind-special': '2026-10-08',
       '/wind-force': '2026-10-08',
@@ -200,10 +200,10 @@
       '/wind-object-tower': '2026-10-08',
       '/wind-fence-sign': '2026-10-08',
       '/wind-sign-pole': '2026-10-08',
-      '/seismic-force': '2026-10-08',
-      '/seismic-dynamic': '2026-10-08',
-      '/seismic-appendage': '2026-10-08',
-      '/seismic-misc': '2026-10-08',
+      '/seismic-force': '2026-10-09',
+      '/seismic-dynamic': '2026-10-09',
+      '/seismic-appendage': '2026-10-09',
+      '/seismic-misc': '2026-10-09',
       '/anchor': '2026-10-08',
       '/stone-fixing': '2026-10-08',
       '/foundation-local': '2026-10-08',
