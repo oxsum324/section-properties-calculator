@@ -565,3 +565,12 @@ git add -- run-phase-gates.ps1 run-phase-gates.contract.test.js README.md TOOL_B
 ```powershell
 git add -- .gitattributes tool-page-a11y.js tool-page-a11y-build.contract.test.js ensure-homepage-quality-deps.ps1 run-phase-gates.ps1 run-phase-gates.contract.test.js "結構工具箱/tools/a11y/tool-page-a11y.source.js" "結構工具箱/tools/build-tool-page-a11y.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
+
+## 2026-10-09：第六階段放行前（14 頁補 icon link、載入預算基準重設）
+
+40 個正式工具頁中有 14 頁（風力 9、耐震 3、地坪 Westergaard、鋼索頻率法）未宣告 `<link rel="icon">`，桌機瀏覽器會自動請求 `/favicon.ico` 並在 console 留下 404；比照其餘 29 頁在 `<title>` 之後補 `<link rel="icon" href="data:,">`，不影響 script 順序與無障礙結果。載入預算基準經委託人授權以 `--write-baseline` 重設為第五／六階段現況（52 路由 17,789,913 → 18,128,164 bytes；增量來自已上線的第五階段共用報表模組，第六階段 a11y 執行期每頁減 6,528）。基準 JSON 只能由該指令產生，不得手改。
+
+```powershell
+git add -- "結構工具箱/tools/tool-load-budget-baseline.json" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "STAGING_GROUPS.md" "TOOL_BOUNDARIES.md"
+```
+

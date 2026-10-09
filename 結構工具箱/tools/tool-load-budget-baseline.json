@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-10-08T09:23:24.603Z",
-  "sourceCommit": "f66b9e8287b8b839fc8b99b7b30a2ec35e7162a1",
+  "capturedAt": "2026-10-09T13:22:34.241Z",
+  "sourceCommit": "a1018d6431c2cc7fde6865cf1978248a5178c3c2",
   "routeCount": 52,
-  "totalJsBytes": 17789913,
+  "totalJsBytes": 18128164,
   "docxRuntimePath": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/package/dist/index.iife.js",
   "docxRuntimeBytes": 857630,
   "routes": [
@@ -19,11 +19,11 @@
     },
     {
       "route": "/beam-analysis",
-      "jsBytes": 757159,
+      "jsBytes": 770286,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -31,7 +31,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -43,7 +43,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/force-picker.js",
@@ -61,11 +61,11 @@
     },
     {
       "route": "/frame-analysis",
-      "jsBytes": 278925,
+      "jsBytes": 285524,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -73,7 +73,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
@@ -93,7 +93,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
@@ -104,7 +104,7 @@
     },
     {
       "route": "/section",
-      "jsBytes": 154796,
+      "jsBytes": 167858,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -112,7 +112,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -120,13 +120,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         }
       ]
     },
     {
       "route": "/composite-section",
-      "jsBytes": 226372,
+      "jsBytes": 239499,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -134,7 +134,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -142,17 +142,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-beam",
-      "jsBytes": 321198,
+      "jsBytes": 328647,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -180,7 +180,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -192,7 +192,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -232,13 +232,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-deep-beam-stm",
-      "jsBytes": 228436,
+      "jsBytes": 235885,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -258,7 +258,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -270,7 +270,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -282,13 +282,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-column",
-      "jsBytes": 320045,
+      "jsBytes": 327494,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -312,7 +312,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -324,7 +324,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -368,13 +368,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-slab",
-      "jsBytes": 289999,
+      "jsBytes": 297448,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -406,7 +406,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -418,7 +418,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -442,13 +442,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-wall",
-      "jsBytes": 323054,
+      "jsBytes": 330503,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -472,7 +472,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -484,7 +484,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -528,13 +528,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-shear-wall",
-      "jsBytes": 318340,
+      "jsBytes": 325789,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -558,7 +558,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -570,7 +570,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -614,13 +614,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-foundation",
-      "jsBytes": 431171,
+      "jsBytes": 438620,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -676,7 +676,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -688,7 +688,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -728,13 +728,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-foundation-deep-beam-stm",
-      "jsBytes": 247419,
+      "jsBytes": 254868,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -758,7 +758,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -770,7 +770,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -782,13 +782,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-pile-cap-3d-stm",
-      "jsBytes": 279780,
+      "jsBytes": 287229,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -820,7 +820,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -832,7 +832,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -844,13 +844,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-pile",
-      "jsBytes": 230863,
+      "jsBytes": 238312,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
@@ -858,7 +858,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report-utils.js",
@@ -870,7 +870,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=10",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
@@ -890,17 +890,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-retrofit-section",
-      "jsBytes": 291934,
+      "jsBytes": 300366,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -908,7 +908,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -924,7 +924,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/report.js?v=8",
-          "bytes": 59686
+          "bytes": 61519
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -936,17 +936,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/rc-column-cover-deviation",
-      "jsBytes": 258573,
+      "jsBytes": 265172,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -954,7 +954,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js",
@@ -970,17 +970,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/src-beam",
-      "jsBytes": 271734,
+      "jsBytes": 278333,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -988,7 +988,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-beam-core.js",
@@ -1004,17 +1004,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/src-column",
-      "jsBytes": 458673,
+      "jsBytes": 465272,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1022,7 +1022,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js",
@@ -1066,13 +1066,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/steel-formal",
-      "jsBytes": 552432,
+      "jsBytes": 558894,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1080,7 +1080,7 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1088,13 +1088,13 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         }
       ]
     },
     {
       "route": "/steel-beam-formal",
-      "jsBytes": 370264,
+      "jsBytes": 376863,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
@@ -1106,7 +1106,7 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1114,17 +1114,17 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/steel-column-formal",
-      "jsBytes": 354300,
+      "jsBytes": 360899,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
@@ -1136,7 +1136,7 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1144,17 +1144,17 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/steel-plate",
-      "jsBytes": 552432,
+      "jsBytes": 558894,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1162,7 +1162,7 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1170,13 +1170,13 @@
         },
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         }
       ]
     },
     {
       "route": "/steel-beam",
-      "jsBytes": 322373,
+      "jsBytes": 335500,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -1204,7 +1204,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1212,17 +1212,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/steel-column",
-      "jsBytes": 322373,
+      "jsBytes": 335500,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -1250,7 +1250,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1258,17 +1258,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-overview",
-      "jsBytes": 305452,
+      "jsBytes": 305294,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1288,17 +1288,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
-          "bytes": 13006
+          "bytes": 12783
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-kzt",
-      "jsBytes": 304759,
+      "jsBytes": 317886,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1306,7 +1306,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1314,21 +1314,21 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-special",
-      "jsBytes": 130222,
+      "jsBytes": 143284,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1336,13 +1336,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         }
       ]
     },
     {
       "route": "/wind-force",
-      "jsBytes": 392885,
+      "jsBytes": 399484,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1350,7 +1350,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1358,7 +1358,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
@@ -1374,13 +1374,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-cc",
-      "jsBytes": 392885,
+      "jsBytes": 399484,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1388,7 +1388,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1396,7 +1396,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
@@ -1412,13 +1412,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-parapet",
-      "jsBytes": 392885,
+      "jsBytes": 399484,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1426,7 +1426,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1434,7 +1434,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
@@ -1450,13 +1450,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-open-roof",
-      "jsBytes": 392885,
+      "jsBytes": 399484,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1464,7 +1464,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1472,7 +1472,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/wind-report.js",
@@ -1488,13 +1488,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-object-solid",
-      "jsBytes": 344953,
+      "jsBytes": 351552,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1502,7 +1502,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1510,7 +1510,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1522,13 +1522,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-object-frame",
-      "jsBytes": 344953,
+      "jsBytes": 351552,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1536,7 +1536,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1544,7 +1544,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1556,13 +1556,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-lattice-tower",
-      "jsBytes": 344953,
+      "jsBytes": 351552,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1570,7 +1570,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1578,7 +1578,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1590,13 +1590,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-object-tower",
-      "jsBytes": 344953,
+      "jsBytes": 351552,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1604,7 +1604,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1612,7 +1612,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1624,13 +1624,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-fence-sign",
-      "jsBytes": 344953,
+      "jsBytes": 351552,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1638,7 +1638,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1646,7 +1646,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1658,13 +1658,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/wind-sign-pole",
-      "jsBytes": 344953,
+      "jsBytes": 351552,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
@@ -1672,7 +1672,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1680,7 +1680,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1692,13 +1692,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/seismic-force",
-      "jsBytes": 642198,
+      "jsBytes": 648574,
       "sharedScripts": [
         {
           "path": "/npm/chart.js@4.4.7/dist/chart.umd.min.js",
@@ -1722,11 +1722,11 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
-          "bytes": 13006
+          "bytes": 12783
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1734,7 +1734,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1746,13 +1746,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/seismic-dynamic",
-      "jsBytes": 604557,
+      "jsBytes": 617461,
       "sharedScripts": [
         {
           "path": "/npm/chart.js@4.4.7/dist/chart.umd.min.js",
@@ -1776,11 +1776,11 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
-          "bytes": 13006
+          "bytes": 12783
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1788,17 +1788,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/seismic-appendage",
-      "jsBytes": 436309,
+      "jsBytes": 442685,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
@@ -1818,11 +1818,11 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
-          "bytes": 13006
+          "bytes": 12783
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1830,7 +1830,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1842,13 +1842,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/seismic-misc",
-      "jsBytes": 436309,
+      "jsBytes": 442685,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
@@ -1868,11 +1868,11 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/project-location.js",
-          "bytes": 13006
+          "bytes": 12783
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1880,7 +1880,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js?v=7",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1892,18 +1892,18 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/anchor",
-      "jsBytes": 709091,
+      "jsBytes": 702563,
       "sharedScripts": []
     },
     {
       "route": "/stone-fixing",
-      "jsBytes": 655972,
+      "jsBytes": 649221,
       "sharedScripts": [
         {
           "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/seismic-zones.js",
@@ -1923,7 +1923,7 @@
         },
         {
           "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/project-location.js",
-          "bytes": 13006
+          "bytes": 12783
         },
         {
           "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/katex/katex.min.js",
@@ -1945,11 +1945,11 @@
     },
     {
       "route": "/foundation-local",
-      "jsBytes": 253270,
+      "jsBytes": 259869,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1957,7 +1957,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1969,17 +1969,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/equipment-load",
-      "jsBytes": 243511,
+      "jsBytes": 250110,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -1987,7 +1987,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1999,17 +1999,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/earth-pressure",
-      "jsBytes": 250183,
+      "jsBytes": 256782,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -2017,7 +2017,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -2029,17 +2029,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/floor-slab-westergaard",
-      "jsBytes": 234467,
+      "jsBytes": 241066,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -2047,7 +2047,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -2059,17 +2059,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/cable-tension-frequency",
-      "jsBytes": 242261,
+      "jsBytes": 248860,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
-          "bytes": 6245
+          "bytes": 18324
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-docx.js",
@@ -2077,7 +2077,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report.js",
-          "bytes": 79258
+          "bytes": 80241
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -2089,13 +2089,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71576
+          "bytes": 71641
         }
       ]
     },
     {
       "route": "/decking",
-      "jsBytes": 40050,
+      "jsBytes": 33522,
       "sharedScripts": [
         {
           "path": "/%E8%A6%86%E5%B7%A5%E6%9D%BF/shared/h-section-table.js",
