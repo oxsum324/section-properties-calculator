@@ -3,7 +3,7 @@ const path = require('path');
 const vm = require('vm');
 const assert = require('assert');
 
-const code = fs.readFileSync(path.join(__dirname, '..', 'core', 'loads', 'wind.js'), 'utf8');
+const code = fs.readFileSync(path.join(__dirname, '..', 'core', 'loads', 'src', 'wind.source.js'), 'utf8');
 const context = {
   window: {},
   console,
@@ -12,6 +12,27 @@ const context = {
 vm.createContext(context);
 vm.runInContext(code, context);
 const W = context.window.Wind;
+const productionContext = { window: {}, console, Math };
+vm.createContext(productionContext);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'core', 'loads', 'wind.js'), 'utf8'), productionContext);
+const productionWind = productionContext.window.Wind;
+const productionCc = productionWind.calcCC({
+  V: 42.5, terrain: 'C', I: 1.0, Kzt: 1.0,
+  h: 30, z: 10, zone: 'zone4', surface: 'wall', A: 2, encl: 'enclosed'
+});
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(productionCc)),
+  JSON.parse(JSON.stringify(W.calcCC({
+    V: 42.5, terrain: 'C', I: 1.0, Kzt: 1.0,
+    h: 30, z: 10, zone: 'zone4', surface: 'wall', A: 2, encl: 'enclosed'
+  }))),
+  'generated production wind output matches readable source for representative C&C case'
+);
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(productionWind.calcQz(10, 42.5, 'C', 1.0, 1.0))),
+  JSON.parse(JSON.stringify(W.calcQz(10, 42.5, 'C', 1.0, 1.0))),
+  'generated production wind output matches readable source for velocity pressure'
+);
 
 function approx(actual, expected, tol = 1e-6, msg = '') {
   assert.ok(Math.abs(actual - expected) <= tol, `${msg} expected ${expected}, got ${actual}`);

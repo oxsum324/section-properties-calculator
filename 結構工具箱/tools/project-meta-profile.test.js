@@ -466,7 +466,7 @@ for (const filePath of standardizedPages) {
   );
 }
 
-const source = fs.readFileSync(require.resolve('./project-meta-profile.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, 'src', 'project-meta-profile.source.js'), 'utf8');
 assert.ok(
   source.includes("'@media print{.' + CONTROL_CLASS + '{display:none!important}}'"),
   'shared project-header controls have an explicit print boundary'

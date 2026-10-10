@@ -1,2 +1,9 @@
 tool-page-a11y.js text eol=lf
 結構工具箱/tools/a11y/tool-page-a11y.source.js text eol=lf
+結構工具箱/tools/src/project-meta-profile.source.js text eol=lf
+結構工具箱/tools/project-meta-profile.js text eol=lf
+結構工具箱/core/loads/src/wind.source.js text eol=lf
+結構工具箱/core/loads/wind.js text eol=lf
+石材固定/vendor/loads/wind.js text eol=lf
+結構工具箱/tools/build-minified-runtimes.js text eol=lf
+結構工具箱/tools/build-tool-page-a11y.js text eol=lf

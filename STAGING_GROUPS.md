@@ -602,3 +602,11 @@ git add -- "連續梁分析.html" "continuous-beam-cloud-lazy.browser.test.js" "
 git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/auto_word.py" "石材固定/assets/detail-bk.webp" "石材固定/assets/detail-pk.webp" "石材固定/stone-detail-lazy.browser.test.js" "石材固定/stone-report.contract.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
+## 2026-10-10：第七階段 T31（共用執行期確定性壓縮）
+
+單一 `build-minified-runtimes.js` manifest 以 ignored Terser 5.44.0 建置原 a11y、案件表頭 profile 與 wind runtime；ECMA 2020、compress/mangle、禁止 unsafe／property mangling，所有輸出保持既有公開路徑並以 `--check` 位元組驗證。原 a11y `build-tool-page-a11y.js` 僅作薄 wrapper，保留既有 generated marker 與 9,972 bytes，40 頁接線和 profile 最後位置契約不變。兩個 readable source、canonical builder 與舊 wrapper 登入 Pages `PRIVATE_FILES`，來源、生成檔和石材 vendor wind 固定 LF。首頁依賴維持 42 個 profile 輸出路由並加 source；wind core 輸出依賴 16 路由加 source，石材 vendor wind 路由也加入公開 vendor 輸出及 core source。Profile 行為測試仍執行公開生成檔，只把 source needles 指向 readable source；wind 原 VM／數值回歸改讀 source，增加代表案例的 generated VM 對照；所有 benchmark adapters 和 SHA-256 鏡像測試仍讀公開輸出。vendor wind 僅由 `sync-stone-regulatory-vendor.js` 產生。容量差異保留原始逐路由項目，不重設 baseline。
+
+```powershell
+git add -- ".gitattributes" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "tool-page-a11y.js" "tool-page-a11y-build.contract.test.js" "ensure-homepage-quality-deps.ps1" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-tool-page-a11y.js" "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/tools/project-meta-profile.test.js" "結構工具箱/core/loads/src/wind.source.js" "結構工具箱/core/loads/wind.js" "結構工具箱/tests/wind.test.js" "石材固定/vendor/loads/wind.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/assets/home/home.js"
+```
+
