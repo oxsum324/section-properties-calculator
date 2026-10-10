@@ -211,7 +211,7 @@
       '/earth-pressure': '2026-10-10',
       '/floor-slab-westergaard': '2026-10-10',
       '/cable-tension-frequency': '2026-10-10',
-      '/decking': '2026-10-09',
+      '/decking': '2026-10-10',
       '/excavation-support': '2026-10-03'
     }
   };

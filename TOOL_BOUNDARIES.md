@@ -1,5 +1,9 @@
 # 工具交付邊界
 
+## 2026-10-10：覆工板手機報告溢出追加修正
+
+依委託人追加授權，`覆工板/index.html` 的既有 `#report-output` 在螢幕提供局部水平捲動、鍵盤焦點與區域標籤，保留原計算、七張表格、報告 DOM 與匯出內容。列印解除容器寬度限制與 overflow 裁切；不以隱藏頁面溢出掩蓋表格內容。原 375 px 溢出 263 px 的失敗收據保留，另在提交後的乾淨 HEAD 重跑原 workflow 與報告契約；不放寬斷言、不重設容量基準。
+
 ## 2026-10-10：第七階段 T31 容量修正
 
 依委託人追加授權，`結構工具箱/tools/src/project-meta-profile.source.js` 在 factory 作用域內共用 25 個高頻屬性鍵常數；540 個存取位置仍使用相同實際 key，不更動 API、JSON／備份 schema、DOM 名稱或文案，也不使用 property mangling。固定 Terser 5.44.0 與原安全參數重建公開 `結構工具箱/tools/project-meta-profile.js` 為 35,532 bytes，低於原 36,000-byte 上限；UMD 外層不引用 factory 的區域常數。原始字面與行為斷言全部保留，兩筆 Chart 容量差異與基準維持。

@@ -149,6 +149,15 @@
   table.calc td.value { font-family: Consolas, monospace; font-weight: 600; }
   table.calc td.max { background: #fff3cd; }
 
+  #report-output {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  #report-output:focus-visible {
+    outline: 2px solid var(--c-primary);
+    outline-offset: 2px;
+  }
+
   .check {
     padding: 4px 10px;
     border-radius: 4px;
@@ -354,6 +363,7 @@
     #tab-report > .card { border: 0; box-shadow: none; padding: 0; page-break-inside: auto; }
     #tab-report h1, #tab-report h2, #tab-report h3, #tab-report h4 { break-after: avoid-page; }
     #tab-report table { break-inside: auto; }
+    #report-output { max-width: none; overflow: visible; }
     #tab-report thead { display: table-header-group; }
     #tab-report tr { break-inside: avoid-page; }
     .summary, table.calc th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -777,7 +787,7 @@
     </div>
 
     <div id="report-readiness" class="report-readiness page-only-report-status" role="status" aria-live="polite"></div>
-    <div id="report-output"></div>
+    <div id="report-output" tabindex="0" role="region" aria-label="覆工板彙整計算書，可左右捲動檢視表格"></div>
   </div>
 </section>
 

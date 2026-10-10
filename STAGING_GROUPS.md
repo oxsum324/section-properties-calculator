@@ -618,3 +618,11 @@ git add -- ".gitattributes" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
 ```powershell
 git add -- "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
+
+## 2026-10-10：覆工板手機報告溢出追加修正
+
+只調整既有 `#report-output` 的螢幕局部捲動、焦點與區域標籤，列印解除裁切；計算及七張表格原內容不改。保留原報告契約與手機橫溢斷言，於最終乾淨 HEAD 驗收。首頁日期依同步腳本處理，不手改狀態 JSON。
+
+```powershell
+git add -- "覆工板/index.html" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
