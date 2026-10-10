@@ -610,3 +610,11 @@ git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固�
 git add -- ".gitattributes" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "tool-page-a11y.js" "tool-page-a11y-build.contract.test.js" "ensure-homepage-quality-deps.ps1" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-tool-page-a11y.js" "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/tools/project-meta-profile.test.js" "結構工具箱/core/loads/src/wind.source.js" "結構工具箱/core/loads/wind.js" "結構工具箱/tests/wind.test.js" "石材固定/vendor/loads/wind.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/assets/home/home.js"
 ```
 
+
+## 2026-10-10：第七階段 T31 容量追加修正
+
+共用同名 property-key 字串以確定性壓縮 profile，UMD／factory 作用域分開，輸出維持原公開路徑，source 維持私有。原始 API、備份 schema、id／class、文案與斷言保留；35,532 bytes 達既定 36,000-byte 門檻。由 canonical builder 產出，不改壓縮參數或載入基準。
+
+```powershell
+git add -- "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
