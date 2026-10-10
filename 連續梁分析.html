@@ -2083,8 +2083,8 @@ window.addEventListener('orientationchange', () => setTimeout(redrawAll, 200));
 </script>
 <script type="module">
 // ==================== FIREBASE CLOUD SAVE ====================
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
-import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+const FIREBASE_APP_URL = 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
+const FIREBASE_FIRESTORE_URL = 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAEMnle34AXt1oAeJpk2Co0kTXetbIOkPk",
@@ -2094,10 +2094,91 @@ const firebaseConfig = {
   messagingSenderId: "992976651028",
   appId: "1:992976651028:web:7ecb3ee9a06d09db237801"
 };
-const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
 const COLL = 'beam_saves';
 const LOCAL_DRAFT_KEY = 'continuousBeam.localDraft.v1';
+
+let firebaseRuntimePromise = null;
+let firebaseRuntime = null;
+let db = null;
+let firebaseRuntimeFrame = null;
+let firebaseImportAttemptId = 0;
+
+function importFirebaseModulesInFreshRealm() {
+  let frame = null;
+  return new Promise((resolve, reject) => {
+    frame = document.createElement('iframe');
+    frame.hidden = true;
+    frame.setAttribute('aria-hidden', 'true');
+    frame.title = 'Firebase module loader';
+    document.body.appendChild(frame);
+
+    const attemptId = ++firebaseImportAttemptId;
+    const callbackKey = '__continuousBeamFirebaseLoader_' + attemptId;
+    let settled = false;
+    const finish = (error, modules) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      delete window[callbackKey];
+      if (error) {
+        frame.remove();
+        reject(error);
+      } else {
+        resolve({ ...modules, frame });
+      }
+    };
+    const timeoutId = window.setTimeout(() => finish(new Error('Firebase 載入逾時')), 12000);
+    window[callbackKey] = {
+      resolve: (appModule, firestoreModule, prepareSaveData) => finish(null, { appModule, firestoreModule, prepareSaveData }),
+      reject: error => finish(new Error(String(error)))
+    };
+
+    const moduleScript = frame.contentDocument.createElement('script');
+    moduleScript.type = 'module';
+    moduleScript.textContent = `Promise.all([import(${JSON.stringify(FIREBASE_APP_URL)}), import(${JSON.stringify(FIREBASE_FIRESTORE_URL)})])
+      .then(([appModule, firestoreModule]) => {
+        const callback = parent[${JSON.stringify(callbackKey)}];
+        if (callback) {
+          const prepareSaveData = (json, includeCreatedAt) => {
+            const data = JSON.parse(json);
+            if (includeCreatedAt) data.created_at = firestoreModule.serverTimestamp();
+            data.updated_at = firestoreModule.serverTimestamp();
+            return data;
+          };
+          callback.resolve(appModule, firestoreModule, prepareSaveData);
+        }
+      }, error => {
+        const callback = parent[${JSON.stringify(callbackKey)}];
+        if (callback) callback.reject(error);
+      });`;
+    frame.contentDocument.head.appendChild(moduleScript);
+  });
+}
+
+function loadFirebaseRuntime() {
+  if (firebaseRuntime) return Promise.resolve(firebaseRuntime);
+  if (firebaseRuntimePromise) return firebaseRuntimePromise;
+
+  let attemptFrame = null;
+  let attemptPromise;
+  attemptPromise = importFirebaseModulesInFreshRealm().then(({ appModule: firebaseAppModule, firestoreModule, prepareSaveData, frame }) => {
+    attemptFrame = frame;
+    if (firebaseRuntimePromise !== attemptPromise) throw new Error('Firebase 載入嘗試已失效');
+    const app = firebaseAppModule.initializeApp(firebaseConfig);
+    db = firestoreModule.getFirestore(app);
+    firebaseRuntime = Object.assign(Object.create(null), firestoreModule, { prepareSaveData });
+    firebaseRuntimeFrame = frame;
+    return firebaseRuntime;
+  }).catch(error => {
+    if (firebaseRuntimePromise === attemptPromise) firebaseRuntimePromise = null;
+    if (attemptFrame && attemptFrame !== firebaseRuntimeFrame) attemptFrame.remove();
+    throw error;
+  });
+  firebaseRuntimePromise = attemptPromise;
+  return attemptPromise;
+}
+
+const cloudUnavailableMessage = '雲端服務暫時無法連線，可改用本地存檔';
 
 let currentSaveId = null;
 let currentSaveName = null;
@@ -2302,6 +2383,7 @@ window._fbSave = function() {
   document.getElementById('saveProjectInput').value = '';
   document.getElementById('saveNoteInput').value = '';
   document.getElementById('saveModal').classList.add('active');
+  loadFirebaseRuntime().catch(() => window.setSaveModalStatus(cloudUnavailableMessage, 'error'));
 };
 
 // === Do Save ===
@@ -2311,6 +2393,12 @@ window._fbDoSave = async function() {
   const note = document.getElementById('saveNoteInput').value.trim();
   if (!project) { window.setSaveModalStatus('請輸入工程名稱', 'error'); return; }
   window.setSaveModalStatus('');
+  try {
+    await loadFirebaseRuntime();
+  } catch (error) {
+    window.setSaveModalStatus(cloudUnavailableMessage, 'error');
+    return;
+  }
   const name = dateStr + '_' + project;
   const saveData = {
     name: name,
@@ -2348,19 +2436,15 @@ async function overwriteCurrentFile(saveData, name) {
     await saveAsNewFile(saveData, name, '已儲存：');
     return;
   }
-  await updateDoc(doc(db, COLL, currentSaveId), {
-    ...saveData,
-    updated_at: serverTimestamp()
-  });
+  await firebaseRuntime.updateDoc(firebaseRuntime.doc(db, COLL, currentSaveId), firebaseRuntime.prepareSaveData(JSON.stringify(saveData), false));
   currentSaveName = name;
   updateFileLabel();
   window.setSaveStatus('已覆蓋儲存：' + name, 'ok');
 }
 
 async function saveAsNewFile(saveData, name, statusPrefix) {
-  saveData.created_at = serverTimestamp();
-  saveData.updated_at = serverTimestamp();
-  const ref = await addDoc(collection(db, COLL), saveData);
+  const firestoreData = firebaseRuntime.prepareSaveData(JSON.stringify(saveData), true);
+  const ref = await firebaseRuntime.addDoc(firebaseRuntime.collection(db, COLL), firestoreData);
   currentSaveId = ref.id;
   currentSaveName = name;
   updateFileLabel();
@@ -2382,8 +2466,9 @@ window._fbLoad = async function() {
   window.setLoadModalStatus('');
   document.getElementById('loadModal').classList.add('active');
   try {
-    const q = query(collection(db, COLL), orderBy('created_at', 'desc'));
-    const snap = await getDocs(q);
+    const firestore = await loadFirebaseRuntime();
+    const q = firestore.query(firestore.collection(db, COLL), firestore.orderBy('created_at', 'desc'));
+    const snap = await firestore.getDocs(q);
     if (snap.empty) {
       listEl.innerHTML = '<li class="empty-msg">尚無存檔</li>';
       return;
@@ -2415,6 +2500,11 @@ window._fbLoad = async function() {
       }
     };
   } catch(e) {
+    if (!firebaseRuntime) {
+      listEl.innerHTML = '<li class="empty-msg">' + cloudUnavailableMessage + '</li>';
+      window.setLoadModalStatus(cloudUnavailableMessage, 'error');
+      return;
+    }
     listEl.innerHTML = '<li class="empty-msg">載入失敗：' + e.message + '</li>';
     window.setLoadModalStatus('載入失敗：' + e.message, 'error');
     console.error(e);
@@ -2424,7 +2514,7 @@ window._fbLoad = async function() {
 async function doLoad(docId) {
   try {
     window.setLoadModalStatus('');
-    const snap = await getDoc(doc(db, COLL, docId));
+    const snap = await firebaseRuntime.getDoc(firebaseRuntime.doc(db, COLL, docId));
     if (!snap.exists()) { window.setLoadModalStatus('檔案不存在', 'error'); return; }
     const d = snap.data();
     const parsed = typeof d.data === 'string' ? JSON.parse(d.data) : d.data;
@@ -2454,7 +2544,7 @@ function showDeleteChoice(docId, name) {
 async function runDeleteAction(docId, name) {
   try {
     window.setLoadModalStatus('');
-    await deleteDoc(doc(db, COLL, docId));
+    await firebaseRuntime.deleteDoc(firebaseRuntime.doc(db, COLL, docId));
     if (currentSaveId === docId) {
       currentSaveId = null;
       currentSaveName = null;

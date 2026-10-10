@@ -574,3 +574,11 @@ git add -- .gitattributes tool-page-a11y.js tool-page-a11y-build.contract.test.j
 git add -- "結構工具箱/tools/tool-load-budget-baseline.json" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "STAGING_GROUPS.md" "TOOL_BOUNDARIES.md"
 ```
 
+## 2026-10-10：第七階段 T28（連續梁 Firebase 按需載入）
+
+連續梁頁保留原 Firebase 11.6.0 網址、設定與 `beam_saves` 資料流程，將兩個模組延後至首次雲端儲存／載入操作，並以共用 Promise、12 秒逾時與可重試 fallback 管理失敗。每次載入使用同源隱藏 iframe 建立新 module realm；成功後保留 iframe 維持 SDK realm，失敗／逾時則移除，避免瀏覽器快取失敗 module map 阻斷重試。儲存 payload 在 SDK realm 內由 JSON 純資料重建並附加 timestamp，以符合 Firestore plain-object 原型檢查；集合、欄位及 `data` 字串內容不變。`continuous-beam-cloud-lazy.browser.test.js` 以明確 fixture 驗證冷開 0 次、首次恰 2 次、阻斷後 fallback／重試、逾時重試、並行呼叫及新增／覆蓋 payload 契約。獨立真實 CDN 案例透過正式 `_fbSave()` 初始化 Firebase 並開啟儲存視窗，但不確認儲存、不查詢或讀寫 Firestore。瀏覽器 console、pageerror、requestfailed 原始紀錄及 summary 均只寫 ignored `output/playwright/continuous-beam-cloud-lazy/`。既有計算、報表、本地 JSON 與暫存流程保持獨立。
+
+```powershell
+git add -- "連續梁分析.html" "continuous-beam-cloud-lazy.browser.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
