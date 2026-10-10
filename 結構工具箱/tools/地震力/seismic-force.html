@@ -58,6 +58,9 @@
   .tag-ctrl.vm   { background:#fce7f3; color:#9d174d; }
 
   .legend { font-size:0.78em; color:var(--text-light); margin-top:6px; line-height:1.7; }
+  .spectrum-fallback-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:12px; }
+  .spectrum-fallback-table th, .spectrum-fallback-table td { border:1px solid #cbd5e1; padding:3px 5px; text-align:right; }
+  .spectrum-fallback-table th { background:#f1f5f9; }
   .fold-summary { cursor:pointer; font-weight:700; color:var(--primary); }
   .fold-summary::-webkit-details-marker { display:none; }
   .fold-summary::before { content:'▸ '; color:var(--seismic); }
@@ -385,7 +388,8 @@
   <div class="card" id="spectrumCard">
     <h2>設計反應譜 S<sub>a</sub>(T)</h2>
     <div class="canvas-wrap" style="min-height:280px;">
-      <canvas id="spectrumChart" data-diagram-role="spectrum-chart"></canvas>
+      <canvas id="spectrumChart" data-diagram-role="spectrum-chart" hidden></canvas>
+      <div id="spectrumChartFallback" class="chart-fallback" role="status">完成計算後會顯示反應譜圖；圖說與計算結果仍可供檢視。</div>
     </div>
     <div class="legend" id="spectrumLegend"></div>
   </div>
@@ -661,7 +665,7 @@
 </details>
 </div><!-- container -->
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="../../core/ui/chart-runtime.js"></script>
 <script src="../../core/loads/seismic-zones.js"></script>
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/wind.js"></script>
@@ -2036,7 +2040,7 @@ function collectSeismicSteps() {
 function collectSeismicDiagrams() {
   if (!reportOpt('rep_spectrum', true)) return [];
   const canvas = document.getElementById('spectrumChart');
-  if (!canvas || !canvas.width || !canvas.height) return [];
+  if (!specChart || specChartDrawnGeneration !== specChartGeneration || !canvas || canvas.hidden || !canvas.width || !canvas.height) return [];
   try {
     return [{
       title: '設計反應譜',
@@ -2187,6 +2191,7 @@ function openSeismicReport() {
     textExport: true
   });
   const spectrumImage = collectSeismicDiagrams()[0];
+  const spectrumFallbackTable = spectrumImage ? '' : specSpectrumDataTableHtml;
   const inputsHtml = reportOpt('rep_inputs', true) ? renderReportInputSections(collectSeismicInputs()) : '';
   const stepsHtml = (document.getElementById('chkDetail').checked && reportOpt('rep_steps', false))
     ? `
@@ -2233,6 +2238,9 @@ function openSeismicReport() {
     .k-label { color:#5b21b6; font-weight:700; }
     .k-val { color:#111827; font-weight:700; }
     .legend, .rep-note { font-size:12px; color:#475569; line-height:1.8; margin-top:8px; }
+    .spectrum-fallback-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:11px; }
+    .spectrum-fallback-table th, .spectrum-fallback-table td { border:1px solid #cbd5e1; padding:3px 5px; text-align:right; }
+    .spectrum-fallback-table th { background:#f1f5f9; }
     .dir-summary-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
     .dir-summary-card { border:1px solid #ddd6fe; border-radius:10px; padding:12px 14px; background:#faf5ff; }
     .dir-summary-head { font-size:15px; font-weight:700; color:#5b21b6; margin-bottom:8px; }
@@ -2288,7 +2296,7 @@ function openSeismicReport() {
       ${reportOpt('rep_spectrum', true) ? `
         <section class="rep-block">
           <h3>3. 譜說明</h3>
-          ${spectrumImage ? `<div class="rep-spectrum"><img src="${spectrumImage.dataURL}" alt="設計反應譜"></div>` : ''}
+          ${spectrumImage ? `<div class="rep-spectrum"><img src="${spectrumImage.dataURL}" alt="設計反應譜"></div>` : `<div class="legend">未取得有效反應譜圖，以下保留完整反應譜數值表。</div>${spectrumFallbackTable}`}
           <div class="legend">${document.getElementById('spectrumLegend')?.innerHTML || ''}</div>
         </section>
       ` : ''}
@@ -2724,8 +2732,10 @@ F<sub>vM</sub>：S<sub>1M</sub>=${r.S1M} → 查表內插得 <b>${fmt(site.FvM,3
 }
 
 let specChart = null;
+let specChartGeneration = 0;
+let specChartDrawnGeneration = 0;
+let specSpectrumDataTableHtml = '';
 function drawSpectrum(r, rY) {
-  if (typeof Chart === 'undefined') return;
   const site = r.site;
   const Tmax = Math.max(3.0, r.Tdesign * 1.5, rY ? rY.Tdesign * 1.5 : 0);
   const pts = 200;
@@ -2756,14 +2766,28 @@ function drawSpectrum(r, rY) {
     datasets.push({ label: 'Tdesign,Y 位置', data: [{ x: rY.Tdesign, y: 0 }, { x: rY.Tdesign, y: maxSa }], parsing: false, borderColor: 'rgba(217,119,6,0.5)', borderWidth: 1.5, borderDash: [5,5], pointRadius: 0, fill: false });
     datasets.push({ label: 'Tdesign,Y', data: [{ x: rY.Tdesign, y: rY.SaD / rY.Fu }], parsing: false, borderColor: '#d97706', backgroundColor: '#d97706', pointRadius: 5, pointHoverRadius: 6, showLine: false });
   }
-  const ctx = document.getElementById('spectrumChart').getContext('2d');
+  let legend = `圖中虛線標示設計週期位置。T<sub>X</sub> = ${fmt(r.Tdesign,3)} sec　|　S<sub>aD</sub>/F<sub>u,X</sub> = ${fmt(r.SaD/r.Fu,4)} g`;
+  if (rY) legend += `<br>T<sub>Y</sub> = ${fmt(rY.Tdesign,3)} sec　|　S<sub>aD</sub>/F<sub>u,Y</sub> = ${fmt(rY.SaD/rY.Fu,4)} g`;
+  document.getElementById('spectrumLegend').innerHTML = legend;
+  specSpectrumDataTableHtml = `<table class="spectrum-fallback-table"><thead><tr><th>T (sec)</th><th>SaD (g)</th><th>SaM (g)</th><th>SaD/Fu X (g)</th>${rY ? '<th>SaD/Fu Y (g)</th>' : ''}</tr></thead><tbody>${labels.map((period, i) => `<tr><td>${period}</td><td>${fmt(saD[i],4)}</td><td>${fmt(saM[i],4)}</td><td>${fmt(saD_Fu_X[i],4)}</td>${rY ? `<td>${fmt(saD_Fu_Y[i],4)}</td>` : ''}</tr>`).join('')}</tbody></table>`;
+  const generation = ++specChartGeneration;
+  const canvas = document.getElementById('spectrumChart');
+  const fallback = document.getElementById('spectrumChartFallback');
   if (specChart) specChart.destroy();
-  specChart = new Chart(ctx, {
+  specChart = null;
+  specChartDrawnGeneration = 0;
+  fallback.textContent = '反應譜數值與計算結果已更新，圖表載入中…';
+  fallback.hidden = false;
+  canvas.hidden = true;
+  loadChartRuntime().then(ChartRuntime => {
+    if (generation !== specChartGeneration) return;
+    canvas.hidden = false;
+    specChart = new ChartRuntime(canvas.getContext('2d'), {
     type: 'line',
     data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      animation: { duration: 0 },
+      animation: false,
       scales: {
         x: { type: 'linear', title: { display: true, text: '週期 T (sec)' }, min: 0, max: Tmax, ticks: { stepSize: 0.5 } },
         y: { title: { display: true, text: 'Sa (g)' }, min: 0, beginAtZero: true }
@@ -2774,11 +2798,15 @@ function drawSpectrum(r, rY) {
       },
       interaction: { mode: 'nearest', axis: 'x', intersect: false }
     }
+    });
+    specChartDrawnGeneration = generation;
+    fallback.hidden = true;
+  }).catch(() => {
+    if (generation !== specChartGeneration) return;
+    canvas.hidden = true;
+    fallback.innerHTML = `反應譜圖表目前無法載入；以下保留完整反應譜數值表。${specSpectrumDataTableHtml}`;
+    fallback.hidden = false;
   });
-
-  let legend = `圖中虛線標示設計週期位置。T<sub>X</sub> = ${fmt(r.Tdesign,3)} sec　|　S<sub>aD</sub>/F<sub>u,X</sub> = ${fmt(r.SaD/r.Fu,4)} g`;
-  if (rY) legend += `<br>T<sub>Y</sub> = ${fmt(rY.Tdesign,3)} sec　|　S<sub>aD</sub>/F<sub>u,Y</sub> = ${fmt(rY.SaD/rY.Fu,4)} g`;
-  document.getElementById('spectrumLegend').innerHTML = legend;
 }
 
 function step(title, body, detail) {

@@ -675,6 +675,14 @@ function pageStateExpression(tool) {
     const diagram = ${JSON.stringify(tool.diagramSelector)}
       ? document.querySelector(${JSON.stringify(tool.diagramSelector)})
       : null;
+    if (${JSON.stringify(['seismic-force', 'seismic-dynamic'].includes(tool.key))}) {
+      const deadline = Date.now() + 15000;
+      while (!diagram || diagram.hidden || !window.Chart?.getChart(diagram)) {
+        if (Date.now() >= deadline) throw new Error('耐震反應譜未於載入期限內完成繪製');
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      await settle(2);
+    }
     const diagramBox = diagram ? diagram.getBoundingClientRect() : null;
     const diagramRoles = Array.from(document.querySelectorAll('[data-diagram-role]'))
       .map(node => node.getAttribute('data-diagram-role') || '');

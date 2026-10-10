@@ -1,5 +1,13 @@
 # 工具交付邊界
 
+## 2026-10-10：第七階段 T29 耐震頁圖表延後載入
+
+`tool-workflow.browser.test.js` 在覆工板計算後，以既有分頁返回參數欄再測快捷鍵；保留原有輸入失效、模態視窗、頁面橫溢與列印斷言。覆工板產品檔未更動，測試揭露的既有手機報告表格橫溢須另案處理，不能放寬斷言或宣稱完整工作流通過。
+
+`結構工具箱/tools/formal-browser-smoke.test.js` 在耐震圖表量測前等待當前 Chart 實例完成繪製，尺寸與幾何斷言仍保持；測試等待不進入產品或計算書。
+
+`結構工具箱/core/ui/chart-runtime.js` 僅由 `/seismic-force` 與 `/seismic-dynamic` 首次繪製反應譜時呼叫，透過單一 Promise 管理 jsDelivr Chart.js 4.4.7、12 秒逾時及失敗重試；其大小需 ≤889 bytes。兩頁冷開與動力摘要還原均不下載 Chart.js。Chart 載入失敗時仍顯示計算結果、legend 與反應譜數值資料；計算核心與報表不等待延後載入。計算書只內嵌已成功繪製的 data URI，無有效圖時改列數值表或文字 fallback。`seismic-chart-lazy.browser.test.js` 是私人 Edge／Playwright 測試，輸出只存 ignored `output/playwright/seismic-chart-lazy/`；原始錯誤、請求數、HEAD 與 dirty 收據均保留。共用 runtime 對兩條路由各計一筆 capacity difference，既有契約不去重，基準不得由本包重設。
+
 `report-core-parity-map.json` 與 `report-core-parity.contract.test.js` 比對 core／RC popup factory 內嵌 approval script 的九個必要等價區段。標記註解位於 `buildAttachmentApprovalReport` 與 `buildRcAttachmentApprovalReport` 輸出的 `<script data-attachment-approval-script>` 本文；契約先抽出該內嵌 script 再定位標記及比對 JavaScript token。序列化移除清單、封印 adapter 與 popup presentation 的既有差異在 map 明列原因；兩份 runtime 仍分治。map JSON 以 Pages artifact builder 精確排除，live smoke 對 map 與 .test.js 執行私有路徑探測。
 
 報表與載入稽核修正：`report-format-parity.core.js`／`report-format-parity.contract.test.js` 檢查 TXT 表、列、格及標籤／單位／判定，完整四案與指定子集分開驗收，browser 與後段必須明確傳遞同輪輸出目錄；不得以最新目錄推定來源。`結構工具箱/tools/tool-load-budget-contract.js`／`結構工具箱/tools/tool-load-budget-contract.test.js`分開容量差異與 HTTP／導覽／腳本／工作流故障，功能錯誤、缺漏路由、無效 bytes 或來源漂移皆不得重設基準。兩個純 Node 契約接入 quick／CI／正式 preflight；完整 Word／52 頁 browser 仍為獨立派工驗收。helper、基準、測試與來源收據不發布至 Pages 或進入計算書；開發檢查不得冒充正式放行。

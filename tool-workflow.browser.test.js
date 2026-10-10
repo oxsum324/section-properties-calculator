@@ -244,6 +244,13 @@ async function main() {
         check('ctrl-enter-shows-result', resultVisible, tool.resultSelector);
         await capture('ctrl-enter');
 
+        if (tool.key === '/decking') {
+          // 覆工板計算後切至報告頁；透過既有分頁返回真正的參數欄。
+          await page.locator('nav.tabs button[data-tab="global"]').click();
+          await settle(page);
+          check('decking-returns-to-editable-inputs', await input.isVisible());
+        }
+
         await input.focus(); await settle(page);
         record.observations.nonCalculationKeys = [];
         for (const values of [{ key: 'Enter' }, { key: 'Enter', ctrlKey: true, repeat: true }, { key: 'Enter', ctrlKey: true, isComposing: true }, { key: 'Enter', ctrlKey: true, altKey: true }, { key: 'Enter', ctrlKey: true, shiftKey: true }]) {

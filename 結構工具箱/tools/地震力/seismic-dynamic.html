@@ -508,7 +508,8 @@
       <div class="card">
         <h2>反應譜圖形化檢核</h2>
         <div class="canvas-wrap" style="min-height:280px;">
-          <canvas id="dynamicSpectrumChart" data-diagram-role="dynamic-spectrum-chart"></canvas>
+          <canvas id="dynamicSpectrumChart" data-diagram-role="dynamic-spectrum-chart" hidden></canvas>
+          <div id="dynamicSpectrumChartFallback" class="chart-fallback" role="status">反應譜數值資料已保留；按「整理動力摘要」後才會載入圖表。</div>
         </div>
         <div class="legend" id="dynamicSpectrumLegend"></div>
       </div>
@@ -552,7 +553,7 @@
 </details>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="../../core/ui/chart-runtime.js"></script>
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/seismic-zones.js"></script>
 <script src="../../core/loads/wind.js"></script>
@@ -573,6 +574,8 @@ const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['seismic-dynamic'].version
 const TOOL_VERSION = '3.8';
 let lastDynamicResult = null;
 let dynamicSpectrumChart = null;
+let dynamicSpectrumChartGeneration = 0;
+let dynamicSpectrumChartDrawnGeneration = 0;
 let lastDynamicReportValidationMessage = '';
 let dynamicReportInputsChanged = false;
 
@@ -1210,10 +1213,21 @@ function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, If
   });
 }
 
-function renderSpectrumChart(result) {
+function renderSpectrumChart(result, shouldDraw = true) {
   const canvas = document.getElementById('dynamicSpectrumChart');
   const legend = document.getElementById('dynamicSpectrumLegend');
-  if (!canvas || !result?.site || typeof Chart === 'undefined') return;
+  const fallback = document.getElementById('dynamicSpectrumChartFallback');
+  if (!canvas || !fallback) return;
+  const generation = ++dynamicSpectrumChartGeneration;
+  if (dynamicSpectrumChart) dynamicSpectrumChart.destroy();
+  dynamicSpectrumChart = null;
+  dynamicSpectrumChartDrawnGeneration = 0;
+  canvas.hidden = true;
+  if (!result?.site || !result.responseSpectrum) {
+    fallback.textContent = '尚未建立完整反應譜資料；請重新整理動力摘要。';
+    fallback.hidden = false;
+    return;
+  }
   const Tmax = result.responseSpectrum?.ranges?.plotTmax || Math.max(result.x?.period || 0, result.y?.period || 0, result.site?.ToM || 0.8);
   const points = buildSpectrumSeries(result.site, Tmax);
   const codeRows = result.responseSpectrum?.chartRows || [];
@@ -1227,8 +1241,19 @@ function renderSpectrumChart(result) {
     txSa,
     tySa
   );
-  if (dynamicSpectrumChart) dynamicSpectrumChart.destroy();
-  dynamicSpectrumChart = new Chart(canvas, {
+  const ranges = result.responseSpectrum?.ranges || {};
+  legend.innerHTML = `圖中依工址條件繪出設計地震反應譜、最大考量地震反應譜，以及依規範第 3.2 節換算之分析輸入譜；中小度下限譜以灰色虛線表示，用來判斷採用設計輸入譜是否由下限控制。圖表週期上限 T<sub>plot</sub> = <b>${fmt(ranges.plotTmax,1)}</b> sec，反應譜資料週期上限 T<sub>data</sub> = <b>${fmt(ranges.exportTmax,1)}</b> sec。X 向主模態週期 T<sub>x</sub> = <b>${fmt(tx,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(txSa,3)}</b> g；Y 向主模態週期 T<sub>y</sub> = <b>${fmt(ty,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(tySa,3)}</b> g。${ranges.isPlotShort ? '<br><strong>提醒：</strong>目前圖表週期上限短於 1.5 倍主要週期，建議加長顯示範圍再判讀。' : ''}`;
+  if (!shouldDraw) {
+    fallback.textContent = '已還原動力摘要；圖說及完整反應譜資料表仍可檢視。按「整理動力摘要」可載入圖表。';
+    fallback.hidden = false;
+    return;
+  }
+  fallback.textContent = '反應譜數值與計算結果已更新，圖表載入中…';
+  fallback.hidden = false;
+  loadChartRuntime().then(ChartRuntime => {
+    if (generation !== dynamicSpectrumChartGeneration) return;
+    canvas.hidden = false;
+    dynamicSpectrumChart = new ChartRuntime(canvas, {
     type: 'line',
     data: {
       datasets: [
@@ -1330,6 +1355,7 @@ function renderSpectrumChart(result) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
       interaction: { mode: 'nearest', intersect: false },
       scales: {
         x: {
@@ -1355,9 +1381,15 @@ function renderSpectrumChart(result) {
         }
       }
     }
+    });
+    dynamicSpectrumChartDrawnGeneration = generation;
+    fallback.hidden = true;
+  }).catch(() => {
+    if (generation !== dynamicSpectrumChartGeneration) return;
+    canvas.hidden = true;
+    fallback.textContent = '反應譜圖表目前無法載入；圖說與完整規範反應譜資料表仍可檢視。';
+    fallback.hidden = false;
   });
-  const ranges = result.responseSpectrum?.ranges || {};
-  legend.innerHTML = `圖中依工址條件繪出設計地震反應譜、最大考量地震反應譜，以及依規範第 3.2 節換算之分析輸入譜；中小度下限譜以灰色虛線表示，用來判斷採用設計輸入譜是否由下限控制。圖表週期上限 T<sub>plot</sub> = <b>${fmt(ranges.plotTmax,1)}</b> sec，反應譜資料週期上限 T<sub>data</sub> = <b>${fmt(ranges.exportTmax,1)}</b> sec。X 向主模態週期 T<sub>x</sub> = <b>${fmt(tx,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(txSa,3)}</b> g；Y 向主模態週期 T<sub>y</sub> = <b>${fmt(ty,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(tySa,3)}</b> g。${ranges.isPlotShort ? '<br><strong>提醒：</strong>目前圖表週期上限短於 1.5 倍主要週期，建議加長顯示範圍再判讀。' : ''}`;
 }
 
 function renderDesignActionCards(actions) {
@@ -1390,7 +1422,7 @@ function renderCodeSpectrumPanel(spectrum) {
   const p = spectrum.params;
   const s = spectrum.summary || {};
   const ranges = spectrum.ranges || {};
-  const rows = spectrum.previewRows.slice(0, 12);
+  const rows = spectrum.exportRows || spectrum.previewRows;
   return `
     <div class="mini-grid">
       <div class="mini-card"><span class="label">設計譜值來源</span><span class="value">${p.siteModeLabel}</span></div>
@@ -1652,14 +1684,14 @@ function restoreDynamicSummary() {
     },
     imported: getStorageJson(STATIC_STORAGE_KEY)
   };
-  renderDynamicResult();
+  renderDynamicResult(false);
   dynamicReportInputsChanged = false;
   clearInputStatus();
   setDynamicReportValidationMessage('');
   return true;
 }
 
-function renderDynamicResult() {
+function renderDynamicResult(drawSpectrum = true) {
   if (!lastDynamicResult) return;
   const { result, x, y } = lastDynamicResult;
   result.x.staticFull = result.x.staticFull || result.x.staticRef;
@@ -1730,7 +1762,7 @@ function renderDynamicResult() {
   `;
   document.getElementById('modelCheckPanel').innerHTML = renderModelCheckPanel(result.modelCheck);
   document.getElementById('noteList').innerHTML = result.notes.map(note => `<li>${note}</li>`).join('');
-  renderSpectrumChart(result);
+  renderSpectrumChart(result, drawSpectrum);
   if (window.matchMedia('(max-width: 1080px)').matches) {
     document.getElementById('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -1771,7 +1803,7 @@ function openDynamicReport() {
   const today = new Date().toLocaleDateString('zh-TW');
   const esc = text => String(text == null ? '' : text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const codeSpectrum = result.responseSpectrum || null;
-  const codeRows = codeSpectrum?.previewRows?.slice(0, 12) || [];
+  const codeRows = codeSpectrum?.exportRows || codeSpectrum?.previewRows || [];
   const codeSummary = codeSpectrum?.summary || {};
   const modelCheck = normalizeModelCheck(result.modelCheck || readModelCheckInputs());
   const modelCheckItems = evaluateModelCheck(modelCheck);
@@ -1787,7 +1819,11 @@ function openDynamicReport() {
     textExport: true
   });
   const spectrumCanvas = document.getElementById('dynamicSpectrumChart');
-  const spectrumImage = spectrumCanvas ? spectrumCanvas.toDataURL('image/png') : '';
+  const spectrumHasCurrentChart = dynamicSpectrumChart && dynamicSpectrumChartDrawnGeneration === dynamicSpectrumChartGeneration && spectrumCanvas && !spectrumCanvas.hidden;
+  let spectrumImage = '';
+  if (spectrumHasCurrentChart) {
+    try { spectrumImage = spectrumCanvas.toDataURL('image/png'); } catch (err) {}
+  }
   const html = `<!doctype html>
   <html lang="zh-TW"><head><meta charset="utf-8"><title>反應譜動力分析規範整理</title>
   <style>
@@ -1883,7 +1919,7 @@ function openDynamicReport() {
       </section>
       <section class="block">
         <h3>反應譜圖形化檢核</h3>
-        ${spectrumImage ? `<div style="text-align:center; margin-bottom:10px;"><img src="${spectrumImage}" alt="動力反應譜" style="max-width:100%; border:1px solid #ddd; border-radius:6px;"></div>` : ''}
+        ${spectrumImage ? `<div style="text-align:center; margin-bottom:10px;"><img src="${spectrumImage}" alt="動力反應譜" style="max-width:100%; border:1px solid #ddd; border-radius:6px;"></div>` : '<div style="font-size:12px; color:#475569;">圖表未載入，本計算書以反應譜數值表與圖說文字呈現。</div>'}
         <div style="font-size:12px; color:#475569; line-height:1.8;">${document.getElementById('dynamicSpectrumLegend')?.innerHTML || ''}</div>
       </section>
       <section class="block">
@@ -1997,6 +2033,11 @@ function clearDynamicSummary() {
     localStorage.removeItem(DYNAMIC_STORAGE_KEY);
   } catch (err) {}
   lastDynamicResult = null;
+  dynamicSpectrumChartGeneration += 1;
+  dynamicSpectrumChartDrawnGeneration = 0;
+  if (dynamicSpectrumChart) dynamicSpectrumChart.destroy();
+  dynamicSpectrumChart = null;
+  document.getElementById('dynamicSpectrumChart').hidden = true;
   dynamicReportInputsChanged = false;
   document.getElementById('resultPanel').style.display = 'none';
   document.getElementById('staticImportStatus').innerHTML = '動力摘要已清除；如需延續同案，可重新載入等值靜力摘要。';

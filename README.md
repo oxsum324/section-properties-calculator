@@ -7,6 +7,7 @@
 T24 無障礙公開執行期由可讀 source 與固定 Terser 5.44.0 建置為 9,972 bytes（原 16,500），檔名與路徑不變；以 `node 結構工具箱/tools/build-tool-page-a11y.js --check` 驗證逐位元組一致，source／建置器與套件不發布至 Pages。
 T19 工具頁無障礙檢查使用 `test-tool-page-a11y.ps1`，40 頁各以桌機／手機掃描；axe 任一違規、主地標或 H1 數量不是 1 都會失敗，詳細節點與截取結果寫入 ignored `output/playwright/tool-page-a11y/`。
 T20 含 TeX 公式的計算書 popup 才請求 MathJax；報表以 Blob HTML 導覽載入，離線或逾時會顯示可讀文字 fallback，下載 HTML 可直接以 `file://` 離線重開。
+T29 耐震靜力與動力頁的 Chart.js 僅於首次繪製反應譜時載入，載入失敗仍保留完整譜值資料與計算書文字內容。
 T21 鋼構報表匯出前同步更新計算與摘要並沿用同一結果快照；石材 smoke 暫存以 UUID 子目錄清理，另有約 1,400 ms 靜默 TCP 降級案例。`--probe-only` 只驗本機服務探測，完整入口仍須先通過既有 UI smoke。
 T23 家族慢測使用根目錄 `run-family-wrappers.ps1` 依序執行 14 個既有 wrapper，保存完整逐項 log 與 HEAD／dirty 證據；`-ListCommands` 只列清單供契約檢查。RC、鋼構及 local-quick 中採 Blob 導覽的 legacy 報表案例使用私有 `report-popup-fixture.test.js`，實際讀取 HTML Blob 並等待 Blob URL 文件 load 後再檢查自動列印與內容；六個獨立 local-quick 工具仍以原 `document.write` 測試替身覆蓋其既有輸出 API。測試檔不進 Pages。
 

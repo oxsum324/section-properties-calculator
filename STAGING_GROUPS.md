@@ -1,5 +1,17 @@
 # Staging 分包建議
 
+## 2026-10-10：第七階段 T29（耐震頁 Chart.js 按需載入）
+
+同包修正 `tool-workflow.browser.test.js` 的覆工板測試導航：計算切至報告後，以既有分頁返回參數再聚焦；所有原有斷言保留。手機報告表格橫溢照實列待決，覆工板產品不納入本包修改。
+
+`結構工具箱/tools/formal-browser-smoke.test.js` 量測耐震圖表前等待當前 Chart 實例完成繪製，保留原尺寸與幾何斷言；等待僅用於測試，計算核心與計算書不受影響。
+
+`結構工具箱/core/ui/chart-runtime.js` 為耐震靜力與動力頁共用的延後載入器，12 秒逾時、單一 Promise、失敗可重試並防止逾時後舊 script 回呼污染新請求；實際檔案須 ≤889 bytes。兩頁冷開不載入 Chart.js；首次需要畫譜才載入，失敗時保留耐震力圖說、完整數值表及動力頁規範譜表。摘要還原、計算核心和計算書產出不等待 Chart.js；報表只嵌入成功繪製的 data URI，無有效圖時以資料表／文字說明呈現。`結構工具箱/tools/seismic-chart-lazy.browser.test.js` 記錄原始瀏覽器錯誤、請求數和 summary，驗證 cold／first chart／blocked、動力摘要冷開 restore、timeout retry、並發與過期 generation。容量差異依契約逐路由列出，共用檔預期在兩路由各列一筆；保留契約現況，照原文回報，不去重或重設 baseline。
+
+```powershell
+git add -- "結構工具箱/core/ui/chart-runtime.js" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-dynamic.html" "結構工具箱/tools/seismic-chart-lazy.browser.test.js" "結構工具箱/tools/formal-browser-smoke.test.js" "結構工具箱/assets/home/home.js" tool-workflow.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
 ## 報表與載入稽核修正包（2026-10-04，本機）
 
 `report-format-parity.core.js`、`report-format-parity.contract.test.js`、報表 browser／parity／PowerShell 入口，以及 `結構工具箱/tools/tool-load-budget-contract.js`、`結構工具箱/tools/tool-load-budget-contract.test.js` 與載入 browser 檢查器同包審閱。`preflight-tools.ps1` 的 `report-format-parity-contract`／`tool-load-budget-contract` 是 quick、CI 與正式模式皆執行的輕量門檻；它們不代表已重跑四案 Word 或 52 頁載入。新 helper、載入基準及測試屬私人驗收工具，必須同時維護 Pages 排除與治理契約。基準只能接受容量差異，功能錯誤與來源漂移不得寫入；本包不重設既有基準、不更改公開狀態快照。
