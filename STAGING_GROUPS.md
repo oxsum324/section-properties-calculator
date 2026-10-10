@@ -626,3 +626,11 @@ git add -- "覆工板/index.html" "結構工具箱/assets/home/home.js" README.m
 git add -- "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
+## 2026-10-10：第七階段放行前載入預算基準重設
+
+依委託人授權以 `node 結構工具箱/tools/tool-load-budget.browser.test.js --write-baseline` 重設 52 路由基準 18,128,164 → 14,922,588 bytes，涵蓋第七階段的 Firebase／Chart.js 按需載入、石材照片外置、三檔確定性壓縮，以及新增共用腳本 `結構工具箱/core/ui/chart-runtime.js`（680 bytes，耐震力／耐震動力兩路由）。基準 JSON 只能由該指令產生，不得手改。
+
+```powershell
+git add -- "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS.md TOOL_BOUNDARIES.md
+```
+

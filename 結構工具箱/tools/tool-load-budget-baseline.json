@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-10-09T13:22:34.241Z",
-  "sourceCommit": "a1018d6431c2cc7fde6865cf1978248a5178c3c2",
+  "capturedAt": "2026-10-10T13:31:15.050Z",
+  "sourceCommit": "7e4e7fe087dd606e0e37427ec1d248213fdd8cb5",
   "routeCount": 52,
-  "totalJsBytes": 18128164,
+  "totalJsBytes": 14922588,
   "docxRuntimePath": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/package/dist/index.iife.js",
   "docxRuntimeBytes": 857630,
   "routes": [
@@ -19,7 +19,7 @@
     },
     {
       "route": "/beam-analysis",
-      "jsBytes": 770286,
+      "jsBytes": 193680,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -43,25 +43,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/force-picker.js",
           "bytes": 15487
-        },
-        {
-          "path": "/firebasejs/11.6.0/firebase-app.js",
-          "bytes": 103053
-        },
-        {
-          "path": "/firebasejs/11.6.0/firebase-firestore.js",
-          "bytes": 439939
         }
       ]
     },
     {
       "route": "/frame-analysis",
-      "jsBytes": 285524,
+      "jsBytes": 251910,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -93,7 +85,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
@@ -126,7 +118,7 @@
     },
     {
       "route": "/composite-section",
-      "jsBytes": 239499,
+      "jsBytes": 205885,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -146,13 +138,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-beam",
-      "jsBytes": 328647,
+      "jsBytes": 295033,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -232,13 +224,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-deep-beam-stm",
-      "jsBytes": 235885,
+      "jsBytes": 202271,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -282,13 +274,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-column",
-      "jsBytes": 327494,
+      "jsBytes": 293880,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -368,13 +360,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-slab",
-      "jsBytes": 297448,
+      "jsBytes": 263834,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -442,13 +434,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-wall",
-      "jsBytes": 330503,
+      "jsBytes": 296889,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -528,13 +520,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-shear-wall",
-      "jsBytes": 325789,
+      "jsBytes": 292175,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -614,13 +606,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-foundation",
-      "jsBytes": 438620,
+      "jsBytes": 405006,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -728,13 +720,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-foundation-deep-beam-stm",
-      "jsBytes": 254868,
+      "jsBytes": 221254,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -782,13 +774,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-pile-cap-3d-stm",
-      "jsBytes": 287229,
+      "jsBytes": 253615,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -844,13 +836,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-pile",
-      "jsBytes": 238312,
+      "jsBytes": 204698,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
@@ -890,13 +882,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-retrofit-section",
-      "jsBytes": 300366,
+      "jsBytes": 266752,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -936,13 +928,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/rc-column-cover-deviation",
-      "jsBytes": 265172,
+      "jsBytes": 231558,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -970,13 +962,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/src-beam",
-      "jsBytes": 278333,
+      "jsBytes": 244719,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1004,13 +996,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/src-column",
-      "jsBytes": 465272,
+      "jsBytes": 431658,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1066,7 +1058,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
@@ -1094,7 +1086,7 @@
     },
     {
       "route": "/steel-beam-formal",
-      "jsBytes": 376863,
+      "jsBytes": 343249,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
@@ -1118,13 +1110,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/steel-column-formal",
-      "jsBytes": 360899,
+      "jsBytes": 327285,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
@@ -1148,7 +1140,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
@@ -1176,7 +1168,7 @@
     },
     {
       "route": "/steel-beam",
-      "jsBytes": 335500,
+      "jsBytes": 301886,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -1216,13 +1208,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/steel-column",
-      "jsBytes": 335500,
+      "jsBytes": 301886,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
@@ -1262,17 +1254,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-overview",
-      "jsBytes": 305294,
+      "jsBytes": 222246,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic-zones.js",
@@ -1292,17 +1284,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-kzt",
-      "jsBytes": 317886,
+      "jsBytes": 234838,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1318,7 +1310,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
@@ -1342,11 +1334,11 @@
     },
     {
       "route": "/wind-force",
-      "jsBytes": 399484,
+      "jsBytes": 316436,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1374,17 +1366,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-cc",
-      "jsBytes": 399484,
+      "jsBytes": 316436,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1412,17 +1404,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-parapet",
-      "jsBytes": 399484,
+      "jsBytes": 316436,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1450,17 +1442,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-open-roof",
-      "jsBytes": 399484,
+      "jsBytes": 316436,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1488,17 +1480,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-object-solid",
-      "jsBytes": 351552,
+      "jsBytes": 268504,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1522,17 +1514,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-object-frame",
-      "jsBytes": 351552,
+      "jsBytes": 268504,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1556,17 +1548,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-lattice-tower",
-      "jsBytes": 351552,
+      "jsBytes": 268504,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1590,17 +1582,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-object-tower",
-      "jsBytes": 351552,
+      "jsBytes": 268504,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1624,17 +1616,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-fence-sign",
-      "jsBytes": 351552,
+      "jsBytes": 268504,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1658,17 +1650,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/wind-sign-pole",
-      "jsBytes": 351552,
+      "jsBytes": 268504,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1692,17 +1684,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/seismic-force",
-      "jsBytes": 648574,
+      "jsBytes": 360317,
       "sharedScripts": [
         {
-          "path": "/npm/chart.js@4.4.7/dist/chart.umd.min.js",
-          "bytes": 205889
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/chart-runtime.js",
+          "bytes": 680
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic-zones.js",
@@ -1714,7 +1706,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/regulatory-locations.js",
@@ -1746,17 +1738,17 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/seismic-dynamic",
-      "jsBytes": 617461,
+      "jsBytes": 329204,
       "sharedScripts": [
         {
-          "path": "/npm/chart.js@4.4.7/dist/chart.umd.min.js",
-          "bytes": 205889
+          "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/chart-runtime.js",
+          "bytes": 680
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
@@ -1768,7 +1760,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/regulatory-locations.js",
@@ -1792,13 +1784,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/seismic-appendage",
-      "jsBytes": 442685,
+      "jsBytes": 359637,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
@@ -1810,7 +1802,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/regulatory-locations.js",
@@ -1842,13 +1834,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/seismic-misc",
-      "jsBytes": 442685,
+      "jsBytes": 359637,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/seismic.js",
@@ -1860,7 +1852,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/regulatory-locations.js",
@@ -1892,7 +1884,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
@@ -1903,7 +1895,7 @@
     },
     {
       "route": "/stone-fixing",
-      "jsBytes": 649221,
+      "jsBytes": 599787,
       "sharedScripts": [
         {
           "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/seismic-zones.js",
@@ -1919,7 +1911,7 @@
         },
         {
           "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/wind.js",
-          "bytes": 88970
+          "bytes": 39536
         },
         {
           "path": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/loads/project-location.js",
@@ -1945,7 +1937,7 @@
     },
     {
       "route": "/foundation-local",
-      "jsBytes": 259869,
+      "jsBytes": 226255,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1969,13 +1961,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/equipment-load",
-      "jsBytes": 250110,
+      "jsBytes": 216496,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1999,13 +1991,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/earth-pressure",
-      "jsBytes": 256782,
+      "jsBytes": 223168,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -2029,13 +2021,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/floor-slab-westergaard",
-      "jsBytes": 241066,
+      "jsBytes": 207452,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -2059,13 +2051,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
     {
       "route": "/cable-tension-frequency",
-      "jsBytes": 248860,
+      "jsBytes": 215246,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -2089,7 +2081,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/tools/project-meta-profile.js",
-          "bytes": 71641
+          "bytes": 38027
         }
       ]
     },
