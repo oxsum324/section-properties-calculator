@@ -3,11 +3,6 @@
 ## 2026-10-10：覆工板手機報告溢出追加修正
 
 依委託人追加授權，`覆工板/index.html` 的既有 `#report-output` 在螢幕提供局部水平捲動、鍵盤焦點與區域標籤，保留原計算、七張表格、報告 DOM 與匯出內容。列印解除容器寬度限制與 overflow 裁切；不以隱藏頁面溢出掩蓋表格內容。原 375 px 溢出 263 px 的失敗收據保留，另在提交後的乾淨 HEAD 重跑原 workflow 與報告契約；不放寬斷言、不重設容量基準。
-
-## 2026-10-10：第七階段 T31 容量修正
-
-依委託人追加授權，`結構工具箱/tools/src/project-meta-profile.source.js` 在 factory 作用域內共用 25 個高頻屬性鍵常數；540 個存取位置仍使用相同實際 key，不更動 API、JSON／備份 schema、DOM 名稱或文案，也不使用 property mangling。固定 Terser 5.44.0 與原安全參數重建公開 `結構工具箱/tools/project-meta-profile.js` 為 35,532 bytes，低於原 36,000-byte 上限；UMD 外層不引用 factory 的區域常數。原始字面與行為斷言全部保留，兩筆 Chart 容量差異與基準維持。
-
 ## 2026-10-10：第七階段 T30 石材節點圖延後載入
 
 石材 V2 主頁改用 `石材固定/assets/detail-bk.webp` 與 `detail-pk.webp`，由原始 JPEG 輸出、尺寸各 1600×1280 且各低於 120 KB；首頁 render 與工法縮圖不請求節點圖，放大或首次計算書／Word 匯出才以單一 Promise 載入，12 秒逾時後可重試。計算書 popup HTML 與 Word／DOCX 必須內嵌成功載入的圖；失敗時固定輸出「節點參考圖暫無法載入」，不留下外部 URL 或 undefined。圖片是公開 Pages 成品，不進 `vendor/`；既有原 JPEG 仍作為素材保留。

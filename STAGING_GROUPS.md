@@ -610,15 +610,6 @@ git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固�
 git add -- ".gitattributes" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "tool-page-a11y.js" "tool-page-a11y-build.contract.test.js" "ensure-homepage-quality-deps.ps1" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-tool-page-a11y.js" "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/tools/project-meta-profile.test.js" "結構工具箱/core/loads/src/wind.source.js" "結構工具箱/core/loads/wind.js" "結構工具箱/tests/wind.test.js" "石材固定/vendor/loads/wind.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/assets/home/home.js"
 ```
 
-
-## 2026-10-10：第七階段 T31 容量追加修正
-
-共用同名 property-key 字串以確定性壓縮 profile，UMD／factory 作用域分開，輸出維持原公開路徑，source 維持私有。原始 API、備份 schema、id／class、文案與斷言保留；35,532 bytes 達既定 36,000-byte 門檻。由 canonical builder 產出，不改壓縮參數或載入基準。
-
-```powershell
-git add -- "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
 ## 2026-10-10：覆工板手機報告溢出追加修正
 
 只調整既有 `#report-output` 的螢幕局部捲動、焦點與區域標籤，列印解除裁切；計算及七張表格原內容不改。保留原報告契約與手機橫溢斷言，於最終乾淨 HEAD 驗收。首頁日期依同步腳本處理，不手改狀態 JSON。
@@ -626,3 +617,12 @@ git add -- "結構工具箱/tools/src/project-meta-profile.source.js" "結構工
 ```powershell
 git add -- "覆工板/index.html" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
+
+## 2026-10-10：撤銷 profile 屬性鍵別名、改訂 profile 體積門檻 39,000
+
+撤銷 `622a5f79 Reduce project profile runtime size`：該變更把 565 處屬性存取改成常數索引只為多壓 2,495 bytes，gzip 傳輸量反而 11,904 → 11,981 bytes，可讀來源嚴重劣化。`project-meta-profile.js` 回到 Terser 直接壓縮的 38,027 bytes（原檔 71,641，減 47%），`tool-page-a11y-build.contract.test.js` 的 profile 門檻由 36,000 改為 39,000；`wind.js` 門檻 45,000 不變。可讀來源與產出檔仍由 `build-minified-runtimes.js --check` 守住逐位元組一致。
+
+```powershell
+git add -- "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+

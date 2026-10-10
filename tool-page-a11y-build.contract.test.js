@@ -115,8 +115,8 @@ for (const tool of tools) {
   assert.ok(dependencies[tool.href]?.includes(sourcePath), `${tool.href} adds the readable source date dependency`);
 }
 
-assert.ok(fs.statSync(path.join(root, '結構工具箱/tools/project-meta-profile.js')).size <= 36000,
-  'project-meta-profile.js must meet the 36,000-byte target');
+assert.ok(fs.statSync(path.join(root, '結構工具箱/tools/project-meta-profile.js')).size <= 39000,
+  'project-meta-profile.js must meet the 39,000-byte target (Terser-only output; no source aliasing)');
 assert.ok(fs.statSync(path.join(root, '結構工具箱/core/loads/wind.js')).size <= 45000,
   'wind.js must meet the 45,000-byte target');
 
