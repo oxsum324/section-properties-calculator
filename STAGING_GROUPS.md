@@ -594,3 +594,11 @@ git add -- "結構工具箱/tools/tool-load-budget-baseline.json" "結構工具�
 git add -- "連續梁分析.html" "continuous-beam-cloud-lazy.browser.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
+## 2026-10-10：第七階段 T30（石材節點圖延後載入）
+
+正式 V2 主頁移除兩張 JPEG base64，新增由原始 JPEG 轉出的公開 `石材固定/assets/detail-bk.webp`／`detail-pk.webp`；冷開與同步 render 保持 0 請求，首次放大或報表／Word 輸出才載入。計算書 popup 對輸出 clone 先同步保留新視窗，再 await 封裝 data URI；Blob HTML 帶入相對資源 base 並導覽至已保留的視窗，避開 Edge 在 document.write 時停於 Paged.js 前。Word、DOCX 與 `auto_word.py` PDF→DOCX 路徑均先完成圖檔封裝，再交給既有同步 builder／PDF→DOCX 流程。每 key 使用單一 Promise、12 秒全流程 timeout、失敗清除可重試；缺圖統一輸出「節點參考圖暫無法載入」。正常 DOCX browser 案例不攔截本機 docx 9.6.1 runtime，實際解析 ZIP 的 detail media 與 document relationships；另分開驗證阻斷情境與 `.doc` 真下載 bytes 的離線重開。新測試私有、僅 summary 與當輪成品寫入 ignored output；首頁 `/stone-fixing` dependency 同步登錄兩張 WebP，首頁更新日需一併更新。不新增套件或產品 HTML 下載入口。
+
+```powershell
+git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/auto_word.py" "石材固定/assets/detail-bk.webp" "石材固定/assets/detail-pk.webp" "石材固定/stone-detail-lazy.browser.test.js" "石材固定/stone-report.contract.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+

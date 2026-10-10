@@ -205,7 +205,7 @@
       '/seismic-appendage': '2026-10-09',
       '/seismic-misc': '2026-10-09',
       '/anchor': '2026-10-09',
-      '/stone-fixing': '2026-10-09',
+      '/stone-fixing': '2026-10-10',
       '/foundation-local': '2026-10-09',
       '/equipment-load': '2026-10-09',
       '/earth-pressure': '2026-10-09',
@@ -286,7 +286,7 @@
       '/cable-tension-frequency': ['結構工具箱/tools/cable-tension/cable-tension-frequency-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js'],
       '/excavation-support': ['開挖擋土支撐/index.html', '開挖擋土支撐/README.md', '開挖擋土支撐/frontend/src/App.tsx', '開挖擋土支撐/frontend/src/api.ts', '開挖擋土支撐/frontend/src/types.ts', '開挖擋土支撐/backend/app/parsers.py', '開挖擋土支撐/backend/app/main.py', '開挖擋土支撐/backend/app/calculations.py', '開挖擋土支撐/backend/app/reporting.py', '開挖擋土支撐/backend/app/schemas.py', '開挖擋土支撐/backend/tests/test_calculations.py', '開挖擋土支撐/backend/tests/test_reporting.py', '開挖擋土支撐/excavation-traceability.catalog.json', '開挖擋土支撐/backend/app/removal_transfer_handoff.py', '開挖擋土支撐/backend/app/receiver_capacity.py', '開挖擋土支撐/backend/app/receiver_capacity_attachment.py', '開挖擋土支撐/backend/tests/test_receiver_capacity.py', '開挖擋土支撐/backend/tests/test_receiver_capacity_attachment.py', '開挖擋土支撐/backend/tests/release_report_artifacts.py', '開挖擋土支撐/backend/app/receiver_operator_auth.py', '開挖擋土支撐/backend/app/receiver_operator_backup.py', '開挖擋土支撐/backend/app/receiver_operator_recovery.py', '開挖擋土支撐/backend/app/receiver_trust_backup.py', '開挖擋土支撐/backend/app/receiver_trust_recovery.py', '結構工具箱/core/direct-print-boundary.css'],
       '/wind-special': ['結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE'],
-      '/stone-fixing': ['結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '石材固定/vendor/loads/project-location.js', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js'],
+      '/stone-fixing': ['結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '石材固定/vendor/loads/project-location.js', '石材固定/assets/detail-bk.webp', '石材固定/assets/detail-pk.webp', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js'],
       '/decking': ['結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js'],
       '/anchor': ['螺栓檢討/bolt-review-tool/src/useKeyboardShortcuts.ts', '螺栓檢討/bolt-review-tool/src/useReviewArtifacts.ts', '螺栓檢討/bolt-review-tool/src/App.tsx', '螺栓檢討/bolt-review-tool/src/App.css', 'anchor/deployment-manifest.json', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js']
     }

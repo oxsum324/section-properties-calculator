@@ -79,6 +79,47 @@ assertContract(
   'printable sheets are cloned into a separate report window'
 );
 
+const detailAssetLimits = [
+  ['assets/detail-bk.webp', 120000],
+  ['assets/detail-pk.webp', 120000],
+];
+for (const [relativePath, maxBytes] of detailAssetLimits) {
+  const fullPath = path.join(toolRoot, relativePath);
+  assertContract(fs.existsSync(fullPath), 'Stone lazy detail asset exists', relativePath);
+  assertContract(fs.statSync(fullPath).size <= maxBytes, 'Stone lazy detail asset stays within size budget', `${relativePath} <= ${maxBytes} bytes`);
+}
+assertContract(Buffer.byteLength(formalPage, 'utf8') <= 850000, 'Stone V2 HTML stays within size budget', `${Buffer.byteLength(formalPage, 'utf8')} <= 850000 bytes`);
+for (const needle of [
+  "const DETAIL_IMG = Object.freeze({",
+  "const _detailImagePromises = new Map();",
+  "if(_detailImagePromises.has(key)) return _detailImagePromises.get(key);",
+  "setTimeout(()=>{",
+  "}, 12000);",
+  "image.onload = ()=>finish(null, dataUrl);",
+  "_detailImagePromises.delete(key)",
+  "function v2DetailImageMarkup(key, alt, style='')",
+  "function v2MaterializeDetailImages(html)",
+  "if(thumb) thumb.style.backgroundImage = media.detailKey ? ''",
+  "function makeDetailSVG(cd, mc_h1, mc_h2)",
+  "function v2InjectMethodPhotosToAppendix()",
+  "const popup = window.open('', '_blank', 'width=960,height=900');",
+  "v2MaterializeDetailImages(sheets).then(materialized=>",
+  "async function buildWordPages(inp, results)",
+  "async function buildDocxAssets(inp, results)",
+  'assets.detailFailure ? DETAIL_IMAGE_FALLBACK',
+  "w.location.replace(blobUrl);",
+  "<base href=\"${escapeHtml(new URL('.', location.href).href)}\">",
+]) {
+  assertContract(formalPage.includes(needle), 'Stone lazy image consumer and offline output contract is present', needle);
+}
+const autoWordSource = fs.readFileSync(path.join(toolRoot, 'auto_word.py'), 'utf8');
+assertContract(
+  autoWordSource.includes('"""async () => {')
+    && autoWordSource.includes('await window.v2MaterializeDetailImages(sheets)'),
+  'Stone server-rendered PDF and DOCX materialize lazy detail images',
+  'auto_word.py awaits the page materializer before building Paged.js HTML'
+);
+
 const reportBuilderStart = formalPage.indexOf('function buildPagedPrintHtml(');
 const reportBuilderEnd = formalPage.indexOf('/* ══════════════════ PERSIST', reportBuilderStart);
 const reportBuilderSource = formalPage.slice(reportBuilderStart, reportBuilderEnd);
