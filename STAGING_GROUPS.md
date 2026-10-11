@@ -634,3 +634,11 @@ git add -- "結構工具箱/tools/src/project-meta-profile.source.js" "結構工
 git add -- "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS.md TOOL_BOUNDARIES.md
 ```
 
+
+## 2026-10-11：T33 首頁最近使用與釘選
+
+首頁最近使用／釘選與私有瀏覽器測試同包；不更動工具清冊白名單、路由、分類、首頁日期依賴或 index.html 腳本順序。測試收據只留 ignored output。
+
+```powershell
+git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```

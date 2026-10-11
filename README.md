@@ -426,3 +426,5 @@ Preflight 歷程會保留失敗、中斷或摘要缺漏的原始事實，並以 
   [run-audit-all.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-audit-all.bat:1)
   或
   [run-audit-all-loop.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-audit-all-loop.bat:1)
+
+首頁可釘選最多 12 項工具並顯示最近使用 8 筆；資料只保存在此瀏覽器，搜尋時隱藏個人區塊，儲存不可用仍可正常操作。以 `node home-recents.browser.test.js` 驗證，私有收據保存於 ignored `output/playwright/home-recents/`。

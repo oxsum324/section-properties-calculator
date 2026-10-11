@@ -1111,6 +1111,97 @@
     reportReadinessStatus: document.getElementById('reportReadinessStatus')
   };
 
+  const RECENT_TOOLS_KEY = 'structToolbox.home.recentTools';
+  const PINNED_TOOLS_KEY = 'structToolbox.home.pinnedTools';
+  const toolsByHref = new Map(tools.map(tool => [tool.href, tool]));
+  const personal = { recent: readRecentTools(), pinned: readPinnedTools(), notice: '' };
+
+  function readStoredTools(key) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || '[]');
+      return Array.isArray(value) ? value : [];
+    } catch (error) { return []; }
+  }
+
+  function readRecentTools() {
+    const seen = new Set();
+    return readStoredTools(RECENT_TOOLS_KEY)
+      .filter(item => item && toolsByHref.has(item.href) && Number.isFinite(item.at) && item.at >= 0)
+      .sort((left, right) => right.at - left.at)
+      .filter(item => !seen.has(item.href) && seen.add(item.href))
+      .slice(0, 8).map(({ href, at }) => ({ href, at }));
+  }
+
+  function readPinnedTools() {
+    return [...new Set(readStoredTools(PINNED_TOOLS_KEY).filter(href => toolsByHref.has(href)))].slice(0, 12);
+  }
+
+  function writeStoredTools(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); }
+    catch (error) { /* 儲存不可用時，保留本次開啟的操作狀態。 */ }
+  }
+
+  function recordRecentTool(href) {
+    personal.recent = [{ href, at: Date.now() }, ...personal.recent.filter(item => item.href !== href)].slice(0, 8);
+    writeStoredTools(RECENT_TOOLS_KEY, personal.recent);
+  }
+
+  function updatePinButton(button, tool) {
+    const pinned = personal.pinned.includes(tool.href);
+    const label = pinned ? '取消釘選' : '釘選';
+    button.setAttribute('aria-pressed', String(pinned));
+    button.setAttribute('aria-label', `${label} ${tool.title}`);
+    const icon = document.createElement('span');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = pinned ? '★' : '☆';
+    button.replaceChildren(icon, document.createTextNode(label));
+  }
+
+  function togglePinnedTool(tool, button) {
+    if (personal.pinned.includes(tool.href)) {
+      personal.pinned = personal.pinned.filter(href => href !== tool.href);
+      personal.notice = '';
+    } else if (personal.pinned.length < 12) {
+      personal.pinned.push(tool.href);
+      personal.notice = '';
+    } else {
+      personal.notice = '最多可釘選 12 項工具，請先取消一項釘選。';
+    }
+    writeStoredTools(PINNED_TOOLS_KEY, personal.pinned);
+    document.querySelectorAll('[data-pin-href]').forEach(node => updatePinButton(node, toolsByHref.get(node.dataset.pinHref)));
+    renderPersonalTools();
+    if (!button.isConnected) {
+      const replacement = [...document.querySelectorAll('[data-pin-href]')].find(node => node.dataset.pinHref === tool.href);
+      replacement?.focus({ preventScroll: true });
+    }
+  }
+
+  function renderPersonalTools() {
+    document.querySelector('.home-personal')?.remove();
+    const ordered = [...personal.pinned, ...personal.recent.map(item => item.href).filter(href => !personal.pinned.includes(href))];
+    if (state.query.trim() || !ordered.length) return;
+    const section = document.createElement('section');
+    section.className = 'home-personal';
+    section.setAttribute('aria-label', '釘選與最近使用');
+    const title = document.createElement('h2');
+    title.textContent = '釘選與最近使用';
+    const notice = document.createElement('p');
+    notice.className = 'home-personal__notice';
+    notice.setAttribute('role', 'status');
+    notice.textContent = personal.notice;
+    notice.hidden = !personal.notice;
+    const grid = document.createElement('div');
+    grid.className = 'tool-grid home-personal__grid';
+    grid.classList.toggle('tool-grid--detailed', !!document.getElementById('toolDetailToggle')?.checked);
+    ordered.forEach(href => {
+      const card = renderToolCard(toolsByHref.get(href));
+      card.dataset.personalKind = personal.pinned.includes(href) ? 'pinned' : 'recent';
+      grid.appendChild(card);
+    });
+    section.append(title, notice, grid);
+    elements.categoryOverview.closest('section').before(section);
+  }
+
   function countByCategory(categoryId) {
     if (categoryId === 'all') return tools.length;
     return tools.filter(tool => tool.categories.includes(categoryId)).length;
@@ -1319,6 +1410,9 @@
     card.dataset.category = primary;
     card.dataset.state = tool.state;
     card.dataset.title = tool.title;
+    card.addEventListener('click', event => {
+      if (!event.defaultPrevented) recordRecentTool(tool.href);
+    });
 
     const head = document.createElement('div');
     head.className = 'tool-card__head';
@@ -1407,7 +1501,16 @@
     });
 
     card.append(head, profile, meta);
-    return card;
+    const shell = document.createElement('div');
+    shell.className = 'tool-card-shell';
+    const pin = document.createElement('button');
+    pin.type = 'button';
+    pin.className = 'tool-pin';
+    pin.dataset.pinHref = tool.href;
+    updatePinButton(pin, tool);
+    pin.addEventListener('click', () => togglePinnedTool(tool, pin));
+    shell.append(card, pin);
+    return shell;
   }
 
   function renderToolGroup(system, groupTools) {
@@ -1438,6 +1541,7 @@
   }
 
   function renderTools() {
+    renderPersonalTools();
     const filtered = tools.filter(matchesState);
     elements.grid.classList.toggle('tool-grid--grouped', state.category === 'member');
     if (state.category === 'member') {
@@ -1739,6 +1843,7 @@
       elements.grid.classList.toggle('tool-grid--detailed', detailPref);
       detailToggle.addEventListener('change', () => {
         elements.grid.classList.toggle('tool-grid--detailed', detailToggle.checked);
+        document.querySelector('.home-personal__grid')?.classList.toggle('tool-grid--detailed', detailToggle.checked);
         try { localStorage.setItem(DETAIL_PREF_KEY, detailToggle.checked ? '1' : '0'); } catch (error) { /* per-viewer convenience only */ }
       });
     }

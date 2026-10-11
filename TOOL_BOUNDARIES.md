@@ -359,3 +359,7 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 根目錄 `run-family-wrappers.ps1` 以 repo-relative 清單和 `$PSScriptRoot`，依序執行 10 個 RC PowerShell wrapper、鋼構 batch audit、連續梁 PowerShell wrapper，以及兩個 Node browser smoke；每次只啟動一個 child，完整 stdout／stderr 寫入 ignored `output/family-wrappers/` 個別 log。摘要記錄命令、exit code、耗時、log 路徑、起訖 HEAD 與 dirty 狀態。`-ListCommands` 僅列出 14 項供契約檢查，不啟動測試。執行器與契約測試依 `.ps1`／`.test.js` 私有後綴規則不進 Pages。
 
 `report-popup-fixture.test.js` 僅供 RC beam／column／slab、鋼構 audit 與 local-quick 中採 Blob 導覽的 legacy 報表案例使用，攔截實際 HTML Blob、解析 Blob 文字、以 Blob URL 導覽並在文件載入後送出 `load`。六個獨立 local-quick 工具仍使用原 `window.open` 加 `document.open/write/close` 替身，依其實際輸出 API 驗證；不得混用 fixture 或略過內容斷言。Blob 報表的 autoPrint focus／print 觀察必須等 load callback 完成；共用 fixture 及其呼叫端均為 `.test.js` 私有測試檔，不進 Pages。
+
+## 2026-10-11：T33 首頁最近使用與釘選
+
+`結構工具箱/assets/home/home.js` 以獨立的使用者狀態保存最多 8 筆最近使用與 12 筆釘選，工具清冊欄位不變。分類總覽前的區塊沿用同一 renderToolCard，釘選按鈕置於連結外；搜尋時隱藏、空資料不渲染。所有 localStorage 讀寫均捕捉錯誤。`結構工具箱/assets/home/home.css` 沿用既有 token。新私有 `home-recents.browser.test.js` 等待式驗證鍵盤導覽、重載、去重與上限、停用／異常儲存、個人區塊桌機與手機 axe；原始診斷與收據留在 ignored `output/playwright/home-recents/`，測試依既有 .test.js 規則排除 Pages。
