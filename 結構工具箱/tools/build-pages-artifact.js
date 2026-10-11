@@ -4,6 +4,8 @@ const os = require('os');
 const path = require('path');
 
 const PRIVATE_FILES = new Set([
+  '鋼筋混凝土/shared/src/rc-page-ui.source.js',
+  '鋼筋混凝土/shared/fixtures/rc-page-ui-originals.json',
   '結構工具箱/tools/a11y/tool-page-a11y.source.js',
   '結構工具箱/tools/src/project-meta-profile.source.js',
   '結構工具箱/core/loads/src/wind.source.js',

@@ -642,3 +642,11 @@ git add -- "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS
 ```powershell
 git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
+
+## 2026-10-11：T34 RC 主頁共用 UI
+
+共用執行期、可讀來源、原頁私有 fixture、等價測試與六頁 adapter 同包；包含固定壓縮 manifest／體積契約、Pages 私有邊界／探測、真實 workflow 單次計算契約、剪力牆 UI needle 更新，以及六路由日期依賴與自動同步日期。report.js、report-utils.js 與鏡像不在此包。生成檔與來源不得手改產出、不得為門檻劣化可讀來源；輸出與回報忽略。
+
+```powershell
+git add -- .gitattributes "鋼筋混凝土/shared/rc-page-ui.js" "鋼筋混凝土/shared/src/rc-page-ui.source.js" "鋼筋混凝土/shared/fixtures/rc-page-ui-originals.json" "鋼筋混凝土/shared/rc-page-ui.test.js" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/shear-wall-regression.test.js" "結構工具箱/tools/tool-workflow-adapters.test.js" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/assets/home/home.js" tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```

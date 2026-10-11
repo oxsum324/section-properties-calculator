@@ -591,9 +591,18 @@
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
+<script src="../shared/rc-page-ui.js"></script>
 <script>
-  const $ = id => document.getElementById(id);
-  const num = id => parseFloat($(id)?.value) || 0;
+
+  const rcPageUi = RcPageUi.createPage({
+    page: 'slab',
+    document,
+    window,
+    getMode: () => currentMode,
+    getSpacingIds: () => SPACING_IDS
+  });
+const $ = id => document.getElementById(id);
+  const num = id => rcPageUi.num(id);
   let currentMode = 'design', loadMode = 'simple';
   const SLAB_PROJECT_SCHEMA = 'rc-slab-project-v1';
   const SLAB_PROJECT_STORAGE_KEY = 'rc.slab.project.draft';
@@ -601,23 +610,13 @@
 
   // ─── helpers ────────────────────────────────────
   function setResult(id, val, unit, digits=2, status=null) {
-    const el = $(id); if (!el) return;
-    el.classList.remove('rc-pending');
-    const v = el.querySelector('.value'), u = el.querySelector('.unit');
-    v.textContent = (val == null || isNaN(val) || !isFinite(val)) ? '—' : Number(val).toFixed(digits);
-    if (u && unit !== undefined) u.textContent = unit;
-    el.classList.remove('ok','warn','fail');
-    if (status) el.classList.add(status);
+    return rcPageUi.setResult(id,val,unit,digits,status);
   }
   function setCheck(id, pass, text) {
-    const el = $(id); if (!el) return;
-    el.classList.remove('rc-pending');
-    el.querySelector('.value').textContent = text || (pass===true?'✓ OK':pass===false?'✗ NG':'—');
-    el.classList.remove('ok','warn','fail');
-    el.classList.add(pass===true?'ok':pass===false?'fail':'warn');
+    return rcPageUi.setCheck(id,pass,text);
   }
   function markAllResultsPending() {
-    document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
+    return rcPageUi.markAllResultsPending();
   }
   function getSlabProjectInfo() {
     return window.RCUI.getProjectMetadataState({
@@ -860,11 +859,10 @@
   window.loadSlabProjectDraft = loadSlabProjectDraft;
   window.downloadSlabProjectFile = downloadSlabProjectFile;
   function syncDetailHelp() {
-    document.body.classList.toggle('show-detail-help', !!$('showDetailHelp')?.checked);
+    return rcPageUi.syncDetailHelp();
   }
   function syncAdvancedCaseTools() {
-    const panel = $('advancedCaseCard');
-    if (panel) panel.classList.toggle('active', !!$('showCaseTools')?.checked);
+    return rcPageUi.syncAdvancedCaseTools();
   }
   const SLAB_TEST_CASES = {
     one_basic: {
@@ -1138,17 +1136,7 @@
   // ─── 模式切換 ───────────────────────────────────
   const SPACING_IDS = ['barSpXBot','barSpYBot','barSpXTop','barSpYTop'];
   function syncDesignFields() {
-    const isDesign = (currentMode === 'design');
-    SPACING_IDS.forEach(id => {
-      const el = $(id); if (!el) return;
-      el.readOnly = isDesign;
-      el.style.background = isDesign ? 'var(--bg-subtle)' : '';
-      el.style.color = isDesign ? 'var(--hy-slate-700)' : '';
-      el.title = isDesign ? '設計模式：依 Mu 與所選鋼筋號數自動計算所需間距' : '檢核模式：請手動輸入間距';
-    });
-    const fmh = $('flexModeHint'); if (fmh) {
-      fmh.textContent = isDesign ? '設計模式：給號數→反算間距' : '檢核模式：給號數與間距→檢核容量';
-    }
+    return rcPageUi.syncDesignFields();
   }
   function setSlabMode(mode, options = {}) {
     currentMode = mode === 'check' ? 'check' : 'design';
@@ -2538,11 +2526,7 @@
   }
 
   function svgToDataURL(svg) {
-    if (!svg) return '';
-    const clone = svg.cloneNode(true);
-    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    const serialized = new XMLSerializer().serializeToString(clone);
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(serialized);
+    return rcPageUi.svgToDataURL(svg);
   }
 
   // ─── LoadCombo (完整模式) ─────────────────────────

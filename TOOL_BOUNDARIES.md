@@ -363,3 +363,9 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 ## 2026-10-11：T33 首頁最近使用與釘選
 
 `結構工具箱/assets/home/home.js` 以獨立的使用者狀態保存最多 8 筆最近使用與 12 筆釘選，工具清冊欄位不變。分類總覽前的區塊沿用同一 renderToolCard，釘選按鈕置於連結外；搜尋時隱藏、空資料不渲染。所有 localStorage 讀寫均捕捉錯誤。`結構工具箱/assets/home/home.css` 沿用既有 token。新私有 `home-recents.browser.test.js` 等待式驗證鍵盤導覽、重載、去重與上限、停用／異常儲存、個人區塊桌機與手機 axe；原始診斷與收據留在 ignored `output/playwright/home-recents/`，測試依既有 .test.js 規則排除 Pages。
+
+## 2026-10-11：T34 RC 主頁共用 UI
+
+新增公開 `鋼筋混凝土/shared/rc-page-ui.js`（window.RcPageUi／CommonJS），由私有 `鋼筋混凝土/shared/src/rc-page-ui.source.js` 經固定 Terser 5.44.0 建置。六頁 beam、column、wall、foundation、slab、shear-wall 以頁面 adapter 保留模式、選擇器、顯示與人工複核規則；計算 callback、manual review 收集與數值核心留在原頁／原模組，不動 report.js／report-utils.js。未觸及 result-item 仍由 rc-pending 隱藏。11 種 helper 的 50 個頁面定義以 `鋼筋混凝土/shared/rc-page-ui.test.js`、私有原頁來源 `鋼筋混凝土/shared/fixtures/rc-page-ui-originals.json` 驗證 627 組原頁／可讀來源／生成檔的 DOM、回傳值及 callback 等價；grab／value 的六組差異測試確認不等價收集器仍保留頁內。fixture 來源提交 1c671c57。
+
+生成檔實測 35,980 bytes，契約門檻為實測加 10% 的 39,578 bytes；六頁內嵌程式以相同 LF／UTF-8 計算減少 49,102 bytes，不為體積門檻改寫可讀來源。公開與可讀來源均登錄同六條 HOME_TOOL_UPDATE_DEPENDENCIES；來源、原頁 fixture 精確列入 Pages PRIVATE_FILES 與私有 HTTP 探測，測試依 .test.js 排除，LF 由 .gitattributes 固定。新的共享載入容量差異保存原文，不重設預算基準。

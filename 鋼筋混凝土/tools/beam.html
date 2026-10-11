@@ -822,7 +822,18 @@
 <script src="../shared/beam-rebar-designer.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
+<script src="../shared/rc-page-ui.js"></script>
 <script>
+
+  const rcPageUi = RcPageUi.createPage({
+    page: 'beam',
+    document,
+    window,
+    getMode: () => currentMode,
+    getTopicVisible: () => TOPIC_VISIBLE,
+    calculate: () => calcBeam(),
+    collectManualReviewItems: result => collectBeamManualReviewItems(result)
+  });
   // 各分頁要顯示的 data-topic 集合 (用於 result-item 內細項過濾)
   const TOPIC_VISIBLE = {
     geom:    new Set(),                                                    // 該頁無 result-item
@@ -837,60 +848,7 @@
 
   // 子分頁切換 + 右側卡片依分頁顯示 + 個別 item 依 topic 過濾
   function applyPanel(tab) {
-    document.querySelectorAll('.section-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.dataset.panel === tab));
-    document.querySelectorAll('[data-shows]').forEach(card => {
-      const shows = card.dataset.shows.split(/\s+/);
-      card.style.display = shows.includes(tab) ? '' : 'none';
-    });
-    // 細項過濾
-    const topics = TOPIC_VISIBLE[tab];
-    document.querySelectorAll('[data-topic]').forEach(item => {
-      if (topics === 'all') { item.style.display = ''; return; }
-      const t = item.dataset.topic;
-      item.style.display = (topics && topics.has(t)) ? '' : 'none';
-    });
-
-    // 綜合結果分頁：依目前 toggle 狀態，再隱藏未啟用的項目與整張卡
-    if (tab === 'summary') {
-      const torsionOn   = $('enableTorsion')?.checked;
-      const deflOn      = $('enableDefl')?.checked;
-      const exactDeflOn = $('enableExactDefl')?.checked;
-      const seismicOn   = $('seismicMode')?.checked;
-      // 細項：扭力 / 撓度 topic 未啟用就隱藏
-      if (!torsionOn) document.querySelectorAll('[data-topic="torsion"]').forEach(el => el.style.display = 'none');
-      if (!deflOn)    document.querySelectorAll('[data-topic="defl"]').forEach(el => el.style.display = 'none');
-      // 整張卡：耐震檢核與梁柱接頭輸出（含 seismic badge 的卡）
-      document.querySelectorAll('.badge-seismic').forEach(badge => {
-        const card = badge.closest('.card');
-        if (card) card.style.display = seismicOn ? '' : 'none';
-      });
-      // 撓度計算卡：未啟用嚴謹撓度就隱藏
-      const dCard = $('deflCard');
-      if (dCard) dCard.style.display = exactDeflOn ? '' : 'none';
-    }
-    // 計算過程卡：未勾選 showSteps 一律隱藏；勾選時依本身 data-shows 規則
-    const showStepsOn = $('showSteps')?.checked;
-    document.querySelectorAll('.steps-card').forEach(card => {
-      if (!showStepsOn) { card.style.display = 'none'; return; }
-      const shows = (card.dataset.shows || '').split(/\s+/);
-      card.style.display = shows.includes(tab) ? '' : 'none';
-    });
-    // 綜合結果分頁：未啟用的計算過程卡也跟著隱藏
-    if (tab === 'summary' && showStepsOn) {
-      const torsionOn   = $('enableTorsion')?.checked;
-      const deflOn      = $('enableDefl')?.checked || $('enableExactDefl')?.checked;
-      const seismicOn   = $('seismicMode')?.checked;
-      if (!torsionOn) { const c = $('stepsTorsion'); if (c) c.style.display = 'none'; }
-      if (!deflOn)    { const c = $('stepsDefl');    if (c) c.style.display = 'none'; }
-      if (!seismicOn) { const c = $('stepsSeismic'); if (c) c.style.display = 'none'; }
-    }
-
-    // 結論 scope 文字
-    const scopeMap = { geom:'幾何', loads:'載重', flex:'撓曲', shear:'剪力', torsion:'扭力', defl:'撓度', seismic:'耐震', summary:'整體' };
-    const el = document.getElementById('conclusionScope');
-    if (el) el.textContent = scopeMap[tab] || '';
-    if (typeof calcBeam === 'function') calcBeam();
+    return rcPageUi.applyPanel(tab);
   }
   document.querySelectorAll('.section-tabs button').forEach(btn => {
     btn.addEventListener('click', () => applyPanel(btn.dataset.tab));
@@ -898,7 +856,7 @@
 
   // ========== 梁計算邏輯 ==========
   const $ = id => document.getElementById(id);
-  const num = id => parseFloat($(id).value) || 0;
+  const num = id => rcPageUi.num(id);
   const optNum = id => {
     const el = $(id);
     if (!el || String(el.value).trim() === '') return null;
@@ -1351,29 +1309,15 @@
   }
 
   function setResult(id, val, unit, digits = 2, status = null) {
-    const el = $(id);
-    if (!el) return;
-    el.classList.remove('rc-pending');
-    const valSpan = el.querySelector('.value');
-    const unitSpan = el.querySelector('.unit');
-    valSpan.textContent = (val === null || val === undefined || isNaN(val)) ? '—' : Number(val).toFixed(digits);
-    if (unitSpan && unit !== undefined) unitSpan.textContent = unit;
-    el.classList.remove('ok', 'warn', 'fail');
-    if (status) el.classList.add(status);
+    return rcPageUi.setResult(id,val,unit,digits,status);
   }
   function setCheck(id, pass, text) {
-    const el = $(id);
-    if (!el) return;
-    el.classList.remove('rc-pending');
-    const valSpan = el.querySelector('.value');
-    valSpan.textContent = text || (pass ? '✓ OK' : '✗ NG');
-    el.classList.remove('ok', 'warn', 'fail');
-    el.classList.add(pass === true ? 'ok' : pass === false ? 'fail' : 'warn');
+    return rcPageUi.setCheck(id,pass,text);
   }
   // 將所有結果項標為「未檢核」；calcBeam 開始時呼叫，
   // 之後 setCheck/setResult 會清除該標記，未被觸及的項目最終隱藏。
   function markAllResultsPending() {
-    document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
+    return rcPageUi.markAllResultsPending();
   }
 
   // 多排筋應變相容嚴謹解 — 委派 shared/flexure.js
@@ -1989,18 +1933,7 @@
   let adoptedBeamForceImport = null;
   // 設計模式：根數欄位設為 readonly + 灰色，由 calcBeam 自動寫入；檢核模式可手動編輯
   function syncDesignFields() {
-    const isDesign = (currentMode === 'design');
-    document.querySelectorAll('#botRebarStack input[id$="N"], #topRebarStack input[id$="N"]').forEach(el => {
-      el.readOnly = isDesign;
-      el.style.background = isDesign ? 'var(--bg-subtle)' : '';
-      el.style.color = isDesign ? 'var(--hy-slate-700)' : '';
-      el.title = isDesign ? '設計模式：由系統依 +Mu/−Mu 自動計算根數' : '檢核模式：請手動輸入根數';
-    });
-    const fmh = $('flexModeHint'); if (fmh) {
-      fmh.textContent = isDesign
-        ? '設計模式：依 +Mu/−Mu 自動推算所需根數，配筋面板根數欄位由系統填入（外排優先）。'
-        : '檢核模式：請於上方「斷面配筋」手動輸入號數與根數。';
-    }
+    return rcPageUi.syncDesignFields();
   }
   function setBeamMode(mode, options = {}) {
     currentMode = mode === 'check' ? 'check' : 'design';
@@ -3597,128 +3530,7 @@ ${layerBars.map(L => {
   }
 
   function updateBanner(r) {
-    const tab = document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom';
-    const banner = $('bannerStatus');
-    const key = $('bannerKey');
-    let checks = [];
-    let kv = [];
-    const manualReviewItems = collectBeamManualReviewItems(r);
-    const kfmt = (label, val, unit, ok) => ({ label, val: `${Number(val).toFixed(2)} ${unit||''}`, ok });
-
-    if (tab !== 'geom' && r.methodApplicable === false) {
-      checks.push(['一般梁方法適用性', false]);
-    }
-
-    if (tab === 'geom') {
-      // 幾何與材料分頁：不顯示檢核，僅顯示輸入摘要
-      banner.className = 'banner-status';
-      banner.innerHTML = '幾何與材料 — 輸入區<div data-ui="banner-detail">受力與檢核請至「載重」與其他分頁</div>';
-      key.innerHTML = [
-        { label:'bw × h', val:`${r.bw??$('bw').value} × ${r.h??$('h').value} cm`, ok:null },
-        { label:"fc'/fy", val:`${$('fc').value}/${$('fy').value}`, ok:null },
-        { label:'底 As', val:`${r.AsBot.toFixed(2)} cm²`, ok:null },
-        { label:'頂 As', val:`${r.AsTop.toFixed(2)} cm²`, ok:null }
-      ].map(item => `<div class="k"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`).join('');
-      return;
-    } else if (tab === 'loads') {
-      checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
-      checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
-      checks.push(['φVn ≥ Vd', r.okShear]);
-      kv.push(kfmt('+Mu', r.MuPos, 'tf·m', null));
-      kv.push(kfmt('−Mu', r.MuNeg, 'tf·m', null));
-      kv.push(kfmt('Vu', r.Vu, 'tf', null));
-      if (r.seismic) kv.push({ label:'Vd', val:`${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})`, ok:r.okShear });
-      kv.push(kfmt('φMn⁺', r.phiMnPos, 'tf·m', r.okFlexPos));
-      kv.push(kfmt('φMn⁻', r.phiMnNeg, 'tf·m', r.okFlexNeg));
-      kv.push(kfmt('φVn', r.phiVn, 'tf', r.okShear));
-    } else if (tab === 'flex') {
-      checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
-      checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
-      checks.push([r.seismic ? '縱向主筋上限 εt / SMRF ρ (兩向)' : '拉力控制 εt (兩向)', r.okRhoMax]);
-      checks.push(['最小撓曲鋼筋條文 (兩向)', r.okAsMin]);
-      checks.push(['主筋裂縫間距', r.okCrackSpacing]);
-      if (r.needSkin) checks.push(['表層筋', r.okSkin]);
-      if (r.developmentData?.okExplicit !== null) checks.push(['錨定/搭接', r.developmentData.okExplicit]);
-      if (r.developmentData?.developmentManualReview) checks.push(['錨定人工複核', null]);
-      kv.push(kfmt('φMn⁺', r.phiMnPos, 'tf·m', r.okFlexPos));
-      kv.push(kfmt('+Mu', r.MuPos, 'tf·m', null));
-      kv.push(kfmt('φMn⁻', r.phiMnNeg, 'tf·m', r.okFlexNeg));
-      kv.push(kfmt('−Mu', r.MuNeg, 'tf·m', null));
-      kv.push({ label:'底 As/需', val:`${r.AsBot.toFixed(2)}/${r.AsReqPos.toFixed(2)}`, ok:(r.AsBot>=r.AsReqPos) });
-      kv.push({ label:'頂 As/需', val:`${r.AsTop.toFixed(2)}/${r.AsReqNeg.toFixed(2)}`, ok:(r.AsTop>=r.AsReqNeg) });
-      if (r.developmentData) {
-        kv.push({ label:'ℓd,req', val:`${r.developmentData.ldReq.toFixed(1)} cm`, ok:null });
-        kv.push({ label:'ℓs,req', val:`${r.developmentData.lapReq.toFixed(1)} cm`, ok:null });
-        kv.push({ label:'端部錨定', val:`${r.developmentData.leftTypeLabel}/${r.developmentData.rightTypeLabel}`, ok:r.developmentData.developmentManualReview ? null : r.developmentData.okExplicit });
-      }
-    } else if (tab === 'shear') {
-      checks.push(['φVn ≥ Vd', r.okShear]);
-      checks.push(['Av,min', r.okShearMin]);
-      checks.push(['剪力筋間距', r.okShearSpacing]);
-      kv.push(kfmt('φVn', r.phiVn, 'tf', null));
-      kv.push(kfmt('Vu', r.Vu, 'tf', null));
-      if (r.seismic) kv.push({ label:'Vd', val:`${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})`, ok:r.okShear });
-      kv.push({ label:'Av/s', val:`${r.AvProvidedPerS.toFixed(4)}/${r.AvMinPerS.toFixed(4)}`, ok:r.okShearMin });
-    } else if (tab === 'torsion') {
-      if (r.enableTorsion) checks.push([r.torsionNeedsDesign ? (r.torsionDetailOk == null ? '扭力詳算人工複核' : '22.7 扭力詳算') : '扭力門檻', r.torsionStatusOk]);
-      else checks.push(['未啟用扭力', true]);
-    } else if (tab === 'defl') {
-      if (r.enableDefl) checks.push(['撓度', r.okDeflOverall]);
-    } else if (tab === 'seismic') {
-      if (!r.seismic) {
-        banner.className = 'banner-status warn';
-        banner.textContent = '⚠ 未啟用耐震模式 (SMRF)';
-        key.innerHTML = '';
-        return;
-      }
-      checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
-      checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
-      checks.push(['φVn ≥ Vd', r.okShear]);
-      checks.push(['剪力筋細則', r.okShearMin && r.okShearSpacing]);
-      checks.push([`ρ⁺ ≤ ${r.rhoSmrfLimit.toFixed(4)}`, r.okSmrfRhoPos]);
-      checks.push([`ρ⁻ ≤ ${r.rhoSmrfLimit.toFixed(4)}`, r.okSmrfRhoNeg]);
-      checks.push(['SMRF 幾何', r.okBw && r.okLn]);
-      checks.push(['跨內 Mn', r.okMnQuarter]);
-      checks.push(['首支箍筋', r.okFirstHoop]);
-      if (r.developmentData?.okLapZone !== null) checks.push(['搭接避開塑鉸區', r.developmentData.okLapZone]);
-    } else { // summary
-      checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
-      checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
-      checks.push(['φVn ≥ Vd', r.okShear]);
-      checks.push([r.seismic ? '縱向主筋上限（εt / SMRF ρ）' : '拉力控制 εt', r.okRhoMax]);
-      checks.push(['最小撓曲鋼筋條文', r.okAsMin]);
-      checks.push(['主筋裂縫間距', r.okCrackSpacing]);
-      if (r.needSkin) checks.push(['表層筋', r.okSkin]);
-      if (r.enableTorsion) checks.push([r.torsionNeedsDesign ? (r.torsionDetailOk == null ? '扭力詳算人工複核' : '22.7 扭力詳算') : '扭力門檻', r.torsionStatusOk]);
-      if (r.seismic) checks.push(['跨內 Mn', r.okMnQuarter]);
-      if (r.seismic) checks.push(['首支箍筋', r.okFirstHoop]);
-      if (r.developmentData?.okExplicit !== null) checks.push(['錨定/搭接', r.developmentData.okExplicit]);
-      if (r.developmentData?.developmentManualReview) checks.push(['錨定人工複核', null]);
-      if (r.seismic) checks.push(['SMRF 幾何', r.okBw && r.okLn]);
-      if (r.enableDefl) checks.push(['撓度', r.okDeflOverall]);
-      kv.push(kfmt('φMn⁺', r.phiMnPos, 'tf·m', r.okFlexPos));
-      kv.push(kfmt('+Mu', r.MuPos, 'tf·m', null));
-      kv.push(kfmt('φMn⁻', r.phiMnNeg, 'tf·m', r.okFlexNeg));
-      kv.push(kfmt('−Mu', r.MuNeg, 'tf·m', null));
-      kv.push(kfmt('φVn', r.phiVn, 'tf', r.okShear));
-      kv.push(kfmt('Vu', r.Vu, 'tf', null));
-      if (r.seismic) kv.push({ label:'Vd', val:`${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})`, ok:r.okShear });
-    }
-
-    const pendingManualReview = tab === 'summary' && manualReviewItems.length > 0;
-    const bannerChecks = pendingManualReview
-      ? [...checks, [`人工複核：${manualReviewItems.join('、')}`, null]]
-      : checks;
-    const allOk = bannerChecks.length > 0 && bannerChecks.every(c => c[1] === true);
-    const anyFail = bannerChecks.some(c => c[1] === false);
-    banner.className = 'banner-status ' + (anyFail ? 'fail' : allOk ? 'ok' : 'warn');
-    const icon = anyFail ? '✗' : allOk ? '✓' : '⚠';
-    const txt = anyFail ? 'NG — 不符合規範' : pendingManualReview ? `部分項目需人工複核：${manualReviewItems.join('、')}` : allOk ? 'OK — 符合規範' : '部分項目待檢核';
-    banner.innerHTML = `${icon} ${txt}` + (bannerChecks.length ? `<div data-ui="banner-detail">${bannerChecks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
-    key.innerHTML = kv.map(item => {
-      const cls = item.ok === true ? 'ok' : item.ok === false ? 'fail' : '';
-      return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;
-    }).join('');
+    return rcPageUi.updateBanner(r);
   }
 
   // === 剖面繪圖 (多排) ===
@@ -3959,43 +3771,7 @@ ${layerBars.map(L => {
 
   // 公式說明 tooltip
   function attachFormulaTips() {
-    if (!window.FormulaInfo) return;
-    FormulaInfo.attach({
-      'r-phiMnPos':  '正彎矩 (底拉) 嚴謹解\n多排筋 → 應變相容反覆求中性軸 c\nMn = ΣFi·yi − Cc·a/2 (對壓力面取矩)',
-      'r-phiMnNeg':  '負彎矩 (頂拉) — 將梁倒置後相同算法',
-      'r-AsBot':     '底層各排主筋面積總和\nΣ ni·ab,i',
-      'r-AsTop':     '頂層各排主筋面積總和\nΣ ni·ab,i',
-      'r-dPos':      'd⁺ = h − Σ(As·y)/ΣAs (底層筋形心到頂面距離)',
-      'r-dNeg':      'd⁻ = h − Σ(As·y)/ΣAs (頂層筋形心到底面距離)',
-      'r-rhoPos':    'ρ⁺ = AsBot / (bw·d⁺)',
-      'r-rhoNeg':    'ρ⁻ = AsTop / (bw·d⁻)',
-      'r-AsMin':     'As,min = max(14/fy,Asmin, 0.8·√fc/fy,Asmin)·b·d，fy,Asmin=min(fy,5600)\nT/L 梁翼板受拉且屬靜定梁時 b 取 min(bf, 2bw)，其餘取 bw\n一般梁若 As ≥ 4/3 As需求，可依 9.6.1.3 免 As,min；SMRF 依 18.3.3.1 須直接符合',
-      'r-epsTPos':   '正彎矩最外端受拉鋼筋淨拉應變；拉力控制須 εt⁺ ≥ εty+0.003',
-      'r-epsTNeg':   '負彎矩最外端受拉鋼筋淨拉應變；拉力控制須 εt⁻ ≥ εty+0.003',
-      'r-Mcr':       '開裂彎矩 Mcr = fr·Ig / yt\nfr = 2·√fc\n供開裂狀態與撓度計算使用',
-      'r-aPos':      '正彎矩應力方塊深 a⁺ = β1·c⁺',
-      'r-aNeg':      '負彎矩應力方塊深 a⁻ = β1·c⁻',
-      'r-phiVn':     'φVn = φ(Vc + Vs)\nVc 依 22.5.5.1：Av < Av,min 時納入 λs，Av ≥ Av,min 時可採簡化式或 ρw 式\nVs = Av·fyt·d / s',
-      's-spacing':   '塑鉸區箍筋間距上限\nmin(d/4, 15 cm, 6db / 5.5db / 5db)\n對應 fy = 4200 / 5000 / 5600',
-      's-lo':        '塑鉸區長度 ℓo = 2h (規範 18.3.4)',
-      's-midSpacing':'中央區箍筋 ≤ d/2 (規範 18.3.4.6)',
-      's-lapZone':   'SMRF 梁端塑鉸區取 2h\n搭接範圍須完全落在 2h 至 ℓn−2h 之間，並配置圍束',
-      's-MnRatio':   '規範 18.3.3.2\n支承斷面 Mn⁺ ≥ Mn⁻ / 2',
-      's-MnQuarter': '規範 18.3.3.2\n沿梁長任一斷面 Mn ≥ max(Mn⁺,Mn⁻) / 4',
-      'r-jointMnb':  '送至柱工具之梁端標稱彎矩\nMnb = max(Mn⁺, Mn⁻)，供柱頁強柱弱梁 ΣMnb 使用',
-      'r-jointMpr':  '以指定 Mpr 鋼筋強度倍率放大 fy 後重新計算 Mn⁺、Mn⁻\nMpr,total = Mpr⁺ + Mpr⁻',
-      'r-jointVeCap':'梁控制柱剪力上限\nVe,cap = (Mpr⁺ + Mpr⁻) / ℓn，送至柱頁對應 X/Y 向梁 Mpr 控制剪力上限',
-      'c-layerSpacing':'排間淨距 sv ≥ max(2.5 cm, db_outer)\n規範 25.2.2',
-      'c-devLeft':    '直線錨定：可用長度 ≥ ℓd,req\n標準彎鉤、機械錨定或其他端部構造列為人工複核',
-      'c-devRight':   '直線錨定：可用長度 ≥ ℓd,req\n標準彎鉤、機械錨定或其他端部構造列為人工複核',
-      'c-lapLength':  '搭接長度 ℓs ≥ 規範 25.5.2 需求\nClass A = 1.0ℓd；Class B = 1.3ℓd',
-      'd-Ec':         "彈性模數 Ec = 12000·√fc' (規範 19.2.2 常重混凝土)",
-      'd-Mcr':        '開裂彎矩 Mcr = fr·Ig/yt\nMa ≤ (2/3)Mcr → 未開裂 (用 Ig)\nMa > (2/3)Mcr → 改用 Bischoff Ie',
-      'd-IcrPos':     '開裂後 Icr (雙筋換算斷面)\nbw·kd²/2 + ((n−1)As\' + nAs)·kd − ((n−1)As\'·d\' + nAs·d) = 0\nIcr = bw·kd³/3 + (n−1)As\'(kd−d\')² + nAs(d−kd)²',
-      'd-IePos':      'Bischoff 有效慣性矩\n1/Ie = 1/Icr − ((2Mcr/3Ma)²)·(1/Icr − 1/Ig)\n且 Ie ≤ Ig',
-      'd-defImm':     '瞬時撓度 Δi = K·Ma·ℓn²/(Ec·Ie)\nK 依支承狀況：\n簡支 5/48；兩端連續 1/16；一端連續 0.073；懸臂 1/4',
-      'd-defLong':    '長期撓度 Δlt = (1+λΔ)·Δi\nλΔ = ξ / (1+50ρ′)，ρ′ 為壓力筋比'
-    });
+    return rcPageUi.attachFormulaTips();
   }
 
   document.getElementById('beamRebarDesignCandidates')?.addEventListener('click', event => {

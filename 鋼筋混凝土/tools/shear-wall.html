@@ -514,9 +514,18 @@
 <script src="../shared/pmsection.js?v=3"></script>
 <script src="../shared/wall-base.js?v=2"></script>
 <script src="../shared/wall-evaluator.js?v=2"></script>
+<script src="../shared/rc-page-ui.js"></script>
 <script>
-  const $ = id => document.getElementById(id);
-  const num = id => parseFloat($(id)?.value) || 0;
+
+  const rcPageUi = RcPageUi.createPage({
+    page: 'shear-wall',
+    document,
+    window,
+    getMode: () => currentMode,
+    calculate: () => calcShearWall()
+  });
+const $ = id => document.getElementById(id);
+  const num = id => rcPageUi.num(id);
   let currentMode = 'design';
   let lastFlexApplyNote = '';
   const SHEAR_WALL_PROJECT_SCHEMA = 'rc-shear-wall-project-v1';
@@ -525,11 +534,10 @@
 
   // ---- UI helpers ----
   function syncDetailHelp() {
-    document.body.classList.toggle('show-detail-help', !!$('showDetailHelp')?.checked);
+    return rcPageUi.syncDetailHelp();
   }
   function syncAdvancedCaseTools() {
-    const panel = $('advancedCaseCard');
-    if (panel) panel.classList.toggle('active', !!$('showCaseTools')?.checked);
+    return rcPageUi.syncAdvancedCaseTools();
   }
   function syncMobileFoldCards() {
     const isMobile = window.innerWidth <= 768;
@@ -545,22 +553,7 @@
     });
   }
   function applyPanel(tab) {
-    document.querySelectorAll('.section-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.dataset.panel === tab));
-    document.querySelectorAll('[data-shows]').forEach(card => {
-      const shows = card.dataset.shows.split(/\s+/);
-      card.style.display = shows.includes(tab) ? '' : 'none';
-    });
-    const showStepsOn = $('showSteps')?.checked;
-    document.querySelectorAll('.steps-card').forEach(card => {
-      if (!showStepsOn) { card.style.display = 'none'; return; }
-      const shows = (card.dataset.shows || '').split(/\s+/);
-      card.style.display = shows.includes(tab) ? '' : 'none';
-    });
-    const scopeMap = { geom:'幾何 ＆ 材料', load:'載重', rebar:'配筋', pm:'面內 P-M', shear:'面內剪力', detail:'邊界 ＆ 細部', summary:'綜合檢核' };
-    const el = $('conclusionScope');
-    if (el) el.textContent = scopeMap[tab] || '';
-    calcShearWall();
+    return rcPageUi.applyPanel(tab);
   }
   document.querySelectorAll('.section-tabs button').forEach(btn => btn.addEventListener('click', () => applyPanel(btn.dataset.tab)));
 
@@ -782,24 +775,13 @@
 
   // ---- result helpers (rc-pending) ----
   function setResult(id, val, unit, digits = 2, status = null) {
-    const el = $(id); if (!el) return;
-    el.classList.remove('rc-pending');
-    const v = el.querySelector('.value'), u = el.querySelector('.unit');
-    if (v) v.textContent = (val == null || (typeof val === 'number' && isNaN(val))) ? '—' : (typeof val === 'number' ? Number(val).toFixed(digits) : val);
-    if (u && unit !== undefined) u.textContent = unit;
-    el.classList.remove('ok','warn','fail');
-    if (status) el.classList.add(status);
+    return rcPageUi.setResult(id,val,unit,digits,status);
   }
   function setCheck(id, pass, text) {
-    const el = $(id); if (!el) return;
-    el.classList.remove('rc-pending');
-    const v = el.querySelector('.value');
-    if (v) v.textContent = text || (pass ? '✓ OK' : '✗ NG');
-    el.classList.remove('ok','warn','fail');
-    el.classList.add(pass === true ? 'ok' : pass === false ? 'fail' : 'warn');
+    return rcPageUi.setCheck(id,pass,text);
   }
   function markAllResultsPending() {
-    document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
+    return rcPageUi.markAllResultsPending();
   }
 
   // ---- 內建案例 ----
@@ -1596,74 +1578,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
 
   // ===================== Banner / Quick =====================
   function updateBanner(r) {
-    const tab = document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom';
-    const banner = $('bannerStatus'); const key = $('bannerKey');
-    let checks = [], kv = [];
-    const f = (v,d=1)=> (v==null||isNaN(v))?'—':Number(v).toFixed(d);
-    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : [];
-    if (tab === 'geom') {
-      checks.push(['非 Wall Pier', !r.isPier]);
-      checks.push(['適用範圍', r.scopeOk ? true : null]);
-      checks.push(['幾何模型', r.geomModelOk]);
-      if (r.seismic) checks.push(["fc'≤350", r.fcOk]);
-      kv.push({label:'hw/ℓw', val:f(r.hwlw,2), ok:null});
-      kv.push({label:'Acv', val:`${f(r.Acv,0)} cm²`, ok:null});
-    } else if (tab === 'pm' || tab === 'load') {
-      checks.push(['Pu 軸力範圍', r.pmAxialOk]);
-      checks.push(['Mu ≤ φMn', r.pmOk]);
-      if (r.loadCasesActive || r.loadCaseParseErrors?.length) checks.push(['多工況封包', !r.loadCaseFailures]);
-      kv.push({label:'φMn', val:`${f(r.phiMn)} tf·m`, ok:r.pmOk});
-      kv.push({label:'Mu', val:`${f(r.Mu)} tf·m`, ok:null});
-      kv.push({label:'利用率', val: isFinite(r.pmUtil)?f(r.pmUtil,2):'∞', ok:r.pmOk});
-      kv.push({label:'c@Pu', val:`${f(r.cAtPu)} cm`, ok:null});
-      if (r.loadCasesActive && r.loadCaseControls?.overall) kv.push({label:'控制工況', val:r.loadCaseControls.overall.name, ok:!r.loadCaseFailures});
-    } else if (tab === 'rebar') {
-      checks.push(['ρℓ ≥ 下限', r.rholOk]);
-      checks.push(['ρt ≥ 下限', r.rhotOk]);
-      if (currentMode === 'design') checks.push(['建議適用性', r.designSuggestionReady ? true : null]);
-      kv.push({label:'ρℓ', val:f(r.rhol,4), ok:r.rholOk});
-      kv.push({label:'ρt', val:f(r.rhot,4), ok:r.rhotOk});
-    } else if (tab === 'shear') {
-      checks.push(['φVn ≥ Ve', r.shearOk]);
-      checks.push(['Ve ≤ 剪力上限', r.vnMaxOk]);
-      kv.push({label:'φVn', val:`${f(r.phiVn/1000)} tf`, ok:r.shearOk});
-      kv.push({label:'Ve', val:`${f(r.Ve)} tf`, ok:null});
-      kv.push({label:'αc', val:f(r.alpha_c,3), ok:null});
-    } else if (tab === 'detail') {
-      if (r.seismic) checks.push(['SBE 提供量', r.sbeReq && !isFinite(r.sbeHoriz) ? null : r.sbeDesignOk]);
-      checks.push(['筋距合規', r.spVOk && r.spHOk]);
-      if (reviewWarnings.length) checks.push(['細部待確認', null]);
-      kv.push({label:'SBE', val: r.seismic ? (r.sbeReq?'須設置':'免設置') : '非耐震', ok: r.seismic ? (r.sbeReq && !isFinite(r.sbeHoriz) ? null : r.sbeDesignOk) : null});
-      kv.push({label:'c@Pu', val:`${f(r.cAtPu)} cm`, ok:null});
-    } else if (tab === 'summary') {
-      checks.push(['Pu 軸力範圍', r.pmAxialOk]);
-      checks.push(['Mu ≤ φMn', r.pmOk]);
-      checks.push(['φVn ≥ Ve', r.shearOk]);
-      checks.push(['幾何模型', r.geomModelOk]);
-      checks.push(['ρℓ', r.rholOk]); checks.push(['ρt', r.rhotOk]);
-      if (currentMode === 'design') checks.push(['設計建議', r.designSuggestionReady ? true : null]);
-      if (r.loadCasesActive || r.loadCaseParseErrors?.length) checks.push(['多工況封包', !r.loadCaseFailures]);
-      checks.push(['筋距', r.spVOk && r.spHOk]);
-      if (r.seismic) checks.push(['SBE 提供量', r.sbeReq && !isFinite(r.sbeHoriz) ? null : r.sbeDesignOk]);
-      if (reviewWarnings.length) checks.push(['待確認事項', null]);
-    }
-    const allOk = checks.length>0 && checks.every(c=>c[1]===true);
-    const anyFail = checks.some(c=>c[1]===false);
-    banner.className = 'banner-status ' + (anyFail?'fail':allOk?'ok':'warn');
-    const icon = anyFail?'✗':allOk?'✓':'⚠';
-    const txt = anyFail
-      ? 'NG — 不符合規範'
-      : allOk
-        ? 'OK — 符合規範'
-        : (reviewWarnings.length ? `待確認 — ${reviewWarnings.length} 項需補充設計或圖說確認` : '部分項目待確認');
-    const reviewText = (tab === 'summary' && reviewWarnings.length)
-      ? `<div data-ui="banner-detail">待確認：${reviewWarnings.join(' ｜ ')}</div>`
-      : '';
-    banner.innerHTML = `${icon} ${txt}` + (checks.length? `<div data-ui="banner-detail">${checks.map(c=>`${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>`:'') + reviewText;
-    key.innerHTML = kv.map(item=>{
-      const cls = item.ok===true?'ok':item.ok===false?'fail':'';
-      return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;
-    }).join('');
+    return rcPageUi.updateBanner(r);
   }
   function updateQuickSummary(r) {
     const f=(v,d=1)=>(v==null||isNaN(v))?'—':Number(v).toFixed(d);
@@ -1901,11 +1816,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
     });
   }
   function svgToDataURL(svg) {
-    if (!svg) return '';
-    const clone = svg.cloneNode(true);
-    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
-    const s = new XMLSerializer().serializeToString(clone);
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+    return rcPageUi.svgToDataURL(svg);
   }
 
   function setFieldValue(id, value) {

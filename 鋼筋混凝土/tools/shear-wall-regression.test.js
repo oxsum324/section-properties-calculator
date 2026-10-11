@@ -121,7 +121,7 @@ function main() {
   assert(html.includes('function collectShearWallProjectData()'), '剪力牆可收集專案 payload', 'collect helper exists');
   assert(html.includes('function applyShearWallProjectData(raw'), '剪力牆可套用專案 payload', 'apply helper exists');
   assert(html.includes('SHEAR_WALL_PROJECT_EXCLUDED_IDS') && html.includes('caseJson'), '剪力牆專案排除案例 JSON 工作區', 'case textarea excluded');
-  assert(html.includes('待確認 — ${reviewWarnings.length} 項需補充設計或圖說確認'), '摘要 banner 顯示待確認數量', 'summary banner pending-review count present');
+  assert(html.includes('../shared/rc-page-ui.js') && fs.readFileSync(path.join(ROOT, 'shared/src/rc-page-ui.source.js'), 'utf8').includes('待確認 — ${reviewWarnings.length} 項需補充設計或圖說確認'), '摘要 banner 顯示待確認數量', 'summary banner pending-review count present');
   assert(html.includes('id="summaryWarnings"') && html.includes('function updateSummaryPanel') && html.includes('待確認事項 ${index + 1}'), '摘要頁直接列出待確認事項明細', 'summary warning details present');
   assert(html.includes('scopeSingleWall') && html.includes('scopeNoOpening') && html.includes('scopeAnalysisReady'), '適用範圍假設可輸入與匯出', 'scope assumptions present');
   assert(html.includes('id="scopeSingleWall"') && html.includes('id="scopeNoOpening"') && html.includes('id="scopeAnalysisReady"'), '頁面保留適用範圍控制', 'scope review remains on tool page');

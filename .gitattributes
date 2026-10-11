@@ -7,3 +7,6 @@ tool-page-a11y.js text eol=lf
 石材固定/vendor/loads/wind.js text eol=lf
 結構工具箱/tools/build-minified-runtimes.js text eol=lf
 結構工具箱/tools/build-tool-page-a11y.js text eol=lf
+鋼筋混凝土/shared/rc-page-ui.js text eol=lf
+鋼筋混凝土/shared/src/rc-page-ui.source.js text eol=lf
+鋼筋混凝土/shared/fixtures/rc-page-ui-originals.json text eol=lf

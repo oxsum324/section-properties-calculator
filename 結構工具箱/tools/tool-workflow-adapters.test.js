@@ -35,7 +35,12 @@ for (const [key, engine] of [['/rc-beam', 'calcBeam'], ['/rc-column', 'calcColum
   assert.ok(start >= 0 && end > start, `${key}: real applyPanel source exists`);
   const env = windowStub(); let calculations = 0;
   env.$ = () => null; env.TOPIC_VISIBLE = { summary: 'all' }; env[engine] = () => { calculations++; };
-  vm.createContext(env); vm.runInContext(html.slice(start, end), env);
+  env.window = env; env.currentMode = 'check';
+  env.RcPageUi = require('../../鋼筋混凝土/shared/rc-page-ui.js');
+  const configStart = html.indexOf('  const rcPageUi = RcPageUi.createPage({');
+  const configEnd = html.indexOf('\n  });', configStart) + 6;
+  assert.ok(configStart >= 0 && configEnd > configStart, `${key}: real shared UI configuration exists`);
+  vm.createContext(env); vm.runInContext(html.slice(configStart, configEnd) + '\n' + html.slice(start, end), env);
   const options = adapters.createOptions(tool, env);
   options.calculate(); options.showResults(); options.readSummary();
   assert.equal(calculations, 1, `${key}: actual applyPanel plus navigation has exactly one engine call`);
