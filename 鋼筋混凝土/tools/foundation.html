@@ -1346,19 +1346,9 @@
 <script src="./pile-site-presets.js?v=1"></script>
 <script src="../../結構工具箱/tools/earth/earth-pressure-core.js?v=1"></script>
 <script src="../../結構工具箱/tools/earth/earth-pressure-rc-bridge.js?v=1"></script>
-<script src="../shared/rc-page-ui.js"></script>
 <script>
-
-  const rcPageUi = RcPageUi.createPage({
-    page: 'foundation',
-    document,
-    window,
-    getMode: () => currentMode,
-    calculate: () => calcFdtn(),
-    setCurrentTab: tab => { currentTab = tab; }
-  });
-const $ = id => document.getElementById(id);
-  const num = id => rcPageUi.num(id);
+  const $ = id => document.getElementById(id);
+  const num = id => { const v = parseFloat($(id)?.value); return isNaN(v) ? 0 : v; };
   const lambda = LAMBDA_NORMAL;
   const FOUNDATION_PROJECT_SCHEMA = 'rc-foundation-project-v1';
   const FOUNDATION_PROJECT_STORAGE_KEY = 'rc.foundation.project.draft';
@@ -1399,7 +1389,13 @@ const $ = id => document.getElementById(id);
   //  通用 UI 函式
   // ============================================================
   function setResult(id, val, unit, digits = 2, status = null) {
-    return rcPageUi.setResult(id,val,unit,digits,status);
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    const v = el.querySelector('.value'), u = el.querySelector('.unit');
+    v.textContent = (val == null || isNaN(val)) ? '—' : Number(val).toFixed(digits);
+    if (u && unit !== undefined) u.textContent = unit;
+    el.classList.remove('ok','warn','fail');
+    if (status) el.classList.add(status);
   }
   function setRatioResult(id, provided, required, unit, digits = 2, pass = null) {
     const el = $(id); if (!el) return;
@@ -1413,10 +1409,14 @@ const $ = id => document.getElementById(id);
     el.classList.add(pass === true ? 'ok' : pass === false ? 'fail' : 'warn');
   }
   function setCheck(id, pass, text) {
-    return rcPageUi.setCheck(id,pass,text);
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    el.querySelector('.value').textContent = text || (pass ? '✓ OK' : '✗ NG');
+    el.classList.remove('ok','warn','fail');
+    el.classList.add(pass === true ? 'ok' : pass === false ? 'fail' : 'warn');
   }
   function markAllResultsPending() {
-    return rcPageUi.markAllResultsPending();
+    document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
   }
   function factoredAxial(D, L, E = 0) {
     return 1.2 * D + 1.6 * L + 1.0 * E;
@@ -2086,7 +2086,31 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   // ============================================================
   let currentTab = 'iso';
   function applyPanel(tab) {
-    return rcPageUi.applyPanel(tab);
+    currentTab = tab;
+    document.querySelectorAll('.section-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    const showAdvancedOn = $('showAdvanced')?.checked;
+    document.querySelectorAll('[data-shows]').forEach(card => {
+      if (card.classList.contains('steps-card')) return; // steps 另處理
+      const shows = card.dataset.shows.split(/\s+/);
+      const visible = shows.includes(tab) && (!card.classList.contains('advanced-card') || showAdvancedOn);
+      card.style.display = visible ? '' : 'none';
+    });
+    // showSteps 控制
+    const showStepsOn = $('showSteps')?.checked;
+    document.querySelectorAll('.steps-card').forEach(card => {
+      if (!showStepsOn) { card.style.display = 'none'; return; }
+      const shows = (card.dataset.shows || '').split(/\s+/);
+      card.style.display = shows.includes(tab) ? '' : 'none';
+    });
+    // 結論 scope
+    const scopeMap = { iso:'獨立基腳', combined:'聯合基腳', mat:'筏式基礎', pile:'樁基／樁帽', retain:'擋土牆', seismic:'耐震' };
+    const el = $('conclusionScope');
+    if (el) el.textContent = scopeMap[tab] || '';
+    // 擋土牆扶壁切換
+    const ci = $('counterfortInputs');
+    if (ci) ci.style.display = ($('retainType')?.value === 'counterfort') ? '' : 'none';
+    // 觸發計算
+    calcFdtn();
   }
   document.querySelectorAll('.section-tabs button').forEach(btn => {
     btn.addEventListener('click', () => applyPanel(btn.dataset.tab));
@@ -2097,7 +2121,22 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   // ============================================================
   let currentMode = 'design';
   function syncDesignFields() {
-    return rcPageUi.syncDesignFields();
+    // 為了方便手機/平板現場調整，尺寸與配筋欄位不再依模式鎖定。
+    // 設計/檢核模式僅影響提示文字與結果解讀方式。
+    [
+      'B','L','hf','barSpX','barSpY',
+      'cB','cL','cHf','cBarSpX','cBarSpY',
+      'pcB','pcL','pcH','pNBar',
+      'mB','mL','mHf','mBarSpX','mBarSpY',
+      'rNBar'
+    ].forEach(id => {
+      const e = $(id);
+      if (e) e.readOnly = false;
+    });
+    ['barNoX','barNoY','cBarNoX','cBarNoY','pBarNo','mBarNoX','mBarNoY','rBarNo'].forEach(id => {
+      const e = $(id);
+      if (e) e.disabled = false;
+    });
   }
   function setFoundationMode(mode, options = {}) {
     currentMode = mode === 'check' ? 'check' : 'design';
@@ -6244,7 +6283,28 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
 
   // Formula tooltips
   function attachFormulaTips() {
-    return rcPageUi.attachFormulaTips();
+    if (!window.FormulaInfo) return;
+    FormulaInfo.attach({
+      'r-qmax':       '4 角土壓 q = P/A ± 6Mx/(BL²) ± 6My/(LB²)',
+      'r-qmin':       '若 qmin < 0 → 偏心過大',
+      'r-ecc':        '偏心率 ex/L + ey/B；≤ 1/6 為小偏心',
+      'r-qu':         'qu = Pu/A — 因數化土壓',
+      'r-Mu':         'Mux = qu·B·armX²/2',
+      'r-phiMn':      'φMn = φ·As·fy·(d − a/2)',
+      'r-phiVc1':     '單向剪力 φVc = φ·0.53·√fc·b·d',
+      'r-phiVc2':     '雙向衝剪 φVc = φ·min(a,b,c)·bo·d',
+      'r-AsMin':      'As,min = 0.0018·b·h (溫度收縮)',
+      'r-dMin':       '有效深度 d ≥ 15 cm (規範)',
+      'r-cbRatio':    '矩形基腳中央帶配筋比 = 2/(β+1)',
+      'cr-FSslide':   '聯合基腳抗滑 FS = μ·N / H；H = max(|HDL|, |HDL+HE|)',
+      'pr-Rmax':      'R_i = P/n ± Mx·y/Σy² ± My·x/Σx²',
+      'pr-spacing':   '最小樁間距 ≥ 2.5·Dp',
+      'rr-Pa':        'Pa = 0.5·Ka·γ·H² + Ka·qs·H',
+      'rr-FSslide':   'FS = (μW + Pp) / Pa ≥ 1.5',
+      'rr-FSover':    'FS = Mr / Mo ≥ 2.0',
+      'sr-tie':       '繫材軸力 ≥ 0.1·SDS·Pmax',
+      'sr-intReq':    '接合面 As,v ≥ 0.005·Ag'
+    });
   }
 
   window.addEventListener('load', () => {

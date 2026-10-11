@@ -675,23 +675,13 @@
 <script src="../shared/pmsection.js?v=3"></script>
 <script src="../shared/wall-inplane-evaluator.js?v=2"></script>
 <script src="../shared/wall-rebar-designer.js?v=1"></script>
-<script src="../shared/rc-page-ui.js"></script>
 <script>
-
-  const rcPageUi = RcPageUi.createPage({
-    page: 'wall',
-    document,
-    window,
-    getMode: () => currentMode,
-    calculate: () => calcWall(),
-    collectSummaryChecks: result => collectWallSummaryChecks(result),
-    summarizeResult: (result, checks) => summarizeWallResult(result, checks)
-  });
   function syncDetailHelp() {
-    return rcPageUi.syncDetailHelp();
+    document.body.classList.toggle('show-detail-help', !!document.getElementById('showDetailHelp')?.checked);
   }
   function syncAdvancedCaseTools() {
-    return rcPageUi.syncAdvancedCaseTools();
+    const panel = document.getElementById('advancedCaseCard');
+    if (panel) panel.classList.toggle('active', !!document.getElementById('showCaseTools')?.checked);
   }
   function syncMobileFoldCards() {
     const isMobile = window.innerWidth <= 768;
@@ -727,7 +717,23 @@
     if (quickRebar) quickRebar.textContent = `${r.layers >= 2 ? '雙層' : '單層'} ${r.vBar || '—'}@${RCUI.formatOneDecimal(r.vSp)} / ${r.hBar || '—'}@${RCUI.formatOneDecimal(r.hSp)}`;
   }
   function applyPanel(tab) {
-    return rcPageUi.applyPanel(tab);
+    document.querySelectorAll('.section-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.dataset.panel === tab));
+    document.querySelectorAll('[data-shows]').forEach(card => {
+      const shows = card.dataset.shows.split(/\s+/);
+      card.style.display = shows.includes(tab) ? '' : 'none';
+    });
+    // 計算過程卡：未勾選 showSteps 一律隱藏；勾選時依 data-shows 規則
+    const showStepsOn = document.getElementById('showSteps')?.checked;
+    document.querySelectorAll('.steps-card').forEach(card => {
+      if (!showStepsOn) { card.style.display = 'none'; return; }
+      const shows = (card.dataset.shows || '').split(/\s+/);
+      card.style.display = shows.includes(tab) ? '' : 'none';
+    });
+    const scopeMap = { geom:'幾何 ＆ 材料', load:'載重', rebar:'配筋', methods:'計算法', summary:'綜合檢核' };
+    const el = document.getElementById('conclusionScope');
+    if (el) el.textContent = scopeMap[tab] || '';
+    if (typeof calcWall === 'function') calcWall();
   }
   document.querySelectorAll('.section-tabs button').forEach(btn => {
     btn.addEventListener('click', () => applyPanel(btn.dataset.tab));
@@ -858,7 +864,7 @@
 
   // ========== 牆計算邏輯 ==========
   const $ = id => document.getElementById(id);
-  const num = id => rcPageUi.num(id);
+  const num = id => parseFloat($(id).value) || 0;
   const WALL_PROJECT_SCHEMA = 'rc-wall-project-v1';
   const WALL_PROJECT_STORAGE_KEY = 'rc.wall.project.draft';
   const WALL_PROJECT_EXCLUDED_IDS = new Set(['wallProjectFile', 'caseJson', 'compareCaseJson', 'baselineReport']);
@@ -1273,13 +1279,23 @@
   }
 
   function setResult(id, val, unit, digits = 2, status = null) {
-    return rcPageUi.setResult(id,val,unit,digits,status);
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    const v = el.querySelector('.value'), u = el.querySelector('.unit');
+    v.textContent = (val == null || isNaN(val)) ? '—' : Number(val).toFixed(digits);
+    if (u && unit !== undefined) u.textContent = unit;
+    el.classList.remove('ok','warn','fail');
+    if (status) el.classList.add(status);
   }
   function setCheck(id, pass, text) {
-    return rcPageUi.setCheck(id,pass,text);
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    el.querySelector('.value').textContent = text || (pass ? '✓ OK' : '✗ NG');
+    el.classList.remove('ok','warn','fail');
+    el.classList.add(pass === true ? 'ok' : pass === false ? 'fail' : 'warn');
   }
   function markAllResultsPending() {
-    return rcPageUi.markAllResultsPending();
+    document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
   }
 
   // === 多片牆聚合表格管理 ===
@@ -2855,12 +2871,64 @@ ${basementStepTxt}
   }
 
   function svgToDataURL(svg) {
-    return rcPageUi.svgToDataURL(svg);
+    if (!svg) return '';
+    const clone = svg.cloneNode(true);
+    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    const serialized = new XMLSerializer().serializeToString(clone);
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(serialized);
   }
 
 
   function updateBanner(r) {
-    return rcPageUi.updateBanner(r);
+    const tab = document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom';
+    const banner = $('bannerStatus');
+    const key = $('bannerKey');
+    let checks = [], kv = [];
+    if (tab === 'geom') {
+      checks.push(['牆厚 ≥ 下限', r.okH]);
+      kv.push({ label:'h', val:`${r.h} cm`, ok:null });
+      kv.push({ label:'hmin', val:`${r.hmin.toFixed(1)} cm`, ok:r.okH });
+    } else if (tab === 'load') {
+      checks.push(['P-M 設計封包', r.okPM]);
+      checks.push(['φVn ≥ Vu', r.okShear]);
+      kv.push({ label:'φMn@Pu', val: Number.isFinite(r.phiMnInplane) ? `${r.phiMnInplane.toFixed(2)} tf·m` : '—', ok:r.okPM });
+      kv.push({ label:'Pu', val:`${r.Pu.toFixed(2)} tf`, ok:null });
+      kv.push({ label:'Mu', val:`${r.MuIn.toFixed(2)} tf·m`, ok:null });
+      kv.push({ label:'φVn', val:`${r.phiVn.toFixed(2)} tf`, ok:r.okShear });
+      kv.push({ label:'Vu', val:`${r.Vu.toFixed(2)} tf`, ok:null });
+    } else if (tab === 'rebar') {
+      checks.push(['ρℓ ≥ 下限', r.okRhol]);
+      checks.push(['ρt ≥ 下限', r.okRhot]);
+      checks.push(['鋼筋層數', r.okLayers]);
+      kv.push({ label:'ρℓ', val:`${r.rhol.toFixed(4)}`, ok:r.okRhol });
+      kv.push({ label:'ρt', val:`${r.rhot.toFixed(4)}`, ok:r.okRhot });
+      kv.push({ label:'ρℓ,min', val:`${r.rholMin.toFixed(4)}`, ok:null });
+      kv.push({ label:'ρt,min', val:`${r.rhotMin.toFixed(4)}`, ok:null });
+    } else if (tab === 'methods') {
+      kv.push({ label:'P-Δ', val: ($('slenderMethod')?.value === 'iter') ? '迭代' : '簡版', ok:null });
+      kv.push({ label:'SBE 延伸', val: ($('sbeExtMethod')?.value === 'custom') ? '應力分布' : '線性', ok:null });
+    } else if (tab === 'summary') {
+      checks = collectWallSummaryChecks(r);
+    }
+    const allOk = checks.length > 0 && checks.every(c => c[1] === true);
+    const anyFail = checks.some(c => c[1] === false);
+    if (tab === 'summary') {
+      const summary = summarizeWallResult(r, checks);
+      banner.className = 'banner-status ' + (summary.ok === false ? 'fail' : summary.ok === true ? 'ok' : 'warn');
+      const reviewText = summary.reviewWarnings.length
+        ? `<div data-ui="banner-detail">待確認：${summary.reviewWarnings.join(' ｜ ')}</div>`
+        : '';
+      banner.innerHTML = summary.text + (checks.length ? `<div data-ui="banner-detail">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '') + reviewText;
+    } else {
+      banner.className = 'banner-status ' + (anyFail ? 'fail' : allOk ? 'ok' : 'warn');
+      const icon = anyFail ? '✗' : allOk ? '✓' : '⚠';
+      const txt = anyFail ? 'NG — 不符合規範' : allOk ? 'OK — 符合規範' : '部分項目待檢核';
+      banner.innerHTML = `${icon} ${txt}` + (checks.length ? `<div data-ui="banner-detail">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
+    }
+    key.innerHTML = kv.map(item => {
+      const cls = item.ok === true ? 'ok' : item.ok === false ? 'fail' : '';
+      return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;
+    }).join('');
   }
 
   bindWallProjectStorage();
@@ -2945,7 +3013,46 @@ ${basementStepTxt}
   addAggRow({ tag:'W2', h:25, lw:400, hwlw:3.7, rhot:0.0030, Vu:80 });
 
   function attachFormulaTips() {
-    return rcPageUi.attachFormulaTips();
+    if (!window.FormulaInfo) return;
+    FormulaInfo.attach({
+      'r-hmin':      '承重牆最小厚度 h ≥ max(ℓc/25, 10 cm)',
+      'r-phiPn':     '簡易公式 φPn = 0.55·φ·fc·Ag·[1−(k·ℓc/(32h))²]',
+      'r-rhol':      '縱向最小配筋比 ρℓ ≥ 0.0012 (#5 以下) 或 0.0015',
+      'r-rhot':      '橫向最小配筋比 ρt ≥ 0.0020 (#5 以下) 或 0.0025',
+      'r-Acv':       'Acv = ℓw·tw (剪力面積)',
+      'r-phiVn':     'φVn = φ·(αc·√fc + ρt·fy)·Acv\nαc = 0.80 (hw/ℓw≤1.5) ~ 0.53 (≥2.0)',
+      'r-VnLimit':   'Vn 上限 = 2.65·√fc·Acv (規範 11.5.4.3)',
+      'r-oopMcr':    '2/3·Mcr = 2/3·fr·Ig/yt\nfr = 2·√fc',
+      'r-oopIcr':    '裂面慣性矩 Icr = (As+Ase)·(d−c)² + b·c³/3',
+      'r-oopDelta':  'Δs = 5·Mua·ℓc² / (48·Ec·Ie)',
+      'r-oopMu':     'Mua = Mu + Pu·Δs (P-δ 放大)',
+      'r-bwPa':      'Rankine 主動土壓 pa = Ka·γs·H (底部)',
+      'r-bwModel':   '地下室外牆概算模型\n懸臂牆: 三角形 1/6、均布 1/2；簡支條帶: 三角形 0.0641、均布 1/8',
+      'r-bwMtri':    '土三角彎矩\n懸臂牆: M = pa·H²/6；簡支條帶: M = 0.0641·pa·H²',
+      'r-bwMuni':    '超載均布彎矩\n懸臂牆: M = q\'·H²/2；簡支條帶: M = q\'·H²/8',
+      'r-bwMw':      '水壓彎矩\n懸臂牆: M = pw·hw²/6；簡支條帶: M = 0.0641·pw·hw²',
+      'r-bwMutot':   'Mu = 1.6·(M土三角 + M超載 + M水)',
+      'be-cLimit':   'BE 觸發 c ≥ ℓw / [600·(1.5·δu/hw)]',
+      'be-extLen':   'BE 沿高延伸 = max(ℓw, Mu/(4Vu))',
+      'be-horizLen': 'BE 水平長度 ≥ max(c−0.1ℓw, c/2)',
+      // Phase C/D 新增
+      'r-pierGate':  'Wall Pier 判定 (規範 18.7.1)\nHw/ℓw ≥ 2.0 且 ℓw/bw ≤ 2.5 → 應依柱設計',
+      'r-fcLim':     'SSW fc′ 上限 (規範 18.7.2.4)\n特殊結構牆 fc′ ≤ 350 kgf/cm²',
+      'r-bEff':      '有效翼版寬 (規範 18.7.5.2)\nb_eff = min(s/2, 0.25·hw, bf,act)',
+      'r-bSection':  '總有效寬度 = h + sides·b_eff\n(L 形 sides=1, T/C/I 形 sides=2)',
+      'r-Ig':        'Ig (含翼版近似) = Iweb + Σ(b_eff·tf)·(ℓw/2)²',
+      'r-aggVnLimitTot': '全牆段 ΣVn 上限 = 2.12·λ·√fc′·ΣAcv (規範 18.7.4.4)',
+      'c-aggSingle': '單段上限 Vn ≤ 2.65·√fc′·Acv (規範 18.7.4.4)',
+      'c-aggConc':   '力集中警示：任一段 Vu/ΣVu > 65%',
+      'sbe-extLen':  'SBE 沿水平延伸：壓應力降至 0.15·fc′ 處終止 (規範 18.7.6.3)',
+      'r-oopIter':   'P-Δ 收斂法：M_(k+1) = Mu + Pu·Δs(M_k) 直到 |ΔM| < tol',
+      'r-oopDeflLim':'規範 11.8.4: 服務載重撓度 Δs ≤ ℓc/150',
+      'd-spMax':     '筋距上限 = min(3h, 45 cm) (規範 11.7.2)',
+      'd-vSpInplane':'結構牆面內剪力：縱筋間距 ≤ ℓw/3',
+      'd-hSpInplane':'結構牆面內剪力：橫筋間距 ≤ ℓw/5',
+      'd-shearFric': '施工縫剪摩擦觸發 Vu > 1.1·λ·√fc′·Acv (規範 22.9)',
+      'd-spliceBE':  'SBE 內鋼筋搭接禁區：min(610, ℓw) cm 以上 (規範 18.7.6.5)'
+    });
   }
   window.addEventListener('resize', syncMobileFoldCards);
   window.addEventListener('load', () => {

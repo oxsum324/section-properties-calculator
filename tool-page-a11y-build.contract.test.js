@@ -78,18 +78,6 @@ const tools = extractLiteral(home, 'tools').filter(tool => tool.state === 'forma
 const routeFileMap = extractLiteral(home, 'routeFileMap');
 const dependencies = extractLiteral(home, 'HOME_TOOL_UPDATE_DEPENDENCIES').routes;
 const homeRoutes = dependencies;
-const rcUiPath = '鋼筋混凝土/shared/rc-page-ui.js';
-const rcUiSource = '鋼筋混凝土/shared/src/rc-page-ui.source.js';
-const rcOriginals = '鋼筋混凝土/shared/fixtures/rc-page-ui-originals.json';
-// Measured Terser output: 35,980 bytes; keep exactly 10% capacity headroom.
-assert.ok(fs.statSync(path.join(root, rcUiPath)).size <= 39578, 'RC page UI exceeds its measured size plus 10%');
-assert.ok(PRIVATE_FILES.has(rcOriginals), 'original helper fixtures are explicitly private');
-assert.equal(classifyPublishedPath(rcOriginals).publish, false, 'original helper fixtures must not enter Pages');
-for (const route of ['/rc-beam', '/rc-column', '/rc-wall', '/rc-foundation', '/rc-slab', '/rc-shear-wall']) {
-  assert.ok(dependencies[route].includes(rcUiPath), `${route}: shared RC UI updates the tool date`);
-  assert.ok(dependencies[route].includes(rcUiSource), `${route}: readable RC UI source updates the tool date`);
-}
-assert.equal(Object.values(dependencies).filter(files => files.includes(rcUiPath)).length, 6, 'exactly six RC pages consume the shared UI');
 assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/tools/project-meta-profile.js')).length, 42,
   'all 42 profile runtime date dependencies stay registered');
 assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/tools/src/project-meta-profile.source.js')).length, 42,

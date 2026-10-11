@@ -68,8 +68,6 @@ const CLEAN_ROUTE_SAMPLES = [
 ];
 const PRIVATE_PATHS = [
   'report-core-parity-map.json',
-  '鋼筋混凝土/shared/src/rc-page-ui.source.js',
-  '鋼筋混凝土/shared/fixtures/rc-page-ui-originals.json',
   'report-core-parity.contract.test.js',
   'field-survey/tests/browser.test.js',
   'field-survey/tests/model.test.js',

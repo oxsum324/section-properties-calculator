@@ -643,10 +643,11 @@ git add -- "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS
 git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
-## 2026-10-11：T34 RC 主頁共用 UI
+## 2026-10-11：撤銷 RC 主頁共用 helper 抽取（T34）
 
-共用執行期、可讀來源、原頁私有 fixture、等價測試與六頁 adapter 同包；包含固定壓縮 manifest／體積契約、Pages 私有邊界／探測、真實 workflow 單次計算契約、剪力牆 UI needle 更新，以及六路由日期依賴與自動同步日期。report.js、report-utils.js 與鏡像不在此包。生成檔與來源不得手改產出、不得為門檻劣化可讀來源；輸出與回報忽略。
+撤銷 `ee3ffc80 Extract shared UI helpers from RC pages`：抽出的 `rc-page-ui.source.js` 55,602 bytes 中只有約 58 行為六頁真正共用，其餘以頁名分支存放各頁專屬 UI 邏輯；六頁內嵌 script 合計僅減 49,102 bytes，但每頁多載 35,980 bytes 外部檔（首訪總量增加 215,880 bytes），維護需跨兩檔。委託人裁定撤銷，六支 RC 主頁、建置清單、私有登錄、首頁依賴與文件回到撤銷前狀態；RC 共用抽取若再進行，須以真正跨頁等價的 helper 為範圍。
 
 ```powershell
-git add -- .gitattributes "鋼筋混凝土/shared/rc-page-ui.js" "鋼筋混凝土/shared/src/rc-page-ui.source.js" "鋼筋混凝土/shared/fixtures/rc-page-ui-originals.json" "鋼筋混凝土/shared/rc-page-ui.test.js" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/shear-wall-regression.test.js" "結構工具箱/tools/tool-workflow-adapters.test.js" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/assets/home/home.js" tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+git add -- "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/shear-wall.html" "結構工具箱/assets/home/home.js" STAGING_GROUPS.md TOOL_BOUNDARIES.md README.md
 ```
+

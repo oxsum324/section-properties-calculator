@@ -428,5 +428,3 @@ Preflight 歷程會保留失敗、中斷或摘要缺漏的原始事實，並以 
   [run-audit-all-loop.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-audit-all-loop.bat:1)
 
 首頁可釘選最多 12 項工具並顯示最近使用 8 筆；資料只保存在此瀏覽器，搜尋時隱藏個人區塊，儲存不可用仍可正常操作。以 `node home-recents.browser.test.js` 驗證，私有收據保存於 ignored `output/playwright/home-recents/`。
-
-六支 RC 主頁共用 `鋼筋混凝土/shared/rc-page-ui.js` 處理頁面 UI，保留各頁顯示規則與計算 callback；可讀來源 `鋼筋混凝土/shared/src/rc-page-ui.source.js` 與原頁 fixture `鋼筋混凝土/shared/fixtures/rc-page-ui-originals.json` 均不公開。執行 `node 鋼筋混凝土/shared/rc-page-ui.test.js` 驗證 627 組行為等價；生成檔由 `node 結構工具箱/tools/build-minified-runtimes.js --only=rc-page-ui` 建置，測得 35,980 bytes，契約留 10% 緩衝。

@@ -25,12 +25,6 @@ const runtimes = [
     output: '結構工具箱/core/loads/wind.js',
     builder: 'build-minified-runtimes.js',
   },
-  {
-    id: 'rc-page-ui',
-    source: '鋼筋混凝土/shared/src/rc-page-ui.source.js',
-    output: '鋼筋混凝土/shared/rc-page-ui.js',
-    builder: 'build-minified-runtimes.js',
-  },
 ];
 
 function headerFor(runtime) {
@@ -67,12 +61,12 @@ async function main() {
   const args = process.argv.slice(2);
   const check = args.includes('--check');
   const selected = args.filter(arg => arg !== '--check').map(arg => {
-    if (!arg.startsWith('--only=')) throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind|rc-page-ui]');
+    if (!arg.startsWith('--only=')) throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind]');
     return arg.slice('--only='.length);
   });
   if (args.filter(arg => arg === '--check').length > 1 || selected.length > 1
       || selected.some(id => !runtimes.some(runtime => runtime.id === id))) {
-    throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind|rc-page-ui]');
+    throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind]');
   }
   if (!fs.existsSync(path.join(terserPath, 'package.json'))) {
     throw new Error('Run ensure-homepage-quality-deps.ps1 to install the pinned ignored Terser dependency.');
