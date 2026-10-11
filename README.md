@@ -437,3 +437,5 @@ Preflight 歷程會保留失敗、中斷或摘要缺漏的原始事實，並以 
 DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未壓縮來源也會失敗；本包僅補齊替身並檢查 MIME／Blob 導覽，不更動任何 report.js 或 report-utils.js。首次失敗與原替身重現紀錄保留，所有原 Word／可攜 HTML 斷言均保留。
 
 首頁可讀來源在 `結構工具箱/assets/home/src/home.source.js`；`node 結構工具箱/tools/sync-home-update-dates.js` 同步日期並自動重建公開 home.js，附 `--check` 時同時核對日期與確定性產出。
+
+首頁關鍵 CSS 由 `node 結構工具箱/tools/build-home-critical-css.js` 從既有樣式標記區段生成；`--check` 防止漂移，完整 CSS 延後載入，無 JavaScript 仍有 noscript 完整樣式備援。

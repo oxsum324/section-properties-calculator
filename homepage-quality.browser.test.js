@@ -15,7 +15,7 @@ const deps = path.join(repo, 'output', 'playwright', 'phase2-quality-deps');
 const outputRoot = path.join(repo, 'output', 'playwright', 'homepage-quality');
 const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const expected = { lighthouse: '13.5.0', playwright: '1.63.0', '@axe-core/playwright': '4.13.0' };
-const sourceFiles = ['結構工具箱/assets/home/src/home.source.js', '結構工具箱/index.html', '結構工具箱/assets/home/home.js', '結構工具箱/assets/home/home.css', '結構工具箱/assets/home/hero-art.jpg', '結構工具箱/assets/home/hero-art.webp'];
+const sourceFiles = ['結構工具箱/assets/home/src/home.source.js', '結構工具箱/index.html', '結構工具箱/assets/home/home.js', '結構工具箱/assets/home/home.css', '結構工具箱/assets/hy/colors_and_type.css', '結構工具箱/tools/build-home-critical-css.js', '結構工具箱/assets/home/hero-art.jpg', '結構工具箱/assets/home/hero-art.webp'];
 const interactionsOnly = process.argv.includes('--interactions-only');
 
 function pkgVersion(name) {

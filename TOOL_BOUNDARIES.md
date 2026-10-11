@@ -374,3 +374,7 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 ## 2026-10-11：T38 首頁可讀來源與確定性產出
 
 新增私有來源 `結構工具箱/assets/home/src/home.source.js`；原公開 `結構工具箱/assets/home/home.js` 由 `結構工具箱/tools/build-minified-runtimes.js` 的 home 項產生，Terser 5.44.0、LF、首行來源標記，公開引用不變。來源登錄 HOME_TOOL_UPDATE_DEPENDENCIES 與 Pages PRIVATE_FILES。首頁清冊、日期、初始檢視、版本同步及所有字面契約讀來源；日期與版本同步在寫入來源後自動重建，日期 --check 同時檢查來源日期與產出一致。公開網站 smoke 保留全部原文字／能力斷言，容許壓縮後等價空白與引號格式。建置契約體積為首次實測加 10%、向上取整；不改清冊欄位、路由或計算邏輯。
+
+## 2026-10-11：T39 首頁關鍵 CSS
+
+新增私有 LF 建置器 `結構工具箱/tools/build-home-critical-css.js`；從 `結構工具箱/assets/hy/colors_and_type.css` 與 `結構工具箱/assets/home/home.css` 的 critical 標記區段抽出既有 token／hero 樣式，僅搬移相同 media 條件的既有規則，不改宣告值。生成區段在 `結構工具箱/index.html`，上限 6000 bytes，--check 核對確定性一致；完整兩份 CSS 使用 print／onload 非阻塞載入，noscript 保留完整相對路徑樣式，body DOM、id／class 與工具卡不改。建置器及 CSS 列入首頁依賴，Pages 明確排除建置器；建置契約同時核對內嵌產出、容量與兩份 noscript 備援。
