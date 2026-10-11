@@ -426,15 +426,18 @@ a { color: inherit; text-decoration: none; }
 .member-system-hint { margin: 12px 0 0; font-size: var(--fs-sm); color: var(--fg-3); line-height: var(--lh-normal); }
 
 /* tool grid */
-.home-personal { margin-bottom: 28px; }
+.home-personal { block-size: 24rem; margin-bottom: 28px; display: flex; flex-direction: column; }
+.home-personal__grid { flex: 1; min-height: 0; overflow: auto; align-content: start; }
 .home-personal h2 { margin: 0 0 16px; font-size: var(--fs-lg); font-weight: var(--fw-bold); }
 .home-personal__notice { color: var(--fg-3); font-size: var(--fs-sm); }
-.tool-card-shell { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tool-card-shell { position: relative; display: flex; flex-direction: column; min-width: 0; }
 .tool-card-shell > .tool-card { flex: 1; }
 .tool-grid > .tool-card-shell,
-.tool-group__grid > .tool-card-shell { content-visibility: auto; contain-intrinsic-size: auto 15rem; }
+.tool-group__grid > .tool-card-shell { content-visibility: auto; contain-intrinsic-size: auto calc(15rem + 42px); }
 .tool-pin {
-  align-self: flex-end;
+  position: absolute;
+  right: 0;
+  bottom: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -459,6 +462,7 @@ a { color: inherit; text-decoration: none; }
 
 /* tool card（精簡：預設只顯示定位一段，輸出與閱讀狀態收在「詳情」） */
 .tool-card {
+  margin-bottom: 42px; /* Reserve the same pin area before and after delayed wrapping. */
   display: flex;
   flex-direction: column;
   gap: 10px;

@@ -428,3 +428,7 @@ Preflight 歷程會保留失敗、中斷或摘要缺漏的原始事實，並以 
   [run-audit-all-loop.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-audit-all-loop.bat:1)
 
 首頁可釘選最多 12 項工具並顯示最近使用 8 筆；資料只保存在此瀏覽器，搜尋時隱藏個人區塊，儲存不可用仍可正常操作。以 `node home-recents.browser.test.js` 驗證，私有收據保存於 ignored `output/playwright/home-recents/`。
+
+## 2026-10-11：T35 首頁個人功能延後掛載
+
+首頁先建立原工具卡，兩幀後才掛載既有釘選按鈕與個人卡片；無 requestAnimationFrame 時以 32 ms 計時器承接。釘選區預留 42 px，按鈕絕對定位；有個人資料時首屏先預留 24rem 固定面板，工具清單以可鍵盤捲動區域呈現，掛載不推移後續分類。工具清冊、路由、更新日與腳本順序不變，既有儲存例外處理保留。驗收與原始診斷只留 ignored output。

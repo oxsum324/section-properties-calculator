@@ -651,3 +651,11 @@ git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/ho
 git add -- "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/shear-wall.html" "結構工具箱/assets/home/home.js" STAGING_GROUPS.md TOOL_BOUNDARIES.md README.md
 ```
 
+
+## 2026-10-11：T35 首頁個人功能延後掛載
+
+首頁先建立原工具卡，兩幀後才掛載既有釘選按鈕與個人卡片；無 requestAnimationFrame 時以 32 ms 計時器承接。釘選區預留 42 px，按鈕絕對定位；有個人資料時首屏先預留 24rem 固定面板，工具清單以可鍵盤捲動區域呈現，掛載不推移後續分類。工具清冊、路由、更新日與腳本順序不變，既有儲存例外處理保留。驗收與原始診斷只留 ignored output。
+
+```powershell
+git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
