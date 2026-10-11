@@ -498,9 +498,9 @@ if (originalWindReport === undefined) {
   assertNoIncludes(html, '../../../鋼筋混凝土/shared/report.js', `${relativePath} does not load unrelated RC report helper`);
 });
 ['產出工具', '工具版本', '輸出時間', '計算指紋', 'buildWindReportTrace'].forEach(needle => {
-  assertIncludes(readText(toolboxFile('core/wind-report.js')), needle, `wind report trace ${needle}`);
+  assertIncludes(readText(toolboxFile('core/src/wind-report.source.js')), needle, `wind report trace ${needle}`);
 });
-const windReportSource = readText(toolboxFile('core/wind-report.js'));
+const windReportSource = readText(toolboxFile('core/src/wind-report.source.js'));
 assertIncludes(windReportSource, 'function isCalculationBookOutputControl', 'wind report identifies page-only output controls');
 assertIncludes(windReportSource, 'global.ToolReportUI.getCalculationBookInputGroups(groups)', 'wind report reuses the shared calculation-book input filter');
 ['openWindForceReport', 'openWindGenericReport'].forEach(functionName => {
@@ -981,7 +981,7 @@ for (const inlineValidationPage of [
   assertIncludes(html, '../../core/loads/wind.js', 'wind-force page loads the production wind core covered by the independent benchmark');
   assert.ok(/const r = W\.calcBuildingWind\([\s\S]*const rY = W\.calcBuildingWind\(/.test(html), 'wind-force page calculates both directions through the production MWFRS core');
 
-  const windReport = readText(toolboxFile('core/wind-report.js'));
+  const windReport = readText(toolboxFile('core/src/wind-report.source.js'));
   assertIncludes(windReport, 'function isProjectMetaMissing', 'wind report shared project meta helper');
   assertIncludes(windReport, 'function renderStatusGridPanel', 'wind report shared readiness renderer');
   assertIncludes(windReport, 'const calcResult = typeof global.calc', 'wind report recalculates before report generation');
@@ -1014,7 +1014,7 @@ for (const inlineValidationPage of [
   assert.ok(refShotTag, 'wind-cc reference image exists');
   assert.equal(/\bsrc=/.test(refShotTag), false, 'wind-cc reference image waits for the calculated figure before requesting an asset');
 
-  const windReport = readText(toolboxFile('core/wind-report.js'));
+  const windReport = readText(toolboxFile('core/src/wind-report.source.js'));
   [
     'windCcReportReadiness',
     'page-only-report-status',
@@ -1039,7 +1039,7 @@ for (const inlineValidationPage of [
   ].forEach(needle => assertIncludes(html, needle, 'wind-open-roof page-only report readiness'));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-open-roof page-only report readiness hidden from print');
 
-  const windReport = readText(toolboxFile('core/wind-report.js'));
+  const windReport = readText(toolboxFile('core/src/wind-report.source.js'));
   [
     'openRoofReportReadiness',
     'page-only-report-status',
@@ -1064,7 +1064,7 @@ for (const inlineValidationPage of [
   ].forEach(needle => assertIncludes(html, needle, 'wind-parapet page-only report readiness'));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-parapet page-only report readiness hidden from print');
 
-  const windReport = readText(toolboxFile('core/wind-report.js'));
+  const windReport = readText(toolboxFile('core/src/wind-report.source.js'));
   [
     'parapetReportReadiness',
     'page-only-report-status',

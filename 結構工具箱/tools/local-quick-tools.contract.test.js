@@ -158,7 +158,7 @@ const repoDocs = {
   homeTokens: readText(toolboxFile('assets/hy/colors_and_type.css')),
   homeJs: readText(toolboxFile('assets/home/src/home.source.js')),
   seismicCore: readText(toolboxFile('core/loads/seismic.js')),
-  windReport: readText(toolboxFile('core/wind-report.js')),
+  windReport: readText(toolboxFile('core/src/wind-report.source.js')),
   seismicDynamic: readText(toolboxFile('tools/地震力/seismic-dynamic.html')),
   seismicAppendage: readText(toolboxFile('tools/地震力/seismic-appendage.html')),
   seismicMisc: readText(toolboxFile('tools/地震力/seismic-misc.html')),

@@ -53,7 +53,7 @@ for (const relativePath of [...sourcePaths, canonicalPath, buildPath]) {
   assert.ok(PRIVATE_FILES.has(relativePath), `${relativePath} must be explicitly private`);
   assert.equal(classifyPublishedPath(relativePath).publish, false, `${relativePath} must not enter Pages`);
 }
-const runtimeByteLimits = { home: 78919, a11y: 10500, profile: 39000, wind: 45000, 'report-docx': 12800, 'tool-workflow': 7548, 'workflow-adapters': 6190, 'toolbox-storage': 16627, 'rc-storage': 4947, 'loadcombo': 30728 };
+const runtimeByteLimits = { 'survey-report-ui': 26760, 'survey-signoff-ui': 22663, 'survey-sketch': 18191, 'survey-detail': 22706, 'survey-model': 52744, 'src-column-page': 74772, 'src-beam-page': 27802, 'src-beam-core': 13287, 'wind-report': 31211, 'seismic-zones': 44460, 'wind-shared-profile': 8836, 'rc-common': 10866, home: 78919, a11y: 10500, profile: 39000, wind: 45000, 'report-docx': 12800, 'tool-workflow': 7548, 'workflow-adapters': 6190, 'toolbox-storage': 16627, 'rc-storage': 4947, 'loadcombo': 30728 };
 for (const runtimeDefinition of runtimes) {
   const runtimePath = path.join(root, runtimeDefinition.output);
   assert.equal(classifyPublishedPath(runtimeDefinition.output).publish, true, `${runtimeDefinition.output} stays public`);
@@ -64,7 +64,11 @@ for (const runtimeDefinition of runtimes) {
   assert.equal(bytes.toString('utf8').split('\n')[0], headerFor(runtimeDefinition),
     `${runtimeDefinition.output} retains its generated marker`);
   assert.ok(!bytes.includes(13), `${runtimeDefinition.output} uses LF`);
-  new vm.Script(bytes.toString('utf8'), { filename: runtimeDefinition.output });
+  if (runtimeDefinition.module) {
+    const syntax = spawnSync(process.execPath, ['--check', runtimePath], { cwd: root, encoding: 'utf8', windowsHide: true });
+    assert.equal(syntax.error, undefined, `${runtimeDefinition.output} module syntax check should start`);
+    assert.equal(syntax.status, 0, `${runtimeDefinition.output} retains valid ES module syntax: ${syntax.stderr}`);
+  } else new vm.Script(bytes.toString('utf8'), { filename: runtimeDefinition.output });
 }
 const runtime = fs.readFileSync(publicPath);
 assert.ok(runtime.length <= 10500, `runtime exceeds 10,500 bytes: ${runtime.length}`);

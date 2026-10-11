@@ -1300,7 +1300,7 @@ function buildFormalRows(state) {
   const formalContractText = fileExists(formalContractPath) ? readText(formalContractPath) : '';
   const documentStateHelperPath = toolboxFile(state.formalManifest.shared.documentStateHelper);
   const documentStateHelperText = fileExists(documentStateHelperPath) ? readText(documentStateHelperPath) : '';
-  const windReportPath = toolboxFile('core/wind-report.js');
+  const windReportPath = toolboxFile('core/src/wind-report.source.js');
   const windReportText = fileExists(windReportPath) ? readText(windReportPath) : '';
   return state.formalManifest.tools.map((tool) => {
     const htmlPath = toolboxFile(tool.html);

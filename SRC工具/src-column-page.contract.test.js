@@ -9,7 +9,7 @@ const Page = require('./src-column.js');
 
 const repoRoot = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(__dirname, 'src-column.html'), 'utf8');
-const source = fs.readFileSync(path.join(__dirname, 'src-column.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, 'src', 'src-column.source.js'), 'utf8');
 const directPrintCss = fs.readFileSync(path.join(repoRoot, '結構工具箱', 'core', 'direct-print-boundary.css'), 'utf8');
 const boundary = JSON.parse(fs.readFileSync(path.join(repoRoot, '結構工具箱', 'tools', 'calculation-book-content-boundary.json'), 'utf8'));
 const traceability = JSON.parse(fs.readFileSync(path.join(__dirname, 'src-column-traceability.catalog.json'), 'utf8'));

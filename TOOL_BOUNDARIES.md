@@ -378,3 +378,26 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 ## 2026-10-11：T39 首頁關鍵 CSS
 
 新增私有 LF 建置器 `結構工具箱/tools/build-home-critical-css.js`；從 `結構工具箱/assets/hy/colors_and_type.css` 與 `結構工具箱/assets/home/home.css` 的 critical 標記區段抽出既有 token／hero 樣式，僅搬移相同 media 條件的既有規則，不改宣告值。生成區段在 `結構工具箱/index.html`，上限 6000 bytes，--check 核對確定性一致；完整兩份 CSS 使用 print／onload 非阻塞載入，noscript 保留完整相對路徑樣式，body DOM、id／class 與工具卡不改。建置器及 CSS 列入首頁依賴，Pages 明確排除建置器；建置契約同時核對內嵌產出、容量與兩份 noscript 備援。
+
+## 2026-10-11：T40 第三批確定性壓縮與追溯跳過
+
+以下十二份可讀來源新增為私有 LF，正文與開工 HEAD 僅統一 LF；公開路徑由既有 `結構工具箱/tools/build-minified-runtimes.js`、Terser 5.44.0 生成，首行標記，未使用 unsafe 或 property mangling。五份現況調查檔保持 ES module 語意及原相對 import 路徑，其餘維持原全域／CommonJS API。建置契約檢查全部清單、LF、私有邊界、生成一致、逐檔實測加 10% 向上取整與 ES module／script 語法；來源與實際消費頁依賴同步登錄。
+
+| 公開產出 | 新私有可讀來源 |
+|---|---|
+| `field-survey/report-ui.js` | `field-survey/src/report-ui.source.js` |
+| `field-survey/signoff-ui.js` | `field-survey/src/signoff-ui.source.js` |
+| `field-survey/sketch.js` | `field-survey/src/sketch.source.js` |
+| `field-survey/detail.js` | `field-survey/src/detail.source.js` |
+| `field-survey/model.js` | `field-survey/src/model.source.js` |
+| `SRC工具/src-column.js` | `SRC工具/src/src-column.source.js` |
+| `SRC工具/src-beam.js` | `SRC工具/src/src-beam.source.js` |
+| `SRC工具/core/src-beam-core.js` | `SRC工具/core/src/src-beam-core.source.js` |
+| `結構工具箱/core/wind-report.js` | `結構工具箱/core/src/wind-report.source.js` |
+| `結構工具箱/core/loads/seismic-zones.js` | `結構工具箱/core/loads/src/seismic-zones.source.js` |
+| `結構工具箱/tools/風力/wind-shared-profile.js` | `結構工具箱/tools/風力/src/wind-shared-profile.source.js` |
+| `鋼筋混凝土/shared/common.js` | `鋼筋混凝土/shared/src/common.source.js` |
+
+壓縮前檢查 `鋼構工具/core/formal-core-manifest.json`、石材 vendor 同步清單與所有追溯清冊：`SRC工具/core/src-column-core.js`、`鋼構工具/steel-beam-formal.js`、`鋼構工具/steel-column-formal.js` 明列追溯；`結構工具箱/core/materials/steel.js` 與 `結構工具箱/core/loads/seismic.js` 的鏡像也明列，因此同源跳過。`結構工具箱/core/loads/seismic-zones.js` 建置後只由 `結構工具箱/tools/sync-stone-regulatory-vendor.js` 同步 `石材固定/vendor/loads/seismic-zones.js`。所有其他鏡像／追溯清冊、report.js／report-utils.js、RC shared/report.js、鋼構 app.js／calculator.js 與 field-survey/app.js 不變。
+
+原始碼 needle（SRC 頁、WindReport、調查版本、成熟度解析器）改讀來源；原有 require／VM 的固定預期行為斷言繼續測公開產出，vendor SHA 契約繼續驗生成檔。原生對話框掃描同時保留公開／來源檔，只透過建置清單對應既有 confirm 核准計數，未新增核准額度。量化指標不通過時保留差額與選項，不改可讀來源或基準。

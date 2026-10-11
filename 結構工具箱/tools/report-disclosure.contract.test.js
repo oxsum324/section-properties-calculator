@@ -109,7 +109,7 @@ const calculationBookLegacyDraftNeedles = boundaryCategories.legacyDraftClassifi
 const calculationBookForbiddenNeedles = [...new Set(Object.values(boundaryCategories).flat())];
 const formalReportRendererFiles = [
   '結構工具箱/core/ui/report.js',
-  '結構工具箱/core/wind-report.js',
+  '結構工具箱/core/src/wind-report.source.js',
   '鋼筋混凝土/shared/report.js',
   '鋼構工具/core/ui/report.js',
   '螺栓檢討/bolt-review-tool/src/reportExport.ts',

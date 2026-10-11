@@ -227,7 +227,7 @@ for (const [relativePath, expectedPrintLayouts] of [
   ['結構工具箱/core/ui/report.js', 1],
   ['鋼構工具/core/ui/report.js', 1],
   ['鋼筋混凝土/shared/report.js', 1],
-  ['結構工具箱/core/wind-report.js', 2],
+  ['結構工具箱/core/src/wind-report.source.js', 2],
   ['結構工具箱/tools/風力/wind-fence-sign.html', 1],
   ['結構工具箱/tools/風力/wind-object-frame.html', 1],
   ['結構工具箱/tools/風力/wind-lattice-tower.html', 1],
@@ -263,7 +263,7 @@ for (const relativePath of [
   assert.equal(source.includes("bottom: '24mm'"), false, `${relativePath} rejects oversized bottom margin that can create footer-only pages`);
 }
 
-const windReportSource = fs.readFileSync(path.join(repoRoot, '結構工具箱/core/wind-report.js'), 'utf8');
+const windReportSource = fs.readFileSync(path.join(repoRoot, '結構工具箱/core/src/wind-report.source.js'), 'utf8');
 assert.equal(
   (windReportSource.match(/\.rep-step \{ margin:6px 0 8px; \}/g) || []).length,
   2,

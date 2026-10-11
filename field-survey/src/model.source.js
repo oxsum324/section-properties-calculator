@@ -1,0 +1,718 @@
+import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
+export const VERSION = '0.30.3';
+export const id = () => crypto.randomUUID();
+export const now = () => new Date().toISOString();
+export const clone = value => structuredClone(value);
+export const CONDITIONS = { '': '尚未分類', normal: '一般現況', crack: '裂隙', damp: '滲水痕', salt: '白華', spall: '剝落', tileBulge: '磁磚拱起', tileBroken: '磁磚破損', exposedRebar: '鋼筋外露', rebarCorrosion: '鋼筋鏽蝕', honeycomb: '混凝土蜂窩', tileDetached: '磁磚脫落', paintBlister: '油漆起泡', plasterBulge: '粉刷層鼓起', jointFillerCracked: '填縫材開裂', jointFillerMissing: '填縫材脫落', floorDepression: '地坪局部下陷', floorUneven: '地坪不平', openingDeformation: '門窗變形', openingPoorOperation: '開閉不良', jointOffset: '伸縮縫錯位', activeLeak: '正在漏水', ponding: '積水', rustStain: '鏽水痕', moldStain: '霉斑', other: '其他' };
+export const COMMON_CONDITIONS = ['crack', 'damp', 'salt', 'spall', 'tileBulge', 'tileBroken'];
+export const CONDITION_GROUPS = [
+  ['混凝土／鋼筋', ['exposedRebar', 'rebarCorrosion', 'honeycomb']],
+  ['表面／飾面', ['tileDetached', 'paintBlister', 'plasterBulge', 'jointFillerCracked', 'jointFillerMissing']],
+  ['地坪', ['floorDepression', 'floorUneven']],
+  ['門窗／接縫', ['openingDeformation', 'openingPoorOperation', 'jointOffset']],
+  ['水分／痕跡', ['activeLeak', 'ponding', 'rustStain', 'moldStain']],
+  ['其他', ['other']]
+];
+export const CRACK_LAYERS = { unknown: '不確定', plaster: '粉刷層', structural: '結構體' };
+export const LEAK_FORMS = { drip: '滴水', flow: '流淌', seep: '滲出' };
+export const COMPONENTS = ['', '外觀', '牆面', '梁', '柱', '地坪', '平頂', '門窗', '其他'];
+export const UNIT_STATES = { open: '待完成', partial: '部分完成', inaccessible: '無法入內', complete: '本次紀錄完成' };
+export const ROLES = { overview: '位置全景', close: '近照', scale: '量尺照', other: '其他' };
+export const UNIT_KINDS = { residence: '住戶', public: '公設' };
+export const SIGNER_GROUPS = { resident: '住戶側', attendee: '會同人員', surveyor: '鑑定人員' };
+export const SIGNER_ROLES = { resident: '住戶本人', proxy: '家屬／代理人', management: '管委會／管理員', contractor: '施工廠商', supervisor: '監造單位', owner: '起造人代表', other: '其他', surveyor: '鑑定人員' };
+export const SIGNER_STATUSES = { signed: '已簽名', refused: '拒簽', absent: '不在場', paper: '紙本簽章' };
+export const DEFAULT_SIGNING_STATEMENTS = Object.freeze({
+  resident: '本人已於上列日期會同鑑定人員進行本建築物（單元）現況會勘，並知悉本次紀錄範圍如上。本簽名僅確認會同會勘之事實與紀錄範圍，不代表同意、承認或放棄任何有關損害原因、責任歸屬或鑑定結論之主張。',
+  attendee: '本人已於上列日期到場會同進行現況會勘。本簽名僅確認到場會同之事實，不代表同意或承認任何鑑定結論。'
+});
+export const DETAIL_PRESETS = { beam: '梁底仰視', frame: '梁柱交接', wall: '純牆面', window: '有窗牆面', door: '有門牆面', corner: '轉角牆面', flatBeam: '展開：梁底仰視', flatFrame: '展開：梁柱交接', flatWall: '展開：純牆面', flatWindow: '展開：有窗牆面', flatDoor: '展開：有門牆面', flatCorner: '展開：轉角兩面', flatFloor: '地板（俯視）', flatCeiling: '平頂（仰視）' };
+export const DETAIL_PRESET_GROUPS = [['地板／平頂（2D）', ['flatFloor', 'flatCeiling']], ['斜視（透視）', ['beam', 'frame', 'wall', 'window', 'door', 'corner']], ['展開立面（2D）', ['flatBeam', 'flatFrame', 'flatWall', 'flatWindow', 'flatDoor', 'flatCorner']]];
+export const DETAIL_TEXTS = { address: '門牌外觀', current: '現況', plan: '詳平面示意圖', none: '無須細部示意圖' };
+export const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
+export function recordDateInfo(p, r) {
+  if (r.observedOn) return { start: r.observedOn, end: r.observedOn, label: r.observedOn, confirmed: true };
+  const visit = p.visits?.find(v => v.id === r.visitId);
+  if (visit) return { start: visit.start, end: visit.end, label: `${visit.name}：${visit.start}${visit.end === visit.start ? '' : '～' + visit.end}（逐筆日期未確認）`, confirmed: false };
+  return { start: p.date, end: p.date, label: `原案日期 ${p.date}（逐筆日期未確認）`, confirmed: false };
+}
+export function latestUnitHistory(p, u) {
+  return [...(u.visitHistory || [])].sort((a, b) => {
+    const date = h => { const v = p.visits?.find(v => v.id === h.visitId); return v?.end || h.date || ''; };
+    return date(b).localeCompare(date(a)) || (p.visits || []).findIndex(v => v.id === b.visitId) - (p.visits || []).findIndex(v => v.id === a.visitId);
+  })[0];
+}
+export const WIDTH_MODES = { unknown: '未確認', range0103: '約 0.1～0.3 mm', le03: '0.3 mm 以下（≤0.3）', gt03: '超過 0.3 mm（>0.3）', exact: '輸入實測值', lt03: '舊紀錄：小於 0.3 mm', ge03: '舊紀錄：大於或等於 0.3 mm' };
+// Retain historical generated labels for matching saved prose, but show each bound once.
+function conciseWidthText(text) {
+  return text.replace(/(0\.3\s*mm\s*以下)\s*[（(]\s*(?:≤\s*0\.3|小於(?:或等於)?\s*0\.3)(?:\s*mm)?\s*[）)]/g, '$1')
+    .replace(/((?:超過|小於|大於或等於)\s*0\.3\s*mm)\s*[（(]\s*[<>≥]\s*0\.3(?:\s*mm)?\s*[）)]/g, '$1');
+}
+export const widthLabel = mode => conciseWidthText(WIDTH_MODES[mode] || '');
+// Historical bounds are accepted on read, but only the current saved bound is offered in legacy UI.
+export const widthChoices = current => Object.fromEntries(Object.keys(WIDTH_MODES).filter(key => ['unknown', 'range0103', 'exact', current].includes(key)).map(key => [key, widthLabel(key)]));
+export const recordComponents = r => r.components ?? (r.component ? [r.component] : []);
+export const recordConditions = r => r.conditions ?? (r.condition ? [r.condition] : []);
+export function planTemplateCopy(source, { unitId, floor, title, mediaId, sketch = source?.sketch }) {
+  assert(source && source.unitId === unitId, '請選擇本戶的標準層來源圖面');
+  assert(typeof floor === 'string' && floor.trim() && floor.length <= 100, '請指定套用樓層');
+  assert(typeof title === 'string' && title.trim() && title.length <= 150 && typeof mediaId === 'string' && mediaId, '圖面名稱或原檔不正確');
+  // New floor identities intentionally omit photo/pin label layouts and placements.
+  const plan = { id: id(), unitId, floor: floor.trim(), title: title.trim(), mediaId };
+  if (sketch !== undefined) { validateSketch(sketch); plan.sketch = clone(sketch); }
+  return plan;
+}
+// Describe only saved annotations. Drawing a mark never changes observed facts.
+export function detailAnnotationText(detail) {
+  if (!detail) return '';
+  const marks = detail.marks || [], labels = [], texts = [];
+  for (const m of marks) {
+    if (m.type === 'symbol') labels.push(DETAIL_SYMBOLS[m.symbol]);
+    else if (m.type === 'region') labels.push(REGION_TYPES[m.condition] + '範圍');
+    else if (m.type === 'text' && m.text.trim()) texts.push(m.text.trim());
+    else labels.push(({ pen: '手繪線', arrow: '箭頭', circle: '圈選', opening: m.kind === 'door' ? '補畫門框' : '補畫窗框' })[m.type]);
+  }
+  const unique = [...new Set(labels.filter(Boolean))];
+  return [unique.length ? `細圖標註：${unique.join('、')}（示意）。` : '', texts.length ? `圖中文字：${[...new Set(texts)].join('；')}` : '', detail.note?.trim() ? `細圖補充：${detail.note.trim()}` : ''].filter(Boolean).join('\n');
+}
+export function detailComparison(record, detail = record.detail) {
+  const conditions = [...new Set([...recordConditions(record), ...(record.tiles?.crack ? ['crack'] : []), ...(record.tiles?.broken ? ['tileBroken'] : []), ...(record.tiles?.bulge ? ['tileBulge'] : [])])];
+  const marks = detail?.marks || [], drawn = [...new Set(marks.map(m => m.type === 'symbol' ? (m.symbol === 'network' ? 'crack' : m.symbol) : m.type === 'region' ? m.condition : null).filter(Boolean))];
+  const missing = conditions.filter(c => !['normal', 'other'].includes(c) && !drawn.includes(c)), extra = drawn.filter(c => !conditions.includes(c));
+  const manual = !!detail?.note?.trim() || marks.some(m => ['pen','text'].includes(m.type)), hints = [];
+  if (!detail) hints.push('尚未建立細圖，可補畫或註明詳照片。');
+  else if (detail.kind !== 'text' && missing.length) hints.push(`已記錄${missing.map(c => CONDITIONS[c]).join('、')}；${manual ? '請核對手繪或文字是否已對應。' : '細圖尚無對應圖示，可補畫或補充文字。'}`);
+  if (extra.length) hints.push(`細圖有${extra.map(c => CONDITIONS[c]).join('、')}；現況分類未勾選，請核對照片內容。`);
+  return { conditions, drawn, missing, extra, hints };
+}
+// Compare complete source fields only. Splitting clauses could erase a second
+// location's equal measurement or detach a qualification from its subject.
+const descriptionKey = value => (value || '').trim().replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/[。；;]+$/, '');
+// Keep a complete source field together: a later sentence or line can qualify
+// the earlier assertion. Never delete only the qualifier and manufacture fact.
+const unresolvedDescription = /不確定|未確定|未確認|待確認|待核對|待釐清|不清楚|不明確|不詳|不明|未知|(?:無法|未能|難以)(?:判斷|確認|確定|辨識)|看不清|模糊|疑似|可能|推測|初判|暫判|未量測|待量測|未記錄|未記|未填|未分類|尚未(?:選擇|分類|定位)|尚無圖上定位/;
+export function attachmentDescription(value) {
+  const text = (value || '').trim();
+  if (unresolvedDescription.test(text)) return '';
+  // Apply the same display convention to previously saved generated area text.
+  return conciseWidthText(text).replace(/面積\s*(\d+(?:\.\d+)?)\s*(m²|m2|㎡|平方公尺)\s*[（(]\s*(實測|估計|非實測)\s*[）)]/g,
+    (_, amount, unit, method) => `面積${method === '實測' ? ' ' : '約 '}${amount} ${unit}`);
+}
+export const attachmentObservationText = (record, { omitSpace = false } = {}) => observationText(record, { attachment: true, omitSpace });
+export function photoContent(record, photo, { omitSpace = false } = {}) {
+  const seen = new Set(), lines = [];
+  const take = value => {
+    const text = attachmentDescription(value), key = descriptionKey(text);
+    if (!key || seen.has(key)) return '';
+    seen.add(key); return text;
+  };
+  const add = (label, value) => { const text = take(value); if (text) lines.push(label + text); };
+  const generated = attachmentObservationText(record, { omitSpace }), fullGenerated = attachmentObservationText(record), saved = record.reportText?.trim();
+  // Previously saved generated text is rendered with current display rules;
+  // the saved source and manual edits are never overwritten.
+  const main = !saved || descriptionKey(saved) === descriptionKey(observationText(record)) || descriptionKey(attachmentDescription(saved)) === descriptionKey(fullGenerated) ? generated : attachmentDescription(saved);
+  // Generated prose already carries the component and conditions. Keep the
+  // classification for independently edited prose, which may omit those facts.
+  if (main && descriptionKey(main) !== descriptionKey(generated)) {
+    const component = recordComponents(record).map(attachmentDescription).filter(Boolean).join('、');
+    const conditions = recordConditions(record).filter(c => c && c !== 'other').map(c => CONDITIONS[c]).filter(Boolean).join('、');
+    const classification = [component && `部位：${component}`, conditions && `狀況：${conditions}`].filter(Boolean).join('　');
+    if (classification) lines.push(classification);
+  }
+  add('', main);
+  // The room column replaces the generated room prefix, not the underlying
+  // content. A copied full description must still count as the same prose.
+  if (omitSpace && descriptionKey(main) === descriptionKey(generated)) seen.add(descriptionKey(fullGenerated));
+  add('補充：', record.notes);
+  const detail = record.detail;
+  // Diagram/classification mismatches remain in editor reminders, not photo prose.
+  add('細圖補充：', detail?.note);
+  for (const mark of detail?.marks || []) if (mark.type === 'text') add('圖中文字：', mark.text);
+  // Roles are selection controls, not report prose. Old captions may still carry
+  // their original role after the user changes the photo's current role.
+  let caption = photo?.caption?.trim() || '', previous;
+  do {
+    previous = caption;
+    caption = caption.replace(/^(?:(?:位置全景|近照|量尺照|其他|主(?:要)?照片)(?:\s*[（(]主(?:要)?照片[）)])?|[（(]主(?:要)?照片[）)])\s*(?:[:：]\s*|[。.]?$)/, '').trim();
+  } while (caption !== previous);
+  return { text: lines.join('\n'), caption: take(caption) };
+}
+export const AREA_CONDITIONS = { crack: '網狀裂隙分布', damp: '滲水痕', salt: '白華', spall: '剝落', tileBulge: '磁磚拱起', tileBroken: '磁磚破損', honeycomb: '混凝土蜂窩', tileDetached: '磁磚脫落', paintBlister: '油漆起泡', plasterBulge: '粉刷層鼓起', ponding: '積水', rustStain: '鏽水痕', moldStain: '霉斑', other: '其他損害' };
+export const AREA_METHODS = { measured: '實測', estimated: '估計' };
+export const areaAmountText = area => `${area.method === 'measured' ? '' : '約 '}${area.value} m²`;
+export const CRACK_PATTERNS = { '': '尚未選擇', horizontal: '水平裂隙', vertical: '垂直裂隙', diagonal: '斜向裂隙', network: '網狀裂隙', u: '梁 U 型裂縫', other: '其他（於說明補充）' };
+export const widthMode = r => r.widthMode ?? (r.width !== null ? 'exact' : 'unknown');
+export const isNetworkCrack = r => recordConditions(r).includes('crack') && r.crackPattern === 'network';
+export const isUCrack = r => recordConditions(r).includes('crack') && r.crackPattern === 'u' && recordComponents(r).includes('梁');
+export const isTile = r => r.surface === 'tile';
+export const individualCracks = r => Array.isArray(r.cracks) && recordConditions(r).includes('crack') && !isNetworkCrack(r) && !isUCrack(r) && !isTile(r);
+export const tileQuantityText = (t, kind, attachment = false) => t[kind + 'Text'] ? (attachment ? attachmentDescription(t[kind + 'Text']) : t[kind + 'Text']) : (t[kind + 'Count'] == null ? (attachment ? '' : '（塊數未記）') : `${t.approx ? '約 ' : ''}${t[kind + 'Count']} 塊`);
+export function crackText(c, label, { attachment = false } = {}) {
+  const pattern = attachment && (!c.pattern || c.pattern === 'other') ? '' : CRACK_PATTERNS[c.pattern] || '';
+  const pieces = [label, pattern, attachment || c.widthMode === 'range0103' ? '' : c.measured ? '已量測' : '未量測'];
+  const layer = c.layer ?? c.crackLayer ?? 'unknown';
+  if (!attachment || layer !== 'unknown') pieces.push(`觀察層位：${CRACK_LAYERS[layer]}`);
+  if (c.widthMode === 'range0103') pieces.push('裂縫寬度約 0.1～0.3 mm');
+  else if (c.measured && c.widthMode === 'exact' && c.width !== null) pieces.push(`寬度 ${c.width} mm`);
+  else if (!['unknown', 'exact'].includes(c.widthMode)) pieces.push(`寬度${c.measured ? '實測區間' : attachment ? '區間' : '初記'}：${attachment ? widthLabel(c.widthMode).replace('舊紀錄：', '') : WIDTH_MODES[c.widthMode]}`);
+  if (c.measured && c.length !== null) pieces.push(`長度 ${c.length} m`);
+  if (c.notes) pieces.push(attachment ? attachmentDescription(c.notes) : c.notes);
+  return pieces.filter(Boolean).join('，');
+}
+export const photoPlacement = (r, photo) => photo.placement === undefined ? r.placement : photo.placement;
+export const photoIncluded = photo => !photo.excluded && photo.reportInclude !== false;
+export const roomKey = r => JSON.stringify([r.unitId, r.floor.trim(), r.space.trim()]);
+// Stable room identities and field labels survive photo selection, sorting and unit backup.
+export function syncRooms(p) {
+  p.rooms ??= [];
+  let next = Math.max(0, ...p.records.map(r => r.fieldNumber || 0)) + 1;
+  for (const r of p.records) {
+    r.fieldNumber ??= next++;
+    if (!r.floor.trim() || !r.space.trim()) { delete r.roomId; continue; }
+    let room = p.rooms.find(x => x.unitId === r.unitId && x.floor === r.floor.trim() && x.name === r.space.trim());
+    if (!room) { room = { id: id(), unitId: r.unitId, floor: r.floor.trim(), name: r.space.trim() }; p.rooms.push(room); }
+    r.roomId = room.id;
+  }
+  return p;
+}
+export function clearWrongFloor(p, r) {
+  const valid = q => !q || p.plans.some(plan => plan.id === q.planId && plan.unitId === r.unitId && plan.floor === r.floor);
+  if (!valid(r.placement)) r.placement = null;
+  if (!valid(r.observationPin)) r.observationPin = null;
+  for (const photo of r.photos) if (!valid(photo.placement)) photo.placement = null;
+}
+export function observationText(r, { attachment = false, omitSpace = false } = {}) {
+  const clean = value => attachment ? attachmentDescription(value) : value;
+  const pieces = [], conditions = recordConditions(r), prefix = [omitSpace ? '' : clean(r.space), omitSpace && r.location?.trim() === r.space?.trim() ? '' : clean(r.location), recordComponents(r).map(clean).filter(Boolean).join('、')].filter(Boolean).join(' · ');
+  if (individualCracks(r)) {
+    pieces.push(r.cracks.length ? `裂縫 ${r.cracks.length} 條` : attachment ? '裂縫' : '裂縫（條數未記）');
+    r.cracks.forEach((c, i) => pieces.push(crackText(c, `裂縫 ${String.fromCharCode(65 + i)}`, { attachment })));
+    if (r.legacyCrack && !attachment) pieces.push(crackText({ ...r.legacyCrack, pattern: r.legacyCrack.crackPattern }, '原整組紀錄（未分配至單條，供核對）'));
+  } else if (isUCrack(r)) {
+    pieces.push(`U 型裂縫${r.crackCount == null ? '' : ` ${r.countApprox ? '約 ' : ''}${r.crackCount} 條`}`);
+    if (r.measured && r.length !== null) pieces.push(`${r.uScope === 'each' ? '各條實測展開長度均為' : '代表 1 條實測展開長度'} ${r.length} m`);
+    if (r.uPartial) pieces.push('裂縫路徑局部可見');
+  } else if (conditions.includes('crack') && !isTile(r)) {
+    pieces.push(r.crackPattern && !(attachment && r.crackPattern === 'other') ? CRACK_PATTERNS[r.crackPattern] || '裂隙' : '裂隙');
+    if (r.measured && r.length !== null) pieces.push(`實測長度 ${r.length} m`);
+  }
+  if (conditions.includes('crack') && !individualCracks(r)) {
+    if (!attachment || (r.crackLayer && r.crackLayer !== 'unknown')) pieces.push(`裂隙觀察層位：${CRACK_LAYERS[r.crackLayer ?? 'unknown']}`);
+    const mode = widthMode(r), scope = isUCrack(r) ? (r.uScope === 'each' ? '各條' : '代表條') : '';
+    if (mode === 'range0103') pieces.push(`${scope}裂縫寬度約 0.1～0.3 mm`);
+    else if (r.measured && mode === 'exact' && r.width !== null) pieces.push(`${scope}實測寬度 ${r.width} mm`);
+    else if (['le03', 'gt03', 'lt03', 'ge03'].includes(mode)) pieces.push(`${scope}寬度${r.measured ? '實測區間' : attachment ? '區間' : '初記'}：${attachment ? widthLabel(mode).replace('舊紀錄：', '') : WIDTH_MODES[mode]}`);
+  }
+  if (isTile(r) || conditions.some(c => ['tileBulge', 'tileBroken'].includes(c))) {
+    const t = r.tiles || {};
+    if (t.crack) pieces.push(('磁磚裂隙 ' + tileQuantityText(t, 'crack', attachment)).trim());
+    if (t.broken || conditions.includes('tileBroken')) pieces.push(('磁磚破損 ' + tileQuantityText(t, 'broken', attachment)).trim());
+    if (t.bulge || conditions.includes('tileBulge')) pieces.push(('磁磚拱起 ' + tileQuantityText(t, 'bulge', attachment)).trim());
+    if (t.crack && t.broken && t.overlapCount != null) pieces.push(`其中同時裂隙及破損 ${t.overlapCount} 塊`);
+    const total = tileTotal({ ...t, broken: t.broken || conditions.includes('tileBroken'), bulge: t.bulge || conditions.includes('tileBulge') }); if (total !== null) pieces.push(`受損磁磚不重複合計 ${t.approx ? '約 ' : ''}${total} 塊`);
+  }
+  for (const c of conditions) if (!['crack', 'tileBulge', 'tileBroken', ...(attachment ? ['', 'other'] : [])].includes(c)) pieces.push(c === 'activeLeak' ? `現場可見漏水${r.leakForms?.length ? `（${r.leakForms.map(f => LEAK_FORMS[f]).join('、')}）` : ''}` : CONDITIONS[c]);
+  for (const [key, a] of Object.entries(r.areas || {})) if (conditions.includes(key) && a.value !== null && (key !== 'crack' || isNetworkCrack(r))) pieces.push(attachment ? `${AREA_CONDITIONS[key]}面積${a.method === 'measured' ? ' ' : ''}${areaAmountText(a)}` : `${AREA_CONDITIONS[key]}面積 ${a.value} m²（${AREA_METHODS[a.method]}）`);
+  return [prefix, pieces.join('；')].filter(Boolean).join('：') + (pieces.length ? '。' : '');
+}
+export function tileTotal(t) {
+  // Bulging may overlap both old damage types; never invent a three-way overlap.
+  if (t.bulge) return t.crack || t.broken || t.bulgeText ? null : t.bulgeCount ?? null;
+  if (t.crack && t.crackText || t.broken && t.brokenText) return null;
+  if (t.crack && t.broken) return t.crackCount != null && t.brokenCount != null && t.overlapCount != null ? t.crackCount + t.brokenCount - t.overlapCount : null;
+  return t.crack ? t.crackCount ?? null : t.broken ? t.brokenCount ?? null : null;
+}
+export const emptySketch = () => ({ version: 1, width: 1200, height: 900, strokes: [] });
+export function newProject(code, name, date) {
+  const p = { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, visits: [{ id: id(), name: '第 1 次會勘', start: date, end: date }], units: [], records: [], plans: [], media: [] };
+  p.reportSettings = reportPreferences(p); p.signingSettings = defaultSigningSettings(); p.signoffs = []; return p;
+}
+export const defaultSigningSettings = () => ({ statement: clone(DEFAULT_SIGNING_STATEMENTS), surveyors: [], attendeePolicy: 'visit-sheet', allowProfileSignature: false });
+export const COMPANY_REPORT_STYLE = Object.freeze({ format: 'standard', numbering: 'unit', perPage: 2, tableRows: 8, pagePrefix: '8-' });
+export function reportPreferences(p) {
+  const s = { ...COMPANY_REPORT_STYLE, start: 1, pageStart: 1, plansPerPage: 1, toc: true, includeEmpty: true, includeSignoffs: false, publicByFloor: false, color: false, maxPages: 200, unitId: '', unitIds: null, order: [], breakBefore: [], ...clone(p.reportSettings || {}) };
+  const ids = new Set(p.units.map(u => u.id));
+  s.order = [...s.order.filter(id => ids.has(id)), ...p.units.filter(u => !s.order.includes(u.id)).map(u => u.id)];
+  s.unitIds = s.unitIds === null ? null : s.order.filter(id => s.unitIds.includes(id));
+  s.breakBefore = s.breakBefore.filter(id => ids.has(id)); if (!ids.has(s.unitId)) s.unitId = '';
+  return s;
+}
+export function validateReportSettings(s, p) {
+  assert(s && typeof s === 'object' && !Array.isArray(s), '附件設定不正確');
+  assert(['standard', 'quick'].includes(s.format) && ['unit', 'project'].includes(s.numbering) && [1, 2].includes(s.perPage), '附件格式或編號設定不正確');
+  for (const key of ['start', 'pageStart', 'maxPages']) assert(Number.isSafeInteger(s[key]) && s[key] >= 1 && s[key] <= (key === 'maxPages' ? 2000 : 999999), '附件起始號或分冊頁數不正確');
+  assert([1, 2, 3].includes(s.plansPerPage) && [0, 8].includes(s.tableRows) && typeof s.pagePrefix === 'string' && s.pagePrefix.length <= 20, '附件版面設定不正確');
+  for (const key of ['toc', 'includeEmpty', 'publicByFloor', 'color']) assert(typeof s[key] === 'boolean', '附件選項不正確');
+  if (s.includeSignoffs !== undefined) assert(typeof s.includeSignoffs === 'boolean', '簽認單附件選項不正確');
+  const ids = new Set(p.units.map(u => u.id));
+  assert(typeof s.unitId === 'string' && (!s.unitId || ids.has(s.unitId)), '附件範圍不存在');
+  for (const key of ['unitIds', 'order', 'breakBefore']) {
+    if (key === 'unitIds' && s[key] === null) continue;
+    assert(Array.isArray(s[key]) && new Set(s[key]).size === s[key].length && s[key].every(id => ids.has(id)), '附件戶別順序或範圍不正確');
+  }
+}
+export function newUnit(code, address = '') { return { id: id(), code: code.trim(), address: address.trim(), status: 'open', reason: '' }; }
+export function newRecord(unitId, floor = '', space = '') {
+  return { id: id(), unitId, floor, space, location: '', component: '', condition: '', visibility: 'visible', notes: '', resident: '', measured: false, width: null, length: null, photos: [], audioIds: [], placement: null, createdAt: now(), updatedAt: now() };
+}
+// Case types only pre-fill floors and quick choices; they never change what was observed.
+export const BUILDING_TYPES = { townhouse: '透天', apartment: '公寓', tower: '大樓', other: '其他／未分類' };
+export const DEFAULT_FLOOR_CONFIG = { above: 5, below: 1, mezzanine: true };
+export const floorConfig = p => ({ ...DEFAULT_FLOOR_CONFIG, ...(p?.floorConfig || {}) });
+export const buildingType = p => p?.buildingType || 'other';
+export function floorOptions(p) {
+  const c = floorConfig(p), out = [];
+  for (let i = c.below; i >= 1; i--) out.push('B' + i);
+  out.push('1F'); if (c.mezzanine) out.push('MF');
+  for (let i = 2; i <= c.above; i++) out.push(i + 'F');
+  out.push('RF'); return out;
+}
+export function floorRank(floor) {
+  const f = String(floor || '').trim().toUpperCase(); let m;
+  if ((m = /^B(\d+)F?$/.exec(f))) return -Number(m[1]);
+  if (f === 'MF') return 1.5;
+  if (f === 'RF' || f === 'PH') return 9999;
+  if ((m = /^(\d+)F$/.exec(f))) return Number(m[1]);
+  return 5000;
+}
+export const SPACE_OPTIONS = {
+  residence: ['客廳', '房間', '主臥', '廚房', '浴廁', '陽台', '儲藏室', '樓梯'],
+  townhouse: ['客廳', '房間', '主臥', '廚房', '浴廁', '陽台', '車庫', '內梯', '頂樓', '儲藏室'],
+  public: ['樓梯間', '梯廳', '走廊', '大廳', '地下室', '停車場', '屋突', '水箱', '機房'],
+  exterior: ['外觀', '正面外牆', '背面外牆', '側面外牆', '騎樓', '女兒牆', '圍牆']
+};
+export function spaceOptions(p, u) {
+  const kind = u?.kind === 'public' ? 'public' : buildingType(p) === 'townhouse' ? 'townhouse' : 'residence';
+  return { main: SPACE_OPTIONS[kind], exterior: SPACE_OPTIONS.exterior };
+}
+const natural = (a, b) => String(a || '').localeCompare(String(b || ''), 'zh-Hant-TW', { numeric: true, sensitivity: 'base' });
+export function unitOrder(a, b) {
+  return natural(a.building, b.building) || ((a.kind === 'public') - (b.kind === 'public')) || (floorRank(a.floor) - floorRank(b.floor)) || natural(a.code, b.code);
+}
+export const sortedUnits = p => [...p.units].sort(unitOrder);
+export function apartmentUnits(config) {
+  const units = floorOptions({ floorConfig: config }).filter(f => /^\d+F$/.test(f)).map(floor => ({ ...newUnit(floor), floor }));
+  units.push({ ...newUnit('公設'), kind: 'public' });
+  return units;
+}
+// Colour is a screen aid only: red for cracks, blue for water and other damage, black for base lines.
+export const MARK_TONES = { red: '紅：裂縫', blue: '藍：水分／其他損害', black: '黑：底圖補線' };
+export const conditionTone = c => c === 'crack' || c === 'network' ? 'red' : 'blue';
+export const CAPTURE_SOURCES = { '': '未記', camera: '現場拍攝', exif: '照片 EXIF', file: '檔案日期', manual: '人工填寫' };
+export const localDateOf = value => { const d = value instanceof Date ? value : new Date(value); return Number.isFinite(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : ''; };
+// The stamp is presentation only; the captured date and its source stay recorded beside it.
+export const defaultStamp = (capturedOn, source) => capturedOn ? (source === 'file' ? `${capturedOn}（檔案日期）` : capturedOn) : '';
+export const photoStampText = (p, photo) => p?.photoStamp === false || !photo || photo.stampHidden || !photo.stamp ? '' : photo.stamp;
+export function applyPhotoDate(p, r, capturedOn) {
+  if (!capturedOn || r.observedOn) return false;
+  const v = p.visits?.find(v => v.id === r.visitId); if (v && (capturedOn < v.start || capturedOn > v.end)) return false;
+  r.observedOn = capturedOn; return true;
+}
+// Reads only DateTimeOriginal / DateTime from a JPEG APP1 segment; anything else yields ''.
+export function exifDate(buffer) {
+  const view = new DataView(buffer); if (view.byteLength < 12 || view.getUint16(0) !== 0xFFD8) return '';
+  let offset = 2;
+  while (offset + 4 <= view.byteLength) {
+    const marker = view.getUint16(offset); if (marker === 0xFFDA || marker === 0xFFD9) break;
+    const size = view.getUint16(offset + 2); if (size < 2) break;
+    if (marker === 0xFFE1 && offset + 10 <= view.byteLength && view.getUint32(offset + 4) === 0x45786966) {
+      const tiff = offset + 10; if (tiff + 8 > view.byteLength) return '';
+      const little = view.getUint16(tiff) === 0x4949, u16 = at => view.getUint16(at, little), u32 = at => view.getUint32(at, little);
+      const readIFD = (start, wanted) => {
+        if (start < tiff || start + 2 > view.byteLength) return null;
+        const count = u16(start);
+        for (let i = 0; i < count; i++) {
+          const entry = start + 2 + i * 12; if (entry + 12 > view.byteLength) return null;
+          const tag = u16(entry); if (!wanted.has(tag)) continue;
+          const type = u16(entry + 2), n = u32(entry + 4);
+          if (type === 4) return { value: u32(entry + 8) };
+          if (type !== 2) return null;
+          const at = n <= 4 ? entry + 8 : tiff + u32(entry + 8); let s = '';
+          for (let k = 0; k < n - 1 && at + k < view.byteLength; k++) s += String.fromCharCode(view.getUint8(at + k));
+          return { text: s };
+        }
+        return null;
+      };
+      const ifd0 = tiff + u32(tiff + 4), pointer = readIFD(ifd0, new Set([0x8769]));
+      const found = (pointer?.value ? readIFD(tiff + pointer.value, new Set([0x9003, 0x9004])) : null) || readIFD(ifd0, new Set([0x0132]));
+      const m = /^(\d{4}):(\d{2}):(\d{2})/.exec(found?.text || ''), date = m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+      return validDate(date) ? date : '';
+    }
+    offset += 2 + size;
+  }
+  return '';
+}
+export function recordIssues(r) {
+  const issues = [];
+  if (!r.floor.trim()) issues.push('缺樓層');
+  if (!r.space.trim()) issues.push('缺空間');
+  if (!r.location.trim() && !r.placement && !r.observationPin && !r.photos.some(p => p.placement)) issues.push('缺位置說明或圖上位置');
+  if (!recordComponents(r).length) issues.push('缺部位');
+  if (!recordConditions(r).length) issues.push('尚未分類現況');
+  if (!r.photos.some(p => !p.excluded) && r.visibility !== 'inaccessible') issues.push('尚無採用照片');
+  if (r.visibility !== 'visible' && !r.notes.trim()) issues.push('請記錄無法觀察的原因');
+  if (isUCrack(r) && r.crackCount == null) issues.push('U 型裂縫條數未記');
+  if (isTile(r) && r.tiles?.crack && r.tiles.crackCount == null && !r.tiles.crackText) issues.push('磁磚裂隙塊數未記');
+  if (isTile(r) && r.tiles?.broken && r.tiles.brokenCount == null && !r.tiles.brokenText) issues.push('磁磚破損塊數未記');
+  if (recordConditions(r).includes('crack') && !isNetworkCrack(r) && !isUCrack(r) && !isTile(r)) {
+    if (individualCracks(r)) {
+      if (!r.cracks.length) issues.push('裂縫條數未記');
+      r.cracks.forEach((c, i) => { const label = `裂縫 ${String.fromCharCode(65 + i)}`; if (c.widthMode === 'range0103') { if (c.length === null) issues.push(label + '長度待補'); } else if (!c.measured) issues.push(label + '未量測'); else if ((c.widthMode === 'unknown' || c.widthMode === 'exact' && c.width === null) || c.length === null) issues.push(label + '量測尺寸未齊'); });
+      return issues;
+    }
+    if (widthMode(r) === 'range0103') { if (r.length === null) issues.push('裂縫長度待補'); return issues; }
+    if (!r.measured) issues.push('裂縫未量測');
+    if (r.measured && ((r.width === null && !['lt03', 'ge03', 'le03', 'gt03'].includes(widthMode(r))) || r.length === null)) issues.push('量測尺寸未齊');
+  }
+  return issues;
+}
+export function unitIssues(p, u) {
+  const records = p.records.filter(r => r.unitId === u.id);
+  const issues = records.flatMap(r => recordIssues(r).map(text => ({ recordId: r.id, text })));
+  if (!records.length && u.status !== 'inaccessible') issues.push({ text: '尚無現況紀錄' });
+  if (['partial', 'inaccessible'].includes(u.status) && !u.reason.trim()) issues.push({ text: '缺未完成／無法入內原因' });
+  return issues;
+}
+export function assert(condition, message) { if (!condition) throw new Error(message); }
+function text(v, label, max = 10000) { assert(typeof v === 'string' && v.length <= max, `${label}格式不正確`); }
+function identifier(v) { text(v, '識別碼', 100); assert(/^[\w-]+$/.test(v) && !['__proto__', 'constructor', 'prototype', 'all'].includes(v), '識別碼格式不正確'); }
+function list(v, label, max = 10000) { assert(Array.isArray(v) && v.length <= max, `${label}數量或格式不正確`); }
+function unique(items) { const ids = new Set(); for (const item of items) { identifier(item.id); assert(!ids.has(item.id), '識別碼重複'); ids.add(item.id); } return ids; }
+const finite01 = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
+export function validateSketch(sketch) {
+  assert(sketch && (sketch.version === 1 && sketch.width === 1200 && sketch.height === 900 || sketch.version === 2 && Number.isInteger(sketch.width) && Number.isInteger(sketch.height) && sketch.width >= 1200 && sketch.height >= 900 && sketch.width <= 4800 && sketch.height <= 4800), '簡圖格式不正確');
+  list(sketch.strokes, '簡圖筆畫', 300);
+  for (const stroke of sketch.strokes) {
+    assert(['line', 'rect', 'pen', 'text', 'door', 'window', 'stairs'].includes(stroke.type), '簡圖筆畫種類不正確');
+    list(stroke.points, '簡圖座標', 1500);
+    assert(stroke.points.length >= 1 && stroke.points.every(p => p && finite01(p.x) && finite01(p.y)), '簡圖座標超出圖面');
+    if (['line', 'rect', 'door', 'window', 'stairs'].includes(stroke.type)) assert(stroke.points.length === 2, '簡圖端點數量不正確');
+    if (['door', 'window'].includes(stroke.type)) assert(Math.hypot(stroke.points[0].x - stroke.points[1].x, stroke.points[0].y - stroke.points[1].y) > 0, '門窗寬度不可為零');
+    if (stroke.type === 'stairs') {
+      assert(['straight', 'l', 'u', 'unequal'].includes(stroke.stairType), '樓梯型式不正確');
+      assert([0, 90, 180, 270].includes(stroke.rotation) && typeof stroke.mirror === 'boolean' && typeof stroke.breakLine === 'boolean', '樓梯方向設定不正確');
+      assert(['unknown', 'up', 'down'].includes(stroke.direction), '樓梯箭頭不正確');
+      assert(typeof stroke.shortRatio === 'number' && Number.isFinite(stroke.shortRatio) && stroke.shortRatio >= .25 && stroke.shortRatio <= 1, '樓梯長短比例不正確');
+      assert(stroke.points[0].x !== stroke.points[1].x && stroke.points[0].y !== stroke.points[1].y, '楼梯範圍不可為零');
+    }
+    if (stroke.type === 'door') assert(stroke.swing === 1 || stroke.swing === -1, '門扇開啟方向不正確');
+    if (stroke.type === 'text') { assert(stroke.points.length === 1, '簡圖文字位置不正確'); text(stroke.text, '簡圖文字', 60); assert(stroke.text.trim(), '簡圖文字不可空白'); }
+  }
+  return sketch;
+}
+export function validateMarks(marks, detail = false) {
+  list(marks, '圈註', 500);
+  for (const m of marks) {
+    assert(['circle', 'arrow', 'pen', 'text', ...(detail ? ['symbol', 'region', 'opening'] : [])].includes(m.type), '圈註種類不正確');
+    list(m.points, '圈註座標', 2000);
+    assert(m.points.length >= 1 && m.points.every(p => p && finite01(p.x) && finite01(p.y)), '圈註座標超出圖面');
+    if (m.type === 'text') text(m.text, '圈註文字', 120);
+    if (m.tone !== undefined) assert(Object.hasOwn(MARK_TONES, m.tone), '標記顏色不正確');
+    if (m.type === 'opening') assert(['door', 'window'].includes(m.kind) && (m.points.length === 2 && Math.abs(m.points[0].x - m.points[1].x) > 1e-6 && Math.abs(m.points[0].y - m.points[1].y) > 1e-6 || m.points.length === 4 && regionArea(m.points) > 1e-6), '門窗開口須有寬度及高度');
+    if (m.type === 'symbol') assert(Object.hasOwn(DETAIL_SYMBOLS, m.symbol) && m.points.length === 1 && Number.isFinite(m.size) && m.size >= .05 && m.size <= .7 && Number.isFinite(m.rotation) && m.rotation >= 0 && m.rotation < 360 && typeof m.mirror === 'boolean', '細圖圖示格式不正確');
+    if (m.type === 'region') assert(Object.hasOwn(REGION_TYPES, m.condition) && m.points.length >= 3 && regionArea(m.points) > 1e-8, '細圖範圍格式不正確');
+  }
+}
+function validateSignoffs(p, units, visits, meta) {
+  if (p.signingSettings !== undefined) {
+    const s = p.signingSettings;
+    assert(s && typeof s === 'object' && s.statement && typeof s.statement === 'object', '簽認設定不正確');
+    text(s.statement.resident, '住戶聲明'); text(s.statement.attendee, '會同人員聲明');
+    list(s.surveyors, '鑑定人員', 100); unique(s.surveyors);
+    for (const x of s.surveyors) { text(x.name, '鑑定人員姓名', 200); text(x.org, '鑑定單位', 200); }
+    assert(['visit-sheet', 'per-unit'].includes(s.attendeePolicy) && typeof s.allowProfileSignature === 'boolean', '簽認設定不正確');
+  }
+  if (p.signoffs === undefined) return;
+  list(p.signoffs, '簽認紀錄', 50000); unique(p.signoffs);
+  for (const x of p.signoffs) {
+    assert(['unit', 'visit'].includes(x.level) && visits.has(x.visitId), '簽認層級或批次不正確');
+    assert(x.level === 'unit' ? units.has(x.unitId) : x.unitId === undefined, '簽認戶別不正確');
+    assert(validDate(x.date), '簽認日期不正確');
+    for (const key of ['weather', 'status', 'reason', 'scope', 'createdAt', 'updatedAt']) text(x[key], key);
+    assert(Object.hasOwn(UNIT_STATES, x.status), '簽認會勘狀態不正確');
+    assert(x.statement && typeof x.statement === 'object', '簽認聲明不正確');
+    text(x.statement.text, '簽認聲明'); text(x.statement.revision, '聲明版次', 100);
+    const s = x.summary;
+    assert(s && ['records', 'photos', 'inaccessible', 'pending'].every(k => Number.isSafeInteger(s[k]) && s[k] >= 0), '簽認摘要不正確');
+    list(s.spaces, '簽認空間', 5000); s.spaces.forEach(v => text(v, '空間名稱', 200));
+    assert(/^[a-f0-9]{64}$/.test(x.recordsDigest) && /^[a-f0-9]{64}$/.test(x.snapshotHash), '簽認指紋不正確');
+    if (x.sourceChanged !== undefined) assert(typeof x.sourceChanged === 'boolean', '簽認來源變動標記不正確');
+    list(x.signers, '簽署人', 100); unique(x.signers);
+    const signerIds = new Set(x.signers.map(y => y.id));
+    for (const y of x.signers) {
+      assert(Object.hasOwn(SIGNER_GROUPS, y.group) && Object.hasOwn(SIGNER_ROLES, y.role) && Object.hasOwn(SIGNER_STATUSES, y.status), '簽署人角色或狀態不正確');
+      assert((y.group === 'resident' && ['resident', 'proxy', 'management'].includes(y.role)) ||
+        (y.group === 'attendee' && ['contractor', 'supervisor', 'owner', 'other'].includes(y.role)) ||
+        (y.group === 'surveyor' && y.role === 'surveyor'), '簽署人群組不正確');
+      for (const key of ['name', 'org', 'title', 'relation', 'reason', 'signedAt', 'timeZone']) text(y[key], key, 500);
+      assert((y.status === 'signed' || y.name.trim()) && (!['signed', 'paper'].includes(y.status) || Number.isFinite(Date.parse(y.signedAt))), '簽署人姓名或時間不正確');
+      assert(y.role !== 'proxy' || y.relation.trim(), '代理人須填與住戶關係');
+      if (y.status === 'signed') {
+        assert(meta.get(y.mediaId)?.kind === 'signature', '簽名影像關聯遺失');
+        assert(y.strokes && Number.isFinite(y.strokes.aspect) && y.strokes.aspect > 0 && y.strokes.aspect <= 10, '簽名筆跡格式不正確');
+        list(y.strokes.strokes, '簽名筆畫', 500);
+        assert(y.strokes.strokes.length > 0, '簽名筆跡不可空白');
+        for (const stroke of y.strokes.strokes) { list(stroke, '簽名座標', 10000); assert(stroke.length > 0 && stroke.every(q => finite01(q.x) && finite01(q.y) && Number.isFinite(q.t) && q.t >= 0 && finite01(q.p)), '簽名座標不正確'); }
+        const count = y.strokes.strokes.reduce((sum, stroke) => sum + stroke.length, 0);
+        const length = y.strokes.strokes.reduce((sum, stroke) => sum + stroke.slice(1).reduce((n, q, i) => n + Math.hypot(q.x - stroke[i].x, (q.y - stroke[i].y) / y.strokes.aspect), 0), 0);
+        assert(count >= 10 && length >= .08, '簽名筆跡過短');
+        assert(['live', 'profile'].includes(y.source), '簽名來源不正確');
+      }
+      if (y.status === 'paper') assert(meta.get(y.mediaId)?.kind === 'image', '紙本照片關聯遺失');
+      if (y.status === 'refused') assert(y.reason.trim(), '拒簽須填原因');
+      if (['refused', 'absent'].includes(y.status)) assert(signerIds.has(y.attestedBy) && x.signers.some(w => w.id === y.attestedBy && w.group === 'surveyor' && w.status === 'signed'), '拒簽或不在場須由鑑定人員簽名見證');
+      if (y.voided !== undefined) { text(y.voided.at, '作廢時間', 100); text(y.voided.reason, '作廢原因'); assert(y.voided.reason.trim() && Number.isFinite(Date.parse(y.voided.at)), '作廢紀錄不正確'); }
+    }
+  }
+}
+export function validateProject(p) {
+  assert(p && typeof p === 'object', '缺案件資料'); identifier(p.id);
+  for (const key of ['code', 'name', 'date', 'createdAt', 'updatedAt']) text(p[key], key, 250);
+  assert(p.code.trim() && p.name.trim(), '案號及名稱不可空白');
+  assert(validDate(p.date), '會勘日期格式不正確');
+  assert(Number.isSafeInteger(p.revision) && p.revision >= 0, '案件版本不正確');
+  if (p.handoffDigests !== undefined) { list(p.handoffDigests, '交接檔指紋', 10000); assert(p.handoffDigests.every(d => typeof d === 'string' && /^[a-f0-9]{64}$/.test(d)), '交接檔指紋不正確'); }
+  if (p.handoffImports !== undefined) {
+    list(p.handoffImports, '彙整來源', 500);
+    for (const s of p.handoffImports) {
+      assert(s && /^[a-f0-9]{64}$/.test(s.digest) && s.settings && typeof s.settings === 'object', '彙整來源不正確');
+      text(s.label, '來源名稱', 80); text(s.importedAt, '彙整時間', 100);
+      list(s.units, '來源戶別'); list(s.records, '來源位置');
+      for (const u of s.units) { identifier(u.id); identifier(u.originalId); text(u.code, '來源戶號'); }
+      for (const r of s.records) { identifier(r.id); identifier(r.originalId); assert(r.fieldNumber === null || Number.isSafeInteger(r.fieldNumber) && r.fieldNumber > 0, '來源代號不正確'); }
+    }
+  }
+  if (p.buildingType !== undefined) assert(Object.hasOwn(BUILDING_TYPES, p.buildingType), '案件型態不正確');
+  if (p.floorConfig !== undefined) { const c = p.floorConfig; assert(c && typeof c === 'object' && !Array.isArray(c) && Number.isSafeInteger(c.above) && c.above >= 1 && c.above <= 99 && Number.isSafeInteger(c.below) && c.below >= 0 && c.below <= 9 && typeof c.mezzanine === 'boolean', '樓層設定不正確'); }
+  if (p.photoStamp !== undefined) assert(typeof p.photoStamp === 'boolean', '照片戳記設定不正確');
+  for (const key of ['units', 'records', 'plans', 'media']) list(p[key], key);
+  const units = unique(p.units), media = unique(p.media), plans = unique(p.plans); unique(p.records);
+  if (p.reportSettings !== undefined) validateReportSettings(p.reportSettings, p);
+  const visits = new Set();
+  if (p.visits !== undefined) {
+    list(p.visits, '會勘批次', 500); unique(p.visits);
+    for (const v of p.visits) { text(v.name, '會勘名稱', 100); assert(v.name.trim() && validDate(v.start) && validDate(v.end) && v.start <= v.end, '會勘日期範圍不正確'); visits.add(v.id); }
+  }
+  if (p.rooms !== undefined) {
+    list(p.rooms, '房間'); unique(p.rooms);
+    for (const room of p.rooms) { assert(units.has(room.unitId), '房間戶別不存在'); text(room.floor, '房間樓層', 100); text(room.name, '房間名稱', 100); assert(room.name.trim() && room.floor.trim(), '房間名稱及樓層不可空白'); }
+  }
+  const placement = (q, r) => { if (!q) return; const plan = p.plans.find(x => x.id === q.planId); assert(plan && plan.unitId === r.unitId && plan.floor === r.floor, '位置圖戶別或樓層不一致'); assert([q.x, q.y, q.endX, q.endY].every(finite01), '位置圖座標不正確'); };
+  const count = v => v === null || Number.isSafeInteger(v) && v >= 0 && v <= 99999;
+  const fieldNumbers = new Set();
+  for (const u of p.units) {
+    for (const k of ['code', 'address', 'reason']) text(u[k], k);
+    assert(u.code.trim() && Object.hasOwn(UNIT_STATES, u.status), '戶別或狀態不正確');
+    if (u.building !== undefined) text(u.building, '棟別／群組', 100);
+    if (u.kind !== undefined) assert(Object.hasOwn(UNIT_KINDS, u.kind), '鑑定單元種類不正確');
+    if (u.floor !== undefined) text(u.floor, '戶別固定樓層', 100);
+    if (u.visitHistory !== undefined) {
+      list(u.visitHistory, '進場歷程', 500); const seen = new Set();
+      for (const h of u.visitHistory) {
+        assert(visits.has(h.visitId) && !seen.has(h.visitId), '進場批次不存在或重複'); seen.add(h.visitId);
+        assert(Object.hasOwn(UNIT_STATES, h.status) && (h.date === '' || validDate(h.date)), '進場狀態或日期不正確');
+        text(h.reason, '進場原因', 10000); text(h.scope, '會勘範圍', 1000);
+        const v = p.visits.find(v => v.id === h.visitId); assert(!h.date || h.date >= v.start && h.date <= v.end, '進場日期超出會勘批次範圍');
+        assert(!['partial', 'inaccessible'].includes(h.status) || h.reason.trim(), '請填未完成／無法入內原因');
+      }
+    }
+  }
+  const meta = new Map(p.media.map(m => [m.id, m]));
+  for (const m of p.media) {
+    text(m.name, '檔名', 500); text(m.type, '媒體類型', 100); text(m.importedAt, '取得時間', 100);
+    assert(['image', 'audio', 'plan', 'detail', 'signature'].includes(m.kind), '媒體用途不正確');
+    assert((m.kind === 'audio' ? /^audio\/(webm|ogg|mp4|mpeg|wav|x-wav|aac)(;\s*codecs=(?:[\w.,+-]+|"[\w.,+ -]+"))?$/ : m.kind === 'signature' ? /^image\/png$/ : /^image\/(jpeg|png|webp|heic|heif)$/).test(m.type), '媒體格式不正確');
+    assert(Number.isSafeInteger(m.size) && m.size > 0 && m.size <= 60 * 1024 * 1024, '單一媒體大小超過 60 MB 或為空');
+    assert(/^[a-f0-9]{64}$/.test(m.sha256), '媒體指紋不正確');
+  }
+  validateSignoffs(p, units, visits, meta);
+  for (const plan of p.plans) {
+    assert(units.has(plan.unitId) && media.has(plan.mediaId) && meta.get(plan.mediaId).kind === 'plan', '位置圖關聯遺失');
+    for (const k of ['floor', 'title']) text(plan[k], k, 250);
+    if (plan.sketch !== undefined) validateSketch(plan.sketch);
+    if (plan.labelLayout !== undefined) {
+      list(plan.labelLayout, '編號排版', 50000); const targets = new Set();
+      for (const l of plan.labelLayout) {
+        assert(l && ['photo', 'pin'].includes(l.kind) && typeof l.id === 'string' && !targets.has(JSON.stringify([l.kind, l.id, l.recordId])), '編號排版對象重複或不正確'); targets.add(JSON.stringify([l.kind, l.id, l.recordId]));
+        assert(p.records.some(r => r.unitId === plan.unitId && (l.kind === 'pin' ? r.id === l.id : r.id === l.recordId && r.photos.some(photo => photo.mediaId === l.id))), '編號排版對象不存在');
+        assert(finite01(l.x) && finite01(l.y) && typeof l.locked === 'boolean' && Array.isArray(l.anchor) && l.anchor.length === 4 && l.anchor.every(finite01), '編號排版座標不正確');
+      }
+    }
+  }
+  for (const r of p.records) {
+    if (r.visitId !== undefined) assert(r.visitId === '' || visits.has(r.visitId), '紀錄會勘批次不存在');
+    if (r.observedOn !== undefined) {
+      assert(r.observedOn === '' || validDate(r.observedOn), '紀錄日期不正確');
+      const v = p.visits?.find(v => v.id === r.visitId); assert(!r.observedOn || !v || r.observedOn >= v.start && r.observedOn <= v.end, '紀錄日期超出會勘批次範圍');
+    }
+    if (r.detail !== undefined) {
+      const d = r.detail; assert(d && ['preset', 'text', 'image'].includes(d.kind), '細部圖種類不正確');
+      if (d.note !== undefined) text(d.note, '細圖補充說明', 2000);
+      if (d.kind === 'text') assert(Object.hasOwn(DETAIL_TEXTS, d.value), '細部圖文字預選不正確');
+      else {
+        validateMarks(d.marks, true);
+        if (d.kind === 'preset') assert(Object.hasOwn(DETAIL_PRESETS, d.preset) && typeof d.mirror === 'boolean', '細部圖預選不正確');
+        else assert(media.has(d.mediaId) && meta.get(d.mediaId).kind === 'detail', '細部圖原檔關聯遺失');
+      }
+    }
+    if (r.fieldNumber !== undefined) { assert(Number.isSafeInteger(r.fieldNumber) && r.fieldNumber > 0 && !fieldNumbers.has(r.fieldNumber), '現場代號重複或不正確'); fieldNumbers.add(r.fieldNumber); }
+    if (r.roomId !== undefined) assert(p.rooms?.some(x => x.id === r.roomId && x.unitId === r.unitId && x.floor === r.floor.trim() && x.name === r.space.trim()), '房間關聯不一致');
+    const crackMeasurement = c => {
+      assert(c && typeof c.measured === 'boolean' && Object.hasOwn(WIDTH_MODES, c.widthMode), '逐條裂縫量測格式不正確');
+      for (const key of ['width', 'length']) assert(c[key] === null || typeof c[key] === 'number' && Number.isFinite(c[key]) && c[key] >= 0, '逐條裂縫尺寸不正確');
+      assert(c.measured || c.width === null && c.length === null, '未量測不可夾帶逐條尺寸');
+      assert(c.widthMode === 'exact' || c.width === null, '逐條區間不可夾帶精確寬度');
+      if (c.layer !== undefined) assert(Object.hasOwn(CRACK_LAYERS, c.layer), '裂隙觀察層位不正確');
+    };
+    if (r.crackLayer !== undefined) assert(Object.hasOwn(CRACK_LAYERS, r.crackLayer), '裂隙觀察層位不正確');
+    if (r.leakForms !== undefined) { list(r.leakForms, '漏水形式', Object.keys(LEAK_FORMS).length); assert(r.leakForms.every(f => Object.hasOwn(LEAK_FORMS, f)) && new Set(r.leakForms).size === r.leakForms.length, '漏水形式重複或不正確'); }
+    if (r.cracks !== undefined) {
+      list(r.cracks, '逐條裂縫', 26); unique(r.cracks);
+      for (const c of r.cracks) { crackMeasurement(c); text(c.notes, '逐條說明', 1000); assert(Object.hasOwn(CRACK_PATTERNS, c.pattern) && !['network', 'u'].includes(c.pattern), '逐條裂縫型態不正確'); }
+    }
+    if (r.legacyCrack !== undefined) { crackMeasurement(r.legacyCrack); assert(Object.hasOwn(CRACK_PATTERNS, r.legacyCrack.crackPattern), '原整組裂縫型態不正確'); if (r.legacyCrack.crackLayer !== undefined) assert(Object.hasOwn(CRACK_LAYERS, r.legacyCrack.crackLayer), '原整組觀察層位不正確'); }
+    if (r.crackCount !== undefined) assert(count(r.crackCount), '裂縫條數須為非負整數或未記');
+    for (const key of ['countApprox', 'uPartial']) if (r[key] !== undefined) assert(typeof r[key] === 'boolean', '裂縫記法不正確');
+    if (r.uScope !== undefined) assert(['representative', 'each'].includes(r.uScope), 'U 型裂縫量測範圍不正確');
+    if (r.surface !== undefined) assert(['', 'tile', 'other'].includes(r.surface), '表面材質不正確');
+    if (r.reportText !== undefined) text(r.reportText, '附件說明', 10000);
+    if (r.tiles !== undefined) {
+      const t = r.tiles; assert(t && typeof t === 'object', '磁磚紀錄不正確');
+      for (const key of ['crack', 'broken', 'approx']) assert(typeof t[key] === 'boolean', '磁磚狀況不正確');
+      if (t.bulge !== undefined) assert(typeof t.bulge === 'boolean', '磁磚狀況不正確');
+      if (t.bulgeCount !== undefined) assert(count(t.bulgeCount), '磁磚塊數須為非負整數或未記');
+      for (const key of ['crackCount', 'brokenCount', 'overlapCount']) assert(count(t[key]), '磁磚塊數須為非負整數或未記');
+      for (const kind of ['crack', 'broken', 'bulge']) if (t[kind + 'Text'] !== undefined) { assert(['', '十餘塊', '二十餘塊', '多處'].includes(t[kind + 'Text']), '磁磚概述不正確'); assert(!t[kind + 'Text'] || t[kind + 'Count'] === null, '磁磚概述不可夾帶推算塊數'); }
+      if (t.crack && t.broken && t.overlapCount !== null) assert(t.crackCount !== null && t.brokenCount !== null && t.overlapCount <= Math.min(t.crackCount, t.brokenCount), '重疊塊數不可超過任一分類塊數');
+    }
+    if (r.crackPattern === 'u' && recordConditions(r).includes('crack')) assert(recordComponents(r).includes('梁'), 'U 型裂縫須指定梁部位');
+    assert(units.has(r.unitId), '紀錄的戶別不存在');
+    for (const k of ['floor', 'space', 'location', 'notes', 'resident', 'createdAt', 'updatedAt']) text(r[k], k);
+    assert(COMPONENTS.includes(r.component) && Object.hasOwn(CONDITIONS, r.condition), '現況分類不正確');
+    if (r.components !== undefined) {
+      list(r.components, '部位', COMPONENTS.length - 1);
+      assert(r.components.every(c => c && COMPONENTS.includes(c)) && new Set(r.components).size === r.components.length, '部位選項重複或不正確');
+      assert(r.component === (r.components[0] || ''), '部位摘要不一致');
+    }
+    if (r.conditions !== undefined) {
+      list(r.conditions, '現況', Object.keys(CONDITIONS).length - 1);
+      assert(r.conditions.every(c => c && Object.hasOwn(CONDITIONS, c)) && new Set(r.conditions).size === r.conditions.length, '現況選項重複或不正確');
+      assert(r.condition === (r.conditions[0] || ''), '現況摘要不一致');
+      assert(!r.conditions.includes('normal') || r.conditions.length === 1, '一般現況不可與損害現況並選');
+    }
+    if (r.areas !== undefined) {
+      assert(r.areas && typeof r.areas === 'object' && !Array.isArray(r.areas), '損害面積格式不正確');
+      for (const [key, value] of Object.entries(r.areas)) {
+        assert(Object.hasOwn(AREA_CONDITIONS, key) && value && typeof value === 'object' && !Array.isArray(value), '損害面積種類不正確');
+        assert(value.value === null || typeof value.value === 'number' && Number.isFinite(value.value) && value.value >= 0, '損害面積須為非負數值或未記錄');
+        assert(Object.hasOwn(AREA_METHODS, value.method), '損害面積量測方式不正確');
+      }
+    }
+    assert(['visible', 'partial', 'inaccessible'].includes(r.visibility), '觀察狀態不正確');
+    assert(typeof r.measured === 'boolean', '量測狀態不正確');
+    for (const k of ['width', 'length']) assert(r[k] === null || (typeof r[k] === 'number' && Number.isFinite(r[k]) && r[k] >= 0), '尺寸須為非負數值或未量測');
+    if (!r.measured) assert(r.width === null && r.length === null, '未量測不可夾帶尺寸');
+    assert(Object.hasOwn(WIDTH_MODES, widthMode(r)), '裂縫寬度選項不正確');
+    assert(widthMode(r) === 'exact' || r.width === null, '裂縫區間不可冒用精確寬度');
+    if (r.crackPattern !== undefined) assert(Object.hasOwn(CRACK_PATTERNS, r.crackPattern), '裂隙方向選項不正確');
+    list(r.photos, '照片'); list(r.audioIds, '錄音');
+    const refs = new Set();
+    for (const photo of r.photos) {
+      assert(media.has(photo.mediaId) && meta.get(photo.mediaId).kind === 'image', '照片原檔關聯遺失');
+      assert(!refs.has(photo.mediaId), '同筆照片重複'); refs.add(photo.mediaId);
+      assert(Object.hasOwn(ROLES, photo.role), '照片用途不正確'); text(photo.caption, '照片說明'); validateMarks(photo.marks);
+      assert(typeof photo.excluded === 'boolean', '照片採用狀態不正確'); text(photo.excludedReason, '不採用原因', 500);
+      assert(!photo.excluded || photo.excludedReason.trim(), '缺少照片不採用原因');
+      if (photo.reportInclude !== undefined) assert(typeof photo.reportInclude === 'boolean', '附件選片狀態不正確');
+      if (photo.capturedOn !== undefined) assert(photo.capturedOn === '' || validDate(photo.capturedOn), '照片拍攝日期不正確');
+      if (photo.captureSource !== undefined) assert(Object.hasOwn(CAPTURE_SOURCES, photo.captureSource), '照片日期來源不正確');
+      if (photo.stamp !== undefined) text(photo.stamp, '照片日期戳記', 40);
+      if (photo.stampHidden !== undefined) assert(typeof photo.stampHidden === 'boolean', '照片戳記顯示狀態不正確');
+      placement(photo.placement, r);
+    }
+    if (r.mainPhotoId) assert(r.photos.some(x => x.mediaId === r.mainPhotoId && photoIncluded(x)), '主照片必須納入附件且可採用');
+    placement(r.observationPin, r);
+    for (const audioId of r.audioIds) assert(media.has(audioId) && meta.get(audioId).kind === 'audio', '錄音原檔關聯遺失');
+    if (r.placement) {
+      const q = r.placement, plan = p.plans.find(x => x.id === q.planId);
+      assert(plans.has(q.planId) && plan.unitId === r.unitId && plan.floor === r.floor, '位置圖戶別或樓層不一致');
+      assert([q.x, q.y, q.endX, q.endY].every(finite01), '位置圖座標不正確');
+    }
+  }
+  return p;
+}
+// Remove only the selected record's photos; shared assets stay referenced.
+export function removeRecordPhotos(p, recordId, photoIds) {
+  const r = p.records.find(r => r.id === recordId), selected = new Set(photoIds);
+  assert(r && selected.size && [...selected].every(id => r.photos.some(photo => photo.mediaId === id)), '照片選取已變更，請重新選取');
+  r.photos = r.photos.filter(photo => !selected.has(photo.mediaId));
+  if (selected.has(r.mainPhotoId)) delete r.mainPhotoId;
+  for (const plan of p.plans) if (plan.labelLayout) plan.labelLayout = plan.labelLayout.filter(l => !(l.kind === 'photo' && l.recordId === r.id && selected.has(l.id)));
+  const used = new Set([...p.records.flatMap(r => [...r.photos.map(photo => photo.mediaId), ...r.audioIds, r.detail?.mediaId]), ...p.plans.map(plan => plan.mediaId)]);
+  p.media = p.media.filter(m => !selected.has(m.id) || used.has(m.id));
+  r.updatedAt = now();
+}
+export async function sha256(blob) {
+  const buffer = blob instanceof Blob ? await blob.arrayBuffer() : blob;
+  return [...new Uint8Array(await crypto.subtle.digest('SHA-256', buffer))].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+export function canonicalJSON(value) {
+  if (Array.isArray(value)) return '[' + value.map(canonicalJSON).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonicalJSON(value[key])).join(',') + '}';
+  return JSON.stringify(value);
+}
+export async function recordsDigest(p, unitId, visitId) {
+  const rows = p.records.filter(r => r.unitId === unitId && r.visitId === visitId).map(r => ({
+    id: r.id, updatedAt: r.updatedAt, floor: r.floor, space: r.space, location: r.location,
+    conditions: recordConditions(r), photos: r.photos.filter(photoIncluded).map(photo => photo.mediaId).sort(),
+    content: r
+  })).sort((a, b) => a.id.localeCompare(b.id));
+  return sha256(new TextEncoder().encode(canonicalJSON(rows)));
+}
+export async function signoffHash(p, x) {
+  const fields = { projectId: p.id, unitId: x.unitId || null, visitId: x.visitId, date: x.date, weather: x.weather,
+    status: x.status, reason: x.reason, scope: x.scope, statement: x.statement.text,
+    summary: x.summary, recordsDigest: x.recordsDigest, sourceChanged: x.sourceChanged || false,
+    signers: x.signers.map(y => ({ id: y.id, role: y.role, group: y.group, name: y.name, status: y.status, reason: y.reason, relation: y.relation, attestedBy: y.attestedBy || null, mediaId: y.mediaId || null, signedAt: y.signedAt, voided: y.voided || null })) };
+  return sha256(new TextEncoder().encode(canonicalJSON(fields)));
+}
+export async function rebaseSignoffs(p, sourceProject) {
+  for (const x of p.signoffs || []) {
+    const source = sourceProject?.signoffs?.find(y => y.id === x.id);
+    if (source?.level === 'unit' && source.signers.some(y => !y.voided)) x.sourceChanged ||= source.recordsDigest !== await recordsDigest(sourceProject, source.unitId, source.visitId);
+    x.sourceSnapshotHash ||= x.snapshotHash;
+    x.sourceRecordsDigest ||= x.recordsDigest;
+    x.recordsDigest = x.level === 'unit' ? await recordsDigest(p, x.unitId, x.visitId) : await sha256(new TextEncoder().encode('visit:' + x.visitId));
+    x.snapshotHash = await signoffHash(p, x);
+  }
+  return p;
+}
+export function subset(p, unitId = '') {
+  const result = clone(p);
+  if (!unitId) return result;
+  // A partial export cannot claim that it contains whole previously imported files.
+  if (result.handoffDigests) result.handoffDigests = [];
+  assert(p.units.some(u => u.id === unitId), '找不到匯出的戶別');
+  result.units = result.units.filter(u => u.id === unitId);
+  if (result.reportSettings) result.reportSettings = { ...reportPreferences(result), unitId, unitIds: null };
+  result.records = result.records.filter(r => r.unitId === unitId);
+  if (result.signoffs) result.signoffs = result.signoffs.filter(x => x.level === 'unit' && x.unitId === unitId || x.level === 'visit');
+  result.plans = result.plans.filter(x => x.unitId === unitId);
+  if (result.rooms) result.rooms = result.rooms.filter(x => x.unitId === unitId);
+  if (result.handoffImports) {
+    const records = new Set(result.records.map(r => r.id));
+    result.handoffImports = result.handoffImports.map(s => ({ ...s, units: s.units.filter(u => u.id === unitId), records: s.records.filter(r => records.has(r.id)) })).filter(s => s.units.length || s.records.length);
+  }
+  const used = new Set([...result.records.flatMap(r => [...r.photos.map(x => x.mediaId), ...r.audioIds, r.detail?.mediaId].filter(Boolean)), ...result.plans.map(x => x.mediaId), ...(result.signoffs || []).flatMap(x => x.signers.map(y => y.mediaId).filter(Boolean))]);
+  result.media = result.media.filter(m => used.has(m.id));
+  return result;
+}
+export function restoredCopy(p) {
+  const copy = clone(p), remap = new Map(copy.media.map(m => [m.id, id()]));
+  copy.id = id(); copy.name = copy.name.slice(0, 200) + '（還原副本）'; copy.revision = 0; copy.createdAt = now(); copy.updatedAt = now();
+  copy.media.forEach(m => { m.id = remap.get(m.id); });
+  copy.plans.forEach(x => { x.mediaId = remap.get(x.mediaId); for (const l of x.labelLayout || []) if (l.kind === 'photo') l.id = remap.get(l.id); });
+  copy.records.forEach(r => { r.photos.forEach(x => { x.mediaId = remap.get(x.mediaId); }); if (r.mainPhotoId) r.mainPhotoId = remap.get(r.mainPhotoId); if (r.detail?.mediaId) r.detail.mediaId = remap.get(r.detail.mediaId); r.audioIds = r.audioIds.map(x => remap.get(x)); });
+  for (const x of copy.signoffs || []) for (const y of x.signers) if (y.mediaId) y.mediaId = remap.get(y.mediaId);
+  return { project: copy, remap };
+}

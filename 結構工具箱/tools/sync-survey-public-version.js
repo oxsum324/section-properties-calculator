@@ -15,7 +15,7 @@ const dateIndex = args.indexOf('--date');
 const today = dateIndex >= 0 ? args[dateIndex + 1] : new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
 if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) throw new Error(`日期格式須為 YYYY-MM-DD：${today}`);
 
-const version = read('field-survey/model.js').match(/export const VERSION = '([^']+)'/)?.[1];
+const version = read('field-survey/src/model.source.js').match(/export const VERSION = '([^']+)'/)?.[1];
 const cacheName = read('field-survey/sw.js').match(/const CACHE = '(condition-survey-shell-[^']+?)(?:-r\d+)?'/)?.[1];
 if (!version || !cacheName) throw new Error('無法由 field-survey/model.js 或 sw.js 取得版本');
 

@@ -9,7 +9,7 @@ const Page = require('./src-beam.js');
 
 const repoRoot = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(__dirname, 'src-beam.html'), 'utf8');
-const source = fs.readFileSync(path.join(__dirname, 'src-beam.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, 'src', 'src-beam.source.js'), 'utf8');
 const directPrintCss = fs.readFileSync(path.join(repoRoot, '結構工具箱', 'core', 'direct-print-boundary.css'), 'utf8');
 const boundary = JSON.parse(fs.readFileSync(path.join(repoRoot, '結構工具箱', 'tools', 'calculation-book-content-boundary.json'), 'utf8'));
 const reportRuntimePath = path.join(repoRoot, '結構工具箱', 'core', 'ui', 'report.js');

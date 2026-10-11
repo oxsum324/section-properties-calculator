@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = __dirname;
+const { runtimes } = require('./結構工具箱/tools/build-minified-runtimes');
+const readableRuntimeOutputs = new Map(runtimes.map(runtime => [runtime.source, runtime.output]));
 const SKIP_DIRS = new Set([
   '.git',
   '.claude',
@@ -86,7 +88,7 @@ for (const file of collectFiles(ROOT)) {
 assert(offenders.length === 0, 'browser dialogs avoid alert/prompt', offenders.join('\n') || 'clean');
 const unreviewedConfirms = [];
 for (const [rel, count] of confirmCounts) {
-  const allowed = CONFIRM_ALLOWLIST.get(rel) || 0;
+  const allowed = CONFIRM_ALLOWLIST.get(readableRuntimeOutputs.get(rel) || rel) || 0;
   if (!allowed || count > allowed) unreviewedConfirms.push(`${rel}: ${count} confirm(, allowed ${allowed}`);
 }
 assert(unreviewedConfirms.length === 0, 'browser confirm dialogs stay reviewed', unreviewedConfirms.join('\n') || 'reviewed');

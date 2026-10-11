@@ -4,6 +4,19 @@ const os = require('os');
 const path = require('path');
 
 const PRIVATE_FILES = new Set([
+  'field-survey/src/report-ui.source.js',
+  'field-survey/src/signoff-ui.source.js',
+  'field-survey/src/sketch.source.js',
+  'field-survey/src/detail.source.js',
+  'field-survey/src/model.source.js',
+  'SRC工具/src/src-column.source.js',
+  'SRC工具/src/src-beam.source.js',
+  'SRC工具/core/src/src-beam-core.source.js',
+  '結構工具箱/core/src/wind-report.source.js',
+  '結構工具箱/core/loads/src/seismic-zones.source.js',
+  '結構工具箱/tools/風力/src/wind-shared-profile.source.js',
+  '鋼筋混凝土/shared/src/common.source.js',
+
   '結構工具箱/tools/build-home-critical-css.js',
   '結構工具箱/assets/home/src/home.source.js',
   '結構工具箱/core/ui/src/report-docx.source.js',

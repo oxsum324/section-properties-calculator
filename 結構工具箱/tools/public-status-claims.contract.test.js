@@ -120,7 +120,7 @@ assert.equal(homeTools.length, 52, 'canonical homepage tool inventory count');
 const surveyTool = homeTools.find(tool => tool.href === '/condition-survey');
 assert.equal(surveyTool?.state, 'workflow', 'survey recorder stays a non-formal workflow');
 assert.equal(surveyTool?.capabilities.includes('正式核算'), false, 'survey recorder does not claim formal calculations');
-const surveyRuntimeVersion = readText('field-survey/model.js').match(/export const VERSION = '([^']+)'/)[1];
+const surveyRuntimeVersion = readText('field-survey/src/model.source.js').match(/export const VERSION = '([^']+)'/)[1];
 assert.equal(surveyTool.version, `V${surveyRuntimeVersion}`, 'survey home and runtime versions agree');
 const publicRouteSamples = vm.runInNewContext(`(${extractConstLiteral(readText('結構工具箱/tools/pages-live-smoke.js'), 'PUBLIC_ROUTE_SAMPLES')})`);
 for (const sample of publicRouteSamples.filter(sample => sample.path.startsWith('field-survey/'))) {
