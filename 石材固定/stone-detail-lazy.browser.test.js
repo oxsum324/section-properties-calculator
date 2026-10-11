@@ -14,6 +14,7 @@ const PAGE_PATH = '石材固定/石材計算書產生器_規範版V2.html';
 const FALLBACK = '節點參考圖暫無法載入';
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\154.0.4258.62\\msedge.exe';
 const { chromium } = require(path.join(ROOT, 'output', 'playwright', 'phase2-quality-deps', 'node_modules', 'playwright'));
+const { expect } = require(path.join(ROOT, 'output', 'playwright', 'phase2-quality-deps', 'node_modules', 'playwright', 'test'));
 const gitValue = args => execFileSync('git', args, { cwd:ROOT, encoding:'utf8', windowsHide:true }).trim();
 const runStamp = new Date().toISOString().replace(/[:.]/g, '-');
 const outputDir = path.join(ROOT, 'output', 'playwright', 'stone-detail-lazy', runStamp);
@@ -149,11 +150,18 @@ async function coldAndZoom(browser) {
       await page.locator('#v2-lightbox .lightbox-close').click();
       const popupEvent = page.waitForEvent('popup', { timeout:60000 });
       await page.locator('button[onclick="previewPrint()"]') .click();
-      await page.waitForTimeout(200);
-      if (await page.locator('#v2-check-modal.show').isVisible().catch(()=>false)) await page.locator('#v2_check_proceed').click();
       const popup = await popupEvent;
+      const previewImage = popup.locator('img[src^="data:image/webp;base64,"]').first();
+      // Either the confirmation or the rendered popup must appear before proceeding.
+      const needsConfirmation = await Promise.race([
+        page.locator('#v2-check-modal.show').waitFor({ state:'visible', timeout:60000 }).then(() => true, () => false),
+        previewImage.waitFor({ state:'attached', timeout:30000 }).then(() => false),
+      ]);
+      if (needsConfirmation) await page.locator('#v2_check_proceed').click();
       await popup.waitForFunction(() => document.querySelector('img[src^="data:image/webp;base64,"]'), undefined, { timeout:30000 });
-      assertThat(item, await popup.locator('img[src^="data:image/webp;base64,"]').count() > 0, 'cached detail images render in preview immediately after zoom');
+      await expect(previewImage, 'cached detail images render in preview immediately after zoom').toBeAttached({ timeout:30000 });
+      item.assertions.push('cached detail images render in preview immediately after zoom');
+      assertThat(item, item.requests.filter(request => request.url.includes('detail-pk.webp')).length === 1 && item.requests.filter(request => request.url.includes('detail-bk.webp')).length === 1, 'cached popup does not fetch either detail image again');
       await assertNoFatalPageErrors(item);
     } finally { await context.close(); }
   });
@@ -380,7 +388,8 @@ async function docFallbackOffline(browser) {
       await offline.goto(pathToFileURL(htmlPath).href, { waitUntil:'load', timeout:30000 });
       const image = await offline.locator('img[src^="data:image/webp;base64,"]').first().evaluate(node => ({ width:node.naturalWidth, height:node.naturalHeight, alt:node.alt }));
       assertThat(item, image.width === 1600 && image.height === 1280 && image.alt.length > 0, 'actual downloaded .doc bytes reopen offline with the embedded detail image');
-      assertThat(item, await offline.locator('img[src^="https://"], img[src^="http://"]').count() === 0, 'offline .doc fallback contains no remote image source');
+      await expect(offline.locator('img[src^="https://"], img[src^="http://"]'), 'offline .doc fallback contains no remote image source').toHaveCount(0);
+      item.assertions.push('offline .doc fallback contains no remote image source');
       await assertNoFatalPageErrors(item);
     } finally { await context.close(); }
   });
