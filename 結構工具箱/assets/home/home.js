@@ -1114,7 +1114,7 @@
   const RECENT_TOOLS_KEY = 'structToolbox.home.recentTools';
   const PINNED_TOOLS_KEY = 'structToolbox.home.pinnedTools';
   const toolsByHref = new Map(tools.map(tool => [tool.href, tool]));
-  const personal = { recent: readRecentTools(), pinned: readPinnedTools(), notice: '', ready: false };
+  const personal = { recent: readRecentTools(), pinned: readPinnedTools(), notice: '' };
 
   function readStoredTools(key) {
     try {
@@ -1177,21 +1177,9 @@
   }
 
   function renderPersonalTools() {
-    const previous = document.querySelector('.home-personal');
+    document.querySelector('.home-personal')?.remove();
     const ordered = [...personal.pinned, ...personal.recent.map(item => item.href).filter(href => !personal.pinned.includes(href))];
-    if (state.query.trim() || !ordered.length) { previous?.remove(); return; }
-    if (!personal.ready) {
-      // Reserve the fixed personal panel before paint without rendering its cards.
-      if (!previous) {
-        const reserve = document.createElement('section');
-        reserve.className = 'home-personal';
-        reserve.setAttribute('aria-label', '釘選與最近使用');
-        reserve.setAttribute('aria-busy', 'true');
-        elements.categoryOverview.closest('section').before(reserve);
-      }
-      return;
-    }
-    previous?.remove();
+    if (state.query.trim() || !ordered.length) return;
     const section = document.createElement('section');
     section.className = 'home-personal';
     section.setAttribute('aria-label', '釘選與最近使用');
@@ -1204,9 +1192,6 @@
     notice.hidden = !personal.notice;
     const grid = document.createElement('div');
     grid.className = 'tool-grid home-personal__grid';
-    grid.tabIndex = 0;
-    grid.setAttribute('role', 'region');
-    grid.setAttribute('aria-label', '釘選與最近使用工具清單');
     grid.classList.toggle('tool-grid--detailed', !!document.getElementById('toolDetailToggle')?.checked);
     ordered.forEach(href => {
       const card = renderToolCard(toolsByHref.get(href));
@@ -1516,10 +1501,6 @@
     });
 
     card.append(head, profile, meta);
-    return personal.ready ? attachPinButton(card, tool) : card;
-  }
-
-  function attachPinButton(card, tool) {
     const shell = document.createElement('div');
     shell.className = 'tool-card-shell';
     const pin = document.createElement('button');
@@ -1530,24 +1511,6 @@
     pin.addEventListener('click', () => togglePinnedTool(tool, pin));
     shell.append(card, pin);
     return shell;
-  }
-
-  function mountPersonalToolsAfterPaint() {
-    const mount = () => {
-      personal.ready = true;
-      elements.grid.querySelectorAll('.tool-card').forEach(card => {
-        const parent = card.parentNode;
-        const next = card.nextSibling;
-        const shell = attachPinButton(card, toolsByHref.get(card.dataset.routeHref));
-        parent.insertBefore(shell, next);
-      });
-      renderPersonalTools();
-    };
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(mount));
-    } else {
-      window.setTimeout(mount, 32);
-    }
   }
 
   function renderToolGroup(system, groupTools) {
@@ -1888,7 +1851,6 @@
     clear?.addEventListener('click', () => { search.value = ''; state.query = ''; renderTools(); search.focus(); });
     renderCategoryOverview();
     render();
-    mountPersonalToolsAfterPaint();
     renderReportReadinessStatus();
     loadStatus();
   }

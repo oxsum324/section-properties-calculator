@@ -651,15 +651,6 @@ git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/ho
 git add -- "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/shear-wall.html" "結構工具箱/assets/home/home.js" STAGING_GROUPS.md TOOL_BOUNDARIES.md README.md
 ```
 
-
-## 2026-10-11：T35 首頁個人功能延後掛載
-
-首頁先建立原工具卡，兩幀後才掛載既有釘選按鈕與個人卡片；無 requestAnimationFrame 時以 32 ms 計時器承接。釘選區預留 42 px，按鈕絕對定位；有個人資料時首屏先預留 24rem 固定面板，工具清單以可鍵盤捲動區域呈現，掛載不推移後續分類。工具清冊、路由、更新日與腳本順序不變，既有儲存例外處理保留。驗收與原始診斷只留 ignored output。
-
-```powershell
-git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
 ## 2026-10-11：T36 第二批共用執行期確定性壓縮
 
 六份可讀來源保持原始內容，僅統一 LF：`結構工具箱/core/ui/src/report-docx.source.js`、`結構工具箱/core/ui/src/tool-workflow.source.js`、`結構工具箱/tools/src/tool-workflow-adapters.source.js`、`結構工具箱/tools/src/project-storage.source.js`、`鋼筋混凝土/shared/src/project-storage.source.js`、`結構工具箱/core/loads/src/loadcombo.source.js`。沿用 `結構工具箱/tools/build-minified-runtimes.js` 與 ignored Terser 5.44.0 產生原公開路徑，首行標記來源，不使用 unsafe 或 property mangling。來源精確列入 Pages PRIVATE_FILES，來源與生成檔固定 LF；生成一致性、逐檔體積上限（本批實測加 10%、向上取整）與對應首頁來源依賴由 `tool-page-a11y-build.contract.test.js` 檢查，原三檔上限保持。
@@ -671,3 +662,12 @@ git add -- ".gitattributes" "結構工具箱/tools/build-minified-runtimes.js" "
 ```
 
 DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未壓縮來源也會失敗；本包僅補齊替身並檢查 MIME／Blob 導覽，不更動任何 report.js 或 report-utils.js。首次失敗與原替身重現紀錄保留，所有原 Word／可攜 HTML 斷言均保留。
+
+## 2026-10-11：撤銷首頁個人功能延後掛載（T35）
+
+撤銷 `5b2e1645 Defer homepage personal controls until after paint`：延後掛載後 Lighthouse LCP 中位數 2,609／2,607 ms，與延後前 2,618 ms 無差別；為使 CLS 歸零改用固定 24rem 的「釘選與最近使用」面板，桌機只釘兩張卡時留下大片空白、手機第二張卡被裁切需在框內捲動，屬可見的體驗退步。委託人裁定撤銷，`home.js`、`home.css` 與 `home-recents.browser.test.js` 回到第八階段上線版；首頁 LCP 依 2026-10-11 裁定接受現狀，該測試不在正式預檢。
+
+```powershell
+git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+

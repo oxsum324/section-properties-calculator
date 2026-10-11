@@ -363,11 +363,6 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 ## 2026-10-11：T33 首頁最近使用與釘選
 
 `結構工具箱/assets/home/home.js` 以獨立的使用者狀態保存最多 8 筆最近使用與 12 筆釘選，工具清冊欄位不變。分類總覽前的區塊沿用同一 renderToolCard，釘選按鈕置於連結外；搜尋時隱藏、空資料不渲染。所有 localStorage 讀寫均捕捉錯誤。`結構工具箱/assets/home/home.css` 沿用既有 token。新私有 `home-recents.browser.test.js` 等待式驗證鍵盤導覽、重載、去重與上限、停用／異常儲存、個人區塊桌機與手機 axe；原始診斷與收據留在 ignored `output/playwright/home-recents/`，測試依既有 .test.js 規則排除 Pages。
-
-## 2026-10-11：T35 首頁個人功能延後掛載
-
-首頁先建立原工具卡，兩幀後才掛載既有釘選按鈕與個人卡片；無 requestAnimationFrame 時以 32 ms 計時器承接。釘選區預留 42 px，按鈕絕對定位；有個人資料時首屏先預留 24rem 固定面板，工具清單以可鍵盤捲動區域呈現，掛載不推移後續分類。工具清冊、路由、更新日與腳本順序不變，既有儲存例外處理保留。驗收與原始診斷只留 ignored output。
-
 ## 2026-10-11：T36 第二批共用執行期確定性壓縮
 
 六份可讀來源保持原始內容，僅統一 LF：`結構工具箱/core/ui/src/report-docx.source.js`、`結構工具箱/core/ui/src/tool-workflow.source.js`、`結構工具箱/tools/src/tool-workflow-adapters.source.js`、`結構工具箱/tools/src/project-storage.source.js`、`鋼筋混凝土/shared/src/project-storage.source.js`、`結構工具箱/core/loads/src/loadcombo.source.js`。沿用 `結構工具箱/tools/build-minified-runtimes.js` 與 ignored Terser 5.44.0 產生原公開路徑，首行標記來源，不使用 unsafe 或 property mangling。來源精確列入 Pages PRIVATE_FILES，來源與生成檔固定 LF；生成一致性、逐檔體積上限（本批實測加 10%、向上取整）與對應首頁來源依賴由 `tool-page-a11y-build.contract.test.js` 檢查，原三檔上限保持。

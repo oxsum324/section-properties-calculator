@@ -57,50 +57,6 @@ async function main() {
   try {
     browser = await chromium.launch({ executablePath: edge, headless: true });
     summary.browserVersion = browser.version();
-    await checkCase('deferred-mount-reserves-layout-and-supports-fallback', async () => {
-      for (const fallback of [false, true]) {
-        const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
-        try {
-          await context.addInitScript(({ pinnedKey, fallback }) => {
-            localStorage.setItem(pinnedKey, JSON.stringify(['/rc-beam', '/rc-column']));
-            window.homeMountEvidence = { frames: [], shifts: [] };
-            new PerformanceObserver(list => {
-              for (const entry of list.getEntries()) if (!entry.hadRecentInput) window.homeMountEvidence.shifts.push(entry.value);
-            }).observe({ type: 'layout-shift', buffered: true });
-            const frame = window.requestAnimationFrame.bind(window);
-            if (fallback) window.requestAnimationFrame = undefined;
-            else window.requestAnimationFrame = callback => frame(time => {
-              window.homeMountEvidence.frames.push({
-                cards: document.querySelectorAll('#toolGrid .tool-card').length,
-                pins: document.querySelectorAll('#toolGrid .tool-pin').length,
-                shells: document.querySelectorAll('#toolGrid .tool-card-shell').length,
-                personalCards: document.querySelectorAll('.home-personal .tool-card').length,
-                overviewTop: document.querySelector('.category-strip').getBoundingClientRect().top
-              });
-              callback(time);
-            });
-          }, { pinnedKey, fallback });
-          const page = await context.newPage();
-          const errors = observe(page, `deferred-mount-${fallback ? 'fallback' : 'frames'}`);
-          await page.goto(home);
-          await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(52);
-          await expect(page.locator('.home-personal .tool-card')).toHaveCount(2);
-          await expect(page.locator('.home-personal')).not.toHaveAttribute('aria-busy', 'true');
-          await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 100)));
-          const evidence = await page.evaluate(() => ({ ...window.homeMountEvidence, overviewTop: document.querySelector('.category-strip').getBoundingClientRect().top }));
-          summary.mountEvidence ||= [];
-          summary.mountEvidence.push({ fallback, ...evidence });
-          if (!fallback) {
-            await expect.poll(() => evidence.frames.slice(0, 2)).toEqual([
-              { cards: 52, pins: 0, shells: 0, personalCards: 0, overviewTop: evidence.overviewTop },
-              { cards: 52, pins: 0, shells: 0, personalCards: 0, overviewTop: evidence.overviewTop }
-            ]);
-          }
-          await expect.poll(() => evidence.shifts.reduce((sum, value) => sum + value, 0)).toBe(0);
-          await expect.poll(() => errors.pageErrors).toEqual([]);
-        } finally { await context.close(); }
-      }
-    });
     await checkCase('recent-pinned-search-keyboard-and-reload', async () => {
       const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
       try {
@@ -204,7 +160,7 @@ async function main() {
     summary.endHead = git('rev-parse', 'HEAD');
     summary.endDirty = !!git('status', '--porcelain');
     summary.finishedAt = new Date().toISOString();
-    summary.passed = !summary.fatalError && summary.startHead === summary.endHead && summary.cases.length === 4 && summary.cases.every(item => item.passed);
+    summary.passed = !summary.fatalError && summary.startHead === summary.endHead && summary.cases.length === 3 && summary.cases.every(item => item.passed);
     fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
     console.log(JSON.stringify({ passed: summary.passed, summary: path.join(out, 'summary.json') }));
     if (!summary.passed) process.exitCode = 1;
