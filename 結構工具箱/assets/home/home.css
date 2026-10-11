@@ -4,7 +4,6 @@
    色彩與字體 token 由 index.html 先載入；本檔只放首頁元件樣式。
    ========================================================================= */
 
-/* critical:start */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body.home-page {
@@ -101,7 +100,6 @@ a { color: inherit; text-decoration: none; }
 .home-header__status span { font-size: var(--fs-xs); color: var(--hy-navy-300); letter-spacing: var(--tracking-wide); }
 .home-header__status strong { font-size: var(--fs-lg); font-weight: var(--fw-bold); color: #fff; }
 
-/* critical:end */
 /* =========================================================================
    SHELL + SECTION HEAD
    ========================================================================= */
@@ -660,14 +658,15 @@ a { color: inherit; text-decoration: none; }
   .filter-panel__status-link { border-top: 0; margin-top: 6px; padding: 4px 2px 0; }
   .tool-search { position: sticky; top: 0; z-index: 5; background: var(--bg-page); padding: 8px 0; margin-bottom: 12px; }
   .tool-search label { display: none; }
-}
-/* critical:start */
-@media (max-width: 1080px) {
   .home-header__art { width: 100%; opacity: 0.35; -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 40%); mask-image: linear-gradient(180deg, transparent 0%, #000 40%); }
 }
-/* critical:end */
 @media (max-width: 720px) {
+  .home-header__inner { grid-template-columns: 1fr; gap: 20px; align-items: start; }
+  .home-header__status { text-align: left; border-right: 0; border-left: 3px solid var(--hy-red); padding: 0 0 0 14px; }
+  .home-header h1 { font-size: var(--fs-3xl); }
   .section-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .home-header__inner { padding: 28px 18px 24px; }
+  .home-header__summary { font-size: var(--fs-sm); margin-top: 10px; }
   .home-shell { padding-top: 24px; }
   .section-head > p { display: none; }
   .category-strip .section-head { margin-bottom: 10px; }
@@ -687,24 +686,11 @@ a { color: inherit; text-decoration: none; }
   .info-grid { grid-template-columns: 1fr; }
   .note-panel { flex-direction: column; gap: 6px; }
 }
-/* critical:start */
-@media (max-width: 720px) {
-  .home-header__inner { grid-template-columns: 1fr; gap: 20px; align-items: start; }
-  .home-header__status { text-align: left; border-right: 0; border-left: 3px solid var(--hy-red); padding: 0 0 0 14px; }
-  .home-header h1 { font-size: var(--fs-3xl); }
-  .home-header__inner { padding: 28px 18px 24px; }
-  .home-header__summary { font-size: var(--fs-sm); margin-top: 10px; }
-}
-/* critical:end */
-@media (max-width: 440px) {
-  .category-card { flex-basis: 136px; }
-}
-/* critical:start */
 @media (max-width: 440px) {
   .home-header__inner, .home-shell, .home-footer { padding-left: 16px; padding-right: 16px; }
   .home-header h1 { font-size: var(--fs-2xl); }
+  .category-card { flex-basis: 136px; }
 }
-/* critical:end */
 /* Search stays inside the existing tool list and shares the category filter. */
 .tool-search { margin: 0 0 20px; }
 .tool-search label { display: block; margin-bottom: 8px; font-weight: 600; }

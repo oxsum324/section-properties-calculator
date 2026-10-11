@@ -17,28 +17,20 @@
      ========================================================================= */
 
   /* Brand primaries — use sparingly, with conviction */
-/* critical:start */
   --hy-navy:            #002060;   /* logo navy; primary brand color */
-/* critical:end */
   --hy-navy-deep:       #001440;   /* pressed / heavy surfaces */
   --hy-navy-700:        #0A2D7A;   /* hover on navy fills */
   --hy-navy-500:        #2E4C94;   /* secondary navy, links */
-/* critical:start */
   --hy-navy-300:        #9AA9CB;   /* disabled navy text, borders on navy surfaces */
-/* critical:end */
   --hy-navy-100:        #E6EAF3;   /* navy wash for section backgrounds */
   --hy-navy-50:         #F3F5FA;   /* subtlest navy tint */
 
-/* critical:start */
   --hy-red:             #E00000;   /* logo red; used as ACCENT only — alerts, key stats, the crossbar */
-/* critical:end */
   --hy-red-deep:        #B30000;   /* pressed red */
   --hy-red-100:         #FCE5E5;   /* red wash for warnings */
 
   /* Neutrals — warm-leaning grey, feels like concrete + paper */
-/* critical:start */
   --hy-ink:             #111316;   /* body copy */
-/* critical:end */
   --hy-ink-soft:        #2A2E36;   /* headings on light */
   --hy-slate-700:       #3F4653;   /* secondary text */
   --hy-slate-500:       #6B7280;   /* tertiary text, icon default */
@@ -46,9 +38,7 @@
   --hy-slate-300:       #D4D7DC;   /* dividers */
   --hy-slate-200:       #E6E8EC;   /* card borders */
   --hy-slate-100:       #F1F2F5;   /* subtle fills, zebra rows */
-/* critical:start */
   --hy-slate-50:        #F7F8FA;   /* app background */
-/* critical:end */
   --hy-paper:           #FFFFFF;   /* card surface, default bg */
 
   /* Semantic */
@@ -62,9 +52,7 @@
   --hy-info-100:        var(--hy-navy-100);
 
   /* Foreground / background semantic tokens */
-/* critical:start */
   --fg-1:               var(--hy-ink);
-/* critical:end */
   --fg-2:               var(--hy-slate-700);
   --fg-3:               var(--hy-slate-500);
   --fg-disabled:        var(--hy-slate-400);
@@ -73,9 +61,7 @@
   --fg-accent:          var(--hy-red);
   --fg-link:            var(--hy-navy-500);
 
-/* critical:start */
   --bg-page:            var(--hy-slate-50);
-/* critical:end */
   --bg-surface:         var(--hy-paper);
   --bg-subtle:          var(--hy-slate-100);
   --bg-navy:            var(--hy-navy);
@@ -94,12 +80,8 @@
      JetBrains Mono for measurements, case numbers, code.
      ========================================================================= */
 
-/* critical:start */
   --font-sans:    'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
-/* critical:end */
-/* critical:start */
   --font-serif:   'Noto Serif TC', 'PMingLiU', 'Times New Roman', serif;
-/* critical:end */
   --font-mono:    'JetBrains Mono', 'Consolas', 'Menlo', monospace;
   /* Numeric font — serif with oldstyle, tabular figures. The single source of truth
      for every number in the brand: stats, measurements, case nos, timestamps.
@@ -107,66 +89,34 @@
   --font-numeric: 'Noto Serif TC', 'Georgia', 'Times New Roman', serif;
 
   /* Type scale — major second (1.125) at the small end, major third (1.25) at display */
-/* critical:start */
   --fs-xs:    12px;
-/* critical:end */
-/* critical:start */
   --fs-sm:    13px;
-/* critical:end */
   --fs-base:  15px;
-/* critical:start */
   --fs-md:    17px;
-/* critical:end */
-/* critical:start */
   --fs-lg:    20px;
-/* critical:end */
   --fs-xl:    24px;
-/* critical:start */
   --fs-2xl:   30px;
-/* critical:end */
-/* critical:start */
   --fs-3xl:   38px;
-/* critical:end */
-/* critical:start */
   --fs-4xl:   48px;
-/* critical:end */
   --fs-5xl:   60px;
   --fs-6xl:   76px;
 
-/* critical:start */
   --lh-tight:   1.15;
-/* critical:end */
   --lh-snug:    1.3;
   --lh-normal:  1.55;
-/* critical:start */
   --lh-relaxed: 1.75;
-/* critical:end */
 
   --tracking-tight:   -0.02em;
-/* critical:start */
   --tracking-snug:    -0.01em;
-/* critical:end */
-/* critical:start */
   --tracking-normal:   0;
-/* critical:end */
-/* critical:start */
   --tracking-wide:     0.06em;
-/* critical:end */
-/* critical:start */
   --tracking-wider:    0.12em;   /* for 小標/eyebrows in ALL CAPS / 全形 */
-/* critical:end */
 
   --fw-light:    300;
-/* critical:start */
   --fw-regular:  400;
-/* critical:end */
   --fw-medium:   500;
-/* critical:start */
   --fw-bold:     700;
-/* critical:end */
-/* critical:start */
   --fw-black:    900;
-/* critical:end */
 
   /* =========================================================================
      SPACING — 4px base grid
@@ -190,12 +140,8 @@
      RADIUS — small / conservative. Engineering firms don't use playful pills.
      ========================================================================= */
   --radius-none:   0;
-/* critical:start */
   --radius-sm:     2px;
-/* critical:end */
-/* critical:start */
   --radius-md:     4px;
-/* critical:end */
   --radius-lg:     6px;
   --radius-xl:     10px;
   --radius-pill:   999px;   /* badges only */
@@ -209,9 +155,7 @@
   --shadow-md:     0 2px 6px rgba(17,19,22,0.08), 0 1px 2px rgba(17,19,22,0.04);
   --shadow-lg:     0 8px 24px rgba(17,19,22,0.10), 0 2px 6px rgba(17,19,22,0.06);
   --shadow-xl:     0 16px 40px rgba(17,19,22,0.14);
-/* critical:start */
   --shadow-focus:  0 0 0 3px rgba(0,32,96,0.25);   /* navy focus ring */
-/* critical:end */
   --shadow-inset:  inset 0 1px 2px rgba(17,19,22,0.08);
 
   /* =========================================================================
@@ -226,9 +170,7 @@
   /* Layout */
   --container-narrow: 760px;
   --container-base:   1080px;
-/* critical:start */
   --container-wide:   1280px;
-/* critical:end */
   --container-max:    1440px;
 }
 

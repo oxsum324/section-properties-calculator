@@ -675,11 +675,6 @@ git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/ho
 ## 2026-10-11：T38 首頁確定性壓縮分組
 
 一組提交新增 `結構工具箱/assets/home/src/home.source.js` 與生成 `結構工具箱/assets/home/home.js`、`.gitattributes`、`結構工具箱/tools/build-minified-runtimes.js`、`結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/sync-home-update-dates.js`、`結構工具箱/tools/sync-home-initial-view.js`、`結構工具箱/tools/sync-survey-public-version.js`、`field-survey/release.mjs`，以及所有改讀首頁來源的契約／清冊解析器、`結構工具箱/tools/pages-live-smoke.js`、`homepage-quality.browser.test.js`、`tool-page-a11y-build.contract.test.js` 和三份治理文件。只改讀取位置及保留等價斷言，不改其他產出；回報、原始測試收據留在 ignored 的 `_tmp/派工/回報/` 與 `output/phase10/`。首頁來源／產出使用 LF，版本與日期同步必須重建，最終提交後乾淨 --check 無差異。
-
-## 2026-10-11：T39 關鍵 CSS 分組
-
-一組提交新增 `結構工具箱/tools/build-home-critical-css.js`、`.gitattributes`、`結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/index.html`、`結構工具箱/assets/home/home.css`、`結構工具箱/assets/hy/colors_and_type.css`、`結構工具箱/assets/home/src/home.source.js` 與其生成 `結構工具箱/assets/home/home.js`、`homepage-quality.browser.test.js`、`tool-page-a11y-build.contract.test.js`、README 與兩份治理文件。建置器私有、LF，生成 HTML 固定 LF；回報、原始 CSS 比對及瀏覽器收據留在 ignored 的 `_tmp/派工/回報/`、`_tmp/dispatch/phase10/` 與 `output/phase10/`。兩次首頁品質固定各三輪，不因超標重挑樣本或改值，待決項僅列回報。
-
 ## 2026-10-11：T40 第三批確定性壓縮分組
 
 以下十二個新增私有來源，與各原公開產出、`.gitattributes`、`結構工具箱/tools/build-minified-runtimes.js`、`結構工具箱/tools/build-pages-artifact.js`、`石材固定/vendor/loads/seismic-zones.js`（僅同步器生成）、首頁來源／生成檔／日期同步、全部改向契約與解析器、`browser-dialogs.contract.test.js`、`tool-page-a11y-build.contract.test.js`、README 與兩份治理文件同一組提交。
@@ -700,3 +695,12 @@ git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/ho
 | `鋼筋混凝土/shared/common.js` | `鋼筋混凝土/shared/src/common.source.js` |
 
 追溯跳過五檔不加入 staging；不改 status／release JSON，不把第三方依賴或測試收據加入追蹤。回報與來源位元組／讀者／追溯／鏡像查核收據留在 ignored 的 `_tmp/派工/回報/`、`_tmp/dispatch/phase10/`、`output/phase10/`；只在本機 master 一個任務提交，完成後串行重跑 29 條門檻、14 家族、40 頁 a11y 與 52 路由載入預算，不覆寫基準。
+
+## 2026-10-11：撤銷首頁關鍵 CSS 內嵌（T39）
+
+撤銷 `0145868b Inline deterministic critical styles for the homepage`：關鍵 CSS 內嵌加上 `home.css`／`colors_and_type.css` 延後載入後，兩次 Lighthouse 量測 CLS 由 0 變 0.633、效能分數由 99 跌至 66～67、LCP 2,327～2,433 ms 反而比只壓縮 `home.js` 的 2,156～2,171 ms 差；延後樣式造成首屏位移。委託人裁定撤銷，`index.html`、兩份 CSS、建置腳本與契約回到 T38 狀態；首頁 LCP 以 T38 結果為準。
+
+```powershell
+git add -- ".gitattributes" "結構工具箱/index.html" "結構工具箱/assets/home/home.css" "結構工具箱/assets/hy/colors_and_type.css" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/tools/build-pages-artifact.js" homepage-quality.browser.test.js tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+

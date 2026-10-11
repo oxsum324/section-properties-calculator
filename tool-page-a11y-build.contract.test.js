@@ -25,23 +25,6 @@ const check = spawnSync(process.execPath, [path.join(root, buildPath), '--check'
 assert.equal(check.error, undefined, `build check should start: ${check.error?.message}`);
 assert.equal(check.status, 0, `generated runtime must match source bytes: ${check.stderr}`);
 const canonicalPath = '結構工具箱/tools/build-minified-runtimes.js';
-const criticalBuilderPath = '結構工具箱/tools/build-home-critical-css.js';
-const { buildCriticalCss } = require('./結構工具箱/tools/build-home-critical-css');
-assert.ok(PRIVATE_FILES.has(criticalBuilderPath), 'critical CSS builder is explicitly private');
-assert.equal(classifyPublishedPath(criticalBuilderPath).publish, false, 'critical CSS builder must not enter Pages');
-const criticalCheck = spawnSync(process.execPath, [path.join(root, criticalBuilderPath), '--check'], {
-  cwd: root, encoding: 'utf8', windowsHide: true,
-});
-assert.equal(criticalCheck.error, undefined, `critical CSS check should start: ${criticalCheck.error?.message}`);
-assert.equal(criticalCheck.status, 0, `critical CSS must match marked styles: ${criticalCheck.stderr}`);
-assert.ok(Buffer.byteLength(buildCriticalCss()) <= 6000, 'homepage critical CSS retains the 6000-byte limit');
-const homeIndex = fs.readFileSync(path.join(root, '結構工具箱/index.html'), 'utf8');
-const noScriptStyles = homeIndex.match(/<noscript>([\s\S]*?)<\/noscript>/)?.[1];
-assert.ok(noScriptStyles, 'homepage has a no-JavaScript stylesheet fallback');
-for (const href of ['assets/hy/colors_and_type.css?v=20261004', 'assets/home/home.css?v=20261004']) {
-  assert.ok(homeIndex.includes(`href="${href}" media="print" onload="this.media='all'"`), `${href} loads without blocking first paint`);
-  assert.ok(noScriptStyles.includes(`<link rel="stylesheet" href="${href}">`), `${href} remains complete without JavaScript`);
-}
 const canonicalCheck = spawnSync(process.execPath, [path.join(root, canonicalPath), '--check'], {
   cwd: root, encoding: 'utf8', windowsHide: true,
 });
@@ -105,8 +88,6 @@ const dependencies = extractLiteral(home, 'HOME_TOOL_UPDATE_DEPENDENCIES').route
 const homeRoutes = dependencies;
 assert.deepEqual(Array.from(homeRoutes['/toolbox-home']), [
   '結構工具箱/assets/home/home.js', '結構工具箱/assets/home/src/home.source.js',
-  '結構工具箱/assets/home/home.css', '結構工具箱/assets/hy/colors_and_type.css',
-  '結構工具箱/tools/build-home-critical-css.js',
 ], 'homepage registers its unchanged runtime and readable source');
 for (const runtimeDefinition of runtimes) {
   for (const [route, files] of Object.entries(homeRoutes)) {
