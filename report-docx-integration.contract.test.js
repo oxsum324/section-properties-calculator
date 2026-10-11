@@ -10,11 +10,18 @@ const converterFile = '結構工具箱/core/ui/report-docx.js';
 const reports = ['結構工具箱/core/ui/report.js', '鋼筋混凝土/shared/report.js'];
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
-function render(file, enabled) {
+function render(file, enabled, converterScript = converterFile) {
   let html;
-  const context = { console, window: { open() { return { document: { open() {}, write(value) { html = value; }, close() {} } }; } } };
+  const popup = { document: { open() {}, write(value) { html = value; }, close() {} },
+    location: { replace(url) { assert.equal(url, 'blob:docx-contract'); } }, addEventListener() {} };
+  const context = { console, window: {
+    // Match the existing Blob popup API; capture the real serialized HTML bytes.
+    Blob: class { constructor(parts, options) { html = parts.join(''); assert.equal(options.type, 'text/html;charset=utf-8'); } },
+    URL: { createObjectURL() { return 'blob:docx-contract'; }, revokeObjectURL() {} },
+    open() { return popup; }
+  } };
   vm.createContext(context);
-  for (const script of ['結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', converterFile, file]) vm.runInContext(read(script), context, { filename: script });
+  for (const script of ['結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', converterScript, file]) vm.runInContext(read(script), context, { filename: script });
   assert.doesNotMatch(context.ReportDocxFactory.toString(), /<\/(?:script|style)\b|<!--/i);
   context.ReportDocxLibraryURL = 'https://example.invalid/local-vendor/index.iife.js';
   context.openReport({ title: '中文文書版測試', project: { name: '案件甲', no: 'DOCX-QA', designer: '測試' }, textExport: enabled,
@@ -24,8 +31,8 @@ function render(file, enabled) {
 }
 
 async function main() {
-  for (const file of reports) for (const enabled of [true, false]) {
-    const html = render(file, enabled), errors = [];
+  for (const converterScript of [converterFile, '結構工具箱/core/ui/src/report-docx.source.js']) for (const file of reports) for (const enabled of [true, false]) {
+    const html = render(file, enabled, converterScript), errors = [];
     const virtualConsole = new VirtualConsole();
     virtualConsole.on('jsdomError', error => errors.push(error.message));
     const dom = new JSDOM(html, { runScripts: 'outside-only', virtualConsole });

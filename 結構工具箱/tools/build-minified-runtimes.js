@@ -25,6 +25,42 @@ const runtimes = [
     output: '結構工具箱/core/loads/wind.js',
     builder: 'build-minified-runtimes.js',
   },
+  {
+    id: 'report-docx',
+    source: '結構工具箱/core/ui/src/report-docx.source.js',
+    output: '結構工具箱/core/ui/report-docx.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
+    id: 'tool-workflow',
+    source: '結構工具箱/core/ui/src/tool-workflow.source.js',
+    output: '結構工具箱/core/ui/tool-workflow.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
+    id: 'workflow-adapters',
+    source: '結構工具箱/tools/src/tool-workflow-adapters.source.js',
+    output: '結構工具箱/tools/tool-workflow-adapters.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
+    id: 'toolbox-storage',
+    source: '結構工具箱/tools/src/project-storage.source.js',
+    output: '結構工具箱/tools/project-storage.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
+    id: 'rc-storage',
+    source: '鋼筋混凝土/shared/src/project-storage.source.js',
+    output: '鋼筋混凝土/shared/project-storage.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
+    id: 'loadcombo',
+    source: '結構工具箱/core/loads/src/loadcombo.source.js',
+    output: '結構工具箱/core/loads/loadcombo.js',
+    builder: 'build-minified-runtimes.js',
+  },
 ];
 
 function headerFor(runtime) {
@@ -61,12 +97,12 @@ async function main() {
   const args = process.argv.slice(2);
   const check = args.includes('--check');
   const selected = args.filter(arg => arg !== '--check').map(arg => {
-    if (!arg.startsWith('--only=')) throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind]');
+    if (!arg.startsWith('--only=')) throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo]');
     return arg.slice('--only='.length);
   });
   if (args.filter(arg => arg === '--check').length > 1 || selected.length > 1
       || selected.some(id => !runtimes.some(runtime => runtime.id === id))) {
-    throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind]');
+    throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo]');
   }
   if (!fs.existsSync(path.join(terserPath, 'package.json'))) {
     throw new Error('Run ensure-homepage-quality-deps.ps1 to install the pinned ignored Terser dependency.');

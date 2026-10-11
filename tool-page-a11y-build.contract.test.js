@@ -36,10 +36,14 @@ for (const relativePath of [...sourcePaths, canonicalPath, buildPath]) {
   assert.ok(PRIVATE_FILES.has(relativePath), `${relativePath} must be explicitly private`);
   assert.equal(classifyPublishedPath(relativePath).publish, false, `${relativePath} must not enter Pages`);
 }
+const runtimeByteLimits = { a11y: 10500, profile: 39000, wind: 45000, 'report-docx': 12800, 'tool-workflow': 7548, 'workflow-adapters': 6190, 'toolbox-storage': 16627, 'rc-storage': 4947, 'loadcombo': 30728 };
 for (const runtimeDefinition of runtimes) {
   const runtimePath = path.join(root, runtimeDefinition.output);
   assert.equal(classifyPublishedPath(runtimeDefinition.output).publish, true, `${runtimeDefinition.output} stays public`);
   const bytes = fs.readFileSync(runtimePath);
+  assert.ok(Number.isSafeInteger(runtimeByteLimits[runtimeDefinition.id]), `${runtimeDefinition.id} has a measured byte limit`);
+  assert.ok(bytes.length <= runtimeByteLimits[runtimeDefinition.id], `${runtimeDefinition.output} exceeds ${runtimeByteLimits[runtimeDefinition.id]} bytes: ${bytes.length}`);
+  assert.ok(!fs.readFileSync(path.join(root, runtimeDefinition.source)).includes(13), `${runtimeDefinition.source} uses LF`);
   assert.equal(bytes.toString('utf8').split('\n')[0], headerFor(runtimeDefinition),
     `${runtimeDefinition.output} retains its generated marker`);
   assert.ok(!bytes.includes(13), `${runtimeDefinition.output} uses LF`);
@@ -78,6 +82,11 @@ const tools = extractLiteral(home, 'tools').filter(tool => tool.state === 'forma
 const routeFileMap = extractLiteral(home, 'routeFileMap');
 const dependencies = extractLiteral(home, 'HOME_TOOL_UPDATE_DEPENDENCIES').routes;
 const homeRoutes = dependencies;
+for (const runtimeDefinition of runtimes) {
+  for (const [route, files] of Object.entries(homeRoutes)) {
+    if (files.includes(runtimeDefinition.output)) assert.ok(files.includes(runtimeDefinition.source), `${route} registers readable source for ${runtimeDefinition.id}`);
+  }
+}
 assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/tools/project-meta-profile.js')).length, 42,
   'all 42 profile runtime date dependencies stay registered');
 assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/tools/src/project-meta-profile.source.js')).length, 42,

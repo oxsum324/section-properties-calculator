@@ -659,3 +659,15 @@ git add -- "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html"
 ```powershell
 git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
+
+## 2026-10-11：T36 第二批共用執行期確定性壓縮
+
+六份可讀來源保持原始內容，僅統一 LF：`結構工具箱/core/ui/src/report-docx.source.js`、`結構工具箱/core/ui/src/tool-workflow.source.js`、`結構工具箱/tools/src/tool-workflow-adapters.source.js`、`結構工具箱/tools/src/project-storage.source.js`、`鋼筋混凝土/shared/src/project-storage.source.js`、`結構工具箱/core/loads/src/loadcombo.source.js`。沿用 `結構工具箱/tools/build-minified-runtimes.js` 與 ignored Terser 5.44.0 產生原公開路徑，首行標記來源，不使用 unsafe 或 property mangling。來源精確列入 Pages PRIVATE_FILES，來源與生成檔固定 LF；生成一致性、逐檔體積上限（本批實測加 10%、向上取整）與對應首頁來源依賴由 `tool-page-a11y-build.contract.test.js` 檢查，原三檔上限保持。
+
+鏡像 manifest 的四筆來源均不含本批六檔。`結構工具箱/tools/project-storage.test.js` 保留全部字面斷言並改讀可讀來源；`結構工具箱/tools/local-quick-tools.contract.test.js` 的 LoadCombo VM 改讀來源，公開輸出仍由既有 LoadCombo 行為／家族測試執行。`report-docx-integration.contract.test.js` 同時載入公開與來源版本，保留各自可攜 HTML factory／Word 邊界全部斷言；其餘 HTML script VM 與 require 讀取者執行公開輸出之行為，不依賴函式排版。首頁依賴依實際 script 消費頁補齊公開檔及來源檔；不更改工具清冊欄位或公開路徑。
+
+```powershell
+git add -- ".gitattributes" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/home.js" "結構工具箱/tools/project-storage.test.js" "結構工具箱/tools/local-quick-tools.contract.test.js" "report-docx-integration.contract.test.js" "結構工具箱/core/ui/src/report-docx.source.js" "結構工具箱/core/ui/report-docx.js" "結構工具箱/core/ui/src/tool-workflow.source.js" "結構工具箱/core/ui/tool-workflow.js" "結構工具箱/tools/src/tool-workflow-adapters.source.js" "結構工具箱/tools/tool-workflow-adapters.js" "結構工具箱/tools/src/project-storage.source.js" "結構工具箱/tools/project-storage.js" "鋼筋混凝土/shared/src/project-storage.source.js" "鋼筋混凝土/shared/project-storage.js" "結構工具箱/core/loads/src/loadcombo.source.js" "結構工具箱/core/loads/loadcombo.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
+```
+
+DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未壓縮來源也會失敗；本包僅補齊替身並檢查 MIME／Blob 導覽，不更動任何 report.js 或 report-utils.js。首次失敗與原替身重現紀錄保留，所有原 Word／可攜 HTML 斷言均保留。

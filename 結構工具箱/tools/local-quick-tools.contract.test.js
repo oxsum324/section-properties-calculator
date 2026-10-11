@@ -174,7 +174,7 @@ const repoDocs = {
   steelColumn: readText(toolboxFile('tools/鋼構/steel-column.html')),
   forcePicker: readText(toolboxFile('tools/force-picker.html')),
   forcePickerCore: readText(toolboxFile('core/ui/force-picker.js')),
-  loadComboCore: readText(toolboxFile('core/loads/loadcombo.js')),
+  loadComboCore: readText(toolboxFile('core/loads/src/loadcombo.source.js')),
   forcesReceive: readText(toolboxFile('core/ui/forces-receive.js')),
   rcFoundation: readText(repoFile('鋼筋混凝土/tools/foundation.html')),
   readme: readText(repoFile('README.md')),
@@ -800,7 +800,7 @@ assertIncludes(repoDocs.forcesReceive, '未驗證來源', 'force receiver disclo
     Object,
   };
   vm.createContext(context);
-  vm.runInContext(repoDocs.loadComboCore, context, { filename:'core/loads/loadcombo.js' });
+  vm.runInContext(repoDocs.loadComboCore, context, { filename:'core/loads/src/loadcombo.source.js' });
   vm.runInContext(repoDocs.forcePickerCore, context, { filename:'core/ui/force-picker.js' });
   const combination = {
     name:'1.2D+1.0L-1.0E',

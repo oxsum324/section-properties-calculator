@@ -4,6 +4,12 @@ const os = require('os');
 const path = require('path');
 
 const PRIVATE_FILES = new Set([
+  '結構工具箱/core/ui/src/report-docx.source.js',
+  '結構工具箱/core/ui/src/tool-workflow.source.js',
+  '結構工具箱/tools/src/tool-workflow-adapters.source.js',
+  '結構工具箱/tools/src/project-storage.source.js',
+  '鋼筋混凝土/shared/src/project-storage.source.js',
+  '結構工具箱/core/loads/src/loadcombo.source.js',
   '結構工具箱/tools/a11y/tool-page-a11y.source.js',
   '結構工具箱/tools/src/project-meta-profile.source.js',
   '結構工具箱/core/loads/src/wind.source.js',

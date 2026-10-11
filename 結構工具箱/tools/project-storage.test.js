@@ -160,7 +160,7 @@ const missingDraftController = Storage.createCaseDraftController({
 assert.deepEqual(missingDraftController.load().reason, 'missing', 'missing case draft remains a non-destructive warning');
 assert.equal(missingDraftStatuses.at(-1).tone, 'warn', 'missing case draft uses warning status');
 
-const storageSource = require('fs').readFileSync(require.resolve('./project-storage.js'), 'utf8');
+const storageSource = require('fs').readFileSync(require.resolve('./src/project-storage.source.js'), 'utf8');
 assert(storageSource.includes("['runCheck', 'calc', 'calculate', 'compute', 'renderSummaryFromFields', 'renderSummary', 'loadOverview']"), 'project storage refreshPage checks renderSummaryFromFields before loadOverview');
 assert(storageSource.includes('continue;'), 'project storage refreshPage keeps trying later refresh candidates after an earlier helper throws');
 assert(storageSource.includes("@media print{.' + CONTROL_CLASS + '{display:none!important;}}"), 'project storage bar stays screen-only and does not print into PDF output');
