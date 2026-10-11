@@ -704,3 +704,13 @@ git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/ho
 git add -- ".gitattributes" "結構工具箱/index.html" "結構工具箱/assets/home/home.css" "結構工具箱/assets/hy/colors_and_type.css" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/tools/build-pages-artifact.js" homepage-quality.browser.test.js tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
+## 2026-10-11：入口契約 git 查詢記憶化（放行前修正）
+
+第十階段 T38／T40 把多個可讀來源登錄進 `HOME_TOOL_UPDATE_DEPENDENCIES` 後，`toolbox-entrypoints.contract.test.js` 對每條路由的每個依賴各自執行 `git log`／`git status`／`git diff`，單跑 226 秒，超過正式預檢 180 秒逾時（runId 20261011-220100 失敗項之一）。改為以檔案路徑記憶化 `latestCommittedDate` 與 `hasWorkingTreeChange`，斷言與語意不變，單跑降為 54 秒。
+
+同輪另一失敗為平台稽核：Codex 以 PowerShell 7 執行鋼構稽核後寫出的 `鋼構工具/output/audit/audit-status.json` 無 BOM，`audit-all.ps1` 以未指定編碼的 `Get-Content` 讀取時被 Windows PowerShell 當 CP950 解碼而 JSON 解析失敗；已就地補 BOM（ignored 輸出檔，未改腳本），稽核腳本讀檔一律加 `-Encoding UTF8` 列為後續派工。
+
+```powershell
+git add -- toolbox-entrypoints.contract.test.js STAGING_GROUPS.md
+```
+

@@ -218,7 +218,15 @@ function assertHomeDate(value, label) {
   assert.ok(parsed <= tomorrow, `${label} must not be future dated: ${value}`);
 }
 
+const latestCommittedDateCache = new Map();
 function latestCommittedDate(relativeFile) {
+  if (latestCommittedDateCache.has(relativeFile)) return latestCommittedDateCache.get(relativeFile);
+  const value = latestCommittedDateUncached(relativeFile);
+  latestCommittedDateCache.set(relativeFile, value);
+  return value;
+}
+
+function latestCommittedDateUncached(relativeFile) {
   const result = spawnSync('git', ['log', '-1', '--format=%cs', '--', relativeFile], {
     cwd: repoRoot,
     encoding: 'utf8',
@@ -236,7 +244,15 @@ function latestCommittedDate(relativeFile) {
   return value;
 }
 
+const workingTreeChangeCache = new Map();
 function hasWorkingTreeChange(relativeFile) {
+  if (workingTreeChangeCache.has(relativeFile)) return workingTreeChangeCache.get(relativeFile);
+  const value = hasWorkingTreeChangeUncached(relativeFile);
+  workingTreeChangeCache.set(relativeFile, value);
+  return value;
+}
+
+function hasWorkingTreeChangeUncached(relativeFile) {
   const statusResult = spawnSync('git', ['status', '--porcelain', '--untracked-files=all', '--', relativeFile], {
     cwd: repoRoot,
     encoding: 'utf8',
