@@ -36,7 +36,7 @@ function sourceScope() {
   // The overlay only packages survey runtime. Check this release commit; prior
   // unrelated master commits are guarded by the byte-for-byte site inventory.
   const changed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', head]).toString().split('\0').filter(Boolean);
-  assert(changed.every(name => name.startsWith('field-survey/') || ['.github/workflows/pages-deploy.yml', '.github/workflows/field-survey-deploy.yml', '結構工具箱/tools/build-pages-artifact.js', '結構工具箱/tools/sync-survey-public-version.js', '結構工具箱/assets/home/home.js', '結構工具箱/tools/pages-live-smoke.js', 'pages-release-governance.contract.test.js', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md'].includes(name)), 'Source changes exceed the survey module and its publishing boundary');
+  assert(changed.every(name => name.startsWith('field-survey/') || ['.github/workflows/pages-deploy.yml', '.github/workflows/field-survey-deploy.yml', '結構工具箱/tools/build-pages-artifact.js', '結構工具箱/tools/sync-survey-public-version.js', '結構工具箱/assets/home/home.js', '結構工具箱/assets/home/src/home.source.js', '結構工具箱/tools/pages-live-smoke.js', 'pages-release-governance.contract.test.js', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md'].includes(name)), 'Source changes exceed the survey module and its publishing boundary');
 }
 // Source consistency only: version bumps must carry the home card and live probe
 // markers in the same source (contract tests; probes target deployed field-survey/

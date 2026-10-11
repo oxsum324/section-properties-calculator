@@ -8,6 +8,12 @@ const terserPath = path.join(repoRoot, 'output/playwright/phase2-quality-deps/no
 const requiredVersion = '5.44.0';
 const runtimes = [
   {
+    id: 'home',
+    source: '結構工具箱/assets/home/src/home.source.js',
+    output: '結構工具箱/assets/home/home.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
     id: 'a11y',
     source: '結構工具箱/tools/a11y/tool-page-a11y.source.js',
     output: 'tool-page-a11y.js',
@@ -97,12 +103,12 @@ async function main() {
   const args = process.argv.slice(2);
   const check = args.includes('--check');
   const selected = args.filter(arg => arg !== '--check').map(arg => {
-    if (!arg.startsWith('--only=')) throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo]');
+    if (!arg.startsWith('--only=')) throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=home|a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo]');
     return arg.slice('--only='.length);
   });
   if (args.filter(arg => arg === '--check').length > 1 || selected.length > 1
       || selected.some(id => !runtimes.some(runtime => runtime.id === id))) {
-    throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo]');
+    throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=home|a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo]');
   }
   if (!fs.existsSync(path.join(terserPath, 'package.json'))) {
     throw new Error('Run ensure-homepage-quality-deps.ps1 to install the pinned ignored Terser dependency.');

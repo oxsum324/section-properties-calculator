@@ -10,7 +10,8 @@ const { execFileSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '../..');
 const toolboxRoot = path.join(repoRoot, '結構工具箱');
-const homePath = path.join(toolboxRoot, 'assets', 'home', 'home.js');
+const homePath = path.join(toolboxRoot, 'assets', 'home', 'src', 'home.source.js');
+const builderPath = path.join(__dirname, 'build-minified-runtimes.js');
 const checkOnly = process.argv.includes('--check');
 const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
 
@@ -72,13 +73,15 @@ if (checkOnly) {
     console.error(`首頁更新日未同步（${changes.length} 項）：\n  ${changes.join('\n  ')}\n請執行 node 結構工具箱/tools/sync-home-update-dates.js`);
     process.exit(1);
   }
-  console.log('home update dates in sync');
+  execFileSync(process.execPath, [builderPath, '--only=home', '--check'], { cwd: repoRoot, stdio: 'inherit', windowsHide: true });
+  console.log('home update dates and generated runtime in sync');
 } else {
   const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   for (const [route, date] of Object.entries(dates)) {
     source = source.replace(new RegExp(`('${escape(route)}': ')\\d{4}-\\d{2}-\\d{2}(')`), `$1${date}$2`);
   }
   source = source.replace(/(HOME_TOOL_UPDATES = \{[\s\S]*?generatedAt: ')\d{4}-\d{2}-\d{2}(')/, `$1${generatedAt}$2`);
-  fs.writeFileSync(homePath, source, 'utf8');
+  fs.writeFileSync(homePath, source.replace(/\r\n?/g, '\n'), 'utf8');
+  execFileSync(process.execPath, [builderPath, '--only=home'], { cwd: repoRoot, stdio: 'inherit', windowsHide: true });
   console.log(changes.length ? `updated ${changes.length} item(s):\n  ${changes.join('\n  ')}` : 'already in sync');
 }

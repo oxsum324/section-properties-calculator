@@ -4,6 +4,7 @@ const os = require('os');
 const path = require('path');
 
 const PRIVATE_FILES = new Set([
+  '結構工具箱/assets/home/src/home.source.js',
   '結構工具箱/core/ui/src/report-docx.source.js',
   '結構工具箱/core/ui/src/tool-workflow.source.js',
   '結構工具箱/tools/src/tool-workflow-adapters.source.js',

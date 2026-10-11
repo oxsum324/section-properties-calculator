@@ -1,0 +1,1860 @@
+(function () {
+  'use strict';
+
+  const categories = [
+    { id: 'all', label: '全部', summary: '顯示所有已納入首頁的工具。' },
+    { id: 'analysis', label: '結構分析力量', summary: '純分析、模型或力學求解取得內力、反力與變位。', icon: 'analysis', mark: 'S' },
+    { id: 'wind', label: '風力規範外力', summary: '依耐風規範取得設計風壓、風力與相關係數。', icon: 'wind', mark: 'W' },
+    { id: 'seismic', label: '地震力規範外力', summary: '依耐震規範取得等值靜力、附屬構造物與雜項工作物地震力。', icon: 'seismic', mark: 'E' },
+    { id: 'member', label: '構件承載力檢核', summary: '拿已知力量檢核 RC、鋼構、基礎與補強構件容量。', icon: 'member', mark: 'F' },
+    { id: 'attachments', label: '連接、附掛物與外牆構件', summary: '連接板、錨栓、石材固定與外牆固定構件本身檢核。', icon: 'attachments', mark: 'B' },
+    { id: 'reference', label: '斷面與資料查詢', summary: '斷面性質、材料表與幾何資料查詢。', icon: 'reference', mark: 'P' },
+    { id: 'temporary', label: '施工臨設與現場快算', summary: '覆工板、開挖支撐、局部基礎與現場初判。', icon: 'temporary', mark: 'T' }
+  ];
+
+  const categoryIcons = {
+    analysis: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16"/><path d="M5 16l4-5 4 3 6-8"/><circle cx="9" cy="11" r="1.4"/><circle cx="13" cy="14" r="1.4"/><circle cx="19" cy="6" r="1.4"/></svg>',
+    wind: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h10a3 3 0 1 0-3-3"/><path d="M3 13h15a3 3 0 1 1-3 3"/><path d="M5 18h7"/></svg>',
+    seismic: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16"/><path d="M7 18l2-5 3 3 3-7 2 9"/><path d="M9 6h6"/><path d="M12 3v6"/></svg>',
+    member: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 19h14"/><path d="M8 5v14"/><path d="M16 5v14"/><path d="M8 9h8"/><path d="M8 15h8"/></svg>',
+    attachments: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10"/><path d="M12 4v8"/><path d="M9 12h6"/><path d="M10 16l2 4 2-4"/><path d="M5 8h3"/><path d="M16 8h3"/></svg>',
+    reference: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M5 10h14"/><path d="M10 5v14"/><path d="M14 5v14"/><path d="M7 16h1"/></svg>',
+    temporary: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14"/><path d="M7 17l2-9h6l2 9"/><path d="M8 11h8"/><path d="M6 20h12"/><path d="M10 8V5h4v3"/></svg>'
+  };
+
+  const memberSystems = [
+    { id: 'all', label: '全部', summary: '依材料系統分段顯示 RC、鋼構與 SRC 構件工具。' },
+    { id: 'rc', label: 'RC', summary: '鋼筋混凝土梁、柱、板、牆、基礎、樁與補強構件檢核。' },
+    { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱，以及含 Shear Tab、平板支撐 Gusset、梁柱彎矩接頭與全斷面 CJP 耐震柱續接能力審查附件的鋼構正式入口。' },
+    { id: 'src', label: 'SRC', summary: '包覆型 SRC 梁、柱正式檢核、案件重播與精簡計算書。' }
+  ];
+
+  const toolStates = {
+    formal: { label: '正式核算', tone: 'formal', summary: '可作正式計算書或正式檢核入口，仍需工程師確認輸入與適用範圍。' },
+    assist: { label: '分析輔助', tone: 'assist', summary: '用於模型前後校核、手算比對與分析結果整理，不取代完整結構模型。' },
+    reference: { label: '輔助查詢', tone: 'reference', summary: '用於查詢、回填或整理斷面與規範參數，本身不是完整計算書。' },
+    estimate: { label: '初估 / 簡化', tone: 'estimate', summary: '用於現場快算與初步判斷，後續需回正式模型、配筋或構件檢核。' },
+    report: { label: '案件報表', tone: 'report', summary: '用於承接外部模型或案件結果，重點在摘要、比對與報表整理。' },
+    workflow: { label: '案件入口', tone: 'workflow', summary: '用於統一案件參數與導向子工具，適合先整理再分流。' },
+    service: { label: '本機服務', tone: 'service', summary: '需要啟動本機前後端或資料庫服務，適合較完整的案件工作流。' },
+    legacy: { label: '過渡工具', tone: 'legacy', summary: '只供既有案件延續與查核；新案正式計算附件必須由正式頁產出。' },
+    external: { label: '外部套件', tone: 'external', summary: '外部或獨立套件，送審前需回正式工具與專案流程確認。' }
+  };
+
+  const stateBoundaryRules = {
+    assist: { limitAny: ['不取代', '仍應回正式', '不是完整'], forbiddenCapabilities: ['正式核算'] },
+    reference: { limitAny: ['不取代', '不處理', '仍需回', '需由', '支持'], forbiddenCapabilities: ['正式核算'] },
+    workflow: { limitAny: ['需專案判斷', '另行', '特殊'], forbiddenCapabilities: ['正式核算'] },
+    estimate: { limitAny: ['初步', '後續', '需回', '簡化'], forbiddenCapabilities: ['正式核算'] },
+    report: { limitAny: ['不是', '不取代', '由案件'], forbiddenCapabilities: ['正式核算'] },
+    service: { limitAny: ['需先啟動', '本機'], forbiddenCapabilities: ['正式核算'] },
+    legacy: { limitAny: ['新案', '正式頁'], requiredCapabilities: ['過渡工具'], forbiddenCapabilities: ['正式核算'] },
+    external: { limitAny: ['外部', '送審前'], forbiddenCapabilities: ['正式核算'] }
+  };
+
+  const governanceSources = {
+    'formal-tools': {
+      label: 'Formal wind/seismic report boundary',
+      preflightKeys: ['formal-traceability-contract', 'formal-tools-static'],
+      fullPreflightKeys: ['formal-browser-smoke'],
+      cardTag: '報告邊界'
+    },
+    'rc-audit': {
+      label: 'RC audit / report boundary',
+      preflightKeys: ['rc-traceability-contract', 'rc-audit-status', 'rc-column-report-contract', 'rc-shear-wall-report-contract'],
+      cardTag: '報告邊界'
+    },
+    'steel-audit': {
+      label: 'Steel audit / report boundary',
+      preflightKeys: ['steel-traceability-contract', 'steel-formal-regression', 'steel-audit-status'],
+      cardTag: '報告邊界'
+    },
+    'src-formal': {
+      label: 'SRC member report boundary',
+      preflightKeys: ['src-formal-regression'],
+      legacyPreflightKeys: ['src-beam-core-regression'],
+      fullPreflightKeys: [],
+      cardTag: '計算書邊界'
+    },
+    'anchor-deployment': {
+      label: 'Anchor deployment',
+      preflightKeys: ['anchor-traceability-contract', 'anchor-route', 'anchor-report-contract'],
+      fullPreflightKeys: ['anchor-verify'],
+      cardTag: '輸出邊界'
+    },
+    'stone-v2': {
+      label: 'Stone V2',
+      preflightKeys: ['stone-feedback-contract', 'stone-traceability-contract', 'stone-report-contract', 'stone-self-check', 'stone-quick-check'],
+      cardTag: 'Word/PDF 邊界'
+    },
+    'decking-contract': {
+      label: 'Decking governance',
+      preflightKeys: ['decking-tools-contract', 'decking-traceability-contract', 'decking-report-contract'],
+      cardTag: 'Word 邊界'
+    },
+    'excavation-service': {
+      label: 'Excavation service governance',
+      preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract', 'construction-stage-load-handoff'],
+      fullPreflightKeys: ['excavation-backend', 'excavation-frontend'],
+      cardTag: 'PDF/DOCX 邊界'
+    },
+    'continuous-beam': {
+      label: 'Continuous beam boundary',
+      preflightKeys: ['continuous-beam'],
+      cardTag: '計算書邊界'
+    },
+    'frame-analysis': {
+      label: 'Frame analysis boundary',
+      preflightKeys: ['frame-analysis-contract'],
+      fullPreflightKeys: ['frame-analysis-browser-smoke'],
+      cardTag: '正式附件邊界'
+    },
+    'section-tools': {
+      label: 'Section tools boundary',
+      preflightKeys: ['section-tools-contract'],
+      cardTag: '報表邊界'
+    },
+    'local-quick-contract': {
+      label: 'Local quick governance',
+      preflightKeys: ['local-quick-tools-static'],
+      fullPreflightKeys: ['local-quick-tools-runner'],
+      cardTag: 'JSON/計算書/文字 邊界'
+    }
+  };
+
+  const reportReadinessOverview = {
+    badge: '頁面專用',
+    label: '報告閱讀狀態總覽',
+    summary: '頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；計算書預設為可列印的內部審閱，勾選核可後改為正式附件。工程檢核狀態與文件身分分開，空白案件欄位可由主文承接。',
+    compactSummary: '頁面診斷明細不進計算書；文件預設內部審閱，明確核可後為正式附件，兩者皆可列印。',
+    reportTextSmokeSummary: '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理。',
+    reportTextSmokeScope: '正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具與局部快算。矩陣外工具家族仍以各自報告合約治理。',
+    renderedDeliveryEvidenceSummary: '最新正式放行的實際交付物渲染會以 PDF、DOCX 或 workbook 成品驗證首頁正式工具。',
+    meta: [
+      { text: '頁面邊界', tone: 'ok' },
+      { text: '可讀文字', tone: 'ok' },
+      { text: '瀏覽器 smoke', tone: 'ok' },
+      { text: '成品渲染', tone: 'ok' },
+      { text: '成品檔案完整性', tone: 'ok' },
+      { text: '數值結果鏈', tone: 'ok' },
+      { text: 'RC 結果鏈', tone: 'ok' },
+      { text: '鋼構結果鏈', tone: 'ok' },
+      { text: '石材結果鏈', tone: 'ok' },
+      { text: '錨栓結果鏈', tone: 'ok' },
+      { text: '覆工板結果鏈', tone: 'ok' },
+      { text: '開挖結果鏈', tone: 'ok' },
+      { text: '局部快算結果鏈', tone: 'ok' }
+    ],
+    details: [
+      '已治理家族涵蓋風力 / 地震 / 鋼構正式工具、RC 正式工具、連續梁 / 斷面與補強頁、平面剛架、錨栓、石材、覆工板、開挖擋土支撐與局部快算。',
+      '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理；頁面診斷明細不會寫入計算書、列印或 PDF，內部審閱輸出會由附件組包檢查阻擋，正式附件須有明確核可狀態。',
+      '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
+      '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
+    ]
+  };
+
+  // 工具內容更新日與正式放行確認日是不同概念：前者逐入口維護，後者對齊
+  // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
+  const HOME_TOOL_UPDATES = {
+    version: 2,
+    generatedAt: '2026-10-11',
+    releaseVerifiedAt: null,
+    source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
+    routes: {
+      '/condition-survey': '2026-09-29',
+      '/beam-analysis': '2026-10-11',
+      '/frame-analysis': '2026-10-11',
+      '/struct-dx': '2026-08-13',
+      '/section': '2026-10-11',
+      '/composite-section': '2026-10-11',
+      '/rc-beam': '2026-10-11',
+      '/rc-deep-beam-stm': '2026-10-11',
+      '/rc-column': '2026-10-11',
+      '/rc-slab': '2026-10-11',
+      '/rc-wall': '2026-10-11',
+      '/rc-shear-wall': '2026-10-11',
+      '/rc-foundation': '2026-10-11',
+      '/rc-foundation-deep-beam-stm': '2026-10-11',
+      '/rc-pile-cap-3d-stm': '2026-10-11',
+      '/rc-pile': '2026-10-11',
+      '/rc-retrofit-section': '2026-10-11',
+      '/rc-column-cover-deviation': '2026-10-11',
+      '/src-beam': '2026-10-11',
+      '/src-column': '2026-10-11',
+      '/steel-formal': '2026-10-11',
+      '/steel-beam-formal': '2026-10-11',
+      '/steel-column-formal': '2026-10-11',
+      '/steel-plate': '2026-10-11',
+      '/steel-beam': '2026-10-11',
+      '/steel-column': '2026-10-11',
+      '/wind-overview': '2026-10-11',
+      '/wind-kzt': '2026-10-11',
+      '/wind-special': '2026-10-11',
+      '/wind-force': '2026-10-11',
+      '/wind-cc': '2026-10-11',
+      '/wind-parapet': '2026-10-11',
+      '/wind-open-roof': '2026-10-11',
+      '/wind-object-solid': '2026-10-11',
+      '/wind-object-frame': '2026-10-11',
+      '/wind-lattice-tower': '2026-10-11',
+      '/wind-object-tower': '2026-10-11',
+      '/wind-fence-sign': '2026-10-11',
+      '/wind-sign-pole': '2026-10-11',
+      '/seismic-force': '2026-10-11',
+      '/seismic-dynamic': '2026-10-11',
+      '/seismic-appendage': '2026-10-11',
+      '/seismic-misc': '2026-10-11',
+      '/anchor': '2026-10-09',
+      '/stone-fixing': '2026-10-11',
+      '/foundation-local': '2026-10-11',
+      '/equipment-load': '2026-10-11',
+      '/earth-pressure': '2026-10-11',
+      '/floor-slab-westergaard': '2026-10-11',
+      '/cable-tension-frequency': '2026-10-11',
+      '/decking': '2026-10-11',
+      '/excavation-support': '2026-10-03'
+    }
+  };
+
+  function releaseVerificationLabel() {
+    return HOME_TOOL_UPDATES.releaseVerifiedAt || '以上方交付前檢查狀態為準';
+  }
+
+  function applyTrackedReleaseVerifiedAt(payload) {
+    const mode = preflightModeMeta(payload);
+    const generatedDate = String(payload?.generatedAt || '').slice(0, 10);
+    if (!payload || payload.kind !== 'preflight-summary' || payload.pass !== true || mode?.key !== 'release' || !/^\d{4}-\d{2}-\d{2}$/.test(generatedDate)) {
+      return false;
+    }
+    HOME_TOOL_UPDATES.releaseVerifiedAt = generatedDate;
+    document.querySelectorAll('.tool-card[data-route-href]').forEach(card => {
+      const updated = card.querySelector('.tool-updated');
+      const updatedOn = HOME_TOOL_UPDATES.routes[card.dataset.routeHref];
+      if (updated && updatedOn) updated.title = `工具內容更新：${updatedOn}；最近正式放行確認：${releaseVerificationLabel()}`;
+    });
+    return true;
+  }
+
+  const HOME_TOOL_UPDATE_DEPENDENCIES = {
+    version: 1,
+    routes: {
+      '/toolbox-home': ['結構工具箱/assets/home/home.js', '結構工具箱/assets/home/src/home.source.js'],
+      '/condition-survey': ['field-survey/app.js', 'field-survey/model.js', 'field-survey/report.js', 'field-survey/report-ui.js', 'field-survey/store.js', 'field-survey/bundle.js', 'field-survey/annotation.js', 'field-survey/sketch.js', 'field-survey/app.css', 'field-survey/sw.js', 'field-survey/manifest.webmanifest'],
+      '/beam-analysis': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js', '結構工具箱/assets/hy/colors_and_type.css', '結構工具箱/assets/hy/continuous-beam-ui.css', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/frame-analysis': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js', '結構工具箱/assets/hy/colors_and_type.css', '結構工具箱/assets/hy/frame-analysis-ui.css', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js'],
+      '/section': ['結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/materials/steel.js', '結構工具箱/core/ui/report.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/ui/src/report-docx.source.js'],
+      '/composite-section': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/materials/steel.js', '結構工具箱/core/ui/report.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/ui/src/report-docx.source.js'],
+      '/rc-beam': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/assets/hy/colors_and_type.css', '鋼筋混凝土/shared/style.css', '鋼筋混凝土/shared/tool-page.css', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '鋼筋混凝土/shared/src/project-storage.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js'],
+      '/rc-deep-beam-stm': ['鋼筋混凝土/shared/deep-beam-stm.js', '鋼筋混凝土/shared/beam-applicability.js', '鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '鋼筋混凝土/shared/style.css', '結構工具箱/assets/hy/colors_and_type.css', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/rc-column': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/assets/hy/colors_and_type.css', '鋼筋混凝土/shared/style.css', '鋼筋混凝土/shared/tool-page.css', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '鋼筋混凝土/shared/src/project-storage.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js'],
+      '/rc-slab': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/assets/hy/colors_and_type.css', '鋼筋混凝土/shared/style.css', '鋼筋混凝土/shared/tool-page.css', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '鋼筋混凝土/shared/src/project-storage.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js'],
+      '/rc-wall': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/assets/hy/colors_and_type.css', '鋼筋混凝土/shared/style.css', '鋼筋混凝土/shared/tool-page.css', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '鋼筋混凝土/shared/src/project-storage.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js'],
+      '/rc-shear-wall': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/assets/hy/colors_and_type.css', '鋼筋混凝土/shared/style.css', '鋼筋混凝土/shared/tool-page.css', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '鋼筋混凝土/shared/src/project-storage.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js'],
+      '/rc-foundation': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '鋼筋混凝土/shared/style.css', '結構工具箱/assets/hy/colors_and_type.css', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '鋼筋混凝土/shared/src/project-storage.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js'],
+      '/rc-foundation-deep-beam-stm': ['鋼筋混凝土/shared/foundation-deep-beam-stm.js', '鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '鋼筋混凝土/shared/style.css', '結構工具箱/assets/hy/colors_and_type.css', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/rc-pile-cap-3d-stm': ['鋼筋混凝土/shared/pile-cap-3d-stm.js', '鋼筋混凝土/shared/pile-cap-load-combinations.js', '鋼筋混凝土/shared/pile-cap-3d-stm-bridge.js', '鋼筋混凝土/shared/pile-cap-3d-stm-envelope.js', '鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '鋼筋混凝土/shared/style.css', '結構工具箱/assets/hy/colors_and_type.css', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/rc-pile': ['鋼筋混凝土/shared/report.js', '鋼筋混凝土/shared/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '鋼筋混凝土/shared/direct-print-boundary.css', '鋼筋混凝土/shared/common.js', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '鋼筋混凝土/shared/src/project-storage.source.js'],
+      '/rc-retrofit-section': ['結構工具箱/core/materials/concrete.js', '鋼筋混凝土/shared/common.js', '鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '鋼筋混凝土/shared/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/rc-column-cover-deviation': ['結構工具箱/tools/rc/column-cover-deviation-core.js', '鋼筋混凝土/shared/pmsection.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/src-beam': ['SRC工具/core/src-beam-core.js', 'SRC工具/src-beam.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/src-column': ['SRC工具/core/src-column-core.js', 'SRC工具/src-column.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/steel-formal': ['鋼構工具/index.html', '鋼構工具/calculator.js', '鋼構工具/app.js', '鋼構工具/steel-traceability.catalog.json', '鋼構工具/core/ui/report.js', '結構工具箱/assets/hy/colors_and_type.css', '鋼構工具/styles.css', '結構工具箱/core/direct-print-boundary.css', '鋼構工具/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js'],
+      '/steel-plate': ['鋼構工具/calculator.js', '鋼構工具/app.js', '鋼構工具/core/ui/report.js', '結構工具箱/assets/hy/colors_and_type.css', '鋼構工具/styles.css', '結構工具箱/core/direct-print-boundary.css', '鋼構工具/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js'],
+      '/steel-beam-formal': ['鋼構工具/steel-beam-formal.js', '鋼構工具/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/assets/hy/colors_and_type.css', '鋼構工具/styles.css', '鋼構工具/steel-member-formal.css', '結構工具箱/core/direct-print-boundary.css', '鋼構工具/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js'],
+      '/steel-column-formal': ['鋼構工具/steel-column-formal.js', '鋼構工具/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/assets/hy/colors_and_type.css', '鋼構工具/styles.css', '鋼構工具/steel-member-formal.css', '結構工具箱/core/direct-print-boundary.css', '鋼構工具/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js'],
+      '/steel-beam': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js'],
+      '/steel-column': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js'],
+      '/wind-overview': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/loads/project-location.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-kzt': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-force': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-cc': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-open-roof': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-parapet': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-object-solid': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-object-frame': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-lattice-tower': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-object-tower': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-fence-sign': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/wind-sign-pole': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/seismic-force': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/loads/project-location.js', '結構工具箱/core/ui/chart-runtime.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/seismic-dynamic': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/loads/project-location.js', '結構工具箱/core/ui/chart-runtime.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/seismic-appendage': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/loads/project-location.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/seismic-misc': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/loads/project-location.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/foundation-local': ['結構工具箱/tools/foundation/foundation-local-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/equipment-load': ['結構工具箱/tools/equipment/equipment-load-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/earth-pressure': ['結構工具箱/tools/earth/earth-pressure-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/floor-slab-westergaard': ['結構工具箱/tools/floor-slab/floor-slab-westergaard-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/cable-tension-frequency': ['結構工具箱/tools/cable-tension/cable-tension-frequency-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/excavation-support': ['開挖擋土支撐/index.html', '開挖擋土支撐/README.md', '開挖擋土支撐/frontend/src/App.tsx', '開挖擋土支撐/frontend/src/api.ts', '開挖擋土支撐/frontend/src/types.ts', '開挖擋土支撐/backend/app/parsers.py', '開挖擋土支撐/backend/app/main.py', '開挖擋土支撐/backend/app/calculations.py', '開挖擋土支撐/backend/app/reporting.py', '開挖擋土支撐/backend/app/schemas.py', '開挖擋土支撐/backend/tests/test_calculations.py', '開挖擋土支撐/backend/tests/test_reporting.py', '開挖擋土支撐/excavation-traceability.catalog.json', '開挖擋土支撐/backend/app/removal_transfer_handoff.py', '開挖擋土支撐/backend/app/receiver_capacity.py', '開挖擋土支撐/backend/app/receiver_capacity_attachment.py', '開挖擋土支撐/backend/tests/test_receiver_capacity.py', '開挖擋土支撐/backend/tests/test_receiver_capacity_attachment.py', '開挖擋土支撐/backend/tests/release_report_artifacts.py', '開挖擋土支撐/backend/app/receiver_operator_auth.py', '開挖擋土支撐/backend/app/receiver_operator_backup.py', '開挖擋土支撐/backend/app/receiver_operator_recovery.py', '開挖擋土支撐/backend/app/receiver_trust_backup.py', '開挖擋土支撐/backend/app/receiver_trust_recovery.py', '結構工具箱/core/direct-print-boundary.css'],
+      '/wind-special': ['結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
+      '/stone-fixing': ['結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '石材固定/vendor/loads/project-location.js', '石材固定/assets/detail-bk.webp', '石材固定/assets/detail-pk.webp', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '石材固定/vendor/loads/wind.js', '結構工具箱/core/loads/src/wind.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/decking': ['結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/anchor': ['螺栓檢討/bolt-review-tool/src/useKeyboardShortcuts.ts', '螺栓檢討/bolt-review-tool/src/useReviewArtifacts.ts', '螺栓檢討/bolt-review-tool/src/App.tsx', '螺栓檢討/bolt-review-tool/src/App.css', 'anchor/deployment-manifest.json', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js']
+    }
+  };
+
+  const tools = [
+    {
+      title: '現況鑑定紀錄',
+      version: 'V0.30.3',
+      href: '/condition-survey',
+      aliases: ['現勘紀錄', '現況巡查'],
+      categories: ['temporary'],
+      state: 'workflow',
+      output: '依戶別及位置整理的現場紀錄、原始媒體與可編輯圈註備份',
+      summary: '依戶別及位置快選現況、拍照圈註，並以細部示意圖與平面草圖定位；可產生標準／快速照片附件，支援離線、原圖備份及同事案件彙整。',
+      fit: '現況鑑定會勘紀錄與逐戶資料收集，先以少量照片試用。',
+      limit: '本版為現場紀錄工作稿；鑑定結論與正式報告須另行審閱製作，實體手機相機及容量須先試拍確認。',
+      capabilities: ['離線拍照', '圈註定位', '原圖保留', '完整備份']
+    },
+    {
+      title: '連續梁分析',
+      version: 'V1.4',
+      href: '/beam-analysis',
+      aliases: ['Continuous beam', '多跨梁分析'],
+      categories: ['analysis'],
+      state: 'assist',
+      governance: 'continuous-beam',
+      output: '內力圖、撓度、本地 JSON、共用計算書與 TXT 文字備查',
+      summary: '多跨連續梁彎矩、剪力與撓度，可導入斷面 I 值，並以本地 JSON 重播案例後輸出共用計算書與同源 TXT 文字備查。',
+      fit: '模型前後快速校核、梁系初步內力整理。',
+      limit: '不是完整結構模型替代品。',
+      capabilities: ['可列印', '本地 JSON', 'TXT 備查']
+    },
+    {
+      title: '平面剛架分析',
+      version: 'V2.0',
+      href: '/frame-analysis',
+      aliases: ['plane frame', 'direct stiffness'],
+      categories: ['analysis'],
+      state: 'formal',
+      governance: 'frame-analysis',
+      output: '位移、反力、具名組合包絡、基礎 D/L/W/E 分量 JSON、M/V/N 圖、正式 HTML/PDF 計算書、案例 JSON 與非正式 TXT 備查',
+      summary: '一階線彈性 2D 平面剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放與彈性支承，支援具名載重組合、完整平衡與求解殘差檢核；全部組合可形成樓層、節點、支承與桿件 N/V/M 包絡。正式案例 JSON 與計算書共用計算指紋，並可將指定基礎節點的 D/L/W/E 反力分量作為候選傳至樁帽三維 STM。',
+      fit: '二維、一階、線彈性平面剛架與連續梁分析；可作專案分析附件，支承、釋放、彈簧與載重組合仍由專案指定。',
+      limit: '不含 3D／扭轉、P-Δ、挫屈穩定、剪力變形、剛域、溫度／沉陷、材料或幾何非線性、動力分析及構件／接頭規範設計。',
+      capabilities: ['正式 HTML/PDF', '案例 JSON 指紋重播', 'TXT 備查', '具名載重組合', '樓層反應包絡', '節點／支承包絡', '桿件內力包絡', '跨工具基本分量', '獨立工程基準']
+    },
+    {
+      title: 'struct.dx 解題套件',
+      version: '外部',
+      href: '/struct-dx',
+      aliases: ['桁架解題', '傾角變位法'],
+      categories: ['analysis'],
+      state: 'external',
+      output: '解題推導、分析方法檢核與 AI 輔助說明',
+      summary: '桁架、剛架靜不定分析、傾角變位法與 AI 整合解題檢核。',
+      fit: '教學、推導與分析方法交叉檢查。',
+      limit: '外部套件流程，送審前需回正式工具確認。',
+      capabilities: ['AI 整合', '分析輔助']
+    },
+    {
+      title: '斷面性質計算',
+      version: 'V2.1',
+      href: '/section',
+      aliases: ['斷面參數', '慣性矩計算'],
+      categories: ['reference'],
+      state: 'reference',
+      governance: 'section-tools',
+      output: 'A、I、S、r、Z、計算書與案例 JSON',
+      summary: '基本幾何斷面 A、I、S、r、Z 計算，具採用尺寸計算書、案例重播及連續梁導入。',
+      fit: '鋼構與 RC 補算前的斷面資料整理。',
+      limit: '只處理斷面性質，不處理構件強度檢核。',
+      capabilities: ['輔助查詢', '可回填']
+    },
+    {
+      title: '合成斷面性質',
+      version: 'V1.2',
+      href: '/composite-section',
+      aliases: ['複合斷面', 'H 型鋼補強板'],
+      categories: ['reference'],
+      state: 'reference',
+      governance: 'section-tools',
+      output: '組合斷面性質、J、翹曲常數、JSON 與增益比較',
+      summary: 'H 型鋼加側板、蓋板、四面包覆，含封閉箱型 J、翹曲常數、基礎型鋼增益比較與本地 JSON 案例重播。',
+      fit: '補強或組合斷面初步整理。',
+      limit: '構件強度仍需回鋼構正式檢核。',
+      capabilities: ['組合斷面', '斷面輔助']
+    },
+    {
+      title: 'RC 梁',
+      version: 'V3.1',
+      href: '/rc-beam',
+      aliases: ['RC beam design', '鋼筋混凝土梁'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: 'RC 梁檢核摘要與計算書',
+      summary: '撓曲、剪力、扭力、撓度與特殊抗彎矩構架耐震檢核。',
+      fit: 'RC 梁構件正式檢核。',
+      limit: '需確認輸入載重與構件邊界條件來源。',
+      capabilities: ['正式核算', '112 規範']
+    },
+    {
+      title: 'RC 深梁 STM',
+      version: 'V0.3',
+      href: '/rc-deep-beam-stm',
+      aliases: ['Strut-and-Tie Model', 'STM／壓拉桿'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: '對稱單跨深梁二維 STM、拉桿配筋與正式計算書',
+      summary: '依 112 年混凝土規範第 9 與 23 章，檢核對稱單跨、跨中集中載重深梁的壓桿、拉桿、節點區、分布筋與剪力上限。',
+      fit: '符合既定對稱單跨拓樸的 RC 深梁正式 STM 檢核。',
+      limit: '連續載重、多跨、偏心載重、開孔、地盤反力、樁反力群或不對稱邊界須另建 STM。',
+      capabilities: ['正式核算', 'STM', '多排拉桿']
+    },
+    {
+      title: 'RC 柱',
+      version: 'V3.1',
+      href: '/rc-column',
+      aliases: ['RC column design', '柱軸壓強度'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: 'P-M 互制圖、圍束與柱構件檢核摘要',
+      summary: 'P-M 互制圖、軸壓上限、橫向圍束與強柱弱梁檢核。',
+      fit: 'RC 柱構件正式檢核。',
+      limit: '整體模型內力與組合仍需由案件模型提供。',
+      capabilities: ['正式核算', '互制圖']
+    },
+    {
+      title: 'RC 板',
+      version: 'V3.2',
+      href: '/rc-slab',
+      aliases: ['RC slab design', '單向板配筋'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: 'RC 板設計、配筋與檢核摘要',
+      summary: '單向連續板係數法、簡化二向條帶初估、衝剪與自動配筋。',
+      fit: '常規單向板設計，以及雙向板與無梁板的初步配置比較。',
+      limit: '雙向板並非完整 8.10 DDM；邊柱、角柱及不平衡彎矩須以專案分析補充確認。',
+      capabilities: ['單向板核算', '雙向初估']
+    },
+    {
+      title: 'RC 牆',
+      version: 'V3.2',
+      href: '/rc-wall',
+      aliases: ['RC structural wall', '牆體軸力檢核'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: 'RC 牆 P-M、面內剪力、配筋與耐震檢核摘要',
+      summary: '承重牆與結構牆 P-M 互制、軸壓與軸拉、牆端附加筋、面內剪力及特殊邊界構材。',
+      fit: 'RC 牆構件檢核與局部設計。',
+      limit: '整體耐震牆系統仍需完整模型與規範判定。',
+      capabilities: ['正式核算', 'P-M 互制', '軸壓與軸拉', '耐震構件']
+    },
+    {
+      title: 'RC 剪力牆',
+      version: 'V0.4',
+      href: '/rc-shear-wall',
+      aliases: ['RC shear wall', '特殊邊界構材'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: '面內 P-M 互制、面內剪力與特殊邊界構材檢核摘要',
+      summary: '結構牆面內撓曲 P-M 互制 (應變相容纖維法)、18.7.3 設計剪力、面內剪力 (φ 0.60/0.75 判定) 與特殊邊界構材 Ag/Ach 兩式取大圍束筋 Ash，依 112 規範第 11 與 18.7 章。',
+      fit: '剪力牆面內撓曲與剪力正式檢核。',
+      limit: '連肢牆、連接梁與整體耐震牆系統需完整模型分析。',
+      capabilities: ['正式核算', 'P-M 互制', '耐震構件']
+    },
+    {
+      title: 'RC 基礎',
+      version: 'V3.1',
+      href: '/rc-foundation',
+      aliases: ['spread footing', 'RC footing design'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: '基礎剪力、撓曲、配筋與檢核摘要',
+      summary: '獨立、聯合、筏式、樁基與擋土牆基礎，含單向雙向剪力、撓曲、設計與檢核；懸臂式主動土壓 JSON 可經同版核心驗證後銜接牆身、趾版底層與踵版頂層設計。',
+      fit: '正式基礎配筋與強度檢核。',
+      limit: '地工承載力與沉陷條件需由地工資料或另工具提供。',
+      capabilities: ['正式核算', '基礎設計']
+    },
+    {
+      title: 'RC 基礎深梁二維 STM',
+      version: 'V0.3',
+      href: '/rc-foundation-deep-beam-stm',
+      aliases: ['foundation STM', '二維基礎壓拉桿'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: '基礎深構材二維力流、拉桿配筋與正式計算書',
+      summary: '檢核置中柱載重搭配均佈地盤反力或對稱離散樁反力群的二維壓拉桿力流、分段底部拉桿、節點區與剪力容量。',
+      fit: '對稱反力且可用二維條帶代表的 RC 基礎深構材正式 STM 檢核。',
+      limit: '偏心柱載重、非對稱反力、水平力、開孔、多柱共同作用與三維樁帽須另行分析。',
+      capabilities: ['正式核算', 'STM', '基礎深構材']
+    },
+    {
+      title: 'RC 樁帽三維 STM',
+      version: 'V0.5',
+      href: '/rc-pile-cap-3d-stm',
+      aliases: ['3D pile cap', '三維樁帽壓拉桿'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: '三維樁帽力流、載重組合包絡與正式計算書',
+      summary: '由 D／L／W／E 基本分量建立 LRFD 組合或承接手動多組載重，逐組重算正交完整樁群反力、三維壓桿、X/Y 拉桿與控制包絡。',
+      fit: '單一柱或基座、完整矩形正交樁群與正向垂直反力的正式三維 STM 檢核。',
+      limit: '多柱、斜樁、拔力樁、水平反力、扭矩、缺角樁群、承台開孔與任意三維桁架須另行分析。',
+      capabilities: ['正式核算', '三維 STM', '組合包絡']
+    },
+    {
+      title: '單樁承載力設計器',
+      version: 'V3.1',
+      href: '/rc-pile',
+      aliases: ['single pile capacity', '樁軸向承載'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: '單樁承載力、沉陷與抗拔檢核摘要',
+      summary: '樁軸向承載力、沉陷檢核與抗拔安全係數，對齊 112 年基礎構造設計規範。',
+      fit: '單樁軸向與抗拔檢核。',
+      limit: '群樁、側向樁土互制與特殊施工條件需另行詳算。',
+      capabilities: ['正式核算', '112 規範']
+    },
+    {
+      title: 'RC 補強斷面',
+      version: 'V1.7',
+      href: '/rc-retrofit-section',
+      aliases: ['RC retrofit', 'CFRP 補強'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'rc-audit',
+      output: '補強斷面、P-M 互制、剪力檢核與本地 JSON',
+      summary: '梁柱補強、鋼板、CFRP、P-M 互制與剪力檢核；可用版本化 JSON 保存完整梁柱案例並重算。',
+      fit: '補強斷面評估與送審前整理。',
+      limit: '補強細部、施工與耐久性仍需專案判斷。',
+      capabilities: ['JSON', '補強']
+    },
+    {
+      title: '柱保護層偏差強度評估',
+      version: 'V0.1',
+      href: '/rc-column-cover-deviation',
+      aliases: ['rebar cover deviation', '主筋偏位'],
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      governance: 'local-quick-contract',
+      output: '四面主筋位置偏差、正負向單軸 P-M 強度比較、兩段式計算書、TXT 文字備查與 JSON',
+      summary: '以設計與實測四面「混凝土面至縱向主筋中心」建立同一矩形柱配筋模型，逐向比較設計／實測 φMn、需求利用率與容量保留比；淨保護層路線顯式加入箍筋直徑與主筋半徑。',
+      fit: '繫筋矩形非預力 RC 短柱之縱向主筋位置偏差單軸 P-M 斷面強度初估。',
+      limit: 'capacity OK 不等於保護層厚度合規；雙軸、二階、剪力、耐久、防火、施工容許差、握裹／裂縫、箍筋包覆與整體結構安全須另行判定。',
+      capabilities: ['現況強度比較', '單軸 P-M 比較', '計算書', 'TXT 備查']
+    },
+    {
+      title: '鋼構正式規範工具',
+      version: 'V1.3',
+      href: '/steel-formal',
+      aliases: ['Shear Tab', '剪力板'],
+      categories: ['member'],
+      memberSystem: 'steel',
+      state: 'formal',
+      governance: 'steel-audit',
+      output: '連接板、拉力構件、Shear Tab、平板支撐 Gusset、梁柱彎矩及全斷面 CJP 耐震柱續接能力審查附件、計算書與 TXT 文字備查',
+      summary: '審查摘要、流程與參數詞典保留在操作頁；除既有靜力接頭與單一選定構架面梁柱彎矩耐震審查外，新增全斷面 CJP 耐震柱續接能力審查，重算 13.4.1 壓拉軸力組合並核對 13.4.2 全斷面強度、1.2 m 位置、相稱銲材、WPS、NDT 計畫與證據追溯。',
+      fit: '鋼構連接板、拉力構件、既有 Shear Tab／平板支撐 Gusset、SMRF／IMRF 補強式梁柱彎矩接頭單一構架面，以及同斷面同材質同軸熱軋 H 形柱之全斷面 CJP 耐震柱續接能力審查。',
+      limit: '梁柱彎矩附件不宣稱 AISC 358 預認證且 completeJointDesign = false。柱續接附件只支援距最近梁翼至少 1.2 m、最大板厚不超過 40 mm 的全斷面 CJP 設計階段審查；高強螺栓、變截面、箱柱、巨型斷面、完工 NDT 驗收及完整柱構材設計另案，completeColumnMemberDesign = false、asBuiltAcceptance = false。',
+      capabilities: ['正式核算', 'Shear Tab', '平板支撐 Gusset', '梁柱彎矩耐震審查', 'CJP 柱續接耐震審查', 'TXT 備查', '自巡檢']
+    },
+    {
+      title: 'SRC 梁',
+      version: 'V1.0',
+      href: '/src-beam',
+      aliases: ['SRC beam', '包覆型鋼骨鋼筋混凝土梁'],
+      categories: ['member'],
+      memberSystem: 'src',
+      state: 'formal',
+      governance: 'src-formal',
+      output: '包覆型 SRC 梁強度檢核、計算斷面圖、案件 JSON 與正式計算書',
+      summary: '以應變相容與規範分擔式檢核包覆型 SRC 梁撓曲、寬厚比、鋼骨與 RC 剪力；HTML 與計算書同步呈現同比例計算斷面，附件只保留採用資料、公式、結果與結論。',
+      fit: '非耐震、無軸力、完全包覆矩形 SRC 梁正式檢核。',
+      limit: '耐震、軸力、部分包覆、剪力釘與超出頁面明列條件者均失敗封閉，須另行詳算。',
+      capabilities: ['正式核算', '案件 JSON', '可列印']
+    },
+    {
+      title: 'SRC 柱',
+      version: 'V1.0',
+      href: '/src-column',
+      aliases: ['SRC column', '包覆型鋼骨鋼筋混凝土柱'],
+      categories: ['member'],
+      memberSystem: 'src',
+      state: 'formal',
+      governance: 'src-formal',
+      output: '單向／雙向 SRC 柱強度檢核、計算斷面圖、案件 JSON 與正式計算書',
+      summary: '檢核完全包覆型 SRC 柱之寬厚比、P-M／P-M-M、耐震軸力及選定方向柱剪力、接頭彎矩比、強柱弱梁與圍束；附件只保留採用資料、公式、結果與結論。',
+      fit: '完全包覆矩形 SRC 柱之構材核算，可分別記錄 X／Y 方向並彙總為正式附件。',
+      limit: '全構架分析、正交構架、接頭區剪力、接合細部、柱腳及施工階段由主文或其他附件承接；正式核可只接受受控 catalog 斷面。',
+      capabilities: ['正式核算', '雙向彙總', '案件 JSON', '可列印']
+    },
+    {
+      title: '鋼梁正式頁',
+      version: 'V1.0',
+      href: '/steel-beam-formal',
+      aliases: ['steel beam check', '鋼梁正式檢核'],
+      categories: ['member'],
+      memberSystem: 'steel',
+      state: 'formal',
+      governance: 'steel-audit',
+      output: '鋼梁正式檢核、計算書與 TXT 文字備查',
+      summary: '操作頁保留輸入與流程說明；計算書直接呈現斷面、需求、檢核與計算過程，並可下載不作為正式附件的 TXT 文字備查。',
+      fit: '鋼梁正式檢核。',
+      limit: '特殊梁構造與連續構件需另行確認。',
+      capabilities: ['正式核算', 'TXT 備查', '鋼構']
+    },
+    {
+      title: '鋼柱正式頁',
+      version: 'V1.0',
+      href: '/steel-column-formal',
+      aliases: ['steel column check', '鋼柱正式檢核'],
+      categories: ['member'],
+      memberSystem: 'steel',
+      state: 'formal',
+      governance: 'steel-audit',
+      output: '鋼柱正式檢核、計算書與 TXT 文字備查',
+      summary: '操作頁保留流程與參數說明；計算書直接呈現工程輸入、檢核結果與計算過程，並可下載不作為正式附件的 TXT 文字備查。',
+      fit: '鋼柱軸力、彎矩與穩定檢核。',
+      limit: '構架整體穩定與 K 值來源需由工程師判定。',
+      capabilities: ['正式核算', 'TXT 備查', '鋼構']
+    },
+    {
+      title: '連接板檢核',
+      version: 'V1.0',
+      href: '/steel-plate',
+      aliases: ['connection plate', '連接板強度'],
+      categories: ['attachments'],
+      state: 'formal',
+      governance: 'steel-audit',
+      output: '連接板降伏、斷裂、區塊剪力檢核與 TXT 文字備查',
+      summary: '矩形連接板全斷面降伏、有效淨斷面斷裂與區塊剪力破壞檢核；可另下載不作為正式附件的 TXT 文字備查。',
+      fit: '鋼構連接板正式檢核。',
+      limit: '非矩形或特殊接合細部需另行判斷。',
+      capabilities: ['正式核算', 'TXT 備查', '鋼構']
+    },
+    {
+      title: '鋼梁舊案延續頁',
+      version: '舊版',
+      href: '/steel-beam',
+      aliases: ['legacy steel beam', '舊案 H 型鋼梁'],
+      categories: ['member'],
+      memberSystem: 'steel',
+      state: 'legacy',
+      output: '鋼梁舊案延續計算記錄',
+      summary: '只供既有案件延續的 H 型鋼梁撓曲、剪力、撓度與斷面分類檢算。',
+      fit: '確認既有案件用途後延續原有計算記錄。',
+      limit: '不得作為新案正式計算附件；新案必須改由鋼梁正式頁產出。',
+      capabilities: ['過渡工具', '舊案延續']
+    },
+    {
+      title: '鋼柱舊案延續頁',
+      version: '舊版',
+      href: '/steel-column',
+      aliases: ['legacy steel column', '舊案 H 型鋼柱'],
+      categories: ['member'],
+      memberSystem: 'steel',
+      state: 'legacy',
+      output: '鋼柱舊案延續計算記錄',
+      summary: '只供既有案件延續的軸壓挫屈、K 因數、P-M 互制與 ASD/LRFD 檢核。',
+      fit: '確認既有案件用途後延續原有計算記錄。',
+      limit: '不得作為新案正式計算附件；新案必須改由鋼柱正式頁產出。',
+      capabilities: ['過渡工具', '舊案延續']
+    },
+    {
+      title: '耐風案件總覽',
+      version: 'V1',
+      href: '/wind-overview',
+      aliases: ['wind case overview', '耐風工具總覽'],
+      categories: ['wind'],
+      state: 'workflow',
+      output: '耐風案件參數摘要與子工具入口',
+      summary: '輸入一次案件參數，統一摘要與耐風子工具入口。',
+      fit: '耐風案件入口與參數整理。',
+      limit: '特殊風洞替代或特殊地形仍需專案判斷。',
+      capabilities: ['案件參數', '案件入口']
+    },
+    {
+      title: 'Kzt 地形係數',
+      version: 'V1',
+      href: '/wind-kzt',
+      aliases: ['topographic factor', '地形增幅係數'],
+      categories: ['wind'],
+      state: 'reference',
+      output: 'K1、K2、K3 與 Kzt 係數',
+      summary: '規範地形係數 K1、K2、K3 與合成 Kzt 計算。',
+      fit: '耐風參數查詢與回填。',
+      limit: '不取代完整耐風設計流程。',
+      capabilities: ['輔助查詢', '耐風']
+    },
+    {
+      title: '特殊修正 / 折減',
+      version: 'V3',
+      href: '/wind-special',
+      aliases: ['wind reduction', '遮蔽與透風折減'],
+      categories: ['wind'],
+      state: 'reference',
+      output: '遮蔽折減、透氣外牆折減、採用依據與整理結果',
+      summary: '整理遮蔽折減、透氣外牆折減與風洞 / 專案文件指定修正。',
+      fit: '特殊耐風修正依據彙整與送審前檢核。',
+      limit: '修正值需由規範解說、風洞報告、專案文件或設計判斷支持。',
+      capabilities: ['輔助查詢', '耐風', '專案依據']
+    },
+    {
+      title: '矩形建物 MWFRS',
+      version: 'V3',
+      href: '/wind-force',
+      aliases: ['Main Wind Force Resisting System', 'MWFRS／主風力'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: 'MWFRS 風力、風壓、計算書與 TXT 文字備查',
+      summary: '矩形建物外牆、側牆、屋頂與 MWFRS 女兒牆風力計算。',
+      fit: '常規建築物主要抗風系統計算。',
+      limit: '風洞替代與特殊形體另行處理。',
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
+    },
+    {
+      title: '區域風壓 C&C',
+      version: 'V3',
+      href: '/wind-cc',
+      aliases: ['Components and Cladding', 'C&C／局部風壓'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: 'C&C 正負風壓、局部計算書與 TXT 文字備查',
+      summary: '外牆與屋面構材、包覆物設計風壓，含正負壓組合。',
+      fit: 'C&C 局部風壓計算書。',
+      limit: '需確認構件有效面積與區域判定。',
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
+    },
+    {
+      title: '女兒牆風壓',
+      version: 'V3',
+      href: '/wind-parapet',
+      aliases: ['parapet wind', '女兒牆風力'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '女兒牆 MWFRS / C&C 風壓計算書與 TXT 文字備查',
+      summary: 'MWFRS 女兒牆與 C&C 女兒牆風壓。',
+      fit: '女兒牆局部風壓檢核。',
+      limit: '特殊屋頂或構造仍需判斷適用圖表。',
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
+    },
+    {
+      title: '開放式建築屋面風壓',
+      version: 'V3',
+      href: '/wind-open-roof',
+      aliases: ['open roof wind pressure', '開放式屋頂係數'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '開放式屋面淨風壓係數、計算書與 TXT 文字備查',
+      summary: '依第三章圖表計算開放式單斜與雙斜屋頂淨風壓係數。',
+      fit: '開放式屋面局部風壓。',
+      limit: '非典型屋面需確認規範適用性。',
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
+    },
+    {
+      title: '實體標示物風力',
+      version: 'V4.0',
+      href: '/wind-object-solid',
+      aliases: ['solid sign wind force', '實體標示物 Cf'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '表 2.10 C_f(ν)、C_f(M/N)、控制 C_f、0.3b_w、示意圖、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
+      summary: '回歸規範表 2.10 實體標示物：分離物體高度 H_o、平面斷面 M/N 與受風寬度 b_w，依開口率與雙路內插取較大 C_f。',
+      fit: '實體標示物、板狀標示物、圍籬牆、自立看板等表 2.10 情境。',
+      limit: '圓柱、球體、角柱體、煙囪、水塔、格子式構架等應改用各自規範表格路線。',
+      capabilities: ['正式核算', '耐風', '計算書模式', 'TXT 備查']
+    },
+    {
+      title: '中空式 / 格子式風力',
+      version: 'V3.3',
+      href: '/wind-object-frame',
+      aliases: ['lattice sign wind', '中空標示物風力'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '表 2.11 Cf、D√q(z) 分類、示意圖、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
+      summary: '中空式標示物、格子式構架採表 2.11，依實體率、構材斷面與 D√q(z) 查 C_f。',
+      fit: '中空式標示物與格子式構架之表 2.11 風力整理。',
+      limit: '桁架高塔、實體標示物、煙囪、水塔或圓柱體應改用各自規範表格路線。',
+      capabilities: ['正式核算', '耐風', '計算書模式', 'TXT 備查']
+    },
+    {
+      title: '桁架高塔風力',
+      version: 'V1.1',
+      href: '/wind-lattice-tower',
+      aliases: ['trussed tower wind', '格子塔風力'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '表 2.15 Cf、塔身分段風力、總剪力、底部彎矩、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
+      summary: '桁架高塔採表 2.15，依塔型、構材、實體率與分段高度輸出塔身風力與底部作用。',
+      fit: '方形或三角形桁架高塔之分段風力整理。',
+      limit: '柔性動力、拉索、高度特殊或風洞替代設計需另行分析。',
+      capabilities: ['正式核算', '耐風', '分段計算', 'TXT 備查']
+    },
+    {
+      title: '煙囪 / 水塔風力',
+      version: 'V3.2',
+      href: '/wind-object-tower',
+      aliases: ['chimney wind pressure', 'water tank wind'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '表 2.12 Cf、h/D 內插、G 詳算、分段剪力、頂部附加風力、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
+      summary: '煙囪、水塔等採表 2.12，依 h/D、斷面形狀與圓形 D√q(z) 分類輸出底部作用。',
+      fit: '煙囪、水塔等表 2.12 構造物耐風檢核。',
+      limit: '桁架高塔、中空式標示物、格子式構架或需動力分析者應改用對應規範路線。',
+      capabilities: ['正式核算', '耐風', '分段計算', '計算書模式', 'TXT 備查']
+    },
+    {
+      title: '圍籬牆 / 獨立招牌風力',
+      version: 'V2.1',
+      href: '/wind-fence-sign',
+      aliases: ['freestanding sign wind', '獨立招牌風力'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '圍籬、招牌與板狀物風力計算書及 TXT 文字備查',
+      summary: '規範表 2.10 招牌物 Cf 路線，座地與架高雙模式，支援案件 JSON 與簡易 / 詳算計算書。',
+      fit: '圍籬、招牌與獨立板狀物風力。',
+      limit: '基礎、錨栓與構件強度需另行檢核。',
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
+    },
+    {
+      title: '招牌 / 燈桿組合風力',
+      version: 'V1.0',
+      href: '/wind-sign-pole',
+      aliases: ['pole sign wind load', '燈桿附掛招牌'],
+      categories: ['wind'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '表 2.10 面板、表 2.14 管材或表 2.13 角柱體支撐、分段風力、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
+      summary: '常見獨立招牌、路燈與燈桿附掛招牌情境；上方面板與下方支撐分別依規範表格計算後合成底部作用。',
+      fit: '上方為實體招牌面板、下方為管材燈桿或型鋼支撐之組合式風力整理。',
+      limit: '開口率達 30% 以上、格構式支撐、桁架高塔或特殊動力效應應改用對應規範路線。',
+      capabilities: ['正式核算', '耐風', '分段計算', '計算書模式', 'TXT 備查']
+    },
+    {
+      title: '等值靜力分析',
+      version: 'V3',
+      href: '/seismic-force',
+      aliases: ['Equivalent Lateral Force', 'ELF／等值靜力'],
+      categories: ['seismic'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '等值靜力法地震力、逐層分配計算書與 TXT 文字備查',
+      summary: 'Fa/Fv 內插、VD/V*/VM 比較、Fu 分段、逐層分配與地下層 K。',
+      fit: '耐震等值靜力法主流程。',
+      limit: '不規則、高層、特殊結構或需動力分析案件不得直接取代正式分析。',
+      capabilities: ['正式核算', '耐震', 'TXT 備查']
+    },
+    {
+      title: '動力分析摘要',
+      version: 'V3.8',
+      href: '/seismic-dynamic',
+      aliases: ['response spectrum analysis', '反應譜分析結果'],
+      categories: ['seismic'],
+      state: 'report',
+      governance: 'formal-tools',
+      output: '動力分析比對、縮放倍率、摘要計算書與 TXT 文字備查',
+      summary: '整理反應譜動力分析結果，比對等值靜力結果，提示縮放倍率與採用剪力候選。',
+      fit: '承接 ETABS、SAP2000、MIDAS 等模型結果。',
+      limit: '本頁不是動力求解器。',
+      capabilities: ['案件報表', '耐震', 'TXT 備查']
+    },
+    {
+      title: '附屬構造物地震力',
+      version: 'V2.5',
+      href: '/seismic-appendage',
+      aliases: ['nonstructural component force', '附屬物地震力'],
+      categories: ['seismic'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '附屬構造物 Fph / Fpv / Rpa 計算摘要與 TXT 文字備查',
+      summary: '第四章局部計算，整理 Fph、Fpv、Rpa 與控制條件。',
+      fit: '機電設備、管線、吊架與非結構構件地震力。',
+      limit: '不取代完整建築物耐震通盤檢討。',
+      capabilities: ['附屬構造物', '耐震', 'TXT 備查']
+    },
+    {
+      title: '雜項工作物地震力',
+      version: 'V3.4',
+      href: '/seismic-misc',
+      aliases: ['nonbuilding structure seismic', '第五章雜項地震力'],
+      categories: ['seismic'],
+      state: 'formal',
+      governance: 'formal-tools',
+      output: '雜項工作物地震力計算書與 TXT 文字備查',
+      summary: '第五章快速分流，輸出雜項工作物地震力計算書。',
+      fit: '雜項工作物局部地震力。',
+      limit: '主結構設計請回耐震主流程。',
+      capabilities: ['正式核算', '耐震', 'TXT 備查']
+    },
+    {
+      title: '錨栓檢討工具',
+      version: 'V1.0',
+      href: '/anchor',
+      aliases: ['ACI Chapter 17 anchor', '錨栓拉剪互制'],
+      categories: ['attachments'],
+      state: 'formal',
+      governance: 'anchor-deployment',
+      output: '錨栓破壞模式、互制、HTML / XLSX / DOCX 報告與 TXT 文字備查',
+      summary: '規範第 17 章錨栓鋼材、混凝土破壞、拉拔、剪力、互制與耐震路徑。',
+      fit: '設備基座、底板錨栓與產品比選。',
+      limit: '母材、施工品質與現場條件仍需工程師確認。',
+      capabilities: ['正式核算', 'HTML/XLSX/DOCX', 'TXT 備查']
+    },
+    {
+      title: '石材固定構件計算書',
+      version: 'V3.1.0',
+      href: '/stone-fixing',
+      aliases: ['stone cladding anchor', '外牆石材錨固'],
+      categories: ['attachments'],
+      state: 'formal',
+      governance: 'stone-v2',
+      output: '石材固定計算書、Word/PDF 與治理指紋',
+      summary: '外牆石材固定構件檢核與計算書產生器，含治理指紋、稽核比對與 Word/PDF 匯出。',
+      fit: '石材固定送審計算書。',
+      limit: '現場錨定條件與產品資料需與輸入一致。',
+      capabilities: ['Word/PDF', '治理指紋']
+    },
+    {
+      title: '基礎局部檢核',
+      version: 'V0.6',
+      href: '/foundation-local',
+      aliases: ['Meyerhof effective area', 'SPT liquefaction screening'],
+      categories: ['temporary'],
+      state: 'formal',
+      governance: 'local-quick-contract',
+      output: '底壓/偏心/抗滑/抗傾覆、Meyerhof 有效面積承壓、立即彈性沉陷、壓密沉陷(Boussinesq/2:1)、Terzaghi 時間-沉陷歷程、SPT 液化初判、中央核示意圖、兩段式計算書、TXT 文字備查與 JSON',
+      summary: '矩形淺基礎服務載重底壓、合力偏心、抗滑與抗傾覆檢核，依台灣 112 基礎構造設計規範安全係數；可選用 Meyerhof 有效面積承壓、立即彈性沉陷，以及可自訂層數之一維壓密沉陷（Cc/Cr、NC/OC 判別、Boussinesq 或 2:1 應力增量、Terzaghi t50/t90 與指定年限沉陷量），並可選用 SPT 液化初判（NCEER/Youd et al. 2001 簡化法 + Idriss 1999 地震規模比例係數），含中央核示意圖與詳算式/簡易結果計算書。',
+      fit: '矩形獨立基礎與設備基座之局部穩定正式檢核。',
+      limit: '衝剪、配筋、樁基與土壤互制不在本頁範圍，需回 RC 基礎完整工具；液化初判為簡化篩選，正式設計仍應以完整地質鑽探報告與液化潛能詳細評估為準。',
+      capabilities: ['正式核算', '計算書', 'TXT 備查', '示意圖']
+    },
+    {
+      title: '設備局部荷重',
+      version: 'V0.3',
+      href: '/equipment-load',
+      aliases: ['equipment base reaction', '設備支點反力'],
+      categories: ['temporary'],
+      state: 'formal',
+      governance: 'local-quick-contract',
+      output: '平均或矩形四支點偏心反力、接觸壓/分布壓、混凝土承壓、穿孔剪力、鋼板分散、示意圖、兩段式計算書、TXT 文字備查與 JSON',
+      summary: '設備重量可採支承平均分配，或依矩形四支點、剛性設備底座與相同垂直剛度計算偏心反力；以最大壓縮反力檢核接觸/分布壓、混凝土承壓、RC 穿孔剪力與鋼板分散厚度，並檢查最小反力及無拉力界線。',
+      fit: '設備基座支承局部荷重與承壓正式檢核。',
+      limit: '偏心模式限矩形四支點、相同垂直剛度與剛性設備底座；支承柔度不同、安裝間隙或最小反力為負時，須另做接觸、底座及錨栓拉力詳算。樓板梁配筋、振動與疲勞不在範圍。',
+      capabilities: ['正式核算', '計算書', 'TXT 備查', '示意圖']
+    },
+    {
+      title: '擋土土壓局部檢核',
+      version: 'V0.6',
+      href: '/earth-pressure',
+      aliases: ['retaining wall pressure', 'Rankine Coulomb'],
+      categories: ['temporary'],
+      state: 'formal',
+      governance: 'local-quick-contract',
+      output: 'Rankine/Coulomb 土壓、地震 Mononobe-Okabe、分層土(砂/黏)、水壓、抗滑/抗傾覆/基底壓檢核、牆型示意圖、兩段式計算書、TXT 文字備查與 JSON',
+      summary: 'Rankine 主動/靜止土壓、均佈超載與地下水壓之抗滑、抗傾覆與基底壓局部穩定檢核；可選用 Coulomb（牆摩擦 δ、牆背傾角 θ、背填傾角 β）、地震時 Mononobe-Okabe，以及可自訂層數之分層土（砂土/黏土，含黏土張力裂縫與有效應力水壓），含牆型示意圖與詳算式/簡易結果計算書。',
+      fit: '懸臂式/重力式擋土牆與圍牆之局部土壓與穩定正式檢核。',
+      limit: '基礎埋置、被動土壓動員位移仍需判斷；簡單水平回填的懸臂式主動土壓可銜接 RC 牆身及趾踵版設計，地下水、分層回填、Coulomb 垂直分力、扶壁式與地震載重組合需另行正式詳算。',
+      capabilities: ['正式核算', '計算書', 'TXT 備查', '示意圖']
+    },
+    {
+      title: '地坪承載檢核（Westergaard）',
+      version: 'V0.1',
+      href: '/floor-slab-westergaard',
+      aliases: ['Westergaard slab stress', '地坪版載重應力'],
+      categories: ['temporary'],
+      state: 'formal',
+      governance: 'local-quick-contract',
+      output: '相對勁度半徑、內部／邊緣／角隅載重應力、多輪／機具腳位同點疊加、容許應力比、示意圖、兩段式計算書、TXT 文字備查與 JSON',
+      summary: '以一般化 Westergaard 閉式解檢核均質彈性地坪版於內部、自由邊緣與角隅集中載重之彎拉應力；輪壓或機具腳位可逐組設定數量、動力係數與具依據的同點影響係數。',
+      fit: '工業地坪、倉庫地坪或設備腳位之彈性板載重應力局部檢核。',
+      limit: '疲勞、接縫傳力、沉陷、溫度翹曲、有限版、空洞、非線性接觸、地質承載力與配筋不在本頁範圍；影響係數小於 1.0 時須有專案依據。',
+      capabilities: ['正式核算', '計算書', 'TXT 備查', '多載重疊加']
+    },
+    {
+      title: '鋼索索力評估（頻率法）',
+      version: 'V0.1',
+      href: '/cable-tension-frequency',
+      aliases: ['FHWA taut-string', 'cable tension frequency'],
+      categories: ['temporary'],
+      state: 'formal',
+      governance: 'local-quick-contract',
+      output: '單一／多振型頻率反算、諧波一致性、目標索力比較、模型示意、兩段式計算書、TXT 文字備查與 JSON',
+      summary: '依 FHWA 理想張緊弦關係式，以振動有效長度、整體單位長度質量及實測固有頻率反算索力；多振型採過原點擬合並顯示逐振型偏差，避免把振型誤認或模型不適用藏在平均值內。',
+      fit: '可合理視為均勻張緊弦、已確認振動有效長度與整體線質量之鋼索現況索力快算。',
+      limit: '不自動修正垂度、彎曲勁度、端部柔度、斜度、阻尼器或集中質量；不取代鋼索強度、疲勞、錨頭／夾具、腐蝕斷絲、施工張拉及整體結構安全詳算。',
+      capabilities: ['索力反算', '多振型診斷', '計算書', 'TXT 備查']
+    },
+    {
+      title: '覆工板系統計算',
+      version: 'V1.0',
+      href: '/decking',
+      aliases: ['temporary decking design', '施工覆工板'],
+      categories: ['temporary'],
+      state: 'formal',
+      governance: 'decking-contract',
+      output: '覆工板系統構件檢核與 Word 報表',
+      summary: '覆工板面、小梁、大梁、共構柱、握裹與樁基承載檢核。',
+      fit: '施工覆工板計算書。',
+      limit: '施工階段與車種荷重需與現場計畫一致。',
+      capabilities: ['Word 報表', '施工計算']
+    },
+    {
+      title: '開挖擋土支撐',
+      version: '服務型',
+      href: '/excavation-support',
+      aliases: ['excavation shoring', 'temporary earth support'],
+      categories: ['temporary'],
+      state: 'service',
+      governance: 'excavation-service',
+      output: '支撐構件檢核、鋼板樁橫擋扣抵、重撐軸壓／雙向彎矩與受限上下端直接承壓、PDF/DOCX 報表與案件資料庫',
+      summary: 'FastAPI + React + SQLite 工作流，匯入分析檔、構件與基礎檢核、具斷面來源之鋼板樁 Mwc／Vwc 橫擋扣抵、受限 H 型鋼重撐互制與無加勁端板局部彎曲實算，以及 PDF/DOCX 報表。',
+      fit: '支撐、橫擋、斜撐、大角撐、鋼板樁橫擋扣抵、分析輸出匯入與 ERH 重撐承接。',
+      limit: '需先啟動本機前後端服務；鋼板樁能力只折減橫擋需求，不是完整壁體設計；重撐端部只涵蓋對心直接承壓與無加勁端板局部彎曲，不含定位接合、銲栓、加勁肋、承接構造本體或施工程序。',
+      capabilities: ['本機服務', 'PDF/DOCX', 'RSC v4／RSB v1 正式附件']
+    }
+  ];
+
+  const state = {
+    category: 'all',
+    memberSystem: 'all',
+    query: ''
+  };
+
+  const categoryMap = new Map(categories.map(category => [category.id, category]));
+  const memberSystemMap = new Map(memberSystems.map(system => [system.id, system]));
+  const routeFileMap = {
+    '/condition-survey': '../field-survey/recorder.html',
+    '/beam-analysis': '../連續梁分析.html',
+    '/frame-analysis': '../鋼架/平面剛架分析.html',
+    '/struct-dx': '../解題/struct_dx/frontend/struct_suite.html',
+    '/section': '../index.html',
+    '/composite-section': '../合成斷面性質.html',
+    '/steel-formal': '../鋼構工具/index.html',
+    '/steel-plate': '../鋼構工具/plate-check.html',
+    '/steel-beam-formal': '../鋼構工具/steel-beam-formal.html',
+    '/steel-column-formal': '../鋼構工具/steel-column-formal.html',
+    '/steel-beam': 'tools/鋼構/steel-beam.html',
+    '/steel-column': 'tools/鋼構/steel-column.html',
+    '/rc': '../鋼筋混凝土/index.html',
+    '/rc-beam': '../鋼筋混凝土/tools/beam.html',
+    '/rc-deep-beam-stm': '../鋼筋混凝土/tools/deep-beam-stm.html',
+    '/rc-column': '../鋼筋混凝土/tools/column.html',
+    '/rc-slab': '../鋼筋混凝土/tools/slab.html',
+    '/rc-wall': '../鋼筋混凝土/tools/wall.html',
+    '/rc-shear-wall': '../鋼筋混凝土/tools/shear-wall.html',
+    '/rc-foundation': '../鋼筋混凝土/tools/foundation.html',
+    '/rc-foundation-deep-beam-stm': '../鋼筋混凝土/tools/foundation-deep-beam-stm.html',
+    '/rc-pile-cap-3d-stm': '../鋼筋混凝土/tools/pile-cap-3d-stm.html',
+    '/rc-pile': '../鋼筋混凝土/tools/single-pile-designer.html',
+    '/rc-retrofit-section': '../RC補強斷面性質.html',
+    '/rc-column-cover-deviation': 'tools/rc/column-cover-deviation.html',
+    '/src-beam': '../SRC工具/src-beam.html',
+    '/src-column': '../SRC工具/src-column.html',
+    '/wind-overview': 'tools/風力/wind-overview.html',
+    '/wind-kzt': 'tools/風力/wind-kzt.html',
+    '/wind-force': 'tools/風力/wind-force.html',
+    '/wind-cc': 'tools/風力/wind-cc.html',
+    '/wind-open-roof': 'tools/風力/wind-open-roof.html',
+    '/wind-parapet': 'tools/風力/wind-parapet.html',
+    '/wind-object-solid': 'tools/風力/wind-object-solid.html',
+    '/wind-object-frame': 'tools/風力/wind-object-frame.html',
+    '/wind-lattice-tower': 'tools/風力/wind-lattice-tower.html',
+    '/wind-object-tower': 'tools/風力/wind-object-tower.html',
+    '/wind-fence-sign': 'tools/風力/wind-fence-sign.html',
+    '/wind-sign-pole': 'tools/風力/wind-sign-pole.html',
+    '/wind-special': 'tools/風力/wind-special.html',
+    '/seismic-force': 'tools/地震力/seismic-force.html',
+    '/seismic-dynamic': 'tools/地震力/seismic-dynamic.html',
+    '/seismic-appendage': 'tools/地震力/seismic-appendage.html',
+    '/seismic-misc': 'tools/地震力/seismic-misc.html',
+    '/anchor': '../anchor/index.html',
+    '/stone-fixing': '../石材固定/石材計算書產生器_規範版V2.html',
+    '/foundation-local': 'tools/foundation/foundation-local.html',
+    '/equipment-load': 'tools/equipment/equipment-load.html',
+    '/earth-pressure': 'tools/earth/earth-pressure.html',
+    '/floor-slab-westergaard': 'tools/floor-slab/floor-slab-westergaard.html',
+    '/cable-tension-frequency': 'tools/cable-tension/cable-tension-frequency.html',
+    '/decking': '../覆工板/index.html',
+    '/excavation-support': '../開挖擋土支撐/index.html'
+  };
+  const isFileMode = window.location.protocol === 'file:';
+  const elements = {
+    categoryOverview: document.getElementById('categoryOverview'),
+    filters: document.getElementById('categoryFilters'),
+    memberSystemPanel: document.getElementById('memberSystemPanel'),
+    memberSystemTabs: document.getElementById('memberSystemTabs'),
+    memberSystemHint: document.getElementById('memberSystemHint'),
+    grid: document.getElementById('toolGrid'),
+    count: document.getElementById('resultCount'),
+    empty: document.getElementById('emptyState'),
+    reportReadinessStatus: document.getElementById('reportReadinessStatus')
+  };
+
+  const RECENT_TOOLS_KEY = 'structToolbox.home.recentTools';
+  const PINNED_TOOLS_KEY = 'structToolbox.home.pinnedTools';
+  const toolsByHref = new Map(tools.map(tool => [tool.href, tool]));
+  const personal = { recent: readRecentTools(), pinned: readPinnedTools(), notice: '' };
+
+  function readStoredTools(key) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || '[]');
+      return Array.isArray(value) ? value : [];
+    } catch (error) { return []; }
+  }
+
+  function readRecentTools() {
+    const seen = new Set();
+    return readStoredTools(RECENT_TOOLS_KEY)
+      .filter(item => item && toolsByHref.has(item.href) && Number.isFinite(item.at) && item.at >= 0)
+      .sort((left, right) => right.at - left.at)
+      .filter(item => !seen.has(item.href) && seen.add(item.href))
+      .slice(0, 8).map(({ href, at }) => ({ href, at }));
+  }
+
+  function readPinnedTools() {
+    return [...new Set(readStoredTools(PINNED_TOOLS_KEY).filter(href => toolsByHref.has(href)))].slice(0, 12);
+  }
+
+  function writeStoredTools(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); }
+    catch (error) { /* 儲存不可用時，保留本次開啟的操作狀態。 */ }
+  }
+
+  function recordRecentTool(href) {
+    personal.recent = [{ href, at: Date.now() }, ...personal.recent.filter(item => item.href !== href)].slice(0, 8);
+    writeStoredTools(RECENT_TOOLS_KEY, personal.recent);
+  }
+
+  function updatePinButton(button, tool) {
+    const pinned = personal.pinned.includes(tool.href);
+    const label = pinned ? '取消釘選' : '釘選';
+    button.setAttribute('aria-pressed', String(pinned));
+    button.setAttribute('aria-label', `${label} ${tool.title}`);
+    const icon = document.createElement('span');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = pinned ? '★' : '☆';
+    button.replaceChildren(icon, document.createTextNode(label));
+  }
+
+  function togglePinnedTool(tool, button) {
+    if (personal.pinned.includes(tool.href)) {
+      personal.pinned = personal.pinned.filter(href => href !== tool.href);
+      personal.notice = '';
+    } else if (personal.pinned.length < 12) {
+      personal.pinned.push(tool.href);
+      personal.notice = '';
+    } else {
+      personal.notice = '最多可釘選 12 項工具，請先取消一項釘選。';
+    }
+    writeStoredTools(PINNED_TOOLS_KEY, personal.pinned);
+    document.querySelectorAll('[data-pin-href]').forEach(node => updatePinButton(node, toolsByHref.get(node.dataset.pinHref)));
+    renderPersonalTools();
+    if (!button.isConnected) {
+      const replacement = [...document.querySelectorAll('[data-pin-href]')].find(node => node.dataset.pinHref === tool.href);
+      replacement?.focus({ preventScroll: true });
+    }
+  }
+
+  function renderPersonalTools() {
+    document.querySelector('.home-personal')?.remove();
+    const ordered = [...personal.pinned, ...personal.recent.map(item => item.href).filter(href => !personal.pinned.includes(href))];
+    if (state.query.trim() || !ordered.length) return;
+    const section = document.createElement('section');
+    section.className = 'home-personal';
+    section.setAttribute('aria-label', '釘選與最近使用');
+    const title = document.createElement('h2');
+    title.textContent = '釘選與最近使用';
+    const notice = document.createElement('p');
+    notice.className = 'home-personal__notice';
+    notice.setAttribute('role', 'status');
+    notice.textContent = personal.notice;
+    notice.hidden = !personal.notice;
+    const grid = document.createElement('div');
+    grid.className = 'tool-grid home-personal__grid';
+    grid.classList.toggle('tool-grid--detailed', !!document.getElementById('toolDetailToggle')?.checked);
+    ordered.forEach(href => {
+      const card = renderToolCard(toolsByHref.get(href));
+      card.dataset.personalKind = personal.pinned.includes(href) ? 'pinned' : 'recent';
+      grid.appendChild(card);
+    });
+    section.append(title, notice, grid);
+    elements.categoryOverview.closest('section').before(section);
+  }
+
+  function countByCategory(categoryId) {
+    if (categoryId === 'all') return tools.length;
+    return tools.filter(tool => tool.categories.includes(categoryId)).length;
+  }
+
+  function countByMemberSystem(systemId) {
+    const memberTools = tools.filter(tool => tool.categories.includes('member'));
+    if (systemId === 'all') return memberTools.length;
+    return memberTools.filter(tool => tool.memberSystem === systemId).length;
+  }
+
+  function matchesCategoryAndMember(tool) {
+    const inCategory = state.category === 'all' || tool.categories.includes(state.category);
+    if (!inCategory) return false;
+    if (state.category === 'member' && state.memberSystem !== 'all' && tool.memberSystem !== state.memberSystem) {
+      return false;
+    }
+    return true;
+  }
+
+  function primaryCategory(tool) {
+    return tool.categories[0] || 'reference';
+  }
+
+  function stateInfo(tool) {
+    return toolStates[tool.state] || { label: '未分類', tone: 'unknown' };
+  }
+
+  function governanceInfo(tool) {
+    return tool?.governance ? (governanceSources[tool.governance] || null) : null;
+  }
+
+  function toFileHref(href) {
+    // 永遠轉成相對檔案路徑：GitHub Pages（子目錄部署）、file:// 與本機靜態
+    // 伺服器都只能用相對路徑；clean route（/rc-beam 等）僅 Vercel rewrite 有效。
+    if (!href.startsWith('/')) return href;
+    if (routeFileMap[href]) return routeFileMap[href];
+    if (href.startsWith('/結構工具箱/')) return href.replace(/^\/結構工具箱\//, '');
+    return `../${href.replace(/^\/+/, '')}`;
+  }
+
+  function homeAssetHref(relativePath) {
+    return String(relativePath || '').replace(/^\/+/, '');
+  }
+
+  function cacheBustedHref(href) {
+    return `${href}?ts=${Date.now()}`;
+  }
+
+  function matchesState(tool) {
+    const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+    const query = normalize(state.query);
+    const categoriesText = (tool.categories || []).flatMap(categoryId => [categoryId, categoryMap.get(categoryId)?.label || '']);
+    const text = normalize([tool.title, ...(tool.aliases || []), ...categoriesText, tool.summary, tool.fit, tool.output,
+      ...(tool.capabilities || [])].join(' '));
+    return matchesCategoryAndMember(tool) && (!query || query.split(' ').every(term => text.includes(term)));
+  }
+
+  function tag(text, modifier) {
+    const node = document.createElement('span');
+    node.className = modifier ? `tool-chip tool-chip--${modifier}` : 'tool-chip';
+    node.textContent = text;
+    return node;
+  }
+
+  function appendUniqueMeta(meta, seenLabels, text, nodeFactory) {
+    const label = String(text || '').trim();
+    if (!label || seenLabels.has(label)) return;
+    seenLabels.add(label);
+    meta.appendChild(nodeFactory(label));
+  }
+
+  function profileItem(labelText, valueText) {
+    const item = document.createElement('div');
+    item.className = 'tool-profile__item';
+    const label = document.createElement('span');
+    label.textContent = labelText;
+    const value = document.createElement('p');
+    value.textContent = valueText;
+    item.append(label, value);
+    return item;
+  }
+
+  function renderCategoryOverview() {
+    const visibleCategories = categories.filter(category => category.id !== 'all');
+    elements.categoryOverview.replaceChildren(...visibleCategories.map(category => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'category-card';
+      card.setAttribute('aria-label', `篩選 ${category.label}`);
+      card.addEventListener('click', () => {
+        state.category = category.id;
+        state.memberSystem = 'all';
+        render();
+        document.getElementById('toolsTitle')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+
+      const icon = document.createElement('span');
+      icon.className = `category-icon category-icon--${category.icon}`;
+      icon.innerHTML = categoryIcons[category.icon] || '';
+      const mark = document.createElement('span');
+      mark.className = 'icon-mark';
+      mark.textContent = category.mark;
+      icon.appendChild(mark);
+      icon.setAttribute('aria-hidden', 'true');
+
+      const body = document.createElement('div');
+      body.className = 'category-card__body';
+      const title = document.createElement('strong');
+      title.textContent = category.label;
+      const count = document.createElement('span');
+      count.textContent = String(countByCategory(category.id));
+      title.appendChild(count);
+      const summary = document.createElement('p');
+      summary.textContent = category.summary;
+      body.append(title, summary);
+      card.append(icon, body);
+      return card;
+    }));
+  }
+
+  function renderFilters() {
+    elements.filters.replaceChildren(...categories.map(category => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `filter-button${state.category === category.id ? ' is-active' : ''}`;
+      button.setAttribute('aria-pressed', state.category === category.id ? 'true' : 'false');
+      button.addEventListener('click', () => {
+        state.category = category.id;
+        state.memberSystem = 'all';
+        render();
+      });
+      const label = document.createElement('strong');
+      label.textContent = category.label;
+      const count = document.createElement('span');
+      count.textContent = String(countByCategory(category.id));
+      button.append(label, count);
+      return button;
+    }));
+  }
+
+  function renderMemberSystemPanel() {
+    if (!elements.memberSystemPanel) return;
+    const isMemberMode = state.category === 'member';
+    elements.memberSystemPanel.hidden = !isMemberMode;
+    if (!isMemberMode) {
+      elements.grid.removeAttribute('role');
+      elements.grid.removeAttribute('aria-labelledby');
+      elements.grid.removeAttribute('tabindex');
+      return;
+    }
+    elements.grid.setAttribute('role', 'tabpanel');
+    elements.grid.setAttribute('aria-labelledby', `member-tab-${state.memberSystem}`);
+    elements.grid.setAttribute('tabindex', '0');
+
+    const selectSystem = id => {
+      state.memberSystem = id;
+      renderMemberSystemPanel();
+      renderTools();
+      document.getElementById(`member-tab-${id}`).focus();
+    };
+
+    elements.memberSystemTabs.replaceChildren(...memberSystems.map(system => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `member-system-tab${state.memberSystem === system.id ? ' is-active' : ''}`;
+      button.setAttribute('role', 'tab');
+      button.id = `member-tab-${system.id}`;
+      button.setAttribute('aria-controls', 'toolGrid');
+      button.tabIndex = state.memberSystem === system.id ? 0 : -1;
+      button.setAttribute('aria-selected', state.memberSystem === system.id ? 'true' : 'false');
+      button.addEventListener('click', () => selectSystem(system.id));
+      button.addEventListener('keydown', event => {
+        if (event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+        const current = memberSystems.findIndex(item => item.id === system.id);
+        let next;
+        if (event.key === 'ArrowRight') next = (current + 1) % memberSystems.length;
+        else if (event.key === 'ArrowLeft') next = (current + memberSystems.length - 1) % memberSystems.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = memberSystems.length - 1;
+        else return;
+        event.preventDefault();
+        selectSystem(memberSystems[next].id);
+      });
+      const label = document.createElement('strong');
+      label.textContent = system.label;
+      const count = document.createElement('span');
+      count.textContent = String(countByMemberSystem(system.id));
+      button.append(label, count);
+      return button;
+    }));
+
+    const activeSystem = memberSystemMap.get(state.memberSystem) || memberSystems[0];
+    elements.memberSystemHint.textContent = activeSystem.summary;
+  }
+
+  function renderToolCard(tool) {
+    const primary = primaryCategory(tool);
+    const category = categoryMap.get(primary);
+    const currentState = stateInfo(tool);
+    const governance = governanceInfo(tool);
+    const card = document.createElement('a');
+    card.className = `tool-card tool-card--${primary} tool-card--state-${currentState.tone}`;
+    card.href = toFileHref(tool.href);
+    card.dataset.routeHref = tool.href;
+    card.dataset.category = primary;
+    card.dataset.state = tool.state;
+    card.dataset.title = tool.title;
+    card.addEventListener('click', event => {
+      if (!event.defaultPrevented) recordRecentTool(tool.href);
+    });
+
+    const head = document.createElement('div');
+    head.className = 'tool-card__head';
+    const titleRow = document.createElement('div');
+    titleRow.className = 'tool-title-row';
+    const icon = document.createElement('span');
+    icon.className = `tool-card__icon category-icon--${category?.icon || primary}`;
+    icon.innerHTML = categoryIcons[category?.icon || primary] || '';
+    const iconMark = document.createElement('span');
+    iconMark.className = 'icon-mark';
+    iconMark.textContent = category?.mark || '';
+    icon.appendChild(iconMark);
+    icon.setAttribute('aria-hidden', 'true');
+    const title = document.createElement('h3');
+    title.textContent = tool.title;
+    const badges = document.createElement('div');
+    badges.className = 'tool-card__badges';
+    const version = document.createElement('span');
+    version.className = 'tool-version';
+    version.textContent = tool.version;
+    const updated = document.createElement('span');
+    updated.className = 'tool-updated';
+    const updatedOn = HOME_TOOL_UPDATES.routes[tool.href];
+    updated.textContent = `更新 ${updatedOn}`;
+    updated.title = `工具內容更新：${updatedOn}；最近正式放行確認：${releaseVerificationLabel()}`;
+    badges.append(version, updated);
+    titleRow.append(icon, title);
+    head.append(titleRow, badges);
+
+    const profile = document.createElement('div');
+    profile.className = 'tool-profile';
+    const summaryItem = profileItem('定位', tool.summary);
+    summaryItem.classList.add('tool-profile__item--summary');
+    const more = document.createElement('div');
+    more.className = 'tool-profile__more';
+    more.append(
+      profileItem('輸出', tool.output),
+      profileItem('閱讀狀態', currentState.summary)
+    );
+    profile.append(summaryItem, more);
+
+    const moreToggle = document.createElement('span');
+    moreToggle.className = 'tool-card__more';
+    moreToggle.setAttribute('role', 'button');
+    moreToggle.setAttribute('tabindex', '0');
+    moreToggle.setAttribute('aria-expanded', 'false');
+    moreToggle.setAttribute('aria-label', `展開 ${tool.title} 的輸出與閱讀狀態`);
+    moreToggle.textContent = '詳情';
+    const toggleCardDetail = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const expanded = card.classList.toggle('is-expanded');
+      moreToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      moreToggle.textContent = expanded ? '收合' : '詳情';
+    };
+    moreToggle.addEventListener('click', toggleCardDetail);
+    moreToggle.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') toggleCardDetail(event);
+    });
+    badges.append(moreToggle);
+
+    const meta = document.createElement('div');
+    meta.className = 'tool-meta';
+    const seenMetaLabels = new Set();
+    appendUniqueMeta(meta, seenMetaLabels, currentState.label, label => {
+      const stateChip = document.createElement('span');
+      stateChip.className = `tool-state tool-state--${currentState.tone}`;
+      stateChip.textContent = label;
+      stateChip.title = currentState.summary;
+      return stateChip;
+    });
+    appendUniqueMeta(meta, seenMetaLabels, category?.label || primary, label => tag(label, primary));
+    if (tool.memberSystem && tool.categories.includes('member')) {
+      appendUniqueMeta(
+        meta,
+        seenMetaLabels,
+        memberSystemMap.get(tool.memberSystem)?.label || tool.memberSystem,
+        label => tag(label, 'system')
+      );
+    }
+    if (governance?.cardTag) {
+      appendUniqueMeta(meta, seenMetaLabels, governance.cardTag, label => tag(label, 'governance'));
+    }
+    tool.capabilities.slice(0, 3).forEach(capability => {
+      appendUniqueMeta(meta, seenMetaLabels, capability, label => tag(label));
+    });
+
+    card.append(head, profile, meta);
+    const shell = document.createElement('div');
+    shell.className = 'tool-card-shell';
+    const pin = document.createElement('button');
+    pin.type = 'button';
+    pin.className = 'tool-pin';
+    pin.dataset.pinHref = tool.href;
+    updatePinButton(pin, tool);
+    pin.addEventListener('click', () => togglePinnedTool(tool, pin));
+    shell.append(card, pin);
+    return shell;
+  }
+
+  function renderToolGroup(system, groupTools) {
+    const group = document.createElement('section');
+    group.className = 'tool-group';
+    const head = document.createElement('div');
+    head.className = 'tool-group__head';
+    const title = document.createElement('h3');
+    title.textContent = system.label;
+    const summary = document.createElement('p');
+    summary.textContent = system.summary;
+    const count = document.createElement('span');
+    count.textContent = `${groupTools.length} 項`;
+    head.append(title, summary, count);
+    const grid = document.createElement('div');
+    grid.className = 'tool-group__grid';
+    grid.replaceChildren(...groupTools.map(renderToolCard));
+    group.append(head, grid);
+    return group;
+  }
+
+  function renderEmptyState(titleText, detailText) {
+    const title = document.createElement('strong');
+    title.textContent = titleText;
+    const detail = document.createElement('p');
+    detail.textContent = detailText;
+    elements.empty.replaceChildren(title, detail);
+  }
+
+  function renderTools() {
+    renderPersonalTools();
+    const filtered = tools.filter(matchesState);
+    elements.grid.classList.toggle('tool-grid--grouped', state.category === 'member');
+    if (state.category === 'member') {
+      const visibleSystems = memberSystems
+        .filter(system => system.id !== 'all')
+        .filter(system => state.memberSystem === 'all' || state.memberSystem === system.id)
+        .map(system => ({
+          system,
+          tools: filtered.filter(tool => tool.memberSystem === system.id)
+        }))
+        .filter(group => group.tools.length > 0);
+      elements.grid.replaceChildren(...visibleSystems.map(group => renderToolGroup(group.system, group.tools)));
+    } else {
+      elements.grid.replaceChildren(...filtered.map(renderToolCard));
+    }
+    elements.count.textContent = `${filtered.length} / ${tools.length} 項工具`;
+    if (filtered.length !== 0) {
+      elements.empty.hidden = true;
+      return;
+    }
+    renderEmptyState('找不到符合條件的工具', '請清除搜尋、切回「全部」，或改用其他工具名稱。');
+    elements.empty.hidden = false;
+  }
+
+  function buildStatusMeta(metaItems) {
+    const items = Array.isArray(metaItems) ? metaItems.filter(item => item && item.text) : [];
+    if (items.length === 0) return null;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'status-card__meta';
+    items.forEach(item => {
+      const chip = document.createElement('span');
+      const tone = item.tone || 'neutral';
+      chip.className = `status-card__meta-item status-card__meta-item--${tone}`;
+      chip.textContent = item.text;
+      wrapper.appendChild(chip);
+    });
+    return wrapper;
+  }
+
+  function preflightModeMeta(payload) {
+    if (!payload) return null;
+    if (payload.quick) {
+      return { key: 'quick', label: '快速檢查', tone: 'warn' };
+    }
+    if (payload.forceSlowChecks && payload.forcePlatformAudit && /^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || '')) && payload.sourceDirty === false) {
+      return { key: 'release', label: '正式放行', tone: 'ok' };
+    }
+    return { key: 'full', label: '完整檢查', tone: 'ok' };
+  }
+
+  function preflightEvidenceSummary(payload) {
+    if (!payload) return '';
+    if (payload.pass !== true) {
+      if (payload.quick) return '快速檢查發現異常，不能作為正式交付證據。';
+      return '本輪仍有異常，修正後才可作為正式交付證據。';
+    }
+    const mode = preflightModeMeta(payload);
+    if (!mode) return '';
+    if (mode.key === 'quick') return '僅供快速巡查，不作為正式交付證據。';
+    if (mode.key === 'release') return '已強制平台巡檢與慢測，且來源 commit 可辨識、啟動時工作樹乾淨，可作為正式放行證據。';
+    if (payload.forceSlowChecks && payload.forcePlatformAudit) return '來源 commit 或乾淨工作樹證據不足，不能作為正式放行證據。';
+    return '正式交付請以完整檢查或正式放行結果為準。';
+  }
+
+  function platformStatusMeta(payload) {
+    if (!payload || !payload.runId) return [];
+    return [{ text: `runId ${payload.runId}`, tone: 'trace' }];
+  }
+
+  function preflightStatusMeta(payload) {
+    if (!payload) return [];
+    const items = [];
+    const mode = preflightModeMeta(payload);
+    if (mode) items.push({ text: mode.label, tone: mode.tone });
+    if (payload.runId) items.push({ text: `runId ${payload.runId}`, tone: 'trace' });
+    if (/^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || ''))) items.push({ text: `commit ${payload.sourceCommitSha.slice(0, 12)}`, tone: 'trace' });
+    if (typeof payload.sourceDirty === 'boolean') items.push({ text: payload.sourceDirty ? '來源有變更' : '來源乾淨', tone: payload.sourceDirty ? 'warn' : 'ok' });
+    return items;
+  }
+
+  function renderStatus(node, label, payload, summaryText, metaItems) {
+    if (!node) return;
+    const pass = Boolean(payload && payload.pass);
+    const badge = document.createElement('span');
+    badge.className = `status-card__badge ${payload ? (pass ? 'ok' : 'fail') : 'neutral'}`;
+    badge.textContent = payload ? (pass ? '通過' : '異常') : '未讀取';
+    const title = document.createElement('strong');
+    title.textContent = label;
+    const summary = document.createElement('p');
+    summary.textContent = summaryText;
+    const meta = buildStatusMeta(metaItems);
+    node.replaceChildren(...[badge, title, summary, meta].filter(Boolean));
+  }
+
+  function renderStaticStatusCard(node, badgeText, badgeClassName, label, summaryText, metaItems) {
+    if (!node) return;
+    node.classList.toggle('status-card--ok', badgeClassName === 'ok');
+    node.classList.toggle('status-card--warn', badgeClassName === 'warn');
+    const badge = document.createElement('span');
+    badge.className = `status-card__badge ${badgeClassName || 'neutral'}`;
+    badge.textContent = badgeText;
+    const title = document.createElement('strong');
+    title.textContent = label;
+    const summary = document.createElement('p');
+    summary.textContent = summaryText;
+    const meta = buildStatusMeta(metaItems);
+    node.replaceChildren(...[badge, title, summary, meta].filter(Boolean));
+  }
+
+  function reportReadinessStatusMeta(payload, fallbackMeta = []) {
+    if (!payload || payload.kind !== 'report-readiness-status') return fallbackMeta;
+    const ratio = (label, complete, required, issues) => {
+      if (!Number.isInteger(complete) || !Number.isInteger(required)) return null;
+      const tone = issues === 0 && complete === required ? 'ok' : 'warn';
+      return { text: `${label} ${complete} / ${required}`, tone };
+    };
+    return [
+      ratio('頁面邊界', payload.pageOnlyBoundaryComplete, payload.pageOnlyBoundaryRequired, payload.pageOnlyBoundaryIssueCount),
+      ratio('可讀文字', payload.reportTextSmokeComplete, payload.reportTextSmokeRequired, payload.reportTextSmokeIssueCount),
+      ratio('瀏覽器 smoke', payload.reportTextSmokeEvidenceComplete, payload.reportTextSmokeEvidenceRequired, payload.reportTextSmokeEvidenceIssueCount),
+      ratio('成品渲染', payload.renderedDeliveryEvidenceComplete, payload.renderedDeliveryEvidenceRequired, payload.renderedDeliveryEvidenceIssueCount),
+      Number.isInteger(payload.deliveryFileIntegrityRequired) && payload.deliveryFileIntegrityRequired > 0
+        ? ratio('成品檔案完整性', payload.deliveryFileIntegrityVerified, payload.deliveryFileIntegrityRequired, payload.deliveryFileIntegrityIssueCount)
+        : null,
+      Number.isInteger(payload.docxPackageIntegrityRequired) && payload.docxPackageIntegrityRequired > 0
+        ? ratio('Word 乾淨封裝', payload.docxPackageIntegrityComplete, payload.docxPackageIntegrityRequired, payload.docxPackageIntegrityIssueCount)
+        : null,
+      Number.isInteger(payload.xlsxPackageIntegrityRequired) && payload.xlsxPackageIntegrityRequired > 0
+        ? ratio('Excel 乾淨封裝', payload.xlsxPackageIntegrityComplete, payload.xlsxPackageIntegrityRequired, payload.xlsxPackageIntegrityIssueCount)
+        : null,
+      Number.isInteger(payload.xlsxPrintVisualSheetRequired) && payload.xlsxPrintVisualSheetRequired > 0
+        ? ratio('Excel 列印成品', payload.xlsxPrintVisualSheetComplete, payload.xlsxPrintVisualSheetRequired, payload.xlsxPrintVisualIssueCount)
+        : null,
+      Number.isInteger(payload.xlsxContentSealRequired) && payload.xlsxContentSealRequired > 0
+        ? ratio('Excel 雙封印', payload.xlsxContentSealComplete + payload.xlsxApprovalSealComplete, payload.xlsxContentSealRequired + payload.xlsxApprovalSealRequired, payload.xlsxDualSealIssueCount)
+        : null,
+      Number.isInteger(payload.formalResultReconciliationRequired) && payload.formalResultReconciliationRequired > 0
+        ? ratio('數值結果鏈', payload.formalResultReconciliationComplete, payload.formalResultReconciliationRequired, payload.formalResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.formalHtmlContentSealRequired) && payload.formalHtmlContentSealRequired > 0
+        ? ratio('正式 HTML 內容封印', payload.formalHtmlContentSealComplete, payload.formalHtmlContentSealRequired, payload.formalHtmlContentSealIssueCount)
+        : null,
+      Number.isInteger(payload.formalHtmlApprovalSealRequired) && payload.formalHtmlApprovalSealRequired > 0
+        ? ratio('正式 HTML 核可封印', payload.formalHtmlApprovalSealComplete, payload.formalHtmlApprovalSealRequired, payload.formalHtmlApprovalSealIssueCount)
+        : null,
+      Number.isInteger(payload.rcResultReconciliationRequired) && payload.rcResultReconciliationRequired > 0
+        ? ratio('RC 結果鏈', payload.rcResultReconciliationComplete, payload.rcResultReconciliationRequired, payload.rcResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.rcSourceReportPackageRequired) && payload.rcSourceReportPackageRequired > 0
+        ? ratio('RC 來源組包', payload.rcSourceReportPackageComplete, payload.rcSourceReportPackageRequired, payload.rcSourceReportPackageIssueCount)
+        : null,
+      Number.isInteger(payload.rcStandaloneFormalHtmlPrintRequired) && payload.rcStandaloneFormalHtmlPrintRequired > 0
+        ? ratio('RC 核可 HTML 列印', payload.rcStandaloneFormalHtmlPrintComplete, payload.rcStandaloneFormalHtmlPrintRequired, payload.rcStandaloneFormalHtmlPrintIssueCount)
+        : null,
+      Number.isInteger(payload.rcFormalHtmlContentSealRequired) && payload.rcFormalHtmlContentSealRequired > 0
+        ? ratio('RC HTML 內容封印', payload.rcFormalHtmlContentSealComplete, payload.rcFormalHtmlContentSealRequired, payload.rcFormalHtmlContentSealIssueCount)
+        : null,
+      Number.isInteger(payload.rcFormalHtmlApprovalSealRequired) && payload.rcFormalHtmlApprovalSealRequired > 0
+        ? ratio('RC HTML 核可封印', payload.rcFormalHtmlApprovalSealComplete, payload.rcFormalHtmlApprovalSealRequired, payload.rcFormalHtmlApprovalSealIssueCount)
+        : null,
+      Number.isInteger(payload.rcStmFormalAttachmentRequired) && payload.rcStmFormalAttachmentRequired > 0
+        ? ratio('RC STM 正式附件', payload.rcStmFormalAttachmentComplete, payload.rcStmFormalAttachmentRequired, payload.rcStmFormalAttachmentIssueCount)
+        : null,
+      Number.isInteger(payload.steelHtmlContentSealRequired) && payload.steelHtmlContentSealRequired > 0
+        ? ratio('鋼構 HTML 內容封印', payload.steelHtmlContentSealComplete, payload.steelHtmlContentSealRequired, payload.steelHtmlContentSealIssueCount)
+        : null,
+      Number.isInteger(payload.steelHtmlApprovalSealRequired) && payload.steelHtmlApprovalSealRequired > 0
+        ? ratio('鋼構 HTML 核可封印', payload.steelHtmlApprovalSealComplete, payload.steelHtmlApprovalSealRequired, payload.steelHtmlApprovalSealIssueCount)
+        : null,
+      Number.isInteger(payload.anchorHtmlContentSealRequired) && payload.anchorHtmlContentSealRequired > 0
+        ? ratio('錨栓 HTML 內容封印', payload.anchorHtmlContentSealComplete, payload.anchorHtmlContentSealRequired, payload.anchorHtmlContentSealIssueCount)
+        : null,
+      Number.isInteger(payload.anchorHtmlApprovalSealRequired) && payload.anchorHtmlApprovalSealRequired > 0
+        ? ratio('錨栓 HTML 核可封印', payload.anchorHtmlApprovalSealComplete, payload.anchorHtmlApprovalSealRequired, payload.anchorHtmlApprovalSealIssueCount)
+        : null,
+      Number.isInteger(payload.steelResultReconciliationRequired) && payload.steelResultReconciliationRequired > 0
+        ? ratio('鋼構結果鏈', payload.steelResultReconciliationComplete, payload.steelResultReconciliationRequired, payload.steelResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.stoneResultReconciliationRequired) && payload.stoneResultReconciliationRequired > 0
+        ? ratio('石材結果鏈', payload.stoneResultReconciliationComplete, payload.stoneResultReconciliationRequired, payload.stoneResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.anchorResultReconciliationRequired) && payload.anchorResultReconciliationRequired > 0
+        ? ratio('錨栓結果鏈', payload.anchorResultReconciliationComplete, payload.anchorResultReconciliationRequired, payload.anchorResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.deckingResultReconciliationRequired) && payload.deckingResultReconciliationRequired > 0
+        ? ratio('覆工板結果鏈', payload.deckingResultReconciliationComplete, payload.deckingResultReconciliationRequired, payload.deckingResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.excavationResultReconciliationRequired) && payload.excavationResultReconciliationRequired > 0
+        ? ratio('開挖結果鏈', payload.excavationResultReconciliationComplete, payload.excavationResultReconciliationRequired, payload.excavationResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.localQuickResultReconciliationRequired) && payload.localQuickResultReconciliationRequired > 0
+        ? ratio('局部快算結果鏈', payload.localQuickResultReconciliationComplete, payload.localQuickResultReconciliationRequired, payload.localQuickResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.supplementalDeliveryEvidenceRequired) && payload.supplementalDeliveryEvidenceRequired > 0
+        ? ratio('補充成品', payload.supplementalDeliveryEvidenceComplete, payload.supplementalDeliveryEvidenceRequired, payload.supplementalDeliveryEvidenceIssueCount)
+        : null
+    ].filter(Boolean);
+  }
+
+  function reportReadinessCardData(payload) {
+    if (!payload || payload.kind !== 'report-readiness-status') {
+      return reportReadinessOverview;
+    }
+    return {
+      badge: payload.badge || reportReadinessOverview.badge,
+      label: payload.label || reportReadinessOverview.label,
+      summary: payload.summary || reportReadinessOverview.summary,
+      compactSummary: payload.compactSummary || reportReadinessOverview.compactSummary,
+      details: Array.isArray(payload.details) && payload.details.length
+        ? payload.details
+        : reportReadinessOverview.details,
+      reportTextSmokeSummary: (Array.isArray(payload.details) ? payload.details : []).find(item => String(item || '').includes('正式計算書可讀文字抽檢')) || reportReadinessOverview.reportTextSmokeSummary,
+      reportTextSmokeScope: payload.reportTextSmokeScope || reportReadinessOverview.reportTextSmokeScope,
+      renderedDeliveryEvidenceSummary: payload.renderedDeliveryEvidenceSummary || reportReadinessOverview.renderedDeliveryEvidenceSummary,
+      meta: reportReadinessStatusMeta(payload, reportReadinessOverview.meta),
+      pass: payload.pass !== false
+    };
+  }
+
+  function renderReportReadinessStatus(payload = null) {
+    if (!elements.reportReadinessStatus) return;
+    const card = reportReadinessCardData(payload);
+    const detailText = [card.compactSummary, card.renderedDeliveryEvidenceSummary, card.reportTextSmokeScope].filter(Boolean).join(' ');
+    renderStaticStatusCard(
+      elements.reportReadinessStatus,
+      card.badge,
+      card.pass === false ? 'warn' : 'ok',
+      card.label,
+      detailText,
+      card.meta || reportReadinessOverview.meta
+    );
+    elements.reportReadinessStatus.dataset.statusSource = payload && payload.kind === 'report-readiness-status' ? 'snapshot' : 'static';
+  }
+
+  async function loadStatus() {
+    // 狀態列連結一律改用相對路徑，確保 GitHub Pages 子目錄部署也能正確解析。
+    document.querySelectorAll('[data-file-href]').forEach(link => {
+      link.setAttribute('href', link.getAttribute('data-file-href'));
+    });
+    if (!/^https?:$/i.test(window.location.protocol)) {
+      renderStatus(document.getElementById('platformStatus'), '平台巡檢', null, '以本機伺服器開啟時會讀取最新平台巡檢。');
+      renderStatus(document.getElementById('preflightStatus'), '交付前檢查', null, '以本機伺服器開啟時會讀取最新 preflight 結果。');
+      return;
+    }
+    try {
+      const response = await fetch(cacheBustedHref(homeAssetHref('assets/status/platform-status.json')), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      renderStatus(
+        document.getElementById('platformStatus'),
+        '平台巡檢',
+        payload,
+        `${payload.generatedAt || '最近一輪'}，${payload.failureCount || 0} 項異常。`,
+        platformStatusMeta(payload)
+      );
+    } catch (error) {
+      renderStatus(document.getElementById('platformStatus'), '平台巡檢', null, '目前無法讀取平台巡檢結果。');
+    }
+    try {
+      const response = await fetch(cacheBustedHref(homeAssetHref('assets/status/preflight-summary.json')), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      applyTrackedReleaseVerifiedAt(payload);
+      renderStatus(
+        document.getElementById('preflightStatus'),
+        '交付前檢查',
+        payload,
+        `${payload.generatedAt || '最近一輪'}，${payload.failureCount || 0} 項異常。 ${preflightEvidenceSummary(payload)}`,
+        preflightStatusMeta(payload)
+      );
+    } catch (error) {
+      renderStatus(document.getElementById('preflightStatus'), '交付前檢查', null, '目前無法讀取 preflight 結果。');
+    }
+    try {
+      const response = await fetch(cacheBustedHref(homeAssetHref('assets/status/report-readiness-status.json')), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      renderReportReadinessStatus(payload);
+    } catch (error) {
+      renderReportReadinessStatus();
+    }
+  }
+
+  function render() {
+    renderFilters();
+    renderMemberSystemPanel();
+    renderTools();
+  }
+
+  function init() {
+    const search = document.getElementById('toolSearch');
+    const clear = document.getElementById('clearToolSearch');
+    const detailToggle = document.getElementById('toolDetailToggle');
+    if (detailToggle && elements.grid) {
+      const DETAIL_PREF_KEY = 'structToolbox.home.cardDetail';
+      let detailPref = false;
+      try { detailPref = localStorage.getItem(DETAIL_PREF_KEY) === '1'; } catch (error) { detailPref = false; }
+      detailToggle.checked = detailPref;
+      elements.grid.classList.toggle('tool-grid--detailed', detailPref);
+      detailToggle.addEventListener('change', () => {
+        elements.grid.classList.toggle('tool-grid--detailed', detailToggle.checked);
+        document.querySelector('.home-personal__grid')?.classList.toggle('tool-grid--detailed', detailToggle.checked);
+        try { localStorage.setItem(DETAIL_PREF_KEY, detailToggle.checked ? '1' : '0'); } catch (error) { /* per-viewer convenience only */ }
+      });
+    }
+    search?.addEventListener('input', () => { state.query = search.value; renderTools(); });
+    clear?.addEventListener('click', () => { search.value = ''; state.query = ''; renderTools(); search.focus(); });
+    renderCategoryOverview();
+    render();
+    renderReportReadinessStatus();
+    loadStatus();
+  }
+
+  init();
+})();

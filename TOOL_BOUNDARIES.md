@@ -370,3 +370,7 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 鏡像 manifest 的四筆來源均不含本批六檔。`結構工具箱/tools/project-storage.test.js` 保留全部字面斷言並改讀可讀來源；`結構工具箱/tools/local-quick-tools.contract.test.js` 的 LoadCombo VM 改讀來源，公開輸出仍由既有 LoadCombo 行為／家族測試執行。`report-docx-integration.contract.test.js` 同時載入公開與來源版本，保留各自可攜 HTML factory／Word 邊界全部斷言；其餘 HTML script VM 與 require 讀取者執行公開輸出之行為，不依賴函式排版。首頁依賴依實際 script 消費頁補齊公開檔及來源檔；不更改工具清冊欄位或公開路徑。
 
 DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未壓縮來源也會失敗；本包僅補齊替身並檢查 MIME／Blob 導覽，不更動任何 report.js 或 report-utils.js。首次失敗與原替身重現紀錄保留，所有原 Word／可攜 HTML 斷言均保留。
+
+## 2026-10-11：T38 首頁可讀來源與確定性產出
+
+新增私有來源 `結構工具箱/assets/home/src/home.source.js`；原公開 `結構工具箱/assets/home/home.js` 由 `結構工具箱/tools/build-minified-runtimes.js` 的 home 項產生，Terser 5.44.0、LF、首行來源標記，公開引用不變。來源登錄 HOME_TOOL_UPDATE_DEPENDENCIES 與 Pages PRIVATE_FILES。首頁清冊、日期、初始檢視、版本同步及所有字面契約讀來源；日期與版本同步在寫入來源後自動重建，日期 --check 同時檢查來源日期與產出一致。公開網站 smoke 保留全部原文字／能力斷言，容許壓縮後等價空白與引號格式。建置契約體積為首次實測加 10%、向上取整；不改清冊欄位、路由或計算邏輯。

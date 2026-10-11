@@ -205,7 +205,7 @@ async function main() {
   const startedAt = new Date().toISOString();
   const sourceAtStart = sourceReceipt();
   activeAudit = { startedAt, sourceAtStart, results: [], docx: null, baseUrl: null, analysis: null };
-  const homeJs = fs.readFileSync(path.join(repo, '結構工具箱', 'assets', 'home', 'home.js'), 'utf8');
+  const homeJs = fs.readFileSync(path.join(repo, '結構工具箱', 'assets', 'home', 'src', 'home.source.js'), 'utf8');
   const routes = Object.keys(extractLiteral(homeJs, 'HOME_TOOL_UPDATES').routes);
   const baselineErrors = validateBaseline(baseline, routes);
   assert.deepEqual(baselineErrors, [], `Invalid existing load budget baseline: ${baselineErrors.join('; ')}`);

@@ -72,7 +72,7 @@ const event = { stopped: false, preventDefault() {}, stopImmediatePropagation() 
 for (const handler of handlers.sort((a, b) => Number(b.capture) - Number(a.capture))) { if (!event.stopped) handler.callback(event); }
 assert.deepEqual([calculated, originalCalcCalls], [1, 0], 'RC calculation capture runs the adapter once and suppresses the original click callback');
 
-const homeSource = fs.readFileSync(path.join(root, '結構工具箱', 'assets', 'home', 'home.js'), 'utf8');
+const homeSource = fs.readFileSync(path.join(root, '結構工具箱', 'assets', 'home', 'src', 'home.source.js'), 'utf8');
 assert.ok(!homeSource.includes('鋼筋混凝土/shared/calc-verdict-strip.js'), 'homepage dependency map no longer tracks the removed strip');
 
 let clicked = 0, scrolled = 0;

@@ -19,7 +19,8 @@ const version = read('field-survey/model.js').match(/export const VERSION = '([^
 const cacheName = read('field-survey/sw.js').match(/const CACHE = '(condition-survey-shell-[^']+?)(?:-r\d+)?'/)?.[1];
 if (!version || !cacheName) throw new Error('無法由 field-survey/model.js 或 sw.js 取得版本');
 
-const homePath = '結構工具箱/assets/home/home.js';
+const homePath = '結構工具箱/assets/home/src/home.source.js';
+const builderPath = path.join(__dirname, 'build-minified-runtimes.js');
 const smokePath = '結構工具箱/tools/pages-live-smoke.js';
 let home = read(homePath);
 let smoke = read(smokePath);
@@ -45,9 +46,11 @@ if (checkOnly) {
     console.error(`首頁或上線檢查標記未同步至 V${version}；請執行 node 結構工具箱/tools/sync-survey-public-version.js`);
     process.exit(1);
   }
+  execFileSync(process.execPath, [builderPath, '--only=home', '--check'], { cwd: repoRoot, stdio: 'inherit', windowsHide: true });
   console.log(`survey public version in sync (V${version})`);
 } else {
   if (home !== before.home) write(homePath, home);
+  execFileSync(process.execPath, [builderPath, '--only=home'], { cwd: repoRoot, stdio: 'inherit', windowsHide: true });
   if (smoke !== before.smoke) write(smokePath, smoke);
   console.log(changed ? `synced survey public version to V${version} (${today})` : `already in sync (V${version})`);
 }

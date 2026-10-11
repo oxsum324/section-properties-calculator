@@ -671,3 +671,7 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
+
+## 2026-10-11：T38 首頁確定性壓縮分組
+
+一組提交新增 `結構工具箱/assets/home/src/home.source.js` 與生成 `結構工具箱/assets/home/home.js`、`.gitattributes`、`結構工具箱/tools/build-minified-runtimes.js`、`結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/sync-home-update-dates.js`、`結構工具箱/tools/sync-home-initial-view.js`、`結構工具箱/tools/sync-survey-public-version.js`、`field-survey/release.mjs`，以及所有改讀首頁來源的契約／清冊解析器、`結構工具箱/tools/pages-live-smoke.js`、`homepage-quality.browser.test.js`、`tool-page-a11y-build.contract.test.js` 和三份治理文件。只改讀取位置及保留等價斷言，不改其他產出；回報、原始測試收據留在 ignored 的 `_tmp/派工/回報/` 與 `output/phase10/`。首頁來源／產出使用 LF，版本與日期同步必須重建，最終提交後乾淨 --check 無差異。

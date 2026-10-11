@@ -25,8 +25,13 @@ const PUBLIC_ROUTE_SAMPLES = [
   },
   {
     path: '結構工具箱/assets/home/home.js',
-    needles: ["capabilities: ['組合斷面', '斷面輔助']", "capabilities: ['案件參數', '案件入口']", "capabilities: ['附屬構造物', '耐震', 'TXT 備查']"],
-    forbidden: ["capabilities: ['NEW'"]
+    needles: [],
+    patterns: [
+      String.raw`capabilities:\s*\[(['"])組合斷面\1,\s*(['"])斷面輔助\2\]`,
+      String.raw`capabilities:\s*\[(['"])案件參數\1,\s*(['"])案件入口\2\]`,
+      String.raw`capabilities:\s*\[(['"])附屬構造物\1,\s*(['"])耐震\2,\s*(['"])TXT 備查\3\]`,
+    ],
+    forbiddenPatterns: [String.raw`capabilities:\s*\[['"]NEW['"]`]
   },
   { path: '鋼筋混凝土/tools/beam.html', needles: ['梁 Beam 設計', 'RC 工具箱'] },
   { path: '鋼筋混凝土/tools/shear-wall.html', needles: ['剪力牆 Shear Wall', '18.7'] },
@@ -496,6 +501,12 @@ async function assertPublicRouteSamples(base) {
     for (const forbidden of sample.forbidden || []) {
       assert.equal(html.includes(forbidden), false, `${sample.path} contains forbidden stale claim: ${forbidden}`);
     }
+    for (const pattern of sample.patterns || []) {
+      assert.match(html, new RegExp(pattern), `${sample.path} missing public page marker: ${pattern}`);
+    }
+    for (const pattern of sample.forbiddenPatterns || []) {
+      assert.doesNotMatch(html, new RegExp(pattern), `${sample.path} contains forbidden stale claim: ${pattern}`);
+    }
     assertNoLocalWorkspaceLeak(html, sample.path);
     if (sample.checkAssets) await assertPublicAssets(html, pageUrl, sample.path);
   }
@@ -636,7 +647,7 @@ async function main() {
   assert.ok(homeJs.includes("assets/status/preflight-summary.json"), 'home.js reads preflight status asset');
   assert.ok(homeJs.includes("assets/status/report-readiness-status.json"), 'home.js reads report readiness status asset');
   assert.equal(/fetch\(\s*[`'"]\/output\//.test(homeJs), false, 'home.js must not fetch domain-root output paths');
-  assert.ok(homeJs.includes("label: '報告閱讀狀態總覽'"), 'home.js keeps report readiness overview label');
+  assert.ok(/\blabel:\s*(['"])報告閱讀狀態總覽\1/.test(homeJs), 'home.js keeps report readiness overview label');
   assert.ok(homeJs.includes('頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查'), 'home.js keeps page-only diagnostic boundary summary');
   assert.ok(homeJs.includes('計算書預設為可列印的內部審閱，勾選核可後改為正式附件'), 'home.js separates page diagnostics from approval-based document identity');
   assert.ok(homeJs.includes('工程檢核狀態與文件身分分開'), 'home.js explains engineering and document states are independent');
@@ -644,8 +655,8 @@ async function main() {
   assert.ok(homeJs.includes('快速檢查'), 'home.js keeps quick preflight mode label');
   assert.ok(homeJs.includes('正式放行'), 'home.js keeps release preflight mode label');
   assert.ok(homeJs.includes('正式交付請以完整檢查或正式放行結果為準。'), 'home.js keeps full-run evidence summary');
-  assert.ok(homeJs.includes("cardTag: '報告邊界'"), 'home.js keeps RC report boundary card tag');
-  assert.ok(homeJs.includes("cardTag: '輸出邊界'"), 'home.js keeps anchor output boundary card tag');
+  assert.ok(/\bcardTag:\s*(['"])報告邊界\1/.test(homeJs), 'home.js keeps RC report boundary card tag');
+  assert.ok(/\bcardTag:\s*(['"])輸出邊界\1/.test(homeJs), 'home.js keeps anchor output boundary card tag');
 
   const directPrintBoundaryCss = await fetchText(directPrintBoundaryUrl);
   assert.ok(directPrintBoundaryCss.includes('body.formal-tool-output-page > :not(.formal-direct-print-boundary)'), 'formal direct-print stylesheet hides work-page content');

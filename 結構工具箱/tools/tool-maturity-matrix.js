@@ -1095,7 +1095,7 @@ function loadSourceState() {
   const excavationTraceabilityRelativePath = '開挖擋土支撐/excavation-traceability.catalog.json';
   const localQuickManifestRelativePath = '結構工具箱/tools/local-quick-tools.manifest.json';
   const vercelRelativePath = 'vercel.json';
-  const homeRelativePath = '結構工具箱/assets/home/home.js';
+  const homeRelativePath = '結構工具箱/assets/home/src/home.source.js';
   const preflightSummaryRelativePath = 'output/preflight/preflight-summary.json';
   const preflightHistoryRelativePath = 'output/preflight/preflight-history.json';
   const jointReactionSyntheticManifestRelativePath = '鋼筋混凝土/shared/fixtures/joint-reactions/manifest.json';
@@ -1119,7 +1119,7 @@ function loadSourceState() {
   const excavationTraceabilityPath = repoFile('開挖擋土支撐/excavation-traceability.catalog.json');
   const localQuickManifestPath = toolboxFile('tools/local-quick-tools.manifest.json');
   const vercelPath = repoFile(vercelRelativePath);
-  const homePath = toolboxFile('assets/home/home.js');
+  const homePath = toolboxFile('assets/home/src/home.source.js');
   const preflightSummaryPath = repoFile(preflightSummaryRelativePath);
   const preflightHistoryPath = repoFile(preflightHistoryRelativePath);
   const independentBenchmarkPath = toolboxFile('tools/independent-engineering-benchmarks.catalog.json');

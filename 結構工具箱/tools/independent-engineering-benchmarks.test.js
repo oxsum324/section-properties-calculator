@@ -8,7 +8,7 @@ const toolsRoot = __dirname;
 const catalogPath = path.join(toolsRoot, 'independent-engineering-benchmarks.catalog.json');
 const runnerPath = path.join(toolsRoot, 'independent-engineering-benchmarks.js');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8').replace(/^\uFEFF/, ''));
-const homeSource = fs.readFileSync(path.join(toolsRoot, '..', 'assets', 'home', 'home.js'), 'utf8');
+const homeSource = fs.readFileSync(path.join(toolsRoot, '..', 'assets', 'home', 'src', 'home.source.js'), 'utf8');
 
 function homepageState(route) {
   const escaped = String(route).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

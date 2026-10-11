@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const root = path.resolve(__dirname, '..');
-const scriptPath = path.join(root, 'assets/home/home.js');
+const scriptPath = path.join(root, 'assets/home/src/home.source.js');
 const htmlPath = path.join(root, 'index.html');
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
 

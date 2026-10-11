@@ -36,7 +36,7 @@ for (const relativePath of [...sourcePaths, canonicalPath, buildPath]) {
   assert.ok(PRIVATE_FILES.has(relativePath), `${relativePath} must be explicitly private`);
   assert.equal(classifyPublishedPath(relativePath).publish, false, `${relativePath} must not enter Pages`);
 }
-const runtimeByteLimits = { a11y: 10500, profile: 39000, wind: 45000, 'report-docx': 12800, 'tool-workflow': 7548, 'workflow-adapters': 6190, 'toolbox-storage': 16627, 'rc-storage': 4947, 'loadcombo': 30728 };
+const runtimeByteLimits = { home: 78919, a11y: 10500, profile: 39000, wind: 45000, 'report-docx': 12800, 'tool-workflow': 7548, 'workflow-adapters': 6190, 'toolbox-storage': 16627, 'rc-storage': 4947, 'loadcombo': 30728 };
 for (const runtimeDefinition of runtimes) {
   const runtimePath = path.join(root, runtimeDefinition.output);
   assert.equal(classifyPublishedPath(runtimeDefinition.output).publish, true, `${runtimeDefinition.output} stays public`);
@@ -77,11 +77,14 @@ function extractLiteral(source, name) {
 }
 
 const toolboxRoot = path.join(root, '結構工具箱');
-const home = fs.readFileSync(path.join(toolboxRoot, 'assets/home/home.js'), 'utf8');
+const home = fs.readFileSync(path.join(toolboxRoot, 'assets/home/src/home.source.js'), 'utf8');
 const tools = extractLiteral(home, 'tools').filter(tool => tool.state === 'formal');
 const routeFileMap = extractLiteral(home, 'routeFileMap');
 const dependencies = extractLiteral(home, 'HOME_TOOL_UPDATE_DEPENDENCIES').routes;
 const homeRoutes = dependencies;
+assert.deepEqual(Array.from(homeRoutes['/toolbox-home']), [
+  '結構工具箱/assets/home/home.js', '結構工具箱/assets/home/src/home.source.js',
+], 'homepage registers its unchanged runtime and readable source');
 for (const runtimeDefinition of runtimes) {
   for (const [route, files] of Object.entries(homeRoutes)) {
     if (files.includes(runtimeDefinition.output)) assert.ok(files.includes(runtimeDefinition.source), `${route} registers readable source for ${runtimeDefinition.id}`);

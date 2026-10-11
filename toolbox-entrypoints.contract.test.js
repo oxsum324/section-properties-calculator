@@ -7,7 +7,7 @@ const { spawnSync } = require('child_process');
 
 const repoRoot = __dirname;
 const toolboxRoot = path.join(repoRoot, '結構工具箱');
-const homeJsPath = path.join(toolboxRoot, 'assets/home/home.js');
+const homeJsPath = path.join(toolboxRoot, 'assets/home/src/home.source.js');
 
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8');

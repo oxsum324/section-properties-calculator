@@ -156,7 +156,7 @@ const repoDocs = {
   indexClassic: readText(toolboxFile('index-classic.html')),
   homeCss: readText(toolboxFile('assets/home/home.css')),
   homeTokens: readText(toolboxFile('assets/hy/colors_and_type.css')),
-  homeJs: readText(toolboxFile('assets/home/home.js')),
+  homeJs: readText(toolboxFile('assets/home/src/home.source.js')),
   seismicCore: readText(toolboxFile('core/loads/seismic.js')),
   windReport: readText(toolboxFile('core/wind-report.js')),
   seismicDynamic: readText(toolboxFile('tools/地震力/seismic-dynamic.html')),

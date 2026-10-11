@@ -8,7 +8,7 @@ const { spawn } = require('node:child_process');
 const repo = __dirname;
 const deps = path.join(repo, 'output/playwright/phase2-quality-deps/node_modules');
 const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const homeSource = fs.readFileSync(path.join(repo, '結構工具箱/assets/home/home.js'), 'utf8');
+const homeSource = fs.readFileSync(path.join(repo, '結構工具箱/assets/home/src/home.source.js'), 'utf8');
 const runBaseline = process.argv.includes('--baseline');
 const viewports = [
   { name: 'desktop', width: 1280, height: 900 },

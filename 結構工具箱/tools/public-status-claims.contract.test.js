@@ -74,7 +74,7 @@ function anchorBlock(html, href) {
   return match[0];
 }
 
-const homeSource = readText('結構工具箱/assets/home/home.js');
+const homeSource = readText('結構工具箱/assets/home/src/home.source.js');
 const homeTools = evaluateLiteral(extractConstLiteral(homeSource, 'tools'), 'home-tools');
 const rcLauncher = readText('鋼筋混凝土/index.html');
 const classicLauncher = readText('結構工具箱/index-classic.html');

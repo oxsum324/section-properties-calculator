@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
 const manifest = require('./tool-workflow.manifest.json');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const homepage = read('結構工具箱/assets/home/home.js');
+const homepage = read('結構工具箱/assets/home/src/home.source.js');
 const match = homepage.match(/const tools = (\[[\s\S]*?\n  \]);/);
 assert.ok(match, 'homepage tool inventory is readable');
 const tools = vm.runInNewContext(`(${match[1]})`);

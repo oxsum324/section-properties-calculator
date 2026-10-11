@@ -242,7 +242,7 @@ const repoDocs = {
   reportGuide: readText(repoFile('TOOL_REPORT_GUIDE.md')),
   coreStyle: readText(toolboxFile('core/style.css')),
   vercel: readText(repoFile('vercel.json')),
-  homeJs: readText(toolboxFile('assets/home/home.js')),
+  homeJs: readText(toolboxFile('assets/home/src/home.source.js')),
   smoke: readText(toolboxFile('tools/formal-browser-smoke.test.js')),
   runner: readText(toolboxFile(manifest.shared.runner)),
   maturity: readText(toolboxFile(manifest.shared.maturityMatrix)),
