@@ -259,7 +259,7 @@ function Run-PlatformAuditPass {
       command = "& '$steelAuditScript' -Quiet"
       statusPath = (Join-Path $steelDir "output\audit\audit-status.json")
       summaryPath = (Join-Path $steelDir "output\audit\audit-summary.md")
-      timeoutSeconds = 360
+      timeoutSeconds = 540
     },
     @{
       key = "rc"

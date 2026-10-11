@@ -714,3 +714,11 @@ git add -- ".gitattributes" "結構工具箱/index.html" "結構工具箱/assets
 git add -- toolbox-entrypoints.contract.test.js STAGING_GROUPS.md
 ```
 
+## 2026-10-11：鋼構正式稽核逾時預算 360 → 540 秒（放行前修正）
+
+`audit-all.ps1` 的鋼構正式稽核（`鋼構工具/audit-tool.ps1`，27 組瀏覽器案例 × 3 尺寸）預算 360 秒；2026-10-11 兩次通過的實跑已達 296／337 秒，晚間負載下第三次（runId 20261011-225630 的平台稽核）在 334 秒仍差 5 組而被中止（exitCode 124），連鎖使 `rendered-delivery-evidence` 缺鋼構當輪摘要。預算改為 540 秒（約 1.5 倍常態），RC 1,200 秒與 core 240 秒不變；稽核內容、案例與斷言未改。
+
+```powershell
+git add -- audit-all.ps1 STAGING_GROUPS.md
+```
+
