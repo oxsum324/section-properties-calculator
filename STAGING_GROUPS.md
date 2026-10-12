@@ -738,3 +738,14 @@ git add -- "audit-all.ps1" "ensure-homepage-quality-deps.ps1" "preflight-tools.p
 ```powershell
 git add -- ".gitattributes" "鋼構工具/src/app.source.js" "鋼構工具/src/calculator.source.js" "鋼構工具/app.js" "鋼構工具/calculator.js" "鋼構工具/steel-traceability.catalog.json" "鋼構工具/steel-traceability.contract.test.js" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/README.md" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/independent-engineering-adapters/steel-formal.js" "結構工具箱/tools/public-status-claims.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/tool-workflow.manifest.json" "steel-report-presentation.browser.test.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
 ```
+
+## 2026-10-12：撤銷石材 KaTeX 按需載入（T43）、鋼構壓縮比例斷言改 70%（T42）
+
+撤銷 `89ed9340 Load stone KaTeX on demand`：冷開石材頁不捲動即產出計算書時，16 個公式全以 TeX 原文輸出（例如 `R_p = 24.19 	ext{kgf/m}^{2}`），T43 前同流程 16/16 為 KaTeX 排版；KaTeX 改為公式進入預覽可視區才載入，正式輸出未等待載入。委託人裁定撤銷，石材頁回到 head 以 defer 載入 KaTeX。
+
+T42 鋼構 `app.js`／`calculator.js` 確定性壓縮實測為可讀來源的 66.0%（274,443／415,912 bytes），`tool-page-a11y-build.contract.test.js` 的整體比例斷言由 55% 改為 70%；兩檔各自的實測 +10% 上限不變。委託人接受 T41 預檢暫存子腳本以 UTF-16 寫出的編碼契約例外。
+
+```powershell
+git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/README.md" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/src/home.source.js" tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
