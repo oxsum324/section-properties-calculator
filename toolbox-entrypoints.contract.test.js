@@ -1213,8 +1213,8 @@ assert.match(
 );
 assert.match(
   preflight,
-  /key\s*=\s*"platform-audit"[\s\S]{0,320}?timeoutSeconds\s*=\s*1500/,
-  'preflight keeps a twenty-five-minute outer timeout for the forced platform audit'
+  /key\s*=\s*"platform-audit"[\s\S]{0,320}?timeoutSeconds\s*=\s*2100/,
+  'preflight keeps a thirty-five-minute outer timeout for the forced platform audit (covers steel 540 + RC 1200 + core 240 inner budgets)'
 );
 assert.ok(readText(path.join(toolboxRoot, 'tools/local-quick-tools.run.js')).includes('spawn error'), 'local quick runner reports spawn errors');
 assert.ok(readText(path.join(toolboxRoot, 'tools/formal-tools.run.js')).includes('spawn error'), 'formal tools runner reports spawn errors');

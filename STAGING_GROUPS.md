@@ -749,3 +749,11 @@ T42 鋼構 `app.js`／`calculator.js` 確定性壓縮實測為可讀來源的 66
 git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/README.md" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/src/home.source.js" tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
+## 2026-10-12：正式預檢平台稽核預算 1,500 → 2,100 秒（放行前修正）
+
+`preflight-tools.ps1` 的 `platform-audit` 外層預算 1,500 秒，但 `audit-all.ps1` 內部三段預算合計為鋼構 540＋RC 1,200＋core 240＝1,980 秒（鋼構於 2026-10-11 由 360 調為 540）。runId 20261012-140428 中鋼構實跑 391 秒、RC 跑到 89／102 項時被外層 1,500 秒中止（exitCode 124），連鎖使 `rendered-delivery-evidence` 失敗。外層改為 2,100 秒，涵蓋內部合計並留約 120 秒啟動與彙整餘裕；稽核內容與內部預算不變。
+
+```powershell
+git add -- preflight-tools.ps1 STAGING_GROUPS.md
+```
+
