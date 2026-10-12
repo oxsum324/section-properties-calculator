@@ -26,7 +26,7 @@ const expected = [
 
 function expectedCommand(entry) {
   if (entry.kind === 'powershell') {
-    return `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "${entry.path}"`;
+    return `powershell -NoProfile -ExecutionPolicy Bypass -File "${entry.path}"`;
   }
   if (entry.kind === 'batch') return `cmd /d /c call "${entry.path}"`;
   return `node "${entry.path}"`;
@@ -38,7 +38,7 @@ for (const [index, entry] of expected.entries()) {
   assert.ok(fs.existsSync(path.join(root, entry.path)), `wrapper ${index + 1} exists: ${entry.path}`);
 }
 
-for (const shell of ['powershell', 'pwsh']) {
+for (const shell of [path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe')]) {
   const result = spawnSync(shell, [
     '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, '-ListCommands',
   ], { cwd: root, encoding: 'utf8', windowsHide: true });
@@ -52,4 +52,4 @@ for (const shell of ['powershell', 'pwsh']) {
   assert.ok(actual.every((entry) => !path.isAbsolute(entry.path)), `${shell} uses only repo-relative paths`);
 }
 
-console.log('family wrapper contract OK (14 ordered commands; Windows PowerShell 5.1 and pwsh; list mode only)');
+console.log('family wrapper contract OK (14 ordered commands; Windows PowerShell 5.1; list mode only)');

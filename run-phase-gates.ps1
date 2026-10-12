@@ -104,10 +104,10 @@ foreach ($command in $commands) {
     $stdoutTail = @()
     $stderrTail = @()
     if (Test-Path -LiteralPath $stdoutPath -PathType Leaf) {
-        $stdoutTail = @(Get-Content -LiteralPath $stdoutPath -Tail 20 | ForEach-Object { $_.ToString() })
+        $stdoutTail = @(Get-Content -Encoding UTF8 -LiteralPath $stdoutPath -Tail 20 | ForEach-Object { $_.ToString() })
     }
     if (Test-Path -LiteralPath $stderrPath -PathType Leaf) {
-        $stderrTail = @(Get-Content -LiteralPath $stderrPath -Tail 20 | ForEach-Object { $_.ToString() })
+        $stderrTail = @(Get-Content -Encoding UTF8 -LiteralPath $stderrPath -Tail 20 | ForEach-Object { $_.ToString() })
     }
 
     $results.Add([pscustomobject]@{

@@ -56,7 +56,7 @@ function Stop-TrackedProcess($pidPath) {
   if (-not (Test-Path $pidPath)) {
     return
   }
-  $trackedPid = Get-Content -Path $pidPath -Raw
+  $trackedPid = Get-Content -Encoding UTF8 -Path $pidPath -Raw
   if ($trackedPid) {
     $existingProcess = Get-Process -Id ([int]$trackedPid) -ErrorAction SilentlyContinue
     if ($existingProcess) {
@@ -180,7 +180,7 @@ if ($useFrontendDevServer) {
       -RedirectStandardError $frontendErrLog `
       -PassThru `
       -WindowStyle Hidden
-    Set-Content -Path $frontendPidPath -Value $frontendProcess.Id
+    Set-Content -Encoding UTF8 -Path $frontendPidPath -Value $frontendProcess.Id
 
     for ($index = 0; $index -lt 20; $index++) {
       Start-Sleep -Milliseconds 500
@@ -211,7 +211,7 @@ $backendProcess = Start-Process `
   -PassThru `
   -WindowStyle Hidden
 
-Set-Content -Path $backendPidPath -Value $backendProcess.Id
+Set-Content -Encoding UTF8 -Path $backendPidPath -Value $backendProcess.Id
 
 for ($index = 0; $index -lt 20; $index++) {
   Start-Sleep -Milliseconds 500

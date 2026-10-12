@@ -2033,7 +2033,7 @@ $stale = New-Object System.Collections.Generic.List[string]
 $alive = 0
 
 foreach ($pidFile in $pidFiles) {
-  $raw = Get-Content -LiteralPath $pidFile.FullName -Raw -ErrorAction SilentlyContinue
+  $raw = Get-Content -Encoding UTF8 -LiteralPath $pidFile.FullName -Raw -ErrorAction SilentlyContinue
   $pidText = if ($null -eq $raw) { "" } else { ([string]$raw).Trim() }
   if ($pidText -notmatch '^\d+$') {
     $stale.Add("invalid pid file: $($pidFile.FullName)")

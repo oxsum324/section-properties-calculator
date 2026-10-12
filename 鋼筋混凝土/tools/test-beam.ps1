@@ -63,7 +63,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n== Beam syntax check ==" -ForegroundColor Cyan
-$html = Get-Content $htmlFile -Raw
+$html = Get-Content -Encoding UTF8 $htmlFile -Raw
 $matches = [regex]::Matches($html, '<script[^>]*>([\s\S]*?)</script>')
 if ($matches.Count -eq 0) {
   throw 'script block not found in beam.html'

@@ -55,7 +55,7 @@ if ($manifestMatches -and (Test-Path -LiteralPath $lockFile) -and $installedMatc
 } else {
   if (-not $manifestMatches) {
     $manifest = [ordered]@{ name = 'phase2-quality-deps'; private = $true; version = '1.0.0'; dependencies = $required }
-    $manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding Ascii $packageFile
+    $manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 $packageFile
   }
   if ((Test-Path -LiteralPath $lockFile) -and $manifestMatches) {
     $mode = 'npm-ci-from-ignored-lock'

@@ -722,3 +722,11 @@ git add -- toolbox-entrypoints.contract.test.js STAGING_GROUPS.md
 git add -- audit-all.ps1 STAGING_GROUPS.md
 ```
 
+
+## 2026-10-12：T41 稽核 UTF-8 與 5.1 家族分組
+
+編碼契約、全部文字 I/O 編碼修正、5.1 家族入口與對應既有契約同包；不改案例、逾時預算、稽核流程或輸出結構。正式 preflight 只改讀檔編碼，既有 UTF-16 暫存腳本格式具理由保留。新契約先單跑量測，收據只留 ignored `output/phase11/`；指定 PS7 鋼構回歸後由 5.1 刷新與驗證本機平台狀態，不寫公開 JSON。
+
+```powershell
+git add -- "audit-all.ps1" "ensure-homepage-quality-deps.ps1" "preflight-tools.ps1" "run-family-wrappers.ps1" "run-pages-artifact-smoke.ps1" "run-phase-gates.ps1" "結構工具箱/audit-core.ps1" "鋼構工具/audit-tool.ps1" "鋼筋混凝土/audit-tool.ps1" "鋼筋混凝土/tools/test-beam.ps1" "開挖擋土支撐/receiver_governance_timestamp.ps1" "開挖擋土支撐/sign_receiver_request.ps1" "開挖擋土支撐/start_html_mode.ps1" "開挖擋土支撐/stop_html_mode.ps1" run-family-wrappers.contract.test.js powershell-encoding.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```

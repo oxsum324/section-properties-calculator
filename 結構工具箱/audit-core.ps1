@@ -43,7 +43,7 @@ function Reset-AuditState {
 function Acquire-AuditLock {
   if (Test-Path $lockPath) {
     try {
-      $lockInfo = Get-Content -Path $lockPath -Raw | ConvertFrom-Json
+      $lockInfo = Get-Content -Encoding UTF8 -Path $lockPath -Raw | ConvertFrom-Json
       $lockingProcess = Get-Process -Id ([int]$lockInfo.pid) -ErrorAction SilentlyContinue
       if ($lockingProcess) {
         throw "Another core audit run is already active (PID $($lockInfo.pid))."
@@ -66,7 +66,7 @@ function Acquire-AuditLock {
 function Release-AuditLock {
   if (Test-Path $lockPath) {
     try {
-      $lockInfo = Get-Content -Path $lockPath -Raw | ConvertFrom-Json
+      $lockInfo = Get-Content -Encoding UTF8 -Path $lockPath -Raw | ConvertFrom-Json
       if ([int]$lockInfo.pid -eq $PID) {
         Remove-Item -Path $lockPath -Force -ErrorAction SilentlyContinue
       }

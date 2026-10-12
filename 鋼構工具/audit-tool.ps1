@@ -49,7 +49,7 @@ function Reset-AuditState {
 function Acquire-AuditLock {
   if (Test-Path $lockPath) {
     try {
-      $lockInfo = Get-Content -Path $lockPath -Raw | ConvertFrom-Json
+      $lockInfo = Get-Content -Encoding UTF8 -Path $lockPath -Raw | ConvertFrom-Json
       $lockingPid = [int]$lockInfo.pid
       $lockingProcess = Get-Process -Id $lockingPid -ErrorAction SilentlyContinue
       if ($lockingProcess) {
@@ -76,7 +76,7 @@ function Acquire-AuditLock {
 function Release-AuditLock {
   if (Test-Path $lockPath) {
     try {
-      $lockInfo = Get-Content -Path $lockPath -Raw | ConvertFrom-Json
+      $lockInfo = Get-Content -Encoding UTF8 -Path $lockPath -Raw | ConvertFrom-Json
       if ([int]$lockInfo.pid -eq $PID) {
         Remove-Item -Path $lockPath -Force -ErrorAction SilentlyContinue
       }

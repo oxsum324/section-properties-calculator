@@ -29,7 +29,7 @@ if (-not $PrivateKeyPath) {
 }
 if (-not $OutputPath) {
   $request = Get-Item -LiteralPath $RequestPath
-  $requestPayload = Get-Content -Raw -LiteralPath $RequestPath | ConvertFrom-Json
+  $requestPayload = Get-Content -Encoding UTF8 -Raw -LiteralPath $RequestPath | ConvertFrom-Json
   $responsePrefix = if ($requestPayload.kind -eq "receiver-governance-health-checkpoint-signing-request") {
     "governance-health-signed-checkpoint-"
   } elseif ($requestPayload.kind -eq "source-evidence-verification-identity-signing-request") {

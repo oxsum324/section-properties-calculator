@@ -5,7 +5,7 @@ $frontendPidPath = Join-Path $root "app_data\pids\html-mode-frontend.pid"
 $backendPidPath = Join-Path $root "app_data\pids\html-mode-backend.pid"
 
 if (Test-Path $frontendPidPath) {
-  $frontendPid = Get-Content -Path $frontendPidPath -Raw
+  $frontendPid = Get-Content -Encoding UTF8 -Path $frontendPidPath -Raw
   if ($frontendPid) {
     $process = Get-Process -Id ([int]$frontendPid) -ErrorAction SilentlyContinue
     if ($process) {
@@ -17,7 +17,7 @@ if (Test-Path $frontendPidPath) {
 }
 
 if (Test-Path $backendPidPath) {
-  $backendPid = Get-Content -Path $backendPidPath -Raw
+  $backendPid = Get-Content -Encoding UTF8 -Path $backendPidPath -Raw
   if ($backendPid) {
     $process = Get-Process -Id ([int]$backendPid) -ErrorAction SilentlyContinue
     if ($process) {

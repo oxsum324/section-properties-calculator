@@ -94,7 +94,7 @@ if ($Mode -eq "Prepare") {
     $VerificationReceiptPath = Select-OpenFile "Select the GCV governance checkpoint verification receipt" $jsonFilter
   }
   try {
-    $receipt = Get-Content -LiteralPath $VerificationReceiptPath -Raw | ConvertFrom-Json
+    $receipt = Get-Content -Encoding UTF8 -LiteralPath $VerificationReceiptPath -Raw | ConvertFrom-Json
   } catch {
     throw "The GCV JSON could not be read: $($_.Exception.Message)"
   }

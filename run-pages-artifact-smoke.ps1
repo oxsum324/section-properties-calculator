@@ -60,9 +60,9 @@ $TerserCli = Join-Path $PagesSmokeRuntime 'node_modules\terser\bin\terser'
 if ($LASTEXITCODE -ne 0) {
   throw "Pinned Pages smoke runtime installation failed with exit code $LASTEXITCODE"
 }
-$ExpectedRuntime = Get-Content -Raw -LiteralPath $PagesSmokeRuntimeManifest | ConvertFrom-Json
-$InstalledPlaywright = Get-Content -Raw -LiteralPath $PlaywrightManifest | ConvertFrom-Json
-$InstalledTerser = Get-Content -Raw -LiteralPath $TerserManifest | ConvertFrom-Json
+$ExpectedRuntime = Get-Content -Encoding UTF8 -Raw -LiteralPath $PagesSmokeRuntimeManifest | ConvertFrom-Json
+$InstalledPlaywright = Get-Content -Encoding UTF8 -Raw -LiteralPath $PlaywrightManifest | ConvertFrom-Json
+$InstalledTerser = Get-Content -Encoding UTF8 -Raw -LiteralPath $TerserManifest | ConvertFrom-Json
 if ($ExpectedRuntime.dependencies.'@playwright/cli' -ne $InstalledPlaywright.version) {
   throw "Pages smoke Playwright version mismatch: expected $($ExpectedRuntime.dependencies.'@playwright/cli'), installed $($InstalledPlaywright.version)"
 }

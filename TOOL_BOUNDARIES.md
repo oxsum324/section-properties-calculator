@@ -396,3 +396,7 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 壓縮前檢查 `鋼構工具/core/formal-core-manifest.json`、石材 vendor 同步清單與所有追溯清冊：`SRC工具/core/src-column-core.js`、`鋼構工具/steel-beam-formal.js`、`鋼構工具/steel-column-formal.js` 明列追溯；`結構工具箱/core/materials/steel.js` 與 `結構工具箱/core/loads/seismic.js` 的鏡像也明列，因此同源跳過。`結構工具箱/core/loads/seismic-zones.js` 建置後只由 `結構工具箱/tools/sync-stone-regulatory-vendor.js` 同步 `石材固定/vendor/loads/seismic-zones.js`。所有其他鏡像／追溯清冊、report.js／report-utils.js、RC shared/report.js、鋼構 app.js／calculator.js 與 field-survey/app.js 不變。
 
 原始碼 needle（SRC 頁、WindReport、調查版本、成熟度解析器）改讀來源；原有 require／VM 的固定預期行為斷言繼續測公開產出，vendor SHA 契約繼續驗生成檔。原生對話框掃描同時保留公開／來源檔，只透過建置清單對應既有 confirm 核准計數，未新增核准額度。量化指標不通過時保留差額與選項，不改可讀來源或基準。
+
+## 2026-10-12：T41 PowerShell 文字編碼與 5.1 家族入口
+
+新增私有 `powershell-encoding.contract.test.js`，用 Windows PowerShell 5.1 AST 掃描全部追蹤 `.ps1` 的 Get-Content／Set-Content／Out-File 及 ReadAllText，保留檔名、行號與多行命令，並以缺漏、錯誤編碼及註解／字串反例驗證。文字讀取明確 UTF-8；寫入同樣指定 UTF-8。唯一具理由的既有例外為 `preflight-tools.ps1` 的 UTF-16 暫存 child script，依 V11 只改讀檔與輸出格式不變邊界保留，須如實回報。家族執行器只選 Windows PowerShell 5.1，不更改 14 項內容、順序與斷言；本輪驗證 PATH 排除 PowerShell 7，使既有 batch 使用 5.1 後備，啟動器原一般政策不改。PS7 僅允許指定鋼構無 BOM 回歸實驗一次。收據與回報留 ignored output／派工資料夾，不更動公開 status／release。

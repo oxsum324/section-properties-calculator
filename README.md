@@ -440,3 +440,5 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 
 
 第三批十二份執行期沿用 `build-minified-runtimes.js`（`--check` 防止漂移）；可讀來源、公開產出及追溯跳過清單列於 TOOL_BOUNDARIES／STAGING_GROUPS，原始碼契約讀來源，行為契約仍測公開產出，石材鏡像只經同步器產生。
+
+T41：PowerShell 文字讀寫採明確 UTF-8，由 `node powershell-encoding.contract.test.js` 掃描；家族驗證使用 Windows PowerShell 5.1，既有 preflight UTF-16 暫存腳本依格式邊界保留並於契約列明理由。

@@ -30,7 +30,7 @@ function Get-WrapperCommand {
 
     switch ($Wrapper.kind) {
         'powershell' {
-            return "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File `"$($Wrapper.path)`""
+            return "powershell -NoProfile -ExecutionPolicy Bypass -File `"$($Wrapper.path)`""
         }
         'batch' {
             return "cmd /d /c call `"$($Wrapper.path)`""
@@ -51,8 +51,8 @@ function Get-WrapperInvocation {
     switch ($Wrapper.kind) {
         'powershell' {
             return [pscustomobject]@{
-                executable = 'pwsh'
-                arguments = @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $absolutePath)
+                executable = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+                arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $absolutePath)
                 command = Get-WrapperCommand $Wrapper
             }
         }

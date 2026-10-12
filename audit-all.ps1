@@ -65,7 +65,7 @@ function Clear-AuditRuntimeProcesses {
 function Acquire-Lock {
   if (Test-Path $lockPath) {
     try {
-      $lockInfo = Get-Content -Path $lockPath -Raw | ConvertFrom-Json
+      $lockInfo = Get-Content -Encoding UTF8 -Path $lockPath -Raw | ConvertFrom-Json
       $lockingProcess = Get-Process -Id ([int]$lockInfo.pid) -ErrorAction SilentlyContinue
       if ($lockingProcess) {
         throw "Another platform audit is already active (PID $($lockInfo.pid))."
@@ -90,7 +90,7 @@ function Acquire-Lock {
 function Release-Lock {
   if (Test-Path $lockPath) {
     try {
-      $lockInfo = Get-Content -Path $lockPath -Raw | ConvertFrom-Json
+      $lockInfo = Get-Content -Encoding UTF8 -Path $lockPath -Raw | ConvertFrom-Json
       if ([int]$lockInfo.pid -eq $PID) {
         Remove-Item -Path $lockPath -Force -ErrorAction SilentlyContinue
       }
@@ -202,7 +202,7 @@ function Update-HistoryManifest {
       continue
     }
     try {
-      $payload = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
+      $payload = Get-Content -Encoding UTF8 -Path $jsonPath -Raw | ConvertFrom-Json
       $historyItems.Add([pscustomobject]@{
         runId = $payload.runId
         generatedAt = $payload.generatedAt
@@ -302,7 +302,7 @@ function Run-PlatformAuditPass {
     }
     $status = $null
     if (Test-Path $job.statusPath) {
-      $status = Get-Content -Path $job.statusPath -Raw | ConvertFrom-Json
+      $status = Get-Content -Encoding UTF8 -Path $job.statusPath -Raw | ConvertFrom-Json
     }
     $pass = [bool]($record.exitCode -eq 0 -and $status -and $status.pass)
     $statusRunId = if ($status) { $status.runId } else { "" }
