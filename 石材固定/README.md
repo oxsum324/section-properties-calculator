@@ -207,5 +207,3 @@ http://127.0.0.1:8765/石材計算書產生器_規範版V2.html?dev=1
 - 若為刻意漂移（規範修訂、bug 修正），走 approved drift 流程：
   - 重拍：`python tests\golden\auto_capture.py`
   - 在 `tests\golden\_approval_log.md` 新增 UPDATE entry，含 reason 與 calc_source_hash 前後值
-
-KaTeX 首次看到預覽公式才載入既有 vendor JS／CSS；計算與計算書不等待程式庫，未就緒或失敗保留原 data-tex 文字。`stone-katex-lazy.browser.test.js` 為私有真 Edge 回歸，包含三個載入案例與實際計算書文字備援；保留原始網路／主控台診斷，vendor 與公式內容不改。

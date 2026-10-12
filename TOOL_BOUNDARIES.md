@@ -404,9 +404,3 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 ## 2026-10-12：T42 鋼構主頁確定性壓縮
 
 私有可讀來源 `鋼構工具/src/app.source.js`、`鋼構工具/src/calculator.source.js` 只從既有公開檔搬移並統一 LF；公開 `鋼構工具/app.js`、`鋼構工具/calculator.js` 維持原路徑，由既有 Terser 5.44.0 canonical builder 生成。兩檔不在 formal core 鏡像清單，core 與石材 vendor 不動。追溯目錄 evidence 保留公開檔，逐筆增 source 對照且不改 id、clause、calculation；原始碼／VM 契約與工程 adapter 讀來源，require、Python 真頁行為與 node --check 保留公開產出。公開 HTTP smoke 的內部函式名稱斷言移到來源契約，HTTP 改查生成標記且原網址、中文與禁止 host 推論斷言保留；未刪原語意。兩份來源登錄公開排除、LF、首頁兩路由日期依賴，工作流程 sourceFile 指向可讀檔。建置位元組上限按實測 +10%，合計仍須符合來源 55%；量化差額不得自行放寬。
-
-## 2026-10-12：T43 石材 KaTeX 按需載入
-
-既有石材 HTML 的 loadKatexRuntime 採單一待定 Promise、12 秒逾時、失敗清除與 generation guard，已存在 window.katex 時直接回傳。公式進入預覽可視區才取既有 vendor JS／CSS；stylesheet 留原位置維持覆寫順序，重試 query 避免共用仍在途的舊請求，observer 身分檢查避免舊回呼影響新觀察器。公式原 data-tex 立即備援，正式 buildPrintableSheetsHtml 同步補齊文字後複製，不把載入 Promise 當成計算／計算書依賴。未用的 auto-render 停止載入，vendor 全部只讀、公式轉換與規格模組不改、id／class／role／工具名稱不改；兩份按需資源明列 HOME_TOOL_UPDATE_DEPENDENCIES。
-
-新增私有 `石材固定/stone-katex-lazy.browser.test.js`，三個載入案例（冷開／首次、阻斷與重試、真 12 秒逾時與 Promise／重複準備）加一個實際計算書 popup 案例；使用既有 pinned ignored Playwright 與真 Edge／真 KaTeX bytes，等待式斷言不改請求次數／尺寸／文字，保留全部 console、request、HTTP、pageerror 原始資料。先量單跑耗時再提交，不納入正式 preflight 的流程改動。

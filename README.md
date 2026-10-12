@@ -444,5 +444,3 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 T41：PowerShell 文字讀寫採明確 UTF-8，由 `node powershell-encoding.contract.test.js` 掃描；家族驗證使用 Windows PowerShell 5.1，既有 preflight UTF-16 暫存腳本依格式邊界保留並於契約列明理由。
 
 T42 鋼構主頁 app／calculator 的私有可讀來源位於 `鋼構工具/src/`，公開路徑由既有確定性建置產生；追溯目錄同時保留公開 evidence 與來源對照。
-
-T43 石材 KaTeX 在公式首次進入預覽可視區才載入；計算書維持同步文字備援，私有 `石材固定/stone-katex-lazy.browser.test.js` 驗證載入、12 秒逾時／重試與實際輸出，vendor 不改。

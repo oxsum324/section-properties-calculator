@@ -738,11 +738,3 @@ git add -- "audit-all.ps1" "ensure-homepage-quality-deps.ps1" "preflight-tools.p
 ```powershell
 git add -- ".gitattributes" "鋼構工具/src/app.source.js" "鋼構工具/src/calculator.source.js" "鋼構工具/app.js" "鋼構工具/calculator.js" "鋼構工具/steel-traceability.catalog.json" "鋼構工具/steel-traceability.contract.test.js" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/README.md" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/independent-engineering-adapters/steel-formal.js" "結構工具箱/tools/public-status-claims.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/tool-workflow.manifest.json" "steel-report-presentation.browser.test.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
 ```
-
-## 2026-10-12：T43 石材公式按需載入分組
-
-頁內 loader、可視區觀察與同步公式文字備援、私有真瀏覽器四案例、既有兩資源日期依賴及 README／邊界同包。靜態 script 順序不新增外部腳本，profile 仍最後；CSS 值、公式內容、工具卡欄位與 id／class／role 不變，vendor 與 js/*.spec.js 不改。首版逾時重試的嚴格請求數失敗保留；修正重試 URL 與舊回呼辨識後重跑，門檻不放寬。最終 HEAD 以 5.1 跑 29 條門檻，重型組逐項執行，T42 未達的嚴格體積斷言須繼續如實回報。
-
-```powershell
-git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/stone-katex-lazy.browser.test.js" "石材固定/README.md" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
-```

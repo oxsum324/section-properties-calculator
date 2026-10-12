@@ -771,8 +771,10 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 <script src="./js/formula-registry.spec.js"></script>
 <script src="./js/version-sync.js"></script>
 <script src="./js/review-dashboard.js"></script>
-<!-- KaTeX 首次顯示公式時載入；保留 stylesheet 原位置與樣式覆寫順序。 -->
-<link rel="stylesheet" data-katex-runtime-style>
+<!-- V2: KaTeX 數學公式渲染（離線版，本專案 vendor/katex/，約 604 KB） -->
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<script defer src="vendor/katex/katex.min.js"></script>
+<script defer src="vendor/katex/contrib/auto-render.min.js"></script>
 <style>
   /* KaTeX 微調：完全繼承環境、避免把行撐大 */
   .katex{
@@ -6903,7 +6905,6 @@ function v2WrapFormulasInNode(root){
         const mathSpan = document.createElement('span');
         mathSpan.className = 'v2-math-inline';
         mathSpan.setAttribute('data-tex', p.slice(2, -2));
-        mathSpan.textContent = mathSpan.dataset.tex;
         frag.appendChild(mathSpan);
       } else {
         frag.appendChild(document.createTextNode(p));
@@ -6914,89 +6915,20 @@ function v2WrapFormulasInNode(root){
   root.dataset.v2katex = '1';
 }
 
-let katexRuntimePromise = null;
-let katexRuntimeGeneration = 0;
-let v2KatexObserver = null;
-
-function loadKatexRuntime(){
-  const stylesheet = document.querySelector('link[data-katex-runtime-style]');
-  if(stylesheet && !stylesheet.hasAttribute('href')){
-    stylesheet.href = 'vendor/katex/katex.min.css';
-  }
-  if(window.katex) return Promise.resolve(window.katex);
-  if(katexRuntimePromise) return katexRuntimePromise;
-  const generation = ++katexRuntimeGeneration;
-  const script = document.createElement('script');
-  const runtimeUrl = 'vendor/katex/katex.min.js';
-  // 重試使用獨立請求，避免沿用已逾時但仍在途的 script。
-  script.src = generation === 1 ? runtimeUrl : `${runtimeUrl}?retry=${generation}`;
-  script.async = true;
-  katexRuntimePromise = new Promise((resolve, reject)=>{
-    let done = false;
-    const finish = error=>{
-      if(done) return;
-      done = true;
-      clearTimeout(timer);
-      script.onload = script.onerror = null;
-      if(error || !window.katex){
-        script.remove();
-        if(katexRuntimeGeneration === generation) katexRuntimePromise = null;
-        reject(error || new Error('KaTeX 未就緒'));
-        return;
-      }
-      resolve(window.katex);
-    };
-    const timer = setTimeout(()=>finish(new Error('KaTeX 載入逾時')), 12000);
-    script.onload = ()=>finish();
-    script.onerror = ()=>finish(new Error('KaTeX 載入失敗'));
-    document.head.appendChild(script);
-  });
-  return katexRuntimePromise;
-}
-
-function v2PrepareFormulaText(root){
-  if(!root) return;
-  root.querySelectorAll('.calc').forEach(el=>v2WrapFormulasInNode(el));
-  root.querySelectorAll('.v2-math-inline[data-tex]').forEach(span=>{
-    if(span.dataset.rendered !== '1') span.textContent = span.dataset.tex;
-  });
-}
-
-function v2RenderKatexFormulas(){
-  return loadKatexRuntime().then(runtime=>{
+function v2KatexifyFormulas(){
+  try{
+    // 1. 標記 .calc 內的公式
+    document.querySelectorAll('#preview-sheets .calc, #printout .calc').forEach(el => v2WrapFormulasInNode(el));
+    // 2. 用 KaTeX 渲染所有 .v2-math-inline
+    if(!window.katex) return;
     document.querySelectorAll('.v2-math-inline[data-tex]').forEach(span=>{
       if(span.dataset.rendered === '1') return;
       try{
-        runtime.render(span.dataset.tex, span, { throwOnError:false, displayMode:false });
+        katex.render(span.dataset.tex, span, { throwOnError:false, displayMode:false });
         span.dataset.rendered = '1';
-      }catch(error){
-        span.textContent = span.dataset.tex;
-        console.warn('KaTeX render failed:', error, span.dataset.tex);
-      }
+      }catch(e){ console.warn('KaTeX render failed:', e, span.dataset.tex); }
     });
-  }).catch(error=>{
-    ['preview-sheets', 'printout'].forEach(id=>v2PrepareFormulaText(document.getElementById(id)));
-    console.warn('KaTeX 載入失敗，保留公式文字：', error);
-  });
-}
-
-function v2KatexifyFormulas(){
-  try{
-    ['preview-sheets', 'printout'].forEach(id=>v2PrepareFormulaText(document.getElementById(id)));
-    if(v2KatexObserver){ v2KatexObserver.disconnect(); v2KatexObserver = null; }
-    if(window.katex) return v2RenderKatexFormulas();
-    const formulas = document.querySelectorAll('#preview-sheets .v2-math-inline[data-tex]');
-    if(!formulas.length || typeof IntersectionObserver !== 'function') return;
-    // 封面與目錄不需要公式程式庫；第一次公式進入預覽可視區才載入。
-    const observer = new IntersectionObserver(entries=>{
-      if(v2KatexObserver !== observer || !entries.some(entry=>entry.isIntersecting)) return;
-      observer.disconnect();
-      v2KatexObserver = null;
-      v2RenderKatexFormulas();
-    }, { root:document.getElementById('preview-area') });
-    v2KatexObserver = observer;
-    formulas.forEach(span=>observer.observe(span));
-  }catch(error){ console.warn('v2KatexifyFormulas error:', error); }
+  }catch(e){ console.warn('v2KatexifyFormulas error:', e); }
 }
 
 if(typeof window.render === 'function'){
@@ -12763,8 +12695,6 @@ function promoteAnchorIds(html){
 function buildPrintableSheetsHtml(){
   const source = document.getElementById('preview-sheets');
   if(!source) return '';
-  // 正式輸出同步取得原公式文字；尚未載入或失敗都不會留下空白。
-  v2PrepareFormulaText(source);
   const clone = source.cloneNode(true);
   clone.querySelectorAll([
     '.v2-tier-banner',
