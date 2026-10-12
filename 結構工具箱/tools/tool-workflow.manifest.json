@@ -152,7 +152,7 @@
       "pageOnly": true,
       "owner": "root",
       "createCalculateButton": true,
-      "sourceFile": "鋼構工具/app.js",
+      "sourceFile": "鋼構工具/src/app.source.js",
       "note": "在原 closure 註冊 calculate 與結果鏡射；舊頁 update(false)，不可以產報按鈕代替計算。"
     },
     {
@@ -206,7 +206,7 @@
       "pageOnly": true,
       "owner": "root",
       "createCalculateButton": true,
-      "sourceFile": "鋼構工具/app.js",
+      "sourceFile": "鋼構工具/src/app.source.js",
       "note": "在原 closure 註冊 calculate 與結果鏡射；舊頁 update(false)，不可以產報按鈕代替計算。"
     },
     {

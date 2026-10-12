@@ -6,9 +6,9 @@ const ROOT = __dirname;
 const catalogPath = path.join(ROOT, 'steel-traceability.catalog.json');
 const readmePath = path.join(ROOT, 'README.md');
 const auditPath = path.join(ROOT, 'audit-tool.ps1');
-const mainCalculatorPath = path.join(ROOT, 'calculator.js');
+const mainCalculatorPath = path.join(ROOT, 'src', 'calculator.source.js');
 const mainSmokePath = path.join(ROOT, 'calculator.smoke-test.js');
-const mainAppPath = path.join(ROOT, 'app.js');
+const mainAppPath = path.join(ROOT, 'src', 'app.source.js');
 const mainIndexPath = path.join(ROOT, 'index.html');
 const toolMetadataPath = path.join(ROOT, 'tool-metadata.js');
 
@@ -88,6 +88,13 @@ for (const tool of catalog.tools || []) {
       `${tool.key} trace ${trace.id} manual review wording`,
       trace.manualReview.join(' / ')
     );
+    const expectedSources = (trace.evidence || []).filter(file => ['app.js', 'calculator.js'].includes(file))
+      .map(file => `src/${file.slice(0, -3)}.source.js`);
+    if (expectedSources.length) {
+      assertStringArray(trace.source, `${tool.key} trace ${trace.id} readable source`);
+      assert(sameArray(trace.source || [], expectedSources), `${tool.key} trace ${trace.id} source maps public evidence`, JSON.stringify(trace.source));
+      for (const source of trace.source || []) assert(evidenceExists(source), `${tool.key} trace ${trace.id} readable source exists`, source);
+    }
     for (const evidence of trace.evidence || []) {
       assert(evidenceExists(evidence), `${tool.key} trace ${trace.id} evidence exists`, evidence);
     }

@@ -7,7 +7,7 @@ const crypto = require('node:crypto');
 const { spawn, execFileSync } = require('node:child_process');
 const root = __dirname;
 const keys = ['steel-main-plate', 'steel-main-shear-tab', 'steel-main-column-splice', 'steel-main-gusset', 'steel-main-moment', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal'];
-const fixedFiles = ['結構工具箱/core/ui/report.js', '鋼構工具/core/ui/report.js', '鋼構工具/app.js', '鋼構工具/core/ui/report-utils.js', '鋼構工具/calculator.js', '鋼構工具/steel-beam-formal.js', '鋼構工具/steel-column-formal.js'];
+const fixedFiles = ['鋼構工具/src/app.source.js', '鋼構工具/src/calculator.source.js', '結構工具箱/core/ui/report.js', '鋼構工具/core/ui/report.js', '鋼構工具/app.js', '鋼構工具/core/ui/report-utils.js', '鋼構工具/calculator.js', '鋼構工具/steel-beam-formal.js', '鋼構工具/steel-column-formal.js'];
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 async function main() {
   if (process.argv.includes('--list')) { console.log(keys.join('\n')); return; }

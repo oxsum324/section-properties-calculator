@@ -8,6 +8,18 @@ const terserPath = path.join(repoRoot, 'output/playwright/phase2-quality-deps/no
 const requiredVersion = '5.44.0';
 const runtimes = [
   {
+    id: 'steel-app',
+    source: '鋼構工具/src/app.source.js',
+    output: '鋼構工具/app.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
+    id: 'steel-calculator',
+    source: '鋼構工具/src/calculator.source.js',
+    output: '鋼構工具/calculator.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
     id: 'survey-report-ui',
     source: 'field-survey/src/report-ui.source.js',
     output: 'field-survey/report-ui.js',
@@ -181,12 +193,12 @@ async function main() {
   const args = process.argv.slice(2);
   const check = args.includes('--check');
   const selected = args.filter(arg => arg !== '--check').map(arg => {
-    if (!arg.startsWith('--only=')) throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=home|a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo|survey-report-ui|survey-signoff-ui|survey-sketch|survey-detail|survey-model|src-column-page|src-beam-page|src-beam-core|wind-report|seismic-zones|wind-shared-profile|rc-common]');
+    if (!arg.startsWith('--only=')) throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=home|a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo|survey-report-ui|survey-signoff-ui|survey-sketch|survey-detail|survey-model|src-column-page|src-beam-page|src-beam-core|wind-report|seismic-zones|wind-shared-profile|rc-common|steel-app|steel-calculator]');
     return arg.slice('--only='.length);
   });
   if (args.filter(arg => arg === '--check').length > 1 || selected.length > 1
       || selected.some(id => !runtimes.some(runtime => runtime.id === id))) {
-    throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=home|a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo|survey-report-ui|survey-signoff-ui|survey-sketch|survey-detail|survey-model|src-column-page|src-beam-page|src-beam-core|wind-report|seismic-zones|wind-shared-profile|rc-common]');
+    throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=home|a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo|survey-report-ui|survey-signoff-ui|survey-sketch|survey-detail|survey-model|src-column-page|src-beam-page|src-beam-core|wind-report|seismic-zones|wind-shared-profile|rc-common|steel-app|steel-calculator]');
   }
   if (!fs.existsSync(path.join(terserPath, 'package.json'))) {
     throw new Error('Run ensure-homepage-quality-deps.ps1 to install the pinned ignored Terser dependency.');

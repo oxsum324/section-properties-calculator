@@ -79,7 +79,7 @@ const homeTools = evaluateLiteral(extractConstLiteral(homeSource, 'tools'), 'hom
 const rcLauncher = readText('鋼筋混凝土/index.html');
 const classicLauncher = readText('結構工具箱/index-classic.html');
 const steelLauncher = readText('鋼構工具/index.html');
-const steelApp = readText('鋼構工具/app.js');
+const steelApp = readText('鋼構工具/src/app.source.js');
 const steelMetadataSource = readText('鋼構工具/tool-metadata.js');
 const anchorAppMeta = readText('螺栓檢討/bolt-review-tool/src/appMeta.ts');
 const anchorApp = readText('螺栓檢討/bolt-review-tool/src/App.tsx');
@@ -231,6 +231,8 @@ for (const needle of ['不宣稱 AISC 358 預認證', 'completeJointDesign = fal
   '../結構工具箱/audit-dashboard.html',
   '?auditSource=local',
 ].forEach(needle => assert.ok(steelApp.includes(needle), `steel audit source keeps explicit boundary: ${needle}`));
+['getAuditStatusSource', '平台公開巡檢狀態', '鋼構本機自巡檢狀態'].forEach(needle =>
+  assert.ok(steelApp.includes(needle), `steel readable source preserves the public smoke assertion: ${needle}`));
 assert.equal(steelApp.includes('function isLocalAuditHost'), false, 'steel public launcher does not infer private audit mode from localhost');
 
 const anchorTool = canonicalTool('/anchor');

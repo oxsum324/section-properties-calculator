@@ -730,3 +730,11 @@ git add -- audit-all.ps1 STAGING_GROUPS.md
 ```powershell
 git add -- "audit-all.ps1" "ensure-homepage-quality-deps.ps1" "preflight-tools.ps1" "run-family-wrappers.ps1" "run-pages-artifact-smoke.ps1" "run-phase-gates.ps1" "結構工具箱/audit-core.ps1" "鋼構工具/audit-tool.ps1" "鋼筋混凝土/audit-tool.ps1" "鋼筋混凝土/tools/test-beam.ps1" "開挖擋土支撐/receiver_governance_timestamp.ps1" "開挖擋土支撐/sign_receiver_request.ps1" "開挖擋土支撐/start_html_mode.ps1" "開挖擋土支撐/stop_html_mode.ps1" run-family-wrappers.contract.test.js powershell-encoding.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
+
+## 2026-10-12：T42 鋼構兩檔建置與追溯分組
+
+兩份私有來源、公開生成檔、確定性建置清單／契約／公開排除、原始碼讀者與追溯 source schema 同包；原目錄 evidence 與計算內容不變。來源不改可讀邏輯，只轉 LF。公開 HTTP 內部函式字面斷言移至來源契約，公開文字／URL 仍查產出；執行行為繼續使用公開產出。52 路由預算不寫 baseline，重型測試逐組、5.1 執行門檻與 wrapper。
+
+```powershell
+git add -- ".gitattributes" "鋼構工具/src/app.source.js" "鋼構工具/src/calculator.source.js" "鋼構工具/app.js" "鋼構工具/calculator.js" "鋼構工具/steel-traceability.catalog.json" "鋼構工具/steel-traceability.contract.test.js" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/README.md" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/independent-engineering-adapters/steel-formal.js" "結構工具箱/tools/public-status-claims.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/tool-workflow.manifest.json" "steel-report-presentation.browser.test.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
+```

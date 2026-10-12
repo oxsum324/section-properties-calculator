@@ -39,7 +39,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '鋼構工具/plate-check.html', needles: ['鋼構連接板正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '此頁是操作介面，不是計算書'] },
   { path: '鋼構工具/steel-beam-formal.html', needles: ['鋼梁正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '產生計算書'] },
   { path: '鋼構工具/steel-column-formal.html', needles: ['鋼柱正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '本頁不得作為附件'] },
-  { path: '鋼構工具/app.js', needles: ['getAuditStatusSource', '../結構工具箱/assets/status/platform-status.json', '../結構工具箱/audit-dashboard.html', '平台公開巡檢狀態', '鋼構本機自巡檢狀態', '?auditSource=local'], forbidden: ['function isLocalAuditHost'] },
+  { path: '鋼構工具/app.js', needles: ['generated from 鋼構工具/src/app.source.js by build-minified-runtimes.js; do not edit', '../結構工具箱/assets/status/platform-status.json', '../結構工具箱/audit-dashboard.html', '平台公開巡檢狀態', '鋼構本機自巡檢狀態', '?auditSource=local'], forbidden: ['function isLocalAuditHost'] },
   { path: 'SRC工具/src-column.html', needles: ['SRC 柱方向可選耐震核算', 'V1.0', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', 'SRC 柱操作頁列印已封鎖', '產生計算書', '正式構材附件'], checkAssets: true },
   { path: 'anchor/', needles: ['錨栓檢討工具'], checkAssets: true },
   { path: '石材固定/石材計算書產生器_規範版V2.html', needles: ['石材外牆固定構件計算書產生器', '規範版', 'const APP_VERSION = window.StonePublicMetadata.version', '產出工具：${window.StonePublicMetadata.name}', '工具版本：${APP_VERSION}', '計算引擎：${CALCULATOR_VERSION}', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '石材工具主頁列印已封鎖', 'buildPrintableSheetsHtml()', 'const V2_METHOD_MEDIA = Object.freeze({', "mode:'public_static'", '公開靜態版不檢查本機服務', 'const proseAt = m.search(/[\\u3400-\\u9fff]/);'] },

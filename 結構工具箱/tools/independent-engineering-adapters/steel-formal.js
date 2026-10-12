@@ -4,7 +4,7 @@ const path = require('path');
 const productionRoot = path.resolve(__dirname, '../../../鋼構工具');
 const productionCorePath = path.join(productionRoot, 'calculator.js');
 const productionPageSource = fs.readFileSync(path.join(productionRoot, 'index.html'), 'utf8');
-const productionAppSource = fs.readFileSync(path.join(productionRoot, 'app.js'), 'utf8');
+const productionAppSource = fs.readFileSync(path.join(productionRoot, 'src', 'app.source.js'), 'utf8');
 const { calculateConnection } = require(productionCorePath);
 
 for (const token of [

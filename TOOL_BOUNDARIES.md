@@ -400,3 +400,7 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 ## 2026-10-12：T41 PowerShell 文字編碼與 5.1 家族入口
 
 新增私有 `powershell-encoding.contract.test.js`，用 Windows PowerShell 5.1 AST 掃描全部追蹤 `.ps1` 的 Get-Content／Set-Content／Out-File 及 ReadAllText，保留檔名、行號與多行命令，並以缺漏、錯誤編碼及註解／字串反例驗證。文字讀取明確 UTF-8；寫入同樣指定 UTF-8。唯一具理由的既有例外為 `preflight-tools.ps1` 的 UTF-16 暫存 child script，依 V11 只改讀檔與輸出格式不變邊界保留，須如實回報。家族執行器只選 Windows PowerShell 5.1，不更改 14 項內容、順序與斷言；本輪驗證 PATH 排除 PowerShell 7，使既有 batch 使用 5.1 後備，啟動器原一般政策不改。PS7 僅允許指定鋼構無 BOM 回歸實驗一次。收據與回報留 ignored output／派工資料夾，不更動公開 status／release。
+
+## 2026-10-12：T42 鋼構主頁確定性壓縮
+
+私有可讀來源 `鋼構工具/src/app.source.js`、`鋼構工具/src/calculator.source.js` 只從既有公開檔搬移並統一 LF；公開 `鋼構工具/app.js`、`鋼構工具/calculator.js` 維持原路徑，由既有 Terser 5.44.0 canonical builder 生成。兩檔不在 formal core 鏡像清單，core 與石材 vendor 不動。追溯目錄 evidence 保留公開檔，逐筆增 source 對照且不改 id、clause、calculation；原始碼／VM 契約與工程 adapter 讀來源，require、Python 真頁行為與 node --check 保留公開產出。公開 HTTP smoke 的內部函式名稱斷言移到來源契約，HTTP 改查生成標記且原網址、中文與禁止 host 推論斷言保留；未刪原語意。兩份來源登錄公開排除、LF、首頁兩路由日期依賴，工作流程 sourceFile 指向可讀檔。建置位元組上限按實測 +10%，合計仍須符合來源 55%；量化差額不得自行放寬。

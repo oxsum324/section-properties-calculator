@@ -4,6 +4,8 @@ const os = require('os');
 const path = require('path');
 
 const PRIVATE_FILES = new Set([
+  '鋼構工具/src/app.source.js',
+  '鋼構工具/src/calculator.source.js',
   'field-survey/src/report-ui.source.js',
   'field-survey/src/signoff-ui.source.js',
   'field-survey/src/sketch.source.js',

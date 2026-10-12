@@ -17,6 +17,7 @@
           "calculation": ["Ag", "An", "Ae = min(An, 0.85Ag)", "Tn(gross yield)", "Tn(net rupture)", "Rn(block shear)", "LRFD φ / ASD Ω"],
           "report": ["連接板全斷面降伏", "連接板有效淨斷面斷裂", "連接板區塊剪力破壞", "控制檢核", "計算書"],
           "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-audit-browser-runner.js"],
+          "source": ["src/calculator.source.js", "src/app.source.js"],
           "manualReview": ["非矩形板、交錯孔、特殊孔型、偏心受力與非 U 型區塊剪力路徑須由設計者依施工圖或正式手算人工複核。"]
         },
         {
@@ -27,6 +28,7 @@
           "calculation": ["Ag", "An", "U", "Ae", "L/r", "bolt shear / tension", "weld strength", "block shear", "available strength"],
           "report": ["拉力構件全斷面降伏", "拉力構件有效淨斷面斷裂", "受拉構材長細比", "螺栓 / 銲接檢核", "區塊剪力破壞強度"],
           "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-audit-browser-runner.js"],
+          "source": ["src/calculator.source.js", "src/app.source.js"],
           "manualReview": ["手動 U、有效淨斷面、銲接有效面積、特殊交錯孔群與組合銲道須由試驗、學理分析、施工圖或專案文件人工複核。"]
         },
         {
@@ -37,6 +39,7 @@
           "calculation": ["Vd = max(|Vu|, 4.5 tf)", "Table 10.3-5 standard-hole maximum", "elastic eccentric bolt-group distribution with Table 1 lower bound", "bolt shear with filler reduction", "plate / beam-web eccentric hole bearing", "plate gross shear yielding", "plate net shear rupture", "plate / beam-web one-shear-plane L-path block shear", "single-plate V·ep flexure with ep=max(eb,ew)", "eccentric weld-metal strength", "eccentric base-metal strength", "Fu >= Fy material consistency", "plate / beam-web Fy <= 345 MPa hard caps", "project material-ductility equivalency confirmation", "pitch <= 76.2 mm and plate height <= 914.4 mm conventional envelope", "double fillet weld and 5/8 tp lower bound", "complianceReady=true"],
           "report": ["剪力接頭檢核計算書", "剪力板與梁腹板幾何摘要", "偏心栓群與孔承壓", "剪力板全斷面剪力降伏與淨斷面剪力斷裂", "剪力板與梁腹板塊狀撕裂", "剪力板彎剪", "偏心銲群銲材與母材強度", "適用範圍與專案資料來源", "計算書"],
           "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "source": ["src/calculator.source.js", "src/app.source.js"],
           "manualReview": ["設計者須依分析模型、核定施工圖、材料證明與接頭配置確認 Vu、e_b、e_w、栓列至銲線距離、彈性偏心模型及 AISC conventional 材料延性等同性；Fy > 345 MPa、栓距 > 76.2 mm、板高 > 914.4 mm、高強或低延性鋼材、延伸型構造、滑動臨界、疲勞、反覆載重、耐震特別規定、火害、腐蝕、梁端削切與支承構件整體或局部極限狀態須另以專案文件人工複核。"]
         },
         {
@@ -47,6 +50,7 @@
           "calculation": ["F10T bearing-bolt nominal shear stress = 4.00 tf/cm2 with threads included or 5.00 tf/cm2 with threads excluded per table 10.3-2", "table 10.3-2 note [e] originally addresses bearing-type splices of tension members; this Gusset end connection conservatively borrows the Lconn <= 1250 mm boundary for V1 pending an implemented long-connection route", "bolt shear", "Gusset / brace hole bearing", "Gusset / brace gross yielding", "bolted Gusset Ae = min(An, 0.85Ag)", "flat-plate brace U = 1.0 and Ae = An", "Gusset / brace net rupture", "Gusset / brace one-shear-plane L-path block shear Agv / Anv / Agt / Ant", "single-line Whitmore Lconn = (n - 1)s and fastener-group starting width = 0", "Whitmore theoretical width = 2Lconn tan30 degrees", "Whitmore effective width = min(theoretical, available)", "Gusset net width capped by gross plate width minus hole and actual available Whitmore width", "weld-metal strength", "Gusset / support base-metal strength", "Fu >= Fy and net-geometry hard gates", "minimum / maximum / short / long weld gates", "strict exact-field source replay and embedded-report equality", "complianceReady=true"],
           "report": ["支撐 / Gusset 接頭檢核計算書", "LRFD｜第五章受拉構材、第十章接合設計", "Gusset V1 派生幾何與面積", "Gusset 栓孔斷面 Ag / An / Ae 與 Ae = min(An, 0.85Ag)", "平板支撐 U = 1.0 與 Ae = An", "Gusset 與支撐材斷面及塊狀撕裂面積", "Whitmore Lconn、起始寬度 0、理論與有效寬度", "表 10.3-2 F10T 4.00 / 5.00 tf/cm2；註 [e] 原適用承壓式接合之續接拉力構材，Gusset 端部接合僅保守援用 V1 長接合邊界", "螺栓剪力與兩側孔承壓", "銲材、Gusset 母材與支承材母材強度", "適用範圍、四項專案依據與兩項工程師確認", "計算指紋與來源 JSON"],
           "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "source": ["src/calculator.source.js", "src/app.source.js"],
           "manualReview": ["設計者須依分析模型、核定施工圖、材料證明與接頭配置確認 Pu、平板支撐矩形截面全元素直接連接、單一直線栓列、Lconn = (n − 1)s、Whitmore 可用板寬及螺栓—銲道串聯力流；表 10.3-2 註 [e] 原針對承壓式接合之續接拉力構材，並非一般接合的普遍長度上限。本 Gusset 為端部接合，V1 在尚未實作長接合路線前僅保守援用 Lconn ≤ 1250 mm；超出者須另建模與人工複核。angle、WT、HSS、剪力遲滯、壓力、偏心、剪力、彎矩、疲勞、反覆載重、耐震接頭、BRB、Gusset 壓力屈曲、折角外移與支承構件整體或局部極限狀態須另由專案模型人工複核。"]
         },
         {
@@ -57,6 +61,7 @@
           "calculation": ["Mp = Zb Fyb", "Mpr = beta Mp", "Vp = (Mpr + Mpr,far) / Lh", "Mu,face = Mpr + Vp x", "Vu,req = min(|Vgravity| + Vp, |Vamplified|)", "plastic-rotation demand and qualification", "Vpz,req = max(Vpz,analysis, sumMp / hpz)", "Vpz,n = 0.6 Fyc dc tp", "tz >= (dz + wz) / 90", "continuity-plate threshold", "reinforced-route clockwise and counterclockwise strong-column weak-beam ratio with each beam term Zb Fyb + Vp x >= 1.25", "strict source-evidence SHA-256 and confirmation gates", "complianceReady=true", "completeJointDesign=false"],
           "report": ["梁柱彎矩接頭耐震能力審查附件", "LRFD｜單一選定構架面", "塑鉸與梁端面彎矩需求", "接頭外部受控彎矩與剪力容量", "塑性轉角資格", "Panel Zone 與 Continuity Plate", "強柱弱梁比 CW / CCW", "資格與容量證據 SHA-256", "正交方向另案", "非 AISC 358 預認證聲明", "completeJointDesign = false", "計算指紋與來源 JSON"],
           "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "source": ["src/calculator.source.js", "src/app.source.js"],
           "manualReview": ["設計者須以分析模型、核定圖說、材料文件、試驗或第三方審查資料，確認選定構架面、塑鉸位置、SMRF / IMRF 適用性、接頭資格、Panel Zone、Continuity Plate、Doubler、側向支撐、正反向強柱弱梁比與施工細節；接頭螺栓、端板、prying action、yield-line、銲道、局部破壞及其他硬體容量必須由外部受控來源完整檢核並提供可追溯證據。", "本附件不宣稱 AISC 358 預認證，也不構成完整接頭設計；正交方向、NDT、施工程序與未列入之外部接頭硬體極限狀態須另案人工複核。"]
         },
         {
@@ -67,6 +72,7 @@
           "calculation": ["tension-positive / compression-negative signed PD, PL, PE", "Eamp,raw = 1.4 Fu |PE| with 0 < seismic-system Fu <= 2.5", "qualified cap only: Eamp = min(Eamp,raw, 1.25 Ptransfer)", "13.4.1 compression envelope from 1.2PD + alphaL PL +/- Eamp", "13.4.1 tension envelope from 0.9PD +/- Eamp", "CJP normal available strength = 0.90 Fy Ag", "major / minor full-section flexural available strength = 0.90 Fy Z", "major / minor full-section shear available strength = min(0.90 x 0.6 Fy Av, 0.80 x 0.6 FEXX Av)", "distance to nearest beam flange >= 1200 mm", "matching filler, approved WPS, full-coverage UT / RT plan and SHA-256 evidence hard gates", "strict exact-field source replay and embedded-report equality", "complianceReady=true", "completeColumnMemberDesign=false", "asBuiltAcceptance=false"],
           "report": ["全斷面 CJP 耐震柱續接能力審查附件", "13.4.1 壓拉軸力組合與放大地震項", "相鄰構材傳力上限採用狀態", "CJP 法向、強弱軸彎曲與雙向剪力全斷面強度", "距最近梁翼 1.2 m 位置檢核", "相稱銲材與 WPS", "全覆蓋 UT / RT 計畫", "需求、圖說、WPS 與 NDT 計畫證據 SHA-256", "completeColumnMemberDesign = false", "asBuiltAcceptance = false", "計算指紋與來源 JSON"],
           "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "source": ["src/calculator.source.js", "src/app.source.js"],
           "manualReview": ["設計者須以完整分析模型、核定圖說、材料文件與銲接程序確認採拉力正／壓力負之 PD、PL、PE、13.4.1 結構系統地震力折減係數 Fu（不是材料抗拉強度）、活載重係數、上下柱完全相同且同軸、全斷面 CJP、材料、斷面性質、位置、WPS、相稱銲材與 NDT 計畫；只有相鄰梁與斜撐的全部傳力來源均納入受控依據時，才能使用 1.25 倍最大可傳軸力上限。", "高強螺栓續接、柱淨高 1/2 位置路線、變截面、錯位、箱柱、組合柱、墊片、最大板厚超過 40 mm 的巨型斷面、PJP、混合栓銲分擔、非軸力 13.4.1 以外的完整柱構材檢核，以及完工 UT / RT 報告與缺失處置均須另案人工複核；本附件不是 as-built acceptance。"]
         }
       ]
@@ -85,6 +91,7 @@
           "calculation": ["gross yielding", "net rupture", "block shear", "available strength", "governing check"],
           "report": ["連接板檢核計算書", "控制項目", "需求比", "規範檢核"],
           "evidence": ["plate-check.html", "calculator.js", "calculator.smoke-test.js", "steel-audit-browser-runner.js"],
+          "source": ["src/calculator.source.js"],
           "manualReview": ["獨立入口僅處理矩形連接板與規則孔群；板件實際邊界、傳力路徑與偏心效應仍須依施工圖人工複核。"]
         },
         {
@@ -95,6 +102,7 @@
           "calculation": ["manual area validation", "manual block-shear path", "Ae consistency", "Agv / Anv / Agt / Ant completeness"],
           "report": ["面積直輸模式", "區塊剪力採手動覆寫路徑", "人工輸入", "幾何模式假設"],
           "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-audit-browser-runner.js"],
+          "source": ["src/calculator.source.js", "src/app.source.js"],
           "manualReview": ["手動面積與區塊剪力覆寫值不得只由工具自行採用，須由設計者依正式手算、施工圖或外部分析確認。"]
         }
       ]

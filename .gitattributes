@@ -48,3 +48,8 @@ tool-page-a11y.js text eol=lf
 "鋼筋混凝土/shared/src/common.source.js" text eol=lf
 "鋼筋混凝土/shared/common.js" text eol=lf
 "石材固定/vendor/loads/seismic-zones.js" text eol=lf
+
+鋼構工具/src/app.source.js text eol=lf
+鋼構工具/src/calculator.source.js text eol=lf
+鋼構工具/app.js text eol=lf
+鋼構工具/calculator.js text eol=lf

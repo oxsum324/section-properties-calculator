@@ -197,3 +197,5 @@ run-audit-loop.bat
 - `output/audit/history/<runId>/...`
 
 若以本機或區網伺服器開啟工具，右側報表上方會顯示最新一輪鋼構本機自巡檢狀態；公開部署則改讀 `結構工具箱/assets/status/platform-status.json`，明確標示為平台公開巡檢快照，不會請求未發布的 `output/audit/audit-status.json`。
+
+`app.js`／`calculator.js` 是確定性生成的公開執行期；維護 `src/app.source.js`／`src/calculator.source.js` 後執行 `node 結構工具箱/tools/build-minified-runtimes.js`，以 `--check` 驗證。追溯目錄 evidence 保留公開檔，source 指向可讀來源。
