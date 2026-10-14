@@ -14,6 +14,8 @@ SRC 梁／柱既有公開腳本已壓縮，workflow 測試以 ignored 依賴樹�
 
 `tool-page-a11y.browser.test.js` 預設仍檢查原 40 個 formal 工具；指定新路由時另接受明列 assist 的 NDT，清冊必須為 53 卡／40 formal，未知路由失敗關閉。`tool-page-a11y-build.contract.test.js` 保留原 42 個 profile 與 40 個 a11y source 依賴檢查，再獨立核對 NDT 的 profile、a11y、載入順序與日期依賴，不放寬尺寸。`結構工具箱/tools/build-pages-artifact.js` 以精確私有項排除新工具的 golden；core／spec／HTML 公開，測試依既有 `.test.js` 後綴排除。
 
+治理歷程原文：[README-history.md](docs/governance-history/README-history.md)、[TOOL_BOUNDARIES-history.md](docs/governance-history/TOOL_BOUNDARIES-history.md)、[STAGING_GROUPS-history.md](docs/governance-history/STAGING_GROUPS-history.md)。
+
 ## 2026-10-10：覆工板手機報告溢出追加修正
 
 依委託人追加授權，`覆工板/index.html` 的既有 `#report-output` 在螢幕提供局部水平捲動、鍵盤焦點與區域標籤，保留原計算、七張表格、報告 DOM 與匯出內容。列印解除容器寬度限制與 overflow 裁切；不以隱藏頁面溢出掩蓋表格內容。原 375 px 溢出 263 px 的失敗收據保留，另在提交後的乾淨 HEAD 重跑原 workflow 與報告契約；不放寬斷言、不重設容量基準。
@@ -383,7 +385,7 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 
 鏡像 manifest 的四筆來源均不含本批六檔。`結構工具箱/tools/project-storage.test.js` 保留全部字面斷言並改讀可讀來源；`結構工具箱/tools/local-quick-tools.contract.test.js` 的 LoadCombo VM 改讀來源，公開輸出仍由既有 LoadCombo 行為／家族測試執行。`report-docx-integration.contract.test.js` 同時載入公開與來源版本，保留各自可攜 HTML factory／Word 邊界全部斷言；其餘 HTML script VM 與 require 讀取者執行公開輸出之行為，不依賴函式排版。首頁依賴依實際 script 消費頁補齊公開檔及來源檔；不更改工具清冊欄位或公開路徑。
 
-DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未壓縮來源也會失敗；本包僅補齊替身並檢查 MIME／Blob 導覽，不更動任何 report.js 或 report-utils.js。首次失敗與原替身重現紀錄保留，所有原 Word／可攜 HTML 斷言均保留。
+
 
 ## 2026-10-11：T38 首頁可讀來源與確定性產出
 

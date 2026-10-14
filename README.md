@@ -1,6 +1,8 @@
 # 結構工具平台 V1.6
 
 混凝土強度非破壞檢測推估 V0.1：入口 `/concrete-strength-ndt`，提供反彈錘、超音波及鑽心資料推估與配對比對、兩種內部審閱計算書、TXT 備查及案例 JSON。`結構工具箱/tools/concrete-ndt/` 包含 `concrete-strength-ndt-core.js`、`concrete-strength-ndt-spec.js`、`concrete-strength-ndt.html`、`concrete-strength-ndt-golden-cases.js`、`concrete-strength-ndt-core.test.js`；所有工程公式與係數集中規格模組，預設值為假設，需技師確認。首頁分類 `reference`、身分 `assist`，不提供正式附件資格，三法彙整 n 不視為獨立試體數；不取代現地校正、材料試驗或工程判定。局部快算清冊納入第七個工具，原六個正式工具不變；workflow 納入 NDT 後為 42 入口、formal 仍 40。首頁來源 `結構工具箱/assets/home/src/home.source.js` 與 `vercel.json` 同步登錄，日期由既有同步腳本處理，未更動放行狀態。
+歷程原文：[README-history.md](docs/governance-history/README-history.md)。
+
 
 現況鑑定現場紀錄 V0.7.0：入口 `/condition-survey`，新增梁 U 型裂縫條數（不列總長）、磁磚受損塊數快填、房間及照片整理、單張照片機位、主照片選擇與附件同步編號。照片附件可下載含影像 HTML、列印 PDF 及編號對照；原始媒體和全部紀錄另以版本 3 備份保存。保留平面圖庫、簡圖選取刪除、縮放擴展、照片圈註及離線拍照。操作與限制見 [field-survey/README.md](field-survey/README.md)。電腦可用 `啟動現況鑑定紀錄.bat`。
 
@@ -436,7 +438,7 @@ Preflight 歷程會保留失敗、中斷或摘要缺漏的原始事實，並以 
 
 鏡像 manifest 的四筆來源均不含本批六檔。`結構工具箱/tools/project-storage.test.js` 保留全部字面斷言並改讀可讀來源；`結構工具箱/tools/local-quick-tools.contract.test.js` 的 LoadCombo VM 改讀來源，公開輸出仍由既有 LoadCombo 行為／家族測試執行。`report-docx-integration.contract.test.js` 同時載入公開與來源版本，保留各自可攜 HTML factory／Word 邊界全部斷言；其餘 HTML script VM 與 require 讀取者執行公開輸出之行為，不依賴函式排版。首頁依賴依實際 script 消費頁補齊公開檔及來源檔；不更改工具清冊欄位或公開路徑。
 
-DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未壓縮來源也會失敗；本包僅補齊替身並檢查 MIME／Blob 導覽，不更動任何 report.js 或 report-utils.js。首次失敗與原替身重現紀錄保留，所有原 Word／可攜 HTML 斷言均保留。
+
 
 首頁可讀來源在 `結構工具箱/assets/home/src/home.source.js`；`node 結構工具箱/tools/sync-home-update-dates.js` 同步日期並自動重建公開 home.js，附 `--check` 時同時核對日期與確定性產出。
 
