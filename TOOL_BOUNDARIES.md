@@ -1,5 +1,19 @@
 # 工具交付邊界
 
+## 混凝土強度非破壞檢測推估（T44，2026-10-14）
+
+`結構工具箱/tools/concrete-ndt/` 依 `結構工具箱/tools/floor-slab/` 的 core／HTML／golden／test 四檔結構新增對應檔，另依派工新增 `concrete-strength-ndt-spec.js`。五檔為 `concrete-strength-ndt-core.js`、`concrete-strength-ndt-spec.js`、`concrete-strength-ndt.html`、`concrete-strength-ndt-golden-cases.js`、`concrete-strength-ndt-core.test.js`；core 無 DOM，所有工程公式、係數、單位與來源集中於 spec。預設值為假設，需技師確認；不提供未有儀器及現地校正依據的通用強度曲線或角度修正數值。規格確認資料只由使用者明確操作讀取同目錄固定 `concrete-strength-ndt-confirmed.json`，本階段不提供該檔；案例 JSON 不得提高規格確認狀態。
+
+新路由 `/concrete-strength-ndt` 分類為 `reference`、公開身分為 `assist`，計算書僅內部審閱，不提供正式附件資格；既有 40 個 formal 入口與六個 formal 局部快算工具的資格不變。反彈擊數不得當作測區樣本數；同測區三法結果以配對差異比對，三法合併統計標明數值彙整、非獨立試體母體。報告區分「已確認事項／合理推定／待補充」，只陳述數據與假設，不替使用者下採用結論。所有輸出均由同步 core／spec 與既有報告 helper 產生，不新增壓縮、延後載入、第三方套件或 CDN。
+
+`結構工具箱/tools/local-quick-tools.manifest.json`、`local-quick-tool-metadata.js` 及 local-quick 契約／browser smoke 納入第七工具的 assist 負向檢查；`結構工具箱/tools/tool-workflow.manifest.json` 與其契約納入第二個明列 assist 例外，總範圍為 40 formal＋連續梁＋NDT，既有斷言保留。首頁 `結構工具箱/assets/home/src/home.source.js` 的卡片、aliases、routeFileMap、日期與五檔依賴同批登錄，`home.js` 仍由既有 canonical builder 生成；`vercel.json` 同批登錄乾淨路由。新 core／spec／頁面屬公開程式，golden、測試與所有收據為開發資料，依既有成品排除規則處理。
+
+`tool-workflow.browser.test.js` 為新路由明列唯一實際計算函式探針，`tool-workflow.browser.contract.test.js` 驗證原 40 個來源探針與新增 NDT 探針；只在測試 HTTP 回應插入，不改產品計算。所有舊瀏覽器斷言保留。
+
+SRC 梁／柱既有公開腳本已壓縮，workflow 測試以 ignored 依賴樹中既有 Acorn 解析公開 callback 綁定及同一詞法作用域的實際計算函式，在原函式本文插入探針；缺漏或重複綁定立即失敗，不能只數按鍵或包裝公開 callback。私有契約驗證同名函式、重複宣告及無綁定反例；不改 SRC 公開程式或可讀來源，也不新增套件。
+
+`tool-page-a11y.browser.test.js` 預設仍檢查原 40 個 formal 工具；指定新路由時另接受明列 assist 的 NDT，清冊必須為 53 卡／40 formal，未知路由失敗關閉。`tool-page-a11y-build.contract.test.js` 保留原 42 個 profile 與 40 個 a11y source 依賴檢查，再獨立核對 NDT 的 profile、a11y、載入順序與日期依賴，不放寬尺寸。`結構工具箱/tools/build-pages-artifact.js` 以精確私有項排除新工具的 golden；core／spec／HTML 公開，測試依既有 `.test.js` 後綴排除。
+
 ## 2026-10-10：覆工板手機報告溢出追加修正
 
 依委託人追加授權，`覆工板/index.html` 的既有 `#report-output` 在螢幕提供局部水平捲動、鍵盤焦點與區域標籤，保留原計算、七張表格、報告 DOM 與匯出內容。列印解除容器寬度限制與 overflow 裁切；不以隱藏頁面溢出掩蓋表格內容。原 375 px 溢出 263 px 的失敗收據保留，另在提交後的乾淨 HEAD 重跑原 workflow 與報告契約；不放寬斷言、不重設容量基準。

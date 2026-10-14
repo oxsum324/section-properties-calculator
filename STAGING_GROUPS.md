@@ -1,5 +1,17 @@
 # Staging 分包建議
 
+## 混凝土強度非破壞檢測推估（T44，2026-10-14）
+
+`結構工具箱/tools/concrete-ndt/` 依 floor-slab 四檔結構新增 core／HTML／golden／test，另新增 spec，完整五檔同包提交。所有工程公式與係數集中 `concrete-strength-ndt-spec.js`，預設值為假設，需技師確認。core 無 DOM，資料欄位與原始／修正值分列；`concrete-strength-ndt-confirmed.json` 本階段不提供，案例 JSON 不得代替規格確認。此工具為 `reference` 分類、`assist` 身分，計算書不具正式附件資格，既有六個 formal 局部快算工具與 40 個 formal 入口的責任邊界不變。
+
+首頁來源卡片、aliases、routeFileMap、HOME_TOOL_UPDATES、HOME_TOOL_UPDATE_DEPENDENCIES 與 `vercel.json` 的乾淨路由同批登錄；首頁公開執行期仍由既有 canonical builder 產生，日期由既有同步腳本更新。local-quick 清冊／metadata／契約／smoke 加入第七工具的嚴格 assist 負向檢查；workflow 清冊／契約明列 40 formal＋連續梁＋NDT 共 42 入口，不放寬舊斷言。新 core 先單跑計時，提交後的乾淨最終 HEAD 依序跑門檻、local-quick 契約／smoke、workflow、新路由 a11y 與完整載入預算；新路由造成 53／52 清冊或容量差異照實回報，不重設基準。所有 PowerShell 使用 Windows PowerShell 5.1，重型組不與門檻並行；計算書、TXT、列印不依賴延後載入的程式庫。
+
+```powershell
+git add -- "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-core.js" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-spec.js" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-golden-cases.js" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-core.test.js"
+git add -- "結構工具箱/tools/local-quick-tools.manifest.json" "結構工具箱/tools/local-quick-tool-metadata.js" "結構工具箱/tools/local-quick-tools.contract.test.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "結構工具箱/tools/local-quick-tools.run.js" "結構工具箱/tools/tool-workflow-adapters.test.js"
+git add -- "結構工具箱/tools/tool-workflow.manifest.json" "結構工具箱/tools/tool-workflow.manifest.test.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" tool-workflow.browser.test.js tool-workflow.browser.contract.test.js tool-page-a11y.browser.test.js tool-page-a11y-build.contract.test.js "結構工具箱/tools/build-pages-artifact.js" vercel.json README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
 ## 2026-10-10：第七階段 T29（耐震頁 Chart.js 按需載入）
 
 同包修正 `tool-workflow.browser.test.js` 的覆工板測試導航：計算切至報告後，以既有分頁返回參數再聚焦；所有原有斷言保留。手機報告表格橫溢照實列待決，覆工板產品不納入本包修改。

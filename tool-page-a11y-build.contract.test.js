@@ -94,9 +94,10 @@ for (const runtimeDefinition of runtimes) {
     if (files.includes(runtimeDefinition.output)) assert.ok(files.includes(runtimeDefinition.source), `${route} registers readable source for ${runtimeDefinition.id}`);
   }
 }
-assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/tools/project-meta-profile.js')).length, 42,
+const existingHomeRoutes = Object.fromEntries(Object.entries(homeRoutes).filter(([route]) => route !== '/concrete-strength-ndt'));
+assert.equal(Object.values(existingHomeRoutes).filter(files => files.includes('結構工具箱/tools/project-meta-profile.js')).length, 42,
   'all 42 profile runtime date dependencies stay registered');
-assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/tools/src/project-meta-profile.source.js')).length, 42,
+assert.equal(Object.values(existingHomeRoutes).filter(files => files.includes('結構工具箱/tools/src/project-meta-profile.source.js')).length, 42,
   'all 42 profile source date dependencies are registered');
 assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/core/loads/wind.js')).length, 16,
   'all 16 core wind runtime date dependencies stay registered');
@@ -105,9 +106,15 @@ assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工
 assert.ok(homeRoutes['/stone-fixing']?.includes('石材固定/vendor/loads/wind.js'),
   'stone page keeps its generated vendor wind dependency');
 assert.equal(tools.length, 40, 'all 40 formal homepage tools must retain the runtime');
-assert.equal(Object.values(dependencies).filter(files => files.includes(sourcePath)).length, 40,
+assert.equal(Object.entries(dependencies).filter(([route, files]) => route !== '/concrete-strength-ndt' && files.includes(sourcePath)).length, 40,
   'readable source must update the same 40 homepage dates');
-for (const tool of tools) {
+const ndtTool = extractLiteral(home, 'tools').find(tool => tool.href === '/concrete-strength-ndt');
+assert.equal(ndtTool?.state, 'assist', 'NDT accessibility coverage cannot grant formal status');
+assert.ok(homeRoutes[ndtTool.href]?.includes('結構工具箱/tools/project-meta-profile.js'), 'NDT registers the existing profile runtime');
+assert.ok(homeRoutes[ndtTool.href]?.includes('結構工具箱/tools/src/project-meta-profile.source.js'), 'NDT registers the profile readable source');
+assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/tools/project-meta-profile.js')).length, 43, '42 existing profile routes plus NDT');
+assert.equal(Object.values(dependencies).filter(files => files.includes(sourcePath)).length, 41, '40 existing a11y sources plus explicit NDT assist coverage');
+for (const tool of [...tools, ndtTool]) {
   assert.ok(routeFileMap[tool.href], `formal route must map to HTML: ${tool.href}`);
   const htmlPath = path.resolve(toolboxRoot, routeFileMap[tool.href]);
   const html = fs.readFileSync(htmlPath, 'utf8');

@@ -12,6 +12,7 @@
     'floor-slab-westergaard': { route: '/floor-slab-westergaard', discipline: 'floor-slab', version: 'V0.1', state: 'formal', governance: 'local-quick-contract' },
     'cable-tension-frequency': { route: '/cable-tension-frequency', discipline: 'cable', version: 'V0.1', state: 'formal', governance: 'local-quick-contract' },
     'rc-column-cover-deviation': { route: '/rc-column-cover-deviation', discipline: 'reinforced-concrete', version: 'V0.1', state: 'formal', governance: 'local-quick-contract' },
+    'concrete-strength-ndt': { route: '/concrete-strength-ndt', discipline: 'reinforced-concrete', version: 'V0.1', state: 'assist', governance: 'local-quick-contract' },
   };
 
   Object.values(entries).forEach(Object.freeze);

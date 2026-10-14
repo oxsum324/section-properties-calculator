@@ -10,11 +10,16 @@ const homepage = read('結構工具箱/assets/home/src/home.source.js');
 const match = homepage.match(/const tools = (\[[\s\S]*?\n  \]);/);
 assert.ok(match, 'homepage tool inventory is readable');
 const tools = vm.runInNewContext(`(${match[1]})`);
-const expected = tools.filter(tool => tool.state === 'formal' || tool.href === '/beam-analysis');
-assert.equal(expected.length, 41, 'approved scope stays at 40 formal plus continuous beam');
+const assistRoutes = ['/beam-analysis', '/concrete-strength-ndt'];
+const expected = tools.filter(tool => tool.state === 'formal' || assistRoutes.includes(tool.href));
+assert.equal(tools.filter(tool => tool.state === 'formal').length, 40, 'existing formal scope remains exactly 40');
+assert.equal(expected.length, 42, 'scope includes 40 formal plus continuous beam and NDT assistance');
 assert.deepEqual(manifest.tools.map(tool => tool.key).sort(), Array.from(expected, tool => tool.href).sort());
-assert.equal(new Set(manifest.tools.map(tool => tool.key)).size, 41);
+assert.equal(new Set(manifest.tools.map(tool => tool.key)).size, 42);
 assert.equal(manifest.tools.find(tool => tool.key === '/beam-analysis').state, 'assist', 'workflow never promotes continuous beam to formal');
+assert.equal(manifest.tools.find(tool => tool.key === '/concrete-strength-ndt').state, 'assist', 'workflow never promotes NDT to formal');
+assert.equal(tools.find(tool => tool.href === '/concrete-strength-ndt').state, 'assist', 'NDT home card stays non-formal');
+assert.deepEqual(manifest.tools.filter(tool => tool.state === 'assist').map(tool => tool.key).sort(), assistRoutes.slice().sort(), 'only the two explicit assistance exceptions are included');
 
 for (const tool of manifest.tools) {
   const html = read(tool.file);
@@ -46,4 +51,4 @@ for (const tool of manifest.tools) {
 assert.equal(manifest.tools.filter(tool => tool.adapter === 'native-react').length, 1);
 assert.equal(manifest.tools.filter(tool => tool.adapter === 'steel-explicit').length, 4);
 assert.ok(!read(manifest.core).includes('RCCalcVerdictStrip'), 'core workflow has no RC family dependency');
-console.log('tool-workflow manifest: all 41 approved routes, calculation entrypoints, result anchors and native sources verified (runtime wiring is browser-tested separately)');
+console.log('tool-workflow manifest: all 42 approved routes, calculation entrypoints, result anchors and native sources verified (runtime wiring is browser-tested separately)');

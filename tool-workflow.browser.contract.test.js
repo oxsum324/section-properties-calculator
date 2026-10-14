@@ -20,7 +20,7 @@ for (const tool of manifest.tools.filter(tool => tool.adapter !== 'native-react'
   assert.equal(fs.readFileSync(path.join(__dirname, file), 'utf8'), original, 'probe never changes working files');
   verified++;
 }
-assert.equal(verified, 40);
+assert.equal(verified, 41, '40 existing probes plus the new NDT calculation entrypoint');
 const beam = manifest.tools.find(tool => tool.key === '/rc-beam');
 assert.throws(() => sourceProbe(beam, beam.file, '<script>/* missing */</script>'), /探針應唯一/);
 assert.throws(() => sourceProbe(beam, beam.file, 'function calcBeam() { }\nfunction calcBeam() { }'), /探針應唯一/);
@@ -29,6 +29,14 @@ const names = [], context = { __hyWorkflowBrowserProbe: { hit: name => names.pus
 vm.createContext(context); vm.runInContext(fixture, context);
 assert.equal(context.calcBeam(), 7); context.calcBeam();
 assert.deepEqual(names, ['calcBeam', 'calcBeam'], 'probe catches duplicate actual calls, not merely keyboard events');
+const srcBeam = manifest.tools.find(tool => tool.key === '/src-beam');
+const srcFixture = '/* generated from SRC工具/src/src-beam.source.js */ const a=globalThis;function q(x={}){return 7}a.runSrcBeamCalculation=()=>q({});';
+const srcProbed = sourceProbe(srcBeam, probeSourceFile(srcBeam), srcFixture);
+vm.runInContext(srcProbed.source, context);
+assert.equal(context.runSrcBeamCalculation(), 7);
+assert.equal(names.at(-1), 'calculate', 'compiled SRC probe enters the actual calculation function body');
+assert.throws(() => sourceProbe(srcBeam, probeSourceFile(srcBeam), srcFixture.replace('function q(x={}){return 7}', 'function q(x={}){return 7}function q(y){return y}')), /探針應唯一/);
+assert.throws(() => sourceProbe(srcBeam, probeSourceFile(srcBeam), srcFixture.replace('a.runSrcBeamCalculation=()=>q({});', '')), /綁定應唯一/);
 const anchor = manifest.tools.find(tool => tool.key === '/anchor');
 const native = sourceProbe(anchor, 'anchor/assets/qa.js', 'const deps={calculateAndShowResults:()=>{return 7}};globalThis.run=deps.calculateAndShowResults;');
 assert.deepEqual(native.edits, ['calculateAndShowResults']);
@@ -44,4 +52,4 @@ for (const file of nativeScripts) {
   if (probed.edits.length) execFileSync(process.execPath, ['--input-type=module', '--check'], { input: probed.source, stdio: ['pipe', 'pipe', 'pipe'] });
 }
 assert.equal(nativeEntries, 1, 'currently deployed anchor build contains exactly one real calculation action probe');
-console.log('workflow browser harness: 40 real-source probes and the current native build compile, duplicate calls are counted, missing probes fail closed; browser not started');
+console.log('workflow browser harness: 41 real-source probes and the current native build compile, duplicate calls are counted, missing probes fail closed; browser not started');

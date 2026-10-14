@@ -25,6 +25,7 @@ const ENTRY_FUNCTIONS = {
   '/seismic-appendage': ['calcAppendagePage'], '/seismic-misc': ['calcMiscPage'],
   '/stone-fixing': ['render'], '/foundation-local': ['calculateFoundationLocal'], '/equipment-load': ['calculateEquipmentLoad'],
   '/earth-pressure': ['calculateEarthPressure'], '/floor-slab-westergaard': ['calculateFloorSlabWestergaard'],
+  '/concrete-strength-ndt': ['calculate'],
   '/cable-tension-frequency': ['calculateCableTensionFrequency'], '/decking': ['recalcAll'], '/beam-analysis': ['runAnalysis']
 };
 const groups = {
@@ -39,6 +40,32 @@ function probeSourceFile(tool) {
   if (tool.adapter === 'steel-explicit') return tool.sourceFile;
   return tool.file;
 }
+function compiledCalculationBody(source, entry, key) {
+  const parser = require(path.join(ROOT, 'output/playwright/phase2-quality-deps/node_modules/acorn'));
+  if (parser.version !== '8.19.0') throw Error(`Compiled workflow probes require pinned Acorn 8.19.0; found ${parser.version}`);
+  const ast = parser.parse(source, { ecmaVersion: 'latest' });
+  const declarations = [], bindings = [];
+  const isFunction = node => ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(node.type);
+  function visit(node, owner = ast) {
+    if (!node || typeof node.type !== 'string') return;
+    if (node.type === 'FunctionDeclaration') declarations.push({ node, owner });
+    if (node.type === 'AssignmentExpression' && node.left.type === 'MemberExpression' && !node.left.computed && node.left.property.name === entry) {
+      const arrow = node.right;
+      if (arrow.type !== 'ArrowFunctionExpression' || arrow.params.length || arrow.body.type !== 'CallExpression' || arrow.body.callee.type !== 'Identifier') throw Error(`${key}: 公開計算 callback 綁定格式不符`);
+      bindings.push({ name: arrow.body.callee.name, owner });
+    }
+    const childOwner = isFunction(node) ? node : owner;
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) value.forEach(child => visit(child, childOwner));
+      else if (value && typeof value === 'object' && typeof value.type === 'string') visit(value, childOwner);
+    }
+  }
+  visit(ast);
+  if (bindings.length !== 1) throw Error(`${key}: 公開計算 callback 的壓縮函式綁定應唯一，實際 ${bindings.length}`);
+  const found = declarations.filter(item => item.node.id?.name === bindings[0].name && item.owner === bindings[0].owner);
+  if (found.length !== 1) throw Error(`${key}: 實際壓縮計算函式探針應唯一，實際 ${found.length}`);
+  return found[0].node.body.start + 1;
+}
 function sourceProbe(tool, relativeFile, source) {
   const edits = [];
   const names = tool.key.startsWith('/wind-') ? ['calc'] : ENTRY_FUNCTIONS[tool.key] || [];
@@ -51,6 +78,13 @@ function sourceProbe(tool, relativeFile, source) {
     return { source, edits };
   }
   if (relativeFile !== probeSourceFile(tool)) return { source, edits };
+  if (tool.key.startsWith('/src-') && source.startsWith('/* generated from SRC工具/src/')) {
+    const entry = tool.key === '/src-beam' ? 'runSrcBeamCalculation' : 'runSrcColumnCalculation';
+    const position = compiledCalculationBody(source, entry, tool.key);
+    source = source.slice(0, position) + "globalThis.__hyWorkflowBrowserProbe.hit('calculate');" + source.slice(position);
+    edits.push('calculate');
+    return { source, edits };
+  }
   for (const name of names) {
     const pattern = new RegExp(`(^[ \\t]*(?:async\\s+)?function\\s+${name}\\s*\\([^)]*\\)\\s*\\{)`, 'gm');
     let count = 0;

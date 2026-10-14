@@ -11,7 +11,7 @@ function documentStub() {
   return { querySelectorAll() { return []; }, querySelector() { return null; }, getElementById() { return null; }, activeElement: null };
 }
 function windowStub(document = documentStub()) { return { document, getComputedStyle() { return { display: 'block', visibility: 'visible' }; }, console, HYToolWorkflow: workflow }; }
-let connections = 0;
+let connections = 0, existingConnections = 0;
 for (const tool of manifest.tools.filter(item => !['steel-explicit', 'native-react'].includes(item.adapter))) {
   const file = path.join(root, tool.file), html = fs.readFileSync(file, 'utf8');
   const tag = html.match(new RegExp(`<script[^>]*data-tool-key="${tool.key}"[^>]*>`));
@@ -21,8 +21,10 @@ for (const tool of manifest.tools.filter(item => !['steel-explicit', 'native-rea
     assert.ok(fs.existsSync(path.resolve(path.dirname(file), script[1])), `${tool.key}: workflow script resolves locally`);
   }
   connections++;
+  if (tool.key !== '/concrete-strength-ndt') existingConnections++;
 }
-assert.equal(connections, 36);
+assert.equal(existingConnections, 36, 'all 36 existing local adapter connections remain');
+assert.equal(connections, 37, '36 existing connections plus the new NDT adapter');
 
 for (const [key, engine] of [['/rc-beam', 'calcBeam'], ['/rc-column', 'calcColumn'], ['/rc-wall', 'calcWall'], ['/rc-shear-wall', 'calcShearWall']]) {
   const tool = manifest.tools.find(item => item.key === key), html = fs.readFileSync(path.join(root, tool.file), 'utf8');
@@ -110,4 +112,4 @@ beamDocument.getElementById = id => id === 'errorMsg' ? { textContent: '模型�
 const beamEnv = windowStub(beamDocument); beamEnv.runAnalysis = () => {};
 const invalid = adapters.createOptions({ key: '/beam-analysis', resultSelector: '#resultsCard' }, beamEnv);
 assert.equal(invalid.calculate(), false); assert.equal(errorFocused, 1, 'invalid continuous-beam input points to the original error and never navigates to stale results');
-console.log('workflow adapters: 36 local connections, four real RC summary functions, obsolete strip removal, single-call RC capture, slab frame cancellation, seismic card routing, result mirroring and error routing passed');
+console.log('workflow adapters: 37 local connections (36 existing plus NDT), four real RC summary functions, obsolete strip removal, single-call RC capture, slab frame cancellation, seismic card routing, result mirroring and error routing passed');

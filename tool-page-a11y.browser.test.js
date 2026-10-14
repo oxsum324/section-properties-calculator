@@ -39,13 +39,19 @@ function extractConstLiteral(source, name) {
   throw new Error(`unterminated const ${name}`);
 }
 
-function getFormalTools() {
+function getFormalTools(selectedRoutes = []) {
   const tools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`, {}, { timeout: 1000 });
   const formal = tools.filter(tool => tool.state === 'formal');
-  if (tools.length !== 52 || formal.length !== 40) {
-    throw new Error(`Expected 52 homepage tools and 40 formal tools; found ${tools.length}/${formal.length}`);
+  if (tools.length !== 53 || formal.length !== 40) {
+    throw new Error(`Expected 53 homepage tools and 40 formal tools; found ${tools.length}/${formal.length}`);
   }
-  return formal.map(({ title, href }) => ({ title, href }));
+  const ndt = tools.find(tool => tool.href === '/concrete-strength-ndt');
+  if (!ndt || ndt.state !== 'assist') throw new Error('NDT must retain its explicit assist identity');
+  const candidates = selectedRoutes.length ? [...formal, ndt] : formal;
+  for (const route of selectedRoutes) {
+    if (!candidates.some(tool => tool.href === route)) throw new Error(`No governed accessibility route matched: ${route}`);
+  }
+  return candidates.map(({ title, href }) => ({ title, href }));
 }
 
 function waitForServer(server, timeoutMs = 20000) {
@@ -128,8 +134,8 @@ async function verifyInteractions(page) {
 async function main() {
   const { chromium } = require(path.join(deps, 'playwright'));
   const { AxeBuilder } = require(path.join(deps, '@axe-core/playwright'));
-  const allTools = getFormalTools();
   const selectedRoutes = process.argv.filter(arg => arg.startsWith('--route=')).map(arg => arg.slice('--route='.length));
+  const allTools = getFormalTools(selectedRoutes);
   const tools = selectedRoutes.length ? allTools.filter(tool => selectedRoutes.includes(tool.href)) : allTools;
   if (!tools.length) throw new Error(`No formal tool matched requested routes: ${selectedRoutes.join(', ')}`);
   if (!fs.existsSync(edge)) throw new Error(`Edge not found: ${edge}`);

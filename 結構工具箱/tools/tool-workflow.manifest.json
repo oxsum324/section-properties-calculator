@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "scope": "home state=formal plus /beam-analysis (assist retained)",
+  "scope": "home state=formal plus /beam-analysis and /concrete-strength-ndt (both assist retained)",
   "core": "結構工具箱/core/ui/tool-workflow.js",
   "contract": "Explicit callbacks calculate exactly once; result navigation and status mirroring never recalculate; input changes invalidate prior conclusions.",
   "tools": [
@@ -386,6 +386,15 @@
       "key": "/floor-slab-westergaard",
       "file": "結構工具箱/tools/floor-slab/floor-slab-westergaard.html",
       "state": "formal",
+      "adapter": "button",
+      "calculateButton": "#btnCalc",
+      "resultSelector": "#bannerStatus",
+      "pageOnly": true
+    },
+    {
+      "key": "/concrete-strength-ndt",
+      "file": "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html",
+      "state": "assist",
       "adapter": "button",
       "calculateButton": "#btnCalc",
       "resultSelector": "#bannerStatus",

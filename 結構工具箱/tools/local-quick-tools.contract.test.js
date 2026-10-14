@@ -90,6 +90,10 @@ assert.equal(manifest.version, '0.6.0', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
+assert.equal(tools.length, 7, 'T44 adds only one assist tool to the six existing tools');
+assert.deepEqual(tools.slice(0,6).map(tool=>tool.key), ['foundation-local','equipment-load','earth-pressure','floor-slab-westergaard','cable-tension-frequency','rc-column-cover-deviation'], 'existing six formal tools remain unchanged');
+assert.equal(tools[6].key, 'concrete-strength-ndt', 'NDT is the seventh tool');
+assert.equal(tools[6].route, '/concrete-strength-ndt', 'NDT route is explicit');
 assert.equal(formalManifest.version, '0.5.0', 'formal tools manifest version');
 
 const bridgeInput = Object.assign({
@@ -1631,7 +1635,29 @@ for (const tool of tools) {
   assert.ok(publicClaim, `${tool.key} public metadata exists`);
   assert.equal(publicClaim.route, tool.route, `${tool.key} public metadata route`);
   assert.equal(publicClaim.version, tool.pageVersion, `${tool.key} public metadata version`);
-  assert.equal(publicClaim.state, 'formal', `${tool.key} public metadata state`);
+  if (tool.key === 'concrete-strength-ndt') {
+    assert.equal(publicClaim.state, 'assist', `${tool.key} remains assist despite usable data`);
+    assert.equal(html.includes('不得作為正式附件'), true, `${tool.key} explicitly blocks formal attachment status`);
+    assert.equal(html.includes('formalApprovalAllowed:false'), true, `${tool.key} disallows formal approval in report state`);
+    assert.equal(html.includes('concrete-strength-ndt-confirmed.json'), true, `${tool.key} keeps confirmed source file separate from case JSON`);
+    assert.equal(html.includes('fetch(CONFIRMED_FILE'), true, `${tool.key} confirmed file is read only by explicit handler`);
+    assert.equal(html.includes("$('btnReadConfirmed').addEventListener('click',readConfirmed)"), true, `${tool.key} has an explicit confirmed-file button`);
+    assert.equal(html.includes("window.open('','_blank')"), true, `${tool.key} report opens as a review document`);
+    assert.equal(core.includes('formalAttachmentEligible: false'), true, `${tool.key} valid calculation never grants formal eligibility`);
+    assert.equal(core.includes('非獨立試體母體'), true, `${tool.key} pooled statistics disclose non-independent records`);
+    assert.equal(core.includes("state: 'internal-review-only'"), true, `${tool.key} calculations remain internal review`);
+    assert.equal(core.includes('primaryMetrics: ['), true, `${tool.key} declares local-quick summary metrics`);
+    if (tool.key === 'concrete-strength-ndt') assert.equal(core.includes("key: 'pooled-mean'"), true, 'NDT includes the pooled summary metric');
+    assert.equal(html.includes('concrete-strength-ndt-smoke'), true, 'NDT exposes the smoke marker');
+    assert.equal(html.includes('預設值為假設，需技師確認'), true, 'NDT shows its assumption banner');
+    assert.equal(html.includes('concrete-strength-ndt-golden-cases.js'), false, 'NDT does not load private test fixtures');
+    const reportBuilder=html.slice(html.indexOf('function buildReportHtml'),html.indexOf('function buildReportText'));
+    assert.equal(reportBuilder.includes('建議採用'), false, 'NDT report avoids adoption language');
+    assert.equal(reportBuilder.includes('應選擇'), false, 'NDT report avoids selection language');
+    assert.equal(core.includes('input: { project, designStrengthMpa, designStrengthSource'), true, 'NDT preserves a canonical JSON-safe input snapshot');
+  } else {
+    assert.equal(publicClaim.state, 'formal', `${tool.key} public metadata state`);
+  }
   assert.equal(publicClaim.governance, 'local-quick-contract', `${tool.key} public metadata governance`);
   const hasJsonImportWorkflow = html.includes('id="btnImportJson"') || html.includes('讀取 JSON');
   if (hasJsonImportWorkflow) {

@@ -211,16 +211,6 @@
         "simpleValue": "summary",
         "detailValue": "detailed"
       },
-      "diagramSelector": "#cableTensionDiagram",
-      "diagramRoleNeedles": [
-        "span",
-        "mode-shape",
-        "tension"
-      ],
-      "diagramChecks": {
-        "roleBoxesNonZero": true,
-        "rolesInsideDiagram": true
-      },
       "reportNeedles": [
         "理想張緊弦",
         "不自動修正垂度",
@@ -269,6 +259,39 @@
         "實測需求檢核",
         "雙軸同時作用",
         "耐火與耐久性"
+      ]
+    },
+    {
+      "key": "concrete-strength-ndt",
+      "label": "混凝土強度非破壞檢測推估",
+      "route": "/concrete-strength-ndt",
+      "html": "tools/concrete-ndt/concrete-strength-ndt.html",
+      "core": "tools/concrete-ndt/concrete-strength-ndt-core.js",
+      "test": "tools/concrete-ndt/concrete-strength-ndt-core.test.js",
+      "golden": "tools/concrete-ndt/concrete-strength-ndt-golden-cases.js",
+      "smoke": "concrete-strength-ndt-smoke",
+      "title": "<title>混凝土強度非破壞檢測推估 V0.1</title>",
+      "pageVersion": "V0.1",
+      "calcFunction": "function calculate",
+      "coreGlobal": "ConcreteStrengthNdtCore",
+      "indexHref": "/concrete-strength-ndt",
+      "boundaryPath": "結構工具箱/tools/concrete-ndt/",
+      "jsonRoundTrip": true,
+      "reportMode": true,
+      "textExport": true,
+      "reportTitleNeedle": "混凝土強度非破壞檢測推估",
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "diagramSelector": "#metricGrid",
+      "diagramRoleNeedles": ["metric"],
+      "diagramChecks": { "roleBoxesNonZero": true, "rolesInsideDiagram": true },
+      "reportNeedles": [
+        "文件狀態：內部審閱",
+        "數值彙整，非獨立試體母體",
+        "示例假設"
       ]
     }
   ]

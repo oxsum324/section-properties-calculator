@@ -206,6 +206,10 @@ async function verifyGovernedTextExport(client, options) {
     assert.ok(buffer.length > 1024, `${options.label} downloaded TXT is substantial`);
     assert.equal(content.includes('data:image/'), false, `${options.label} TXT excludes embedded images`);
     assert.equal(content.includes('<svg'), false, `${options.label} TXT excludes SVG markup`);
+    if (options.tool.key === 'concrete-strength-ndt') {
+      ['核可作為正式附件', '建議採用', '應選擇'].forEach(needle => assert.equal(content.includes(needle), false, `${options.label} NDT TXT makes no approval or adoption claim: ${needle}`));
+      ['回彈相對差異', '超音波相對差異', '平均 ≥ 設計強度'].forEach(needle => assert.ok(content.includes(needle), `${options.label} NDT TXT preserves numeric comparisons: ${needle}`));
+    }
     pageOnlyReportStatusNeedles.forEach(needle => {
       assert.equal(content.includes(needle), false, `${options.label} TXT excludes page-only wording ${needle}`);
     });
@@ -1299,6 +1303,63 @@ function loadComboLimitStateExpression(testCase) {
   })()`;
 }
 
+function ndtRejectedJsonImportExpression(payload, mutation) {
+  return `(async () => {
+    const rejected = JSON.parse(JSON.stringify(${JSON.stringify(payload)}));
+    const mutation = ${JSON.stringify(mutation)};
+    if (mutation === 'fingerprint') rejected.calculationFingerprint = 'CF-0000000000000000';
+    if (mutation === 'engine') rejected.tool.calculationEngine = '9.9.9';
+    if (mutation === 'project-number') rejected.project.no = 'WRONG-PROJECT';
+    if (mutation === 'input-tamper') {
+      delete rejected.input.ultrasonic[0].velocityKmS;
+      rejected.input.ultrasonic[0].distanceMm = 300;
+      rejected.input.ultrasonic[0].timeMicroseconds = 76;
+    }
+    document.getElementById('projName').value = 'NDT 拒絕前保留案';
+    const row = document.querySelector('#ultrasonicTable tbody tr');
+    row.querySelector('[data-field="entryMode"]').value = 'distance-time';
+    row.querySelector('[data-field="distanceMm"]').value = '432';
+    row.querySelector('[data-field="timeMicroseconds"]').value = '81';
+    document.getElementById('jsonStatus').textContent = '等待拒絕測試';
+    const fileInput = document.getElementById('jsonFile');
+    const file = new File([JSON.stringify(rejected)], 'concrete-strength-ndt-rejected.json', { type: 'application/json' });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInput.files = transfer.files;
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    const started = Date.now();
+    while (Date.now() - started < 2000 && !((document.getElementById('jsonStatus')?.textContent || '').includes('失敗') || (document.getElementById('bannerStatus')?.textContent || '').includes('拒絕載入'))) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    return {
+      projectName: document.getElementById('projName').value,
+      entryMode: row.querySelector('[data-field="entryMode"]')?.value || '',
+      distanceMm: row.querySelector('[data-field="distanceMm"]')?.value || '',
+      timeMicroseconds: row.querySelector('[data-field="timeMicroseconds"]')?.value || '',
+      jsonStatus: document.getElementById('jsonStatus')?.textContent || '',
+      banner: document.getElementById('bannerStatus')?.textContent || ''
+    };
+  })()`;
+}
+
+function ndtRestoreOriginalExportImportExpression(payload) {
+  return '(async () => {' +
+    'const input = document.getElementById("jsonFile");' +
+    'if (!input) throw new Error("NDT JSON file input is missing");' +
+    'const status = document.getElementById("jsonStatus");' +
+    'if (!status) throw new Error("NDT JSON status is missing");' +
+    'status.textContent = "";' +
+    'const payload = ' + JSON.stringify(payload) + ';' +
+    'const file = new File([JSON.stringify(payload)], "concrete-strength-ndt-original-export.json", { type: "application/json" });' +
+    'const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files;' +
+    'input.dispatchEvent(new Event("change", { bubbles: true }));' +
+    'const started = Date.now();' +
+    'while (Date.now() - started < 3000) { if (status.textContent.trim() && input.files.length === 0) break; await new Promise(resolve => setTimeout(resolve, 25)); }' +
+    'await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));' +
+    'const result = window.getConcreteStrengthNdtCurrentResult();' +
+    'return { jsonStatus: status.textContent || "", projectName: document.getElementById("projName")?.value || "", input: result?.input || null, ok: result?.ok === true };' +
+    '})()';
+}
 function jsonImportExpression(tool, payload) {
   return `(async () => {
     const settle = (frames = 2) => new Promise(resolve => {
@@ -1356,6 +1417,50 @@ function jsonImportExpression(tool, payload) {
     fileInput.dispatchEvent(new Event('change', { bubbles: true }));
     await waitForImportStatus();
     await settle(2);
+    if (tool.key === 'concrete-strength-ndt') {
+      const input = payload.input;
+      input.ultrasonic[0].distanceMm = 300;
+      input.ultrasonic[0].timeMicroseconds = 75;
+      delete input.ultrasonic[0].velocityKmS;
+      const core = window.ConcreteStrengthNdtCore;
+      const result = core.calculate(input);
+      if (!result.ok) throw new Error('NDT distance-time round-trip fixture did not calculate: ' + result.errors.join('; '));
+      payload.input = result.input;
+      payload.result = result;
+      const fingerprintProject = { number: result.input.project.number, instrumentModel: result.input.project.instrumentModel || '', concreteDescription: result.input.project.concreteDescription || '' };
+      const fingerprintInput = Object.assign({}, result.input, { project: fingerprintProject });
+      const fingerprintResult = Object.assign({}, result, { project: fingerprintProject, input: fingerprintInput });
+      payload.calculationFingerprint = window.ToolReportUI.buildReportTrace({
+        title: '混凝土強度非破壞檢測推估',
+        snapshot: { input: fingerprintInput, result: fingerprintResult }
+      }).calculationFingerprint;
+      const file2 = new File([JSON.stringify(payload)], 'concrete-strength-ndt-distance-time.json', { type: 'application/json' });
+      const transfer2 = new DataTransfer();
+      transfer2.items.add(file2);
+      fileInput.files = transfer2.files;
+      document.getElementById('jsonStatus').textContent = '等待NDT距時案例回讀';
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      const started2 = Date.now();
+      while (Date.now() - started2 < 2000 && !(document.getElementById('jsonStatus')?.textContent || '').includes('已重現計算指紋')) {
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      await settle(2);
+      const row = document.querySelector('#ultrasonicTable tbody tr');
+      return {
+        tool: tool.key,
+        entryMode: row?.querySelector('[data-field="entryMode"]')?.value || '',
+        distanceMm: row?.querySelector('[data-field="distanceMm"]')?.value || '',
+        timeMicroseconds: row?.querySelector('[data-field="timeMicroseconds"]')?.value || '',
+        projectName: document.getElementById('projName').value,
+        jsonStatus: document.getElementById('jsonStatus')?.textContent || '',
+        banner: document.getElementById('bannerStatus')?.textContent || '',
+        confirmationStatus: document.getElementById('confirmedStatus')?.textContent || '',
+        readiness: document.getElementById('ndtReportReadiness')?.textContent || '',
+        primaryMetrics: window.getConcreteStrengthNdtCurrentResult()?.summary?.primaryMetrics || [],
+        formalAttachmentEligible: window.getConcreteStrengthNdtCurrentResult()?.formalAttachmentEligible,
+        inputRoundTrip: window.getConcreteStrengthNdtCurrentResult()?.input?.ultrasonic?.[0] || null
+      };
+    }
     if (tool.key === 'equipment-load') {
       return {
         tool: tool.key,
@@ -1575,6 +1680,11 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
           confirmation.dispatchEvent(new Event('input', { bubbles: true }));
           confirmation.dispatchEvent(new Event('change', { bubbles: true }));
         }
+        if (requestedToolKey === 'concrete-strength-ndt') {
+          const diameter = document.querySelector('#coreTable tbody tr [data-field="diameterMm"]');
+          const length = document.querySelector('#coreTable tbody tr [data-field="lengthMm"]');
+          length.value = String(Number(diameter.value) - 1);
+        }
         document.getElementById('btnCalc').click();
       }
       const pageReadinessLevel = window.ToolReportUI?.getPageReportReadinessLevel(document) || '';
@@ -1602,6 +1712,11 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
         documentStateText: documentClass === 'formal-attachment' ? '文件狀態：正式附件' : '文件狀態：內部審閱',
         documentClass,
         documentClassText: documentClass === 'formal-attachment' ? '正式附件' : '內部審閱',
+        banner: document.getElementById('bannerStatus')?.textContent || '',
+        formalAttachmentEligible: window.getConcreteStrengthNdtCurrentResult?.()?.formalAttachmentEligible,
+        calculationOk: window.getConcreteStrengthNdtCurrentResult?.()?.ok,
+        approvalSourceExists: !!approvalSource,
+        formalApprovalAllowed: approvalSource?.getAttribute('data-formal-approval-allowed') === 'true',
         initialApproved: approvalSource?.getAttribute('data-initial-approved') === 'true'
       };
     } finally {
@@ -2528,6 +2643,21 @@ function assertJsonExportState(state, tool, label) {
     assert.ok(Math.abs(state.payload.result.target.upperKn - 122.4) <= 1e-9, `${label} ${tool.key} result target upper bound`);
     assert.equal(state.payload.result.target.passed, true, `${label} ${tool.key} result target branch passes`);
   }
+  if (tool.key === 'concrete-strength-ndt') {
+    assert.equal(state.payload.schema, 'concrete-strength-ndt.case.v1', `${label} NDT payload case schema`);
+    assert.equal(state.payload.tool.version, tool.pageVersion, `${label} NDT payload replay version`);
+    assert.equal(state.payload.tool.calculationEngine, '0.1.0', `${label} NDT payload calculation engine`);
+    assert.match(state.payload.calculationFingerprint, /^CF-[0-9A-F]{16}$/, `${label} NDT payload calculation fingerprint`);
+    assert.equal(state.payload.result.state, 'internal-review-only', `${label} NDT result remains assist`);
+    assert.equal(state.payload.result.overallOk, true, `${label} NDT example data calculate successfully`);
+    assert.equal(state.payload.result.formalAttachmentEligible, false, `${label} NDT never qualifies as a formal attachment`);
+    assert.ok(['rebound','ultrasonic','core'].every(key => Array.isArray(state.payload.input[key])), `${label} NDT exports all method inputs`);
+    assert.equal(state.payload.input.ultrasonic.length, 3, `${label} NDT exports method-zone inputs`);
+    assert.equal(state.payload.input.project.number, state.payload.project.no, `${label} NDT keeps project identity aligned with the case header`);
+    assert.equal(typeof state.payload.input.project.instrumentModel, 'string', `${label} NDT records the instrument applicability field`);
+    assert.ok(state.payload.result.summary.primaryMetrics.some(item => item.key === 'ultrasonic-mean'), `${label} NDT has real primary metrics`);
+    assert.ok(state.payload.result.assumptions.some(item => item.assumed === true), `${label} NDT carries pending assumptions`);
+  }
 }
 
 function cableTensionReadyTargetExpression() {
@@ -2661,6 +2791,28 @@ function assertEquipmentJsonImportState(state, label) {
   assert.ok(state.banner && state.banner !== '尚未計算', `${label} equipment import recalculates`);
 }
 
+function assertNdtJsonImportState(state, label) {
+  assert.equal(state.tool, 'concrete-strength-ndt', `${label} NDT import target`);
+  assert.equal(state.entryMode, 'distance-time', `${label} NDT imports a distance/time UPV row`);
+  assert.equal(state.distanceMm, '300', `${label} NDT round-trips pulse path length`);
+  assert.equal(state.timeMicroseconds, '75', `${label} NDT round-trips pulse travel time`);
+  assert.equal(state.projectName, '回讀測試案', `${label} NDT restores the report header`);
+  assert.ok(state.jsonStatus.includes('已重現計算指紋'), `${label} NDT validates calculation replay`);
+  assert.ok(state.banner.includes('待確認') && state.banner.includes('本機設定'), `${label} NDT replay preserves the pending-confirmation banner`);
+  assert.ok(state.confirmationStatus.includes('案例 JSON 不會改變此狀態'), `${label} NDT case JSON cannot change confirmation status`);
+  assert.ok(state.readiness.includes('assist'), `${label} NDT remains assist after replay`);
+  assert.equal(state.formalAttachmentEligible, false, `${label} NDT replay remains ineligible for formal attachment`);
+  assert.ok(state.primaryMetrics.some(item => item.key === 'ultrasonic-mean'), `${label} NDT replay recalculates method metrics`);
+}
+
+function assertNdtRejectedImportState(state, label, mutation) {
+  assert.equal(state.projectName, 'NDT 拒絕前保留案', `${label} NDT ${mutation} preserves the pre-import project`);
+  assert.equal(state.entryMode, 'distance-time', `${label} NDT ${mutation} preserves entry mode`);
+  assert.equal(state.distanceMm, '432', `${label} NDT ${mutation} rolls back path length`);
+  assert.equal(state.timeMicroseconds, '81', `${label} NDT ${mutation} rolls back travel time`);
+  assert.ok(state.jsonStatus.includes('失敗') || state.banner.includes('拒絕載入'), `${label} NDT ${mutation} is rejected`);
+}
+
 function assertFoundationJsonImportState(state, label) {
   assert.equal(state.B, '2.5', `${label} foundation import B`);
   assert.equal(state.L, '3', `${label} foundation import L`);
@@ -2737,7 +2889,15 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
   ];
   const removedFromLocalReport = ['工具與責任邊界', '適用範圍', '不適用範圍', '計算核心', '輸入格式'];
   requiredNeedles.push(...(tool.reportNeedles || []));
-  if (mode === 'summary') {
+  if (tool.key === 'concrete-strength-ndt') {
+    requiredNeedles.push(
+      '混凝土強度非破壞檢測推估', '回彈法', '超音波法', '鑽心法',
+      '現場等值強度', '樣本 SD', 'CoV', '特徵強度指標',
+      '數值彙整，非獨立試體母體', '預設值為假設，需技師確認', '內部審閱 assist',
+      '回彈相對差異', '超音波相對差異', '平均 ≥ 設計強度'
+    );
+    if (mode === 'detailed') requiredNeedles.push('回彈原始讀值', '角度修正 ΔR', '曲線係數', '鑽心修正因素', '含水狀態', '取樣方向', '鑽取損傷');
+  } else if (mode === 'summary') {
     requiredNeedles.push('控制結果', '計算示意圖');
     assert.equal(state.html.includes('<h2>計算內容</h2>'), false, `${label} ${tool.key} summary report excludes 計算內容章節`);
     removedFromLocalReport.forEach(needle => {
@@ -2809,6 +2969,18 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
 }
 
 function assertCalculationBookDocumentState(state, tool, label) {
+  if (tool.key === 'concrete-strength-ndt') {
+    assert.ok(['review', 'blocked', 'assist'].includes(state.pageReadinessLevel), `${label} NDT readiness never becomes formal-ready`);
+    assert.equal(state.initialApproved, false, `${label} NDT has no approval control`);
+    assert.equal(state.documentState, 'internal-review', `${label} NDT stays internal review`);
+    assert.equal(state.documentClass, 'internal-review', `${label} NDT report stays internal review`);
+    assert.equal(state.approvalSourceExists, true, `${label} NDT report keeps the shared portable approval source`);
+    assert.equal(state.formalApprovalAllowed, false, `${label} NDT shared source disallows formal approval`);
+    assert.equal(reportHtmlText(state.html).includes('核可作為正式附件'), false, `${label} NDT visible report text makes no approval claim`);
+    assert.ok(state.html.includes('內部審閱'), `${label} NDT report states internal review`);
+    assert.equal(state.html.includes('DRAFT／非正式附件'), false, `${label} NDT report has no generic draft label`);
+    return;
+  }
   assert.match(state.pageReadinessLevel, /^(ready|review|blocked)$/, `${label} ${tool.key} page readiness level`);
   assert.equal(state.initialApproved, false, `${label} ${tool.key} report defaults to unchecked approval`);
   assert.equal(state.documentState, 'internal-review', `${label} ${tool.key} default report is internal review`);
@@ -2827,6 +2999,19 @@ function assertBlobReportNavigation(state, label) {
 }
 
 function assertReportState(state, tool, label, mode = 'detailed') {
+  if (tool.key === 'concrete-strength-ndt') {
+    assert.equal(state.projectMetaState, 'complete', `${label} NDT report project state`);
+    assert.equal(state.openCount, 1, `${label} NDT report open count`);
+    assert.equal(state.selectedMode, mode, `${label} NDT report honors ${mode} mode`);
+    assert.equal(state.documentOpened, true, `${label} NDT report document open`);
+    assert.equal(state.closed, true, `${label} NDT report document close`);
+    assert.ok(state.html.includes('局部工具驗證案'), `${label} NDT report includes the project heading`);
+    assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} NDT report includes the project number`);
+    assert.ok(state.html.includes('Codex QA'), `${label} NDT report includes the responsible person`);
+    assertCalculationBookDocumentState(state, tool, label);
+    assertReportContentState(state, tool, label, mode);
+    return;
+  }
   assert.equal(state.projectMetaState, 'complete', `${label} ${tool.key} report project state`);
   assert.equal(state.openCount, 1, `${label} ${tool.key} report open count`);
   assert.equal(state.opened[0].target, '_blank', `${label} ${tool.key} report target`);
@@ -2841,6 +3026,13 @@ function assertReportState(state, tool, label, mode = 'detailed') {
 }
 
 function assertPlaceholderReportState(state, tool, label, mode = 'detailed') {
+  if (tool.key === 'concrete-strength-ndt') {
+    assert.equal(state.projectMetaState, 'placeholder', `${label} NDT placeholder report state`);
+    assert.equal(state.openCount, 1, `${label} NDT placeholder report still opens for internal review`);
+    assertCalculationBookDocumentState(state, tool, label);
+    assertReportContentState(state, tool, label, mode);
+    return;
+  }
   assert.equal(state.projectMetaState, 'placeholder', `${label} ${tool.key} placeholder report project state`);
   assert.equal(state.openCount, 1, `${label} ${tool.key} placeholder report open count`);
   assert.equal(state.opened[0].target, '_blank', `${label} ${tool.key} placeholder report target`);
@@ -3212,6 +3404,8 @@ async function main() {
           const cable = search('鋼索');
           const shear = search('  sHeAr   TaB  ');
           const alias = search('剪力板');
+          const ndtAlias = search('NDT');
+          const reboundAlias = search('反彈錘');
           const aliasCases = [
             ['Continuous beam', search('Continuous beam')],
             ['plane frame', search('plane frame')],
@@ -3223,7 +3417,8 @@ async function main() {
           const missing = search('不存在的工具xyz');
           const emptyVisible = document.getElementById('emptyState').getClientRects().length > 0;
           document.getElementById('clearToolSearch').click();
-          return { cable, shear, alias, aliasCases, windCategory, missing, emptyVisible, cleared: input.value === '',
+          return { cable, shear, alias, ndtAlias, reboundAlias, aliasCases, windCategory, missing, emptyVisible, cleared: input.value === '',
+            existingInventoryCount: Array.from(document.querySelectorAll('.tool-card')).filter(card => card.dataset.routeHref !== '/concrete-strength-ndt').length,
             restoredCount: document.querySelectorAll('.tool-card').length,
             overflow: document.documentElement.scrollWidth > innerWidth + 2 };
         })()`);
@@ -3245,7 +3440,10 @@ async function main() {
         assert.deepEqual(searchResults.missing, [], `${label} empty search result`);
         assert.equal(searchResults.emptyVisible, true, `${label} empty result is visible`);
         assert.equal(searchResults.cleared, true, `${label} clear search`);
-        assert.equal(searchResults.restoredCount, 52, `${label} clear restores inventory including the survey workflow`);
+        assert.equal(searchResults.existingInventoryCount, 52, `${label} clear preserves existing inventory including the survey workflow`);
+        assert.equal(searchResults.restoredCount, 53, `${label} clear restores inventory including NDT`);
+        assert.deepEqual(searchResults.ndtAlias, ['鋼構正式規範工具', '混凝土強度非破壞檢測推估'], `${label} NDT search preserves the existing EndTab substring match and finds NDT`);
+        assert.deepEqual(searchResults.reboundAlias, ['混凝土強度非破壞檢測推估'], `${label} rebound-hammer alias search`);
         assert.equal(searchResults.overflow, false, `${label} search controls fit viewport`);
       }
 
@@ -3620,6 +3818,54 @@ async function main() {
           const result = await navigateAndInspect(client, sessionId, toolCase.url, viewport, toolExpression(tool));
           assert.deepEqual(result.errors, [], `${label} ${tool.key} console errors: ${result.errors.join(' | ')}`);
           assertToolState(result.state, tool, label);
+          if (tool.key === 'concrete-strength-ndt') {
+            const policy = await evaluate(client, sessionId, `(() => {
+              const instrument = document.getElementById('instrumentModel');
+              const concrete = document.getElementById('concreteDescription');
+              const priorInstrument = instrument.value, priorConcrete = concrete.value;
+              instrument.value = 'NDT-QA-INSTRUMENT'; concrete.value = 'NDT-QA-CONCRETE';
+              document.getElementById('btnCalc').click();
+              const applicabilityInput = window.getConcreteStrengthNdtCurrentResult().input.project;
+              instrument.value = priorInstrument; concrete.value = priorConcrete;
+              document.getElementById('btnCalc').click();
+              const calculated = window.getConcreteStrengthNdtCurrentResult();
+              const report = window.buildConcreteStrengthNdtReportHtml(calculated, 'summary');
+              const text = window.buildReportText(calculated);
+              return {
+                validCalculation: calculated.ok,
+                applicabilityInput,
+                summaryStatus: calculated.summary?.status,
+                metrics: calculated.summary?.primaryMetrics?.map(metric => metric.key) || [],
+                checks: calculated.checks?.map(check => check.status) || [],
+                state: calculated.state,
+                formalAttachmentEligible: calculated.formalAttachmentEligible,
+                reportDisallowsApproval: report.includes('data-formal-approval-allowed="false"'),
+                reportKeepsInternalReview: report.includes('內部審閱'),
+                reportKeepsAssistOnlyLanguage: report.includes('不得作為正式附件') || report.includes('assist'),
+                textKeepsInternalReview: text.includes('文件狀態：內部審閱'),
+                localZoneCount: calculated.methods?.core?.stats?.n,
+                pooledLabel: calculated.pooled?.label,
+                pageStatus: document.getElementById('ndtReportReadiness')?.textContent || '',
+                confirmedRequestOnColdOpen: performance.getEntriesByType('resource').some(entry => entry.name.includes('concrete-strength-ndt-confirmed.json'))
+              };
+            })()`);
+            assert.equal(policy.validCalculation, true, `${label} complete page demo calculates successfully`);
+            assert.equal(policy.applicabilityInput.instrumentModel, 'NDT-QA-INSTRUMENT', `${label} NDT calculation records actual instrument input`);
+            assert.equal(policy.applicabilityInput.concreteDescription, 'NDT-QA-CONCRETE', `${label} NDT calculation records actual concrete applicability input`);
+            assert.equal(policy.summaryStatus, 'pass', `${label} local-quick summary describes calculation validity`);
+            assert.ok(policy.metrics.length >= 3, `${label} NDT result exposes summary metrics`);
+            assert.ok(policy.checks.includes('not_applicable'), `${label} engineering and attachment checks remain not applicable`);
+            assert.equal(policy.state, 'internal-review-only', `${label} NDT remains internal review with complete valid samples`);
+            assert.equal(policy.formalAttachmentEligible, false, `${label} valid NDT results never qualify as formal attachments`);
+            assert.equal(policy.reportDisallowsApproval, true, `${label} NDT report explicitly disallows formal approval`);
+            assert.equal(policy.reportKeepsInternalReview, true, `${label} NDT report keeps internal-review wording`);
+            assert.equal(policy.reportKeepsAssistOnlyLanguage, true, `${label} NDT report preserves assist-only disposition`);
+            assert.equal(policy.textKeepsInternalReview, true, `${label} NDT text export retains internal-review status`);
+            assert.equal(policy.localZoneCount, 3, `${label} NDT page demo has three core zones`);
+            assert.equal(policy.pooledLabel, '數值彙整，非獨立試體母體', `${label} pooled output discloses non-independent observations`);
+            assert.match(policy.pageStatus, /assist/);
+            assert.equal(policy.confirmedRequestOnColdOpen, false, `${label} NDT does not cold-fetch absent confirmed.json`);
+          }
           if (tool.key === 'cable-tension-frequency') {
             const sensitivityState = await evaluate(client, sessionId, `(() => {
               const panel = document.getElementById('sensitivityResult');
@@ -3700,6 +3946,13 @@ async function main() {
               if (tool.key === 'floor-slab-westergaard') assertFloorSlabJsonImportState(importState, interactionLabel);
               if (tool.key === 'rc-column-cover-deviation') assertColumnCoverJsonImportState(importState, interactionLabel);
               if (tool.key === 'cable-tension-frequency') assertCableTensionJsonImportState(importState, interactionLabel);
+              if (tool.key === 'concrete-strength-ndt') {
+                assertNdtJsonImportState(importState, interactionLabel);
+                for (const mutation of ['fingerprint', 'input-tamper', 'engine', 'project-number']) {
+                  const rejectedImportState = await evaluate(client, sessionId, ndtRejectedJsonImportExpression(exportState.payload, mutation));
+                  assertNdtRejectedImportState(rejectedImportState, interactionLabel, mutation);
+                }
+              }
               if (tool.key === 'rc-column-cover-deviation') {
                 const wrongVersionState = await evaluate(client, sessionId, columnCoverRejectedJsonImportExpression(exportState.payload, 'version'));
                 assert.equal(wrongVersionState.sectionWidthMm, '777', `${interactionLabel} ${tool.key} wrong-version import preserves section width`);
@@ -3793,11 +4046,25 @@ async function main() {
               if (tool.key === 'floor-slab-westergaard') assertFloorSlabJsonImportState(replayImportState, `${interactionLabel} report replay`);
               if (tool.key === 'rc-column-cover-deviation') assertColumnCoverJsonImportState(replayImportState, `${interactionLabel} report replay`);
               if (tool.key === 'cable-tension-frequency') assertCableTensionJsonImportState(replayImportState, `${interactionLabel} report replay`);
+              if (tool.key === 'concrete-strength-ndt') {
+                const resetState = await evaluate(client, sessionId, ndtRestoreOriginalExportImportExpression(exportState.payload));
+                assert.equal(resetState.ok, true, interactionLabel + ' NDT original export re-import recalculates');
+                assert.ok(resetState.jsonStatus.trim().length > 0, interactionLabel + ' NDT original export re-import reports fresh JSON status');
+                assert.equal(resetState.projectName, exportState.payload?.project?.name || '', interactionLabel + ' NDT original export re-import restores source project name');
+                assert.deepStrictEqual(
+                  canonicalizeJson(resetState.input),
+                  canonicalizeJson(exportState.payload?.input),
+                  interactionLabel + ' NDT original export re-import restores every original input'
+                );
+              }
               const replayExportState = await evaluate(client, sessionId, jsonExportExpression('preserve'));
               assert.equal(replayExportState.downloadCount, 1, `${interactionLabel} ${tool.key} report replay JSON click count`);
               assert.equal(replayExportState.blobCount, 1, `${interactionLabel} ${tool.key} report replay JSON blob count`);
               assert.equal(replayExportState.payload?.tool?.id, tool.key, `${interactionLabel} ${tool.key} report replay JSON tool identity`);
-              assert.equal(replayExportState.payload?.project?.name, '回讀測試案', `${interactionLabel} ${tool.key} report replay JSON project identity`);
+              const expectedReplayProjectName = tool.key === 'concrete-strength-ndt'
+                ? (exportState.payload?.project?.name || '')
+                : '\u56de\u8b80\u6e2c\u8a66\u6848';
+              assert.equal(replayExportState.payload?.project?.name, expectedReplayProjectName, interactionLabel + ' ' + tool.key + ' report replay JSON project identity');
               if (tool.key === 'cable-tension-frequency') {
                 assert.equal(replayExportState.payload?.input?.effectiveLengthBasis, '現場量測紀錄 CT-E2E-01：兩端有效振動固定點間距', `${interactionLabel} ${tool.key} replay keeps effective-length basis`);
                 assert.equal(replayExportState.payload?.input?.massBasis, '製造商型錄 CT-E2E-01：含護套整體單位長質量', `${interactionLabel} ${tool.key} replay keeps mass basis`);
@@ -3836,7 +4103,9 @@ async function main() {
                 label: `${interactionLabel} ${tool.key}`,
                 requiredNeedles: tool.key === 'cable-tension-frequency'
                   ? ['容許差 ±2.00%', '上下限 117.600–122.400 kN', '張拉計畫 CT-E2E-01：目標索力 120 kN 與容許差 2%']
-                  : [],
+                  : tool.key === 'concrete-strength-ndt'
+                    ? ['預設值為假設，需技師確認', '回彈法', '超音波法', '鑽心法', '內部審閱 assist']
+                    : [],
               }));
               if (tool.key === 'equipment-load') {
                 const eccentricState = await evaluate(client, sessionId, equipmentEccentricReactionExpression(0.2, -0.1));
@@ -3889,7 +4158,15 @@ async function main() {
                 assertEquipmentJsonImportState(restoredEquipmentState, `${interactionLabel} eccentric restore`);
               }
               const blockedReportState = await evaluate(client, sessionId, reportExpression('detailed', 'complete', 'failed', tool.key));
-              assertReportState(blockedReportState, tool, `${interactionLabel} failed calculation`, 'detailed');
+              if (tool.key === 'concrete-strength-ndt') {
+                assert.equal(blockedReportState.calculationOk, false, `${interactionLabel} NDT rejects L/D below one`);
+                assert.equal(blockedReportState.formalAttachmentEligible, false, `${interactionLabel} NDT failed data never gains attachment eligibility`);
+                assert.equal(blockedReportState.openCount, 0, `${interactionLabel} NDT refuses to generate a report for invalid inputs`);
+                assert.equal(blockedReportState.pageReadinessLevel, 'blocked', `${interactionLabel} NDT invalid inputs block readiness`);
+                assert.ok(blockedReportState.banner.includes('拒絕計算') || blockedReportState.banner.includes('待確認'), `${interactionLabel} NDT failure is stated on the page`);
+              } else {
+                assertReportState(blockedReportState, tool, `${interactionLabel} failed calculation`, 'detailed');
+              }
               assert.equal(blockedReportState.pageReadinessLevel, 'blocked', `${interactionLabel} ${tool.key} failed calculation blocks attachment readiness`);
               assert.equal(blockedReportState.documentClass, 'internal-review', `${interactionLabel} ${tool.key} failed calculation remains printable internal review`);
               const detailedEvidence = await renderAndValidateReportPdf(client, {
@@ -3908,10 +4185,13 @@ async function main() {
                   ...(tool.key === 'cable-tension-frequency'
                     ? ['容許差 ±2.00%', '上下限 117.600–122.400 kN', '張拉計畫 CT-E2E-01：目標索力 120 kN 與容許差 2%']
                     : []),
+                  ...(tool.key === 'concrete-strength-ndt'
+                    ? ['回彈法', '超音波法', '鑽心法', '預設值為假設，需技師確認', '數值彙整，非獨立試體母體']
+                    : []),
                   '文件狀態：內部審閱',
                   '計算指紋',
                 ],
-                forbiddenNeedles: ['DRAFT'],
+                forbiddenNeedles: tool.key === 'concrete-strength-ndt' ? ['DRAFT', '核可作為正式附件'] : ['DRAFT'],
               });
               const calculationFingerprint = calculationFingerprintFromReport(
                 detailedReportState.html,
@@ -3921,6 +4201,13 @@ async function main() {
                 detailedEvidence.pdf.visibleText.text.includes(calculationFingerprint),
                 `${interactionLabel} ${tool.key} rendered PDF contains replay calculation fingerprint`
               );
+              if (tool.key === 'concrete-strength-ndt') {
+                for (const needle of ['回彈法', '超音波法', '鑽心法', '預設值為假設，需技師確認']) {
+                  assert.ok(detailedEvidence.pdf.visibleText.text.includes(needle), `${interactionLabel} NDT rendered PDF reconciles ${needle}`);
+                }
+                assert.equal(detailedEvidence.pdf.visibleText.text.includes('核可作為正式附件'), false, `${interactionLabel} NDT rendered PDF never grants attachment approval`);
+                assert.ok(replayComparison.verifiedAssertionCount > 80, `${interactionLabel} NDT JSON-to-PDF reconciliation covers the full input and result`);
+              }
               renderedEvidenceRecords.push({
                 key: tool.key,
                 renderer: detailedEvidence.renderer,
@@ -3950,7 +4237,7 @@ async function main() {
                 contentBoundaryProfile: 'traceable-calculation-book',
                 titleNeedle: tool.reportTitleNeedle,
                 requiredNeedles: [tool.reportTitleNeedle, '文件狀態：內部審閱', '計算指紋', ...(tool.reportNeedles || [])],
-                forbiddenNeedles: ['DRAFT'],
+                forbiddenNeedles: tool.key === 'concrete-strength-ndt' ? ['DRAFT', '核可作為正式附件'] : ['DRAFT'],
               });
               renderedEvidenceRecords.push({
                 key: `${tool.key}-internal-review-boundary`,
@@ -3960,26 +4247,30 @@ async function main() {
                 pageCount: internalEvidence.pdf.pageCount,
                 textLength: internalEvidence.pdf.textLength,
               });
-              const blockedEvidence = await renderAndValidateReportPdf(client, {
-                html: blockedReportState.html,
-                outputDir: renderedEvidenceDir,
-                artifactName: `${tool.key}-blocked-internal-review-report`,
-                label: `${tool.key} failed-check internal-review report`,
-                renderer: 'local-quick-blocked',
-                contentBoundaryProfile: 'traceable-calculation-book',
-                titleNeedle: tool.reportTitleNeedle,
-                projectNeedle: '計畫：',
-                requiredNeedles: [tool.reportTitleNeedle, '計畫：', '文件狀態：內部審閱', '計算指紋', ...(tool.reportNeedles || [])],
-                forbiddenNeedles: ['DRAFT'],
-              });
-              renderedEvidenceRecords.push({
-                key: `${tool.key}-blocked-boundary`,
-                renderer: blockedEvidence.renderer,
-                artifact: path.basename(blockedEvidence.pdfPath),
-                evidence: path.basename(blockedEvidence.evidencePath),
-                pageCount: blockedEvidence.pdf.pageCount,
-                textLength: blockedEvidence.pdf.textLength,
-              });
+              if (tool.key === 'concrete-strength-ndt') {
+                assert.equal(blockedReportState.html, '', `${interactionLabel} NDT invalid values produce no report HTML or PDF evidence`);
+              } else {
+                const blockedEvidence = await renderAndValidateReportPdf(client, {
+                  html: blockedReportState.html,
+                  outputDir: renderedEvidenceDir,
+                  artifactName: `${tool.key}-blocked-internal-review-report`,
+                  label: `${tool.key} failed-check internal-review report`,
+                  renderer: 'local-quick-blocked',
+                  contentBoundaryProfile: 'traceable-calculation-book',
+                  titleNeedle: tool.reportTitleNeedle,
+                  projectNeedle: '計畫：',
+                  requiredNeedles: [tool.reportTitleNeedle, '計畫：', '文件狀態：內部審閱', '計算指紋', ...(tool.reportNeedles || [])],
+                  forbiddenNeedles: ['DRAFT'],
+                });
+                renderedEvidenceRecords.push({
+                  key: `${tool.key}-blocked-boundary`,
+                  renderer: blockedEvidence.renderer,
+                  artifact: path.basename(blockedEvidence.pdfPath),
+                  evidence: path.basename(blockedEvidence.evidencePath),
+                  pageCount: blockedEvidence.pdf.pageCount,
+                  textLength: blockedEvidence.pdf.textLength,
+                });
+              }
               if (tool.key === 'foundation-local') {
                 const summaryEvidence = await renderAndValidateReportPdf(client, {
                   html: summaryReportState.html,

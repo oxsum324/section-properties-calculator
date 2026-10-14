@@ -157,7 +157,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-10-12',
+    generatedAt: '2026-10-15',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -178,7 +178,7 @@
       '/rc-pile-cap-3d-stm': '2026-10-11',
       '/rc-pile': '2026-10-11',
       '/rc-retrofit-section': '2026-10-11',
-      '/rc-column-cover-deviation': '2026-10-11',
+      '/rc-column-cover-deviation': '2026-10-15',
       '/src-beam': '2026-10-11',
       '/src-column': '2026-10-11',
       '/steel-formal': '2026-10-12',
@@ -206,11 +206,12 @@
       '/seismic-misc': '2026-10-11',
       '/anchor': '2026-10-09',
       '/stone-fixing': '2026-10-12',
-      '/foundation-local': '2026-10-11',
-      '/equipment-load': '2026-10-11',
-      '/earth-pressure': '2026-10-11',
-      '/floor-slab-westergaard': '2026-10-11',
-      '/cable-tension-frequency': '2026-10-11',
+      '/foundation-local': '2026-10-15',
+      '/equipment-load': '2026-10-15',
+      '/earth-pressure': '2026-10-15',
+      '/floor-slab-westergaard': '2026-10-15',
+      '/concrete-strength-ndt': '2026-10-15',
+      '/cable-tension-frequency': '2026-10-15',
       '/decking': '2026-10-11',
       '/excavation-support': '2026-10-03'
     }
@@ -284,6 +285,7 @@
       '/equipment-load': ['結構工具箱/tools/equipment/equipment-load-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
       '/earth-pressure': ['結構工具箱/tools/earth/earth-pressure-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
       '/floor-slab-westergaard': ['結構工具箱/tools/floor-slab/floor-slab-westergaard-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
+      '/concrete-strength-ndt': ['結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html', '結構工具箱/tools/concrete-ndt/concrete-strength-ndt-core.js', '結構工具箱/tools/concrete-ndt/concrete-strength-ndt-spec.js', '結構工具箱/tools/concrete-ndt/concrete-strength-ndt-golden-cases.js', '結構工具箱/tools/concrete-ndt/concrete-strength-ndt-core.test.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
       '/cable-tension-frequency': ['結構工具箱/tools/cable-tension/cable-tension-frequency-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js'],
       '/excavation-support': ['開挖擋土支撐/index.html', '開挖擋土支撐/README.md', '開挖擋土支撐/frontend/src/App.tsx', '開挖擋土支撐/frontend/src/api.ts', '開挖擋土支撐/frontend/src/types.ts', '開挖擋土支撐/backend/app/parsers.py', '開挖擋土支撐/backend/app/main.py', '開挖擋土支撐/backend/app/calculations.py', '開挖擋土支撐/backend/app/reporting.py', '開挖擋土支撐/backend/app/schemas.py', '開挖擋土支撐/backend/tests/test_calculations.py', '開挖擋土支撐/backend/tests/test_reporting.py', '開挖擋土支撐/excavation-traceability.catalog.json', '開挖擋土支撐/backend/app/removal_transfer_handoff.py', '開挖擋土支撐/backend/app/receiver_capacity.py', '開挖擋土支撐/backend/app/receiver_capacity_attachment.py', '開挖擋土支撐/backend/tests/test_receiver_capacity.py', '開挖擋土支撐/backend/tests/test_receiver_capacity_attachment.py', '開挖擋土支撐/backend/tests/release_report_artifacts.py', '開挖擋土支撐/backend/app/receiver_operator_auth.py', '開挖擋土支撐/backend/app/receiver_operator_backup.py', '開挖擋土支撐/backend/app/receiver_operator_recovery.py', '開挖擋土支撐/backend/app/receiver_trust_backup.py', '開挖擋土支撐/backend/app/receiver_trust_recovery.py', '結構工具箱/core/direct-print-boundary.css'],
       '/wind-special': ['結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/tools/project-storage.js', '結構工具箱/tools/src/project-storage.source.js'],
@@ -993,6 +995,20 @@
       capabilities: ['正式核算', '計算書', 'TXT 備查', '多載重疊加']
     },
     {
+      title: '混凝土強度非破壞檢測推估',
+      version: 'V0.1',
+      href: '/concrete-strength-ndt',
+      aliases: ['反彈錘', '鑽心', '超音波', 'NDT', 'concrete strength estimation'],
+      categories: ['reference'],
+      state: 'assist',
+      governance: 'local-quick-contract',
+      output: '各法曲線推估、鑽心修正、描述統計、假設模型特徵值、同測區差異比對、內部審閱計算書、TXT 文字備查與案例 JSON',
+      summary: '整理反彈錘、超音波脈波速度與鑽心資料；逐項列示公式、係數、來源與假設，區分測區數、原始讀數及三法數值彙整。',
+      fit: '既有建物檢測資料整理、假設曲線試算及同測區交叉比對。',
+      limit: '預設值為假設，需技師確認；不取代現地校正、正式材料試驗或工程判定。三法彙整 n 不是獨立試體數，本工具不提供正式附件資格。',
+      capabilities: ['資料推估', '計算書', 'TXT 備查', 'JSON']
+    },
+    {
       title: '鋼索索力評估（頻率法）',
       version: 'V0.1',
       href: '/cable-tension-frequency',
@@ -1095,6 +1111,7 @@
     '/equipment-load': 'tools/equipment/equipment-load.html',
     '/earth-pressure': 'tools/earth/earth-pressure.html',
     '/floor-slab-westergaard': 'tools/floor-slab/floor-slab-westergaard.html',
+    '/concrete-strength-ndt': 'tools/concrete-ndt/concrete-strength-ndt.html',
     '/cable-tension-frequency': 'tools/cable-tension/cable-tension-frequency.html',
     '/decking': '../覆工板/index.html',
     '/excavation-support': '../開挖擋土支撐/index.html'

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>混凝土強度非破壞檢測推估 V0.1</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../core/style.css">
+  <link rel="stylesheet" href="../../core/direct-print-boundary.css">
+  <link rel="stylesheet" href="../../core/report-readiness.css">
+  <style>
+    :root { --ndt:#155e75; --ndt-dark:#164e63; --line:#d4e1e4; --ink:#17212b; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f4f8f9; color:var(--ink); font-family:"Microsoft JhengHei",Arial,sans-serif; line-height:1.55; }
+    main { max-width:1420px; margin:auto; padding:20px; }
+    .hero,.card { border:1px solid var(--line); border-radius:14px; background:white; padding:17px; margin-bottom:15px; }
+    .hero { color:white; background:linear-gradient(135deg,var(--ndt-dark),var(--ndt)); }
+    .hero h1 { margin:0; font-size:clamp(1.4rem,3vw,2rem); }
+    .hero p { margin:7px 0 0; color:#d9f7ff; }
+    h2 { margin:0 0 10px; color:var(--ndt-dark); font-size:1.06rem; }
+    .hero h2 { color:white; }
+    .tag { display:inline-block; margin:9px 6px 0 0; padding:3px 9px; border:1px solid #ffffff55; border-radius:999px; background:#ffffff19; font-size:.84rem; }
+    .notice,.banner-status,.assumption { padding:10px 12px; border-left:4px solid #f97316; border-radius:7px; background:#fff7ed; color:#7c2d12; }
+    .banner-status { margin-top:11px; font-weight:800; }
+    .banner-status.fail { background:#fef2f2; color:#991b1b; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    label { display:block; font-weight:800; font-size:.86rem; }
+    input,select,textarea { width:100%; margin-top:4px; padding:7px 8px; border:1px solid #b8cbd0; border-radius:7px; font:inherit; background:white; }
+    textarea { min-height:52px; resize:vertical; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:8px; }
+    table { width:100%; border-collapse:collapse; font-size:.84rem; }
+    th,td { padding:6px; border-bottom:1px solid #e6edef; text-align:left; vertical-align:top; }
+    th { background:#eef8fa; color:#164e63; white-space:nowrap; }
+    td input,td select,td textarea { min-width:74px; }
+    td textarea { min-width:230px; }
+    .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
+    button { padding:8px 12px; border:0; border-radius:8px; background:#dceff3; color:#164e63; font:inherit; font-weight:800; cursor:pointer; }
+    button.primary { background:var(--ndt); color:white; }
+    button:focus,input:focus,select:focus,textarea:focus { outline:3px solid #0891b233; }
+    .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .metric { padding:10px; border:1px solid #dfe8e7; border-left:4px solid #0891b2; border-radius:8px; }
+    .metric strong { display:block; font-size:1.03rem; }
+    .muted { color:#53656d; font-size:.84rem; }
+    .error { color:#991b1b; font-weight:800; }
+    .results { display:grid; gap:8px; }
+    .case-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    #reportPreview { white-space:pre-wrap; overflow-wrap:anywhere; padding:12px; border-radius:8px; background:#f7fafb; font-size:.86rem; }
+    .page-only-report-status { padding:9px; color:#526168; border:1px dashed #94a3b8; border-radius:8px; font-size:.82rem; }
+    @media(max-width:800px) { .grid,.metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:560px) { main { padding:11px; } .grid,.metrics { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body class="local-quick-output-page">
+  <div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書；本頁不得作為附件。</span><span>請回工具頁按「列印計算書」，在獨立內部審閱計算書視窗列印或存成 PDF。</span></div>
+  <main data-smoke="concrete-strength-ndt-smoke" role="main">
+    <header class="hero">
+      <h1>混凝土強度非破壞檢測推估</h1>
+      <p>回彈錘、超音波脈波速度與鑽心試體資料整理，並列各法推估強度、描述統計、特徵強度與現場等值強度。</p>
+      <span class="tag">V0.1</span><span class="tag">內部審閱 assist</span><span class="tag">不得作為正式附件</span><span class="tag" id="coreVersion">引擎載入中</span>
+    </header>
+
+    <section class="card">
+      <h2>工具與責任邊界</h2>
+      <div class="notice">待確認：下列曲線、離群讀值規則、角度表、鑽心修正表、品質分級及特徵值模型均標示為示例假設，未載入同目錄「已確認規格」前不得視為校正。ASTM C805/C805M-25 僅支持回彈相對指標及個別校正關係；ASTM C597-22 不提供通用強度曲線。資料有效仍不授予正式附件資格。</div>
+      <p class="muted">初估輸出：預設值為假設，需技師確認。</p>
+      <div id="bannerStatus" class="banner-status" role="status" aria-live="polite">待確認：目前規格假設尚未確認；報告僅供內部審閱。</div>
+      <p id="confirmedStatus" class="muted">尚未讀取 concrete-strength-ndt-confirmed.json；假設維持待確認。案例 JSON 不會改變此狀態。</p>
+      <p id="jsonStatus" class="muted" role="status" aria-live="polite">JSON 案例僅保存資料及重現指紋，不授予規格確認資格。</p>
+      <div id="ndtReportReadiness" class="page-only-report-status">優先閱讀：頁面專用狀態為內部審閱 assist；不會寫入計算書或列印 PDF。</div>
+      <div class="actions">
+        <button id="btnReadConfirmed" type="button">明確讀取同目錄已確認規格</button>
+        <button id="btnCalc" class="primary" type="button">重新計算</button>
+        <button id="btnJson" type="button">下載 JSON</button>
+        <button id="btnImportJson" type="button">讀取案例 JSON</button>
+        <button id="btnReset" type="button">恢復示例</button>
+        <input id="jsonFile" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p class="muted">只有按下按鈕才會請求固定路徑 <code>concrete-strength-ndt-confirmed.json</code>；冷開不探測檔案。strict closed schema 需六項完整確認聲明、各自來源及整體聲明來源；未知欄位、缺欄、未確認或缺來源時整份拒絕。載入代表使用者提供聲明，不代表外部核驗，也不改變本工具 assist 狀態。</p>
+    </section>
+
+    <section class="card">
+      <h2>案件輸入格式與比較條件</h2>
+      <div class="grid">
+        <label>案件名稱<input id="projName"></label>
+        <label>案件編號<input id="projNo"></label>
+        <label>整理人<input id="projDesigner"></label>
+        <label>儀器型號（供規格適用性比對）<input id="instrumentModel"></label>
+        <label>混凝土資料／構件識別（供規格適用性比對）<input id="concreteDescription"></label>
+        <label>設計強度比較值（MPa）<input id="designStrengthMpa" type="number" min="0.001" step="any"></label>
+        <label>設計強度值來源<input id="designStrengthSource" type="text"></label>
+        <label>特徵值示例模型<input value="mean − 1.645 × sample SD；常態 5% 分位示例，不含有限樣本信賴修正" readonly></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>回彈錘量測區</h2>
+      <p class="muted">每測區輸入至少 10 擊原始值；依原始平均剔除差值超過 ±6 的讀數後重算平均。±6 是本頁假設規則。角度表只有 0°=0 ΔR 示例值；其他角度需儀器資料或逐筆覆寫，不推定未提供的修正量。</p>
+      <div class="grid" id="reboundCurveControls"></div>
+      <div class="table-wrap" aria-label="反彈錘量測區資料表"><table id="reboundTable"><thead><tr><th scope="col">測區識別</th><th scope="col">測區位置</th><th scope="col">每擊原始讀值</th><th scope="col">量測角度（°）</th><th scope="col">角度修正覆寫（ΔR）</th><th scope="col">剔除界線來源</th></tr></thead><tbody></tbody></table></div>
+      <p id="reboundAngleDisclosure" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>超音波脈波速度量測區</h2>
+      <p class="muted">每測區可輸入測距（mm）與傳播時間（μs），或直接輸入速度（km/s）。強度曲線型式與係數可編輯；預設為明示假設，非 ASTM/CNS 通用關係。</p>
+      <div class="grid" id="upvCurveControls"></div>
+      <div class="table-wrap" aria-label="超音波量測區資料表"><table id="ultrasonicTable"><thead><tr><th scope="col">測區識別</th><th scope="col">測區位置</th><th scope="col">輸入方式</th><th scope="col">速度（km/s）</th><th scope="col">測距（mm）</th><th scope="col">時間（μs）</th></tr></thead><tbody></tbody></table></div>
+      <p id="qualityRangeNote" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>鑽心試體</h2>
+      <p class="muted">輸入直徑、長度、破壞荷重及含水狀態、取樣方向、鑽取損傷狀態。計算荷重／截面積後，依 spec 中的 L/D、直徑、含水與鑽取損傷四項係數修正；取樣方向只記錄供審閱，不套用未有來源的第五項修正。沒有來源的四項係數須覆寫，預設 1.0 明確表示不修正示例，非文獻通用係數。</p>
+      <div class="table-wrap" aria-label="鑽心試體資料表"><table id="coreTable"><thead><tr><th scope="col">試體識別</th><th scope="col">測區位置</th><th scope="col">直徑（mm）</th><th scope="col">長度（mm）</th><th scope="col">破壞荷重（kN）</th><th scope="col">含水狀態</th><th scope="col">取樣方向</th><th scope="col">鑽取損傷</th><th scope="col">L/D 覆寫</th><th scope="col">直徑覆寫</th><th scope="col">含水覆寫</th><th scope="col">損傷覆寫</th></tr></thead><tbody></tbody></table></div>
+      <p id="coreFactorDisclosure" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>每法與三法合併統計</h2>
+      <p class="muted">現場等值強度（單筆／方法平均）與特徵強度指標分開列示，單位均為 MPa。合併資料屬數值彙整，n 不是獨立樣本數；不作母體推論。</p>
+      <div id="metricGrid" class="metrics"></div>
+      <div id="checkList" class="results" aria-live="polite"></div>
+    </section>
+
+    <section class="card">
+      <h2>三法交叉比對</h2>
+      <div class="table-wrap" aria-label="三法交叉比對資料表"><table id="crossCheckTable"><thead><tr><th scope="col">同測區位置</th><th scope="col">回彈推估（MPa）</th><th scope="col">超音波推估（MPa）</th><th scope="col">鑽心現場等值（MPa）</th><th scope="col">相對差異／鑽心比值</th><th scope="col">資料界線</th></tr></thead><tbody></tbody></table></div>
+      <p class="muted">只有相同測區位置才列配對差異與比值；只呈現數值，不提供採用或校正決策。</p>
+    </section>
+
+    <section class="card">
+      <h2>內部審閱計算書</h2>
+      <div class="actions case-actions"><label>報告內容<select id="reportMode"><option value="summary">摘要</option><option value="detailed" selected>詳細</option></select></label><button id="btnPrint" type="button">列印計算書（內部審閱）</button><button id="repDownloadCurrentText" type="button">下載文字備查 TXT</button></div>
+      <div id="reportPreview">尚未產生計算結果。</div>
+    </section>
+  </main>
+
+  <script src="../local-quick-tool-metadata.js"></script>
+  <script src="../../core/ui/report-utils.js"></script>
+  <script src="../../core/ui/report.js"></script>
+  <script src="../local-quick-export.js"></script>
+  <script src="concrete-strength-ndt-spec.js"></script>
+  <script src="concrete-strength-ndt-core.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const Core = window.ConcreteStrengthNdtCore;
+    const Spec = window.ConcreteStrengthNdtSpec;
+    const Exporter = window.LocalQuickExport;
+    const ReportUI = window.ToolReportUI;
+    const PUBLIC_TOOL_VERSION = window.LocalQuickToolMetadata['concrete-strength-ndt'].version;
+    const $ = id => document.getElementById(id);
+    let lastResult = null;
+    let confirmedDisclosure = null;
+    let confirmedModel = null;
+
+    function node(tag, attrs = {}, text = '') {
+      const item = document.createElement(tag);
+      Object.entries(attrs).forEach(([key,value]) => { if (key.startsWith('data-')) item.setAttribute(key,value); else item[key]=value; });
+      if (text) item.textContent=text;
+      return item;
+    }
+    function fieldCell(value, key, type='number') {
+      const input=node('input',{type,step:'any',value:value===undefined||value===null?'':value,'data-field':key});
+      if(type==='number'&&['diameterMm','lengthMm','failureLoadKn','designStrengthMpa','distanceMm','timeMicroseconds','velocityKmS'].includes(key)) input.min='0.0000001'; if(type==='number'&&key==='angleDeg'){input.min='0';input.max='180';}
+      return input;
+    }
+    function selectField(value,key,options) {
+      const select=node('select',{'data-field':key});
+      options.forEach(([optionValue,label])=>select.append(node('option',{value:optionValue},label)));
+      select.value=value;
+      return select;
+    }
+    function appendRow(tableId,values) { const tr=document.createElement('tr'),tbody=document.querySelector('#'+tableId+' tbody'),rowNumber=tbody.rows.length+1; values.forEach(value=>{const td=document.createElement('td');td.append(value);tr.append(td);}); const methodName=tableId==='reboundTable'?'回彈法':tableId==='ultrasonicTable'?'超音波法':'鑽心法',headers=Array.from(tbody.closest('table').querySelectorAll('thead th')).map(th=>th.textContent.trim()); tr.querySelectorAll('input,select,textarea').forEach(control=>{const cell=control.closest('td'),column=cell?Array.prototype.indexOf.call(tr.children,cell):-1;control.setAttribute('aria-label',methodName+'第'+rowNumber+'測區'+(headers[column]||control.dataset.field||'欄位'));}); const td=document.createElement('td'),button=node('button',{type:'button','aria-label':methodName+'第'+rowNumber+'測區刪除'},'刪除');button.addEventListener('click',()=>tr.remove());td.append(button);tr.append(td);tbody.append(tr);
+    }
+    function textField(value,key) { return fieldCell(value,key,'text'); }
+    function curveControls(targetId,method,preset) {
+      const target=$(targetId);target.replaceChildren();
+      const types=method==='rebound'?[['linear','線性 fc=aR+b'],['quadratic','二次 fc=aR²+bR+c']]:[['exponential','指數 fc=a·exp(bV)'],['power','冪次 fc=a·V^b']];
+      const label=node('label',{},'曲線型式（示例假設）'),typeSelect=selectField(preset.type,method+'-curve-type',types);label.append(typeSelect);target.append(label);
+      const names=method==='rebound'?(preset.type==='linear'?['a','b']:['a','b','c']):['a','b'];
+      names.forEach(key=>{const item=node('label',{},'係數 '+key+'（可編輯）');item.append(fieldCell(preset.coefficients[key],method+'-coef-'+key));target.append(item);});
+      typeSelect.addEventListener('change',()=>{const coefficients=Object.assign({},preset.coefficients);const required=method==='rebound'?(typeSelect.value==='linear'?['a','b']:['a','b','c']):['a','b'];required.forEach(key=>{if(!Object.prototype.hasOwnProperty.call(coefficients,key))coefficients[key]='';});curveControls(targetId,method,{type:typeSelect.value,coefficients});});
+    }
+    function getCurve(method) {
+      const type=document.querySelector(`[data-field="${method}-curve-type"]`).value;
+      const coefficients={};
+      const keys=method==='rebound'&&type==='linear'?['a','b']:method==='rebound'?['a','b','c']:['a','b'];
+      keys.forEach(key=>{const element=document.querySelector(`[data-field="${method}-coef-${key}"]`);if(element)coefficients[key]=element.value===''?NaN:Number(element.value);});
+      return {type,coefficients};
+    }
+    function readRows(tableId,method) {
+      return [...$(`${tableId}`).querySelectorAll('tbody tr')].map(tr=>{
+        const get=key=>tr.querySelector(`[data-field="${key}"]`);
+        const text=key=>get(key).value.trim();
+        const number=key=>get(key).value===''?undefined:Number(get(key).value);
+        if(method==='rebound') return {id:text('id'),zone:text('zone'),readings:text('readings').split(/[\s,，;；]+/).filter(Boolean).map(Number),angleDeg:number('angleDeg'),angleCorrectionOverrideDeltaR:number('angleCorrectionOverrideDeltaR'),curveType:getCurve('rebound').type,curveCoefficients:getCurve('rebound').coefficients};
+        if(method==='ultrasonic') { const mode=text('entryMode'); return mode==='velocity'?{id:text('id'),zone:text('zone'),velocityKmS:number('velocityKmS'),curveType:getCurve('ultrasonic').type,curveCoefficients:getCurve('ultrasonic').coefficients}:{id:text('id'),zone:text('zone'),distanceMm:number('distanceMm'),timeMicroseconds:number('timeMicroseconds'),curveType:getCurve('ultrasonic').type,curveCoefficients:getCurve('ultrasonic').coefficients}; }
+        return {id:text('id'),zone:text('zone'),diameterMm:number('diameterMm'),lengthMm:number('lengthMm'),failureLoadKn:number('failureLoadKn'),moistureState:text('moistureState'),samplingDirection:text('samplingDirection'),drillingDamage:text('drillingDamage'),factorOverrides:{lengthDiameter:number('override-lengthDiameter'),diameter:number('override-diameter'),moisture:number('override-moisture'),drillingDamage:number('override-drillingDamage')}};
+      });
+    }
+    function gatherInputs() {
+      return {project:{name:$('projName').value,number:$('projNo').value,preparer:$('projDesigner').value,instrumentModel:$('instrumentModel').value,concreteDescription:$('concreteDescription').value},designStrengthMpa:$('designStrengthMpa').value===''?undefined:Number($('designStrengthMpa').value),designStrengthSource:$('designStrengthSource').value,rebound:readRows('reboundTable','rebound'),ultrasonic:readRows('ultrasonicTable','ultrasonic'),core:readRows('coreTable','core')};
+    }
+    function calculate() {
+      const input=gatherInputs();
+
+      if(confirmedModel) {
+        try { checkConfirmedApplicability(confirmedModel,input); }
+        catch(error) {
+          lastResult={ok:false,state:'internal-review-only',formalAttachmentEligible:false,errors:[error.message],warnings:[]};
+          renderResult(lastResult);
+          return lastResult;
+        }
+      }
+      lastResult=Core.calculate(input,{model:confirmedModel||undefined});
+      renderResult(lastResult);
+      return lastResult;
+    }
+    function fmt(value,digits=2) { return value===null||value===undefined||!Number.isFinite(value)?'待補':Number(value).toFixed(digits); }
+    function fmtPercent(value){return value===null||value===undefined?'待補':fmt(value*100);}
+    function renderResult(result) {
+      $('metricGrid').replaceChildren();$('checkList').replaceChildren();$('crossCheckTable').querySelector('tbody').replaceChildren();
+      renderReadiness();
+      if(!result.ok){$('bannerStatus').className='banner-status fail';$('bannerStatus').textContent='待確認：部分輸入未通過，拒絕計算。';result.errors.forEach(message=>$('checkList').append(node('div',{className:'error'},message)));$('reportPreview').textContent='輸入未通過，尚未產生計算書。';return;}
+      $('bannerStatus').className='banner-status';$('bannerStatus').textContent='待確認：示例假設仍未由外部核驗；下列有效數值僅供內部審閱，不能作為正式附件。';
+      ['rebound','ultrasonic','core'].forEach(method=>appendStatCard(result.methods[method]));appendStatCard({label:'三法合併（非獨立樣本）',stats:result.pooled});
+      [...result.warnings,...result.assumptions.map(item=>`${item.label}：待確認假設；來源：${item.source}`)].forEach(message=>$('checkList').append(node('div',{className:'assumption'},message)));
+      methodsCrossRows(result.crossCheck);
+      $('reportPreview').textContent=buildReportText(result);
+    }
+    function appendStatCard(method) {
+      const s=method.stats;const card=node('div',{className:'metric'});card.setAttribute('data-diagram-role','metric');
+      card.append(node('strong',{},`${method.label}：n=${s.n}；平均 ${fmt(s.meanMpa)} MPa`));
+      card.append(node('span',{},`樣本 SD ${fmt(s.sampleSdMpa)} MPa；CoV ${fmtPercent(s.coefficientOfVariation)}%`));
+      card.append(node('span',{},`特徵強度指標 ${s.characteristicStatus}：${fmt(s.characteristicStrengthMpa)} MPa；最低單值 ${fmt(s.minimumSingleMpa)} MPa`));
+      card.append(node('span',{},`平均／設計強度比 ${fmtPercent(s.meanToDesignRatio)}%；平均 ≥ 設計強度：${s.meanAtLeastDesign===null?'待補':s.meanAtLeastDesign?'是':'否'}`));
+      if(s.zeroSdNote)card.append(node('span',{className:'muted'},s.zeroSdNote));
+      $('metricGrid').append(card);
+    }
+    function methodsCrossRows(rows) {
+      rows.forEach(row=>{
+        const tr=document.createElement('tr');
+        [row.zone,fmt(row.reboundMpa),fmt(row.ultrasonicMpa),fmt(row.coreMpa),`回彈差 ${fmt(row.reboundDifferencePercent)}%；比 ${fmt(row.reboundToCoreRatio)}；超音波差 ${fmt(row.ultrasonicDifferencePercent)}%；比 ${fmt(row.ultrasonicToCoreRatio)}`,row.note].forEach(value=>{const td=document.createElement('td');td.textContent=value;tr.append(td);});
+        $('crossCheckTable').querySelector('tbody').append(tr);
+      });
+    }
+    function escapeHtml(value) { return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]); }
+    function coefficientText(row) { return Object.entries(row.curveCoefficients).map(([key,value])=>key+'='+String(value)+' '+Spec.curveUnits[row.curveType][key]).join('；'); }
+    function detailTable(headers,rows,tableClass='') {
+      return '<table class="'+escapeHtml(tableClass)+'"><thead><tr>'+headers.map(header=>'<th scope="col">'+escapeHtml(header)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(cells=>'<tr>'+cells.map((cell,index)=>'<'+(index===0?'th scope="row"':'td')+'>'+escapeHtml(cell)+'</'+(index===0?'th':'td')+'>').join('')+'</tr>').join('')+'</tbody></table>';
+    }
+    function buildMethodDetails(result) {
+      const formulas=['mean','sampleSd','cov','angleCorrection','reboundStrengthFormula','ultrasonicVelocity','ultrasonicStrengthFormula','lengthDiameterRatio','coreArea','coreRawStrength','coreCorrectionProduct','characteristicStrength'];
+      const formulaRows=formulas.map(key=>[Spec.definitions[key].expression,Spec.definitions[key].assumed?'假設模型':'數學定義',Spec.definitions[key].source]);
+      const rebound=result.methods.rebound.rows.map(row=>[row.id+'／'+row.zone,'原始 '+row.rawReadings.join(', ')+'；原始平均 '+fmt(row.originalMean,4),'剔除 '+(row.removedReadings.join(', ')||'無')+'；留存 '+row.retainedCount+' 擊；留存平均 '+fmt(row.retainedMean,4),row.angleDeg+'°；ΔR='+String(row.angleCorrectionDeltaR)+'；修正反彈值 '+fmt(row.adjustedMeanRebound,4),(row.curveType==='linear'?'線性':'二次')+'；'+coefficientText(row),fmt(row.strengthMpa,4)+' MPa']);
+      const ultrasonic=result.methods.ultrasonic.rows.map(row=>[row.id+'／'+row.zone,row.distanceMm===null?'直接輸入速度':fmt(row.distanceMm,4)+' mm／'+fmt(row.timeMicroseconds,4)+' μs',fmt(row.velocityKmS,4)+' km/s',(row.curveType==='power'?'冪次':'指數')+'；'+coefficientText(row),fmt(row.strengthMpa,4)+' MPa',row.qualityGrade]);
+      const moisture={dry:'乾燥',wet:'濕潤',unknown:'未知'},direction={parallel:'平行澆置方向',perpendicular:'垂直澆置方向',unknown:'未知'},damage={low:'低',typical:'一般',high:'高',unknown:'未知'};
+      const cores=result.methods.core.rows.map(row=>[row.id+'／'+row.zone,fmt(row.diameterMm,4)+' mm／'+fmt(row.lengthMm,4)+' mm；L/D='+fmt(row.lengthDiameterRatio,4),fmt(row.failureLoadKn,6)+' kN；面積 '+fmt(row.areaMm2,4)+' mm²；原始強度 '+fmt(row.rawStrengthMpa,4)+' MPa','L/D='+String(row.factors.lengthDiameter)+'；直徑='+String(row.factors.diameter)+'；含水='+String(row.factors.moisture)+'；損傷='+String(row.factors.drillingDamage),fmt(row.strengthMpa,4)+' MPa',moisture[row.moistureState]+'／'+direction[row.samplingDirection]+'／損傷'+damage[row.drillingDamage]]);
+      const sources=['rebound','ultrasonic','core'].flatMap(method=>result.methods[method].rows.map(row=>[result.methods[method].label+' '+row.id,row.assumed?'示例或覆寫，待確認':'使用者規格確認聲明，未外部核驗',row.source]));
+      return '<h2>計算內容</h2><p>以下式子只說明使用的模型及單位；係數來源與工程適用性另列。反彈值先剔除、再作 ΔR 修正、最後換算強度；鑽心逐試體修正後，同測區先平均。數據及假設不作採用結論。</p>'+detailTable(['計算式','性質','來源與限制'],formulaRows)+'<h3>回彈原始讀值與處理過程</h3>'+detailTable(['測區識別','原始資料','剔除與留存','角度修正 ΔR／修正反彈值','實際曲線係數','推估強度'],rebound)+'<h3>超音波法：量測與換算</h3>'+detailTable(['測區識別','量測輸入','脈波速度','實際曲線係數','推估強度','示例品質級距'],ultrasonic)+'<h3>鑽心法：試體資料及四項修正</h3><p>含水狀態、取樣方向與鑽取損傷依輸入記錄；荷重、截面積及四項修正因素逐筆列示。</p>'+detailTable(['試體識別','尺寸／L/D','荷重／原強度','鑽心修正因素','現場等值強度','含水／方向／損傷'],cores)+'<h3>實際使用來源聲明</h3>'+detailTable(['方法／資料識別','確認性質','來源聲明'],sources);
+    }
+    function buildReportHtml(result,mode) {
+      if(!result||!result.ok)return '';
+      const trace=ReportUI.buildReportTrace({title:'混凝土強度非破壞檢測推估',outputSource:{tool:'混凝土強度非破壞檢測推估',version:PUBLIC_TOOL_VERSION},snapshot:{mode,pageVersion: PUBLIC_TOOL_VERSION,calculationEngine: Core.version,result}});
+      const documentStateReport=ReportUI.buildFormalDocumentStateReport({project:{name:result.project.name,no:result.project.number,designer:result.project.preparer},calculated:true,formalApprovalAllowed:false,readinessLevel:ReportUI.getPageReportReadinessLevel(document),calculationFingerprint:trace.calculationFingerprint,textExport:true});
+      const statsRows=['rebound','ultrasonic','core'].map(method=>{const item=result.methods[method],s=item.stats;return `<tr><th scope="row">${escapeHtml(item.label)}</th><td>${s.n}</td><td>${fmt(s.meanMpa)} MPa</td><td>${fmt(s.sampleSdMpa)} MPa</td><td>${fmtPercent(s.coefficientOfVariation)}%</td><td>${s.characteristicStatus}；${fmt(s.characteristicStrengthMpa)} MPa</td><td>${fmt(s.minimumSingleMpa)} MPa</td><td>${fmtPercent(s.meanToDesignRatio)}%；平均 ≥ 設計強度：${s.meanAtLeastDesign===null?'待補':s.meanAtLeastDesign?'是':'否'}</td></tr>`;}).join('');
+      const pooled=result.pooled;
+      const cross=result.crossCheck.map(row=>`<tr><td>${escapeHtml(row.zone)}</td><td>${fmt(row.reboundMpa)}</td><td>${fmt(row.ultrasonicMpa)}</td><td>${fmt(row.coreMpa)}</td><td><span class="comparison-label">回彈相對差異</span> ${fmt(row.reboundDifferencePercent)}%；R/core ${fmt(row.reboundToCoreRatio)}；<span class="comparison-label">超音波相對差異</span> ${fmt(row.ultrasonicDifferencePercent)}%；UPV/core ${fmt(row.ultrasonicToCoreRatio)}</td><td>${escapeHtml(row.note)}</td></tr>`).join('');
+      const evidence=detailTable(['假設項目','確認性質','來源與限制'],result.assumptions.map(item=>[item.label,item.assumed?'待補充／假設':'使用者確認聲明，未外部核驗',item.source]),'assumption-table');
+      const detail=mode==='detailed'?buildMethodDetails(result):'';
+      return `<!doctype html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>混凝土強度非破壞檢測推估計算書</title><style>body{font-family:"Microsoft JhengHei",Arial,sans-serif;max-width:1100px;margin:20px auto;padding:22px;color:#17212b;line-height:1.6}h1,h2{color:#164e63}table{width:100%;border-collapse:collapse;font-size:.87rem}th,td{border:1px solid #cbd5d8;padding:6px;text-align:left}th{background:#eef8fa}th,td{overflow-wrap:anywhere}.assumption-table{table-layout:fixed}.assumption-table thead th{white-space:nowrap}.assumption-table th:first-child{width:28%}.assumption-table th:nth-child(2){width:22%}h2,h3{break-after:avoid-page}.comparison-label{white-space:nowrap}.cross-table{table-layout:fixed}.cross-table th:first-child{width:7%}.cross-table th:nth-child(2),.cross-table th:nth-child(3),.cross-table th:nth-child(4){width:11%}.cross-table th:nth-child(5){width:30%}.cross-table th:nth-child(6){width:30%}tr{break-inside:avoid-page}thead{display:table-header-group}thead th{white-space:nowrap}.source-reference{break-inside:avoid-page}.warning{padding:11px;background:#fff7ed;border-left:4px solid #f97316}.toolbar{margin-bottom:12px}.paper{max-width:980px;margin:0 auto}@media print{.toolbar,.page-only-report-status,.report-pagination{display:none!important}.paper{max-width:none;margin:0}}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><div class="toolbar"><button onclick="window.print()">列印／存 PDF（內部審閱）</button><button onclick="window.close()">關閉</button></div><main class="paper"><h1>混凝土強度非破壞檢測推估計算書</h1>${documentStateReport.html}<p>文件狀態：內部審閱 assist。資料有效仍不取得正式附件資格。</p><p>計畫：${escapeHtml(result.project.name)}；編號：${escapeHtml(result.project.number)}；整理人：${escapeHtml(result.project.preparer)}；設計比較值：${fmt(result.designStrengthMpa)} MPa。</p><p>設計比較值來源：${escapeHtml(result.designStrengthSource || "未提供，待補充")}</p><p>產出工具：混凝土強度非破壞檢測推估；工具版本：${PUBLIC_TOOL_VERSION}；計算引擎：${Core.version}；輸出時間：${escapeHtml(trace.generatedAt)}；計算指紋：${escapeHtml(trace.calculationFingerprint)}</p><section class="warning"><h2>工具與責任邊界</h2>${escapeHtml(result.scope)}<br>示例假設及工程預設仍待來源確認。ASTM C805/C805M-25 回彈關聯須依混凝土及儀器建立並以同位置鑽心關聯；ASTM C597-22 不提供通用強度曲線。</section><h2>檢核結論（僅格式與數值）</h2><p>${escapeHtml(result.summary.headline)}</p><h2>方法結果（現場等值強度；MPa）</h2><table><thead><tr><th scope="col">方法</th><th scope="col">n</th><th scope="col">平均</th><th scope="col">樣本 SD</th><th scope="col">CoV</th><th scope="col">特徵強度指標</th><th scope="col">最低單值</th><th scope="col">平均／設計強度</th></tr></thead><tbody>${statsRows}</tbody></table><h2>三法合併描述統計</h2><p>數值彙整，非獨立試體母體（${escapeHtml(pooled.label)}）；${escapeHtml(pooled.populationNote)} n=${pooled.n}；平均 ${fmt(pooled.meanMpa)} MPa；樣本 SD ${fmt(pooled.sampleSdMpa)} MPa；CoV ${fmtPercent(pooled.coefficientOfVariation)}%；特徵強度示例指標 ${pooled.characteristicStatus} ${fmt(pooled.characteristicStrengthMpa)} MPa。</p><h2>三法交叉比對（MPa）</h2><table class="cross-table"><thead><tr><th scope="col">測區</th><th scope="col">回彈</th><th scope="col">超音波</th><th scope="col">鑽心</th><th scope="col">差異／比值</th><th scope="col">資料界線</th></tr></thead><tbody>${cross}</tbody></table><h2>假設及來源責任</h2><p>已確認事項／合理推定／待補充：依下表分列假設與使用者確認聲明；待確認規格檔只表達使用者聲明，不代表外部核驗。</p>${evidence}<section class="source-reference"><h3>方法來源說明</h3><ul><li><a href="${Spec.sources.rebound.url}">ASTM C805/C805M-25</a>：回彈相關用途與個別強度關係。</li><li><a href="${Spec.sources.ultrasonic.url}">ASTM C597-22</a>：超音波速度量測，無通用強度曲線。</li><li><a href="${Spec.sources.core.url}">ACI 鑽心試體說明</a>：鑽心修正因素的背景說明。</li></ul></section>${detail}<p>初估輸出：預設值為假設，需技師確認。所有結果僅陳述輸入資料與模型假設。</p></main></body></html>`;
+    }
+    function buildReportText(result=lastResult) {
+      if(!result||!result.ok)return '尚無有效計算結果。';
+      const lines=['混凝土強度非破壞檢測推估','初估輸出：預設值為假設，需技師確認。','文件狀態：內部審閱 assist；不得作為正式附件。',`工具版本：${PUBLIC_TOOL_VERSION}；計算引擎：${Core.version}`,`計算指紋：${caseFingerprint(result.input,result)}`,`案件：${result.project.name||'未填'}；編號：${result.project.number||'未填'}；整理人：${result.project.preparer||'未填'}`,`設計比較值：${fmt(result.designStrengthMpa)} MPa；來源：${result.designStrengthSource||'未提供，待補充'}`,'現場等值強度、方法統計及特徵強度指標均以 MPa 分列。'];
+      ['rebound','ultrasonic','core'].forEach(method=>{const m=result.methods[method],s=m.stats;lines.push(`${m.label}：n=${s.n}個測區；平均=${fmt(s.meanMpa)} MPa；樣本 SD=${fmt(s.sampleSdMpa)} MPa；CoV=${fmtPercent(s.coefficientOfVariation)}%；特徵強度指標=${s.characteristicStatus} ${fmt(s.characteristicStrengthMpa)} MPa；最低單值=${fmt(s.minimumSingleMpa)} MPa；平均／設計強度=${fmtPercent(s.meanToDesignRatio)}%；平均 ≥ 設計強度=${s.meanAtLeastDesign===null?'待補':s.meanAtLeastDesign?'是':'否'}。`);});
+      result.crossCheck.forEach(row=>lines.push(`同測區 ${row.zone}：回彈 ${fmt(row.reboundMpa)} MPa；超音波 ${fmt(row.ultrasonicMpa)} MPa；鑽心 ${fmt(row.coreMpa)} MPa；回彈相對差異 ${fmt(row.reboundDifferencePercent)}%；R/core ${fmt(row.reboundToCoreRatio)}；超音波相對差異 ${fmt(row.ultrasonicDifferencePercent)}%；UPV/core ${fmt(row.ultrasonicToCoreRatio)}；${row.note}`));
+      lines.push(`合併：${result.pooled.populationNote}`,`n=${result.pooled.n}；平均=${fmt(result.pooled.meanMpa)} MPa；SD=${fmt(result.pooled.sampleSdMpa)} MPa；CoV=${fmtPercent(result.pooled.coefficientOfVariation)}%；特徵強度指標=${fmt(result.pooled.characteristicStrengthMpa)} MPa。`,result.scope,...result.assumptions.map(a=>`${a.label}：待補充；來源：${a.source}`));return lines.join('\n');
+    }
+    function renderReadiness(){
+      const level = !lastResult.overallOk ? 'blocked' : 'review';
+      Exporter.renderStatusGridPanel({target:$('ndtReportReadiness'),model:{level,title:'頁面專用狀態',badge:'內部審閱 assist',items:[['正式附件資格','永不授予'],['假設來源',confirmedDisclosure?'使用者聲明已載入，未外部核驗':'待補充']]},priorityItems:['優先閱讀：工程假設及校正來源仍需逐案確認。'],note:'不會寫入計算書或列印 PDF。',containerClassName:'page-only-report-status'});
+    }
+    function openReport() { const result=calculate();if(!result.ok)return;const html=buildReportHtml(result,$('reportMode')?.value||'detailed');const win=window.open('','_blank');if(!win)return;win.document.open();win.document.write(html);win.document.close(); }
+    function caseFingerprint(input,result) {
+      const project={number:input.project.number,instrumentModel:input.project.instrumentModel||'',concreteDescription:input.project.concreteDescription||''};
+      const engineeringInput=Object.assign({},input,{project});
+      const engineeringResult=Object.assign({},result,{project,input:engineeringInput});
+      return ReportUI.buildReportTrace({title:'混凝土強度非破壞檢測推估',snapshot:{input:engineeringInput,result:engineeringResult}}).calculationFingerprint;
+    }
+    function captureCaseUi() {
+      return {input:gatherInputs(),curves:['rebound','ultrasonic'].map(method=>({method,type:document.querySelector('[data-field="'+method+'-curve-type"]').value,coefficients:Object.fromEntries([...document.querySelectorAll('[data-field^="'+method+'-coef-"]')].map(element=>[element.dataset.field.slice((method+'-coef-').length),element.value]))})),values:[...document.querySelectorAll('main input:not([type="file"]),main textarea,main select')].map(element=>{const table=element.closest('table'),tr=element.closest('tbody tr');return {id:element.id,tableId:table?.id||'',row:tr?[...tr.parentElement.children].indexOf(tr):-1,field:element.dataset.field||'',value:element.value};})};
+    }
+    function restoreCaseUi(snapshot) {
+      applyCaseInput(snapshot.input);
+      snapshot.curves.forEach(curve=>curveControls(curve.method==='rebound'?'reboundCurveControls':'upvCurveControls',curve.method,curve));
+      snapshot.values.forEach(saved=>{const element=saved.id?$(saved.id):saved.tableId?$(saved.tableId).querySelectorAll('tbody tr')[saved.row]?.querySelector('[data-field="'+saved.field+'"]'):saved.field?document.querySelector('[data-field="'+saved.field+'"]'):null;if(element)element.value=saved.value;});
+      calculate();
+    }
+    function applyCaseInput(input) {
+      ['rebound','ultrasonic','core'].forEach(method=>populateTable(method,input[method]));
+      const project=input.project||{};
+      $('projName').value=project.name||'';$('projNo').value=project.number||'';$('projDesigner').value=project.preparer||'';
+      $('instrumentModel').value=project.instrumentModel||'';
+      $('concreteDescription').value=project.concreteDescription||'';
+      $('designStrengthMpa').value=input.designStrengthMpa===null||input.designStrengthMpa===undefined?'':input.designStrengthMpa;
+      $('designStrengthSource').value=input.designStrengthSource||'';
+      ['rebound','ultrasonic'].forEach(method=>{const row=input[method][0];if(row&&row.curveType&&row.curveCoefficients)curveControls(method==='ultrasonic'?'upvCurveControls':'reboundCurveControls',method,{type:row.curveType,coefficients:row.curveCoefficients});});
+    }
+    function downloadResultJson() {
+      const result=calculate();if(!result.ok)return;
+      const generatedAt=new Date().toISOString();
+      const payload=Exporter.buildPayload({tool:{id:'concrete-strength-ndt',name:'混凝土強度非破壞檢測推估',version:PUBLIC_TOOL_VERSION,pageVersion: PUBLIC_TOOL_VERSION,calculationEngine: Core.version},project:{name:result.project.name,no:result.project.number,designer:result.project.preparer},generatedAt,input:result.input,result});
+      payload.schema='concrete-strength-ndt.case.v1';payload.calculationFingerprint=caseFingerprint(result.input,result);
+      Exporter.downloadJson('concrete-strength-ndt-'+generatedAt.slice(0,10)+'.json',payload);
+      $('jsonStatus').textContent='已產生 JSON；可回讀本頁案例並重現計算指紋。';
+    }
+    function loadCaseJson(file) {
+      if(!file)return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        try {
+          const payload=JSON.parse(String(reader.result));
+          if(payload.tool?.calculationEngine!==Core.version)throw new Error('計算引擎版本不符；保留原輸入。');
+          ReportUI.replayCalculationCasePayload(payload,{
+            expectedSchema:'concrete-strength-ndt.case.v1',expectedToolId:'concrete-strength-ndt',expectedVersion:PUBLIC_TOOL_VERSION,
+            capture:captureCaseUi,
+            apply:source=>{const replay=Core.calculate(source.input,{model:confirmedModel||undefined});if(!replay.ok)throw new Error(replay.errors.join('；'));if(!source.project||!['name','no','designer'].every(key=>typeof source.project[key]==='string')||source.project.no!==replay.input.project.number)throw new Error('案件編號與工程資料不一致。');applyCaseInput(replay.input);$('projName').value=source.project.name||'';$('projDesigner').value=source.project.designer||'';},
+            recalculate:()=>calculate().ok,
+            getFingerprint:()=>lastResult&&lastResult.ok?caseFingerprint(lastResult.input,lastResult):'',
+            restore:restoreCaseUi
+          });
+          $('bannerStatus').className='banner-status';$('bannerStatus').textContent='待確認：案例 JSON 已驗證並重算；假設與確認狀態維持本機設定。';
+          $('jsonStatus').textContent='已讀取 JSON；已重現計算指紋，確認狀態維持本機設定。';
+        } catch(error) {
+          $('bannerStatus').className='banner-status fail';$('bannerStatus').textContent='案例 JSON 拒絕載入：'+error.message;
+          $('jsonStatus').textContent='讀取失敗：'+error.message;
+        } finally { $('jsonFile').value=''; }
+      };
+      reader.readAsText(file);
+    }    function populateTable(method,rows) { const tableId=method==='ultrasonic'?'ultrasonicTable':`${method}Table`;$(`${tableId}`).querySelector('tbody').replaceChildren();rows.forEach(row=>{if(method==='rebound')appendRow(tableId,[textField(row.id,'id'),textField(row.zone,'zone'),node('textarea',{value:(row.readings||[]).join(', '),'data-field':'readings'}),fieldCell(row.angleDeg,'angleDeg'),fieldCell(row.angleCorrectionOverrideDeltaR,'angleCorrectionOverrideDeltaR'),node('span',{},'規則由 spec 控制')]);else if(method==='ultrasonic')appendRow(tableId,[textField(row.id,'id'),textField(row.zone,'zone'),selectField(row.velocityKmS!==undefined&&row.velocityKmS!==null?'velocity':'distance-time','entryMode',[['velocity','直接速度'],['distance-time','測距＋時間']]),fieldCell(row.velocityKmS,'velocityKmS'),fieldCell(row.distanceMm,'distanceMm'),fieldCell(row.timeMicroseconds,'timeMicroseconds')]);else appendRow(tableId,[textField(row.id,'id'),textField(row.zone,'zone'),fieldCell(row.diameterMm,'diameterMm'),fieldCell(row.lengthMm,'lengthMm'),fieldCell(row.failureLoadKn,'failureLoadKn'),selectField(row.moistureState,'moistureState',[['dry','乾燥'],['wet','含水／濕潤'],['unknown','未知']]),selectField(row.samplingDirection,'samplingDirection',[['parallel','平行澆置方向'],['perpendicular','垂直澆置方向'],['unknown','未知']]),selectField(row.drillingDamage,'drillingDamage',[['low','低'],['typical','一般'],['high','高'],['unknown','未知']]),fieldCell(row.factorOverrides?.lengthDiameter,'override-lengthDiameter'),fieldCell(row.factorOverrides?.diameter,'override-diameter'),fieldCell(row.factorOverrides?.moisture,'override-moisture'),fieldCell(row.factorOverrides?.drillingDamage,'override-drillingDamage')]);});}
+
+    const CONFIRMED_FILE=Spec.confirmedSchema.fileName;
+    function checkConfirmedApplicability(model,input) {
+      const applicability=model.applicability;
+      if(!applicability||input.project.number!==applicability.projectNumber)throw new Error('案件編號與已確認規格適用範圍不符。');
+      if((input.project.instrumentModel||'')!==applicability.instrumentModel)throw new Error('儀器型號與已確認規格適用範圍不符。');
+      if((input.project.concreteDescription||'')!==applicability.concreteDescription)throw new Error('混凝土資料識別與已確認規格適用範圍不符。');
+      const active=['rebound','ultrasonic','core'].filter(method=>input[method].length>0);
+      if(applicability.applicableMethod!=='all-methods'&&(active.length!==1||active[0]!==applicability.applicableMethod))throw new Error('適用方法與本次輸入方法不符。');
+    }
+    async function readConfirmed(){
+      $('confirmedStatus').textContent=`使用者已要求讀取 ${CONFIRMED_FILE}…`;
+      try {
+        const response=await fetch(CONFIRMED_FILE,{cache:'no-store'});
+        if(!response.ok)throw new Error(`檔案不存在或無法讀取（HTTP ${response.status}）。`);
+        const data=await response.json();
+        Spec.validateConfirmedSpec(data);
+        const model=Spec.resolveConfirmedModel(data);
+        checkConfirmedApplicability(model,gatherInputs());
+        confirmedModel=model;
+        curveControls('reboundCurveControls','rebound',model.rebound.curve);
+        curveControls('upvCurveControls','ultrasonic',model.ultrasonic.curve);
+        confirmedDisclosure={declared:true,confirmedBy:data.confirmedBy,confirmedAt:data.confirmedAt,source:data.applicability.projectSource};
+        $('confirmedStatus').textContent='完整規格值與來源聲明已載入，並用於後續計算；本工具未作外部核驗，狀態仍為 assist，不能作正式附件。';
+        calculate();
+      } catch(error) {
+        confirmedModel=null;confirmedDisclosure=null;
+        $('confirmedStatus').textContent=`已確認規格未載入：${error.message}；假設維持待確認。`;
+        calculate();
+      }
+    }
+    function installRowControls(){[['rebound','reboundTable'],['ultrasonic','ultrasonicTable'],['core','coreTable']].forEach(([method,tableId])=>{const table=$(tableId),head=table.querySelector('thead tr');if(head&&!head.querySelector('[data-action-col]')){const th=document.createElement('th');th.scope='col';th.dataset.actionCol='true';th.textContent='操作';head.append(th);}const methodName=method==='rebound'?'回彈法':method==='ultrasonic'?'超音波法':'鑽心法';const button=node('button',{type:'button','aria-label':methodName+'新增測區'},'新增測區');button.addEventListener('click',()=>{const rows=readRows(tableId,method);rows.push(method==='rebound'?{id:'',zone:'',readings:[],angleDeg:0}:method==='ultrasonic'?{id:'',zone:'',velocityKmS:''}:{id:'',zone:'',diameterMm:'',lengthMm:'',failureLoadKn:'',moistureState:'unknown',samplingDirection:'unknown',drillingDamage:'unknown',factorOverrides:{}});populateTable(method,rows);});table.parentElement.insertBefore(button,table);});}
+    function resetDemo(){
+      confirmedDisclosure=null;confirmedModel=null;$('confirmedStatus').textContent='尚未讀取 concrete-strength-ndt-confirmed.json；假設維持待確認。案例 JSON 不會改變此狀態。';
+      const demo=Spec.demoInputs;
+      $('projName').value=demo.project.name;$('projNo').value=demo.project.number;$('projDesigner').value=demo.project.preparer;$('instrumentModel').value='';$('concreteDescription').value='';$('designStrengthMpa').value=demo.designStrengthMpa;$('designStrengthSource').value=Spec.presets.designStrength.source;
+      $('reboundTable').querySelector('tbody').replaceChildren();$('ultrasonicTable').querySelector('tbody').replaceChildren();$('coreTable').querySelector('tbody').replaceChildren();
+      curveControls('reboundCurveControls','rebound',Spec.presets.rebound.curve);curveControls('upvCurveControls','ultrasonic',Spec.presets.ultrasonic.curve);
+      populateTable('rebound',demo.rebound);populateTable('ultrasonic',demo.ultrasonic);populateTable('core',demo.core);$('coreVersion').textContent=`Core v${Core.version}`;
+      $('reboundAngleDisclosure').textContent=`spec 示範角度表：${Object.entries(Spec.presets.rebound.angleTable.entries).map(([angle,value])=>`${angle}°=${value===null?'待覆寫':value+' ΔR'}`).join('；')}；均為假設，不代表特定儀器。`;
+      $('coreFactorDisclosure').textContent='spec 預設 L/D 表僅提供 L/D=2.0 的 1.0 示例值；其他 L/D 需逐筆覆寫。其餘 1.0 係數表示不修正示例；所有係數待來源確認。';
+      $('qualityRangeNote').textContent=`超音波品質分級示例假設：${Spec.presets.ultrasonic.gradeRanges.map(item=>`${item.label} ≥ ${item.minKmS} km/s`).join('；')}。`;
+      calculate();
+    }
+    function numberCellLabel(value){return value===null||value===undefined?'':value;}
+    function downloadText(){const result=calculate();if(!result.ok)return;const blob=new Blob([buildReportText(result)],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='concrete-strength-ndt-'+new Date().toISOString().slice(0,10)+'.txt';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);}    window.buildReportText=buildReportText;
+    window.buildConcreteStrengthNdtReportHtml=buildReportHtml;
+    window.getConcreteStrengthNdtCurrentResult=()=>lastResult;
+    $('btnCalc').addEventListener('click',calculate);$('btnPrint').addEventListener('click',openReport);$('btnJson').addEventListener('click',downloadResultJson);$('btnImportJson').addEventListener('click',()=>$('jsonFile').click());$('btnReset').addEventListener('click',resetDemo);$('jsonFile').addEventListener('change',event=>loadCaseJson(event.target.files&&event.target.files[0]));$('btnReadConfirmed').addEventListener('click',readConfirmed);$('repDownloadCurrentText').addEventListener('click',downloadText);
+    installRowControls();
+    resetDemo();
+  })();
+  </script>
+  <script src="../../core/ui/tool-workflow.js"></script>
+  <script src="../tool-workflow-adapters.js" data-tool-key="/concrete-strength-ndt" data-workflow-result="#bannerStatus" data-workflow-calculate="#btnCalc"></script>
+  <script src="../../../tool-page-a11y.js" defer></script>
+  <script src="../project-meta-profile.js"></script>
+</body>
+</html>
