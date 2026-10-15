@@ -5,7 +5,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
 const { chromium } = require(path.join(process.cwd(), 'output', 'playwright', 'phase2-quality-deps', 'node_modules', 'playwright'));
-const { analyzeResults, collectFailureRecords, resetBaseline, sourceDriftPaths, validateBaseline } = require('./tool-load-budget-contract');
+const { analyzeResults, collectFailureRecords, resetBaseline, sourceDriftPaths, validateBaseline, validateHomepageInventory, validateSourceReceipts } = require('./tool-load-budget-contract');
 
 const repo = path.resolve(__dirname, '../..');
 const baselinePath = path.join(__dirname, 'tool-load-budget-baseline.json');
@@ -206,11 +206,16 @@ async function main() {
   const sourceAtStart = sourceReceipt();
   activeAudit = { startedAt, sourceAtStart, results: [], docx: null, baseUrl: null, analysis: null };
   const homeJs = fs.readFileSync(path.join(repo, '結構工具箱', 'assets', 'home', 'src', 'home.source.js'), 'utf8');
-  const routes = Object.keys(extractLiteral(homeJs, 'HOME_TOOL_UPDATES').routes);
-  const baselineErrors = validateBaseline(baseline, routes);
-  assert.deepEqual(baselineErrors, [], `Invalid existing load budget baseline: ${baselineErrors.join('; ')}`);
-  assert.equal(routes.length, baseline.routeCount, 'Homepage route count differs from T8 baseline');
-  assert.deepEqual(routes, baseline.routes.map(item => item.route), 'Homepage route list/order differs from T8 baseline');
+  const homepageTools = extractLiteral(homeJs, 'tools');
+  const homepageRoutes = homepageTools.map(tool => tool.href);
+  const homepageUpdates = extractLiteral(homeJs, 'HOME_TOOL_UPDATES');
+  const routeFileMap = extractLiteral(homeJs, 'routeFileMap');
+  const routes = baseline.routes.map(item => item.route);
+  const baselineErrors = [
+    ...validateBaseline(baseline, routes),
+    ...validateHomepageInventory({ homepageRoutes, baselineRoutes: routes, updateRoutes: homepageUpdates.routes, routeFileMap }),
+  ];
+  assert.deepEqual(baselineErrors, [], `Invalid homepage/load budget inventory: ${baselineErrors.join('; ')}`);
 
   const server = spawn(process.execPath, [path.join(repo, 'serve-local.js'), '--no-open'], { cwd: repo, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let browser;
@@ -225,10 +230,9 @@ async function main() {
     const docx = await checkDocxRuntime(browser, baseUrl);
     activeAudit.docx = docx;
     const sourceAtFinish = sourceReceipt();
-    const sourceDrift = sourceDriftPaths(sourceAtStart.sourceSha256, sourceAtFinish.sourceSha256);
-    const functionalFailures = [...analysis.functionalFailures];
-    if (sourceAtStart.testedHead !== sourceAtFinish.testedHead) functionalFailures.push(`HEAD changed during audit: ${sourceAtStart.testedHead} -> ${sourceAtFinish.testedHead}`);
-    if (sourceDrift.length) functionalFailures.push(`source changed during audit: ${sourceDrift.join(', ')}`);
+    const sourceReceiptCheck = validateSourceReceipts(sourceAtStart, sourceAtFinish);
+    const sourceDrift = sourceReceiptCheck.sourceDrift;
+    const functionalFailures = [...analysis.functionalFailures, ...sourceReceiptCheck.errors];
     const failures = [...functionalFailures];
     if (!process.argv.includes('--write-baseline')) failures.push(...analysis.capacityDifferences);
     if (process.argv.includes('--write-baseline')) {
@@ -301,9 +305,9 @@ main().catch(error => {
     try {
       const finishedAt = new Date().toISOString();
       const sourceAtFinish = sourceReceipt();
-      const sourceDrift = sourceDriftPaths(activeAudit.sourceAtStart.sourceSha256, sourceAtFinish.sourceSha256);
-      const failures = collectFailureRecords(activeAudit.analysis?.functionalFailures || [], error, sourceDrift);
-      if (activeAudit.sourceAtStart.testedHead !== sourceAtFinish.testedHead) failures.push(`HEAD changed during audit: ${activeAudit.sourceAtStart.testedHead} -> ${sourceAtFinish.testedHead}`);
+      const sourceReceiptCheck = validateSourceReceipts(activeAudit.sourceAtStart, sourceAtFinish);
+      const sourceDrift = sourceReceiptCheck.sourceDrift;
+      const failures = collectFailureRecords([...(activeAudit.analysis?.functionalFailures || []), ...sourceReceiptCheck.errors], error, []);
       const summary = {
         schemaVersion: 1,
         baselineCommit: baseline.sourceCommit,

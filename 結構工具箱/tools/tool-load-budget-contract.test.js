@@ -5,9 +5,20 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { analyzeResults, collectFailureRecords, resetBaseline, sourceDriftPaths, validateBaseline } = require('./tool-load-budget-contract');
+const { analyzeResults, collectFailureRecords, resetBaseline, sourceDriftPaths, validateBaseline, validateHomepageInventory, validateSourceReceipts } = require('./tool-load-budget-contract');
 
-const routes = Array.from({ length: 53 }, (_, index) => `/route-${index}`);
+// Independent frozen roster fixture: homepage, date map, and routeFileMap are built separately below.
+const routes = [
+  '/condition-survey', '/beam-analysis', '/frame-analysis', '/struct-dx', '/section', '/composite-section',
+  '/rc-beam', '/rc-deep-beam-stm', '/rc-column', '/rc-slab', '/rc-wall', '/rc-shear-wall', '/rc-foundation',
+  '/rc-foundation-deep-beam-stm', '/rc-pile-cap-3d-stm', '/rc-pile', '/rc-retrofit-section', '/rc-column-cover-deviation',
+  '/src-beam', '/src-column', '/steel-formal', '/steel-beam-formal', '/steel-column-formal', '/steel-plate',
+  '/steel-beam', '/steel-column', '/wind-overview', '/wind-kzt', '/wind-special', '/wind-force', '/wind-cc',
+  '/wind-parapet', '/wind-open-roof', '/wind-object-solid', '/wind-object-frame', '/wind-lattice-tower',
+  '/wind-object-tower', '/wind-fence-sign', '/wind-sign-pole', '/seismic-force', '/seismic-dynamic',
+  '/seismic-appendage', '/seismic-misc', '/anchor', '/stone-fixing', '/foundation-local', '/equipment-load',
+  '/earth-pressure', '/floor-slab-westergaard', '/concrete-strength-ndt', '/cable-tension-frequency', '/decking', '/excavation-support',
+];
 const baseline = {
   schemaVersion: 1, capturedAt: new Date(0).toISOString(), sourceCommit: 'base-commit', routeCount: 53,
   totalJsBytes: 5300, docxRuntimePath: '/docx.js', docxRuntimeBytes: 100,
@@ -18,6 +29,14 @@ function cleanResults() {
   return routes.map(route => ({ route, status: 200, navigationError: null, jsBytes: 100, scripts: [
     { url: `${baseUrl}core/shared.js`, status: 200, bytes: 100, error: null },
   ], workflowScripts: [], workflowPanel: false }));
+}
+function cleanHomepageInventory() {
+  return {
+    homepageRoutes: [...routes],
+    baselineRoutes: [...routes],
+    updateRoutes: Object.fromEntries(routes.map(route => [route, '2026-10-15'])),
+    routeFileMap: { ...Object.fromEntries(routes.map(route => [route, `tools${route}.html`])), '/rc': '../鋼筋混凝土/index.html' },
+  };
 }
 function withTempBaseline(callback) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'tool-load-budget-contract-'));
@@ -41,8 +60,31 @@ function guardedAttempt({ functionalFailures, sourceDrift = [], capacityDifferen
 }
 
 assert.deepEqual(validateBaseline(baseline, routes), []);
+assert.deepEqual(validateHomepageInventory(cleanHomepageInventory()), [], 'the homepage may have an extra non-card route alias in routeFileMap');
+for (const [name, alter] of [
+  ['same-size unapproved homepage route replacement', inventory => { inventory.homepageRoutes[0] = '/unapproved-route'; }],
+  ['52 homepage routes', inventory => { inventory.homepageRoutes.pop(); }],
+  ['54 homepage routes', inventory => { inventory.homepageRoutes.push('/unapproved-route'); }],
+  ['duplicate homepage href', inventory => { inventory.homepageRoutes[1] = inventory.homepageRoutes[0]; }],
+  ['missing baseline route', inventory => { inventory.baselineRoutes.pop(); }],
+  ['missing date route', inventory => { delete inventory.updateRoutes[routes[0]]; }],
+  ['invalid route date', inventory => { inventory.updateRoutes[routes[0]] = 'not-a-date'; }],
+  ['missing routeFileMap mapping', inventory => { delete inventory.routeFileMap[routes[0]]; }],
+]) {
+  const inventory = cleanHomepageInventory();
+  alter(inventory);
+  assert(validateHomepageInventory(inventory).length > 0, `${name} must fail closed`);
+}
 assert.deepEqual(sourceDriftPaths({ 'route/page.js': 'hash-a' }, { 'route/page.js': 'hash-b' }), ['route/page.js'], 'same-sized source content changes must count as drift');
 assert.deepEqual(sourceDriftPaths({ 'route/page.js': 'hash-a' }, {}), ['route/page.js'], 'source removal must count as drift');
+assert.deepEqual(validateSourceReceipts(
+  { testedHead: 'head-a', sourceSha256: { 'route/page.js': 'hash-a' } },
+  { testedHead: 'head-a', sourceSha256: { 'route/page.js': 'hash-a' } },
+), { errors: [], sourceDrift: [] });
+for (const after of [
+  { testedHead: 'head-b', sourceSha256: { 'route/page.js': 'hash-a' } },
+  { testedHead: 'head-a', sourceSha256: { 'route/page.js': 'hash-b' } },
+]) assert(validateSourceReceipts({ testedHead: 'head-a', sourceSha256: { 'route/page.js': 'hash-a' } }, after).errors.length > 0, 'HEAD/source receipt drift must fail');
 const mergedFailures = collectFailureRecords(['HTTP 404'], new Error('DOCX guard failed'), ['route/page.js']);
 assert.equal(mergedFailures[0], 'HTTP 404');
 assert.equal(mergedFailures[1].startsWith('Error: DOCX guard failed'), true);
@@ -112,9 +154,18 @@ for (const malformedRoutes of [routes.slice(1), [...routes.slice(0, 51), routes[
   const errors = validateBaseline(baseline, malformedRoutes);
   assert(errors.length > 0, 'expected route list with missing/duplicate route must fail');
 }
-for (const malformedResults of [cleanResults().slice(1), [...cleanResults().slice(0, 51), cleanResults()[0]]]) {
+for (const malformedResults of [
+  cleanResults().slice(1),
+  [...cleanResults().slice(0, 51), cleanResults()[0]],
+  cleanResults().slice(0, 52),
+  [...cleanResults(), { ...cleanResults()[0], route: '/unapproved-route' }],
+  (() => { const changed = cleanResults(); changed[0] = { ...changed[0], route: '/unapproved-route' }; return changed; })(),
+]) {
   assert(analyzeResults(malformedResults, baseline, baseUrl).functionalFailures.length > 0, 'missing/duplicate measured routes must be functional failures');
 }
+const reorderedResults = cleanResults();
+[reorderedResults[18], reorderedResults[20]] = [reorderedResults[20], reorderedResults[18]];
+assert(analyzeResults(reorderedResults, baseline, baseUrl).functionalFailures.some(failure => failure.includes('result order differs from baseline')), 'measurement order must follow the fixed baseline roster');
 
 const grownResults = cleanResults();
 grownResults[0].scripts[0].bytes = 101;
@@ -139,4 +190,4 @@ withTempBaseline(file => {
   assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).totalJsBytes, baseline.totalJsBytes + 1, 'accepted reset must persist changed baseline content');
 });
 
-console.log('tool-load-budget-contract: PASS (functional failures, DOCX guard, route integrity, byte validation, reset growth)');
+console.log('tool-load-budget-contract: PASS (homepage/baseline/date/map inventory, result roster/order, source receipts, DOCX guard, byte validation, reset growth)');

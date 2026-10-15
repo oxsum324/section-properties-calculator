@@ -418,3 +418,7 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 ## 2026-10-12：T42 鋼構主頁確定性壓縮
 
 私有可讀來源 `鋼構工具/src/app.source.js`、`鋼構工具/src/calculator.source.js` 只從既有公開檔搬移並統一 LF；公開 `鋼構工具/app.js`、`鋼構工具/calculator.js` 維持原路徑，由既有 Terser 5.44.0 canonical builder 生成。兩檔不在 formal core 鏡像清單，core 與石材 vendor 不動。追溯目錄 evidence 保留公開檔，逐筆增 source 對照且不改 id、clause、calculation；原始碼／VM 契約與工程 adapter 讀來源，require、Python 真頁行為與 node --check 保留公開產出。公開 HTTP smoke 的內部函式名稱斷言移到來源契約，HTTP 改查生成標記且原網址、中文與禁止 host 推論斷言保留；未刪原語意。兩份來源登錄公開排除、LF、首頁兩路由日期依賴，工作流程 sourceFile 指向可讀檔。建置位元組上限按實測 +10%，合計仍須符合來源 55%；量化差額不得自行放寬。
+
+## 2026-10-15：載入預算 53 路由清冊契約補強
+
+結構工具箱/tools/tool-load-budget-contract.js 新增首頁 tools href、固定 baseline.routes、HOME_TOOL_UPDATES.routes 與 routeFileMap 的集合／映射驗證；routeFileMap 可保留 /rc 別名。browser runner 先核對三份清冊，再依 baseline 順序量測；純契約另涵蓋未核准新增／替換、52／54、日期或映射缺漏、結果缺漏／重複／順序，以及來源／HEAD 漂移。保留 HOME_ROUTE_COUNT = 53、DOCX guard、source hash、HEAD 起訖及 schemaVersion 1 收據欄位；固定 baseline 未改。此登錄不代表已完成瀏覽器量測或正式放行。

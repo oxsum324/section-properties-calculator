@@ -18,6 +18,57 @@ function collectFailureRecords(functionalFailures, thrownError, sourceDrift = []
   return errors;
 }
 
+function compareRouteSets(label, actual, expected, errors) {
+  const expectedSet = new Set(expected);
+  const actualSet = new Set(actual);
+  for (const route of expectedSet) if (!actualSet.has(route)) errors.push(`${label}: missing route ${route}`);
+  for (const route of actualSet) if (!expectedSet.has(route)) errors.push(`${label}: unexpected route ${route}`);
+}
+
+function validateHomepageInventory({ homepageRoutes, baselineRoutes, updateRoutes, routeFileMap }) {
+  const errors = [];
+  const validateList = (label, routes) => {
+    if (!Array.isArray(routes)) { errors.push(`${label} must be an array`); return []; }
+    const seen = new Set();
+    for (const route of routes) {
+      if (typeof route !== 'string' || !route) errors.push(`${label} contains an invalid route`);
+      else if (seen.has(route)) errors.push(`${label} contains duplicate route ${route}`);
+      else seen.add(route);
+    }
+    if (routes.length !== HOME_ROUTE_COUNT) errors.push(`${label} must contain exactly ${HOME_ROUTE_COUNT} routes, got ${routes.length}`);
+    return routes.filter(route => typeof route === 'string' && route);
+  };
+  const home = validateList('homepage tools hrefs', homepageRoutes);
+  const baseline = validateList('baseline routes', baselineRoutes);
+  const dates = updateRoutes && typeof updateRoutes === 'object' && !Array.isArray(updateRoutes) ? Object.keys(updateRoutes) : [];
+  if (!updateRoutes || typeof updateRoutes !== 'object' || Array.isArray(updateRoutes)) errors.push('homepage date routes must be an object');
+  else {
+    if (dates.length !== HOME_ROUTE_COUNT) errors.push(`homepage date routes must contain exactly ${HOME_ROUTE_COUNT} routes, got ${dates.length}`);
+    for (const [route, date] of Object.entries(updateRoutes)) {
+      if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(`${date}T00:00:00Z`))) {
+        errors.push(`homepage date route ${route} must have a valid YYYY-MM-DD date`);
+      }
+    }
+  }
+  compareRouteSets('baseline routes vs homepage tools hrefs', baseline, home, errors);
+  compareRouteSets('homepage date routes vs homepage tools hrefs', dates, home, errors);
+  if (!routeFileMap || typeof routeFileMap !== 'object' || Array.isArray(routeFileMap)) errors.push('routeFileMap must be an object');
+  else for (const route of home) {
+    if (!Object.prototype.hasOwnProperty.call(routeFileMap, route) || typeof routeFileMap[route] !== 'string' || !routeFileMap[route]) {
+      errors.push(`homepage route ${route} has no routeFileMap target`);
+    }
+  }
+  return errors;
+}
+
+function validateSourceReceipts(before, after) {
+  const errors = [];
+  const sourceDrift = sourceDriftPaths(before?.sourceSha256, after?.sourceSha256);
+  if (before?.testedHead !== after?.testedHead) errors.push(`HEAD changed during audit: ${before?.testedHead} -> ${after?.testedHead}`);
+  if (sourceDrift.length) errors.push(`source changed during audit: ${sourceDrift.join(', ')}`);
+  return { errors, sourceDrift };
+}
+
 function validateBaseline(candidate, expectedRoutes) {
   const errors = [];
   if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return ['baseline must be an object'];
@@ -66,7 +117,9 @@ function analyzeResults(results, baseline, baseUrl) {
   const seenRoutes = new Set();
   if (results.length !== HOME_ROUTE_COUNT) functionalFailures.push(`expected ${HOME_ROUTE_COUNT} results, got ${results.length}`);
   const baselineByRoute = new Map(baseline.routes.map(item => [item.route, item]));
-  for (const result of results) {
+  for (const [index, result] of results.entries()) {
+    const expectedRoute = baseline.routes[index]?.route;
+    if (expectedRoute && result.route !== expectedRoute) functionalFailures.push(`result order differs from baseline at ${index}: expected ${expectedRoute}, got ${result.route}`);
     if (seenRoutes.has(result.route)) functionalFailures.push(`duplicate result route ${result.route}`);
     seenRoutes.add(result.route);
     if (result.status !== 200) functionalFailures.push(`${result.route}: HTTP ${result.status}`);
@@ -125,4 +178,4 @@ function resetBaseline({ docxCheck, ...options }) {
   return persistAcceptedBaseline(options);
 }
 
-module.exports = { HOME_ROUTE_COUNT, validBytes, validateBaseline, analyzeResults, persistAcceptedBaseline, resetBaseline, sourceDriftPaths, collectFailureRecords };
+module.exports = { HOME_ROUTE_COUNT, validBytes, validateBaseline, validateHomepageInventory, validateSourceReceipts, analyzeResults, persistAcceptedBaseline, resetBaseline, sourceDriftPaths, collectFailureRecords };

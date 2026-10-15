@@ -811,3 +811,11 @@ git add -- "結構工具箱/tools/rendered-delivery-evidence.contract.test.js" S
 ```powershell
 git add -- "結構工具箱/tools/local-quick-tools.manifest.json" STAGING_GROUPS.md
 ```
+
+## 2026-10-15：載入預算 53 路由清冊契約補強
+
+首頁 tools href、固定 baseline.routes、日期清冊與 routeFileMap 的一致性由純 helper 驗證；額外 /rc 別名允許存在。browser 量測順序沿用固定 baseline。負向契約涵蓋新增／替換、52／54、日期／映射缺漏、量測缺漏／重複／錯序及來源／HEAD 漂移；保留 DOCX guard、schemaVersion 1 收據與既有容量差異失敗規則。本包未改 baseline，瀏覽器量測另以最終 HEAD 收據核對，本包不含正式放行。
+
+```powershell
+git add -- "結構工具箱/tools/tool-load-budget-contract.js" "結構工具箱/tools/tool-load-budget-contract.test.js" "結構工具箱/tools/tool-load-budget.browser.test.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```

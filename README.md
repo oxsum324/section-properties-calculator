@@ -446,3 +446,5 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 T41：PowerShell 文字讀寫採明確 UTF-8，由 `node powershell-encoding.contract.test.js` 掃描；家族驗證使用 Windows PowerShell 5.1，既有 preflight UTF-16 暫存腳本依格式邊界保留並於契約列明理由。
 
 T42 鋼構主頁 app／calculator 的私有可讀來源位於 `鋼構工具/src/`，公開路徑由既有確定性建置產生；追溯目錄同時保留公開 evidence 與來源對照。
+
+2026-10-15 載入預算契約補強：首頁 tools href 清冊與固定 53 路由 baseline、更新日期清冊交叉核對，並確認每個首頁路由均有 routeFileMap 對應；保留額外 /rc 別名，量測順序依固定 baseline。baseline 不變。純 Node 契約涵蓋未核准新增或替換、52／54 路由、缺映射／日期、量測缺漏／重複／順序、來源與 HEAD 漂移。瀏覽器量測另以最終 HEAD 收據核對，本包不含正式放行。
