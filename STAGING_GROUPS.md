@@ -787,3 +787,11 @@ git add -- "結構工具箱/tools/public-status-claims.contract.test.js" homepag
 git add -- "結構工具箱/tools/tool-load-budget-contract.js" "結構工具箱/tools/tool-load-budget-contract.test.js" "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS.md TOOL_BOUNDARIES.md
 ```
 
+## 2026-10-15：新工具對齊 local-quick 輸出一致性契約（T44 放行前修正二）
+
+正式預檢 runId 20261015-095543 失敗於 `local-quick-tools-static`／`local-quick-tools-runner`（連鎖 `rendered-delivery-evidence`）：`結構工具箱/tools/local-quick-output-consistency.test.js` 以字面 needle 檢查每個 local-quick 頁面的 JSON 匯出物件（`id: '<key>'`、`name: '<label>'`、`pageVersion: PUBLIC_TOOL_VERSION`、`calculationEngine: Core.version`）與報表溯源行（`const prov = r.provenance || (Core.provenance ? Core.provenance() : {})`、`輸入格式`、`計算指紋`）。新工具頁面的匯出物件原本冒號後無空格、報表缺溯源行；已依既有六工具格式對齊，功能不變。此契約不在 29 條門檻內，新工具派工檔已列為必跑項。
+
+```powershell
+git add -- "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" STAGING_GROUPS.md
+```
+
