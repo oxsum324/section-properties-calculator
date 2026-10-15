@@ -779,3 +779,11 @@ T44 新增第 53 個首頁工具後，三支契約仍釘 52：`結構工具箱/t
 git add -- "結構工具箱/tools/public-status-claims.contract.test.js" homepage-quality.browser.test.js home-recents.browser.test.js "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" STAGING_GROUPS.md
 ```
 
+## 2026-10-15：載入預算路由數 52 → 53 與基準重設（T44 新工具）
+
+`結構工具箱/tools/tool-load-budget-contract.js` 原把首頁路由數寫死 52（`validateBaseline` 兩處、`analyzeResults` 兩處），新增第 53 條路由後連 `--write-baseline` 都會在重寫前被既有基準驗證擋下。改為單一常數 `HOME_ROUTE_COUNT = 53`（匯出供測試用），`tool-load-budget-contract.test.js` 的 fixture 同步 53 條；新增或移除工具時只改這個常數並由委託人授權重設基準。過渡作法：依 `HOME_TOOL_UPDATES` 路由順序在基準 JSON 插入新路由佔位項（jsBytes 0），再由 `--write-baseline` 以實測重寫；重寫後基準仍完全由腳本產生，佔位項不留存。委託人已授權本次重設。
+
+```powershell
+git add -- "結構工具箱/tools/tool-load-budget-contract.js" "結構工具箱/tools/tool-load-budget-contract.test.js" "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS.md TOOL_BOUNDARIES.md
+```
+

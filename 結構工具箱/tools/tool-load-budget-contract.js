@@ -1,4 +1,6 @@
 'use strict';
+// 首頁正式路由數：新增或移除工具時更新，並由委託人授權以 --write-baseline 重設基準。
+const HOME_ROUTE_COUNT = 53;
 
 function validBytes(value, { allowZero = false } = {}) {
   return Number.isSafeInteger(value) && value >= (allowZero ? 0 : 1);
@@ -20,11 +22,11 @@ function validateBaseline(candidate, expectedRoutes) {
   const errors = [];
   if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return ['baseline must be an object'];
   if (candidate.schemaVersion !== 1) errors.push('baseline schemaVersion must be 1');
-  if (!Array.isArray(expectedRoutes) || expectedRoutes.length !== 52 || new Set(expectedRoutes).size !== expectedRoutes.length) {
-    errors.push('expected routes must contain 52 unique entries');
+  if (!Array.isArray(expectedRoutes) || expectedRoutes.length !== HOME_ROUTE_COUNT || new Set(expectedRoutes).size !== expectedRoutes.length) {
+    errors.push(`expected routes must contain ${HOME_ROUTE_COUNT} unique entries`);
   }
   if (!Array.isArray(candidate.routes)) errors.push('baseline routes must be an array');
-  if (candidate.routeCount !== 52 || !Array.isArray(candidate.routes) || candidate.routes.length !== 52) errors.push('baseline must contain exactly 52 routes');
+  if (candidate.routeCount !== HOME_ROUTE_COUNT || !Array.isArray(candidate.routes) || candidate.routes.length !== HOME_ROUTE_COUNT) errors.push(`baseline must contain exactly ${HOME_ROUTE_COUNT} routes`);
   if (!validBytes(candidate.totalJsBytes)) errors.push('baseline totalJsBytes must be a positive safe integer');
   if (!validBytes(candidate.docxRuntimeBytes)) errors.push('baseline docxRuntimeBytes must be a positive safe integer');
   if (typeof candidate.docxRuntimePath !== 'string' || !candidate.docxRuntimePath) errors.push('baseline docxRuntimePath is required');
@@ -48,7 +50,7 @@ function validateBaseline(candidate, expectedRoutes) {
         if (!validBytes(script.bytes)) errors.push(`${item.route}: ${script.path} bytes must be a positive safe integer`);
       }
     }
-    if (Array.isArray(expectedRoutes) && expectedRoutes.length === 52) {
+    if (Array.isArray(expectedRoutes) && expectedRoutes.length === HOME_ROUTE_COUNT) {
       const expected = new Set(expectedRoutes);
       for (const route of expectedRoutes) if (!seen.has(route)) errors.push(`missing route ${route}`);
       for (const route of seen) if (!expected.has(route)) errors.push(`unexpected route ${route}`);
@@ -62,7 +64,7 @@ function analyzeResults(results, baseline, baseUrl) {
   const functionalFailures = [];
   const capacityDifferences = [];
   const seenRoutes = new Set();
-  if (results.length !== 52) functionalFailures.push(`expected 52 results, got ${results.length}`);
+  if (results.length !== HOME_ROUTE_COUNT) functionalFailures.push(`expected ${HOME_ROUTE_COUNT} results, got ${results.length}`);
   const baselineByRoute = new Map(baseline.routes.map(item => [item.route, item]));
   for (const result of results) {
     if (seenRoutes.has(result.route)) functionalFailures.push(`duplicate result route ${result.route}`);
@@ -123,4 +125,4 @@ function resetBaseline({ docxCheck, ...options }) {
   return persistAcceptedBaseline(options);
 }
 
-module.exports = { validBytes, validateBaseline, analyzeResults, persistAcceptedBaseline, resetBaseline, sourceDriftPaths, collectFailureRecords };
+module.exports = { HOME_ROUTE_COUNT, validBytes, validateBaseline, analyzeResults, persistAcceptedBaseline, resetBaseline, sourceDriftPaths, collectFailureRecords };

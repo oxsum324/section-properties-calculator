@@ -7,10 +7,10 @@ const os = require('node:os');
 const path = require('node:path');
 const { analyzeResults, collectFailureRecords, resetBaseline, sourceDriftPaths, validateBaseline } = require('./tool-load-budget-contract');
 
-const routes = Array.from({ length: 52 }, (_, index) => `/route-${index}`);
+const routes = Array.from({ length: 53 }, (_, index) => `/route-${index}`);
 const baseline = {
-  schemaVersion: 1, capturedAt: new Date(0).toISOString(), sourceCommit: 'base-commit', routeCount: 52,
-  totalJsBytes: 5200, docxRuntimePath: '/docx.js', docxRuntimeBytes: 100,
+  schemaVersion: 1, capturedAt: new Date(0).toISOString(), sourceCommit: 'base-commit', routeCount: 53,
+  totalJsBytes: 5300, docxRuntimePath: '/docx.js', docxRuntimeBytes: 100,
   routes: routes.map(route => ({ route, jsBytes: 100, sharedScripts: [{ path: '/core/shared.js', bytes: 100 }] })),
 };
 const baseUrl = 'http://127.0.0.1:1234/';
