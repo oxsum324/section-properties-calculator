@@ -803,3 +803,11 @@ git add -- "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" STAGI
 git add -- "結構工具箱/tools/rendered-delivery-evidence.contract.test.js" STAGING_GROUPS.md
 ```
 
+
+## 2026-10-15：補回鋼索索力評估的圖面幾何欄位（T44 放行前修正四）
+
+正式預檢 runId 20261015-113510 全部 70 項通過，但收尾檢查 `audit-dashboard-contract-final` 與 `audit-dashboard-live-output-smoke-final` 失敗：成熟度矩陣 `diagramGeometry` 覆蓋 20，與工具總數 21 不符。追查為 T44 改寫 `local-quick-tools.manifest.json` 時，誤刪既有工具 `cable-tension-frequency` 的 `diagramSelector`（`#cableTensionDiagram`）、`diagramRoleNeedles`（span／mode-shape／tension）與 `diagramChecks`，矩陣因而把該列判為 n/a。修正：依 3fb69a04 原文補回三個欄位，新工具的 `#metricGrid` 欄位保留；`git diff 3fb69a04` 對該清冊只剩新增無刪除。重跑 `tool-maturity-matrix.js --write --preserve-homepage-status` 得 diagramGeometry 21/21，`audit-dashboard.contract.test.js` 與 `local-quick-tools.contract.test.js`（7 工具）通過。治理規則：新增工具時只在清冊末端追加項目，不得改寫既有項目；核對新工具時以 `git diff <上線 sha> -- <清冊>` 檢查「只增無刪」。
+
+```powershell
+git add -- "結構工具箱/tools/local-quick-tools.manifest.json" STAGING_GROUPS.md
+```

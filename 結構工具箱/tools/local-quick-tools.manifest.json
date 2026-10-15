@@ -211,6 +211,16 @@
         "simpleValue": "summary",
         "detailValue": "detailed"
       },
+      "diagramSelector": "#cableTensionDiagram",
+      "diagramRoleNeedles": [
+        "span",
+        "mode-shape",
+        "tension"
+      ],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
       "reportNeedles": [
         "理想張緊弦",
         "不自動修正垂度",
