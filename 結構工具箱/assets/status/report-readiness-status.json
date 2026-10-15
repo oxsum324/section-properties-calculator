@@ -2,8 +2,8 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-10-12T08:05:21.540Z",
-  "runId": "20261012-150939",
+  "generatedAt": "2026-10-15T05:05:43.891Z",
+  "runId": "20261015-122633",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -12,8 +12,8 @@
   "compactSummary": "頁面診斷明細不進計算書；文件預設內部審閱，明確核可後為正式附件，兩者皆可列印。",
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
-    "正式計算書可讀文字抽檢：21 / 21 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 3 / 3。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
-    "正式放行實際交付物渲染佐證：40 / 40 個首頁正式工具已完成，涵蓋 11 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20261012-150939。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式計算書可讀文字抽檢：22 / 22 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 3 / 3。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
+    "正式放行實際交付物渲染佐證：40 / 40 個首頁正式工具已完成，涵蓋 11 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20261015-122633。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
     "正式交付檔案完整性：正式 PDF 與渲染證據 96 / 96、RC PDF / PNG 成品 66 / 66、混合格式附件 17 / 17；合計 179 / 179。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
     "正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 5 / 5 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。",
     "正式 Excel 附件乾淨封裝：錨栓檢討 1 / 1 份 XLSX 已確認工作表全數可見、公式具快取結果，且沒有外部關聯／公式／連線、公式錯誤、隱藏資料、批註、嵌入物件、巨集、孤兒媒體或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、工作表清冊、公式或逐檔細節。",
@@ -38,7 +38,7 @@
     "開挖擋土支撐正式計算書結果鏈：ProjectState 1 / 1 已由目前後端核心重算 47 項構件檢核，再核對 PDF、DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開 ProjectState、輸入／結果資料、計算指紋或成品雜湊。",
     "局部快算計算書結果鏈：基礎、設備荷重、擋土土壓、地坪 Westergaard、柱保護層偏差強度評估與鋼索索力頻率法快算共 6 / 6 組來源 JSON 已完成全輸入與全結果逐值重播，再核對 PDF 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。",
     "RC 正式附件 HTML 完整性：預期 34 份、實際 34 份、已驗證 34 份。公開狀態只提供各工具類別、數量與通過狀態；集合與逐檔完整性證據僅留在內部 release 證據。本項不會寫入計算書、列印或 PDF。",
-    "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣與獨立正式家族：風力 / 地震正式工具 14 項、局部快算 6 項、矩陣外平面剛架正式工具 1 項。矩陣外工具家族仍以各自報告合約治理。",
+    "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣與獨立正式家族：風力 / 地震正式工具 14 項、局部快算 7 項、矩陣外平面剛架正式工具 1 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
     "正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。",
     "獨立工程基準：40 / 40 個正式工具已具獨立封閉算例。既有重播、結果鏈與家族治理證據仍屬不同證據層級，不取代設計者複核。",
@@ -56,13 +56,13 @@
   "pageOnlyBoundaryRequired": 4,
   "pageOnlyBoundaryComplete": 4,
   "pageOnlyBoundaryIssueCount": 0,
-  "reportTextSmokeRequired": 21,
-  "reportTextSmokeComplete": 21,
+  "reportTextSmokeRequired": 22,
+  "reportTextSmokeComplete": 22,
   "reportTextSmokeIssueCount": 0,
   "reportTextSmokeEvidenceRequired": 3,
   "reportTextSmokeEvidenceComplete": 3,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20261012-150939",
+  "reportTextSmokeEvidenceRunId": "20261015-122633",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -74,7 +74,7 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 123.7
+      "seconds": 79.4
     },
     {
       "key": "local-quick-tools-runner",
@@ -82,11 +82,11 @@
       "family": "local-quick-tools",
       "scopeLabel": "局部快算",
       "matrixExternal": false,
-      "required": 6,
-      "complete": 6,
+      "required": 7,
+      "complete": 7,
       "pass": true,
       "reused": false,
-      "seconds": 116.7
+      "seconds": 88.3
     },
     {
       "key": "frame-analysis-browser-smoke",
@@ -98,15 +98,15 @@
       "complete": 1,
       "pass": true,
       "reused": false,
-      "seconds": 10.3
+      "seconds": 6.9
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
-  "reportTextSmokeScope": "正式計算書可讀文字抽檢範圍：成熟度矩陣與獨立正式家族：風力 / 地震正式工具 14 項、局部快算 6 項、矩陣外平面剛架正式工具 1 項。矩陣外工具家族仍以各自報告合約治理。",
+  "reportTextSmokeScope": "正式計算書可讀文字抽檢範圍：成熟度矩陣與獨立正式家族：風力 / 地震正式工具 14 項、局部快算 7 項、矩陣外平面剛架正式工具 1 項。矩陣外工具家族仍以各自報告合約治理。",
   "renderedDeliveryEvidenceRequired": 40,
   "renderedDeliveryEvidenceComplete": 40,
   "renderedDeliveryEvidenceIssueCount": 0,
-  "renderedDeliveryEvidenceRunId": "20261012-150939",
+  "renderedDeliveryEvidenceRunId": "20261015-122633",
   "renderedDeliveryEvidenceFamilies": [
     {
       "family": "anchor-formal",
@@ -154,8 +154,8 @@
     }
   ],
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 40 / 40；補充報告 / 服務成品 2 / 2；RC STM 正式入口附件 3 / 3；RSC v4／RSB v1 正式附件 1 / 1、成品 6 / 6。",
-  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20261012-150939/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "27cdcd70b9665738b778427f7003380de22b3d083333afd603d3bc3a86616ff3",
+  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20261015-122633/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
+  "renderedDeliveryEvidenceSourceHash": "e729d2d425d392c1738de8f30bb5b20bcad88fa53633d023e7f5a7e28dc49aec",
   "deliveryFileIntegrityRequired": 179,
   "deliveryFileIntegrityVerified": 179,
   "deliveryFileIntegrityIssueCount": 0,
@@ -428,6 +428,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20261012-150939/preflight-summary.json",
-  "sourceHash": "4d2459fa23e8c5730e5c98ba3fdd185e07cad0a2245e179627f9bc205179934e"
+  "preflightStatusSourcePath": "output/preflight/history/20261015-122633/preflight-summary.json",
+  "sourceHash": "7b5495ad0cd9b8641007060bb64d9308af4020f2469743190bdd8592663c7c98"
 }
