@@ -245,7 +245,7 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
     await page.waitForFunction(() => document.querySelector('#resultCount')?.textContent.includes('項工具'), null, { timeout: 20000 });
     const links = await page.locator('#toolGrid a.tool-card[data-route-href]').evaluateAll(nodes => nodes.map(node => ({ href: node.getAttribute('href'), resolved: node.href })));
     const targets = links.map(item => { try { const target = fileURLToPath(item.resolved); return { ...item, exists: fs.existsSync(target), insideRepo: path.resolve(target).startsWith(repo + path.sep) }; } catch (error) { return { ...item, exists: false, error: String(error) }; } });
-    const valid = targets.length === 52 && targets.every(item => item.href && !/^[a-z][a-z0-9+.-]*:/i.test(item.href) && !item.href.startsWith('/') && item.exists && item.insideRepo);
+    const valid = targets.length === 53 && targets.every(item => item.href && !/^[a-z][a-z0-9+.-]*:/i.test(item.href) && !item.href.startsWith('/') && item.exists && item.insideRepo);
     check(checks, 'file-url-relative-links', valid, { count: targets.length, failures: targets.filter(item => !item.exists || !item.insideRepo || !item.href || item.href.startsWith('/')), errors });
     flow.file = { fileUrl, targets, errors };
     await page.screenshot({ path: path.join(out, 'file-mode-desktop.png') });
@@ -262,7 +262,7 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
     const badMetadata = await page.locator('[data-file-href]').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')).filter(href => !href || !new URL(href, location.href).pathname.startsWith('/my-classroom-tools/')));
     const dimensions = await page.evaluate(() => ({ innerWidth, bodyScrollWidth: document.body.scrollWidth, documentScrollWidth: document.documentElement.scrollWidth }));
     const details = { status: response?.status(), url: page.url(), linkCount: links.length, badPrefix, badRoutes: routes.filter(route => !route.ok), routes, badMetadata, dimensions, errors, serverRequests: pagesFixture.requests };
-    check(checks, 'pages-prefix-all-links-resolve', response?.status() === 200 && links.length === 52 && !badPrefix.length && routes.length === 52 && routes.every(route => route.ok) && !badMetadata.length, { status: details.status, linkCount: links.length, badPrefix, badRoutes: details.badRoutes, badMetadata, errors });
+    check(checks, 'pages-prefix-all-links-resolve', response?.status() === 200 && links.length === 53 && !badPrefix.length && routes.length === 53 && routes.every(route => route.ok) && !badMetadata.length, { status: details.status, linkCount: links.length, badPrefix, badRoutes: details.badRoutes, badMetadata, errors });
     check(checks, 'pages-prefix-mobile-no-overflow', Math.max(dimensions.bodyScrollWidth, dimensions.documentScrollWidth) <= dimensions.innerWidth, dimensions);
     flow.pagesSubdirectory = details;
     await page.screenshot({ path: path.join(out, 'pages-prefix-mobile-375.png'), fullPage: true });

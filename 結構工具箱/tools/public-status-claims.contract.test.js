@@ -116,7 +116,7 @@ const stoneVersionContext = { window: {} };
 vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
 const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
 
-assert.equal(homeTools.length, 52, 'canonical homepage tool inventory count');
+assert.equal(homeTools.length, 53, 'canonical homepage tool inventory count');
 const surveyTool = homeTools.find(tool => tool.href === '/condition-survey');
 assert.equal(surveyTool?.state, 'workflow', 'survey recorder stays a non-formal workflow');
 assert.equal(surveyTool?.capabilities.includes('正式核算'), false, 'survey recorder does not claim formal calculations');
@@ -285,10 +285,12 @@ for (const [toolKey, metadata] of Object.entries(formalToolMetadata)) {
   assert.ok(page.includes(metadata.version), `formal-family page exposes canonical version: ${metadata.route}`);
 }
 
-assert.equal(Object.keys(localQuickToolMetadata).length, 6, 'local quick public metadata covers every local quick route');
+assert.equal(Object.keys(localQuickToolMetadata).length, 7, 'local quick public metadata covers every local quick route');
 for (const [toolKey, metadata] of Object.entries(localQuickToolMetadata)) {
   const tool = canonicalTool(metadata.route);
-  const folder = toolKey === 'foundation-local'
+  const folder = toolKey === 'concrete-strength-ndt'
+    ? 'concrete-ndt'
+    : (toolKey === 'foundation-local'
     ? 'foundation'
     : (toolKey === 'equipment-load'
       ? 'equipment'
@@ -296,7 +298,7 @@ for (const [toolKey, metadata] of Object.entries(localQuickToolMetadata)) {
         ? 'floor-slab'
         : (toolKey === 'rc-column-cover-deviation'
           ? 'rc'
-          : (toolKey === 'cable-tension-frequency' ? 'cable-tension' : 'earth'))));
+          : (toolKey === 'cable-tension-frequency' ? 'cable-tension' : 'earth')))));
   const pageName = toolKey === 'rc-column-cover-deviation' ? 'column-cover-deviation' : toolKey;
   const page = readText(`結構工具箱/tools/${folder}/${pageName}.html`);
   assert.equal(tool.version, metadata.version, `local-quick public version matches canonical claim: ${metadata.route}`);

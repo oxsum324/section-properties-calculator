@@ -72,7 +72,7 @@ async function main() {
         const page = await context.newPage();
         const errors = observe(page, 'personal-flow');
         await page.goto(home);
-        await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(52);
+        await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(53);
         await expect(page.locator('.home-personal')).toHaveCount(0);
         const routes = await page.locator('#toolGrid .tool-card').evaluateAll(cards => cards.map(card => card.dataset.routeHref));
         for (const [index, href] of routes.slice(0, 2).entries()) {
@@ -127,13 +127,13 @@ async function main() {
         const page = await context.newPage();
         const errors = observe(page, 'storage-denied');
         await page.goto(home);
-        await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(52);
-        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(52);
+        await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(53);
+        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(53);
         await expect(page.locator('.home-personal')).toHaveCount(0);
         await page.locator('#toolGrid .tool-pin').first().click();
         await expect(page.locator('.home-personal .tool-card')).toHaveCount(1);
         await page.reload();
-        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(52);
+        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(53);
         await expect(page.locator('.home-personal')).toHaveCount(0);
         await expect.poll(() => errors.pageErrors).toEqual([]);
       } finally { await context.close(); }
@@ -148,7 +148,7 @@ async function main() {
         const page = await context.newPage();
         const errors = observe(page, 'invalid-storage');
         await page.goto(home);
-        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(52);
+        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(53);
         await expect(page.locator('.home-personal')).toHaveCount(0);
         await expect.poll(() => errors.pageErrors).toEqual([]);
       } finally { await context.close(); }

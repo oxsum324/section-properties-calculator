@@ -769,3 +769,13 @@ git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固�
 git add -- preflight-tools.ps1 STAGING_GROUPS.md
 ```
 
+## 2026-10-15：撤銷治理文件歸檔（T45）、補齊新工具的工具數釘值（T44 放行前修正）
+
+撤銷 `51182949 Archive governance execution history`：在「只搬歷程、不動規則」的限制下只能搬出 1,259 bytes，三份主文件仍 150／230／176 KB，`docs/governance-history/` 失去意義；委託人裁定撤銷，文件維持單一來源，瘦身另訂「分冊」任務。
+
+T44 新增第 53 個首頁工具後，三支契約仍釘 52：`結構工具箱/tools/public-status-claims.contract.test.js`（工具數 52 → 53、local-quick 公開 metadata 6 → 7、新增 `concrete-strength-ndt` → `concrete-ndt` 資料夾對應）、`homepage-quality.browser.test.js`（連結數與路由數兩處）、`home-recents.browser.test.js`（五處卡片數）。新工具計算書範本的「計算引擎」改為 `escapeHtml(Core.version)`，與其他 local-quick 工具的契約 needle 一致。載入預算基準 `routeCount` 52 → 53 由委託人授權以 `--write-baseline` 重設（另列一節）。
+
+```powershell
+git add -- "結構工具箱/tools/public-status-claims.contract.test.js" homepage-quality.browser.test.js home-recents.browser.test.js "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" STAGING_GROUPS.md
+```
+
