@@ -1223,6 +1223,13 @@ function validateFrameAnalysisFormalRecord(record, directory, label) {
   };
 }
 
+const sharedLocalQuickScenarioKeys = new Set(['shared-summary-layout', 'shared-detailed-layout']);
+function isInventoriedLocalQuickRecord(recordKey, expectedKeys) {
+  const key = String(recordKey || '');
+  if (sharedLocalQuickScenarioKeys.has(key)) return true;
+  return expectedKeys.some(evidenceKey => key === evidenceKey || key.startsWith(`${evidenceKey}-`));
+}
+
 function validateFamilySummary(runDir, family, expectedKeys) {
   const summaryPath = path.join(runDir, 'rendered-delivery-evidence', family, 'rendered-delivery-evidence-summary.json');
   assert.ok(fs.existsSync(summaryPath), `${family} current-run rendered summary exists`);
@@ -1246,7 +1253,10 @@ function validateFamilySummary(runDir, family, expectedKeys) {
       assert.ok(fs.existsSync(artifactPath), `${family} artifact exists: ${record.artifact}`);
       assert.equal(fs.readFileSync(artifactPath).subarray(0, 4).toString('ascii'), '%PDF', `${family} artifact is PDF: ${record.artifact}`);
     }
-    if (artifactPath && evidencePath && ['formal-tools', 'local-quick-tools', 'steel-formal', 'src-formal'].includes(family)) {
+    // local-quick 的 canonical 範圍以證據清冊（inventory）為準：未入清冊的工具（例如 assist 級的
+    // concrete-strength-ndt）其 smoke PDF 仍逐檔驗證，但不計入 Schema v35 的 96 份 canonical 檔案。
+    const canonicalScope = family !== 'local-quick-tools' || isInventoriedLocalQuickRecord(record.key, expectedKeys);
+    if (artifactPath && evidencePath && ['formal-tools', 'local-quick-tools', 'steel-formal', 'src-formal'].includes(family) && canonicalScope) {
       const verified = verifyCanonicalRenderedArtifact(path.dirname(summaryPath), record, `${family} ${record.key || record.artifact}`);
       canonicalArtifacts.push(
         { family, role: 'reportPdf', name: record.artifact, bytes: verified.artifactBytes, sha256: verified.artifactSha256 },

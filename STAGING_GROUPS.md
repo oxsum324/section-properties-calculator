@@ -795,3 +795,11 @@ git add -- "結構工具箱/tools/tool-load-budget-contract.js" "結構工具箱
 git add -- "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" STAGING_GROUPS.md
 ```
 
+## 2026-10-15：canonical 交付證據範圍以清冊為準（T44 放行前修正三）
+
+正式預檢 runId 20261015-104444 失敗於 `rendered-delivery-evidence`：local-quick 瀏覽器 smoke 為新工具 `concrete-strength-ndt`（assist、未入 `rendered-delivery-evidence.inventory.json`）產出 2 筆 PDF／evidence 紀錄，契約把 local-quick 家族所有紀錄都計入 Schema v35 的 96 份 canonical 檔案，實得 100。修正：`rendered-delivery-evidence.contract.test.js` 新增 `isInventoriedLocalQuickRecord`，local-quick 紀錄只有對應清冊 `evidenceKey`（或共用版面情境）才計入 canonical 集合；未入清冊工具的 PDF 仍由 smoke 逐檔驗證。以 `PREFLIGHT_RELEASE=1` 對 20261015-104444 的收據重跑契約：canonicalIntegrity 96/96 通過。若日後要把 NDT 納入正式交付證據鏈，需另案 Schema v36（清冊、6 份檔案含 blocked-boundary、各契約釘值 96 → 102、179 → 185）。
+
+```powershell
+git add -- "結構工具箱/tools/rendered-delivery-evidence.contract.test.js" STAGING_GROUPS.md
+```
+
