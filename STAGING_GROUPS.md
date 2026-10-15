@@ -1,75 +1,10 @@
-# Staging 分包建議
-
-## 混凝土強度非破壞檢測推估（T44，2026-10-14）
-
-`結構工具箱/tools/concrete-ndt/` 依 floor-slab 四檔結構新增 core／HTML／golden／test，另新增 spec，完整五檔同包提交。所有工程公式與係數集中 `concrete-strength-ndt-spec.js`，預設值為假設，需技師確認。core 無 DOM，資料欄位與原始／修正值分列；`concrete-strength-ndt-confirmed.json` 本階段不提供，案例 JSON 不得代替規格確認。此工具為 `reference` 分類、`assist` 身分，計算書不具正式附件資格，既有六個 formal 局部快算工具與 40 個 formal 入口的責任邊界不變。
-
-首頁來源卡片、aliases、routeFileMap、HOME_TOOL_UPDATES、HOME_TOOL_UPDATE_DEPENDENCIES 與 `vercel.json` 的乾淨路由同批登錄；首頁公開執行期仍由既有 canonical builder 產生，日期由既有同步腳本更新。local-quick 清冊／metadata／契約／smoke 加入第七工具的嚴格 assist 負向檢查；workflow 清冊／契約明列 40 formal＋連續梁＋NDT 共 42 入口，不放寬舊斷言。新 core 先單跑計時，提交後的乾淨最終 HEAD 依序跑門檻、local-quick 契約／smoke、workflow、新路由 a11y 與完整載入預算；新路由造成 53／52 清冊或容量差異照實回報，不重設基準。所有 PowerShell 使用 Windows PowerShell 5.1，重型組不與門檻並行；計算書、TXT、列印不依賴延後載入的程式庫。
-
-```powershell
+<!--P2:SG-01-001-->
 git add -- "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-core.js" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-spec.js" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-golden-cases.js" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-core.test.js"
 git add -- "結構工具箱/tools/local-quick-tools.manifest.json" "結構工具箱/tools/local-quick-tool-metadata.js" "結構工具箱/tools/local-quick-tools.contract.test.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "結構工具箱/tools/local-quick-tools.run.js" "結構工具箱/tools/tool-workflow-adapters.test.js"
 git add -- "結構工具箱/tools/tool-workflow.manifest.json" "結構工具箱/tools/tool-workflow.manifest.test.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" tool-workflow.browser.test.js tool-workflow.browser.contract.test.js tool-page-a11y.browser.test.js tool-page-a11y-build.contract.test.js "結構工具箱/tools/build-pages-artifact.js" vercel.json README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-10：第七階段 T29（耐震頁 Chart.js 按需載入）
-
-同包修正 `tool-workflow.browser.test.js` 的覆工板測試導航：計算切至報告後，以既有分頁返回參數再聚焦；所有原有斷言保留。手機報告表格橫溢照實列待決，覆工板產品不納入本包修改。
-
-`結構工具箱/tools/formal-browser-smoke.test.js` 量測耐震圖表前等待當前 Chart 實例完成繪製，保留原尺寸與幾何斷言；等待僅用於測試，計算核心與計算書不受影響。
-
-`結構工具箱/core/ui/chart-runtime.js` 為耐震靜力與動力頁共用的延後載入器，12 秒逾時、單一 Promise、失敗可重試並防止逾時後舊 script 回呼污染新請求；實際檔案須 ≤889 bytes。兩頁冷開不載入 Chart.js；首次需要畫譜才載入，失敗時保留耐震力圖說、完整數值表及動力頁規範譜表。摘要還原、計算核心和計算書產出不等待 Chart.js；報表只嵌入成功繪製的 data URI，無有效圖時以資料表／文字說明呈現。`結構工具箱/tools/seismic-chart-lazy.browser.test.js` 記錄原始瀏覽器錯誤、請求數和 summary，驗證 cold／first chart／blocked、動力摘要冷開 restore、timeout retry、並發與過期 generation。容量差異依契約逐路由列出，共用檔預期在兩路由各列一筆；保留契約現況，照原文回報，不去重或重設 baseline。
-
-```powershell
+<!--P2:SG-01-002-->
 git add -- "結構工具箱/core/ui/chart-runtime.js" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-dynamic.html" "結構工具箱/tools/seismic-chart-lazy.browser.test.js" "結構工具箱/tools/formal-browser-smoke.test.js" "結構工具箱/assets/home/home.js" tool-workflow.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 報表與載入稽核修正包（2026-10-04，本機）
-
-`report-format-parity.core.js`、`report-format-parity.contract.test.js`、報表 browser／parity／PowerShell 入口，以及 `結構工具箱/tools/tool-load-budget-contract.js`、`結構工具箱/tools/tool-load-budget-contract.test.js` 與載入 browser 檢查器同包審閱。`preflight-tools.ps1` 的 `report-format-parity-contract`／`tool-load-budget-contract` 是 quick、CI 與正式模式皆執行的輕量門檻；它們不代表已重跑四案 Word 或 52 頁載入。新 helper、載入基準及測試屬私人驗收工具，必須同時維護 Pages 排除與治理契約。基準只能接受容量差異，功能錯誤與來源漂移不得寫入；本包不重設既有基準、不更改公開狀態快照。
-
-## 第二階段 T2 共用報表工具包（2026-10-03，本機）
-
-`結構工具箱/core/ui/report-utils.js` 是等價純函式的單一來源；core 報表與鋼構副本、RC 薄 adapter `鋼筋混凝土/shared/report-utils.js`、載入順序與各測試 VM 的依賴須同包提交。RC 的計算指紋／封印仍採獨立契約。`shared/common.js` 提供格式化政策，原頁面 strict／coerce、預設位數與 fallback 差異以等價案例鎖定。`core/direct-print-boundary.css` 同步 RC 副本並保留明列的家族差異；同步脚本的 `-Check` 及首頁依賴日期同批驗證。純 Node 等價測試不能代替真實 popup／下載 HTML 的瀏覽器回歸。
-
-## 第二階段 T1 操作頁樣式包（2026-10-03，本機）
-
-RC 五頁與 `shared/style.css`、`shared/tool-page.css`，鋼構四頁與兩份操作 CSS、梁柱結果卡 hidden 切換，連續梁／平面剛架與 `assets/hy/*-ui.css` 應同包審查。原 id/class、計算與報表樣式保留；新增的 HY 引用與首頁依賴日期同步同包提交。`test-tool-page-layout.ps1` 是 11 頁 1280／375 px 初始與結果狀態的版面回歸入口；另跑各家族既有 wrapper，RC 共用樣式須涵蓋基礎、單樁與三支 STM。量測截圖、JSON、Office 輸出均留在忽略目錄，不更新正式發布快照。本段不代表公開站已放行。
-
-本檔目前扮演兩個角色：第一，記錄已發布到 `master` / GitHub Pages 的分包與證據；第二，保留下次同類變更可直接套用的 staging playbook。它不是目前待提交清單；若 `git status` 是 clean，以下 `git add` 區塊只作為未來變更時的審查邊界與 preflight coverage 來源。
-
-## 已停用治理流程的私有資料防線
-
-梁柱彎矩 G1 與工程資格化案件包已於 2026-09-29 停用並移除工具（可自 git tag `archive/governance-2026-09-29` 還原）。`.gitignore` 固定 basename、Pages builder 的案件包／實案 G1 basename 與 kind 內容掃描、qualification workspace marker 排除，以及 live HTTP 私有檔名探針仍保留，用來防止既有私人工作區資料誤入 repo 或 Pages；調整時須同批 staging `.gitignore`、`結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/pages-live-smoke.js` 與 `pages-release-governance.contract.test.js`。
-
-## 目前狀態
-
-- 工作樹基準：最新 HEAD 與遠端同步狀態以 `git status -sb`、`git log -1 --oneline` 為準，本文件不硬編碼自我引用的最新 commit hash，避免提交後立即失真。
-- 狀態快照證據基準：以 tracked `結構工具箱/assets/status/preflight-summary.json` 與 `report-readiness-status.json` 的 `runId`、`sourcePath`、`sourceHash` 為準；承載提交由 `git log -1 --oneline` 查詢，不在本 ledger 重複硬編碼。
-- 已落地提交：
-  - `4944fa7 Harden page-only report readiness release evidence`
-  - `b1a534e Expand report boundary governance across tools`
-  - `d530816 Refresh anchor deployment assets`
-  - `60f3c18 Update release status snapshots`
-  - `2029758 Enforce formal attachment boundaries and rendered release evidence`
-- 公開狀態快照正式放行基準：上述 tracked JSON 必須為 `quick=false`、`ForcePlatformAudit=true`、`ForceSlowChecks=true`、`sourceDirty=false`、`recordsCount=passedCount`、post checks 全數通過，且沒有慢測或平台巡檢重用；`sourceCommitSha`、`sourceBranch` 必須明確指出受測來源，當前 `runId` 直接讀取 JSON，不在本 ledger 複製。
-- 公開狀態快照發布基準：最新 `Pages deploy` 必須為 completed/success，並以 `gh run list --workflow "Pages deploy" --limit 1` 查詢；workflow run ID 不在本 ledger 硬編碼。
-- 公開狀態宣告一致性：首頁 `home.js` 動態產生的工具 metadata 是唯一公開清冊；RC 家族入口只重述一致版本與 formal 狀態；鋼構四個正式版本對齊共用 metadata；風力／地震 17 個入口對齊 `FormalToolMetadata`，報告將公開語意版本與內部計算引擎分欄；連續梁、平面剛架、斷面性質與合成斷面對齊 `AnalysisSectionToolMetadata`，畫面、案件 JSON 與計算書分列公開版本／內嵌計算引擎；石材畫面、核心與報告對齊 `StonePublicMetadata`，不得殘留舊 `V2`／`V2.1`；錨栓公開版本與計算引擎 build 分欄；覆工板頁面、JSON、報表共用 metadata；開挖維持服務型且不固化通過數；舊網址相容入口不得再保存第二份版本、能力、日期或通過狀態。`public-status-claims-contract` 必須留在 preflight summary 與 Global Governance Gates，Pages HTTP／Playwright 需覆蓋 canonical 版本、私有路徑排除及 RC／分析／斷面／鋼構／風力／地震／石材／覆工板／開挖／舊網址入口的直接列印封鎖。
-- 報告閱讀狀態：`頁面專用`；首頁正式工具實際交付物渲染數量以 tracked `report-readiness-status.json` 為準，page-only boundary `4/4`、issue `0` 與補充報告 / 服務成品 `2/2` 仍須全數通過；可讀文字、瀏覽器 smoke、完整性、結果鏈與封印也都從同一正式快照讀取。本 ledger 所列 Schema v35 數字是下一版 release contract 目標，正式公開狀態仍以完成放行後的同 run 快照為準。此總覽只能出現在頁面或工具本身，不得附入計算書、列印輸出或 PDF，也不得寫入 Word / DOCX 或 workbook；公開狀態只顯示類別、數量及通過狀態，不得帶出 scope、檔名、工具版本、bytes、雜湊、golden case 內容、案件資料、來源資料、預期數值、重現指紋、成品雜湊或計算指紋。
-- 已發布歷史快照（只供 lineage 查核）：Schema v28 曾為首頁正式工具實際交付物渲染 `37/37`、canonical `72/72`、公開合計 `151/151` 與局部快算結果鏈 `4/4`；Schema v29 曾為首頁正式工具實際交付物渲染 `38/38`、canonical `78/78`、公開合計 `157/157` 與局部快算結果鏈 `5/5`；Schema v30 曾為首頁正式工具實際交付物渲染 `39/39`、canonical `84/84`、公開合計 `163/163`、局部快算結果鏈 `6/6` 與鋼構結果鏈／雙封印 `5/5`。這些舊快照都不得冒充 Schema v31 的鋼構 `6/6`、canonical `86/86` 與公開合計 `165/165`；Schema v31 首頁 formal routes 仍為 `39/39`、局部快算仍為 `6/6`，只有 tracked 正式快照完成刷新後才能視為已發布。
-- 已發布 Schema v32：`frame-analysis-formal` 來源 JSON 結果鏈、PDF／evidence 及核可 HTML 雙封印均為 `1/1`，canonical 為 `88/88`、公開合計為 `167/167`、首頁 formal routes 為 `40/40`；producer 仍由 `frame-analysis-browser-smoke.test.js` 留在正式 preflight。
-- 已發布 Schema v33：鋼構主工具平板支撐 Gusset 拉力接頭的鋼構結果鏈與內容／核可雙封印均為 `7/7`，canonical 為 `90/90`、公開合計為 `169/169`、首頁 formal routes 維持 `40/40`；Schema v32 的鋼構 `6/6`、`88/88`、`167/167` 只供 lineage。
-- Schema v34 保留梁柱彎矩接頭與全斷面 CJP 耐震柱續接的鋼構 `9/9`、canonical `94/94`、公開 `173/173` lineage；不得用來滿足下一版 RSC／RSB 附件治理。
-- 下一版正式證據為 Schema v35：RSC v4／RSB v1 接收端正式附件必須 `1/1`，PDF、DOCX、canonical evidence、formal-source ZIP、RSC JSON 與 RSB JSON 六份成品必須 `6/6`；canonical 為 `96/96`、mixed-format 為 `17/17`、乾淨 DOCX 封裝為 `5/5`、公開匿名合計為 `179/179`。附件 builder、單元測試、release producer、rendered aggregate、成熟度、公開 schema、Pages 巡檢與治理文案必須同批 staging；公開狀態不得帶出檔名、SHA-256、RSC／RSB 計算指紋或逐檔 records。
-- 下列 A0~G 是下次同類變更的分包 playbook，不是目前待 staging 清單。
-
-## A0. 報告閱讀狀態與 Pages release governance
-
-已落地：`4944fa7 Harden page-only report readiness release evidence`。下次若再次調整頁面專用「優先建議報告閱讀狀態」、公開首頁狀態快照、Pages artifact 邊界或正式放行證據，這包仍應優先提交；它不納入錨栓 build hash 資產，也不納入 RC / Steel / 風力 / 地震工具頁本體的大量 UI 調整。若變更只把相同的 `.report-readiness` 面板樣式抽成共用資產，則共用 CSS、26 個引用頁、專用 contract / browser smoke 與 preflight 接線可留在同一 A0 包，且不得順手刷新公開狀態快照。
-
-下次同類變更低風險可整檔 staging 的檔案：
-
-```powershell
+<!--P2:SG-01-003-->
 git add -- "結構工具箱/tools/public-status-claims.contract.test.js" "鋼筋混凝土/index.html" "結構工具箱/index-classic.html"
 git add -- CONTEXT.md docs/adr/0001-page-only-report-readiness.md
 git add -- "結構工具箱/core/report-readiness.css" report-readiness-style.contract.test.js serve-local-browser-smoke.test.js preflight-tools.ps1
@@ -81,72 +16,7 @@ git add -- ".github/workflows/pages-deploy.yml" ".github/pages-smoke/package.jso
 git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/verify-pages-release-lineage.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/public-evidence-schema.test.js" "結構工具箱/tools/public-release-change-governance.test.js" "結構工具箱/tools/public-release-change-assistant.js" "結構工具箱/tools/public-release-change-assistant.test.js" "結構工具箱/tools/public-release-decision-receipt.js" "結構工具箱/tools/public-release-decision-receipt.test.js"
 git add -- ".github/pages-smoke/normalize-playwright-result.js"
 git add -- ".github/public-release-reduction-authorization.json" ".github/public-release-decision-anchor.json" "結構工具箱/assets/status/public-evidence-schema.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
-```
-
-下次同類變更需要人工 hunk review，或改隨後續「報告邊界 / 跨家族 contract」包一起 staging：
-
-- `STAGING_GROUPS.md`：若只提交 A0，需只挑 release ledger、A0 區塊與必要共同驗證 hunk，避免把其他 future playbook 調整混入。
-- `TOOL_BOUNDARIES.md`：若只提交 A0，需只挑 Pages / status snapshot / page-only 邊界相關 hunk。
-- `preflight-tools.ps1`：若只提交 A0，需只挑 `pagesReleaseGovernanceContractCommand`、`prValidationContractCommand` 與對應 `pages-release-governance-contract` / `pr-validation-contract` record hunk。
-- `README.md`：若只提交 A0，需只挑 Pages / report-readiness 相關 hunk。
-- `TOOL_REPORT_GUIDE.md`：若只提交 A0，需只挑 glossary / ADR / page-only 邊界 hunk。
-- `toolbox-entrypoints.contract.test.js`：若整檔 staging，必須同步 staging 它引用的 contract / preflight / home source 變更。
-- `結構工具箱/tools/report-disclosure.contract.test.js`、`結構工具箱/tools/audit-dashboard-browser-smoke.test.js`：依賴跨家族 report-boundary 變更，除非 A0 同時擴成報告邊界大包，否則不要整檔 staging。
-
-提交前驗證：
-
-```powershell
-node .\.github\pages-smoke\build-performance-trend.test.js
-node .\report-readiness-style.contract.test.js
-node .\serve-local-browser-smoke.test.js
-node .\pages-release-governance.contract.test.js
-node .\pr-validation.contract.test.js
-node .\toolbox-entrypoints.contract.test.js
-node .\結構工具箱\tools\report-disclosure.contract.test.js
-node .\結構工具箱\tools\tool-maturity-matrix.js --write --check
-.\run-preflight-tools-release.bat
-.\run-pages-artifact-smoke.ps1
-.\push-pages-release.ps1 -VerifyOnly
-git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/adr/0001-page-only-report-readiness.md ".github/workflows/pages-deploy.yml" ".github/pages-smoke/performance-budget.json" ".github/pages-smoke/write-ci-summary.js" ".github/pages-smoke/build-performance-trend.js" ".github/pages-smoke/build-performance-trend.test.js" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "push-pages-release.ps1" "push-pages-release.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/verify-pages-release-lineage.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/report-disclosure.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
-```
-
-`push-pages-release.ps1` 的成功不只依賴 Actions job 與 manifest 身分；一般推送、既有同 SHA 部署及 `-VerifyOnly` 都必須由目前工作站再次執行公開 `pages-live-smoke.js`，逐檔核對 v2 清冊與正式網址內容，並在結果回傳 `publicArtifactVerified=true`。工作站預設最多進行 3 次、間隔 10 秒的完整複驗，僅由 smoke 對 5xx 或網路暫態錯誤啟用；非暫態錯誤立即失敗，暫態重試用盡後也維持失敗，不得只因遠端 workflow 已綠燈而略過。
-
-上述逐檔清冊現由 schema v3 延續並增列 `releaseEvidence`。Pages provenance 變更必須同批 staging `結構工具箱/audit-dashboard.html`、dashboard contract / browser smoke、deployment manifest builder、HTTP smoke、safe push wrapper、release governance contract 與三份治理文件。builder 必須從實際發布的 tracked preflight / report-readiness 快照驗證正式 release 條件並綁定 release runId、產生時間與受測來源 SHA；公開 smoke 再核對 manifest 與兩份快照。artifact 完成複製後須逐檔掃描 Windows 使用者目錄與目前建置機 repo／家目錄的原始、斜線及 JSON 跳脫變體；掃描數與發布檔數不同或 findings 非 0 都要失敗關閉，已知私有 manifest 的精確排除不能取代這項通用守門。公開證據 schema v3／歷程 v2 另以 12 個 required counter 比較相鄰 release；先以 `public-release-change-assistant.js --json` 唯讀預覽，只有實際縮減才可用同一助手寫入一次性 `.github/public-release-reduction-authorization.json`，精確列出上一個 runId、全部縮減欄位／前後值與可公開理由。未使用、過期或不同 active 授權均阻擋；該輪發布後也只有 tracked 公開歷程證明完全相同縮減已使用時，`--reset-authorization` 才可重設 inactive。dashboard 必須分開顯示一般巡檢與正式 release 新鮮度，並揭露門檻基準、維持、提升、縮減或混合分類；7 日／30 日只作重驗提醒，缺 manifest 顯示「未部署證據」，身分不一致顯示紅色「未對齊」。
-
-正式 release 私人決策收據與公開歷程同屬 A0，但收據本身固定留在 ignored `output/preflight/history/`，不得 staging。`public-release-decision-receipt.js` 只在正式／後置檢查及三份公開快照完成後新增封閉 `PRD-` 收據，並以 canonical SHA-256 鏈回上一輪；Git-tracked `.github/public-release-decision-anchor.json` 只保存最新鏈尖身分，使整批 ignored 收據被刪除仍會阻擋。同 run 不得改寫不同內容，斷鏈、錨點不符、舊收據竄改或前輪縮減核准仍 pending 都會失敗關閉。使用核准的 release 必須由 `public-release-change-assistant.js --reset-authorization` 另增 `PRA-` 重設收據才算結案；若收據交易失敗，active 授權必須復原。產生器、測試、收據、核准設定、錨點及其中證據雜湊都不進 Pages、dashboard、計算書或正式附件。
-
-dashboard 公開／本機資料範圍變更也屬 A0 同包。有效 v3 manifest 必須使公開頁只讀 manifest 與三份 tracked status，禁止發出任何 `output/` 請求並隱藏私人摘要連結；四張公開卡片必須各自以 tracked 結構化欄位驗證正式 release、鋼構、RC、風震／跨家族交付完成數，不得複製同一 platform pass 或以文案推定。localhost 只有明確 `?audit_scope=local` 才啟用完整診斷。`audit-dashboard-browser-smoke.test.js` 應以 request audit 同時證明本機資料仍完整、公開桌面與手機皆零 private-output 請求，並核對四個證據面向及完成數；不能只忽略 404 console 訊息。
-
-公開證據 Schema v2／歷史變更同樣屬 A0 同包。`preflight-summary.json` 只可在既有三快照 lineage 內保存最近 8 次正式 release 摘要；每筆必須含受測 commit、全數通過的正式／後置門檻、四面向與十組完成數，按 runId／時間遞增並以目前 release 為終點。舊資料只從 Git 中可重驗的三快照成套回填，重複 carrier 去重；不得推測不完整舊值或加入案件、輸入、逐檔清冊、來源路徑、私密雜湊。Dashboard、manifest、HTTP／browser smoke、schema 負向測試及三份治理文件必須一起 staging。
-
-成功 smoke 必須輸出唯一的 `pagesHttpSmokeAttemptCount`；安全發布入口只接受大於 0 且不超過 `PublicSmokeAttempts` 的值，並回報 `publicArtifactVerificationAttemptCount` 與 `publicArtifactVerificationRetried`。缺少、重複或超界均視為工作站驗證失敗。
-
-正式 live HTTP 另以每一請求 15000 ms 逾時、最多 4 次、間隔 1000 ms 的有限重試處理逾時／隨機 5xx／網路暫態，耗盡後才進入既有整輪清冊重跑；staged gate 與本機 artifact 預演仍維持單次請求失敗即阻擋，但共用預設 30000 ms 逾時，不能無限懸掛。工作站安全發布入口須設定並在 `finally` 還原 `PAGES_HTTP_REQUEST_ATTEMPTS`、`PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS`、`PAGES_HTTP_REQUEST_TIMEOUT_MILLISECONDS`，並回報 request 上限、間隔與逾時。failed log 只能在 Actions API 證明 run 已 `completed` 後讀取；若 aggregate 尚未收斂，應保留原始 failed-job 錯誤，不得由 `gh run view --log-failed` 的 in-progress 錯誤覆寫根因。
-
-Pages CI 效能趨勢固定使用私有 `performance-trend` job：當輪 build／live 收據必須完整成對，歷史只取成功 run 中同樣成對的 14 天 artifact。只有四個 exact cache hit 的同 lock digest 樣本可進最近 20 輪序列；冷快取當輪要列出排除原因，不能誤判部署失敗。trend v1 必須逐輪保存 build／live 的 runtime、HTTP、browser 六個毫秒值，並能重算 nearest-rank P50／P95；不足 3 輪顯示 `collecting`，不得假裝具備成熟統計。趨勢來源、測試、JSON、摘要與歷史收據均為私有 CI 治理，不得發布至 Pages 或放入計算書／正式附件。
-
-Windows 發布一律優先執行 `push-pages-release.bat`；此入口先找 PowerShell 7，再以 Windows PowerShell 5.1 後備。`push-pages-release.ps1` 必須維持 ASCII 來源路徑解析，不得重新加入會受 5.1 UTF-8 無 BOM 解碼影響的中文路徑字面值。
-
-下次不要混入本包：
-
-- `anchor/assets/` 舊 hash 刪除 / 新 hash 新增，改放 B 包。
-- `鋼筋混凝土/`、`鋼構工具/`、`結構工具箱/tools/風力/`、`結構工具箱/tools/地震力/` 的頁面本體變更，改放 E / F 或正式工具包。
-- `螺栓檢討/bolt-review-tool/` 原始碼與 `/anchor/` 部署鏡像，分別放 G / B 包。
-
-已落地提交訊息；下次可沿用同樣聚焦格式：
-
-```text
-Harden page-only report readiness release evidence
-```
-
-## A. 平台穩定化與驗證入口
-
-已落地：跨家族報告 / 閱讀狀態治理主要在 `b1a534e Expand report boundary governance across tools`。下次若再次調整巡檢、preflight、ignore 與文件，仍可用本包作為平台治理 playbook；它不包含錨栓 build hash 資產。
-
-下次可直接 staging 的檔案：
-
-```powershell
+<!--P2:SG-01-004-->
 git add -- continuous-beam-report-visual.test.js
 git add -- .gitignore README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/ docs/adr/0001-page-only-report-readiness.md .github/workflows/pages-deploy.yml .github/workflows/pr-validation.yml preflight-tools.ps1 run-preflight-tools.bat run-preflight-tools-quick.bat run-preflight-tools-ci.bat run-preflight-tools-release.bat run-pages-artifact-smoke.ps1 push-pages-release.ps1 push-pages-release.bat sync-anchor-deployment.ps1 continuous-beam-regression.test.js test-continuous-beam.ps1 "連續梁分析.html" browser-dialogs.contract.test.js decking-tools.contract.test.js frame-analysis.contract.test.js pages-release-governance.contract.test.js pr-validation.contract.test.js section-tools.contract.test.js stone-feedback.contract.test.js struct-dx.contract.test.js toolbox-entrypoints.contract.test.js "SRC工具/core/src-beam-core.js" "SRC工具/src-beam.html" "SRC工具/src-beam.css" "SRC工具/src-beam.js" "SRC工具/src-beam-core.test.js" "SRC工具/src-beam.contract.test.js" "SRC工具/src-beam-browser-smoke.test.js" "SRC工具/src-traceability.catalog.json" "SRC工具/core/src-column-core.js" "SRC工具/src-column.html" "SRC工具/src-column.css" "SRC工具/src-column.js" "SRC工具/src-column-page.contract.test.js" "SRC工具/src-column-browser-smoke.test.js" "SRC工具/src-column-core.test.js" "SRC工具/src-column-traceability.catalog.json" "SRC工具/README.md" "結構工具箱/tools/independent-engineering-adapters/src-beam.js"
 git add -- "SRC工具/core/src-column-h-section-catalog.js" "SRC工具/core/src-column-rc-biaxial.js" "SRC工具/core/src-column-shear.js" "SRC工具/core/src-column-weak-axis-shear-reference.js" "SRC工具/core/src-column-seismic-axial.js" "SRC工具/core/src-column-seismic-detailing.js" "SRC工具/core/src-column-oracle.js" "SRC工具/src-column-h-section-catalog.test.js" "SRC工具/src-column-rc-biaxial.test.js" "SRC工具/src-column-shear.test.js" "SRC工具/src-column-seismic-axial.test.js" "SRC工具/src-column-seismic-detailing.test.js" "SRC工具/src-column-oracle.test.js"
@@ -156,11 +26,7 @@ git add -- platform-audit-preflight.ps1 refresh-platform-status.ps1 audit-all.ps
 git add -- "鋼構工具/run-audit.bat" "鋼筋混凝土/run-audit.bat" "結構工具箱/audit-core.ps1" "結構工具箱/run-audit-core.bat"
 git add -- run-audit-all.bat run-audit-all-loop.bat run-preflight-tools.bat run-preflight-tools-quick.bat run-preflight-tools-ci.bat run-preflight-tools-release.bat "鋼筋混凝土/run-audit.bat" "鋼筋混凝土/run-audit-loop.bat" "鋼構工具/run-audit.bat" "鋼構工具/run-audit-loop.bat" "鋼構工具/run-sync-formal-core.bat" "結構工具箱/run-audit-core.bat"
 git add -- "開挖擋土支撐/start_html_mode.ps1" "開挖擋土支撐/stop_html_mode.ps1" "開挖擋土支撐/sign_receiver_request.ps1" "開挖擋土支撐/簽署RVR身分請求.bat" "開挖擋土支撐/簽署SEV身分請求.bat" "開挖擋土支撐/簽署治理健康檢核點.bat" "開挖擋土支撐/verify_receiver_governance_checkpoint.ps1" "開挖擋土支撐/驗證治理健康檢核點.bat" "開挖擋土支撐/receiver_governance_timestamp.ps1" "開挖擋土支撐/建立治理檢核可信時間請求.bat" "開挖擋土支撐/完成治理檢核可信時間證據包.bat" "開挖擋土支撐/驗證治理檢核可信時間證據包.bat" "開挖擋土支撐/verify_source_evidence_chain.ps1" "開挖擋土支撐/驗證SEV證據鏈.bat" "開挖擋土支撐/backup_receiver_trust_registry.ps1" "開挖擋土支撐/check_receiver_trust_backup_health.ps1" "開挖擋土支撐/備份與演練RVR信任清冊.bat" "開挖擋土支撐/檢查RVR備份健康狀態.bat" "開挖擋土支撐/GOVERNANCE_CHECKPOINT_VERIFIER.md" "開挖擋土支撐/GOVERNANCE_CHECKPOINT_TRUSTED_TIMESTAMP.md" "開挖擋土支撐/SOURCE_EVIDENCE_CHAIN_VERIFIER.md" "開挖擋土支撐/RECEIVER_IDENTITY_SIGNATURE.md" "開挖擋土支撐/RECEIVER_KEY_MANAGEMENT.md" "開挖擋土支撐/excavation-traceability.contract.test.js" "開挖擋土支撐/excavation-report.contract.test.js" "開挖擋土支撐/backend/verify_receiver_governance_checkpoint.py" "開挖擋土支撐/backend/receiver_governance_timestamp.py" "開挖擋土支撐/backend/verify_source_evidence_chain.py" "開挖擋土支撐/backend/tests/test_receiver_governance_checkpoint_verifier.py" "開挖擋土支撐/backend/tests/test_receiver_governance_timestamp.py" "開挖擋土支撐/backend/tests/test_source_evidence_chain_verifier.py" "開挖擋土支撐/backend/app/receiver_governance_checkpoint.py" "開挖擋土支撐/backend/app/receiver_trust_recovery.py" "開挖擋土支撐/backend/backup_receiver_trust_registry.py" "開挖擋土支撐/backend/tests/test_receiver_governance_checkpoint.py" "開挖擋土支撐/backend/tests/test_reporting.py" "開挖擋土支撐/backend/tests/test_receiver_trust_recovery.py" "開挖擋土支撐/backend/tests/release_report_artifacts.py"
-
-外部歸檔收據：`git add -- "開挖擋土支撐/receiver_governance_archive.ps1" "開挖擋土支撐/建立治理可信時間外部歸檔請求.bat" "開挖擋土支撐/完成治理可信時間外部歸檔證據包.bat" "開挖擋土支撐/驗證治理可信時間外部歸檔證據包.bat" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE.md" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json" "開挖擋土支撐/backend/receiver_governance_archive.py" "開挖擋土支撐/backend/tests/test_receiver_governance_archive.py" "開挖擋土支撐/excavation-traceability.catalog.json" "開挖擋土支撐/excavation-traceability.contract.test.js" "開挖擋土支撐/backend/tests/test_reporting.py" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" "preflight-tools.ps1" "toolbox-entrypoints.contract.test.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"`
-外部歸檔生命週期：`git add -- "開挖擋土支撐/receiver_governance_archive_lifecycle.ps1" "開挖擋土支撐/簽發外部歸檔週期狀態收據.bat" "開挖擋土支撐/建立外部歸檔生命週期檢查點.bat" "開挖擋土支撐/驗證外部歸檔生命週期檢查點.bat" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE.md" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE.md" "開挖擋土支撐/GOVERNANCE_CHECKPOINT_TRUSTED_TIMESTAMP.md" "開挖擋土支撐/RECEIVER_IDENTITY_SIGNATURE.md" "開挖擋土支撐/RECEIVER_KEY_MANAGEMENT.md" "開挖擋土支撐/backend/receiver_governance_archive_lifecycle.py" "開挖擋土支撐/backend/tests/test_receiver_governance_archive_lifecycle.py" "開挖擋土支撐/backend/tests/test_reporting.py" "開挖擋土支撐/README.md" "開挖擋土支撐/excavation-traceability.catalog.json" "開挖擋土支撐/excavation-traceability.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"`
-多案件外部歸檔生命週期總覽：`git add -- .gitignore "開挖擋土支撐/receiver_governance_archive_lifecycle_portfolio.ps1" "開挖擋土支撐/檢查多案件外部歸檔生命週期.bat" "開挖擋土支撐/建立多案件外部歸檔生命週期總覽快照.bat" "開挖擋土支撐/驗證多案件外部歸檔生命週期總覽快照.bat" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO.md" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE.md" "開挖擋土支撐/backend/receiver_governance_archive_lifecycle_portfolio.py" "開挖擋土支撐/backend/tests/test_receiver_governance_archive_lifecycle_portfolio.py" "開挖擋土支撐/backend/tests/test_receiver_governance_archive.py" "開挖擋土支撐/backend/tests/test_reporting.py" "開挖擋土支撐/README.md" "開挖擋土支撐/excavation-traceability.catalog.json" "開挖擋土支撐/excavation-traceability.contract.test.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" pages-release-governance.contract.test.js "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"`
-多案件外部歸檔生命週期排程監測、案件導入、管理中心與本機儀表板：`git add -- .gitignore "開挖擋土支撐/receiver_governance_archive_lifecycle_monitor.ps1" "開挖擋土支撐/manage_receiver_governance_archive_lifecycle_monitor_task.ps1" "開挖擋土支撐/onboard_receiver_governance_archive_lifecycle_monitor.ps1" "開挖擋土支撐/receiver_governance_archive_lifecycle_monitor_center.ps1" "開挖擋土支撐/安裝多案件外部歸檔生命週期每日監測.bat" "開挖擋土支撐/開啟多案件生命週期監控管理中心.bat" "開挖擋土支撐/檢查多案件外部歸檔生命週期監測排程.bat" "開挖擋土支撐/移除多案件外部歸檔生命週期每日監測.bat" "開挖擋土支撐/backend/receiver_governance_archive_lifecycle_monitor.py" "開挖擋土支撐/backend/tests/test_receiver_governance_archive_lifecycle_monitor.py" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR.md" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json" "開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json" "開挖擋土支撐/backend/tests/test_reporting.py" "開挖擋土支撐/README.md" "開挖擋土支撐/excavation-traceability.catalog.json" "開挖擋土支撐/excavation-traceability.contract.test.js" "結構工具箱/audit-dashboard.html" "結構工具箱/tools/audit-dashboard.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" pages-release-governance.contract.test.js "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"`
+<!--P2:SG-01-005-->
 git add -- ".github/pages-smoke/normalize-playwright-result.js"
 git add -- index.html "斷面性質計算.html" "合成斷面性質.html" "RC補強斷面性質.html" dev_tools/section-properties-browser-smoke.js
 git add -- "解題/struct_dx/frontend/diagnosis.html" "解題/struct_dx/frontend/verify_engine.html" "解題/struct_dx/frontend/struct_suite.html"
@@ -173,81 +39,16 @@ git add -- "結構工具箱/core/ui/report.js" "鋼構工具/core/ui/report.js" 
 git add -- "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/地震力/seismic-dynamic.html"
 git add -- "結構工具箱/tools/風力/wind-special.html"
 git add -- "結構工具箱/tools/風力/wind-shared-profile.js" "結構工具箱/tools/風力/wind-overview.html" "結構工具箱/tools/風力/wind-kzt.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-sign-pole.html"
-```
-
-建議提交訊息：
-
-```text
-Add formal report traceability metadata
-```
-
-## B. 錨栓部署鏡像
-
-已落地：`d530816 Refresh anchor deployment assets`。下次更新 `anchor/` 靜態部署輸出時，必須讓舊 hash 刪除、新 hash 新增與部署 fingerprint manifest 一起 staging；共用鏡像固定採 `./` 相對 base，才能同時支援 Pages 倉庫子路徑與 Vercel `/anchor/`。
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\sync-anchor-deployment.ps1
+<!--P2:SG-01-006-->
 git add -A -- anchor/index.html anchor/service-worker.js anchor/manifest.webmanifest anchor/deployment-manifest.json anchor/assets
-```
-
-提交前檢查：
-
-```powershell
-Select-String -Path "anchor/index.html","anchor/service-worker.js" -Pattern '\./assets/|BASE_PATH'
-Get-Content "anchor/deployment-manifest.json"
-```
-
-建議提交訊息：
-
-```text
-Refresh anchor deployment assets
-```
-
-## C. 候選工具目錄
-
-下次不建議直接整包 staging。先分別決定是否納入 repo，並把案例資料、Office/PDF 輸出與暫存資料排除。
-
-- `石材固定/`：以「正式 V2 工具、測試治理與必要離線 vendor 納入，參考資料排除」處理。納入 `.gitignore`、核心 HTML、server/export Python、`js/`、`tests/`、`dev_tools/`、必要 `vendor/`、文件、`stone-traceability.catalog.json`、`stone-traceability.contract.test.js`、`stone-report.contract.test.js` 與維護批次檔；排除 PDF/XLS/Word 範例、圖片、`專案報告/`、output/release/tmp 與舊版 HTML。注意：`dev_tools/`、Python helper、測試資料與本機註冊檔可留在 repo 供治理使用，但 GitHub Pages artifact 必須排除，避免 baseline / diagnostics / source / local launcher helper 等維護檔公開。
-- 石材風速／耐震資料治理必須以跨工具原子變更集提交：`結構工具箱/core/loads/wind.js`、`結構工具箱/core/loads/seismic-zones.js`、`結構工具箱/core/loads/seismic.js`、`結構工具箱/core/loads/regulatory-locations.js` 是唯一規範資料與換算核心；`結構工具箱/core/loads/project-location.js` 只保存縣市、鄉鎮與地盤分類，套用時必須由上述主庫重新解析，不得凍結規範係數。`結構工具箱/tools/sync-stone-regulatory-vendor.js` 只負責產生石材離線副本，`結構工具箱/tools/project-location.test.js` 與 `結構工具箱/tools/regulatory-data.contract.test.js` 必須在 preflight 驗證共用工址的明確套用、SHA-256 同步、行政區正規化、370 筆風速交叉比對零衝突與唯一明示例外。石材的 `vendor/loads/wind.js`、`vendor/loads/seismic-zones.js`、`vendor/loads/seismic.js`、`vendor/loads/regulatory-locations.js`、`vendor/loads/project-location.js`、石材正式 V2 頁、耐風案件總覽、四支正式耐震頁、input schema、traceability catalog／contract、report contract、瀏覽器 smoke、版本與交付文件需同批 staging；舊頁若保留，只能維持停止維護提示且不得再把 SsD 自動寫入 SDS。
-- `開挖擋土支撐/`：以「程式碼納入、工程資料排除」處理。納入 `.gitignore`、`README.md`、`index.html`、`backend/`（含 `requirements.txt`、治理健康 GCR／GHC／GCV 檢核點與獨立驗證、`backend/app/pdf_render_evidence.py`、`backend/tests/test_pdf_render_evidence.py`、`backend/tests/release_report_artifacts.py` 與匿名正式附件證據鏈演練）、`frontend/index.html`、`frontend/package*.json`、`frontend/src/`、`frontend/tsconfig*.json`、`frontend/vite.config.cjs`、`frontend/vite.config.ts`、`start_html_mode.ps1`、`stop_html_mode.ps1`、`excavation-traceability.catalog.json`、`excavation-traceability.contract.test.js`、`excavation-report.contract.test.js`；排除工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`、`*.tsbuildinfo`。PDF／DOCX 報表文件狀態、核可欄位、API／前端控制、核可 PDF 逐頁 OCR／文字層證據與 `.formal-source.zip` 搬運套件、報表測試、治理檢核點與獨立 GCV 驗證、證據鏈演練、附件檢查／組包／事後驗證器、catalog 與文件必須一起 staging；preflight 已做 launcher、traceability contract、report boundary contract、backend quick/full tests 與 frontend build，完整 backend gate 會實際組成並驗證匿名 v3 正式附件包。正式 release 的當輪 PDF、DOCX、latest download 副本與結構摘要只留在 ignored 的 `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/excavation-formal/`。
-- `覆工板/`：以「程式碼納入、工程資料排除」處理。納入 `.gitignore`、`README.md`、`index.html`、`report/gen_report.py`、`shared/h-section-table.js`、`test-fixtures/report-smoke.json`、`dump_xls.py`、`產生計算書.bat`、`decking-result-replay.js`、`decking-report.contract.test.js`、`decking-traceability.catalog.json`、`decking-traceability.contract.test.js`；排除 Excel、Word/PDF、`吊車/`、`_extracted/`、dump 文字檔、pycache 與本機輸出。preflight 已做 Python compile、來源 JSON 重算、Word 報告邊界 contract 與 traceability contract；正式 release 的當輪來源 JSON、DOCX 與結構摘要只留在 ignored 的 `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/decking-formal/`，不提交案件成品。
-- `鋼架/`：目前只有 `平面剛架分析.html`，頁面 / 計算書邊界已由根目錄 `frame-analysis.contract.test.js` 治理；產出追溯與內部審閱／正式附件核可狀態必須與頁面本體及該 contract 一起 staging、一起審查。
-- 平面剛架 V1.6 的基礎樁帽基本載重轉接另依賴 `結構工具箱/core/loads/loadcombo.js`、`結構工具箱/core/ui/force-picker.js`、`鋼筋混凝土/tools/foundation.html` 與其轉接測試；上述檔案必須視為同一跨工具變更集。
-- ETABS／SAP2000 Joint Reactions 表格轉接必須同批 staging `鋼筋混凝土/shared/joint-reaction-load-adapter.js`、單元測試、`joint-reaction-load-adapter-fixtures.test.js`、瀏覽器／Node 共用 `joint-reaction-fixture-sanitizer-core.js`／測試、`joint-reaction-fixture-sanitizer.js`／測試、`joint-reaction-fixture-promotion-gate.js`／測試、`joint-reaction-observed-intake.js`／測試、人工審閱模板、`shared/fixtures/joint-reactions/`、`鋼筋混凝土/tools/foundation.html`、基礎與樁帽橋接回歸、`鋼筋混凝土/tools/test-foundation.ps1`、`鋼筋混凝土/tools/test-pile-cap-3d-stm.ps1`、RC traceability catalog、`結構工具箱/tools/tool-maturity-matrix.js`、稽核儀表板及其契約／browser smoke、Pages artifact builder／HTTP 負向探針／release governance contract、報告邊界文件。不得只提交 UI：只有 `Linear Static`／`LinStatic` 可作線性組合基本案例；CaseType 缺漏、載重組合、Response Spectrum、Time History、Nonlinear Static、其他 CaseType、多步驟／重複列、單位、軸向、作用反作用與原始 CSV SHA-256 必須由同一變更集驗證。來源只先形成候選，人工採用後才可覆寫 D／L／W／E；讀檔預檢與匿名收件操作只留工作頁，不進計算書。fixtures 的來源政策必須保留：合成相容性樣本不得改稱官方或實際工程匯出檔；intake／sanitizer output 一律保持 ignored candidate，review 預設全部未核可，receipt 不保存來源路徑、檔名、完整或部分原始 hash，候選檔名只可使用匿名輸出 hash，且 `originKind` 必須明確分類，只有 `actual-observed` 可進 promotion gate。瀏覽器 `rc-joint-reaction-browser-intake-package.v1` 必須由 `--package` 安全解包、拒絕路徑跳脫與預先核可 review，並重建 receipt 後才可進人工審閱；直接 intake 與 `--package` 都必須先預檢四個輸出目標，拒絕符號連結、非一般檔案或既有不同內容，允許完全相同的重入，並在中途失敗時回滾當輪新建檔案。observed fixture 必須由 promotion gate 以有效 reviewer／reviewedAt、八項人工聲明與明確 `--promote yes` 升級，並與不含來源 SHA-256 的 provenance、`observed-manifest.json` 同批 staging，不得直接複製候選檔或 evidence。正式升級必須先確認清冊檔與完整父路徑的 resolved path／realpath 相同並在取得鎖前重查，拒絕祖先或直接 junction／符號連結及評估後路徑身分改變；再以清冊獨占鎖串行化，在鎖內重評估，以同目錄 backup／next、原清冊再確認、manifest 原子替換及寫後驗證完成。目標衝突、路徑 alias、鎖競爭、外部清冊異動或替換失敗都須保留原有／外部資料並回滾當輪新檔。中斷 lock、next、backup、clear 暫存不得 staging，必須由精確 `.gitignore` 排除。先以 `--lock-status yes` 唯讀診斷；只允許清除同主機、程序已停止至少 10 分鐘、無任何交易暫存、且為單純遺留鎖或三份正式產物已完整驗證的狀態。清除必須同時給 `--clear-stale-lock yes` 與診斷回傳的完整 lock SHA-256，經同目錄原子隔離與回讀才刪除；舊版／破損鎖、異地主機、活躍／近期程序、局部寫入、暫存殘留或競態內容一律失敗關閉。公開 Pages 只能包含 foundation 頁實際載入的 load adapter 與瀏覽器 sanitizer core；Node intake／sanitizer／promotion gate、review 模板及 fixtures 必須由集中發布清冊與 HTTP 負向探針排除。成熟度輸出與 dashboard 必須分開列出合成、實際匿名、候選、交易／canonical 路徑閘門狀態、唯讀 lock 診斷與 SHA 綁定清除命令；不得以合成 fixtures 增加正式成熟度或宣稱實際軟體版本已驗證。
-- RC 深梁／基礎深構材／樁帽三維 STM 必須各自以「核心＋單元測試＋頁面＋browser／PDF regression＋PowerShell wrapper」為最小單位：`deep-beam-stm.js`／測試、`tools/deep-beam-stm.html`、`deep-beam-stm-regression.test.js`、`test-deep-beam-stm.ps1`；`foundation-deep-beam-stm.js`／測試、`tools/foundation-deep-beam-stm.html`、`foundation-deep-beam-stm-regression.test.js`、`test-foundation-deep-beam-stm.ps1`；`pile-cap-3d-stm.js`／測試、`tools/pile-cap-3d-stm.html`、`pile-cap-3d-stm-regression.test.js`、`pile-cap-3d-stm-bridge-regression.test.js`、`test-pile-cap-3d-stm.ps1`。並把共用 `beam-applicability.js`、`pile-cap-load-combinations.js`、`pile-cap-3d-stm-bridge.js`、`pile-cap-3d-stm-envelope.js` 及其測試、`鋼筋混凝土/tools/beam.html`、`foundation.html`、`test-beam.ps1`、`test-foundation.ps1`、RC index／README／traceability catalog、RC audit 接線與根目錄治理文件同批 staging。不得只提交三個 HTML 或只提交新核心。三頁的操作提示、適用性判斷與方法邊界維持 page-only；計算書只保留已採用模型、輸入、公式、代入、工程結果與文件狀態。多跨、偏心、開孔、不對稱、多柱、斜樁、拔力樁、水平反力、扭矩、缺角樁群、任意三維桁架及施工錨定細節不得因新增 STM 子工具而被宣稱已涵蓋；三頁現已依產品決策新增為 `/rc-deep-beam-stm`、`/rc-foundation-deep-beam-stm`、`/rc-pile-cap-3d-stm` 三個獨立首頁正式入口；首頁、clean route、Vercel、rendered inventory、獨立基準與契約必須同批 staging。
-- `SRC工具/`：正式 `/src-beam` 與 `/src-column` 須一起納入 `core/src-beam-core.js`、`src-beam.html`、`src-beam.css`、`src-beam.js`、三個 core／contract／browser smoke 測試、`src-traceability.catalog.json`、`README.md` 與 `結構工具箱/tools/independent-engineering-adapters/src-beam.js`。這些檔案與獨立基準 catalog／runner／test、rendered delivery inventory／aggregate、`preflight-tools.ps1`、`vercel.json`、首頁卡片與根目錄文件必須一起 staging；瀏覽器輸出的 PNG／PDF／案件 JSON 仍留在 ignored output，不得提交。正式入口為 40 / 40；release 當輪必須在 `src-formal` 保存 PDF、來源 JSON、計算指紋與雜湊證據，且 Pages 須驗證首頁卡片、clean route 與私有證據邊界。
-- `SRC工具/` 的正式 SRC 柱 V1.0 須將 `src-column.html`、`src-column.css`、`src-column.js`、頁面契約／瀏覽器測試、核心、catalog、oracle、外部弱軸剪力對照、所有對應測試、追溯 catalog、共用 `鋼筋混凝土/shared/pmsection.js`／測試、共用 `結構工具箱/core/ui/report.js`、首頁、`/src-column` Pages route、獨立工程基準、rendered-delivery inventory 與根目錄文件一起 staging。單向案件 schema v1、雙向案件 schema v1 與 traceability schema v17 的責任矩陣／材料來源政策必須同時驗證；V0.3～V0.8 舊案只可在重算並產生新指紋後遷移。受控 catalog 斷面可在人工審閱後勾選核可，人工斷面只能列印內部審閱。計算書只列採用教材表頁、catalog 版本、設計值、公式、結果與結論；責任矩陣及供貨／材證說明只留在 HTML。正式 release 必須在 `src-formal` 同時保存 SRC 梁與 SRC 柱核可 PDF、來源案件 JSON、計算指紋與雜湊證據。
-
-舊版附件包升級評估：新增或調整 `attachment-package-upgrade-assess.js` 時，必須同步 staging 回歸測試、事後驗證器欄位、preflight 接線、Pages artifact／private-boundary 清冊與三份治理文件。評估器固定唯讀，先沿用事後驗證；blocked 包不得提出升級捷徑，v1／v2 完整包只能回傳 review／CLI 1，並要求保留舊包、由原始工具重新確認與輸出、重新核可、另建 v3。不得原地修改舊包、補造 metadata、推算核可時間或自行產生正式附件；v3 完整包回傳 ready／CLI 0，任何完整性或工程內容錯誤仍以 blocked／CLI 2 優先。v3 驗證必須重新解析包內正式附件與來源 JSON，套用正向內容及文件狀態規則，並核對清單 metadata 與實際文字；測試需涵蓋同步改寫附件、雜湊、清單及附件包指紋後，空殼內容與 metadata 不一致仍被阻擋。逐份工作清單必須以產出工具、正規化版本與共享指紋配對，列出附件、來源、舊輸出時間、指紋及四項待辦；來源缺漏時標示外部可信來源，不得從報告反推輸入，v3／blocked 工作清單固定為空。測試需涵蓋多附件配對、來源缺漏、文字／JSON 同源，並以升級前後全目錄 SHA-256 快照證明零寫入。
-
-舊版附件安全升級工作區：新增或調整 `attachment-package-upgrade-workspace.js` 時，必須同步 staging 測試、preflight 接線、Pages artifact／private-boundary 清冊與三份治理文件。建立器只能在完整 v1／v2 包上另建工作區，且建立後仍為 review／CLI 1；不得複製舊附件、來源、metadata 或核可時間。內部 JSON／Markdown 待辦固定放在 `00_內部升級工作說明_勿附入主報告/`，可交給正式組包器的新檔案固定放在獨立的 `01_新組包來源/`，初始內容只能是空白子資料夾。輸出不得位於舊包內、包住舊包或覆寫既有資料夾，需採暫存後原子發布；測試必須以舊包 SHA-256 快照、精確工作區檔案清冊、核可欄位排除、發布失敗清理及 v3／blocked 不建工作區證明邊界。
-
-升級工作區完成度閘門：新增或調整 `attachment-package-upgrade-workspace-check.js` 時，必須同步 staging 測試、`attachment-package-build.js` 強制接線、preflight、Pages 私有清冊與三份治理文件。完成度檢查固定唯讀，需驗證 `WSP-` 工作清單指紋、JSON／Markdown 同源、兩區固定邊界，再以產出工具與共享舊指紋逐份唯一配對新計算書及新來源；新版本可不同，但新檔彼此的版本／案件／指紋需一致，且輸出、來源儲存與正式核可均不得早於工作區建立時間。缺件或未核可只能 review，指紋／控制邊界異常必須 blocked，只有全部完成可 ready。組包器辨識 `01_新組包來源` 後不得繞過此閘門，新 v3 輸出也不得落在工作區內。測試必須涵蓋空白工作區、複製舊檔仍不通過、全新輸出可組成驗證通過的 v3、內部審閱、來源／報告指紋不符、清單／Markdown／根目錄遭改寫、CLI 0／1／2／3 與全工作區 SHA-256 零寫入。
-
-共用計算書文件狀態：調整 `結構工具箱/core/ui/report.js` 的核可方塊、選填核可人／核可依據、內部審閱／正式附件頁尾、目前版本 HTML／TXT 下載、PDF 預設標題、空白案件欄位省略或輸入變更撤銷核可時，必須同步 staging `鋼構工具/core/ui/report.js`、`鋼筋混凝土/shared/report.js`、`section-tools.contract.test.js`、`continuous-beam-regression.test.js`、`continuous-beam-report-visual.test.js`、`frame-analysis.contract.test.js`、附件檢查器與反向測試、相關頁面、README、邊界文件、ADR、首頁／矩陣／dashboard 說明與 browser smoke。啟用 TXT 的頁面必須由同一份計算書狀態衍生 UTF-8 BOM 文字備查，Edge 代表案例須實際下載並驗證追溯檔名、同源內容、可重算 SHA-256 與 `blocked / non-formal-reference-text` 組包邊界。下載 HTML 必須保存唯一且不執行 JavaScript 也能辨識的文件狀態列、核可時間、已填核可紀錄與計算指紋，移除互動控制，重新開啟時沿用該列且不得重複插入狀態 UI；核可人與依據留空不得降低正式附件身分，填寫後則必須受核可封印保護。分頁標題必須由穩定報告名稱、目前文件狀態與指紋組成，不得在重新載入或切換時重複串接；頁面診斷明細仍維持 page-only。
-
-附件組包文件分類：調整 `attachment-package-check.js` 的 `文件狀態：內部審閱` 阻擋、`文件狀態：正式附件`、輸出／核可時間辨識與順序、追溯欄位、來源內容穩定性、來源符號連結／junction 或未分類 review 規則時，必須同步 staging 檢查／組包／事後驗證測試與三份治理文件。計畫名稱、計畫編號與設計人可由主文承接；產出工具、版本、輸出時間與指紋仍依追溯規則檢查，正式附件另須具備有效核可時間，且核可不得早於輸出。專案 JSON 維持來源資料角色，不要求報告文件狀態或核可時間；來源在解析前後的 SHA-256 必須一致，組包時需再確認檢查完成、複製前、複製後與目標檔案雜湊完全相同，測試需模擬檢查後替換與複製期間變更皆失敗封閉。來源根目錄或內容含連結／junction 時必須 blocked 並列名，組包複製層還需逐層拒絕連結及確認實際來源未越界。`attachment-package-build.js` 只在 ready 後把正式文件與內部追溯資料分流，禁止覆寫既有輸出或留下半成品，並必須在暫存區呼叫同一驗證器，完整通過才原子發布；Windows 原子更名若短暫回傳 `EPERM`／`EACCES`／`EBUSY`，只能在目標仍不存在時有限重試，其他錯誤不得放寬。新建包的 v3 指紋需涵蓋檔案雜湊、追溯欄位、正式核可時間、計畫編號、建立時間、檢查摘要與正式／內部分流邊界，測試需證明各類 metadata 篡改會阻擋、輸出／核可／組包時間順序即使指紋重算一致仍會被驗證器阻擋，並保留既有 v1／v2 包相容測試；相容測試必須證明舊包仍可完成原版完整性核對，但狀態固定為 review／CLI 1，不得與 v3 的 ready／CLI 0 混同，且任何完整性錯誤都以 blocked／CLI 2 優先。事後驗證測試另需證明清單每一層 JSON 欄位唯一，字面重複及以跳脫序列表示的同名欄位即使解析後指紋吻合仍須失敗封閉；頂層、檢查摘要、分流邊界與附件紀錄還需採封閉欄位白名單，所有未定義欄位即使未影響指紋仍須阻擋。重複路徑、大小寫碰撞、非 NFC 名稱、Windows 保留名稱及尾端空白／句點也都必須阻擋，且大小寫碰撞即使指紋重算一致仍不得放行。驗證器還需對清單、README、全部附件及目錄結構建立讀取後與結束前雙快照；測試必須在第一次雜湊成功後改變附件，並確認只由第二次快照以 `package-changed-during-verification` 失敗封閉。驗證入口根目錄本身為 symlink／junction 時需直接 blocked，並以不受 Windows 大整數精度影響的原生身分欄位在結束前重驗；測試需模擬根目錄身分變更並確認同樣失敗封閉。測試也需證明自我驗證失敗時暫存與輸出皆不存在。`attachment-package-verify.js` 只讀取既有正式附件包，需阻擋清單／雜湊／指紋／README 不符、遺漏、額外項目、符號連結與路徑越界，且不得將驗證結果寫回包內。
-附件可見性與 XLSX 封印證據：調整 `attachment-package-check.js`、`rendered-delivery-evidence.js` 或 PDF／HTML／DOCX／XLSX 可見內容判定時，必須把單元測試、`attachment-canonical-render-e2e.test.js`、同一個 `attachment-package-check` preflight key、README 與 `TOOL_BOUNDARIES.md` 一起 staging。E2E 需用實際 Edge 同次工作階段產出 PDF 與 canonical evidence，證明白字白底／列印隱藏文字不計入，並覆蓋 PDF SHA 竄改、evidence 改名重用、`visibleText.text`／SHA 竄改、偽造內容邊界／文件 profile 及 PDF metadata 不一致皆降 review；開挖原生 PDF 則須由實際後端逐頁建立像素、RapidOCR 與文字層對齊證據，測試 OCR 文字／SHA／分數／門檻竄改、內部追溯分流及事後複驗。XLSX 測試另須涵蓋 hidden sheet／row／column、隱藏欄存在時缺少 cell `r` 參照的 review 路徑，以及 `reportWorkbookSeal.ts`、`xlsx-seal-verifier.js`、附件檢查、release aggregate、Pages 私有邊界與文件同步 staging；內容、公式、快取結果、內容 SHA 或核可欄位竄改皆須失敗關閉。`pdftotext` 不得標示成 visible 或 OCR。
-組包與事後驗證 CLI 摘要須分別顯示核心回傳的 HTML 雙封印與 XLSX 雙封印完成數／應驗數，不得輸出封印值、scope 或正規化正文；調整摘要格式時需同批 staging `attachment-package-build.js`、`attachment-package-verify.js`、對應測試與三份治理文件。
-同一 preflight key 不得整體標成 slow：quick／CI 必須保留 `attachment-package-check.test.js`，只有 `-not $Quick -and -not $CI` 時才在單元測試成功後追加 Edge E2E。Profile 契約需由可見標題判定 book／summary family，完整追溯欄位提升為 `traceable-*`；測試須同時證明 traceable book／summary 正例、非 traceable 降級與 summary 偽造失敗，以及 `compiled-engineering-report` 的 book-family 相容性。
-
-```powershell
+<!--P2:SG-01-007-->
+<!--P2:SG-02-001-->
 git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/self_check.py" "石材固定/ui_smoke_test.py" "石材固定/js/version-sync.js" "石材固定/js/version-sync-smoke.test.js" "石材固定/js/code-profiles-registry.spec.js" "石材固定/js/code-profiles-registry-smoke.test.js" "石材固定/js/regression-smoke.test.js"
 git add -- "石材固定/README.md" "石材固定/CHANGELOG.md" "石材固定/PROJECT_FILES.md" "石材固定/RELEASE_CHECKLIST.md" "石材固定/自我檢查.bat" "石材固定/stone-traceability.catalog.json" "石材固定/stone-traceability.contract.test.js" "石材固定/stone-report.contract.test.js"
 git add -- "開挖擋土支撐/README.md" "開挖擋土支撐/RECEIVER_EVIDENCE_TEMPLATES.md" "開挖擋土支撐/excavation-traceability.catalog.json" "開挖擋土支撐/excavation-traceability.contract.test.js" "開挖擋土支撐/excavation-report.contract.test.js" "開挖擋土支撐/receiver-evidence-templates.test.js" "開挖擋土支撐/backend/requirements.txt" "開挖擋土支撐/backend/app/schemas.py" "開挖擋土支撐/backend/app/calculations.py" "開挖擋土支撐/backend/app/main.py" "開挖擋土支撐/backend/app/receiver_capacity.py" "開挖擋土支撐/backend/app/pdf_render_evidence.py" "開挖擋土支撐/backend/app/reporting.py" "開挖擋土支撐/backend/app/workbook_loader.py" "開挖擋土支撐/backend/tests/handoff_fixtures.py" "開挖擋土支撐/backend/tests/test_attachment_package_evidence_chain_drill.py" "開挖擋土支撐/backend/tests/test_receiver_capacity.py" "開挖擋土支撐/backend/tests/fixtures/reshore_biaxial_independent_benchmark.json" "開挖擋土支撐/backend/tests/fixtures/reshore_biaxial_independent_benchmark_822.json" "開挖擋土支撐/backend/tests/fixtures/reshore_end_bearing_independent_benchmark.json" "開挖擋土支撐/backend/tests/test_calculations.py" "開挖擋土支撐/backend/tests/test_import_flow.py" "開挖擋土支撐/backend/tests/test_pdf_render_evidence.py" "開挖擋土支撐/backend/tests/test_project_store.py" "開挖擋土支撐/backend/tests/test_report_delivery_api.py" "開挖擋土支撐/backend/tests/test_reporting.py" "開挖擋土支撐/backend/tests/release_report_artifacts.py" "開挖擋土支撐/frontend/src/App.tsx" "開挖擋土支撐/frontend/src/api.ts" "開挖擋土支撐/frontend/src/receiverEvidenceTemplates.ts" "開挖擋土支撐/frontend/src/styles.css" "開挖擋土支撐/frontend/src/types.ts"
 git add -- "開挖擋土支撐/backend/app/receiver_capacity_attachment.py" "開挖擋土支撐/backend/tests/test_receiver_capacity_attachment.py"
 git add -- "覆工板/README.md" "覆工板/decking-result-replay.js" "覆工板/decking-report.contract.test.js" "覆工板/test-fixtures/report-smoke.json" "覆工板/decking-traceability.catalog.json" "覆工板/decking-traceability.contract.test.js" "結構工具箱/tools/construction-stage-load-handoff.js" "結構工具箱/tools/construction-stage-load-handoff.test.js" "結構工具箱/tools/建立覆工板施工階段荷重交接檔.bat"
-
-施工階段荷重交接改動必須同批 staging 覆工板重播／traceability、交接產生器／測試／批次入口、開挖 schema／計算／報告／前端／測試、`preflight-tools.ps1`、首頁治理來源與三份治理文件。交接只能由完整覆工板 JSON 以現行核心重算並核對 `Pu1 / Pu2 / Pu3 / PuMax` 與來源計算指紋後建立；輸出固定為 `construction-stage-decking-load-handoff` v1、tf 單位及 `CSH-` 指紋，且不得假設開挖柱座標方向。開挖端必須由使用者以固定柱位 ID 逐柱明確匯入，不得自動套用、傳遞核可狀態或在中間柱採用；每柱最多 20 個唯一階段。來源控制軸力不得改寫；同一交接指紋於所有啟用柱位的分配比例合計必須為 100%，多柱時逐柱分配依據必填且階段名稱須一致，後端以來源軸力乘比例作為各柱 Np，違反即對相關柱位失敗關閉。若採用階段附加偏心，必須另行明確勾選、輸入帶正負號的 X／Y 偏心及採用依據；後端以 `Np × Δe` 產生附加彎矩，並拒絕未勾選夾帶偏心、勾選後零偏心或缺依據。後端需重驗柱位、階段、來源及 CSH，連同零施工構台荷重基準案逐案計算，再分別包絡柱互制、基礎壓入與拉拔控制階段。PDF／DOCX 只列來源軸力、分配比例與依據、各柱採用軸力、偏心、衍生／最終彎矩、控制階段及精簡來源追溯。比例合計檢查不證明比例的工程正確性；座標方向、支撐內力變化與二階效應仍屬人工複核邊界。
-```
-
-RC 專案 JSON／計算書追溯對齊：調整 `attachment-package-check.js` 的 RC JSON 欄位辨識或 CSS 可見性解析時，需一併 staging 單元測試、七個 RC report visual producer、共用可攜 HTML gate、`rc-project-fingerprint.contract.test.js`、相關回歸測試與三份治理文件。既有 `metadata`／`fields` 及單樁 `state` 都必須可抽取案件資料；計算書 `outputSource` 必須與同頁專案 JSON 的工具名稱、版本完全相同。包內同時存在完整追溯來源與正式計算書時至少須有一組案件／工具／版本／指紋完整配對；零配對必須 `blocked`，不得以同時改寫工具身分、版本及指紋規避。每個正式瀏覽器案例都要以真實來源 JSON 與核可後 HTML 通過同一附件檢查器，且竄改指紋、錯版本與完整身分改寫來源必須 `blocked`。CSS 後代與屬性選擇器只可在可逐層對照實際標記時自動判讀；無法解析的組合器仍維持失敗封閉。不得要求改寫舊專案檔或另造轉接來源。
-
-## D. 高頻局部快算工具
-
-已納入 `結構工具箱/tools/` 下，適合獨立小包提交。這類工具應維持「HTML 只渲染、core.js 做計算、*.test.js 做 golden regression」的形態。
-
-```powershell
+<!--P2:SG-02-002-->
 git add -- "結構工具箱/tools/foundation/foundation-local.html" "結構工具箱/tools/foundation/foundation-local-core.js" "結構工具箱/tools/foundation/foundation-local-core.test.js" "結構工具箱/tools/foundation/foundation-local-golden-cases.js"
 git add -- "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/equipment/equipment-load-core.js" "結構工具箱/tools/equipment/equipment-load-core.test.js" "結構工具箱/tools/equipment/equipment-load-golden-cases.js"
 git add -- "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/earth/earth-pressure-core.js" "結構工具箱/tools/earth/earth-pressure-core.test.js" "結構工具箱/tools/earth/earth-pressure-golden-cases.js" "結構工具箱/tools/earth/earth-pressure-rc-bridge.js"
@@ -261,561 +62,406 @@ git add -- "結構工具箱/tools/attachment-package-upgrade-assess.js" "結構�
 git add -- "結構工具箱/tools/attachment-package-upgrade-workspace.js" "結構工具箱/tools/attachment-package-upgrade-workspace.test.js"
 git add -- "結構工具箱/tools/attachment-package-upgrade-workspace-check.js" "結構工具箱/tools/attachment-package-upgrade-workspace-check.test.js" "結構工具箱/tools/attachment-package-build.js"
 git add -- "結構工具箱/index.html" "結構工具箱/index-classic.html" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json" "結構工具箱/assets/hy/colors_and_type.css" "結構工具箱/audit-dashboard.html" "結構工具箱/tools/audit-dashboard.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "vercel.json" "preflight-tools.ps1" "toolbox-entrypoints.contract.test.js"
-```
-
-首頁科技版實驗殘留清理範圍為 `結構工具箱/assets/home2/`，只允許以 `git add -u` staging 已追蹤的刪除；正式首頁仍使用 `結構工具箱/assets/home/home.css`，共用 token `結構工具箱/assets/hy/colors_and_type.css` 必須保留並由首頁 `index.html` 先於 `home.css` 直接載入，不能改動資產位置。
-
-局部快算計算書文件狀態變更必須把四個頁面、manifest、共用 renderer、共同契約、Edge/CDP browser smoke、成熟度矩陣與上述文件一起 staging。smoke 必須驗證空白案件欄位、預設內部審閱、核可正式附件及輸入變更撤銷核可；工程 review / blocked 不得再產生 DRAFT。工作頁直接列印仍只允許邊界通知。
-
-工具成熟度矩陣輸出位於 `output/audit/tool-maturity-matrix.json` 與 `output/audit/tool-maturity-matrix.md`，屬於可重產生輸出，不建議 staging；首頁公開狀態快照位於 `結構工具箱/assets/status/platform-status.json`、`結構工具箱/assets/status/preflight-summary.json` 與 `結構工具箱/assets/status/report-readiness-status.json`，由 `tool-maturity-matrix.js --write` 依最新 `output/` 精簡產生，應與首頁狀態讀取邏輯一起 staging。每輪第一次矩陣 refresh 固定以 `--preserve-homepage-status` 只更新 ignored `output/audit` 矩陣，避免在後置檢查完成前覆寫三個 tracked 公開快照；quick 與一般 full preflight 的最後 refresh 也不得覆寫，只有來源乾淨、`ForceSlowChecks` 與 `ForcePlatformAudit` 皆成立的正式 release 才會在後置檢查完成後一次刷新，正式放行時才 staging 它們。應 staging 的是 `結構工具箱/tools/tool-maturity-matrix.js`、`formal-tools.manifest.json` 內的 golden cases、`local-quick-browser-smoke.test.js` 內的 JSON round-trip / 報告可讀文字抽檢、`project-storage.test.js` 的專案欄位 placeholder/trim 合約，以及 dashboard 讀取邏輯與 `audit-dashboard-browser-smoke.test.js` 的 fixture 渲染檢查。dashboard browser smoke 會拒絕未列入 fixture map 的 `output/` 請求，避免測試意外讀到本機最新輸出而掩蓋路徑漂移。
-
-若本包調整風力 / 地震正式工具的 HTML 彈窗型計算書，`formal-tools.contract.test.js` 需同步保留輸出文字抽檢、共用核可狀態與 page-only wording 排除規則；`formal-browser-smoke.test.js` 必須實測內部審閱、正式附件、核可時間、空白欄位省略與輸入變更撤銷核可。調整案件 JSON 時，14 頁仍須驗證 schema、工具、版本與重現指紋。
-
-入口治理、首頁正式狀態治理、首頁版本治理、首頁公開狀態快照、Pages deploy / live smoke、preflight contract 文件化、preflight JS 執行檔清冊、preflight helper script 清冊、staging 指引可執行性、目前工作樹覆蓋率與非 formal 責任邊界變更需一併 staging `toolbox-entrypoints.contract.test.js`、`vercel.json` 與 `結構工具箱/assets/home/home.js`、`結構工具箱/assets/home/home.css`、`結構工具箱/assets/status/platform-status.json`、`結構工具箱/assets/status/preflight-summary.json`、`結構工具箱/assets/status/report-readiness-status.json`、`結構工具箱/assets/hy/colors_and_type.css`；跨家族報告揭露治理需一併 staging `結構工具箱/tools/report-disclosure.contract.test.js`，並讓 `report-disclosure-contract` 留在 preflight summary 中；交付物一致性治理需一併 staging `結構工具箱/tools/delivery-artifacts.contract.test.js`，並讓 `delivery-artifacts-contract` 留在 preflight summary 與 Global Governance Gates 中；這個契約現在要同時覆蓋 stone audit JSON / Word / PDF、錨栓 HTML / XLSX / DOCX、覆工板 JSON / Word 與開挖 PDF / DOCX / latest download API。正式放行證據治理需一併 staging `結構工具箱/tools/release-readiness.contract.test.js`、`run-preflight-tools-release.bat` 與 dashboard 相關檔案，並讓 `release-readiness-contract` 留在 preflight summary 與 Global Governance Gates 中，且 release wrapper 必須固定保留 `ForceSlowChecks` 與 `ForcePlatformAudit`；release 尾段矩陣刷新需優先採用當輪通過的 full summary 與當輪完整渲染證據，latest 為 quick 或失敗時則回退最近一次通過的 full history，不得因 history manifest 尚未更新而發布失敗狀態。這個合約會比對首頁入口、`routeFileMap`、`vercel.json`、`formal-tools.manifest.json`、`local-quick-tools.manifest.json` 與實際 HTML 檔案，要求 maturity matrix 外的正式卡片在 `governanceSources` 指向對應 preflight gate；其中風力 / 地震正式工具卡片需明列 `formal-traceability-contract`、`formal-tools-static` 與 `formal-browser-smoke`，RC 卡片的治理來源必須明列 `rc-traceability-contract`、`rc-audit-status`、`rc-column-report-contract`、`rc-shear-wall-report-contract`，Steel 卡片則必須明列 `steel-formal-regression`，Stone 卡片則必須明列 `stone-report-contract`。連續梁、平面剛架、斷面 / 合成斷面與局部快算卡片也要帶出對應的計算書 / 報表 / JSON 邊界 chip，讓首頁與成熟度矩陣一併揭露頁面專用「優先建議報告閱讀狀態」的報告邊界契約，而不是只剩一般 audit 標籤。首頁側欄的 `報告閱讀狀態總覽` 卡也要跟著 staging，確保 page-only 規則與已治理家族總覽會一起發布到工作頁，而不是只留在 matrix / preflight 輸出。也要求 `HOME_TOOL_UPDATES` 逐入口保存工具內容更新日，以 `releaseVerifiedAt` 對齊 tracked 正式放行快照，首頁卡片版本並須對齊工具頁 title / H1 / report metadata；要求首頁狀態讀取 tracked `assets/status` 快照而不是 git ignored `output/`，要求 Pages deploy workflow 使用 `configure-pages`、`upload-artifact`、`deploy-pages`，保留 `deploy-pages@v5` 官方 600,000 ms（10 分鐘）硬上限；正式推送入口只能在 failed log 精確命中 queued／in-progress timeout 與取消、且同一 SHA 的 Pages API 於 180 秒內轉為 `succeed` 時，對同一 run 重跑 failed jobs，其他失敗仍須停止，排除 Markdown / script / test / contract / `dev_tools/` / source / backend / package 類非公開檔案，並於 staged root 產生 v2 `pages-deployment.json`，以固定 ordinal 的封閉逐檔清冊列出每個發布檔案的相對路徑、位元組數與 SHA-256，再重算 `sha256-tree-v1`、fileCount、totalBytes，並綁定當次 commit、Actions runId 與 attempt；上線前與上線後 HTTP smoke 都必須比對同一 commit/runId，並以最多 8 個並行請求逐檔下載整個公開 artifact，核對 HTTP 200、大小與 SHA-256，builder source 與 manifest 本身不得發布或納入 digest。archive / upload / deploy 前需對 staged `_site` 執行 HTTP private-boundary，並以 Playwright 對公開清冊動態推導的每條 route 執行桌機與手機 browser smoke，任一失敗即阻擋發布；deploy 後再對正式網址重跑相同檢查。HTTP smoke 與共用 `run-pages-browser-smoke.sh` 必須同時服務兩階段且不得納入公開 artifact；staged gate 與本機預演不重試，只有正式 live 的 HTTP smoke 與 browser smoke遇到 HTTP 5xx 或明列暫態網路錯誤時，才可各自於 5 秒後完整重跑最多一次，非暫態、404、大小或雜湊不符及第二次持續失敗仍阻擋；HTTP 私有邊界遇到 5xx 也必須先判為暫態失敗，不得把 503 當成非 200 的通過證據。並要求 `preflight-tools.ps1` 內執行的 `*.contract.test.js` 都列入本檔與 `TOOL_BOUNDARIES.md`，preflight JS 執行檔清冊也要求具體 `.test.js` / `.run.js` 列入本檔與 `TOOL_BOUNDARIES.md`，preflight helper script 清冊則要求 `.ps1` / `.bat` 入口列入 staging 與邊界文件，也要求本檔 `git add` 路徑必須在 checkout 中存在；git-aware 的 tracked deletion、未追蹤 ignored path 與目前 `git status` 變更覆蓋率由 preflight `staging-groups-coverage` gate 檢查，再用 `stateBoundaryRules` 確認非 formal 卡片的 limit / capability 沒有過度承諾。
-
-Pages provenance 變更還必須一併 staging 共用 artifact builder、manifest builder、workflow、HTTP smoke、local artifact wrapper 與兩份入口／release contract。Actions 與本機預演只能透過 `build-pages-artifact.js` 的 Git tracked＋非 ignored 清冊產生發布樹，不得再分別維護 `rsync` / `robocopy` 排除規則；暫存 Git index 必須套用 LF clean filter，讓 Windows 與 Linux 對同一內容得到相同 fileCount、totalBytes 與 digest。正式 workflow 在 staging 前須以 `git status --porcelain --untracked-files=all` 證明 checkout 乾淨，manifest 固定記錄並驗證 `sourceDirty: false`；本機預演則如實保存 dirty/clean，不得只以 HEAD SHA 誤示為完整來源。
-
-開挖完整後端慢測治理：`excavation-backend` 的 preflight 專屬上限為 `timeoutSeconds = 600`。調整開挖後端完整測試套件或 wrapper 時，必須同步 staging `preflight-tools.ps1`、入口契約、README 與邊界文件；不得以 timeout 調整取代、重用或縮減實際測試。
-
-RC 柱報告慢測治理：`rc-column-report-contract` 的 preflight 專屬上限為 `timeoutSeconds = 600`。調整柱報告視覺案例、人工複核完成／正式附件核可案例或 wrapper 時，必須同步 staging `preflight-tools.ps1`、入口契約、README 與邊界文件。
-
-風力／地震正式報表慢測治理：`formal-browser-smoke` 的 preflight 專屬上限為 `timeoutSeconds = 600`。調整 14 個正式工具的桌面／行動版瀏覽器證據、渲染彙整或 runner 時，必須同步 staging `preflight-tools.ps1`、入口契約、README 與邊界文件。
-
-平台完整稽核慢測治理：`audit-all.ps1` 內完整 RC audit 的上限為 `timeoutSeconds = 1200`，`preflight-tools.ps1` 外層 `platform-audit` 上限為 `timeoutSeconds = 1500`。`鋼筋混凝土/audit-tool.ps1` 只允許對精確 `net::ERR_NO_BUFFER_SPACE` 保存首次 log、冷卻 60 秒並重跑單一 RC gate 一次，其他錯誤與第二次失敗仍阻擋。調整平台平行策略、暫態重試或任一家族完整 audit 時，必須同步 staging `audit-all.ps1`、`preflight-tools.ps1`、`鋼筋混凝土/audit-tool.ps1`、`鋼筋混凝土/tools/audit-status.contract.test.js`、入口契約、README 與邊界文件；不得以 timeout 或重試調整取代、重用或縮減實際檢查。
-
-首頁版本合約會同時檢查 canonical family metadata、`APP_VERSION`、公開版本常數、title、H1 與報告；內部 `TOOL_VERSION` 若作案件相容或計算核心識別，必須另以「計算引擎」揭露，不得冒充公開語意版本。任一入口調整版本時，必須同步更新 `HOME_TOOL_UPDATES` 的逐工具日期與首頁版本。
-
-注意事項：
-
-- `run-preflight-tools-release.bat` 不得透傳 `%*` 或接受 `-Quick` 覆蓋；正式放行證據只能是 full run 加 `ForceSlowChecks` / `ForcePlatformAudit`，並由 preflight 啟動時寫入 `sourceCommitSha`、`sourceBranch`、`sourceDirty`；commit 無法辨識或工作樹不乾淨時必須立即阻擋。正式 release 單例鎖改動必須同批 staging `preflight-tools.ps1`、`結構工具箱/tools/release-preflight-lock.ps1`、`結構工具箱/tools/release-preflight-lock.test.js`、release contract、Pages 私有邊界與三份治理文件；測試須以真實雙程序證明同工作區競爭失敗關閉、不同工作區可並行、強制終止持鎖程序後可重新取得，且 quick／CI 不套用此鎖。
-- `結構工具箱/tools/rendered-delivery-evidence.js` 與 formal / local / steel / SRC browser runner 必須同批 staging；release 證據需落在當輪 `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/`，不得只留下 HTML 字串檢查，且多頁 PDF 必須拒絕頁尾與資料列混在同一文字行、頁尾孤立章節標題、從孤立公式 / 單一資料列 / 無標籤片段起頁，以及文字量與渲染墨量同時過低的稀疏末頁。錨栓正式報告證據改動需同批 staging `螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts`、anchor report contract、rendered inventory 與 aggregate / release contract，並保留當輪 HTML、DOCX、XLSX 供總閘門解析 Office XML，不能只用 `anchor-report-contract` 日誌代替成品；TXT 若一併留存，只能標為 `non-formal-reference-text` 並保留 `blocked` 組包證據，不得計入正式附件成品。石材正式報告證據改動則需同批 staging `石材固定/auto_word_artifact_test.py` 及相同治理檔，並保留當輪 PDF、DOCX、audit JSON。覆工板正式報告證據改動需同批 staging `覆工板/decking-report.contract.test.js`、rendered inventory、aggregate / delivery / release contract 與覆工板 README，並在 `decking-formal` 保留當輪 DOCX 與結構摘要供總閘門重新解析，不能依賴 `output/preflight/cover-slab-report-contract.docx` 或通過日誌。開挖正式報告證據改動需同批 staging `開挖擋土支撐/excavation-report.contract.test.js`、`backend/tests/release_report_artifacts.py`、aggregate / delivery / release contract、成熟度矩陣、首頁狀態顯示與開挖 README；`excavation-formal` 必須保留當輪 PDF、DOCX 與 latest download 副本。動力分析摘要證據改動需同批 staging `formal-browser-smoke.test.js`（若產報本體有變）、aggregate / release contract、成熟度矩陣、首頁狀態顯示與相關文件，並重新解析 `seismic-dynamic-formal-report.pdf` 及 evidence JSON。兩者合計為補充報告 / 服務成品 `2/2`，與首頁 `40/40` 分開計數。共用報告樣式與 RC 視覺 PDF 必須同批納入，確保標題跟隨內容、表格列不拆頁、跨頁表頭重複，以及 `uncontextualPageStartCount=0`；個別 RC 輸入群組若使用 `keepTogether`，對應工具頁與共用 report helper 也必須同批 staging。
-- Canonical rendered evidence aggregate 改動必須同批 staging `rendered-delivery-evidence.js`、aggregate contract、SRC 梁／柱等 producer browser runner 的既有 `writeEvidenceSummary` 呼叫路徑、`release-readiness.contract.test.js`、`tool-maturity-matrix.js`、`assets/home/home.js`、`pages-live-smoke.js` 與報告邊界文件。Schema v3 固定要求 33 組 PDF／evidence、66 份實體檔全數通過；schema v14 納入群樁側向分配 RC 基礎案例後，RC 視覺固定 `66`、混合格式固定 `13`，當時彙成「成品檔案完整性 `145/145`」。Schema v28 納入地坪 Westergaard 三組 PDF／evidence 後，canonical 必須為 `72/72`，匿名合計必須為 `151/151`；Schema v29 再納入柱保護層偏差強度評估三組 PDF／evidence，新正式證據必須為 canonical `78/78`、匿名合計 `157/157`；Schema v30 再納入鋼索索力頻率法快算三組 PDF／evidence，新正式證據必須為 canonical `84/84`、匿名合計 `163/163`。新證據不得回退使用舊 Schema v27、Schema v28 或 Schema v29 快照。Family summary 缺 PDF 或 evidence bytes／SHA-256、總閘門未去重重驗、或同大小替換負向 fixture 未封鎖時不得 release；公開狀態不得複製 aggregate 私有欄位、scope、artifact 清冊或 set hash。
-- Schema v31 將鋼構主工具單剪力板 Shear Tab 納入渲染、鋼構結果鏈與內容／核可雙封印，三項都要求 `6/6`；新增 PDF／evidence pair 使 canonical 成為 `86/86`、公開合計成為 `165/165`。首頁 formal routes 維持 `39/39`、局部快算維持 `6/6`；Schema v30 的鋼構 `5/5`、canonical `84/84`、公開 `163/163` 與更舊快照只作 lineage 過渡，不得滿足 Schema v31。
-- Schema v32 另以矩陣外 `frame-analysis-formal` 家族治理平面剛架正式附件；來源重播、結果指紋與 HTML 雙封印均為 `1/1`，canonical `88/88`、公開 `167/167`、首頁 formal routes `40/40`。producer 必須把當輪成品寫入 `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/frame-analysis-formal/`，不得借用風震 manifest 或只以 `frame-analysis.contract.test.js` 的字串測試代替瀏覽器成品。
-- Schema v33 將鋼構平板支撐 Gusset 拉力接頭納入既有 `steel-formal` 家族：鋼構結果鏈與內容／核可雙封印均須 `7/7`，canonical `90/90`、公開 `169/169`、首頁 formal routes 維持 `40/40`。producer 必須保存 `steel-main-gusset` 的真實跨模組來源重播、PDF／evidence、核可 HTML、雙封印與 TXT 非正式附件阻擋，並在可讀報告鎖定表 10.3-2 F10T 含牙 4.00／不含牙 5.00 tf/cm²、Gusset `Ae = min(An, 0.85Ag)` 與 V1 `Lconn ≤ 1250 mm` 保守適用邊界；壓力、正負偏心、外加剪力／彎矩、耐震／BRB、角鋼／WT／HSS、剪力遲滯、Whitmore 長度不符、非標準孔、非單列單剪與非雙側縱向填角銲拓樸須由核心與瀏覽器反例共同失敗關閉。
-- Schema v34 將梁柱彎矩接頭與全斷面 CJP 耐震柱續接納入既有 `steel-formal` 家族：鋼構結果鏈與內容／核可雙封印均須 `9/9`，canonical `94/94`、公開 `173/173`、首頁 formal routes 維持 `40/40`。producer 必須分別保存 `steel-main-moment` 與 `steel-main-column-splice` 的真實跨模組來源重播、PDF／evidence、核可 HTML、雙封印、TXT 非正式附件阻擋與精確 NG 失敗集合；梁柱彎矩來源 schema 必須恰為 88 欄並保留 SMRF／IMRF、單一指定平面、`MprFar`、`Vp`、六項固定強度檢核、增強節點強柱弱梁與外部硬體證據，柱續接來源 schema 必須恰為 49 欄並保留同材同斷面對齊軋製 H 型鋼、全斷面 CJP、1.2 m、40 mm、Eamp、七項強度、13 項細部與 WPS／NDT。任何增缺欄、錯誤 enum、非 finite 值、正交平面、未確認硬體、PJP／螺栓式／箱型／組合構材／jumbo 或超出模型的情況，都須由核心與瀏覽器反例共同失敗關閉。
-- Schema v35 將 RSC v4／RSB v1 接收端正式附件納入 `excavation-formal` release gate：附件 `1/1`、六份實體成品 `6/6`，canonical `96/96`、mixed-format `17/17`、乾淨 DOCX `5/5`、公開匿名合計 `179/179`。六份成品分別是正式 PDF、正式 DOCX、canonical evidence、只含 PDF／evidence 的 formal-source ZIP，以及 exact RSC／RSB JSON；release aggregate 必須重讀 bytes、SHA-256、PDF/DOCX 內容、canonical 關聯、ZIP 清冊、RSC→RSB 父鏈與需求重播。私密 aggregate 保存逐檔 records、set SHA-256 與計算指紋，公開狀態只保留 `1/1`、`6/6` 及匿名分類數量；Schema v34 的 `94/94`、`13/13`、`4/4`、`173/173` 只供 transition。
-- Shear Tab 工程適用性改動須與核心計算、來源 JSON 回讀、報告公式／追溯、瀏覽器反例、渲染證據與四份治理文件同批 staging。規範判定必須失敗關閉連接板與梁腹板 `Fy ≤ 345 MPa`、連接板／梁腹板／支承材料 `Fu ≥ Fy`、`pitch ≤ 76.2 mm` 及 `plateHeight ≤ 914.4 mm`；專案材料文件或設計者另須確認 `conventionalMaterialConfirmed=true`，且該確認不得覆寫數值硬閘門。板彎曲需求必須以 `e_p = max(e_b, e_w)` 重算並驗證較大偏心控制反例；公開狀態仍只顯示完成數，不發布材料資料、確認值或案例內容。
-- 局部快算結果鏈 Schema v12／v28／v29／v30 改動必須同批 staging `local-quick-tools.manifest.json`、`local-quick-browser-smoke.test.js`、`rendered-delivery-evidence.inventory.json`、`rendered-delivery-evidence.contract.test.js`、`release-readiness.contract.test.js`、`tool-maturity-matrix.js`、`assets/home/home.js`、`public-status-claims.contract.test.js`、`pages-live-smoke.js`、`pages-release-governance.contract.test.js`、`toolbox-entrypoints.contract.test.js` 與四份報告邊界文件。Schema v30 正式放行須由基礎、設備荷重、擋土土壓、地坪 Westergaard、柱保護層偏差強度評估及鋼索索力頻率法快算六份來源 JSON 完成全輸入／全結果逐值重播，核對 PDF 計算指紋及成品雜湊；aggregate 必須從 rendered inventory 推導 `6/6`。成熟度矩陣只對 Schema v27 的 `3/3`、Schema v28 的 `4/4` 與 Schema v29 的 `5/5` 舊正式證據保留過渡讀取，新證據不得降回五份。公開快照只發布完成數，不得發布來源 JSON、案例資料、逐筆雜湊或計算指紋。
-- 鋼索索力頻率法的資料契約、報告或反例變更必須把頁面、core、golden cases、core regression、來源 JSON 重播、browser smoke、渲染證據與四份治理文件同批 staging。負向證據至少固定：`mode` 非正安全整數，以及布林、物件／陣列、空字串、夾帶單位或其他非嚴格數字均被拒絕；所有量須為 finite，且凡定義為正值的中間量與結果均大於 0，否則失敗關閉。有效長度、總線質量、頻率／振型辨識、諧波容許差固定 4 項依據，有目標時加目標索力與容許差為第 5 項；空白、`待確認`、`N/A`、`不適用` 等不可追溯文字必須阻擋附件。兩種容許差的 `0.1%–10%` 只驗證頁面有效輸入範圍，實際值仍為專案指定，不得把測試寫成規範上限；有目標的報告抽檢須同時看到目標容許差、索力下限、索力上限與依據。
-- RC 梁報告瀏覽器等待調整需同批 staging `鋼筋混凝土/tools/beam-report-visual.test.js`、`鋼筋混凝土/tools/beam-report-visual.contract.test.js` 與 `TOOL_BOUNDARIES.md`；高負載下 popup 最長等待 60 秒，逾時仍視為失敗，不得移除成品檢查。
-- Formal result reconciliation 改動必須同批 staging `formal-tools.manifest.json`、`formal-browser-smoke.test.js`、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v4 固定要求風力／地震 14 個正式工具全部在產報前完成 golden case 重算斷言，producer 記錄用於產報的案例雜湊、驗證數、斷言數與報告指紋，aggregate 核對 `14/14` 並形成私人集合雜湊；公開狀態只顯示「數值結果鏈 `14/14`」。
-- RC result reconciliation 改動必須同批 staging `report-result-reconciliation.js`、七個 `*-report-visual.test.js` producer、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v5 固定要求 30 組 RC 瀏覽器回歸案例完成專案快照重現、PDF 與正式 HTML 指紋核對；aggregate 核對 `30/30`、唯一案例身分與私人集合 SHA-256。公開狀態只顯示「RC 結果鏈 `30/30`」。
-- Steel result reconciliation 改動必須同批 staging `steel-result-reconciliation.js`、`steel-audit-browser-runner.js` producer、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v6 固定要求主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 5 個來源完成 JSON 匯出／重播、不相容版本拒絕與正式計算書指紋核對；aggregate 核對 `5/5`、唯一案例身分與私人集合 SHA-256。公開狀態只顯示「鋼構結果鏈 `5/5`」。
-- RC retrofit result reconciliation 改動必須同批 staging `report-result-reconciliation.js`、`retrofit-report-visual.test.js` producer、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v7 固定要求梁、柱補強兩組案例先證明需求值變更會改變結果，再還原表單重算並核對報告／正式 HTML 指紋；aggregate 將 RC 結果鏈擴為 `32/32`、核對唯一案例身分與私人集合 SHA-256。公開狀態只顯示「RC 結果鏈 `32/32`」。
-- RC 土壓銜接與擋土牆底版結果鏈改動必須同批 staging 土壓核心與橋接模組、`鋼筋混凝土/shared/retaining-base-demand.js` 及其單元測試、RC 基礎 producer／案例／contract、traceability catalog、rendered evidence inventory／aggregate、release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v13 固定要求 RC 結果鏈 `33/33`、RC PDF／PNG `64/64` 與 RC HTML `33/33`；既有擋土牆案例新增底版檢核群組不另增案例計數。
-- RC 群樁側向分配或專業 p-y 銜接改動必須同批 staging 側向分配核心、`pile-py-result-bridge.js`、`pile-py-table-adapter.js`、各自單元測試、RC 基礎 producer／案例／contract、traceability catalog 與報告邊界文件。Schema v14 固定要求 RC 結果鏈 `34/34`、RC PDF／PNG `66/66` 與 RC HTML `34/34`；新增採用結果不另增案例計數。CSV／TSV／TXT 直接讀取、Excel 貼上、範本下載、原始檔名／內容雜湊、同位元組候選 JSON 歸檔、1 MiB 匯入上限與下載／採用前重驗須同批驗證；不得宣稱直接解析 `.xlsx`。`rc-pile-py-adoption.v2` 的來源原文保存、專案重開下載、SHA-256 重算、篡改阻擋及 v1 計算相容也須同批驗證。p-y 候選必須經模型／分析範圍／載重核對與工程師明確採用；代表單樁須對應 p-multiplier 最大單樁荷重，群樁才可對應整組 Hx／Hy。模型或來源原文變更須讓下載與採用都失敗封閉，未採用相符結果時不得以 p-multiplier 分配證據取代位移與樁身內力分析。
-- RC 來源 JSON／正式 HTML 組包 aggregate 改動必須同批 staging 七個 RC `*-report-visual.test.js` producer（如未變更，仍須用當輪 release 證據驗證）、`rendered-delivery-evidence.contract.test.js`、`release-readiness.contract.test.js`、`tool-maturity-matrix.js`、`assets/home/home.js`、`pages-live-smoke.js`、`toolbox-entrypoints.contract.test.js` 與報告邊界文件。Schema v15 固定要求 32 組 RC 專案重播案例的真實來源 JSON／核可後正式 HTML 組包為 `ready`、只有一個指紋連結，且指紋與重算結果一致；補強兩案沒有專案 JSON，不納入計數。Aggregate 保存私人 records 與集合 SHA-256；公開狀態只顯示「RC 來源組包 `32/32`」，不得發布 scope、案例、檔名、工具版本、來源雜湊或計算指紋。
-- RC 核可 HTML 獨立列印 aggregate 改動必須同批 staging `鋼筋混凝土/tools/report-portable-html-check.js`、`retrofit-report-visual.contract.test.js`、七個 RC producer（未變更仍須用當輪 release 證據驗證）、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke、入口契約與報告邊界文件。Schema v16 固定要求 RC 設計與補強共 34 份核可 HTML 在新瀏覽器頁面以零外部網路請求重開，print media 中核可／下載控制項不可見，再列印 PDF 並通過正式狀態、指紋、正向工程內容、page-only 排除、共同分頁與 producer／aggregate 雙重 SHA-256 驗證。公開狀態只顯示「RC 核可 HTML 列印 `34/34`」，不得發布 scope、案例、檔名、bytes、成品雜湊或計算指紋。
-- RC HTML 內容封印改動必須同批 staging `鋼筋混凝土/shared/report.js`、`report-portable-html-check.js`、附件檢查器及其測試、八組 RC 視覺 smoke、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke、入口契約與邊界文件。Schema v17 固定要求 34 份核可 HTML 的計算主體有可重算 SHA-256 封印，瀏覽器與附件檢查器各自驗證；內容異動 blocked，舊版缺封印 review。內容封印不得稱為核可人數位簽章。公開狀態只顯示「RC HTML 內容封印 `34/34`」，不得發布逐檔封印、scope、records、案例或檔名。
-- RC HTML 核可封印改動與內容封印同批 staging。Schema v18 固定要求 34 份核可 HTML 另以可重算 SHA-256 綁定文件狀態、核可時間、計算指紋、標題與內容封印；瀏覽器及附件檢查器各自驗證，核可資料異動 blocked，舊版缺封印 review。核可封印是防竄改證據，不得稱為核可人數位簽章。公開狀態只顯示「RC HTML 核可封印 `34/34`」，不得發布逐檔封印、scope、records、案例或檔名。
-- 風力／地震正式 HTML 雙封印改動必須同批 staging `結構工具箱/core/ui/report.js`、`core/wind-report.js`、正式瀏覽器 smoke、附件檢查器及其反向測試、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與邊界文件。Schema v19 固定要求 14 項正式工具的實際下載 HTML 同時通過內容與核可封印重算，內容／核可竄改各自 blocked，舊版缺封印 review。公開狀態只顯示兩組 `14/14`，不得發布逐檔 scope、records、檔名或雜湊。
-- 鋼構正式 HTML 雙封印改動必須同批 staging `鋼構工具/app.js`、`core/ui/report.js`、`steel-audit-browser-runner.js`、鋼構回歸與 audit wrapper、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與邊界文件。Schema v20 固定要求主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱 5 份實際下載 HTML 同時通過內容與核可封印重算及兩種竄改反例；主工具計算書預設內部審閱，核可後正式附件，空白案件欄位省略且不阻擋核可。公開狀態只顯示兩組 `5/5`，不得發布逐檔 scope、records、檔名或雜湊。
-- 錨栓正式 HTML 雙封印改動必須同批 staging `src/reportHtmlSeal.ts`、`src/reportExport.ts` 與測試、`tests/reportArtifacts.test.ts`、獨立 `anchor-html-seal-verifier.js`、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與邊界文件。Schema v21 固定要求工作頁核可後的 1 份實際下載 HTML 通過內容與核可封印重算及兩種竄改反例；匯出附件的正式／審閱身分為只讀，不得在附件內自行核可。公開狀態只顯示兩組 `1/1`，不得發布案件、逐檔 scope、records、檔名、指紋或雜湊。
-- 正式 DOCX 封裝規則改動必須同批 staging `結構工具箱/tools/docx-package-integrity.js`、`結構工具箱/tools/docx-package-integrity.test.js`、rendered-delivery aggregate、release contract、preflight、成熟度矩陣、Pages 私有路徑清單及四份產製器文件。Schema v22 固定要求石材、錨栓、覆工板與開挖擋土支撐當輪 DOCX `4/4` 通過；未引用媒體／頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集與非預期 custom XML 都會阻擋 release。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。
-- 正式 XLSX 封裝規則改動必須同批 staging `結構工具箱/tools/xlsx-package-integrity.js`、`結構工具箱/tools/xlsx-package-integrity.test.js`、rendered-delivery aggregate、release contract、preflight、成熟度矩陣、首頁 metric、Pages 私有路徑清單及錨栓產製器文件。Schema v23 固定要求錨栓當輪 XLSX `1/1` 通過；外部關聯／外部公式／連線、公式錯誤或缺少快取結果、隱藏工作表／列／欄／名稱、批註、嵌入物件、巨集、孤兒媒體與非預期 custom XML 都會阻擋 release。公開狀態只顯示完成數，不公開檔名、工作表清冊、公式或逐檔細節。
-- 正式 XLSX 列印規則改動必須同批 staging 錨栓 `reportWorkbook.ts`／測試、`結構工具箱/tools/xlsx-print-export.py`、`結構工具箱/tools/xlsx-print-visual.js`、`結構工具箱/tools/xlsx-print-visual.test.js`、rendered-delivery aggregate、release contract、preflight、成熟度矩陣、首頁 `Excel 列印成品` metric、Pages 私有清單與上述文件。Schema v24 要求 Microsoft Excel 唯讀輸出的活頁簿 `1/1`、工作表 `9/9` 通過，並固定 A4、寬表橫向、單頁寬、自動頁高、明確列印範圍、續頁表頭、無橫向溢出、可讀文字、非空白頁與無頁緣裁切；不得只測 OOXML 設定或由稽核器修改後再列印。公開狀態不得包含工作表名稱、PDF、逐頁指標或雜湊。
-- 錨栓封印接入案件組包時，必須同批 staging `anchor-html-seal-verifier.js`、`attachment-package-check.js` 與單元測試、`attachment-package-verify.test.js`、release contract 及三份治理文件。測試須涵蓋正常 ready、舊版缺封印 review、內容／核可竄改 blocked，並證明同步重算正式包內檔案雜湊、清單及包指紋仍不能繞過事後語意驗證。
-- Stone result reconciliation 改動必須同批 staging `auto_word_artifact_test.py` producer、golden 檔、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v8 固定要求目前瀏覽器核心重播 `case_01_standard_safe`、核對至少 6 項結果，再綁定 PDF、DOCX、audit 與來源雜湊；aggregate 核對 `1/1`、唯一案例身分與私人集合 SHA-256。公開狀態只顯示「石材結果鏈 `1/1`」。
-- Anchor result reconciliation 改動必須同批 staging `tests/reportArtifacts.test.ts` producer、工作區備份重播、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v9 固定要求 v2 工作區備份完成案例重現驗證、目前核心至少 7 項結果核對，再綁定正式 HTML、DOCX、XLSX 與來源備份實體檔；aggregate 核對 `1/1`、唯一案例身分與私人集合 SHA-256。公開狀態只顯示「錨栓結果鏈 `1/1`」。
-- Decking result reconciliation 改動必須同批 staging `decking-result-replay.js`、`decking-report.contract.test.js` producer、固定 JSON fixture、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v10 固定要求來源 JSON 六組輸入以目前頁面核心完成至少 31 項結果核對，再綁定 DOCX 計算指紋及來源／成品 SHA-256；aggregate 核對 `1/1`、唯一案例身分與私人集合 SHA-256。公開狀態只顯示「覆工板結果鏈 `1/1`」。
-- Excavation result reconciliation 改動必須同批 staging `reporting.py`、`release_report_artifacts.py` producer、報告／追溯契約、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v11 固定要求保存未含快取結果的 ProjectState，以目前 Python 後端核心重算 47 筆構件檢核並完成至少 618 項結果欄位核對，再綁定 PDF／DOCX 計算指紋及來源／結果／成品 SHA-256；aggregate 核對 `1/1`、唯一案例身分與私人集合 SHA-256。公開狀態只顯示「開挖結果鏈 `1/1`」。
-- 不要把基礎局部工具放在 `結構工具箱/tools/基礎/`，目前 `.gitignore` 的 `基礎/` 規則會讓該資料夾被忽略。
-- 初估型工具的標題、報表與 note 都應保留「初估 / 局部」語意，避免被誤用為完整規範設計。
-
-
-## E. RC 正式工具與視覺回歸
-
-這包集中 `鋼筋混凝土/` 的正式工具、共用核心、報表與 regression / browser smoke。內容多，提交前先用 `鋼筋混凝土/tools/test-*.ps1` 或 full preflight 驗證。
-
-```powershell
+<!--P2:SG-02-003-->
+<!--P2:SG-02-004-->
 git add -- "鋼筋混凝土/README.md" "鋼筋混凝土/audit-tool.ps1" "鋼筋混凝土/index.html" "鋼筋混凝土/tools/report-portable-html-check.js" "鋼筋混凝土/tools/retrofit-report-visual.test.js" "鋼筋混凝土/tools/retrofit-report-visual.contract.test.js" "鋼筋混凝土/tools/test-retrofit-report.ps1"
 git add -- "鋼筋混凝土/shared" "鋼筋混凝土/tools"
 git add -- "鋼筋混凝土/tools/rc-traceability.catalog.json" "鋼筋混凝土/tools/rc-traceability.contract.test.js" "鋼筋混凝土/tools/report-screenshot-quality.js" "鋼筋混凝土/shared/beam-rebar-designer.js" "鋼筋混凝土/shared/beam-rebar-designer.test.js" "鋼筋混凝土/tools/beam-regression.test.js" "鋼筋混凝土/tools/beam-report-visual.test.js" "鋼筋混凝土/tools/beam-report-visual.contract.test.js" "鋼筋混凝土/tools/test-beam.ps1" "鋼筋混凝土/tools/column-report-visual.test.js" "鋼筋混凝土/tools/column-report-visual.contract.test.js" "鋼筋混凝土/tools/test-column.ps1" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/slab-report-visual.test.js" "鋼筋混凝土/tools/slab-report-visual.contract.test.js" "鋼筋混凝土/tools/test-slab.ps1" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" "鋼筋混凝土/tools/test-wall.ps1" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/shear-wall-report-visual.test.js" "鋼筋混凝土/tools/shear-wall-report-visual.contract.test.js" "鋼筋混凝土/tools/test-shear-wall-report.ps1" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/foundation-report-visual.test.js" "鋼筋混凝土/tools/foundation-report-visual.contract.test.js" "鋼筋混凝土/tools/test-foundation.ps1" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/single-pile-report-visual.test.js" "鋼筋混凝土/tools/single-pile-report-visual.contract.test.js" "鋼筋混凝土/tools/test-single-pile.ps1" "RC補強斷面性質.html" "鋼筋混凝土/tools/retrofit-report-visual.test.js" "鋼筋混凝土/tools/test-retrofit-report.ps1" "鋼筋混凝土/tools/audit-status.contract.test.js"
 git add -- "鋼筋混凝土/shared/column-rebar-designer.js" "鋼筋混凝土/shared/column-rebar-designer.test.js" "鋼筋混凝土/shared/column-transverse-designer.js" "鋼筋混凝土/shared/column-transverse-designer.test.js" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/column-report-visual.test.js" "鋼筋混凝土/tools/column-report-visual.contract.test.js" "鋼筋混凝土/tools/test-column.ps1"
-```
-
-`鋼筋混凝土/tools` 內的 `rc-traceability.catalog.json` 是 RC 條文語意追蹤 catalog，需和 `rc-traceability.contract.test.js`、各 RC regression、`report-screenshot-quality.js`、8 個正式輸出頁、各頁 `*-report-visual.test.js`／contract／`test-*.ps1` wrapper，以及 `audit-status.contract.test.js` 一起 staging；補強斷面對應的正式頁位於 repo root `RC補強斷面性質.html`。
-
-建議提交訊息：
-
-```text
-Expand RC tool governance and report verification
-```
-
-## F. 鋼構正式頁與鋼構工具入口
-
-這包集中 `鋼構工具/` 的正式頁、共用報表、manifest、樣式與 regression；`結構工具箱/tools/鋼構/` 是工具箱內的舊版 / 轉接頁，應與首頁狀態一起審查。`steel-formal.regression-test.js` 同時負責 HTML 彈窗型計算書的可讀文字抽檢、page-only wording 排除、四個正式工作頁的直接列印封鎖、舊版示意圖尺寸標註間距與圖面不可拆頁規則。
-
-正式計算書若調整為 calculation-first 內容邊界，必須把共用 report helper、正向內容共用判讀器、PDF 驗證器、附件組包檢查器、RC report helper、鋼構正式頁與 browser runner、風力 / 地震正式工具 manifest、局部快算三頁及 browser smoke、跨家族 report-disclosure contract、ADR 與報告指南視為同一包審查。輸入模式、換算對照、流程顯示、輸出設定、符號詞典與長篇條文解釋只留在 HTML 畫面；採用值、公式代入、檢核結果、對應條文依據與必要人工複核限制才進入計算書，且檢核結論固定置於計算內容之後。成品 release 與日常附件組包必須依剖面通過採用輸入、計算／檢核過程、工程結果、至少兩個實際工程數值與必要追溯資訊；章名、狀態、版本、日期、時間與指紋不得充當工程數值。明確計算摘要可省略重複詳算但保留相同數值門檻，工作頁直接列印阻擋通知明確豁免正向計算內容。
-
-```powershell
+<!--P2:SG-02-005-->
 git add -- "鋼構工具/app.js" "鋼構工具/calculator.js" "鋼構工具/calculator.smoke-test.js" "鋼構工具/tool-metadata.js" "鋼構工具/index.html" "鋼構工具/plate-check.html" "鋼構工具/core" "鋼構工具/steel-beam-formal.html" "鋼構工具/steel-beam-formal.js" "鋼構工具/steel-column-formal.html" "鋼構工具/steel-column-formal.js" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/steel-audit-browser-runner.js" "鋼構工具/steel-traceability.catalog.json" "鋼構工具/steel-traceability.contract.test.js" "鋼構工具/steel-member-formal.css" "鋼構工具/styles.css" "鋼構工具/README.md" "結構工具箱/core/direct-print-boundary.css"
 git add -- "結構工具箱/tools/鋼構/steel-beam.html" "結構工具箱/tools/鋼構/steel-column.html"
 git add -- "結構工具箱/core/ui/report.js" "鋼筋混凝土/shared/report.js" "結構工具箱/tools/calculation-book-content-boundary.json" "結構工具箱/tools/calculation-book-content-boundary.js" "結構工具箱/tools/formal-tool-metadata.js" "結構工具箱/tools/formal-tools.manifest.json" "結構工具箱/tools/formal-tools.contract.test.js" "結構工具箱/tools/report-approval-invalidation.catalog.json" "結構工具箱/tools/report-approval-invalidation.contract.test.js" "結構工具箱/tools/report-disclosure.contract.test.js"
 git add -- "docs/adr/0003-calculation-book-content-boundary.md" "TOOL_REPORT_GUIDE.md" "TOOL_BOUNDARIES.md" "CONTEXT.md" "README.md" "STAGING_GROUPS.md"
-```
-
-`鋼構工具/steel-traceability.catalog.json` 是鋼構條文語意追蹤 catalog，需和 `steel-traceability.contract.test.js`、`audit-tool.ps1`、鋼構 regression / browser runner 與 dashboard maturity matrix 變更一起 staging。
-
-建議提交訊息：
-
-```text
-Strengthen formal steel tool pages and reports
-```
-
-## G. 錨栓原始碼與部署鏡像前置
-
-`螺栓檢討/bolt-review-tool/` 是 `/anchor/` 部署鏡像的來源。這包提交原始碼；提交 `/anchor/` hash 資產前，先跑 `sync-anchor-deployment.ps1` 並用 B 包提交部署鏡像。新增規範路線、報告段落、TXT 文字備查、工作區備份 schema / 重現指紋、workbook/docx 邊界、正式產物留存或人工複核邊界時，需同步提交 `anchor-traceability.catalog.json`、package 內 `anchorTraceabilityCatalog.test.ts`、`backup.ts` / `backup.test.ts`、`useProjectLibrary.ts`、`attachmentReadiness.ts`、`reportDocumentState.ts`、`reportText.ts`、對應報告 / 附件狀態測試、`tests/reportArtifacts.test.ts`，以及平台層 `螺栓檢討/anchor-traceability.contract.test.js`、`螺栓檢討/anchor-report.contract.test.js` 與 rendered delivery evidence 治理檔。只有 `src/` 或部署來源改動才需同步 `/anchor/` 鏡像；獨立 `tests/` 治理檔不屬於部署 fingerprint。
-
-```powershell
+<!--P2:SG-02-006-->
 git add -- "螺栓檢討/bolt-review-tool/README.md" "螺栓檢討/bolt-review-tool/package.json" "螺栓檢討/bolt-review-tool/package-lock.json" "螺栓檢討/bolt-review-tool/vite.config.ts"
 git add -- "螺栓檢討/bolt-review-tool/src/App.css" "螺栓檢討/bolt-review-tool/src/App.tsx" "螺栓檢討/bolt-review-tool/src/backup.ts" "螺栓檢討/bolt-review-tool/src/backup.test.ts" "螺栓檢討/bolt-review-tool/src/confirmDialog.ts" "螺栓檢討/bolt-review-tool/src/defaults.ts" "螺栓檢討/bolt-review-tool/src/defaults.test.ts" "螺栓檢討/bolt-review-tool/src/useAuditTrail.ts" "螺栓檢討/bolt-review-tool/src/useProjectLibrary.ts" "螺栓檢討/bolt-review-tool/src/useWorkspaceHydration.ts"
 git add -- "螺栓檢討/bolt-review-tool/src/AttachmentReadinessPanel.tsx" "螺栓檢討/bolt-review-tool/src/attachmentReadiness.ts" "螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts" "螺栓檢討/bolt-review-tool/src/reportDocumentState.ts" "螺栓檢討/bolt-review-tool/src/reportDocumentState.test.ts" "螺栓檢討/bolt-review-tool/src/reportHtmlSeal.ts" "螺栓檢討/bolt-review-tool/src/reportExport.ts" "螺栓檢討/bolt-review-tool/src/reportExport.test.ts" "螺栓檢討/bolt-review-tool/src/reportText.ts" "螺栓檢討/bolt-review-tool/src/reportText.test.ts" "螺栓檢討/bolt-review-tool/src/reportDocx.ts" "螺栓檢討/bolt-review-tool/src/reportDocx.test.ts" "螺栓檢討/bolt-review-tool/src/reportWorkbook.ts" "螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts" "螺栓檢討/bolt-review-tool/src/useReportExports.ts"
 git add -- "螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json" "螺栓檢討/bolt-review-tool/src/anchorTraceabilityCatalog.test.ts" "螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts" "螺栓檢討/anchor-traceability.contract.test.js" "螺栓檢討/anchor-report.contract.test.js"
 git add -- "結構工具箱/tools/anchor-html-seal-verifier.js" "結構工具箱/tools/rendered-delivery-evidence.contract.test.js" "結構工具箱/tools/release-readiness.contract.test.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/pages-live-smoke.js"
-```
+<!--P2:SG-03-001-->
+git add -- field-survey/ "啟動現況鑑定紀錄.bat" serve-local.js vercel.json preflight-tools.ps1 "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-002-->
+git add -- "tool-page-a11y.js" "tool-page-a11y.browser.test.js" "test-tool-page-a11y.ps1" "鋼構工具/app.js" "鋼構工具/index.html" "鋼構工具/plate-check.html" "鋼構工具/mathjax-lazy-load-smoke.py" "鋼構工具/sketch-presentation-smoke.py" "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/server_smoke_test.py" "石材固定/self_check.py" "石材固定/ui_smoke_test.py" "石材固定/local-server-probe-smoke.py" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/assets/home/home.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
+<!--P2:SG-03-003-->
+git add -- "run-phase-gates.ps1" "run-phase-gates.contract.test.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-004-->
+git add -- "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "tool-page-a11y.browser.test.js" "test-tool-page-a11y.ps1" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/assets/home/home.js" "石材固定/vendor/loads/project-location.js" "RC補強斷面性質.html" "石材固定/石材計算書產生器_規範版V2.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/foundation/foundation-local.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "覆工板/index.html" "鋼架/平面剛架分析.html" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html"
+<!--P2:SG-03-005-->
+git add -- "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "shared-report-utils.contract.test.js" "report-mathjax-popup.browser.test.js" "section-tools.contract.test.js" "continuous-beam-regression.test.js" "結構工具箱/tools/formal-tools.contract.test.js" "鋼構工具/steel-formal.regression-test.js" "SRC工具/src-beam.contract.test.js" "SRC工具/src-column-page.contract.test.js" "結構工具箱/assets/home/home.js" "結構工具箱/core/ui/report-utils.js" "結構工具箱/core/ui/report.js" "鋼構工具/app.js" "鋼構工具/core/ui/report-utils.js" "鋼構工具/core/ui/report.js" "鋼構工具/core/formal-core-manifest.json" "鋼筋混凝土/shared/report.js"
+<!--P2:SG-03-006-->
+git add -- "鋼構工具/app.js" "鋼構工具/steel-audit-browser-runner.js" "鋼構工具/steel-formal.regression-test.js" "石材固定/server_smoke_test.py" "石材固定/local-server-probe-smoke.py" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
+<!--P2:SG-03-007-->
+git add -- "report-core-parity-map.json" "report-core-parity.contract.test.js" "結構工具箱/core/ui/report.js" "鋼構工具/core/ui/report.js" "鋼構工具/core/formal-core-manifest.json" "鋼筋混凝土/shared/report.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" "pages-release-governance.contract.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
+<!--P2:SG-03-008-->
+git add -- "run-family-wrappers.ps1" "run-family-wrappers.contract.test.js" "report-popup-fixture.test.js" "鋼筋混凝土/tools/beam-regression.test.js" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/slab-regression.test.js" "鋼構工具/steel-audit-browser-runner.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
+<!--P2:SG-03-009-->
+git add -- "結構工具箱/core/loads/project-location.js" "石材固定/vendor/loads/project-location.js" "結構工具箱/assets/home/home.js" "preflight-tools.ps1" "STAGING_GROUPS.md" "TOOL_BOUNDARIES.md"
+<!--P2:SG-03-010-->
+git add -- run-phase-gates.ps1 run-phase-gates.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-011-->
+git add -- .gitattributes tool-page-a11y.js tool-page-a11y-build.contract.test.js ensure-homepage-quality-deps.ps1 run-phase-gates.ps1 run-phase-gates.contract.test.js "結構工具箱/tools/a11y/tool-page-a11y.source.js" "結構工具箱/tools/build-tool-page-a11y.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-012-->
+git add -- "結構工具箱/tools/tool-load-budget-baseline.json" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "STAGING_GROUPS.md" "TOOL_BOUNDARIES.md"
+<!--P2:SG-03-013-->
+git add -- "連續梁分析.html" "continuous-beam-cloud-lazy.browser.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-014-->
+git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/auto_word.py" "石材固定/assets/detail-bk.webp" "石材固定/assets/detail-pk.webp" "石材固定/stone-detail-lazy.browser.test.js" "石材固定/stone-report.contract.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-015-->
+git add -- ".gitattributes" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "tool-page-a11y.js" "tool-page-a11y-build.contract.test.js" "ensure-homepage-quality-deps.ps1" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-tool-page-a11y.js" "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/tools/project-meta-profile.test.js" "結構工具箱/core/loads/src/wind.source.js" "結構工具箱/core/loads/wind.js" "結構工具箱/tests/wind.test.js" "石材固定/vendor/loads/wind.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/assets/home/home.js"
+<!--P2:SG-03-016-->
+git add -- "覆工板/index.html" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-017-->
+git add -- "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-018-->
+git add -- "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS.md TOOL_BOUNDARIES.md
+<!--P2:SG-03-019-->
+git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-020-->
+git add -- "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/shear-wall.html" "結構工具箱/assets/home/home.js" STAGING_GROUPS.md TOOL_BOUNDARIES.md README.md
+<!--P2:SG-03-021-->
+git add -- ".gitattributes" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/home.js" "結構工具箱/tools/project-storage.test.js" "結構工具箱/tools/local-quick-tools.contract.test.js" "report-docx-integration.contract.test.js" "結構工具箱/core/ui/src/report-docx.source.js" "結構工具箱/core/ui/report-docx.js" "結構工具箱/core/ui/src/tool-workflow.source.js" "結構工具箱/core/ui/tool-workflow.js" "結構工具箱/tools/src/tool-workflow-adapters.source.js" "結構工具箱/tools/tool-workflow-adapters.js" "結構工具箱/tools/src/project-storage.source.js" "結構工具箱/tools/project-storage.js" "鋼筋混凝土/shared/src/project-storage.source.js" "鋼筋混凝土/shared/project-storage.js" "結構工具箱/core/loads/src/loadcombo.source.js" "結構工具箱/core/loads/loadcombo.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
+<!--P2:SG-03-022-->
+git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-023-->
+git add -- ".gitattributes" "結構工具箱/index.html" "結構工具箱/assets/home/home.css" "結構工具箱/assets/hy/colors_and_type.css" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/tools/build-pages-artifact.js" homepage-quality.browser.test.js tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-024-->
+git add -- toolbox-entrypoints.contract.test.js STAGING_GROUPS.md
+<!--P2:SG-03-025-->
+git add -- audit-all.ps1 STAGING_GROUPS.md
+<!--P2:SG-03-026-->
+git add -- "audit-all.ps1" "ensure-homepage-quality-deps.ps1" "preflight-tools.ps1" "run-family-wrappers.ps1" "run-pages-artifact-smoke.ps1" "run-phase-gates.ps1" "結構工具箱/audit-core.ps1" "鋼構工具/audit-tool.ps1" "鋼筋混凝土/audit-tool.ps1" "鋼筋混凝土/tools/test-beam.ps1" "開挖擋土支撐/receiver_governance_timestamp.ps1" "開挖擋土支撐/sign_receiver_request.ps1" "開挖擋土支撐/start_html_mode.ps1" "開挖擋土支撐/stop_html_mode.ps1" run-family-wrappers.contract.test.js powershell-encoding.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-027-->
+git add -- ".gitattributes" "鋼構工具/src/app.source.js" "鋼構工具/src/calculator.source.js" "鋼構工具/app.js" "鋼構工具/calculator.js" "鋼構工具/steel-traceability.catalog.json" "鋼構工具/steel-traceability.contract.test.js" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/README.md" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/independent-engineering-adapters/steel-formal.js" "結構工具箱/tools/public-status-claims.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/tool-workflow.manifest.json" "steel-report-presentation.browser.test.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
+<!--P2:SG-03-028-->
+git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/README.md" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/src/home.source.js" tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-029-->
+git add -- preflight-tools.ps1 STAGING_GROUPS.md
+<!--P2:SG-03-030-->
+git add -- "結構工具箱/tools/public-status-claims.contract.test.js" homepage-quality.browser.test.js home-recents.browser.test.js "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" STAGING_GROUPS.md
+<!--P2:SG-03-031-->
+git add -- "結構工具箱/tools/tool-load-budget-contract.js" "結構工具箱/tools/tool-load-budget-contract.test.js" "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS.md TOOL_BOUNDARIES.md
+<!--P2:SG-03-032-->
+git add -- "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" STAGING_GROUPS.md
+<!--P2:SG-03-033-->
+git add -- "結構工具箱/tools/rendered-delivery-evidence.contract.test.js" STAGING_GROUPS.md
+<!--P2:SG-03-034-->
+git add -- "結構工具箱/tools/local-quick-tools.manifest.json" STAGING_GROUPS.md
+<!--P2:SG-03-035-->
+git add -- "結構工具箱/tools/tool-load-budget-contract.js" "結構工具箱/tools/tool-load-budget-contract.test.js" "結構工具箱/tools/tool-load-budget.browser.test.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+<!--P2:SG-03-036-->
 
-建議提交訊息：
-
-```text
-Replace anchor dialogs with in-app confirmations
-```
-
-## 正式附件包進度觀測
-
-調整 `attachment-package-build.js` 的建立階段事件時，需連同組包單元測試與三份治理文件 staging。階段事件只屬旁路觀測，任何執行中事件寫入錯誤都不得中止或改寫核心結果；觀測端可保留最後已驗證階段，但已成功發布的附件包不得因後續進度通知失敗而誤報失敗。測試必須至少涵蓋發布完成後的 `complete` 通知失敗。
-
-## 首頁正式放行日期來源
-
-調整首頁狀態或 release 快照時，需一併 staging `結構工具箱/assets/home/home.js`、`toolbox-entrypoints.contract.test.js` 與三份治理文件。`HOME_TOOL_UPDATES` 不得保存人工 fallback 正式放行日；執行期只可接受 passing、非 quick、兩個 force 旗標成立、來源 commit 可辨識且乾淨的 tracked preflight snapshot。契約須固定未載入提示與正式快照導入路徑，避免 release 狀態提交跨日後產生首頁落後日期。
-
-正式 release 新鮮度不得沿用四類一般巡檢的最新時間。dashboard 只能以 tracked 正式 preflight 快照計算 7 日／30 日提醒，並透過 schema v3 `pages-deployment.json` 核對 carrier commit、Actions run、release run 與 tested source；年齡屬提示，身分對齊才是公開部署可信度的必要條件。
-
-## 下次提交前共同驗證
-
-```powershell
-.\preflight-tools.ps1 -Quick
-.\preflight-tools.ps1
-.\run-pages-artifact-smoke.ps1
-.\push-pages-release.ps1 -VerifyOnly
-git diff --check
-git status --short --untracked-files=normal
-```
-### 獨立工程基準
-
-- Gusset V1 沿用 `/steel-formal` 路由，不增加正式入口分母；`independent-engineering-adapters/steel-formal.js`、catalog、runner 與測試必須同批加入獨立 Gusset／平板支撐強度、單列 L 形區塊剪力與派生面積 oracle，以及壓力、正負偏心、Whitmore 首末栓長度與可用板寬限制等負向案例。oracle 不得讀取 production golden expected，且不得把此限定代表案擴張成耐震、BRB、壓力、角鋼／WT／HSS 或任意接頭拓樸驗證。
-- 鋼索頻率法納入後，獨立基準正式入口為 39 / 39，local-quick 工具家族為重疊的 6 / 6；`cable-tension-frequency` 頁面、core、core regression、`independent-engineering-adapters/cable-tension-frequency.js`、catalog、runner、測試與成熟度合約必須同批 staging，不得只提交 golden regression 或公開頁。這批負向證據須包含嚴格數字、正安全整數 `mode`、finite／正值及溢位／下溢失敗關閉，獨立閉式 oracle 不得取代 production core 的型別與安全閘門。
-- 正式入口為 40 / 40；深梁、基礎二維與樁帽三維 STM 各有 1 個代表性強度案升為正式路由基準，其餘 supplemental candidate cases 21 / 21、candidate capabilities 3 / 3；整體 STM suite 維持 24 / 24 案與 564 項獨立斷言。每個能力包含五個 `strength-pass` 與三個 `strength-reject`，整體合計預期合格 15 / 15、預期拒絕 9 / 9；除代表性與隔離拒絕案外，另以「略低／等於／略高」三案及「負裕度在 EPS 內／剛超出 EPS」兩案鎖定 25° 壓桿角度、23.4.4 剪力容量及 X/Y 拉桿層容許錯位，並分開核對帶號裕度、等號允收及浮點容許差。STM adapter、catalog、runner、測試及三個 production core 必須同批檢視；`鋼筋混凝土/audit-tool.ps1`、`tools/rc-stm-independent-engineering-gate.test.js`、audit status contract、`preflight-tools.ps1` 與跨工具 release contract 也須同批 staging，確保 RC 本地巡檢與平台 gate 都核對 24 / 24、564 及 false acceptance／false rejection。正式入口升級只適用已聲明的限定拓樸，不得被解讀為所有 STM 拓樸均已驗證。
+<!-- P2-COVERAGE-INDEX-START -->
+- `./`
+- `.gitattributes`
+- `.github/public-release-decision-anchor.json`
+- `.github/public-release-reduction-authorization.json`
+- `.gitignore`
+- `/anchor/`
+- `_extracted/`
+- `_tmp/dispatch/phase10/`
+- `_tmp/派工/`
+- `_tmp/派工/小工具優化派工指示-20261008-V3.md`
+- `_tmp/派工/回報`
+- `_tmp/派工/回報/`
+- `00_內部升級工作說明_勿附入主報告/`
+- `01_新組包來源/`
+- `anchor/`
+- `anchor/assets/`
+- `app_data/`
+- `audit-all.ps1`
+- `backend/`
+- `browser-dialogs.contract.test.js`
+- `continuous-beam-cloud-lazy.browser.test.js`
+- `continuous-beam-regression.test.js`
+- `continuous-beam-report-visual.test.js`
+- `dev_tools/`
+- `docs/governance-history/`
+- `field-survey/`
+- `field-survey/detail.js`
+- `field-survey/model.js`
+- `field-survey/recorder.html`
+- `field-survey/release.mjs`
+- `field-survey/report.js`
+- `field-survey/report-ui.js`
+- `field-survey/signoff.js`
+- `field-survey/signoff-ui.js`
+- `field-survey/sketch.js`
+- `field-survey/src/detail.source.js`
+- `field-survey/src/model.source.js`
+- `field-survey/src/report-ui.source.js`
+- `field-survey/src/signoff-ui.source.js`
+- `field-survey/src/sketch.source.js`
+- `field-survey/tests/`
+- `field-survey/tests/browser.test.js`
+- `field-survey/tests/model.test.js`
+- `file://`
+- `frame-analysis.contract.test.js`
+- `frame-analysis-browser-smoke.test.js`
+- `frontend/dist/`
+- `frontend/src/`
+- `homepage-quality.browser.test.js`
+- `home-recents.browser.test.js`
+- `index.html`
+- `js/`
+- `output/`
+- `output/audit`
+- `output/audit/tool-maturity-matrix.json`
+- `output/audit/tool-maturity-matrix.md`
+- `output/family-wrappers/`
+- `output/phase10/`
+- `output/phase11/`
+- `output/phase-gates/`
+- `output/playwright/continuous-beam-cloud-lazy/`
+- `output/playwright/phase2-quality-deps/`
+- `output/preflight/cover-slab-report-contract.docx`
+- `output/preflight/history/`
+- `pages-release-governance.contract.test.js`
+- `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/`
+- `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/decking-formal/`
+- `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/excavation-formal/`
+- `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/frame-analysis-formal/`
+- `preflight-tools.ps1`
+- `push-pages-release.bat`
+- `push-pages-release.ps1`
+- `RC補強斷面性質.html`
+- `README.md`
+- `report-docx-integration.contract.test.js`
+- `report-format-parity.contract.test.js`
+- `report-format-parity.core.js`
+- `report-mathjax-popup.browser.test.js`
+- `report-popup-fixture.test.js`
+- `run-family-wrappers.contract.test.js`
+- `run-family-wrappers.ps1`
+- `run-phase-gates.contract.test.js`
+- `run-phase-gates.ps1`
+- `run-preflight-tools-release.bat`
+- `section-tools.contract.test.js`
+- `shared/fixtures/joint-reactions/`
+- `src/`
+- `SRC工具/`
+- `SRC工具/core/src/src-beam-core.source.js`
+- `SRC工具/core/src-beam-core.js`
+- `SRC工具/src/src-beam.source.js`
+- `SRC工具/src/src-column.source.js`
+- `SRC工具/src-beam.js`
+- `SRC工具/src-column.js`
+- `STAGING_GROUPS.md`
+- `sync-anchor-deployment.ps1`
+- `tests/`
+- `test-tool-page-layout.ps1`
+- `tmp/`
+- `TOOL_BOUNDARIES.md`
+- `TOOL_REPORT_GUIDE.md`
+- `toolbox-entrypoints.contract.test.js`
+- `tool-page-a11y.js`
+- `tool-page-a11y-build.contract.test.js`
+- `tool-workflow.browser.test.js`
+- `vendor/`
+- `vercel.json`
+- `石材固定/`
+- `石材固定/assets/detail-bk.webp`
+- `石材固定/auto_word_artifact_test.py`
+- `石材固定/js/calculator.spec.js`
+- `石材固定/js/constants.spec.js`
+- `石材固定/tests/ci_summary.py`
+- `石材固定/tests/README.md`
+- `石材固定/tests/run_all_tests.bat`
+- `石材固定/tests/visual_decoration_test.py`
+- `石材固定/vendor/loads/project-location.js`
+- `石材固定/vendor/loads/seismic-zones.js`
+- `石材固定/石材計算書產生器_規範版V2.html`
+- `吊車/`
+- `基礎/`
+- `專案報告/`
+- `結構工具箱/assets/home/home.css`
+- `結構工具箱/assets/home/home.js`
+- `結構工具箱/assets/home/src/home.source.js`
+- `結構工具箱/assets/home2/`
+- `結構工具箱/assets/hy/colors_and_type.css`
+- `結構工具箱/assets/status/platform-status.json`
+- `結構工具箱/assets/status/preflight-summary.json`
+- `結構工具箱/assets/status/report-readiness-status.json`
+- `結構工具箱/audit-dashboard.html`
+- `結構工具箱/core/loads/loadcombo.js`
+- `結構工具箱/core/loads/project-location.js`
+- `結構工具箱/core/loads/regulatory-locations.js`
+- `結構工具箱/core/loads/seismic.js`
+- `結構工具箱/core/loads/seismic-zones.js`
+- `結構工具箱/core/loads/src/loadcombo.source.js`
+- `結構工具箱/core/loads/src/seismic-zones.source.js`
+- `結構工具箱/core/loads/wind.js`
+- `結構工具箱/core/src/wind-report.source.js`
+- `結構工具箱/core/ui/chart-runtime.js`
+- `結構工具箱/core/ui/force-picker.js`
+- `結構工具箱/core/ui/report.js`
+- `結構工具箱/core/ui/report-utils.js`
+- `結構工具箱/core/ui/src/report-docx.source.js`
+- `結構工具箱/core/ui/src/tool-workflow.source.js`
+- `結構工具箱/core/wind-report.js`
+- `結構工具箱/tests/seismic.test.js`
+- `結構工具箱/tests/wind.test.js`
+- `結構工具箱/tools/`
+- `結構工具箱/tools/audit-dashboard-browser-smoke.test.js`
+- `結構工具箱/tools/build-minified-runtimes.js`
+- `結構工具箱/tools/build-pages-artifact.js`
+- `結構工具箱/tools/concrete-ndt/`
+- `結構工具箱/tools/delivery-artifacts.contract.test.js`
+- `結構工具箱/tools/docx-package-integrity.js`
+- `結構工具箱/tools/docx-package-integrity.test.js`
+- `結構工具箱/tools/formal-browser-smoke.test.js`
+- `結構工具箱/tools/formal-tools.contract.test.js`
+- `結構工具箱/tools/independent-engineering-adapters/anchor-cast-in.js`
+- `結構工具箱/tools/independent-engineering-adapters/cable-tension-frequency.js`
+- `結構工具箱/tools/independent-engineering-adapters/rc-beam-strength.js`
+- `結構工具箱/tools/independent-engineering-adapters/rc-column-pm.js`
+- `結構工具箱/tools/independent-engineering-adapters/rc-foundation.js`
+- `結構工具箱/tools/independent-engineering-adapters/rc-pile.js`
+- `結構工具箱/tools/independent-engineering-adapters/rc-retrofit-section.js`
+- `結構工具箱/tools/independent-engineering-adapters/rc-shear-wall-strength.js`
+- `結構工具箱/tools/independent-engineering-adapters/rc-slab-strength.js`
+- `結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js`
+- `結構工具箱/tools/independent-engineering-adapters/rc-wall-strength.js`
+- `結構工具箱/tools/independent-engineering-adapters/seismic-appendage.js`
+- `結構工具箱/tools/independent-engineering-adapters/seismic-force-static.js`
+- `結構工具箱/tools/independent-engineering-adapters/seismic-misc.js`
+- `結構工具箱/tools/independent-engineering-adapters/src-beam.js`
+- `結構工具箱/tools/independent-engineering-adapters/steel-beam-asd.js`
+- `結構工具箱/tools/independent-engineering-adapters/steel-column-asd.js`
+- `結構工具箱/tools/independent-engineering-adapters/steel-formal.js`
+- `結構工具箱/tools/independent-engineering-adapters/steel-plate-connection.js`
+- `結構工具箱/tools/independent-engineering-adapters/stone-fixing.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-cc.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-fence-sign.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-force-mwfrs.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-lattice-tower.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-object-frame.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-object-solid-table210.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-object-tower.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-open-roof.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-parapet.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-sign-pole.js`
 - `結構工具箱/tools/independent-engineering-benchmarks.catalog.json`
 - `結構工具箱/tools/independent-engineering-benchmarks.js`
 - `結構工具箱/tools/independent-engineering-benchmarks.test.js`
-- `結構工具箱/tools/independent-engineering-adapters/cable-tension-frequency.js`
-- `結構工具箱/tools/independent-engineering-adapters/rc-column-pm.js`
-- `結構工具箱/tools/independent-engineering-adapters/rc-beam-strength.js`
-- `結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js`
-- `結構工具箱/tools/independent-engineering-adapters/rc-shear-wall-strength.js`
-- `結構工具箱/tools/independent-engineering-adapters/rc-wall-strength.js`
-- `結構工具箱/tools/independent-engineering-adapters/rc-retrofit-section.js`
-- `結構工具箱/tools/independent-engineering-adapters/rc-foundation.js`
-- `結構工具箱/tools/independent-engineering-adapters/rc-pile.js`
-- `結構工具箱/tools/independent-engineering-adapters/steel-beam-asd.js`
-- `結構工具箱/tools/independent-engineering-adapters/steel-column-asd.js`
-- `結構工具箱/tools/independent-engineering-adapters/steel-plate-connection.js`
-- `結構工具箱/tools/independent-engineering-adapters/steel-formal.js`
-- `結構工具箱/tools/independent-engineering-adapters/rc-slab-strength.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-force-mwfrs.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-object-solid-table210.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-cc.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-parapet.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-open-roof.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-object-frame.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-lattice-tower.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-object-tower.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-fence-sign.js`
-- `結構工具箱/tools/independent-engineering-adapters/wind-sign-pole.js`
-- `結構工具箱/tools/independent-engineering-adapters/seismic-force-static.js`
-- `結構工具箱/tools/independent-engineering-adapters/seismic-appendage.js`
-- `結構工具箱/tools/independent-engineering-adapters/seismic-misc.js`
-- `結構工具箱/tools/independent-engineering-adapters/anchor-cast-in.js`
-- `鋼構工具/core/materials/steel.js`、`steel-beam-formal.html`、`steel-beam-formal.js`、`steel-column-formal.html`、`steel-column-formal.js`、`steel-formal.regression-test.js`
-- `結構工具箱/core/loads/wind.js`、`結構工具箱/tools/風力/wind-force.html`、`結構工具箱/tools/風力/wind-cc.html`、`結構工具箱/tools/風力/wind-sign-pole.html`、`結構工具箱/tests/wind.test.js`、`結構工具箱/tools/formal-tools.contract.test.js`
-- `結構工具箱/core/loads/seismic.js`、`結構工具箱/tools/地震力/seismic-force.html`、`結構工具箱/tools/地震力/seismic-misc.html`、`結構工具箱/tests/seismic.test.js`
-- `螺栓檢討/bolt-review-tool/src/calc.ts`、`calc.test.ts`、`defaults.ts`、`backup.ts`、`螺栓檢討/anchor-report.contract.test.js`
-- `鋼筋混凝土/shared/foundation-isolated.js`、`foundation-isolated.test.js`、`foundation-pile.js`、`foundation-pile.test.js`、`flexure.js`
-- `鋼筋混凝土/shared/slab-evaluator.js`、`slab-evaluator.test.js`、`鋼筋混凝土/tools/slab.html`、`slab-regression.test.js`、`test-slab.ps1`
-- `鋼筋混凝土/shared/wall.js`、`pmsection.js`、`wall-inplane-evaluator.js`、`鋼筋混凝土/tools/wall.html`、`wall-regression.test.js`、`test-wall.ps1`
-- `RC補強斷面性質.html`、`鋼筋混凝土/tools/retrofit-report-visual.test.js`、`retrofit-report-visual.contract.test.js`、`test-retrofit-report.ps1`
-- `鋼筋混凝土/tools/foundation.html`、`foundation-regression.test.js`、`foundation-regression-cases.json`、`single-pile-designer.html`、`single-pile-regression.test.js`、`test-foundation.ps1`
-- `石材固定/石材計算書產生器_規範版V2.html`、`石材固定/js/constants.spec.js`、`石材固定/js/calculator.spec.js`、`石材固定/tests/visual_decoration_test.py`、`石材固定/tests/ci_summary.py`、`石材固定/tests/run_all_tests.bat`、`石材固定/tests/README.md`、`結構工具箱/tools/independent-engineering-adapters/stone-fixing.js`
-- `結構工具箱/tools/tool-maturity-matrix.js`
-- `preflight-tools.ps1`
+- `結構工具箱/tools/local-quick-browser-smoke.test.js`
+- `結構工具箱/tools/local-quick-output-consistency.test.js`
+- `結構工具箱/tools/local-quick-tools.contract.test.js`
+- `結構工具箱/tools/pages-live-smoke.js`
+- `結構工具箱/tools/project-location.test.js`
+- `結構工具箱/tools/project-storage.test.js`
+- `結構工具箱/tools/public-status-claims.contract.test.js`
+- `結構工具箱/tools/regulatory-data.contract.test.js`
+- `結構工具箱/tools/release-preflight-lock.ps1`
+- `結構工具箱/tools/release-preflight-lock.test.js`
 - `結構工具箱/tools/release-readiness.contract.test.js`
-- `README.md`、`TOOL_BOUNDARIES.md`、`TOOL_REPORT_GUIDE.md`
-
-此組需一起提交，避免只有測試案例卻沒有 production core、preflight、成熟度與報告邊界。完整通過標示 40 / 40 個正式入口；golden case 或同核心結果鏈不等同獨立工程驗證，也不得算入獨立覆蓋。第十九條路由為正式區域風壓 C&C，獨立核對 18 m 高度界線、部分封閉內壓高度及屋面角隅負壓提前收斂；第二十條路由為正式女兒牆風壓，獨立核對 MWFRS 式 2.3、圖 3.4 與圖 3.5 三條設計路線；第二十一條路由為正式開放式屋頂風壓，獨立核對單斜／雙斜屋頂、有／無阻擋、小／中／大有效面積、坡度直接取值／內插及 10° 高度切換；第二十二條路由為正式中空式／格子式風力，獨立核對表 2.11 圓形低／高 D√q(z) 與平邊構材三條路線、三種實體率帶、等效寬度及底部作用；第二十三條路由為正式格構式高塔風力，獨立核對表 2.15 四段基本係數、構材／斜風向修正與完整分段剪力／彎矩力流；第二十四條路由為煙囪／水塔風力，獨立核對表 2.12 斷面路線、h/D 邊界、圓形 D√q(z) 分流、形狀修正、頂部附加物與完整分段力流；第二十五條路由為圍牆／標示物風力，獨立核對表 2.10 地面與高架雙路線、低高界夾制、內插、專案 C_f 採用值、實體率修正及底部作用；第二十六條路由為獨立式招牌／燈桿風力，獨立核對表 2.10 面板、表 2.14 圓管門檻、表 2.13 角柱四個細長比區間、支柱分段力流及組合底部作用；第二十七條路由為 RC 一般牆，獨立核對承重／非承重／地下室／結構牆厚度、Wall Pier、完整 P–M、簡式失敗關閉、αc 內插、配筋與地下室側壓雙模型；第二十八條路由為 RC 補強斷面，獨立核對梁底貼 CFRP、CFRP／鋼板 U 型包覆、脫層、轉換斷面、剪力上限、柱圍束軸壓與 P–M；第二十九條路由為鋼構正式主工具，獨立核對主工具連接板、螺栓拉力構件、單剪力板、平板支撐 Gusset、梁柱彎矩接頭與全斷面 CJP 耐震柱續接，以及其限定的雙側縱向填角銲與 ASD 全滲透開槽銲；梁柱彎矩只涵蓋已登錄單一選定構架面的 Mpr／MprFar／Vp、六項強度與強柱弱梁，柱續接只涵蓋同材同斷面全斷面 CJP 的 Eamp、七項強度與細部閘門，不涵蓋 AISC 358 預認證、正交構架面、完整接頭設計、PJP／螺栓式／箱型／組合構材／jumbo 柱續接或完工驗收；第三十條路由為覆工板系統，獨立核對一般載重與長柱／未側撐重載兩案的板面、大小梁、共構柱、握裹與樁基完整受力鏈；第三十一條路由為石材固定，獨立核對背扣／插銷、風震需求、有效固定點、錨栓容量與折減、角鋼、板材局部、層間變位與熱伸縮；第三十二條路由為包覆型 SRC 梁，獨立核對撓曲、寬厚比、鋼骨／RC 剪力分擔、一般剪力、剪力摩擦與失敗控制；第三十三條路由為包覆型 SRC 柱，獨立核對斷面幾何、寬厚比、剛度分配、鋼骨受壓與壓彎互制；第三十四至第三十六條路由分別為 RC 深梁、基礎深梁二維與樁帽三維 STM，獨立核對其限定拓樸的代表性強度案；第三十七條路由為地坪 Westergaard，獨立核對內部／邊緣／角隅載重應力、相對勁度半徑與等效接觸半徑；第三十八條路由為柱保護層偏差強度評估，獨立建立四面筋位、應變相容、等值壓力塊與固定 Pu 根解，不讀 production golden answer。第三十九條路由為鋼索索力頻率法快算，以非完美且不連續振型獨立核對過原點擬合、N／kN 單位換算、逐模態殘差與目標區間，不讀 production golden answer。第四十條路由為平面剛架，以懸臂端點力閉式解獨立核對位移、支承剪力與彎矩，並由 production adapter 直接執行頁面求解器。既定 P0／P1 基準路由已完成；分析摘要身分的 `/seismic-dynamic` 不得計入正式附件入口覆蓋。
-
-開挖證據鏈組包：調整 ERH／RVR／SEV／SCV／RTB 原生分類時，必須同批 staging `attachment-package-check.js`、檢查／組包／事後驗證測試、開挖 traceability catalog／contract、SCV 說明、README 與 `TOOL_BOUNDARIES.md`。測試須證明完整鏈可進 v3 包的內部追溯區並通過事後複驗，缺檔／雜湊／指紋／採用狀態矛盾 blocked，孤立或重複引用 review，且治理 JSON 不得進正式附件區。組包關係檢查不冒充 Python 受控內容或 Ed25519 簽章驗證。
-
-Schema v25 正式 Excel 雙封印：錨栓 `reportWorkbookSeal.ts`、獨立 `結構工具箱/tools/xlsx-seal-verifier.js` 與 `結構工具箱/tools/xlsx-seal-verifier.test.js`、附件組包檢查、release aggregate、成熟度矩陣、首頁完成數、Pages 私有邊界、錨栓部署鏡像與四份治理文件必須同批 staging。測試須分別證明內容／公式／快取結果竄改與文件狀態／核可時間／計算指紋／內容 SHA 竄改失敗關閉；公開資料不得含封印值、工作表內容或竄改樣本。
-
-Schema v27 RC STM 補充正式附件：深梁、基礎深梁與樁帽三維 STM 的三個頁面、browser／PDF regression、`report-portable-html-check.js`、`report-screenshot-quality.js`、rendered inventory／aggregate、成熟度矩陣、release contract 與四份治理文件必須同批 staging。當輪 `rc-stm-formal` 必須保存內部審閱 PDF／PNG、核可 HTML、獨立列印 PDF與逐工具 evidence JSON；release 要求附件 `3/3`、實體成品 `12/12`，並重驗計算指紋、離線重開、內容／核可雙封印與兩類竄改阻擋。三者維持 RC 梁／基礎流程內子工具，不增加首頁正式工具數。
-
-RC STM 的跨工具邊界必須連同 RC 梁最小／最大配筋與多排筋核心、對應回歸案例與獨立工程基準、LoadCombo／ForcePicker 契約，以及平面剛架 V1.6 產生 D／L／W／E 支承反力分量的頁面、contract、metadata 與共用列印依賴同批 staging。前述發送端、中介格式、接收端、重算核心與證據不得分批。
-
-鋼構同步 manifest 的 Pages 私有邊界：`鋼構工具/core/formal-core-manifest.json` 保存工作站絕對路徑與同步雜湊，只供本機 audit，不是公開 runtime。調整此邊界時必須同批 staging `結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/pages-live-smoke.js`、`pages-release-governance.contract.test.js`、`toolbox-entrypoints.contract.test.js`、README 與 `TOOL_BOUNDARIES.md`；測試須同時證明 builder 精確排除、HTTP 私有路徑非 200，且實際暫存 artifact 不含本機帳號或工作區絕對路徑。
-
-## 現況鑑定會勘簽認 V0.30.0
-
-V0.30.0 會勘簽認階段 A：`field-survey/signoff.js`、`signoff-ui.js` 與現有紀錄、備份、附件頁碼整合；新 runtime 要進 `sw.js` 和 `release.mjs`。資料庫及備份格式 17，舊案件檔仍可讀；更新前關閉其他開著的舊視窗。`結構工具箱/tools/build-pages-artifact.js` 與 `pages-release-governance.contract.test.js` 同批檢查簽認 HTML、簽名資料包、範本 JSON 的改名私密輸出。發布只含程式，簽認案例及 PNG 均留在私有案件與 `output/`。實體 iPhone／Android 檢核待使用者試用，不得以模擬標記完成。
-
-V0.30.1 調整觸控簽名入口與姓名選填。IndexedDB 及 `.csurvey` 版本 18，讀取 1～17；以 V0.30.0 實際已發布提交做升級來源，確認舊視窗拒寫、舊案件保存與離線更新。公開成品仍只疊加 `field-survey/` 執行檔；使用者簽名資料不進 Pages。
-
-V0.30.2 將簽認作廢原因由瀏覽器原生 `prompt` 改為簽認視窗內的必填欄位（`field-survey/signoff-ui.js`、`app.css`），使 `browser-dialogs.contract.test.js` 通過；作廢資料仍為 `voided = { at, reason }`，IndexedDB 及 `.csurvey` 版本維持 18。`tests/v030-browser.js` 改以畫面操作驗證空白原因擋存、取消不變動及確認作廢。
-
-V0.30.3 在現場紀錄固定上方加入手動螢幕常亮開關，使用瀏覽器 Screen Wake Lock；顯示真正取得、暫停或失效的狀態，切離頁面後返回會重新嘗試。無支援或遭省電設定拒絕時提示手機自動鎖定設定。IndexedDB 及 `.csurvey` 維持 18；`tests/v0303-browser.js` 驗證開關、回到前景、系統收回與拒絕。
-
-## 現況鑑定現場紀錄 V0.7.0
-
-本次包含 `field-survey/report.js`、`report-ui.js` 與 `tests/report-browser.js`：U 型裂縫條數不列總長、磁磚塊數、房間整理、各照片機位與主照片／附件選片、同步流水號與獨立 HTML／列印 PDF。新備份版本 3，資料庫版本 3，舊資料保留。另同步 `結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/pages-live-smoke.js` 及 `pages-release-governance.contract.test.js`；附件 HTML 與 JSON 編號對照是私人案件輸出，不得發布。公開只有產生附件的程式。
-
-本組只加入現場紀錄工具、首頁入口與驗證，不改既有結構計算結果。原始研究及個案資料留在忽略發布的 `output/`。
-
-```powershell
-git add -- field-survey/ "啟動現況鑑定紀錄.bat" serve-local.js vercel.json preflight-tools.ps1 "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-`field-survey/tests/` 及 README、package.json 依既有 artifact 規則排除；公開只包含操作頁、程式、樣式、離線資源清單及圖示。
-
-本組 preflight 執行入口：`field-survey/tests/model.test.js`、`field-survey/tests/browser.test.js`。
-
-備份的發布排除與改名偵測一併交付：`結構工具箱/tools/build-pages-artifact.js`、`pages-release-governance.contract.test.js`。所有 `.csurvey` 及 `-核對收據.json` 排除發布；改名後仍以資料包標頭或 JSON kind 阻擋。
-
-首頁新增工作流卡片後，同步維護 `結構工具箱/tools/public-status-claims.contract.test.js` 與 `結構工具箱/tools/local-quick-browser-smoke.test.js` 的 52 項入口檢查。主頁使用 `field-survey/recorder.html`，維持 clean URL 下相對資源位置一致。
-
-`.gitignore` 也忽略案件備份與核對收據，避免一般 Git staging 收入私人資料。
-# 2026-10-03：T3 計算操作整合
-
-T3 同包提交共用 workflow、一般頁 adapter、41 入口接線與快捷鍵測試；錨栓同包包含 React 來源及 `sync-anchor-deployment.ps1` 的產物。入口清冊由發布分流排除，測試證據保留於 `output/`，不提交。T2 報表純函式、T4 鋼構計算書 renderer 與 T5 文書匯出仍各自分包。
-
-T4 提交共用報表 presentation API、鋼構專用正文接線、同步副本／manifest 與相容性、九案證據鏈測試；不混入 T5 DOCX adapter。正式附件資格與公開放行仍由原治理流程決定。
-
-T4 同包包含附件可見性解析器、其隱藏正文負向案例，以及 `steel-report-package-contract.js` 的 Pages 私有排除；來源完整性為定向驗收 wrapper 的條件，不修改通用組包的來源政策。
-
-## 2026-10-03：T5 真正 DOCX 文書版
-
-T5 同包提交共用 report-docx、core／鋼構同步副本與 RC 獨立 adapter、45 份 renderer 消費頁的輕量依賴、首頁依賴登錄、附件檢查器 DOCX 非正式辨識及負向契約。沿用已追蹤的 docx 9.6.1 vendor 與 MIT LICENSE，不新增 CDN。一起提交 DOCX 單元／整合／瀏覽器／合成文件入口與 Word 渲染入口；產生的 DOCX、HTML、PDF、PNG、trace 及案例只保留 ignored output，不加入 Pages 或提交。T6 首頁介面與效能仍另包。
-
-## 2026-10-03：T6 首頁品質
-
-T6 同包提交首頁 HTML／CSS／JS、sync-home-initial-view.js 及其精確 Pages 私有排除、homepage-quality.browser.test.js 與 PowerShell 入口／依賴準備。量測相依版本固定為 Lighthouse 13.5.0、Playwright 1.63.0、axe-playwright 4.13.0，package／lock／報告保存在 ignored output；固定三輪取中位數且保留全部分數及錯誤。未證明主腳本解析為主要瓶頸，因此不拆工具清冊；不修改 assets/status 與 public-release JSON、不執行正式預檢或發布。
-
-## 2026-10-08：第四階段 T12～T16（按需載入、本機服務辨識、圖像、無障礙、別名）
-
-T12-A／B 同包提交石材 HTML 與 `ui_smoke_test.py`；T12-C 同包提交鋼構 `app.js`、兩個入口 HTML 與 `mathjax-lazy-load-smoke.py`；T13 同包提交石材 HTML、`server.py`、`server_smoke_test.py`、`self_check.py`、`local-server-probe-smoke.py`；T14 同包提交 `earth-pressure.html`、鋼構 `app.js` 與 `sketch-presentation-smoke.py`；T15 同包提交 `tool-page-a11y.js`、瀏覽器測試、PowerShell 入口與 40 頁 script 接線（a11y 腳本一律在 `project-meta-profile.js` 之前）；T16 同包提交 `home.js` aliases、入口契約與 local-quick smoke。Python smoke、`.ps1` 與 `*.test.js` 依既有私有後綴規則不進 Pages；`tool-page-a11y.js` 為公開執行期。
-
-git add -- "tool-page-a11y.js" "tool-page-a11y.browser.test.js" "test-tool-page-a11y.ps1" "鋼構工具/app.js" "鋼構工具/index.html" "鋼構工具/plate-check.html" "鋼構工具/mathjax-lazy-load-smoke.py" "鋼構工具/sketch-presentation-smoke.py" "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/server_smoke_test.py" "石材固定/self_check.py" "石材固定/ui_smoke_test.py" "石材固定/local-server-probe-smoke.py" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/assets/home/home.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
-
-## 2026-10-08：第五階段 T18（V3 26 條快速門檻執行器）
-
-T18 提交根目錄 `run-phase-gates.ps1`、`run-phase-gates.contract.test.js`、README 與治理文件。執行器直接解析 `_tmp/派工/小工具優化派工指示-20261008-V3.md` 第 0 節命令區塊，不複製或改寫清單；`-SelfTestFailure` 僅供故障記錄契約測試，不屬正式 26 條清單。每次 package 先提交再執行，輸出 `output/phase-gates/`；output 與回報資料夾忽略、不 staging、不發布。
-
-```powershell
-git add -- "run-phase-gates.ps1" "run-phase-gates.contract.test.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-
-## 2026-10-08：第五階段 T19（40 頁 × 2 viewport axe 違規歸零）
-
-T19 清除基線中 26 條缺少 main landmark 的正式頁與空表頭違規，並為共用表頭、覆工板狀態列及石材工址列補上具名稱的 region；石材報表引用標題維持原視覺樣式並調整語意層級。無障礙瀏覽器測試對 40 頁 × 2 viewport 的每一項 axe violation 設為失敗，另檢查恰有一個 main 與 H1。首頁清冊已含 40 頁 tool-page-a11y.js；另將石材工址執行期登錄於該路由更新依賴。
-
-```powershell
-git add -- "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "tool-page-a11y.browser.test.js" "test-tool-page-a11y.ps1" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/assets/home/home.js" "石材固定/vendor/loads/project-location.js" "RC補強斷面性質.html" "石材固定/石材計算書產生器_規範版V2.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/foundation/foundation-local.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "覆工板/index.html" "鋼架/平面剛架分析.html" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html"
-```
-
-
-## 2026-10-08：第五階段 T20（計算書 popup MathJax 與離線 fallback）
-
-T20 將計算書 popup 改為共用 Blob HTML 導覽，修正 Edge 空白 popup `document.write` 不發出外部腳本請求；只在正文含公式時才啟動 MathJax，逾時／載入失敗顯示共用可讀 fallback，RC 仍由獨立報表 factory 呼叫共用 utility adapter。下載 HTML 由產品按鈕實際落盤後以 `file://` 離線重開，核對 fallback、文件類別與內容／核可封印。`report-mathjax-popup.browser.test.js` 使用明示 loader stub（不代表真實公式排版），另外保留真實 route.abort 與 production 12 秒無回應案例的所有 console/page errors；Edge 原生 `ERR_INTERNET_DISCONNECTED` 與「零 console error」指標衝突時，測試及回報必須標示未通過並列原始錯誤。
-
-```powershell
-git add -- "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "shared-report-utils.contract.test.js" "report-mathjax-popup.browser.test.js" "section-tools.contract.test.js" "continuous-beam-regression.test.js" "結構工具箱/tools/formal-tools.contract.test.js" "鋼構工具/steel-formal.regression-test.js" "SRC工具/src-beam.contract.test.js" "SRC工具/src-column-page.contract.test.js" "結構工具箱/assets/home/home.js" "結構工具箱/core/ui/report-utils.js" "結構工具箱/core/ui/report.js" "鋼構工具/app.js" "鋼構工具/core/ui/report-utils.js" "鋼構工具/core/ui/report.js" "鋼構工具/core/formal-core-manifest.json" "鋼筋混凝土/shared/report.js"
-```
-
-## 2026-10-08：第五階段 T21（測試穩定性）
-
-T21 同包提交鋼構報表同步重算與真瀏覽器同快照檢查、石材 server smoke 的 UUID 暫存與受限清理重試，以及本機服務探測的靜默 TCP 負向案例。`--probe-only` 僅驗服務探測；完整入口仍含 UI smoke，既有 `badMethods=4` 失敗不得被 probe-only 通過取代。既有報表五連跑與三次一般權限 server smoke 證據引用於 T21 回報；不把 ignored output 或 `_tmp/派工/回報` 納入版控。
-
-```powershell
-git add -- "鋼構工具/app.js" "鋼構工具/steel-audit-browser-runner.js" "鋼構工具/steel-formal.regression-test.js" "石材固定/server_smoke_test.py" "石材固定/local-server-probe-smoke.py" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
-```
-
-## 2026-10-08：第五階段 T22（core／RC 報表漂移契約）
-
-T22 以九組內嵌 approval script marker 比對必要等價區段；lexer 忽略註解與排版空白，保留識別符、運算子、字串、樣板與正規表示式 token，負向自測涵蓋字串差異、程式差異、marker 缺漏／重複及 comment-like literal。序列化移除清單、family seal adapter 與 popup presentation 差異記入 map 並維持 core／RC 分治。report-core-parity-map.json 以 Pages 精確清單排除，契約測試依 .test.js 後綴排除；live smoke 對兩者探測私有 404。
-
-git add -- "report-core-parity-map.json" "report-core-parity.contract.test.js" "結構工具箱/core/ui/report.js" "鋼構工具/core/ui/report.js" "鋼構工具/core/formal-core-manifest.json" "鋼筋混凝土/shared/report.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" "pages-release-governance.contract.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
-
-## 2026-10-08：第五階段 T23（家族慢測統一執行器）
-
-`run-family-wrappers.ps1` 與 `run-family-wrappers.contract.test.js` 一起提交；tracked 清單以 repo-relative 路徑加 `$PSScriptRoot` 定位，清單順序固定為 10 個 RC PowerShell wrapper、鋼構 `run-audit.bat`、連續梁 PowerShell wrapper、剛架與 local-quick Node smoke。執行輸出與摘要只寫 ignored `output/family-wrappers/`，14 個 child 序列執行，失敗仍保存 stdout／stderr log 並計入總失敗。新增 `report-popup-fixture.test.js` 配合 beam／column／slab regression、steel audit runner 與 local-quick 中採 Blob 導覽的 legacy 報表案例：測試替身讀取真實 HTML Blob、等候 Blob URL 文件 load 後再觀察 autoPrint，保留既有 HTML、來源、popup 回傳及 focus／print 斷言，不修改 production Blob 導覽。六個獨立 local-quick 工具仍以原 `document.write` 測試替身覆蓋原有輸出 API。所有新增 `.ps1`／`.test.js` 檔依私有後綴規則排除 Pages。
-
-```powershell
-git add -- "run-family-wrappers.ps1" "run-family-wrappers.contract.test.js" "report-popup-fixture.test.js" "鋼筋混凝土/tools/beam-regression.test.js" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/slab-regression.test.js" "鋼構工具/steel-audit-browser-runner.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "README.md"
-```
-
-## 2026-10-09：第五階段放行前修正（工址列 core／vendor 同步、staging 覆蓋佔位符）
-
-第五階段 T19 只在 `石材固定/vendor/loads/project-location.js` 把共用工址列改為具 `aria-label` 的 `section`，未同步到來源 `結構工具箱/core/loads/project-location.js`，正式預檢 `regulatory-data-contract` 的 SHA-256 同步比對因此失敗；修正方式是把同一變更寫回 core，再以 `結構工具箱/tools/sync-stone-regulatory-vendor.js` 重新產生 vendor 副本，並重跑 `sync-home-update-dates.js`（五條風力／耐震路由與石材頁更新日）。另 `preflight-tools.ps1` 的 staging 覆蓋檢查改為略過含 `<`、`>` 佔位符的行內路徑（例如時間戳目錄），避免 `Test-Path` 擲回不合法字元。vendor 檔必須由同步腳本產生、不得手改。
-
-```powershell
-git add -- "結構工具箱/core/loads/project-location.js" "石材固定/vendor/loads/project-location.js" "結構工具箱/assets/home/home.js" "preflight-tools.ps1" "STAGING_GROUPS.md" "TOOL_BOUNDARIES.md"
-```
-
-## 2026-10-09：第六階段 T27（規範鏡像與首頁日期門檻）
-
-T27 將 V3 第 0 節命令區塊末尾追加規範資料 core／vendor 同步契約與首頁日期唯讀檢查，執行器及逐字清單契約同步要求 28 條，保留隔離故障注入的非零退出驗證。V3 與每包回報位於 ignored `_tmp/派工/`，只更新本機權威清單，不強制加入版控；summary.json 留在 ignored `output/phase-gates/`。每包最終提交後在乾淨樹執行全部門檻，不改正式預檢或公開狀態。治理文件行內輸出路徑以實際目錄表示，不含角括號佔位符。
-
-```powershell
-git add -- run-phase-gates.ps1 run-phase-gates.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-09：第六階段 T24（無障礙公開執行期確定性壓縮）
-
-可讀 source 僅新增必要註解，固定 Terser 5.44.0 建置原 `tool-page-a11y.js`，由 16,500 bytes 降至 9,972 bytes，減少 6,528 bytes；公開檔名、40 頁相對引用及 script 順序不變。source／build 精確列入 Pages PRIVATE_FILES；build contract 依測試後綴排除。`.gitattributes` 固定生成檔與 source 為 LF，避免 Windows checkout 換行造成逐位元組檢查漂移。Terser 只安裝於 ignored `output/playwright/phase2-quality-deps/`，版本、manifest 與 lock 由既有依賴入口核對，套件及 package／lock 不 staging。
-
-首頁維持公開 JS 並將 source 同時加入相同 40 條路由更新依賴；先提交以取得真實來源日期，再在乾淨樹執行日期同步並 amend 同一任務提交，最終乾淨樹 `--check` 無差異。V3 命令區塊末尾追加 `node tool-page-a11y-build.contract.test.js` 為第 29 條；每包門檻完整重跑，T24 另跑 40 頁 × 2 viewport 無障礙、52 頁載入預算及 14 組家族慢測。載入量與原始 sourceDrift 如實回報，不重設基準。
-
-```powershell
-git add -- .gitattributes tool-page-a11y.js tool-page-a11y-build.contract.test.js ensure-homepage-quality-deps.ps1 run-phase-gates.ps1 run-phase-gates.contract.test.js "結構工具箱/tools/a11y/tool-page-a11y.source.js" "結構工具箱/tools/build-tool-page-a11y.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-09：第六階段放行前（14 頁補 icon link、載入預算基準重設）
-
-40 個正式工具頁中有 14 頁（風力 9、耐震 3、地坪 Westergaard、鋼索頻率法）未宣告 `<link rel="icon">`，桌機瀏覽器會自動請求 `/favicon.ico` 並在 console 留下 404；比照其餘 29 頁在 `<title>` 之後補 `<link rel="icon" href="data:,">`，不影響 script 順序與無障礙結果。載入預算基準經委託人授權以 `--write-baseline` 重設為第五／六階段現況（52 路由 17,789,913 → 18,128,164 bytes；增量來自已上線的第五階段共用報表模組，第六階段 a11y 執行期每頁減 6,528）。基準 JSON 只能由該指令產生，不得手改。
-
-```powershell
-git add -- "結構工具箱/tools/tool-load-budget-baseline.json" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "STAGING_GROUPS.md" "TOOL_BOUNDARIES.md"
-```
-
-## 2026-10-10：第七階段 T28（連續梁 Firebase 按需載入）
-
-連續梁頁保留原 Firebase 11.6.0 網址、設定與 `beam_saves` 資料流程，將兩個模組延後至首次雲端儲存／載入操作，並以共用 Promise、12 秒逾時與可重試 fallback 管理失敗。每次載入使用同源隱藏 iframe 建立新 module realm；成功後保留 iframe 維持 SDK realm，失敗／逾時則移除，避免瀏覽器快取失敗 module map 阻斷重試。儲存 payload 在 SDK realm 內由 JSON 純資料重建並附加 timestamp，以符合 Firestore plain-object 原型檢查；集合、欄位及 `data` 字串內容不變。`continuous-beam-cloud-lazy.browser.test.js` 以明確 fixture 驗證冷開 0 次、首次恰 2 次、阻斷後 fallback／重試、逾時重試、並行呼叫及新增／覆蓋 payload 契約。獨立真實 CDN 案例透過正式 `_fbSave()` 初始化 Firebase 並開啟儲存視窗，但不確認儲存、不查詢或讀寫 Firestore。瀏覽器 console、pageerror、requestfailed 原始紀錄及 summary 均只寫 ignored `output/playwright/continuous-beam-cloud-lazy/`。既有計算、報表、本地 JSON 與暫存流程保持獨立。
-
-```powershell
-git add -- "連續梁分析.html" "continuous-beam-cloud-lazy.browser.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-10：第七階段 T30（石材節點圖延後載入）
-
-正式 V2 主頁移除兩張 JPEG base64，新增由原始 JPEG 轉出的公開 `石材固定/assets/detail-bk.webp`／`detail-pk.webp`；冷開與同步 render 保持 0 請求，首次放大或報表／Word 輸出才載入。計算書 popup 對輸出 clone 先同步保留新視窗，再 await 封裝 data URI；Blob HTML 帶入相對資源 base 並導覽至已保留的視窗，避開 Edge 在 document.write 時停於 Paged.js 前。Word、DOCX 與 `auto_word.py` PDF→DOCX 路徑均先完成圖檔封裝，再交給既有同步 builder／PDF→DOCX 流程。每 key 使用單一 Promise、12 秒全流程 timeout、失敗清除可重試；缺圖統一輸出「節點參考圖暫無法載入」。正常 DOCX browser 案例不攔截本機 docx 9.6.1 runtime，實際解析 ZIP 的 detail media 與 document relationships；另分開驗證阻斷情境與 `.doc` 真下載 bytes 的離線重開。新測試私有、僅 summary 與當輪成品寫入 ignored output；首頁 `/stone-fixing` dependency 同步登錄兩張 WebP，首頁更新日需一併更新。不新增套件或產品 HTML 下載入口。
-
-```powershell
-git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/auto_word.py" "石材固定/assets/detail-bk.webp" "石材固定/assets/detail-pk.webp" "石材固定/stone-detail-lazy.browser.test.js" "石材固定/stone-report.contract.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-10：第七階段 T31（共用執行期確定性壓縮）
-
-單一 `build-minified-runtimes.js` manifest 以 ignored Terser 5.44.0 建置原 a11y、案件表頭 profile 與 wind runtime；ECMA 2020、compress/mangle、禁止 unsafe／property mangling，所有輸出保持既有公開路徑並以 `--check` 位元組驗證。原 a11y `build-tool-page-a11y.js` 僅作薄 wrapper，保留既有 generated marker 與 9,972 bytes，40 頁接線和 profile 最後位置契約不變。兩個 readable source、canonical builder 與舊 wrapper 登入 Pages `PRIVATE_FILES`，來源、生成檔和石材 vendor wind 固定 LF。首頁依賴維持 42 個 profile 輸出路由並加 source；wind core 輸出依賴 16 路由加 source，石材 vendor wind 路由也加入公開 vendor 輸出及 core source。Profile 行為測試仍執行公開生成檔，只把 source needles 指向 readable source；wind 原 VM／數值回歸改讀 source，增加代表案例的 generated VM 對照；所有 benchmark adapters 和 SHA-256 鏡像測試仍讀公開輸出。vendor wind 僅由 `sync-stone-regulatory-vendor.js` 產生。容量差異保留原始逐路由項目，不重設 baseline。
-
-```powershell
-git add -- ".gitattributes" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md" "tool-page-a11y.js" "tool-page-a11y-build.contract.test.js" "ensure-homepage-quality-deps.ps1" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-tool-page-a11y.js" "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "結構工具箱/tools/project-meta-profile.test.js" "結構工具箱/core/loads/src/wind.source.js" "結構工具箱/core/loads/wind.js" "結構工具箱/tests/wind.test.js" "石材固定/vendor/loads/wind.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/assets/home/home.js"
-```
-
-## 2026-10-10：覆工板手機報告溢出追加修正
-
-只調整既有 `#report-output` 的螢幕局部捲動、焦點與區域標籤，列印解除裁切；計算及七張表格原內容不改。保留原報告契約與手機橫溢斷言，於最終乾淨 HEAD 驗收。首頁日期依同步腳本處理，不手改狀態 JSON。
-
-```powershell
-git add -- "覆工板/index.html" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-10：撤銷 profile 屬性鍵別名、改訂 profile 體積門檻 39,000
-
-撤銷 `622a5f79 Reduce project profile runtime size`：該變更把 565 處屬性存取改成常數索引只為多壓 2,495 bytes，gzip 傳輸量反而 11,904 → 11,981 bytes，可讀來源嚴重劣化。`project-meta-profile.js` 回到 Terser 直接壓縮的 38,027 bytes（原檔 71,641，減 47%），`tool-page-a11y-build.contract.test.js` 的 profile 門檻由 36,000 改為 39,000；`wind.js` 門檻 45,000 不變。可讀來源與產出檔仍由 `build-minified-runtimes.js --check` 守住逐位元組一致。
-
-```powershell
-git add -- "結構工具箱/tools/src/project-meta-profile.source.js" "結構工具箱/tools/project-meta-profile.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-10：第七階段放行前載入預算基準重設
-
-依委託人授權以 `node 結構工具箱/tools/tool-load-budget.browser.test.js --write-baseline` 重設 52 路由基準 18,128,164 → 14,922,588 bytes，涵蓋第七階段的 Firebase／Chart.js 按需載入、石材照片外置、三檔確定性壓縮，以及新增共用腳本 `結構工具箱/core/ui/chart-runtime.js`（680 bytes，耐震力／耐震動力兩路由）。基準 JSON 只能由該指令產生，不得手改。
-
-```powershell
-git add -- "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS.md TOOL_BOUNDARIES.md
-```
-
-
-## 2026-10-11：T33 首頁最近使用與釘選
-
-首頁最近使用／釘選與私有瀏覽器測試同包；不更動工具清冊白名單、路由、分類、首頁日期依賴或 index.html 腳本順序。測試收據只留 ignored output。
-
-```powershell
-git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-11：撤銷 RC 主頁共用 helper 抽取（T34）
-
-撤銷 `ee3ffc80 Extract shared UI helpers from RC pages`：抽出的 `rc-page-ui.source.js` 55,602 bytes 中只有約 58 行為六頁真正共用，其餘以頁名分支存放各頁專屬 UI 邏輯；六頁內嵌 script 合計僅減 49,102 bytes，但每頁多載 35,980 bytes 外部檔（首訪總量增加 215,880 bytes），維護需跨兩檔。委託人裁定撤銷，六支 RC 主頁、建置清單、私有登錄、首頁依賴與文件回到撤銷前狀態；RC 共用抽取若再進行，須以真正跨頁等價的 helper 為範圍。
-
-```powershell
-git add -- "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/shear-wall.html" "結構工具箱/assets/home/home.js" STAGING_GROUPS.md TOOL_BOUNDARIES.md README.md
-```
-
-## 2026-10-11：T36 第二批共用執行期確定性壓縮
-
-六份可讀來源保持原始內容，僅統一 LF：`結構工具箱/core/ui/src/report-docx.source.js`、`結構工具箱/core/ui/src/tool-workflow.source.js`、`結構工具箱/tools/src/tool-workflow-adapters.source.js`、`結構工具箱/tools/src/project-storage.source.js`、`鋼筋混凝土/shared/src/project-storage.source.js`、`結構工具箱/core/loads/src/loadcombo.source.js`。沿用 `結構工具箱/tools/build-minified-runtimes.js` 與 ignored Terser 5.44.0 產生原公開路徑，首行標記來源，不使用 unsafe 或 property mangling。來源精確列入 Pages PRIVATE_FILES，來源與生成檔固定 LF；生成一致性、逐檔體積上限（本批實測加 10%、向上取整）與對應首頁來源依賴由 `tool-page-a11y-build.contract.test.js` 檢查，原三檔上限保持。
-
-鏡像 manifest 的四筆來源均不含本批六檔。`結構工具箱/tools/project-storage.test.js` 保留全部字面斷言並改讀可讀來源；`結構工具箱/tools/local-quick-tools.contract.test.js` 的 LoadCombo VM 改讀來源，公開輸出仍由既有 LoadCombo 行為／家族測試執行。`report-docx-integration.contract.test.js` 同時載入公開與來源版本，保留各自可攜 HTML factory／Word 邊界全部斷言；其餘 HTML script VM 與 require 讀取者執行公開輸出之行為，不依賴函式排版。首頁依賴依實際 script 消費頁補齊公開檔及來源檔；不更改工具清冊欄位或公開路徑。
-
-```powershell
-git add -- ".gitattributes" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/home.js" "結構工具箱/tools/project-storage.test.js" "結構工具箱/tools/local-quick-tools.contract.test.js" "report-docx-integration.contract.test.js" "結構工具箱/core/ui/src/report-docx.source.js" "結構工具箱/core/ui/report-docx.js" "結構工具箱/core/ui/src/tool-workflow.source.js" "結構工具箱/core/ui/tool-workflow.js" "結構工具箱/tools/src/tool-workflow-adapters.source.js" "結構工具箱/tools/tool-workflow-adapters.js" "結構工具箱/tools/src/project-storage.source.js" "結構工具箱/tools/project-storage.js" "鋼筋混凝土/shared/src/project-storage.source.js" "鋼筋混凝土/shared/project-storage.js" "結構工具箱/core/loads/src/loadcombo.source.js" "結構工具箱/core/loads/loadcombo.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
-```
-
-DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未壓縮來源也會失敗；本包僅補齊替身並檢查 MIME／Blob 導覽，不更動任何 report.js 或 report-utils.js。首次失敗與原替身重現紀錄保留，所有原 Word／可攜 HTML 斷言均保留。
-
-## 2026-10-11：撤銷首頁個人功能延後掛載（T35）
-
-撤銷 `5b2e1645 Defer homepage personal controls until after paint`：延後掛載後 Lighthouse LCP 中位數 2,609／2,607 ms，與延後前 2,618 ms 無差別；為使 CLS 歸零改用固定 24rem 的「釘選與最近使用」面板，桌機只釘兩張卡時留下大片空白、手機第二張卡被裁切需在框內捲動，屬可見的體驗退步。委託人裁定撤銷，`home.js`、`home.css` 與 `home-recents.browser.test.js` 回到第八階段上線版；首頁 LCP 依 2026-10-11 裁定接受現狀，該測試不在正式預檢。
-
-```powershell
-git add -- "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" home-recents.browser.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-
-## 2026-10-11：T38 首頁確定性壓縮分組
-
-一組提交新增 `結構工具箱/assets/home/src/home.source.js` 與生成 `結構工具箱/assets/home/home.js`、`.gitattributes`、`結構工具箱/tools/build-minified-runtimes.js`、`結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/sync-home-update-dates.js`、`結構工具箱/tools/sync-home-initial-view.js`、`結構工具箱/tools/sync-survey-public-version.js`、`field-survey/release.mjs`，以及所有改讀首頁來源的契約／清冊解析器、`結構工具箱/tools/pages-live-smoke.js`、`homepage-quality.browser.test.js`、`tool-page-a11y-build.contract.test.js` 和三份治理文件。只改讀取位置及保留等價斷言，不改其他產出；回報、原始測試收據留在 ignored 的 `_tmp/派工/回報/` 與 `output/phase10/`。首頁來源／產出使用 LF，版本與日期同步必須重建，最終提交後乾淨 --check 無差異。
-## 2026-10-11：T40 第三批確定性壓縮分組
-
-以下十二個新增私有來源，與各原公開產出、`.gitattributes`、`結構工具箱/tools/build-minified-runtimes.js`、`結構工具箱/tools/build-pages-artifact.js`、`石材固定/vendor/loads/seismic-zones.js`（僅同步器生成）、首頁來源／生成檔／日期同步、全部改向契約與解析器、`browser-dialogs.contract.test.js`、`tool-page-a11y-build.contract.test.js`、README 與兩份治理文件同一組提交。
-
-| 公開產出 | 新增私有來源 |
-|---|---|
-| `field-survey/report-ui.js` | `field-survey/src/report-ui.source.js` |
-| `field-survey/signoff-ui.js` | `field-survey/src/signoff-ui.source.js` |
-| `field-survey/sketch.js` | `field-survey/src/sketch.source.js` |
-| `field-survey/detail.js` | `field-survey/src/detail.source.js` |
-| `field-survey/model.js` | `field-survey/src/model.source.js` |
-| `SRC工具/src-column.js` | `SRC工具/src/src-column.source.js` |
-| `SRC工具/src-beam.js` | `SRC工具/src/src-beam.source.js` |
-| `SRC工具/core/src-beam-core.js` | `SRC工具/core/src/src-beam-core.source.js` |
-| `結構工具箱/core/wind-report.js` | `結構工具箱/core/src/wind-report.source.js` |
-| `結構工具箱/core/loads/seismic-zones.js` | `結構工具箱/core/loads/src/seismic-zones.source.js` |
-| `結構工具箱/tools/風力/wind-shared-profile.js` | `結構工具箱/tools/風力/src/wind-shared-profile.source.js` |
-| `鋼筋混凝土/shared/common.js` | `鋼筋混凝土/shared/src/common.source.js` |
-
-追溯跳過五檔不加入 staging；不改 status／release JSON，不把第三方依賴或測試收據加入追蹤。回報與來源位元組／讀者／追溯／鏡像查核收據留在 ignored 的 `_tmp/派工/回報/`、`_tmp/dispatch/phase10/`、`output/phase10/`；只在本機 master 一個任務提交，完成後串行重跑 29 條門檻、14 家族、40 頁 a11y 與 52 路由載入預算，不覆寫基準。
-
-## 2026-10-11：撤銷首頁關鍵 CSS 內嵌（T39）
-
-撤銷 `0145868b Inline deterministic critical styles for the homepage`：關鍵 CSS 內嵌加上 `home.css`／`colors_and_type.css` 延後載入後，兩次 Lighthouse 量測 CLS 由 0 變 0.633、效能分數由 99 跌至 66～67、LCP 2,327～2,433 ms 反而比只壓縮 `home.js` 的 2,156～2,171 ms 差；延後樣式造成首屏位移。委託人裁定撤銷，`index.html`、兩份 CSS、建置腳本與契約回到 T38 狀態；首頁 LCP 以 T38 結果為準。
-
-```powershell
-git add -- ".gitattributes" "結構工具箱/index.html" "結構工具箱/assets/home/home.css" "結構工具箱/assets/hy/colors_and_type.css" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/tools/build-pages-artifact.js" homepage-quality.browser.test.js tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-11：入口契約 git 查詢記憶化（放行前修正）
-
-第十階段 T38／T40 把多個可讀來源登錄進 `HOME_TOOL_UPDATE_DEPENDENCIES` 後，`toolbox-entrypoints.contract.test.js` 對每條路由的每個依賴各自執行 `git log`／`git status`／`git diff`，單跑 226 秒，超過正式預檢 180 秒逾時（runId 20261011-220100 失敗項之一）。改為以檔案路徑記憶化 `latestCommittedDate` 與 `hasWorkingTreeChange`，斷言與語意不變，單跑降為 54 秒。
-
-同輪另一失敗為平台稽核：Codex 以 PowerShell 7 執行鋼構稽核後寫出的 `鋼構工具/output/audit/audit-status.json` 無 BOM，`audit-all.ps1` 以未指定編碼的 `Get-Content` 讀取時被 Windows PowerShell 當 CP950 解碼而 JSON 解析失敗；已就地補 BOM（ignored 輸出檔，未改腳本），稽核腳本讀檔一律加 `-Encoding UTF8` 列為後續派工。
-
-```powershell
-git add -- toolbox-entrypoints.contract.test.js STAGING_GROUPS.md
-```
-
-## 2026-10-11：鋼構正式稽核逾時預算 360 → 540 秒（放行前修正）
-
-`audit-all.ps1` 的鋼構正式稽核（`鋼構工具/audit-tool.ps1`，27 組瀏覽器案例 × 3 尺寸）預算 360 秒；2026-10-11 兩次通過的實跑已達 296／337 秒，晚間負載下第三次（runId 20261011-225630 的平台稽核）在 334 秒仍差 5 組而被中止（exitCode 124），連鎖使 `rendered-delivery-evidence` 缺鋼構當輪摘要。預算改為 540 秒（約 1.5 倍常態），RC 1,200 秒與 core 240 秒不變；稽核內容、案例與斷言未改。
-
-```powershell
-git add -- audit-all.ps1 STAGING_GROUPS.md
-```
-
-
-## 2026-10-12：T41 稽核 UTF-8 與 5.1 家族分組
-
-編碼契約、全部文字 I/O 編碼修正、5.1 家族入口與對應既有契約同包；不改案例、逾時預算、稽核流程或輸出結構。正式 preflight 只改讀檔編碼，既有 UTF-16 暫存腳本格式具理由保留。新契約先單跑量測，收據只留 ignored `output/phase11/`；指定 PS7 鋼構回歸後由 5.1 刷新與驗證本機平台狀態，不寫公開 JSON。
-
-```powershell
-git add -- "audit-all.ps1" "ensure-homepage-quality-deps.ps1" "preflight-tools.ps1" "run-family-wrappers.ps1" "run-pages-artifact-smoke.ps1" "run-phase-gates.ps1" "結構工具箱/audit-core.ps1" "鋼構工具/audit-tool.ps1" "鋼筋混凝土/audit-tool.ps1" "鋼筋混凝土/tools/test-beam.ps1" "開挖擋土支撐/receiver_governance_timestamp.ps1" "開挖擋土支撐/sign_receiver_request.ps1" "開挖擋土支撐/start_html_mode.ps1" "開挖擋土支撐/stop_html_mode.ps1" run-family-wrappers.contract.test.js powershell-encoding.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-12：T42 鋼構兩檔建置與追溯分組
-
-兩份私有來源、公開生成檔、確定性建置清單／契約／公開排除、原始碼讀者與追溯 source schema 同包；原目錄 evidence 與計算內容不變。來源不改可讀邏輯，只轉 LF。公開 HTTP 內部函式字面斷言移至來源契約，公開文字／URL 仍查產出；執行行為繼續使用公開產出。52 路由預算不寫 baseline，重型測試逐組、5.1 執行門檻與 wrapper。
-
-```powershell
-git add -- ".gitattributes" "鋼構工具/src/app.source.js" "鋼構工具/src/calculator.source.js" "鋼構工具/app.js" "鋼構工具/calculator.js" "鋼構工具/steel-traceability.catalog.json" "鋼構工具/steel-traceability.contract.test.js" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/README.md" "結構工具箱/tools/build-minified-runtimes.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/independent-engineering-adapters/steel-formal.js" "結構工具箱/tools/public-status-claims.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/tool-workflow.manifest.json" "steel-report-presentation.browser.test.js" "tool-page-a11y-build.contract.test.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
-```
-
-## 2026-10-12：撤銷石材 KaTeX 按需載入（T43）、鋼構壓縮比例斷言改 70%（T42）
-
-撤銷 `89ed9340 Load stone KaTeX on demand`：冷開石材頁不捲動即產出計算書時，16 個公式全以 TeX 原文輸出（例如 `R_p = 24.19 	ext{kgf/m}^{2}`），T43 前同流程 16/16 為 KaTeX 排版；KaTeX 改為公式進入預覽可視區才載入，正式輸出未等待載入。委託人裁定撤銷，石材頁回到 head 以 defer 載入 KaTeX。
-
-T42 鋼構 `app.js`／`calculator.js` 確定性壓縮實測為可讀來源的 66.0%（274,443／415,912 bytes），`tool-page-a11y-build.contract.test.js` 的整體比例斷言由 55% 改為 70%；兩檔各自的實測 +10% 上限不變。委託人接受 T41 預檢暫存子腳本以 UTF-16 寫出的編碼契約例外。
-
-```powershell
-git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/README.md" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/src/home.source.js" tool-page-a11y-build.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
-
-## 2026-10-12：正式預檢平台稽核預算 1,500 → 2,100 秒（放行前修正）
-
-`preflight-tools.ps1` 的 `platform-audit` 外層預算 1,500 秒，但 `audit-all.ps1` 內部三段預算合計為鋼構 540＋RC 1,200＋core 240＝1,980 秒（鋼構於 2026-10-11 由 360 調為 540）。runId 20261012-140428 中鋼構實跑 391 秒、RC 跑到 89／102 項時被外層 1,500 秒中止（exitCode 124），連鎖使 `rendered-delivery-evidence` 失敗。外層改為 2,100 秒，涵蓋內部合計並留約 120 秒啟動與彙整餘裕；稽核內容與內部預算不變。
-
-```powershell
-git add -- preflight-tools.ps1 STAGING_GROUPS.md
-```
-
-## 2026-10-15：撤銷治理文件歸檔（T45）、補齊新工具的工具數釘值（T44 放行前修正）
-
-撤銷 `51182949 Archive governance execution history`：在「只搬歷程、不動規則」的限制下只能搬出 1,259 bytes，三份主文件仍 150／230／176 KB，`docs/governance-history/` 失去意義；委託人裁定撤銷，文件維持單一來源，瘦身另訂「分冊」任務。
-
-T44 新增第 53 個首頁工具後，三支契約仍釘 52：`結構工具箱/tools/public-status-claims.contract.test.js`（工具數 52 → 53、local-quick 公開 metadata 6 → 7、新增 `concrete-strength-ndt` → `concrete-ndt` 資料夾對應）、`homepage-quality.browser.test.js`（連結數與路由數兩處）、`home-recents.browser.test.js`（五處卡片數）。新工具計算書範本的「計算引擎」改為 `escapeHtml(Core.version)`，與其他 local-quick 工具的契約 needle 一致。載入預算基準 `routeCount` 52 → 53 由委託人授權以 `--write-baseline` 重設（另列一節）。
-
-```powershell
-git add -- "結構工具箱/tools/public-status-claims.contract.test.js" homepage-quality.browser.test.js home-recents.browser.test.js "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" STAGING_GROUPS.md
-```
-
-## 2026-10-15：載入預算路由數 52 → 53 與基準重設（T44 新工具）
-
-`結構工具箱/tools/tool-load-budget-contract.js` 原把首頁路由數寫死 52（`validateBaseline` 兩處、`analyzeResults` 兩處），新增第 53 條路由後連 `--write-baseline` 都會在重寫前被既有基準驗證擋下。改為單一常數 `HOME_ROUTE_COUNT = 53`（匯出供測試用），`tool-load-budget-contract.test.js` 的 fixture 同步 53 條；新增或移除工具時只改這個常數並由委託人授權重設基準。過渡作法：依 `HOME_TOOL_UPDATES` 路由順序在基準 JSON 插入新路由佔位項（jsBytes 0），再由 `--write-baseline` 以實測重寫；重寫後基準仍完全由腳本產生，佔位項不留存。委託人已授權本次重設。
-
-```powershell
-git add -- "結構工具箱/tools/tool-load-budget-contract.js" "結構工具箱/tools/tool-load-budget-contract.test.js" "結構工具箱/tools/tool-load-budget-baseline.json" STAGING_GROUPS.md TOOL_BOUNDARIES.md
-```
-
-## 2026-10-15：新工具對齊 local-quick 輸出一致性契約（T44 放行前修正二）
-
-正式預檢 runId 20261015-095543 失敗於 `local-quick-tools-static`／`local-quick-tools-runner`（連鎖 `rendered-delivery-evidence`）：`結構工具箱/tools/local-quick-output-consistency.test.js` 以字面 needle 檢查每個 local-quick 頁面的 JSON 匯出物件（`id: '<key>'`、`name: '<label>'`、`pageVersion: PUBLIC_TOOL_VERSION`、`calculationEngine: Core.version`）與報表溯源行（`const prov = r.provenance || (Core.provenance ? Core.provenance() : {})`、`輸入格式`、`計算指紋`）。新工具頁面的匯出物件原本冒號後無空格、報表缺溯源行；已依既有六工具格式對齊，功能不變。此契約不在 29 條門檻內，新工具派工檔已列為必跑項。
-
-```powershell
-git add -- "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" STAGING_GROUPS.md
-```
-
-## 2026-10-15：canonical 交付證據範圍以清冊為準（T44 放行前修正三）
-
-正式預檢 runId 20261015-104444 失敗於 `rendered-delivery-evidence`：local-quick 瀏覽器 smoke 為新工具 `concrete-strength-ndt`（assist、未入 `rendered-delivery-evidence.inventory.json`）產出 2 筆 PDF／evidence 紀錄，契約把 local-quick 家族所有紀錄都計入 Schema v35 的 96 份 canonical 檔案，實得 100。修正：`rendered-delivery-evidence.contract.test.js` 新增 `isInventoriedLocalQuickRecord`，local-quick 紀錄只有對應清冊 `evidenceKey`（或共用版面情境）才計入 canonical 集合；未入清冊工具的 PDF 仍由 smoke 逐檔驗證。以 `PREFLIGHT_RELEASE=1` 對 20261015-104444 的收據重跑契約：canonicalIntegrity 96/96 通過。若日後要把 NDT 納入正式交付證據鏈，需另案 Schema v36（清冊、6 份檔案含 blocked-boundary、各契約釘值 96 → 102、179 → 185）。
-
-```powershell
-git add -- "結構工具箱/tools/rendered-delivery-evidence.contract.test.js" STAGING_GROUPS.md
-```
-
-
-## 2026-10-15：補回鋼索索力評估的圖面幾何欄位（T44 放行前修正四）
-
-正式預檢 runId 20261015-113510 全部 70 項通過，但收尾檢查 `audit-dashboard-contract-final` 與 `audit-dashboard-live-output-smoke-final` 失敗：成熟度矩陣 `diagramGeometry` 覆蓋 20，與工具總數 21 不符。追查為 T44 改寫 `local-quick-tools.manifest.json` 時，誤刪既有工具 `cable-tension-frequency` 的 `diagramSelector`（`#cableTensionDiagram`）、`diagramRoleNeedles`（span／mode-shape／tension）與 `diagramChecks`，矩陣因而把該列判為 n/a。修正：依 3fb69a04 原文補回三個欄位，新工具的 `#metricGrid` 欄位保留；`git diff 3fb69a04` 對該清冊只剩新增無刪除。重跑 `tool-maturity-matrix.js --write --preserve-homepage-status` 得 diagramGeometry 21/21，`audit-dashboard.contract.test.js` 與 `local-quick-tools.contract.test.js`（7 工具）通過。治理規則：新增工具時只在清冊末端追加項目，不得改寫既有項目；核對新工具時以 `git diff <上線 sha> -- <清冊>` 檢查「只增無刪」。
-
-```powershell
-git add -- "結構工具箱/tools/local-quick-tools.manifest.json" STAGING_GROUPS.md
-```
-
-## 2026-10-15：載入預算 53 路由清冊契約補強
-
-首頁 tools href、固定 baseline.routes、日期清冊與 routeFileMap 的一致性由純 helper 驗證；額外 /rc 別名允許存在。browser 量測順序沿用固定 baseline。負向契約涵蓋新增／替換、52／54、日期／映射缺漏、量測缺漏／重複／錯序及來源／HEAD 漂移；保留 DOCX guard、schemaVersion 1 收據與既有容量差異失敗規則。本包未改 baseline，瀏覽器量測另以最終 HEAD 收據核對，本包不含正式放行。
-
-```powershell
-git add -- "結構工具箱/tools/tool-load-budget-contract.js" "結構工具箱/tools/tool-load-budget-contract.test.js" "結構工具箱/tools/tool-load-budget.browser.test.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
-```
+- `結構工具箱/tools/rendered-delivery-evidence.js`
+- `結構工具箱/tools/report-disclosure.contract.test.js`
+- `結構工具箱/tools/seismic-chart-lazy.browser.test.js`
+- `結構工具箱/tools/src/project-storage.source.js`
+- `結構工具箱/tools/src/tool-workflow-adapters.source.js`
+- `結構工具箱/tools/sync-home-initial-view.js`
+- `結構工具箱/tools/sync-home-update-dates.js`
+- `結構工具箱/tools/sync-stone-regulatory-vendor.js`
+- `結構工具箱/tools/sync-survey-public-version.js`
+- `結構工具箱/tools/tool-load-budget-contract.js`
+- `結構工具箱/tools/tool-load-budget-contract.test.js`
+- `結構工具箱/tools/tool-maturity-matrix.js`
+- `結構工具箱/tools/xlsx-package-integrity.js`
+- `結構工具箱/tools/xlsx-package-integrity.test.js`
+- `結構工具箱/tools/xlsx-print-export.py`
+- `結構工具箱/tools/xlsx-print-visual.js`
+- `結構工具箱/tools/xlsx-print-visual.test.js`
+- `結構工具箱/tools/xlsx-seal-verifier.js`
+- `結構工具箱/tools/xlsx-seal-verifier.test.js`
+- `結構工具箱/tools/地震力/`
+- `結構工具箱/tools/地震力/seismic-force.html`
+- `結構工具箱/tools/地震力/seismic-misc.html`
+- `結構工具箱/tools/風力/`
+- `結構工具箱/tools/風力/src/wind-shared-profile.source.js`
+- `結構工具箱/tools/風力/wind-cc.html`
+- `結構工具箱/tools/風力/wind-force.html`
+- `結構工具箱/tools/風力/wind-shared-profile.js`
+- `結構工具箱/tools/風力/wind-sign-pole.html`
+- `結構工具箱/tools/基礎/`
+- `結構工具箱/tools/鋼構/`
+- `開挖擋土支撐/`
+- `開挖擋土支撐/excavation-report.contract.test.js`
+- `鋼架/`
+- `鋼筋混凝土/`
+- `鋼筋混凝土/audit-tool.ps1`
+- `鋼筋混凝土/shared/common.js`
+- `鋼筋混凝土/shared/foundation-isolated.js`
+- `鋼筋混凝土/shared/joint-reaction-load-adapter.js`
+- `鋼筋混凝土/shared/pmsection.js`
+- `鋼筋混凝土/shared/report.js`
+- `鋼筋混凝土/shared/report-utils.js`
+- `鋼筋混凝土/shared/retaining-base-demand.js`
+- `鋼筋混凝土/shared/slab-evaluator.js`
+- `鋼筋混凝土/shared/src/common.source.js`
+- `鋼筋混凝土/shared/src/project-storage.source.js`
+- `鋼筋混凝土/shared/wall.js`
+- `鋼筋混凝土/tools`
+- `鋼筋混凝土/tools/audit-status.contract.test.js`
+- `鋼筋混凝土/tools/beam.html`
+- `鋼筋混凝土/tools/beam-report-visual.contract.test.js`
+- `鋼筋混凝土/tools/beam-report-visual.test.js`
+- `鋼筋混凝土/tools/foundation.html`
+- `鋼筋混凝土/tools/report-portable-html-check.js`
+- `鋼筋混凝土/tools/retrofit-report-visual.test.js`
+- `鋼筋混凝土/tools/slab.html`
+- `鋼筋混凝土/tools/test-foundation.ps1`
+- `鋼筋混凝土/tools/test-pile-cap-3d-stm.ps1`
+- `鋼筋混凝土/tools/wall.html`
+- `鋼構工具/`
+- `鋼構工具/app.js`
+- `鋼構工具/audit-tool.ps1`
+- `鋼構工具/core/formal-core-manifest.json`
+- `鋼構工具/core/materials/steel.js`
+- `鋼構工具/core/ui/report.js`
+- `鋼構工具/output/audit/audit-status.json`
+- `鋼構工具/steel-traceability.catalog.json`
+- `螺栓檢討/anchor-report.contract.test.js`
+- `螺栓檢討/anchor-traceability.contract.test.js`
+- `螺栓檢討/bolt-review-tool/`
+- `螺栓檢討/bolt-review-tool/src/calc.ts`
+- `螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts`
+- `覆工板/`
+- `覆工板/decking-report.contract.test.js`
+- `結構工具箱/tools/governance-documents.js`
+- `結構工具箱/tools/governance-documents.contract.test.js`
+- `docs/governance-current/README-catalog-01.md`
+- `docs/governance-current/README-catalog-02.md`
+- `docs/governance-current/README-audit.md`
+- `docs/governance-current/TOOL_BOUNDARIES-catalog-01.md`
+- `docs/governance-current/TOOL_BOUNDARIES-catalog-02.md`
+- `docs/governance-current/TOOL_BOUNDARIES-catalog-03.md`
+- `docs/governance-current/TOOL_BOUNDARIES-catalog-04.md`
+- `docs/governance-current/STAGING_GROUPS-ledger-01.md`
+- `docs/governance-current/STAGING_GROUPS-ledger-02.md`
+- `docs/governance-current/STAGING_GROUPS-ledger-03.md`
+<!-- P2-COVERAGE-INDEX-END -->
+
+
+<!-- P2-REGISTRATION-START -->
+治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
+<!-- P2-REGISTRATION-END -->
+
+<!-- P2-NEW-GITADD-START -->
+git add -- 結構工具箱/tools/governance-documents.js 結構工具箱/tools/governance-documents.contract.test.js docs/governance-current/README-catalog-01.md docs/governance-current/README-catalog-02.md docs/governance-current/README-audit.md docs/governance-current/TOOL_BOUNDARIES-catalog-01.md docs/governance-current/TOOL_BOUNDARIES-catalog-02.md docs/governance-current/TOOL_BOUNDARIES-catalog-03.md docs/governance-current/TOOL_BOUNDARIES-catalog-04.md docs/governance-current/STAGING_GROUPS-ledger-01.md docs/governance-current/STAGING_GROUPS-ledger-02.md docs/governance-current/STAGING_GROUPS-ledger-03.md
+<!-- P2-NEW-GITADD-END -->
+
+<!-- P2-BOOK-INDEX-START -->
+## 分冊索引
+
+- [docs/governance-current/README-catalog-01.md](docs/governance-current/README-catalog-01.md)：loader依本文 include marker 原位置回填。
+- [docs/governance-current/README-catalog-02.md](docs/governance-current/README-catalog-02.md)：loader依本文 include marker 原位置回填。
+- [docs/governance-current/README-audit.md](docs/governance-current/README-audit.md)：loader依本文 include marker 原位置回填。
+- [docs/governance-current/TOOL_BOUNDARIES-catalog-01.md](docs/governance-current/TOOL_BOUNDARIES-catalog-01.md)：loader依本文 include marker 原位置回填。
+- [docs/governance-current/TOOL_BOUNDARIES-catalog-02.md](docs/governance-current/TOOL_BOUNDARIES-catalog-02.md)：loader依本文 include marker 原位置回填。
+- [docs/governance-current/TOOL_BOUNDARIES-catalog-03.md](docs/governance-current/TOOL_BOUNDARIES-catalog-03.md)：loader依本文 include marker 原位置回填。
+- [docs/governance-current/TOOL_BOUNDARIES-catalog-04.md](docs/governance-current/TOOL_BOUNDARIES-catalog-04.md)：loader依本文 include marker 原位置回填。
+- [docs/governance-current/STAGING_GROUPS-ledger-01.md](docs/governance-current/STAGING_GROUPS-ledger-01.md)：loader依本文 include marker 原位置回填。
+- [docs/governance-current/STAGING_GROUPS-ledger-02.md](docs/governance-current/STAGING_GROUPS-ledger-02.md)：loader依本文 include marker 原位置回填。
+- [docs/governance-current/STAGING_GROUPS-ledger-03.md](docs/governance-current/STAGING_GROUPS-ledger-03.md)：loader依本文 include marker 原位置回填。
+<!-- P2-BOOK-INDEX-END -->

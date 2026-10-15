@@ -3,6 +3,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
+const { readGovernanceDocument } = require(path.join(path.resolve(ROOT, '..'), '結構工具箱', 'tools', 'governance-documents.js'));
 const auditPath = path.join(ROOT, 'audit-tool.ps1');
 const indexPath = path.join(ROOT, 'index.html');
 const readmePath = path.join(ROOT, 'README.md');
@@ -145,7 +146,7 @@ function validateRcTraceabilityCatalog(catalog, sourceText) {
 
 const audit = fs.readFileSync(auditPath, 'utf8');
 const index = fs.readFileSync(indexPath, 'utf8');
-const readme = fs.readFileSync(readmePath, 'utf8');
+const readme = readGovernanceDocument(path.resolve(ROOT, '..'), '鋼筋混凝土/README.md');
 const testBeam = fs.readFileSync(testBeamPath, 'utf8');
 const testColumn = fs.readFileSync(testColumnPath, 'utf8');
 const testSlab = fs.readFileSync(testSlabPath, 'utf8');

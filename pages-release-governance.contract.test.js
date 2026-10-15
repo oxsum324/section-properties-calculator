@@ -6,6 +6,7 @@ const path = require('path');
 const PagesLiveSmoke = require('./結構工具箱/tools/pages-live-smoke.js');
 
 const repoRoot = __dirname;
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱/tools/governance-documents.js'));
 
 function readText(relativePath) {
   return fs.readFileSync(path.join(repoRoot, ...relativePath.split('/')), 'utf8').replace(/\r\n/g, '\n');
@@ -19,10 +20,10 @@ function exists(relativePath) {
   return fs.existsSync(path.join(repoRoot, ...relativePath.split('/')));
 }
 
-const staging = readText('STAGING_GROUPS.md');
+const staging = readGovernanceDocument(repoRoot, 'STAGING_GROUPS.md').replace(/\r\n/g, '\n');
 const gitignore = readText('.gitignore');
-const toolBoundaries = readText('TOOL_BOUNDARIES.md');
-const readme = readText('README.md');
+const toolBoundaries = readGovernanceDocument(repoRoot, 'TOOL_BOUNDARIES.md').replace(/\r\n/g, '\n');
+const readme = readGovernanceDocument(repoRoot, 'README.md').replace(/\r\n/g, '\n');
 const preflightTools = readText('preflight-tools.ps1');
 const context = readText('CONTEXT.md');
 const adr = readText('docs/adr/0001-page-only-report-readiness.md');

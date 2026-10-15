@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = __dirname;
+const { readGovernanceDocument } = require(path.join(path.resolve(ROOT, '..'), '結構工具箱', 'tools', 'governance-documents.js'));
 const catalogPath = path.join(ROOT, 'excavation-traceability.catalog.json');
 
 let failed = 0;
@@ -56,7 +57,7 @@ function assertPythonFunctionRole(source, functionName, role) {
 const catalogText = fs.readFileSync(catalogPath, 'utf8');
 const catalog = JSON.parse(catalogText);
 const launcher = readUtf8('index.html');
-const readme = readUtf8('README.md');
+const readme = readGovernanceDocument(path.resolve(ROOT, '..'), '開挖擋土支撐/README.md');
 const parsers = readUtf8('backend/app/parsers.py');
 const calculations = readUtf8('backend/app/calculations.py');
 const reporting = readUtf8('backend/app/reporting.py');

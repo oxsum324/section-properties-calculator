@@ -11,6 +11,7 @@ const earthPressureGoldenCases = require('./earth/earth-pressure-golden-cases.js
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
 const repoRoot = path.resolve(toolsRoot, '..', '..');
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱', 'tools', 'governance-documents.js'));
 
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -181,10 +182,10 @@ const repoDocs = {
   loadComboCore: readText(toolboxFile('core/loads/src/loadcombo.source.js')),
   forcesReceive: readText(toolboxFile('core/ui/forces-receive.js')),
   rcFoundation: readText(repoFile('鋼筋混凝土/tools/foundation.html')),
-  readme: readText(repoFile('README.md')),
+  readme: readGovernanceDocument(repoRoot, 'README.md'),
   toolReportGuide: readText(repoFile('TOOL_REPORT_GUIDE.md')),
-  boundaries: readText(repoFile('TOOL_BOUNDARIES.md')),
-  staging: readText(repoFile('STAGING_GROUPS.md')),
+  boundaries: readGovernanceDocument(repoRoot, 'TOOL_BOUNDARIES.md'),
+  staging: readGovernanceDocument(repoRoot, 'STAGING_GROUPS.md'),
   vercel: readText(repoFile('vercel.json')),
 };
 repoDocs.homeSource = `${repoDocs.index}\n${repoDocs.homeHtml}\n${repoDocs.homeJs}`;

@@ -8,6 +8,7 @@ const Core = require('./core/src-column-core.js');
 const Page = require('./src-column.js');
 
 const repoRoot = path.resolve(__dirname, '..');
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱', 'tools', 'governance-documents.js'));
 const html = fs.readFileSync(path.join(__dirname, 'src-column.html'), 'utf8');
 const source = fs.readFileSync(path.join(__dirname, 'src', 'src-column.source.js'), 'utf8');
 const directPrintCss = fs.readFileSync(path.join(repoRoot, '結構工具箱', 'core', 'direct-print-boundary.css'), 'utf8');
@@ -21,7 +22,7 @@ function loadReportUtilities(context) {
   }
 }
 const governanceDocs = ['README.md', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md']
-  .map(file => fs.readFileSync(path.join(repoRoot, file), 'utf8'))
+  .map(file => readGovernanceDocument(repoRoot, file))
   .join('\n');
 
 function clone(value) {

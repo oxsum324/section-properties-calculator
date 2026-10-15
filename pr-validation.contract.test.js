@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const repoRoot = __dirname;
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱/tools/governance-documents.js'));
 
 function readText(relativePath) {
   return fs.readFileSync(path.join(repoRoot, ...relativePath.split('/')), 'utf8');
@@ -11,9 +12,9 @@ function readText(relativePath) {
 const workflow = readText('.github/workflows/pr-validation.yml');
 const preflight = readText('preflight-tools.ps1');
 const ciWrapper = readText('run-preflight-tools-ci.bat');
-const readme = readText('README.md');
-const staging = readText('STAGING_GROUPS.md');
-const toolBoundaries = readText('TOOL_BOUNDARIES.md');
+const readme = readGovernanceDocument(repoRoot, 'README.md');
+const staging = readGovernanceDocument(repoRoot, 'STAGING_GROUPS.md');
+const toolBoundaries = readGovernanceDocument(repoRoot, 'TOOL_BOUNDARIES.md');
 
 assert.ok(workflow.includes('name: PR validation'), 'PR validation workflow has a stable display name');
 assert.ok(workflow.includes('pull_request:') && workflow.includes('- master'), 'PR validation runs for pull requests targeting master');

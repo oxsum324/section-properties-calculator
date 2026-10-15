@@ -7,6 +7,7 @@ const calculationBookContentBoundary = require('./calculation-book-content-bound
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
 const repoRoot = path.resolve(toolboxRoot, '..');
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱/tools/governance-documents.js'));
 
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -236,9 +237,9 @@ assert.deepEqual(
 );
 
 const repoDocs = {
-  readme: readText(repoFile('README.md')),
-  boundaries: readText(repoFile('TOOL_BOUNDARIES.md')),
-  staging: readText(repoFile('STAGING_GROUPS.md')),
+  readme: readGovernanceDocument(repoRoot, 'README.md'),
+  boundaries: readGovernanceDocument(repoRoot, 'TOOL_BOUNDARIES.md'),
+  staging: readGovernanceDocument(repoRoot, 'STAGING_GROUPS.md'),
   reportGuide: readText(repoFile('TOOL_REPORT_GUIDE.md')),
   coreStyle: readText(toolboxFile('core/style.css')),
   vercel: readText(repoFile('vercel.json')),

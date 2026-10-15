@@ -4,6 +4,7 @@ const path = require('path');
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
 const repoRoot = path.resolve(toolboxRoot, '..');
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱/tools/governance-documents.js'));
 
 let failed = 0;
 
@@ -132,10 +133,10 @@ const anchorBackupTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/ba
 const anchorReportDocumentState = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocumentState.ts'));
 const anchorReportDocumentStateTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocumentState.test.ts'));
 const anchorReportArtifactsTest = readText(repoFile('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts'));
-const rootReadme = readText(repoFile('README.md'));
+const rootReadme = readGovernanceDocument(repoRoot, 'README.md');
 const preflight = readText(repoFile('preflight-tools.ps1'));
-const staging = readText(repoFile('STAGING_GROUPS.md'));
-const boundaries = readText(repoFile('TOOL_BOUNDARIES.md'));
+const staging = readGovernanceDocument(repoRoot, 'STAGING_GROUPS.md');
+const boundaries = readGovernanceDocument(repoRoot, 'TOOL_BOUNDARIES.md');
 const reportGuide = readText(repoFile('TOOL_REPORT_GUIDE.md'));
 const maturityMatrixScript = readText(repoFile('結構工具箱/tools/tool-maturity-matrix.js'));
 

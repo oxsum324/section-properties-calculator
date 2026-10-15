@@ -6,6 +6,7 @@ const vm = require('vm');
 const { spawnSync } = require('child_process');
 
 const repoRoot = __dirname;
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱/tools/governance-documents.js'));
 const toolboxRoot = path.join(repoRoot, '結構工具箱');
 const homeJsPath = path.join(toolboxRoot, 'assets/home/src/home.source.js');
 
@@ -477,9 +478,9 @@ const EXPECTED_GOVERNANCE_SOURCE_KEYS = {
 const vercel = readJson('vercel.json');
 const formalManifest = readJson('結構工具箱/tools/formal-tools.manifest.json');
 const localQuickManifest = readJson('結構工具箱/tools/local-quick-tools.manifest.json');
-const readme = readText(path.join(repoRoot, 'README.md'));
-const boundaries = readText(path.join(repoRoot, 'TOOL_BOUNDARIES.md'));
-const staging = readText(path.join(repoRoot, 'STAGING_GROUPS.md'));
+const readme = readGovernanceDocument(repoRoot, 'README.md');
+const boundaries = readGovernanceDocument(repoRoot, 'TOOL_BOUNDARIES.md');
+const staging = readGovernanceDocument(repoRoot, 'STAGING_GROUPS.md');
 const preflight = readText(path.join(repoRoot, 'preflight-tools.ps1'));
 const releaseWrapper = readText(path.join(repoRoot, 'run-preflight-tools-release.bat'));
 const auditAll = readText(path.join(repoRoot, 'audit-all.ps1'));

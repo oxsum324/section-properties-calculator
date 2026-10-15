@@ -4,6 +4,7 @@ const path = require('path');
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
 const repoRoot = path.resolve(toolboxRoot, '..');
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱/tools/governance-documents.js'));
 
 let failed = 0;
 
@@ -60,9 +61,9 @@ const catalog = JSON.parse(catalogText);
 const preflight = readText(repoFile('preflight-tools.ps1'));
 const formalToolsContract = readText(toolFile('formal-tools.contract.test.js'));
 const formalRunner = readText(toolFile('formal-tools.run.js'));
-const readme = readText(repoFile('README.md'));
-const boundaries = readText(repoFile('TOOL_BOUNDARIES.md'));
-const staging = readText(repoFile('STAGING_GROUPS.md'));
+const readme = readGovernanceDocument(repoRoot, 'README.md');
+const boundaries = readGovernanceDocument(repoRoot, 'TOOL_BOUNDARIES.md');
+const staging = readGovernanceDocument(repoRoot, 'STAGING_GROUPS.md');
 const reportGuide = readText(repoFile('TOOL_REPORT_GUIDE.md'));
 
 assert(catalog.version === '0.1.0', 'formal traceability catalog version', catalog.version);

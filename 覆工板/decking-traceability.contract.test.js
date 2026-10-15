@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = __dirname;
+const { readGovernanceDocument } = require(path.join(path.resolve(ROOT, '..'), '結構工具箱', 'tools', 'governance-documents.js'));
 const catalogPath = path.join(ROOT, 'decking-traceability.catalog.json');
 
 let failed = 0;
@@ -39,7 +40,7 @@ function readUtf8(relativePath) {
 
 const catalogText = fs.readFileSync(catalogPath, 'utf8');
 const catalog = JSON.parse(catalogText);
-const readme = readUtf8('README.md');
+const readme = readGovernanceDocument(path.resolve(ROOT, '..'), '覆工板/README.md');
 const html = readUtf8('index.html');
 const report = readUtf8('report/gen_report.py');
 const fixture = readUtf8('test-fixtures/report-smoke.json');

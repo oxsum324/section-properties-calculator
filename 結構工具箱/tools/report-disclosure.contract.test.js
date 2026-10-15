@@ -4,6 +4,7 @@ const path = require('path');
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
 const repoRoot = path.resolve(toolboxRoot, '..');
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱', 'tools', 'governance-documents.js'));
 
 let failed = 0;
 
@@ -196,9 +197,9 @@ const preflight = readText(repoFile('preflight-tools.ps1'));
   'test-shear-wall-report.ps1',
 ].forEach(needle => assert(preflight.includes(needle), 'platform preflight runs report disclosure contract', needle));
 
-const readme = readText(repoFile('README.md'));
-const boundaries = readText(repoFile('TOOL_BOUNDARIES.md'));
-const staging = readText(repoFile('STAGING_GROUPS.md'));
+const readme = readGovernanceDocument(repoRoot, 'README.md');
+const boundaries = readGovernanceDocument(repoRoot, 'TOOL_BOUNDARIES.md');
+const staging = readGovernanceDocument(repoRoot, 'STAGING_GROUPS.md');
 const reportGuide = readText(repoFile('TOOL_REPORT_GUIDE.md'));
 const contextDoc = readText(repoFile('CONTEXT.md'));
 const pageOnlyReportReadinessAdr = readText(repoFile('docs/adr/0001-page-only-report-readiness.md'));

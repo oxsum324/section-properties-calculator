@@ -4,6 +4,7 @@ const path = require('path');
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
 const repoRoot = path.resolve(toolboxRoot, '..');
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱', 'tools', 'governance-documents.js'));
 
 let failed = 0;
 
@@ -36,9 +37,9 @@ const publicEvidenceSchema = readText('結構工具箱/assets/status/public-evid
 const dashboard = readText('結構工具箱/audit-dashboard.html');
 const dashboardContract = readText('結構工具箱/tools/audit-dashboard.contract.test.js');
 const dashboardBrowserSmoke = readText('結構工具箱/tools/audit-dashboard-browser-smoke.test.js');
-const readme = readText('README.md');
-const staging = readText('STAGING_GROUPS.md');
-const boundaries = readText('TOOL_BOUNDARIES.md');
+const readme = readGovernanceDocument(repoRoot, 'README.md');
+const staging = readGovernanceDocument(repoRoot, 'STAGING_GROUPS.md');
+const boundaries = readGovernanceDocument(repoRoot, 'TOOL_BOUNDARIES.md');
 const reportGuide = readText('TOOL_REPORT_GUIDE.md');
 const renderedEvidenceHelper = readText('結構工具箱/tools/rendered-delivery-evidence.js');
 const formalBrowserSmoke = readText('結構工具箱/tools/formal-browser-smoke.test.js');

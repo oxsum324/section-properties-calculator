@@ -3,6 +3,7 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = __dirname;
+const { readGovernanceDocument } = require(path.join(path.resolve(ROOT, '..'), '結構工具箱', 'tools', 'governance-documents.js'));
 const catalogPath = path.join(ROOT, 'steel-traceability.catalog.json');
 const readmePath = path.join(ROOT, 'README.md');
 const auditPath = path.join(ROOT, 'audit-tool.ps1');
@@ -43,7 +44,7 @@ function evidenceExists(relativePath) {
 
 const catalogText = fs.readFileSync(catalogPath, 'utf8');
 const catalog = JSON.parse(catalogText);
-const readme = fs.readFileSync(readmePath, 'utf8');
+const readme = readGovernanceDocument(path.resolve(ROOT, '..'), '鋼構工具/README.md');
 const audit = fs.readFileSync(auditPath, 'utf8');
 const calculator = fs.readFileSync(mainCalculatorPath, 'utf8');
 const smoke = fs.readFileSync(mainSmokePath, 'utf8');

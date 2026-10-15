@@ -3,6 +3,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(ROOT, '..');
+const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱', 'tools', 'governance-documents.js'));
 const catalogPath = path.join(ROOT, 'tools', 'rc-traceability.catalog.json');
 const readmePath = path.join(ROOT, 'README.md');
 const auditPath = path.join(ROOT, 'audit-tool.ps1');
@@ -43,7 +44,7 @@ function readUtf8(filePath) {
 
 const catalogText = readUtf8(catalogPath);
 const catalog = JSON.parse(catalogText);
-const readme = readUtf8(readmePath);
+const readme = readGovernanceDocument(repoRoot, '鋼筋混凝土/README.md');
 const audit = readUtf8(auditPath);
 const preflight = readUtf8(preflightPath);
 

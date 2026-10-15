@@ -3,6 +3,7 @@ const path = require('path');
 
 const ANCHOR_ROOT = __dirname;
 const REPO_ROOT = path.resolve(ANCHOR_ROOT, '..');
+const { readGovernanceDocument } = require(path.join(REPO_ROOT, '結構工具箱', 'tools', 'governance-documents.js'));
 const PACKAGE_ROOT = path.join(ANCHOR_ROOT, 'bolt-review-tool');
 
 let failed = 0;
@@ -99,9 +100,9 @@ const caseLibraryPanel = readText(packageFile('src/CaseLibraryPanel.tsx'));
 const caseDocumentsPanel = readText(packageFile('src/CaseDocumentsPanel.tsx'));
 const preflight = readText(repoFile('preflight-tools.ps1'));
 const homeJs = readText(repoFile('結構工具箱/assets/home/src/home.source.js'));
-const readme = readText(repoFile('README.md'));
-const boundaries = readText(repoFile('TOOL_BOUNDARIES.md'));
-const staging = readText(repoFile('STAGING_GROUPS.md'));
+const readme = readGovernanceDocument(REPO_ROOT, 'README.md');
+const boundaries = readGovernanceDocument(REPO_ROOT, 'TOOL_BOUNDARIES.md').replace(/^\uFEFF/, '');
+const staging = readGovernanceDocument(REPO_ROOT, 'STAGING_GROUPS.md').replace(/^\uFEFF/, '');
 const reportGuide = readText(repoFile('TOOL_REPORT_GUIDE.md'));
 const syncAnchor = readText(repoFile('sync-anchor-deployment.ps1'));
 const reportContract = readText(repoFile(reportContractRelativePath));
