@@ -77,6 +77,67 @@ for (const item of goldenCases) {
   }
 }
 
+const coverage = ConcreteStrengthNdtCore.calculate({
+  ...empty,
+  rebound: ['Z1', 'Z2', 'Z3', 'Z4'].map((zone, index) => ({
+    id: 'CR' + index, zone, readings: repeated(30), angleDeg: 0
+  })),
+  ultrasonic: ['Z1', 'Z2', 'Z5', 'Z6'].map((zone, index) => ({
+    id: 'CU' + index, zone, velocityKmS: 4
+  })),
+  core: ['Z1', 'Z3', 'Z5', 'Z7'].map((zone, index) => core('CC' + index, zone, 188.49555921538757))
+});
+assert.equal(coverage.ok, true);
+assert.deepEqual(coverage.crossCheckCoverage, {
+  zoneKeyRule: '測區識別字串依既有首尾空白裁切及160字元限制正規化後，完全相同才配對；不合併大小寫、不作其他模糊比對、不補值。',
+  methodZoneCounts: { rebound: 4, ultrasonic: 4, core: 4 },
+  totalDistinctZones: 7,
+  allThree: { count: 1, zones: ['Z1'] },
+  exactlyTwo: {
+    count: 3,
+    combinations: [
+      { methods: ['rebound', 'ultrasonic'], count: 1, zones: ['Z2'] },
+      { methods: ['rebound', 'core'], count: 1, zones: ['Z3'] },
+      { methods: ['ultrasonic', 'core'], count: 1, zones: ['Z5'] }
+    ]
+  },
+  onlyOne: {
+    count: 3,
+    byMethod: { rebound: ['Z4'], ultrasonic: ['Z6'], core: ['Z7'] }
+  },
+  note: '測區數為測區識別配對結果，不是獨立試體數或母體樣本數。'
+});
+assert.equal(
+  coverage.crossCheckCoverage.allThree.count + coverage.crossCheckCoverage.exactlyTwo.count + coverage.crossCheckCoverage.onlyOne.count,
+  coverage.crossCheckCoverage.totalDistinctZones,
+  'coverage groups partition all distinct zones'
+);
+
+const normalizedZoneCoverage = ConcreteStrengthNdtCore.calculate({
+  ...empty,
+  core: [
+    core('NZ1', 'Z1', 188.49555921538757),
+    core('NZ1-space', 'Z1 ', 204.20352248330003),
+    core('Nz1', 'z1', 196.34954084936206)
+  ]
+});
+assert.equal(normalizedZoneCoverage.ok, true);
+assert.deepEqual(normalizedZoneCoverage.input.core.map(row => row.zone), ['Z1', 'Z1', 'z1']);
+assert.deepEqual(normalizedZoneCoverage.methods.core.zoneResults.map(row => [row.zone, row.measurementCount]), [['Z1', 2], ['z1', 1]]);
+assert.deepEqual(normalizedZoneCoverage.crossCheckCoverage.methodZoneCounts, { rebound: 0, ultrasonic: 0, core: 2 });
+assert.deepEqual(normalizedZoneCoverage.crossCheckCoverage.onlyOne.byMethod.core, ['Z1', 'z1']);
+assert.equal(normalizedZoneCoverage.crossCheckCoverage.totalDistinctZones, 2);
+
+assert.deepEqual(ConcreteStrengthNdtCore.summarizeCrossCheckCoverage({ rebound: [], ultrasonic: [], core: [] }), {
+  zoneKeyRule: '測區識別字串依既有首尾空白裁切及160字元限制正規化後，完全相同才配對；不合併大小寫、不作其他模糊比對、不補值。',
+  methodZoneCounts: { rebound: 0, ultrasonic: 0, core: 0 },
+  totalDistinctZones: 0,
+  allThree: { count: 0, zones: [] },
+  exactlyTwo: { count: 0, combinations: [] },
+  onlyOne: { count: 0, byMethod: { rebound: [], ultrasonic: [], core: [] } },
+  note: '測區數為測區識別配對結果，不是獨立試體數或母體樣本數。'
+});
+
 const equalCore = ConcreteStrengthNdtCore.calculate({
   ...empty,
   core: [
@@ -205,4 +266,83 @@ for (const mutate of [
 }
 
 assert.equal(ConcreteStrengthNdtCore.calculate({...empty,project:{...empty.project,number:'P-1',instrumentModel:'Model-X',concreteDescription:'不同樓層柱混凝土'},core:[core('FC','ZC',188.49555921538757)]},{model:confirmedModel}).ok,false,'confirmed model rejects a different concrete reference');
+
+
+// T47：舊 JSON 與報告計算指紋相容性固定案例。
+{
+  const compatFs = require('node:fs');
+  const compatPath = require('node:path');
+  const compatVm = require('node:vm');
+  const compatRoot = compatPath.resolve(__dirname, '../..');
+  const compatUtilsSource = compatFs.readFileSync(compatPath.join(compatRoot, 'core/ui/report-utils.js'), 'utf8');
+  const compatReportSource = compatFs.readFileSync(compatPath.join(compatRoot, 'core/ui/report.js'), 'utf8');
+  const compatHtml = compatFs.readFileSync(compatPath.join(__dirname, 'concrete-strength-ndt.html'), 'utf8');
+  const compatReport = compatVm.createContext({ console, Date, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Set, Map, URL, URLSearchParams });
+  compatReport.window = compatReport;
+  compatReport.globalThis = compatReport;
+  compatVm.runInContext(compatUtilsSource, compatReport, { filename: 'report-utils.js' });
+  compatVm.runInContext(compatReportSource, compatReport, { filename: 'report.js' });
+  const compatUI = compatReport.ToolReportUI;
+  assert.ok(compatUI && typeof compatUI.buildReportTrace === 'function');
+
+  function compatFunction(name, nextName) {
+    const start = compatHtml.indexOf(`    function ${name}(`);
+    const end = compatHtml.indexOf(`\n    function ${nextName}(`, start);
+    assert.ok(start >= 0 && end > start, `NDT page function ${name} exists`);
+    return compatHtml.slice(start, end).trim();
+  }
+  const compatFns = [
+    compatFunction('fingerprintResult', 'buildMethodDetails'),
+    compatFunction('caseFingerprint', 'captureCaseUi')
+  ];
+  const compatPage = compatVm.createContext({ ReportUI: compatUI, Core: ConcreteStrengthNdtCore, Object, String, Date, JSON, Array, Math });
+  compatVm.runInContext(`${compatFns.join('\n')}\nthis.fingerprintResult=fingerprintResult;this.caseFingerprint=caseFingerprint;`, compatPage);
+
+  const expected = {
+    'rebound-only-three-zones': ['CF-73368035CCDB5611', 'CF-BD7744A8F53FE22C', 'CF-913F5B7CAEEA8F40'],
+    'ultrasonic-only-three-zones': ['CF-BF8E30F48F5041D0', 'CF-E591DB2C3C5E8408', 'CF-28882358BF4C7CB4'],
+    'core-only-three-zones': ['CF-311848A4A034DC50', 'CF-1FE6C481EF582595', 'CF-BCA88C0528C62349'],
+    'all-three-methods-three-matched-zones': ['CF-D1C663B291C35FCE', 'CF-10169F3A419CD6E6', 'CF-9E8787F689A6BE62'],
+    'rebound-outlier-trimmed-after-original-mean': ['CF-EA4857F1C9417455', 'CF-375571375BDE062B', 'CF-B5714CBBD0A8CB1F'],
+    'core-four-correction-factors-explicit': ['CF-43F6AA993B0CD1DD', 'CF-3225D1F91A17422D', 'CF-8DE3A67DDD7CCFE1'],
+    'rebound-nonzero-angle-deltaR-before-linear-curve': ['CF-E8DF66E9067CBB85', 'CF-C72638B3FCEF968F', 'CF-BE29BB9F5163D26B']
+  };
+  assert.equal(goldenCases.length, 7, 'historical golden count is unchanged');
+  const expectedOldKeys = ['appliedModel','assumptions','checks','crossCheck','designStrengthMpa','designStrengthSource','designStrengthSourceStatus','formalAttachmentEligible','formulaSources','input','methods','ok','overallOk','pooled','project','provenance','reportDisposition','resultSchemaVersion','scope','state','statusGroups','summary','units','version','warnings'].sort();
+  assert.match(compatHtml, /snapshot:\{mode,pageVersion: PUBLIC_TOOL_VERSION,calculationEngine: Core\.version,result:fingerprintResult\(result\)\}/,
+    'report trace snapshot uses the NDT page-local legacy result projection');
+  assert.match(compatHtml, /Object\.assign\(fingerprintResult\(result\),\{project,input:engineeringInput\}\)/,
+    'case fingerprint uses the NDT page-local legacy result projection');
+
+  for (const fixture of goldenCases) {
+    const result = ConcreteStrengthNdtCore.calculate(fixture.input);
+    assert.equal(result.ok, true, `${fixture.id} calculates`);
+    assert.deepStrictEqual(Object.keys(result).sort(), [...expectedOldKeys, 'crossCheckCoverage'].sort(),
+      `${fixture.id} adds only crossCheckCoverage at result top level`);
+    assert.equal(result.resultSchemaVersion, 'concrete-strength-ndt.result.v0.1',
+      `${fixture.id} keeps the existing result schema version`);
+    assert.equal(Object.hasOwn(compatPage.fingerprintResult(result), 'crossCheckCoverage'), false,
+      `${fixture.id} projection omits only the derived coverage key`);
+    assert.equal(Object.keys(compatPage.fingerprintResult(result)).length, Object.keys(result).length - 1,
+      `${fixture.id} projection preserves every other result field`);
+
+    const [caseFingerprint, summaryTrace, detailedTrace] = expected[fixture.id];
+    assert.ok(caseFingerprint, `${fixture.id} historical fingerprint fixture exists`);
+    assert.equal(compatPage.caseFingerprint(result.input, result), caseFingerprint,
+      `${fixture.id} old caseFingerprint remains stable`);
+    for (const [mode, expectedFingerprint] of [['summary', summaryTrace], ['detailed', detailedTrace]]) {
+      const reportTrace = compatUI.buildReportTrace({
+        title: '混凝土強度非破壞檢測推估',
+        outputSource: { tool: '混凝土強度非破壞檢測推估', version: 'V0.1' },
+        snapshot: { mode, pageVersion: 'V0.1', calculationEngine: ConcreteStrengthNdtCore.version,
+          result: compatPage.fingerprintResult(result) }
+      });
+      assert.equal(reportTrace.calculationFingerprint, expectedFingerprint,
+        `${fixture.id} ${mode} report trace remains stable`);
+    }
+  }
+}
+
+
+
 console.log('concrete-strength-ndt-core.test.js: all assertions passed.');

@@ -460,6 +460,15 @@
 git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md preflight-tools.ps1 "結構工具箱/tools/governance-documents.js" "結構工具箱/tools/governance-documents.contract.test.js" docs/
 <!-- T46-REGISTRATION-END -->
 
+<!-- T47-REGISTRATION-START -->
+## 2026-10-16：T47 NDT 同測區配對覆蓋摘要
+
+沿用委託人裁定 A 的既有首尾空白正規化，僅新增純衍生覆蓋欄與一致輸出，保留全部既有數值及舊 JSON 指紋相容；manifest 只追加 NDT 自己的 reportNeedles，其他工具逐項深度相等。
+
+git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-core.js" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt-core.test.js" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" "結構工具箱/tools/local-quick-tools.manifest.json" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js"
+git add -- "結構工具箱/tools/local-quick-browser-smoke.test.js"
+<!-- T47-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->

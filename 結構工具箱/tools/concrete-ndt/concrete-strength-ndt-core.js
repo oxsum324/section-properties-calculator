@@ -123,6 +123,7 @@
     pooled.nMeaning = 'n為三種方法的測區結果筆數合計；同一測區可能跨方法重複，不能解讀為獨立試體數或母體樣本數。';
     pooled.populationNote = '此為假設模型描述指標；方法結果可能來自相同測區或相關測區，不代表獨立試體母體推論，也不構成工程核可。';
     const crossCheck = compareByMatchingZone(zoneResults, spec);
+    const crossCheckCoverage = summarizeCrossCheckCoverage(zoneResults);
     const assumptions = assumptionInventory(model, spec);
     methods.forEach(method => rows[method].forEach(row => {
       if (row.assumed) assumptions.push({ label: `${labels[method]} ${row.id} 所用模型（示例或覆寫）`, assumed: true, confirmed: false, source: row.source || '使用者覆寫，尚未外部核驗' });
@@ -150,6 +151,7 @@
       }])),
       pooled,
       crossCheck,
+      crossCheckCoverage,
       assumptions,
       statusGroups: {
         confirmed: assumptions.filter(item => item.assumed === false).map(item => item.label),
@@ -342,6 +344,48 @@
     });
   }
 
+  function summarizeCrossCheckCoverage(zoneResults) {
+    const zonesByMethod = Object.fromEntries(methods.map(method => [
+      method, new Set(zoneResults[method].map(row => row.zone))
+    ]));
+    const zones = [...new Set(methods.flatMap(method => [...zonesByMethod[method]]))].sort();
+    const allThree = [], onlyOne = { rebound: [], ultrasonic: [], core: [] };
+    const combinations = [
+      { methods: ['rebound', 'ultrasonic'], zones: [] },
+      { methods: ['rebound', 'core'], zones: [] },
+      { methods: ['ultrasonic', 'core'], zones: [] }
+    ];
+
+    zones.forEach(zone => {
+      const present = methods.filter(method => zonesByMethod[method].has(zone));
+      if (present.length === 3) allThree.push(zone);
+      else if (present.length === 2) {
+        combinations.find(item => item.methods.every(method => present.includes(method))).zones.push(zone);
+      } else {
+        onlyOne[present[0]].push(zone);
+      }
+    });
+
+    const nonemptyCombinations = combinations
+      .filter(item => item.zones.length > 0)
+      .map(item => ({ methods: item.methods, count: item.zones.length, zones: item.zones }));
+    return {
+      zoneKeyRule: '測區識別字串依既有首尾空白裁切及160字元限制正規化後，完全相同才配對；不合併大小寫、不作其他模糊比對、不補值。',
+      methodZoneCounts: Object.fromEntries(methods.map(method => [method, zonesByMethod[method].size])),
+      totalDistinctZones: zones.length,
+      allThree: { count: allThree.length, zones: allThree },
+      exactlyTwo: {
+        count: nonemptyCombinations.reduce((sum, item) => sum + item.count, 0),
+        combinations: nonemptyCombinations
+      },
+      onlyOne: {
+        count: methods.reduce((sum, method) => sum + onlyOne[method].length, 0),
+        byMethod: onlyOne
+      },
+      note: '測區數為測區識別配對結果，不是獨立試體數或母體樣本數。'
+    };
+  }
+
   function assumptionInventory(model, spec) {
     if (Array.isArray(model.assumptions)) return model.assumptions.map(item => ({
       label: item.label || item.id || '已確認規格項目', assumed: item.assumed !== false,
@@ -434,6 +478,7 @@
   return Object.freeze({
     CORE_NAME, CORE_VERSION, INPUT_SCHEMA_VERSION, RESULT_SCHEMA_VERSION, LOGIC_SIGNATURE,
     version, inputSchemaVersion: INPUT_SCHEMA_VERSION, resultSchemaVersion: RESULT_SCHEMA_VERSION,
-    logicSignature: LOGIC_SIGNATURE, provenance, normalizeInput, validateInput, checkItem, calculate, Spec
+    logicSignature: LOGIC_SIGNATURE, provenance, normalizeInput, validateInput, checkItem, calculate,
+    summarizeCrossCheckCoverage, Spec
   });
 });

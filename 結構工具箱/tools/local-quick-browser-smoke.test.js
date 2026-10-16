@@ -1430,6 +1430,7 @@ function jsonImportExpression(tool, payload) {
       const fingerprintProject = { number: result.input.project.number, instrumentModel: result.input.project.instrumentModel || '', concreteDescription: result.input.project.concreteDescription || '' };
       const fingerprintInput = Object.assign({}, result.input, { project: fingerprintProject });
       const fingerprintResult = Object.assign({}, result, { project: fingerprintProject, input: fingerprintInput });
+      delete fingerprintResult.crossCheckCoverage;
       payload.calculationFingerprint = window.ToolReportUI.buildReportTrace({
         title: '混凝土強度非破壞檢測推估',
         snapshot: { input: fingerprintInput, result: fingerprintResult }

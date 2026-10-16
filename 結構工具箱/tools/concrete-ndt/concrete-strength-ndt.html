@@ -124,6 +124,7 @@
 
     <section class="card">
       <h2>三法交叉比對</h2>
+      <div id="crossCheckCoverage"></div>
       <div class="table-wrap" aria-label="三法交叉比對資料表"><table id="crossCheckTable"><thead><tr><th scope="col">同測區位置</th><th scope="col">回彈推估（MPa）</th><th scope="col">超音波推估（MPa）</th><th scope="col">鑽心現場等值（MPa）</th><th scope="col">相對差異／鑽心比值</th><th scope="col">資料界線</th></tr></thead><tbody></tbody></table></div>
       <p class="muted">只有相同測區位置才列配對差異與比值；只呈現數值，不提供採用或校正決策。</p>
     </section>
@@ -220,12 +221,14 @@
     function fmt(value,digits=2) { return value===null||value===undefined||!Number.isFinite(value)?'待補':Number(value).toFixed(digits); }
     function fmtPercent(value){return value===null||value===undefined?'待補':fmt(value*100);}
     function renderResult(result) {
+      $('crossCheckCoverage').replaceChildren();
       $('metricGrid').replaceChildren();$('checkList').replaceChildren();$('crossCheckTable').querySelector('tbody').replaceChildren();
       renderReadiness();
       if(!result.ok){$('bannerStatus').className='banner-status fail';$('bannerStatus').textContent='待確認：部分輸入未通過，拒絕計算。';result.errors.forEach(message=>$('checkList').append(node('div',{className:'error'},message)));$('reportPreview').textContent='輸入未通過，尚未產生計算書。';return;}
       $('bannerStatus').className='banner-status';$('bannerStatus').textContent='待確認：示例假設仍未由外部核驗；下列有效數值僅供內部審閱，不能作為正式附件。';
       ['rebound','ultrasonic','core'].forEach(method=>appendStatCard(result.methods[method]));appendStatCard({label:'三法合併（非獨立樣本）',stats:result.pooled});
       [...result.warnings,...result.assumptions.map(item=>`${item.label}：待確認假設；來源：${item.source}`)].forEach(message=>$('checkList').append(node('div',{className:'assumption'},message)));
+      $('crossCheckCoverage').innerHTML=coverageHtml(result);
       methodsCrossRows(result.crossCheck);
       $('reportPreview').textContent=buildReportText(result);
     }
@@ -250,6 +253,25 @@
     function detailTable(headers,rows,tableClass='') {
       return '<table class="'+escapeHtml(tableClass)+'"><thead><tr>'+headers.map(header=>'<th scope="col">'+escapeHtml(header)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(cells=>'<tr>'+cells.map((cell,index)=>'<'+(index===0?'th scope="row"':'td')+'>'+escapeHtml(cell)+'</'+(index===0?'th':'td')+'>').join('')+'</tr>').join('')+'</tbody></table>';
     }
+    function coverageRows(result) {
+      const c=result.crossCheckCoverage, methods=['rebound','ultrasonic','core'];
+      const label=method=>result.methods[method].label;
+      const rows=methods.map(method=>[label(method)+'有效測區',c.methodZoneCounts[method],'依同法同區彙整']);
+      rows.push(['全部不同測區',c.totalDistinctZones,'依正規化後測區識別計數'],['三法共同',c.allThree.count,c.allThree.zones.join('、')||'無'],['恰兩法',c.exactlyTwo.count,'以下分列互斥組合']);
+      c.exactlyTwo.combinations.forEach(item=>rows.push([item.methods.map(label).join('＋'),item.count,item.zones.join('、')]));
+      rows.push(['僅一法',c.onlyOne.count,'以下依方法分列']);
+      methods.forEach(method=>rows.push([label(method)+'單獨測區',c.onlyOne.byMethod[method].length,c.onlyOne.byMethod[method].join('、')||'無']));
+      return rows;
+    }
+    function coverageHtml(result) {
+      const c=result.crossCheckCoverage;
+      return '<h3>同測區配對覆蓋摘要</h3><p>'+escapeHtml(c.zoneKeyRule)+'</p><div class="table-wrap">'+detailTable(['配對分類','測區數','測區識別'],coverageRows(result))+'</div><p>'+escapeHtml(c.note)+'</p>';
+    }
+    function fingerprintResult(result) {
+      const snapshot=Object.assign({},result);
+      delete snapshot.crossCheckCoverage;
+      return snapshot;
+    }
     function buildMethodDetails(result) {
       const formulas=['mean','sampleSd','cov','angleCorrection','reboundStrengthFormula','ultrasonicVelocity','ultrasonicStrengthFormula','lengthDiameterRatio','coreArea','coreRawStrength','coreCorrectionProduct','characteristicStrength'];
       const formulaRows=formulas.map(key=>[Spec.definitions[key].expression,Spec.definitions[key].assumed?'假設模型':'數學定義',Spec.definitions[key].source]);
@@ -262,7 +284,7 @@
     }
     function buildReportHtml(result,mode) {
       if(!result||!result.ok)return '';
-      const trace=ReportUI.buildReportTrace({title:'混凝土強度非破壞檢測推估',outputSource:{tool:'混凝土強度非破壞檢測推估',version:PUBLIC_TOOL_VERSION},snapshot:{mode,pageVersion: PUBLIC_TOOL_VERSION,calculationEngine: Core.version,result}});
+      const trace=ReportUI.buildReportTrace({title:'混凝土強度非破壞檢測推估',outputSource:{tool:'混凝土強度非破壞檢測推估',version:PUBLIC_TOOL_VERSION},snapshot:{mode,pageVersion: PUBLIC_TOOL_VERSION,calculationEngine: Core.version,result:fingerprintResult(result)}});
       const documentStateReport=ReportUI.buildFormalDocumentStateReport({project:{name:result.project.name,no:result.project.number,designer:result.project.preparer},calculated:true,formalApprovalAllowed:false,readinessLevel:ReportUI.getPageReportReadinessLevel(document),calculationFingerprint:trace.calculationFingerprint,textExport:true});
       const r=result;
       const prov = r.provenance || (Core.provenance ? Core.provenance() : {});
@@ -272,12 +294,13 @@
       const cross=result.crossCheck.map(row=>`<tr><td>${escapeHtml(row.zone)}</td><td>${fmt(row.reboundMpa)}</td><td>${fmt(row.ultrasonicMpa)}</td><td>${fmt(row.coreMpa)}</td><td><span class="comparison-label">回彈相對差異</span> ${fmt(row.reboundDifferencePercent)}%；R/core ${fmt(row.reboundToCoreRatio)}；<span class="comparison-label">超音波相對差異</span> ${fmt(row.ultrasonicDifferencePercent)}%；UPV/core ${fmt(row.ultrasonicToCoreRatio)}</td><td>${escapeHtml(row.note)}</td></tr>`).join('');
       const evidence=detailTable(['假設項目','確認性質','來源與限制'],result.assumptions.map(item=>[item.label,item.assumed?'待補充／假設':'使用者確認聲明，未外部核驗',item.source]),'assumption-table');
       const detail=mode==='detailed'?buildMethodDetails(result):'';
-      return `<!doctype html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>混凝土強度非破壞檢測推估計算書</title><style>body{font-family:"Microsoft JhengHei",Arial,sans-serif;max-width:1100px;margin:20px auto;padding:22px;color:#17212b;line-height:1.6}h1,h2{color:#164e63}table{width:100%;border-collapse:collapse;font-size:.87rem}th,td{border:1px solid #cbd5d8;padding:6px;text-align:left}th{background:#eef8fa}th,td{overflow-wrap:anywhere}.assumption-table{table-layout:fixed}.assumption-table thead th{white-space:nowrap}.assumption-table th:first-child{width:28%}.assumption-table th:nth-child(2){width:22%}h2,h3{break-after:avoid-page}.comparison-label{white-space:nowrap}.cross-table{table-layout:fixed}.cross-table th:first-child{width:7%}.cross-table th:nth-child(2),.cross-table th:nth-child(3),.cross-table th:nth-child(4){width:11%}.cross-table th:nth-child(5){width:30%}.cross-table th:nth-child(6){width:30%}tr{break-inside:avoid-page}thead{display:table-header-group}thead th{white-space:nowrap}.source-reference{break-inside:avoid-page}.warning{padding:11px;background:#fff7ed;border-left:4px solid #f97316}.toolbar{margin-bottom:12px}.paper{max-width:980px;margin:0 auto}@media print{.toolbar,.page-only-report-status,.report-pagination{display:none!important}.paper{max-width:none;margin:0}}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><div class="toolbar"><button onclick="window.print()">列印／存 PDF（內部審閱）</button><button onclick="window.close()">關閉</button></div><main class="paper"><h1>混凝土強度非破壞檢測推估計算書</h1>${documentStateReport.html}<p>文件狀態：內部審閱 assist。資料有效仍不取得正式附件資格。</p><p>計畫：${escapeHtml(result.project.name)}；編號：${escapeHtml(result.project.number)}；整理人：${escapeHtml(result.project.preparer)}；設計比較值：${fmt(result.designStrengthMpa)} MPa。</p><p>設計比較值來源：${escapeHtml(result.designStrengthSource || "未提供，待補充")}</p>${provRow}<p>產出工具：混凝土強度非破壞檢測推估；工具版本：${escapeHtml(PUBLIC_TOOL_VERSION)}；計算引擎：${escapeHtml(Core.version)}；輸出時間：${escapeHtml(trace.generatedAt)}；計算指紋：${escapeHtml(trace.calculationFingerprint)}</p><section class="warning"><h2>工具與責任邊界</h2>${escapeHtml(result.scope)}<br>示例假設及工程預設仍待來源確認。ASTM C805/C805M-25 回彈關聯須依混凝土及儀器建立並以同位置鑽心關聯；ASTM C597-22 不提供通用強度曲線。</section><h2>檢核結論（僅格式與數值）</h2><p>${escapeHtml(result.summary.headline)}</p><h2>方法結果（現場等值強度；MPa）</h2><table><thead><tr><th scope="col">方法</th><th scope="col">n</th><th scope="col">平均</th><th scope="col">樣本 SD</th><th scope="col">CoV</th><th scope="col">特徵強度指標</th><th scope="col">最低單值</th><th scope="col">平均／設計強度</th></tr></thead><tbody>${statsRows}</tbody></table><h2>三法合併描述統計</h2><p>數值彙整，非獨立試體母體（${escapeHtml(pooled.label)}）；${escapeHtml(pooled.populationNote)} n=${pooled.n}；平均 ${fmt(pooled.meanMpa)} MPa；樣本 SD ${fmt(pooled.sampleSdMpa)} MPa；CoV ${fmtPercent(pooled.coefficientOfVariation)}%；特徵強度示例指標 ${pooled.characteristicStatus} ${fmt(pooled.characteristicStrengthMpa)} MPa。</p><h2>三法交叉比對（MPa）</h2><table class="cross-table"><thead><tr><th scope="col">測區</th><th scope="col">回彈</th><th scope="col">超音波</th><th scope="col">鑽心</th><th scope="col">差異／比值</th><th scope="col">資料界線</th></tr></thead><tbody>${cross}</tbody></table><h2>假設及來源責任</h2><p>已確認事項／合理推定／待補充：依下表分列假設與使用者確認聲明；待確認規格檔只表達使用者聲明，不代表外部核驗。</p>${evidence}<section class="source-reference"><h3>方法來源說明</h3><ul><li><a href="${Spec.sources.rebound.url}">ASTM C805/C805M-25</a>：回彈相關用途與個別強度關係。</li><li><a href="${Spec.sources.ultrasonic.url}">ASTM C597-22</a>：超音波速度量測，無通用強度曲線。</li><li><a href="${Spec.sources.core.url}">ACI 鑽心試體說明</a>：鑽心修正因素的背景說明。</li></ul></section>${detail}<p>初估輸出：預設值為假設，需技師確認。所有結果僅陳述輸入資料與模型假設。</p></main></body></html>`;
+      return `<!doctype html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>混凝土強度非破壞檢測推估計算書</title><style>body{font-family:"Microsoft JhengHei",Arial,sans-serif;max-width:1100px;margin:20px auto;padding:22px;color:#17212b;line-height:1.6}h1,h2{color:#164e63}table{width:100%;border-collapse:collapse;font-size:.87rem}th,td{border:1px solid #cbd5d8;padding:6px;text-align:left}th{background:#eef8fa}th,td{overflow-wrap:anywhere}.assumption-table{table-layout:fixed}.assumption-table thead th{white-space:nowrap}.assumption-table th:first-child{width:28%}.assumption-table th:nth-child(2){width:22%}h2,h3{break-after:avoid-page}.comparison-label{white-space:nowrap}.cross-table{table-layout:fixed}.cross-table th:first-child{width:7%}.cross-table th:nth-child(2),.cross-table th:nth-child(3),.cross-table th:nth-child(4){width:11%}.cross-table th:nth-child(5){width:30%}.cross-table th:nth-child(6){width:30%}tr{break-inside:avoid-page}thead{display:table-header-group}thead th{white-space:nowrap}.source-reference{break-inside:avoid-page}.warning{padding:11px;background:#fff7ed;border-left:4px solid #f97316}.toolbar{margin-bottom:12px}.paper{max-width:980px;margin:0 auto}@media print{.toolbar,.page-only-report-status,.report-pagination{display:none!important}.paper{max-width:none;margin:0}}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><div class="toolbar"><button onclick="window.print()">列印／存 PDF（內部審閱）</button><button onclick="window.close()">關閉</button></div><main class="paper"><h1>混凝土強度非破壞檢測推估計算書</h1>${documentStateReport.html}<p>文件狀態：內部審閱 assist。資料有效仍不取得正式附件資格。</p><p>計畫：${escapeHtml(result.project.name)}；編號：${escapeHtml(result.project.number)}；整理人：${escapeHtml(result.project.preparer)}；設計比較值：${fmt(result.designStrengthMpa)} MPa。</p><p>設計比較值來源：${escapeHtml(result.designStrengthSource || "未提供，待補充")}</p>${provRow}<p>產出工具：混凝土強度非破壞檢測推估；工具版本：${escapeHtml(PUBLIC_TOOL_VERSION)}；計算引擎：${escapeHtml(Core.version)}；輸出時間：${escapeHtml(trace.generatedAt)}；計算指紋：${escapeHtml(trace.calculationFingerprint)}</p><section class="warning"><h2>工具與責任邊界</h2>${escapeHtml(result.scope)}<br>示例假設及工程預設仍待來源確認。ASTM C805/C805M-25 回彈關聯須依混凝土及儀器建立並以同位置鑽心關聯；ASTM C597-22 不提供通用強度曲線。</section><h2>檢核結論（僅格式與數值）</h2><p>${escapeHtml(result.summary.headline)}</p><h2>方法結果（現場等值強度；MPa）</h2><table><thead><tr><th scope="col">方法</th><th scope="col">n</th><th scope="col">平均</th><th scope="col">樣本 SD</th><th scope="col">CoV</th><th scope="col">特徵強度指標</th><th scope="col">最低單值</th><th scope="col">平均／設計強度</th></tr></thead><tbody>${statsRows}</tbody></table><h2>三法合併描述統計</h2><p>數值彙整，非獨立試體母體（${escapeHtml(pooled.label)}）；${escapeHtml(pooled.populationNote)} n=${pooled.n}；平均 ${fmt(pooled.meanMpa)} MPa；樣本 SD ${fmt(pooled.sampleSdMpa)} MPa；CoV ${fmtPercent(pooled.coefficientOfVariation)}%；特徵強度示例指標 ${pooled.characteristicStatus} ${fmt(pooled.characteristicStrengthMpa)} MPa。</p>${coverageHtml(result)}<h2>三法交叉比對（MPa）</h2><table class="cross-table"><thead><tr><th scope="col">測區</th><th scope="col">回彈</th><th scope="col">超音波</th><th scope="col">鑽心</th><th scope="col">差異／比值</th><th scope="col">資料界線</th></tr></thead><tbody>${cross}</tbody></table><h2>假設及來源責任</h2><p>已確認事項／合理推定／待補充：依下表分列假設與使用者確認聲明；待確認規格檔只表達使用者聲明，不代表外部核驗。</p>${evidence}<section class="source-reference"><h3>方法來源說明</h3><ul><li><a href="${Spec.sources.rebound.url}">ASTM C805/C805M-25</a>：回彈相關用途與個別強度關係。</li><li><a href="${Spec.sources.ultrasonic.url}">ASTM C597-22</a>：超音波速度量測，無通用強度曲線。</li><li><a href="${Spec.sources.core.url}">ACI 鑽心試體說明</a>：鑽心修正因素的背景說明。</li></ul></section>${detail}<p>初估輸出：預設值為假設，需技師確認。所有結果僅陳述輸入資料與模型假設。</p></main></body></html>`;
     }
     function buildReportText(result=lastResult) {
       if(!result||!result.ok)return '尚無有效計算結果。';
       const lines=['混凝土強度非破壞檢測推估','初估輸出：預設值為假設，需技師確認。','文件狀態：內部審閱 assist；不得作為正式附件。',`工具版本：${PUBLIC_TOOL_VERSION}；計算引擎：${Core.version}`,`計算指紋：${caseFingerprint(result.input,result)}`,`案件：${result.project.name||'未填'}；編號：${result.project.number||'未填'}；整理人：${result.project.preparer||'未填'}`,`設計比較值：${fmt(result.designStrengthMpa)} MPa；來源：${result.designStrengthSource||'未提供，待補充'}`,'現場等值強度、方法統計及特徵強度指標均以 MPa 分列。'];
       ['rebound','ultrasonic','core'].forEach(method=>{const m=result.methods[method],s=m.stats;lines.push(`${m.label}：n=${s.n}個測區；平均=${fmt(s.meanMpa)} MPa；樣本 SD=${fmt(s.sampleSdMpa)} MPa；CoV=${fmtPercent(s.coefficientOfVariation)}%；特徵強度指標=${s.characteristicStatus} ${fmt(s.characteristicStrengthMpa)} MPa；最低單值=${fmt(s.minimumSingleMpa)} MPa；平均／設計強度=${fmtPercent(s.meanToDesignRatio)}%；平均 ≥ 設計強度=${s.meanAtLeastDesign===null?'待補':s.meanAtLeastDesign?'是':'否'}。`);});
+      lines.push('同測區配對覆蓋摘要',result.crossCheckCoverage.zoneKeyRule,...coverageRows(result).map(row=>row.join('：')),result.crossCheckCoverage.note);
       result.crossCheck.forEach(row=>lines.push(`同測區 ${row.zone}：回彈 ${fmt(row.reboundMpa)} MPa；超音波 ${fmt(row.ultrasonicMpa)} MPa；鑽心 ${fmt(row.coreMpa)} MPa；回彈相對差異 ${fmt(row.reboundDifferencePercent)}%；R/core ${fmt(row.reboundToCoreRatio)}；超音波相對差異 ${fmt(row.ultrasonicDifferencePercent)}%；UPV/core ${fmt(row.ultrasonicToCoreRatio)}；${row.note}`));
       lines.push(`合併：${result.pooled.populationNote}`,`n=${result.pooled.n}；平均=${fmt(result.pooled.meanMpa)} MPa；SD=${fmt(result.pooled.sampleSdMpa)} MPa；CoV=${fmtPercent(result.pooled.coefficientOfVariation)}%；特徵強度指標=${fmt(result.pooled.characteristicStrengthMpa)} MPa。`,result.scope,...result.assumptions.map(a=>`${a.label}：待補充；來源：${a.source}`));return lines.join('\n');
     }
@@ -289,7 +312,7 @@
     function caseFingerprint(input,result) {
       const project={number:input.project.number,instrumentModel:input.project.instrumentModel||'',concreteDescription:input.project.concreteDescription||''};
       const engineeringInput=Object.assign({},input,{project});
-      const engineeringResult=Object.assign({},result,{project,input:engineeringInput});
+      const engineeringResult=Object.assign(fingerprintResult(result),{project,input:engineeringInput});
       return ReportUI.buildReportTrace({title:'混凝土強度非破壞檢測推估',snapshot:{input:engineeringInput,result:engineeringResult}}).calculationFingerprint;
     }
     function captureCaseUi() {

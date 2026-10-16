@@ -213,6 +213,11 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 現行規則：新段落仍寫在主檔；主檔超過 50,000 bytes 時再依本模式移入新附冊。分組指令可依原順序移入 staging 附冊，主檔原位置以分段標記還原；此位置規則取代早期「git add 行必須留在主檔」的敘述，原敘述保留作歷程，其餘治理規則不變。各治理實體文件仍以 60,000 bytes 為上限，不調高上限。
 <!-- T46-REGISTRATION-END -->
 
+<!-- T47-REGISTRATION-START -->
+NDT 同測區配對覆蓋摘要僅從既有 zoneResults 衍生；測區沿用首尾空白裁切及 160 字元限制，正規化後完全相同才配對，大小寫分開，不作模糊比對或補值。三法共同、恰兩法、僅一法互斥計數，測區數不是獨立試體數或母體樣本數；頁面、摘要與詳細計算書、TXT、JSON 同源，只陳述數據。工程數值、規格、版本與資格不變；NDT 本頁的既有計算指紋投影只排除新增衍生欄，舊 JSON 可重算，匯出仍保存完整結果，不改共用 exporter。
+NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋欄，保留距時值、回讀成功與拒絕／還原的全部原斷言。
+<!-- T47-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->

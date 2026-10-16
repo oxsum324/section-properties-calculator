@@ -175,6 +175,10 @@ T42 鋼構主頁 app／calculator 的私有可讀來源位於 `鋼構工具/src/
 新增私有附冊 [STAGING_GROUPS-ledger-04](docs/governance-current/STAGING_GROUPS-ledger-04.md)，依原順序保存分組指令；治理全文由既有 loader 還原，覆蓋掃描讀取主檔與全部 staging 附冊，判定規則及路徑集合不變。
 <!-- T46-REGISTRATION-END -->
 
+<!-- T47-REGISTRATION-START -->
+T47：混凝土強度非破壞檢測推估新增同測區配對覆蓋摘要；以既有正規化後的測區識別分類，頁面、計算書、TXT 與 JSON 同源，工程數值與舊案例指紋相容。
+<!-- T47-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->
