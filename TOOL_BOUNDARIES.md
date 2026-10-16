@@ -199,6 +199,12 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 結構工具箱/tools/tool-load-budget-contract.js 新增首頁 tools href、固定 baseline.routes、HOME_TOOL_UPDATES.routes 與 routeFileMap 的集合／映射驗證；routeFileMap 可保留 /rc 別名。browser runner 先核對三份清冊，再依 baseline 順序量測；純契約另涵蓋未核准新增／替換、52／54、日期或映射缺漏、結果缺漏／重複／順序，以及來源／HEAD 漂移。保留 HOME_ROUTE_COUNT = 53、DOCX guard、source hash、HEAD 起訖及 schemaVersion 1 收據欄位；固定 baseline 未改。此登錄不代表已完成瀏覽器量測或正式放行。
 
 
+<!-- N1-REGISTRATION-START -->
+## 2026-10-16：N1 治理分冊容量與登錄守門
+
+`結構工具箱/tools/governance-documents.contract.test.js` 依 loader 的 GROUPS 核對三主檔及登錄附冊、current 目錄實體清冊、分冊所屬主檔與原始 UTF-8 bytes 每份不超過 60,000；55,000 只作規劃提醒。保留各原 reader 的文件範圍、AND／OR／NOT 與舊負向測例，不固定正文 hash、規則數或附冊數。`preflight-tools.ps1` 僅在既有 formal-tools-static 加入子命令並逐項記錄退出碼；隔離 fixture 驗證非零失敗傳遞，不新增頂層 record 或改寫歷史 29 條門檻。`pages-release-governance.contract.test.js` 具名驗證登錄文件及 loader／契約保持私有，公開工具頁不受影響。本機驗收不代表正式預檢或發布。
+<!-- N1-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->

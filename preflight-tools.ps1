@@ -1702,6 +1702,7 @@ exit $LASTEXITCODE
 
 $formalToolsStaticCommand = @'
 $checks = @(
+  '結構工具箱\tools\governance-documents.contract.test.js',
   '結構工具箱\tools\formal-tools.contract.test.js',
   '結構工具箱\tools\wind-shared-profile.contract.test.js'
 )
@@ -1710,8 +1711,11 @@ foreach ($check in $checks) {
     Write-Error "missing $check"
     exit 1
   }
+  Write-Output "formal-tools-static child START: $check"
   node $check
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  $childExitCode = [int]$LASTEXITCODE
+  Write-Output "formal-tools-static child COMPLETE: $check exit=$childExitCode"
+  if ($childExitCode -ne 0) { exit $childExitCode }
 }
 Write-Output 'formal tools static contract OK'
 exit 0

@@ -443,6 +443,13 @@ git add -- "結構工具箱/tools/tool-load-budget-contract.js" "結構工具箱
 <!-- P2-COVERAGE-INDEX-END -->
 
 
+<!-- N1-REGISTRATION-START -->
+## 2026-10-16：N1 治理分冊常設守門分組
+
+保留全部既有分組指令及現行規則，只增清冊／60,000 原始 bytes 守門、formal-tools-static 子命令與 Pages 私有回歸。
+git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md preflight-tools.ps1 pages-release-governance.contract.test.js 結構工具箱/tools/governance-documents.contract.test.js
+<!-- N1-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->

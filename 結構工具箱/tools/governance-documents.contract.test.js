@@ -1,10 +1,15 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { GROUPS, readGovernanceDocument } = require('./governance-documents.js');
+
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const GOVERNANCE_BOOKS_ROOT = 'docs/governance-current';
+const GOVERNANCE_DOCUMENT_MAX_BYTES = 60000;
 
 function write(root, relativePath, content) {
   const target = path.join(root, ...relativePath.split('/'));
@@ -49,6 +54,150 @@ function fixture(eol) {
   return { root, stagingIds };
 }
 
+function validateGovernanceInventory(root, groups = GROUPS) {
+  const registeredBooks = Object.values(groups).flat();
+  const duplicateBooks = registeredBooks.filter((bookPath, index) => registeredBooks.indexOf(bookPath) !== index);
+  assert.deepEqual(duplicateBooks, [], 'a governance book must be registered in exactly one main-document group');
+
+  for (const [mainPath, bookPaths] of Object.entries(groups)) {
+    const expectedPrefix = `${path.basename(mainPath, '.md')}-`;
+    for (const bookPath of bookPaths) {
+      assert.ok(path.basename(bookPath).startsWith(expectedPrefix), `${bookPath} is registered under the wrong governance group ${mainPath}`);
+    }
+  }
+
+  const booksRoot = path.join(root, ...GOVERNANCE_BOOKS_ROOT.split('/'));
+  const physicalBooks = [];
+  function collectPhysicalEntries(directory, relativeDirectory) {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const relativePath = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) collectPhysicalEntries(absolutePath, relativePath);
+      else physicalBooks.push(`${GOVERNANCE_BOOKS_ROOT}/${relativePath}`);
+    }
+  }
+  if (fs.existsSync(booksRoot)) collectPhysicalEntries(booksRoot, '');
+  physicalBooks.sort();
+  assert.deepEqual(physicalBooks, [...registeredBooks].sort(), 'physical governance-current files must exactly match GROUPS');
+
+  for (const [mainPath, bookPaths] of Object.entries(groups)) {
+    const mainText = fs.readFileSync(path.join(root, ...mainPath.split('/')), 'utf8');
+    if (mainPath === 'STAGING_GROUPS.md') continue;
+    const includeMarkers = [...mainText.matchAll(/<!-- P2_INCLUDE:([^\r\n]+) -->\r?\n/g)].map(match => match[1]);
+    assert.deepEqual(includeMarkers, bookPaths, `${mainPath} must register its own GROUPS books in order`);
+  }
+}
+
+function validateGovernanceDocumentSizes(root, groups = GROUPS) {
+  const paths = [...Object.keys(groups), ...Object.values(groups).flat()];
+  const sizes = {};
+  for (const relativePath of paths) {
+    const absolutePath = path.join(root, ...relativePath.split('/'));
+    const bytes = fs.readFileSync(absolutePath).byteLength;
+    sizes[relativePath] = bytes;
+    assert.ok(bytes <= GOVERNANCE_DOCUMENT_MAX_BYTES, `${relativePath} raw bytes ${bytes} exceed ${GOVERNANCE_DOCUMENT_MAX_BYTES}`);
+  }
+  return sizes;
+}
+
+function makeCapacityBytes(targetBytes, eol) {
+  const sample = Buffer.from(`中文資料${eol}混合行尾\n原始位元組測試${eol}`, 'utf8');
+  assert.ok(sample.byteLength < targetBytes);
+  return Buffer.concat([sample, Buffer.alloc(targetBytes - sample.byteLength, 0x20)]);
+}
+
+function readFormalToolsStaticCommand(preflightText) {
+  const match = preflightText.match(/\$formalToolsStaticCommand\s*=\s*@'\r?\n([\s\S]*?)\r?\n'@/u);
+  assert.ok(match, 'preflight-tools.ps1 must retain the formal-tools-static production command block');
+  return match[1];
+}
+
+function verifyFormalToolsStaticCommandIsolation() {
+  const preflightPath = path.join(REPO_ROOT, 'preflight-tools.ps1');
+  const command = readFormalToolsStaticCommand(fs.readFileSync(preflightPath, 'utf8'));
+  const checkPaths = [...command.matchAll(/^\s*'([^']+\.js)'\s*,?\s*$/gm)].map(match => match[1]);
+  const governanceCheck = '結構工具箱\\tools\\governance-documents.contract.test.js';
+  const formalContractCheck = '結構工具箱\\tools\\formal-tools.contract.test.js';
+  const windProfileCheck = '結構工具箱\\tools\\wind-shared-profile.contract.test.js';
+  assert.ok(checkPaths.includes(governanceCheck), 'formal-tools-static must include the governance documents contract');
+  assert.ok(checkPaths.includes(formalContractCheck), 'formal-tools-static must retain the formal tools contract');
+  assert.ok(checkPaths.includes(windProfileCheck), 'formal-tools-static must retain the wind shared profile contract');
+
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'formal-tools-static-contract-'));
+  try {
+    for (const checkPath of checkPaths) {
+      const filePath = path.join(fixtureRoot, ...checkPath.split('\\'));
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, '// isolated child fixture\n', 'utf8');
+    }
+    const powershellPath = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    assert.ok(fs.existsSync(powershellPath), `Windows PowerShell 5.1 executable missing: ${powershellPath}`);
+
+    function runScenario(failingIndex) {
+      const nodeLogPath = path.join(fixtureRoot, `node-invocations-${failingIndex}.txt`);
+      const scriptPath = path.join(fixtureRoot, `formal-tools-static-${failingIndex}.ps1`);
+      const fakeNode = [
+        'function node {',
+        '  param([string]$check)',
+        '  Add-Content -LiteralPath $env:GOVERNANCE_CONTRACT_NODE_LOG -Value $check -Encoding UTF8',
+        '  $index = [Array]::IndexOf($env:GOVERNANCE_CONTRACT_CHECKS.Split("|"), $check)',
+        '  $global:LASTEXITCODE = 0',
+        '  if ($index -eq [int]$env:GOVERNANCE_CONTRACT_FAIL_INDEX) { $global:LASTEXITCODE = [int]$env:GOVERNANCE_CONTRACT_FAIL_CODE }',
+        '  Write-Output "fixture child index=$index exit=$global:LASTEXITCODE"',
+        '}'
+      ].join('\r\n');
+      const versionReceipt = 'Write-Output "powershell-version=$($PSVersionTable.PSVersion.ToString()) edition=$($PSVersionTable.PSEdition)"';
+      const script = `${versionReceipt}\r\n${fakeNode}\r\n${command}\r\n`;
+      fs.writeFileSync(scriptPath, `\uFEFF${script}`, 'utf8');
+      const failCode = failingIndex >= 0 ? 17 + failingIndex : 0;
+      const result = childProcess.spawnSync(powershellPath, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+        timeout: 15000,
+        env: {
+          ...process.env,
+          GOVERNANCE_CONTRACT_NODE_LOG: nodeLogPath,
+          GOVERNANCE_CONTRACT_CHECKS: checkPaths.join('|'),
+          GOVERNANCE_CONTRACT_FAIL_INDEX: String(failingIndex),
+          GOVERNANCE_CONTRACT_FAIL_CODE: String(failCode)
+        }
+      });
+      assert.equal(result.error, undefined, `isolated PowerShell command failed to launch: ${result.error?.message}`);
+      assert.ok(result.stdout.includes('powershell-version=5.1'), `fixture must run under Windows PowerShell 5.1; output=${result.stdout}`);
+      const invocations = fs.existsSync(nodeLogPath)
+        ? fs.readFileSync(nodeLogPath, 'utf8').replace(/^\uFEFF/u, '').split(/\r?\n/).filter(Boolean)
+        : [];
+      return { result, invocations, output: `${result.stdout}\n${result.stderr}` };
+    }
+
+    const normal = runScenario(-1);
+    assert.equal(normal.result.status, 0, `normal formal-tools-static fixture must pass; output=${normal.output}`);
+    assert.deepEqual(normal.invocations, checkPaths, 'normal formal-tools-static fixture must execute every listed child in order');
+    for (const checkPath of checkPaths) {
+      assert.ok(normal.output.includes(`formal-tools-static child START: ${checkPath}`), `missing child start receipt for ${checkPath}`);
+      assert.ok(normal.output.includes(`formal-tools-static child COMPLETE: ${checkPath} exit=0`), `missing child completion receipt for ${checkPath}`);
+    }
+
+    const propagatedExits = [];
+    for (let failingIndex = 0; failingIndex < checkPaths.length; failingIndex += 1) {
+      const failed = runScenario(failingIndex);
+      const expectedExit = 17 + failingIndex;
+      assert.equal(failed.result.status, expectedExit, `formal-tools-static must propagate child ${failingIndex + 1} exit=${expectedExit}; output=${failed.output}`);
+      assert.deepEqual(failed.invocations, checkPaths.slice(0, failingIndex + 1), `formal-tools-static must stop after child ${failingIndex + 1} fails`);
+      assert.ok(failed.output.includes(`formal-tools-static child COMPLETE: ${checkPaths[failingIndex]} exit=${expectedExit}`), `failed child completion must preserve exit code ${expectedExit}`);
+      propagatedExits.push(expectedExit);
+    }
+    console.log(`formal-tools-static isolation passed under Windows PowerShell 5.1: normal child count=${checkPaths.length}, propagated exits=${propagatedExits.join(',')}, fail-fast verified at every child position`);
+  } finally {
+    const tempParent = path.resolve(os.tmpdir());
+    const resolvedFixtureRoot = path.resolve(fixtureRoot);
+    if (path.dirname(resolvedFixtureRoot) !== tempParent || !path.basename(resolvedFixtureRoot).startsWith('formal-tools-static-contract-')) {
+      throw new Error(`Unsafe formal-tools-static fixture cleanup path: ${resolvedFixtureRoot}`);
+    }
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 const tempRoots = [];
 try {
   for (const eol of ['\n', '\r\n']) {
@@ -65,6 +214,50 @@ try {
     assert.ok(staging.includes(`git add -- "new-p2-entry.js"${eol}`));
     assert.equal(staging.includes('generated index'), false);
   }
+
+  validateGovernanceInventory(REPO_ROOT);
+  const repositorySizes = validateGovernanceDocumentSizes(REPO_ROOT);
+  assert.equal(Object.keys(repositorySizes).length, Object.keys(GROUPS).length + Object.values(GROUPS).flat().length, 'repository inventory must cover each main document and registered book once');
+
+  const missingBook = fixture('\n');
+  tempRoots.push(missingBook.root);
+  fs.unlinkSync(path.join(missingBook.root, ...GROUPS['README.md'][0].split('/')));
+  assert.throws(() => validateGovernanceInventory(missingBook.root), /physical governance-current files must exactly match GROUPS/);
+
+  const extraBook = fixture('\n');
+  tempRoots.push(extraBook.root);
+  write(extraBook.root, `${GOVERNANCE_BOOKS_ROOT}/unregistered-extra.md`, 'extra physical book\n');
+  assert.throws(() => validateGovernanceInventory(extraBook.root), /physical governance-current files must exactly match GROUPS/);
+
+  const extraNestedFile = fixture('\n');
+  tempRoots.push(extraNestedFile.root);
+  write(extraNestedFile.root, `${GOVERNANCE_BOOKS_ROOT}/nested/unregistered.bin`, Buffer.from([0x00, 0x01, 0x02]));
+  assert.throws(() => validateGovernanceInventory(extraNestedFile.root), /physical governance-current files must exactly match GROUPS/);
+
+  const wrongGroup = fixture('\n');
+  tempRoots.push(wrongGroup.root);
+  const wrongGroupMap = Object.fromEntries(Object.entries(GROUPS).map(([mainPath, bookPaths]) => [mainPath, [...bookPaths]]));
+  const [misplacedBook] = wrongGroupMap['README.md'].splice(0, 1);
+  wrongGroupMap['TOOL_BOUNDARIES.md'].push(misplacedBook);
+  const misplacedReadmePath = path.join(wrongGroup.root, 'README.md');
+  const misplacedBoundariesPath = path.join(wrongGroup.root, 'TOOL_BOUNDARIES.md');
+  fs.writeFileSync(misplacedReadmePath, fs.readFileSync(misplacedReadmePath, 'utf8').replace(`<!-- P2_INCLUDE:${misplacedBook} -->\n`, ''), 'utf8');
+  fs.appendFileSync(misplacedBoundariesPath, `<!-- P2_INCLUDE:${misplacedBook} -->\n`, 'utf8');
+  assert.throws(() => validateGovernanceInventory(wrongGroup.root, wrongGroupMap), /registered under the wrong governance group/);
+
+  for (const relativePath of ['README.md', GROUPS['README.md'][0]]) {
+    for (const eol of ['\n', '\r\n', '\r\n\n']) {
+      const boundary = fixture('\n');
+      tempRoots.push(boundary.root);
+      const targetPath = path.join(boundary.root, ...relativePath.split('/'));
+      fs.writeFileSync(targetPath, makeCapacityBytes(GOVERNANCE_DOCUMENT_MAX_BYTES, eol));
+      assert.equal(validateGovernanceDocumentSizes(boundary.root)[relativePath], GOVERNANCE_DOCUMENT_MAX_BYTES, `${relativePath} raw UTF-8 bytes at the exact limit must pass for ${JSON.stringify(eol)}`);
+      fs.writeFileSync(targetPath, makeCapacityBytes(GOVERNANCE_DOCUMENT_MAX_BYTES + 1, eol));
+      assert.throws(() => validateGovernanceDocumentSizes(boundary.root), /raw bytes 60001 exceed 60000/, `${relativePath} raw UTF-8 bytes above the limit must fail for ${JSON.stringify(eol)}`);
+    }
+  }
+
+  verifyFormalToolsStaticCommandIsolation();
 
   const bad = fixture('\n');
   tempRoots.push(bad.root);
@@ -123,7 +316,7 @@ try {
   fs.writeFileSync(reorderedStagingPath, reorderedStagingText, 'utf8');
   assert.throws(() => readGovernanceDocument(reorderedStaging.root, 'STAGING_GROUPS.md'), /staging main segment order mismatch/);
 
-  console.log('governance-documents contract passed: LF/CRLF reconstruction and fail-closed book/segment cases');
+  console.log(`governance-documents contract passed: LF/CRLF reconstruction, inventory, raw-byte limits and isolated formal-tools-static propagation; repository docs=${Object.keys(repositorySizes).length}; maxBytes=${GOVERNANCE_DOCUMENT_MAX_BYTES}; sizes=${JSON.stringify(repositorySizes)}`);
 } finally {
   const tempParent = path.resolve(os.tmpdir());
   for (const root of tempRoots) {

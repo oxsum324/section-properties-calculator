@@ -6,7 +6,7 @@ const path = require('path');
 const PagesLiveSmoke = require('./結構工具箱/tools/pages-live-smoke.js');
 
 const repoRoot = __dirname;
-const { readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱/tools/governance-documents.js'));
+const { GROUPS, readGovernanceDocument } = require(path.join(repoRoot, '結構工具箱/tools/governance-documents.js'));
 
 function readText(relativePath) {
   return fs.readFileSync(path.join(repoRoot, ...relativePath.split('/')), 'utf8').replace(/\r\n/g, '\n');
@@ -689,6 +689,16 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/independent-engineering-ada
 assert.ok(pagesSmoke.includes("path: 'frame-analysis/'") && pagesSmoke.includes("source: '/frame-analysis'") && pagesSmoke.includes("targetNeedle: encodeURIComponent('平面剛架分析.html')") && pagesSmoke.includes("'frame-analysis-browser-smoke.test.js'"), 'Pages smoke verifies the promoted frame route with its encoded Unicode destination marker and keeps its browser producer private');
 assert.ok(pagesSmoke.includes("path: 'SRC工具/src-column.html'") && pagesSmoke.includes("source: '/src-column'") && pagesSmoke.includes('SRC工具/core/src-column-oracle.js') && pagesSmoke.includes('SRC工具/src-column-page.contract.test.js') && pagesSmoke.includes('SRC工具/src-column-browser-smoke.test.js') && pagesSmoke.includes('SRC工具/src-column-core.test.js') && pagesSmoke.includes('SRC工具/src-column-h-section-catalog.test.js') && pagesSmoke.includes('SRC工具/src-column-rc-biaxial.test.js') && pagesSmoke.includes('SRC工具/src-column-shear.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-axial.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-detailing.test.js') && pagesSmoke.includes('SRC工具/src-column-oracle.test.js') && pagesSmoke.includes('SRC工具/src-column-traceability.catalog.json'), 'Pages smoke treats SRC column production assets as public and probes private oracle/test assets');
 const { classifyPublishedPath } = require(artifactBuilderPath);
+const currentGovernancePrivatePaths = [
+  ...Object.keys(GROUPS),
+  ...Object.values(GROUPS).flat(),
+  '結構工具箱/tools/governance-documents.js',
+  '結構工具箱/tools/governance-documents.contract.test.js',
+];
+for (const privatePath of currentGovernancePrivatePaths) {
+  assert.equal(classifyPublishedPath(privatePath).publish, false, `${privatePath} remains private current governance material`);
+}
+assert.equal(classifyPublishedPath('field-survey/recorder.html').publish, true, 'current governance exclusions preserve the public field survey page');
 for (const privatePath of ['report-format-parity.core.js', '結構工具箱/tools/tool-load-budget-contract.js', '結構工具箱/tools/tool-load-budget-baseline.json']) {
   assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-tooling' }, `${privatePath} remains private validation tooling`);
 }

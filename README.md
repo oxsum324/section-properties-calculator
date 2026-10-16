@@ -163,6 +163,12 @@ T42 鋼構主頁 app／calculator 的私有可讀來源位於 `鋼構工具/src/
 2026-10-15 載入預算契約補強：首頁 tools href 清冊與固定 53 路由 baseline、更新日期清冊交叉核對，並確認每個首頁路由均有 routeFileMap 對應；保留額外 /rc 別名，量測順序依固定 baseline。baseline 不變。純 Node 契約涵蓋未核准新增或替換、52／54 路由、缺映射／日期、量測缺漏／重複／順序、來源與 HEAD 漂移。瀏覽器量測另以最終 HEAD 收據核對，本包不含正式放行。
 
 
+<!-- N1-REGISTRATION-START -->
+## 2026-10-16：N1 治理分冊常設守門
+
+`結構工具箱/tools/governance-documents.contract.test.js` 常設檢查治理分冊登錄與實體清冊一致、各主檔及登錄附冊原始 UTF-8 bytes 不超過 60,000；接入既有 formal-tools-static 子命令，保留原正式 record 及歷史 29 條 phase gate。Pages 治理契約另驗證治理文件與 loader 不公開。
+<!-- N1-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->
