@@ -1556,7 +1556,9 @@ exit $LASTEXITCODE
 $stagingGroupsCoverageCommand = @'
 $ErrorActionPreference = "Stop"
 $stagingPath = "STAGING_GROUPS.md"
-$staging = Get-Content -LiteralPath $stagingPath -Raw -Encoding UTF8
+$stagingBooks = @(Get-ChildItem -LiteralPath "docs/governance-current" -Filter "STAGING_GROUPS-ledger-*.md" -File | Sort-Object Name)
+$stagingSources = @($stagingPath) + @($stagingBooks | ForEach-Object { $_.FullName })
+$staging = (@($stagingSources | ForEach-Object { Get-Content -LiteralPath $_ -Raw -Encoding UTF8 })) -join "`n"
 
 function Normalize-PathText {
   param([string]$PathValue)

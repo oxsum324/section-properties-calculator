@@ -5,7 +5,7 @@ const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { GROUPS, readGovernanceDocument } = require('./governance-documents.js');
+const { GROUPS, STAGING_SEGMENTS, STAGING_MAIN_ORDER, readGovernanceDocument } = require('./governance-documents.js');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const GOVERNANCE_BOOKS_ROOT = 'docs/governance-current';
@@ -22,7 +22,10 @@ function wrapper(relativePath, eol, body) {
 }
 
 function expectedStagingIds() {
-  return [7, 6, 36].flatMap((count, index) => Array.from({ length: count }, (_, i) => `SG-${String(index + 1).padStart(2, '0')}-${String(i + 1).padStart(3, '0')}`));
+  const registered = GROUPS['STAGING_GROUPS.md'].flatMap(bookPath => STAGING_SEGMENTS[bookPath]);
+  assert.equal(new Set(registered).size, registered.length, 'registered staging segment IDs are unique');
+  assert.deepEqual([...STAGING_MAIN_ORDER].sort(), [...registered].sort(), 'main-order registration covers every registered staging segment exactly once');
+  return [...STAGING_MAIN_ORDER];
 }
 
 function fixture(eol) {
@@ -44,10 +47,8 @@ function fixture(eol) {
       write(root, relativePath, wrapper(relativePath, eol, `source:${relativePath}:$&$'$${eol}`));
   }
   for (const relativePath of GROUPS['STAGING_GROUPS.md']) {
-    const index = GROUPS['STAGING_GROUPS.md'].indexOf(relativePath);
-    const count = [7, 6, 36][index];
-    const prefix = `SG-${String(index + 1).padStart(2, '0')}-`;
-    const segments = Array.from({ length: count }, (_, i) => `${prefix}${String(i + 1).padStart(3, '0')}`)
+    const ids = STAGING_SEGMENTS[relativePath];
+    const segments = ids
       .map(id => `<!-- P2-SEGMENT:${id} -->${eol}content:${id}:$&$'$${eol}`).join('');
     write(root, relativePath, wrapper(relativePath, eol, segments));
   }
@@ -147,7 +148,7 @@ function verifyFormalToolsStaticCommandIsolation() {
         '}'
       ].join('\r\n');
       const versionReceipt = 'Write-Output "powershell-version=$($PSVersionTable.PSVersion.ToString()) edition=$($PSVersionTable.PSEdition)"';
-      const script = `${versionReceipt}\r\n${fakeNode}\r\n${command}\r\n`;
+      const script = `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ${versionReceipt}\r\n${fakeNode}\r\n${command}\r\n`;
       fs.writeFileSync(scriptPath, `\uFEFF${script}`, 'utf8');
       const failCode = failingIndex >= 0 ? 17 + failingIndex : 0;
       const result = childProcess.spawnSync(powershellPath, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
@@ -224,6 +225,34 @@ try {
   fs.unlinkSync(path.join(missingBook.root, ...GROUPS['README.md'][0].split('/')));
   assert.throws(() => validateGovernanceInventory(missingBook.root), /physical governance-current files must exactly match GROUPS/);
 
+  const missingLedger04 = fixture('\n');
+  tempRoots.push(missingLedger04.root);
+  fs.unlinkSync(path.join(missingLedger04.root, ...GROUPS['STAGING_GROUPS.md'][3].split('/')));
+  assert.throws(() => readGovernanceDocument(missingLedger04.root, 'STAGING_GROUPS.md'), /missing book/);
+
+  const wrongStagingGroup = fixture('\n');
+  tempRoots.push(wrongStagingGroup.root);
+  const wrongStagingGroupMap = Object.fromEntries(Object.entries(GROUPS).map(([mainPath, bookPaths]) => [mainPath, [...bookPaths]]));
+  const [ledger04] = wrongStagingGroupMap['STAGING_GROUPS.md'].splice(3, 1);
+  wrongStagingGroupMap['README.md'].push(ledger04);
+  assert.throws(() => validateGovernanceInventory(wrongStagingGroup.root, wrongStagingGroupMap), /registered under the wrong governance group/);
+
+  const crossGroupLedger04 = fixture('\n');
+  tempRoots.push(crossGroupLedger04.root);
+  const ledger04Path = path.join(crossGroupLedger04.root, ...GROUPS['STAGING_GROUPS.md'][3].split('/'));
+  fs.writeFileSync(ledger04Path, fs.readFileSync(ledger04Path, 'utf8').replace('<!-- P2-SEGMENT:SG-04-001 -->', '<!-- P2-SEGMENT:SG-03-001 -->'), 'utf8');
+  assert.throws(() => readGovernanceDocument(crossGroupLedger04.root, 'STAGING_GROUPS.md'), /segment order mismatch|cross-group or unlisted segment/);
+
+  const reorderedLedger04 = fixture('\n');
+  tempRoots.push(reorderedLedger04.root);
+  const reorderedLedger04Path = path.join(reorderedLedger04.root, ...GROUPS['STAGING_GROUPS.md'][3].split('/'));
+  const reorderedLedger04Text = fs.readFileSync(reorderedLedger04Path, 'utf8')
+    .replace('<!-- P2-SEGMENT:SG-04-001 -->', '<!-- P2-SEGMENT:SG-04-SWAP -->')
+    .replace('<!-- P2-SEGMENT:SG-04-002 -->', '<!-- P2-SEGMENT:SG-04-001 -->')
+    .replace('<!-- P2-SEGMENT:SG-04-SWAP -->', '<!-- P2-SEGMENT:SG-04-002 -->');
+  fs.writeFileSync(reorderedLedger04Path, reorderedLedger04Text, 'utf8');
+  assert.throws(() => readGovernanceDocument(reorderedLedger04.root, 'STAGING_GROUPS.md'), /segment order mismatch/);
+
   const extraBook = fixture('\n');
   tempRoots.push(extraBook.root);
   write(extraBook.root, `${GOVERNANCE_BOOKS_ROOT}/unregistered-extra.md`, 'extra physical book\n');
@@ -245,7 +274,7 @@ try {
   fs.appendFileSync(misplacedBoundariesPath, `<!-- P2_INCLUDE:${misplacedBook} -->\n`, 'utf8');
   assert.throws(() => validateGovernanceInventory(wrongGroup.root, wrongGroupMap), /registered under the wrong governance group/);
 
-  for (const relativePath of ['README.md', GROUPS['README.md'][0]]) {
+  for (const relativePath of ['README.md', GROUPS['README.md'][0], GROUPS['STAGING_GROUPS.md'][3]]) {
     for (const eol of ['\n', '\r\n', '\r\n\n']) {
       const boundary = fixture('\n');
       tempRoots.push(boundary.root);
@@ -281,7 +310,7 @@ try {
   const outOfRange = fixture('\n');
   tempRoots.push(outOfRange.root);
   const outPath = path.join(outOfRange.root, 'STAGING_GROUPS.md');
-  fs.appendFileSync(outPath, `<!--P2:SG-04-001-->\n`);
+  fs.appendFileSync(outPath, `<!--P2:SG-99-999-->\n`);
   assert.throws(() => readGovernanceDocument(outOfRange.root, 'STAGING_GROUPS.md'), /unlisted or cross-group main segment|staging main segment order mismatch/);
 
   const reordered = fixture('\r\n');
@@ -308,13 +337,26 @@ try {
   fs.appendFileSync(path.join(unsafeMarker.root, 'STAGING_GROUPS.md'), '<!--P2:../outside-->\n');
   assert.throws(() => readGovernanceDocument(unsafeMarker.root, 'STAGING_GROUPS.md'), /unknown or out-of-range staging marker/);
 
+  function swapMarkers(mainText, firstId, secondId) {
+    const first = `<!--P2:${firstId}-->`;
+    const second = `<!--P2:${secondId}-->`;
+    assert.equal(mainText.split(first).length - 1, 1, `fixture contains ${firstId} once`);
+    assert.equal(mainText.split(second).length - 1, 1, `fixture contains ${secondId} once`);
+    return mainText.replace(first, '<!--P2:SWAP-TEMP-->').replace(second, first).replace('<!--P2:SWAP-TEMP-->', second);
+  }
+
   const reorderedStaging = fixture('\n');
   tempRoots.push(reorderedStaging.root);
   const reorderedStagingPath = path.join(reorderedStaging.root, 'STAGING_GROUPS.md');
-  const reorderedStagingText = fs.readFileSync(reorderedStagingPath, 'utf8')
-    .replace('<!--P2:SG-01-001-->\n<!--P2:SG-01-002-->', '<!--P2:SG-01-002-->\n<!--P2:SG-01-001-->');
+  const reorderedStagingText = swapMarkers(fs.readFileSync(reorderedStagingPath, 'utf8'), 'SG-01-001', 'SG-01-002');
   fs.writeFileSync(reorderedStagingPath, reorderedStagingText, 'utf8');
   assert.throws(() => readGovernanceDocument(reorderedStaging.root, 'STAGING_GROUPS.md'), /staging main segment order mismatch/);
+
+  const crossBookReordered = fixture('\n');
+  tempRoots.push(crossBookReordered.root);
+  const crossBookPath = path.join(crossBookReordered.root, 'STAGING_GROUPS.md');
+  fs.writeFileSync(crossBookPath, swapMarkers(fs.readFileSync(crossBookPath, 'utf8'), 'SG-01-001', 'SG-02-001'), 'utf8');
+  assert.throws(() => readGovernanceDocument(crossBookReordered.root, 'STAGING_GROUPS.md'), /staging main segment order mismatch/);
 
   console.log(`governance-documents contract passed: LF/CRLF reconstruction, inventory, raw-byte limits and isolated formal-tools-static propagation; repository docs=${Object.keys(repositorySizes).length}; maxBytes=${GOVERNANCE_DOCUMENT_MAX_BYTES}; sizes=${JSON.stringify(repositorySizes)}`);
 } finally {

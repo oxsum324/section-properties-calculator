@@ -205,6 +205,14 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 `結構工具箱/tools/governance-documents.contract.test.js` 依 loader 的 GROUPS 核對三主檔及登錄附冊、current 目錄實體清冊、分冊所屬主檔與原始 UTF-8 bytes 每份不超過 60,000；55,000 只作規劃提醒。保留各原 reader 的文件範圍、AND／OR／NOT 與舊負向測例，不固定正文 hash、規則數或附冊數。`preflight-tools.ps1` 僅在既有 formal-tools-static 加入子命令並逐項記錄退出碼；隔離 fixture 驗證非零失敗傳遞，不新增頂層 record 或改寫歷史 29 條門檻。`pages-release-governance.contract.test.js` 具名驗證登錄文件及 loader／契約保持私有，公開工具頁不受影響。本機驗收不代表正式預檢或發布。
 <!-- N1-REGISTRATION-END -->
 
+<!-- T46-REGISTRATION-START -->
+## 2026-10-16：T46 治理文件現行位置規則
+
+新增私有附冊 [STAGING_GROUPS-ledger-04](docs/governance-current/STAGING_GROUPS-ledger-04.md)，用途為保存原順序的分組指令，既有 loader 回填主檔標記以還原正文；附冊不進公開成品。分組覆蓋掃描讀主檔與全部 staging 附冊原文，只改讀取範圍，路徑存在、ignored、tracked deletion 與 unclassified 判定不變。
+
+現行規則：新段落仍寫在主檔；主檔超過 50,000 bytes 時再依本模式移入新附冊。分組指令可依原順序移入 staging 附冊，主檔原位置以分段標記還原；此位置規則取代早期「git add 行必須留在主檔」的敘述，原敘述保留作歷程，其餘治理規則不變。各治理實體文件仍以 60,000 bytes 為上限，不調高上限。
+<!-- T46-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->

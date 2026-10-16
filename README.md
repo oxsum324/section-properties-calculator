@@ -169,6 +169,12 @@ T42 鋼構主頁 app／calculator 的私有可讀來源位於 `鋼構工具/src/
 `結構工具箱/tools/governance-documents.contract.test.js` 常設檢查治理分冊登錄與實體清冊一致、各主檔及登錄附冊原始 UTF-8 bytes 不超過 60,000；接入既有 formal-tools-static 子命令，保留原正式 record 及歷史 29 條 phase gate。Pages 治理契約另驗證治理文件與 loader 不公開。
 <!-- N1-REGISTRATION-END -->
 
+<!-- T46-REGISTRATION-START -->
+## 2026-10-16：T46 分組指令容量分冊
+
+新增私有附冊 [STAGING_GROUPS-ledger-04](docs/governance-current/STAGING_GROUPS-ledger-04.md)，依原順序保存分組指令；治理全文由既有 loader 還原，覆蓋掃描讀取主檔與全部 staging 附冊，判定規則及路徑集合不變。
+<!-- T46-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->
