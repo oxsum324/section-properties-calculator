@@ -474,9 +474,16 @@ assertIncludesAny(
   'calculation_response.get("calculation") != rsc_record',
   'RSB 無法以單檔輸入重播單支需求 P',
   '找不到可嵌入的繁中文字型，接收端 PDF 已 fail closed',
-  'RSC v4 / RSB v1 接收端獨立計算附件',
+  'context["reportLabels"]["evidenceVersionLabel"]',
+  '{evidence_label} 接收端獨立計算附件',
   '本獨立接收端附件不會寫入或改動來源專案的主 PDF/DOCX 計算書。',
 ].forEach(needle => assertIncludes(excavationReceiverAttachment, needle, `excavation receiver formal attachment keeps ${needle}`));
+
+// T48 moved the attachment title into reporting.py labels; the legacy centered RSC v4 / RSB v1 title stays literal there.
+[
+  '"evidenceVersionLabel": "RSC v4 / RSB v1"',
+  '"attachmentTitle": "RSC v4 / RSB v1 接收端獨立計算附件"',
+].forEach(needle => assertIncludes(excavationReporting, needle, `excavation receiver attachment labels keep ${needle}`));
 
 [
   '/api/removal-transfer/reshore-member-capacity/attachment',

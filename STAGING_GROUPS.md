@@ -497,6 +497,12 @@ git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "開挖擋土支撐/RE
 <!--P2:SG-04-105-->
 <!-- P2-NEW-GITADD-END -->
 
+## 2026-10-17：交付物契約追蹤附件標題新位置（T48 放行前修正）
+
+正式預檢 runId 20261017-185554 只敗在 `delivery-artifacts-contract`：T48 把接收端附件標題改由 `開挖擋土支撐/backend/app/reporting.py` 的標籤函式依模式產生，`receiver_capacity_attachment.py` 不再含固定字面「RSC v4 / RSB v1 接收端獨立計算附件」。舊模式標題文字不變（附件測試已斷言 centered 模式標籤為 RSC v4 / RSB v1）。修正：契約改為檢查 `reporting.py` 內舊模式的標籤與標題字面，並要求附件程式使用 `evidenceVersionLabel` 與標題樣板，檢查強度不降、未刪斷言。
+
+git add -- "結構工具箱/tools/delivery-artifacts.contract.test.js" STAGING_GROUPS.md
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 
