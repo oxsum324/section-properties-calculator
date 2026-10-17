@@ -520,7 +520,7 @@ export type ReshoreMemberCapacityInput = {
   bending_stability_basis: string;
   stress_increase_basis: string;
   pure_axial_no_eccentricity_confirmed: boolean;
-  end_bearing_mode: "not_checked" | "centered_rectangular_plate";
+  end_bearing_mode: "not_checked" | "centered_rectangular_plate" | "uniaxial_kern_rectangular_plate";
   top_end_plate_fy_tf_per_cm2: number;
   top_end_plate_width_cm: number;
   top_end_plate_length_cm: number;
@@ -540,13 +540,38 @@ export type ReshoreMemberCapacityInput = {
   top_support_bearing_basis: string;
   bottom_support_bearing_basis: string;
   centered_full_contact_end_bearing_confirmed: boolean;
+  kern_full_contact_end_bearing_confirmed: boolean;
+  end_plate_orientation_confirmed: boolean;
   h_section_end_finished_confirmed: boolean;
   unperforated_unstiffened_single_plate_confirmed: boolean;
 };
 
+export type ReshoreEndBearingTransferInterval = {
+  minTf: number | null;
+  maxTf: number | null;
+  lowerGovernedBy: string;
+  upperGovernedBy: string;
+  feasible: boolean;
+  infeasibleReason?: string;
+};
+
 export type ReshoreEndBearingResult = {
   status: "passed" | "failed";
+  plateWidthCm?: number;
+  plateLengthCm?: number;
   plateAreaCm2: number;
+  axialLoadPerMemberTf?: number;
+  momentXTfMPerMember?: number;
+  momentPerMemberTfCm?: number;
+  eccentricityCm?: number;
+  kernLimitCm?: number;
+  kernFullContact?: "passed" | "failed";
+  qAvg?: number;
+  qMax?: number;
+  qMin?: number;
+  qAvgTfPerCm2?: number;
+  qMaxTfPerCm2?: number;
+  qMinTfPerCm2?: number;
   contactPressureTfPerCm2: number;
   supportMaterial: "finished_steel" | "concrete_full_area";
   supportMaterialStrengthTfPerCm2: number;
@@ -562,14 +587,28 @@ export type ReshoreEndBearingResult = {
   requiredPlateThicknessCm: number;
   providedPlateThicknessCm: number;
   plateBendingUtilizationRatio: number;
-  supportCapacityPerMemberTf: number;
-  plateBendingCapacityPerMemberTf: number;
+  supportCapacityPerMemberTf?: number;
+  plateBendingCapacityPerMemberTf?: number;
   hSectionEndBearingStressTfPerCm2: number;
   hSectionEndAllowableBearingStressTfPerCm2: number;
   hSectionEndBearingUtilizationRatio: number;
-  hSectionEndBearingCapacityPerMemberTf: number;
-  governingCapacityPerMemberTf: number;
+  hSectionEndBearingCapacityPerMemberTf?: number;
+  governingCapacityPerMemberTf?: number;
+  transferIntervalBoundsTf?: {
+    kernLowerLimitTf: number | null;
+    kernUpperLimitTf: number | null;
+    supportBearingUpperLimitTf: number;
+    endPlateLocalBendingUpperLimitTf: number;
+    hSectionFinishedEndBearingUpperLimitTf: number;
+    minTf: number | null;
+    maxTf: number | null;
+    lowerGovernedBy: string;
+    upperGovernedBy: string;
+    feasible: boolean;
+    infeasibleReason?: string;
+  };
   checks: {
+    kernFullContact?: "passed" | "failed";
     supportBearing: "passed" | "failed";
     endPlateLocalBending: "passed" | "failed";
     hSectionFinishedEndBearing: "passed" | "failed";
@@ -603,6 +642,7 @@ export type ReshoreMemberCapacityCalculationResponse = {
       totalDemandPerMemberTf: number;
       nominalTransferCapacityTf: number;
       endBearingTransferCapacityTf: number | null;
+      endBearingTransferInterval?: ReshoreEndBearingTransferInterval;
       adoptableTransferCapacityTf: number;
       governingCapacityMode: "member" | "end_bearing";
       memberTotalUtilizationRatio: number | null;
@@ -633,7 +673,9 @@ export type ReshoreMemberCapacityCalculationResponse = {
       webSlendernessRatio: number;
       webSlendernessLimit: number;
       endBearing: {
-        mode: "centered_rectangular_plate";
+        mode: "centered_rectangular_plate" | "uniaxial_kern_rectangular_plate";
+        endBearingTransferInterval?: ReshoreEndBearingTransferInterval;
+        assumptions?: string[];
         top: ReshoreEndBearingResult;
         bottom: ReshoreEndBearingResult;
       } | null;

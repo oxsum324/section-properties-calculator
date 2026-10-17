@@ -29,7 +29,13 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .config import get_settings
-from .reporting import REPORT_TOOL_NAME, REPORT_TOOL_VERSION, report_document_metadata
+from .reporting import (
+    REPORT_TOOL_NAME,
+    REPORT_TOOL_VERSION,
+    format_receiver_capacity_transfer_interval,
+    receiver_capacity_attachment_report_labels,
+    report_document_metadata,
+)
 
 
 ATTACHMENT_SCHEMA_VERSION = 1
@@ -38,7 +44,8 @@ ATTACHMENT_FILE_PREFIX = "rsc-v4-rsb"
 RSC_KIND = "excavation-reshore-member-capacity-calculation"
 RSB_KIND = "excavation-reshore-end-bearing-evidence"
 RSC_SCHEMA_VERSION = 4
-RSB_SCHEMA_VERSION = 1
+RSB_LEGACY_SCHEMA_VERSION = 1
+RSB_KERN_SCHEMA_VERSION = 2
 _FINGERPRINT_RE = re.compile(r"^(RSC|RSB)-[0-9A-F]{20}$")
 _ATTACHMENT_FILE_RE = re.compile(
     r"^rsc-v4-rsb-[0-9A-F]{20}-[0-9A-F]{20}-\d{20}\.(?:pdf|docx)$"
@@ -203,12 +210,21 @@ def _validated_attachment_context(calculation_response: Any) -> dict[str, Any]:
     )
     if calculation_response.get("calculation") != rsc_record:
         raise ValueError("接收端附件的 RSC 回應與精確 JSON bytes 不符。")
-    if rsc_record.get("input", {}).get("endBearingMode") != "centered_rectangular_plate":
+    end_bearing_mode = rsc_record.get("input", {}).get("endBearingMode")
+    if end_bearing_mode not in {
+        "centered_rectangular_plate",
+        "uniaxial_kern_rectangular_plate",
+    }:
         raise ValueError("只有啟用上下端直接承壓的 RSC v4 才能產生獨立計算附件。")
+    expected_rsb_schema_version = (
+        RSB_KERN_SCHEMA_VERSION
+        if end_bearing_mode == "uniaxial_kern_rectangular_plate"
+        else RSB_LEGACY_SCHEMA_VERSION
+    )
     rsb_record, _ = _decode_json_evidence(
         calculation_response.get("bearingEvidence"),
         expected_kind=RSB_KIND,
-        expected_schema_version=RSB_SCHEMA_VERSION,
+        expected_schema_version=expected_rsb_schema_version,
         fingerprint_prefix="RSB",
     )
     source = rsc_record.get("source")
@@ -242,10 +258,28 @@ def _validated_attachment_context(calculation_response: Any) -> dict[str, Any]:
         or rsb_results.get("endBearingTransferCapacityTf") != results.get("endBearingTransferCapacityTf")
     ):
         raise ValueError("接收端附件的 RSB 與 RSC v4 承壓結果不一致。")
+    if end_bearing_mode == "uniaxial_kern_rectangular_plate":
+        interval = results.get("endBearingTransferInterval")
+        if (
+            not isinstance(interval, dict)
+            or rsb_results.get("endBearingTransferInterval") != interval
+            or end_bearing.get("endBearingTransferInterval") != interval
+        ):
+            raise ValueError("接收端附件缺少一致的單向核心區可行移轉區間。")
+        _validate_kern_transfer_interval(interval, "整體")
     rsb_input = rsb_record.get("input")
     if not isinstance(rsb_input, dict):
         raise ValueError("接收端附件的 RSB 缺少可重播輸入。")
-    for key in (
+    if end_bearing_mode == "uniaxial_kern_rectangular_plate":
+        rsc_input = rsc_record.get("input")
+        if not isinstance(rsc_input, dict):
+            raise ValueError("接收端附件的 RSC 缺少可重播輸入。")
+        if rsb_input.get("endBearingMode") != end_bearing_mode:
+            raise ValueError("接收端附件的 RSC/RSB 端部承壓模式不一致。")
+        for key, child in rsb_input.items():
+            if key not in rsc_input or rsc_input[key] != child:
+                raise ValueError(f"接收端附件的 RSC/RSB 輸入欄位 {key} 不一致。")
+    required_rsb_keys = [
         "memberCount",
         "imbalanceFactor",
         "additionalAxialLoadTfPerMember",
@@ -253,9 +287,34 @@ def _validated_attachment_context(calculation_response: Any) -> dict[str, Any]:
         "governingLoadCombination",
         "loadDistributionBasis",
         "additionalLoadBasis",
-    ):
+    ]
+    if end_bearing_mode == "uniaxial_kern_rectangular_plate":
+        required_rsb_keys.extend([
+            "transferEccentricityXM",
+            "additionalMomentXTfMPerMember",
+            "eccentricityAndMomentBasis",
+            "kernFullContactEndBearingConfirmed",
+            "endPlateOrientationConfirmed",
+        ])
+    for key in required_rsb_keys:
         if key not in rsb_input:
             raise ValueError(f"接收端附件的 RSB 缺少自足輸入 {key}。")
+    if end_bearing_mode == "uniaxial_kern_rectangular_plate":
+        for key in ("kernFullContactEndBearingConfirmed", "endPlateOrientationConfirmed"):
+            if type(rsb_input.get(key)) is not bool or rsb_input[key] is not True:
+                raise ValueError(f"接收端附件的 RSB 輸入 {key} 必須明確為 true。")
+        for key in (
+            "endBearingConfigurationBasis",
+            "endPlateBendingMethodBasis",
+            "topSupportBearingBasis",
+            "bottomSupportBearingBasis",
+            "eccentricityAndMomentBasis",
+        ):
+            if not isinstance(rsb_input.get(key), str) or not rsb_input[key].strip():
+                raise ValueError(f"接收端附件的 RSB 輸入 {key} 不得空白。")
+        for key in ("kernFullContactEndBearingConfirmed", "endPlateOrientationConfirmed"):
+            if type(rsc_input.get(key)) is not bool or rsc_input[key] is not True:
+                raise ValueError(f"接收端附件的 RSC 輸入 {key} 必須明確為 true。")
     member_count = rsb_input["memberCount"]
     imbalance_factor = rsb_input["imbalanceFactor"]
     additional_axial = rsb_input["additionalAxialLoadTfPerMember"]
@@ -293,8 +352,38 @@ def _validated_attachment_context(calculation_response: Any) -> dict[str, Any]:
         abs_tol=1e-6,
     ):
         raise ValueError("接收端附件的 RSB 無法以單檔輸入重播單支需求 P。")
+    if end_bearing_mode == "uniaxial_kern_rectangular_plate":
+        ecc_x = rsb_input.get("transferEccentricityXM")
+        add_mx = rsb_input.get("additionalMomentXTfMPerMember")
+        moment_x_result = rsb_results.get("momentXTfMPerMember")
+        moment_cm_result = rsb_results.get("momentPerMemberTfCm")
+        if any(
+            isinstance(item, bool)
+            or not isinstance(item, (int, float))
+            or not math.isfinite(float(item))
+            for item in (ecc_x, add_mx, moment_x_result, moment_cm_result)
+        ):
+            raise ValueError("接收端附件的 RSB 彎矩重播欄位不是有效有限數值。")
+        expected_moment_x = expected_transfer_per_member * float(ecc_x) + float(add_mx)
+        expected_moment_cm = 100.0 * abs(expected_moment_x)
+        if not math.isclose(
+            float(moment_x_result),
+            expected_moment_x,
+            rel_tol=0.0,
+            abs_tol=1e-6,
+        ) or not math.isclose(
+            float(moment_cm_result),
+            expected_moment_cm,
+            rel_tol=0.0,
+            abs_tol=1e-4,
+        ):
+            raise ValueError("接收端附件的 RSB 無法以單檔輸入重播單支彎矩 M。")
     for end_name in ("top", "bottom"):
-        _validate_end_result(end_bearing.get(end_name), end_name)
+        _validate_end_result(
+            end_bearing.get(end_name),
+            end_name,
+            end_bearing_mode=str(end_bearing_mode),
+        )
     code_basis = rsb_record.get("codeBasis")
     h_section_basis = (
         code_basis.get("hSectionFinishedEndBearing")
@@ -312,24 +401,96 @@ def _validated_attachment_context(calculation_response: Any) -> dict[str, Any]:
         "rsbFingerprint": str(rsb_record["calculationFingerprint"]),
         "rscEvidence": calculation_response["evidence"],
         "rsbEvidence": calculation_response["bearingEvidence"],
+        "reportLabels": receiver_capacity_attachment_report_labels(rsc_record, rsb_record),
     }
 
 
-def _validate_end_result(value: Any, end_name: str) -> None:
+def _validate_kern_transfer_interval(value: Any, label: str) -> None:
+    if not isinstance(value, dict) or type(value.get("feasible")) is not bool:
+        raise ValueError(f"接收端附件的{label}可行區間狀態不完整。")
+    minimum = value.get("minTf")
+    maximum = value.get("maxTf")
+    reason = value.get("infeasibleReason")
+    if minimum is None and maximum is None:
+        if (
+            "minTf" not in value
+            or "maxTf" not in value
+            or value["feasible"]
+            or not isinstance(reason, str)
+            or not reason.strip()
+        ):
+            raise ValueError(f"接收端附件的{label}空區間必須是 false 並附原因。")
+        return
+    if (
+        isinstance(minimum, bool)
+        or not isinstance(minimum, (int, float))
+        or not math.isfinite(float(minimum))
+        or isinstance(maximum, bool)
+        or not isinstance(maximum, (int, float))
+        or not math.isfinite(float(maximum))
+    ):
+        raise ValueError(f"接收端附件的{label}可行區間界限不是有限數值。")
+    if value["feasible"] and (
+        float(minimum) > float(maximum) or "infeasibleReason" in value
+    ):
+        raise ValueError(f"接收端附件的{label}可行區間上下限或原因欄位矛盾。")
+    if not value["feasible"] and float(minimum) <= float(maximum) and float(maximum) >= 0:
+        raise ValueError(f"接收端附件的{label}不可行區間缺少矛盾界限。")
+    if reason is not None and (not isinstance(reason, str) or not reason.strip()):
+        raise ValueError(f"接收端附件的{label}區間原因不得空白。")
+
+
+def _validate_end_result(
+    value: Any,
+    end_name: str,
+    *,
+    end_bearing_mode: str = "centered_rectangular_plate",
+) -> None:
     if not isinstance(value, dict) or value.get("status") not in {"passed", "failed"}:
         raise ValueError(f"接收端附件的 {end_name} 端承壓結果不完整。")
-    for key in (
-        "supportBearingUtilizationRatio",
-        "plateBendingUtilizationRatio",
-        "hSectionEndBearingUtilizationRatio",
-        "supportCapacityPerMemberTf",
-        "plateBendingCapacityPerMemberTf",
-        "hSectionEndBearingCapacityPerMemberTf",
-        "governingCapacityPerMemberTf",
-    ):
+    required_numeric_keys = (
+        (
+            "eccentricityCm",
+            "kernLimitCm",
+            "qAvg",
+            "qMax",
+            "qMin",
+            "supportBearingUtilizationRatio",
+            "plateBendingUtilizationRatio",
+            "hSectionEndBearingUtilizationRatio",
+            "requiredPlateThicknessCm",
+            "hSectionEndBearingStressTfPerCm2",
+        )
+        if end_bearing_mode == "uniaxial_kern_rectangular_plate"
+        else (
+            "supportBearingUtilizationRatio",
+            "plateBendingUtilizationRatio",
+            "hSectionEndBearingUtilizationRatio",
+            "supportCapacityPerMemberTf",
+            "plateBendingCapacityPerMemberTf",
+            "hSectionEndBearingCapacityPerMemberTf",
+            "governingCapacityPerMemberTf",
+        )
+    )
+    for key in required_numeric_keys:
         child = value.get(key)
         if isinstance(child, bool) or not isinstance(child, (int, float)) or not math.isfinite(float(child)):
             raise ValueError(f"接收端附件的 {end_name} 端欄位 {key} 不是有限數值。")
+    if end_bearing_mode == "uniaxial_kern_rectangular_plate":
+        if value.get("kernFullContact") not in {"passed", "failed"}:
+            raise ValueError(f"接收端附件的 {end_name} 端缺少 kernFullContact 狀態。")
+        bounds = value.get("transferIntervalBoundsTf")
+        if not isinstance(bounds, dict):
+            raise ValueError(f"接收端附件的 {end_name} 端缺少可行區間界限。")
+        _validate_kern_transfer_interval(bounds, f"{end_name} 端")
+        for key in ("kernLowerLimitTf", "kernUpperLimitTf"):
+            child = bounds.get(key)
+            if child is not None and (
+                isinstance(child, bool)
+                or not isinstance(child, (int, float))
+                or not math.isfinite(float(child))
+            ):
+                raise ValueError(f"接收端附件的 {end_name} 端欄位 {key} 不是有限數值或 null。")
 
 
 def _fmt(value: Any, digits: int = 6) -> str:
@@ -381,7 +542,7 @@ def _identity_rows(context: dict[str, Any], document_metadata: dict[str, str]) -
 
 def _input_rows(context: dict[str, Any]) -> list[list[str]]:
     value = {**context["rsc"]["input"], **context["rsb"]["input"]}
-    return [
+    rows = [
         ["分析模式", _fmt(value.get("analysisMode"))],
         ["H 型鋼斷面", _fmt(value.get("sectionName"))],
         ["共同承接支數", _fmt(value.get("memberCount"))],
@@ -403,39 +564,115 @@ def _input_rows(context: dict[str, Any]) -> list[list[str]]:
         ["端板局部彎曲方法依據", _fmt(value.get("endPlateBendingMethodBasis"))],
         ["頂端支承承壓依據", _fmt(value.get("topSupportBearingBasis"))],
         ["底端支承承壓依據", _fmt(value.get("bottomSupportBearingBasis"))],
-        ["中心全接觸直接承壓確認", _fmt(value.get("centeredFullContactEndBearingConfirmed"))],
-        ["H 型鋼端面精平確認", _fmt(value.get("hSectionEndFinishedConfirmed"))],
-        ["單片無孔無加勁端板確認", _fmt(value.get("unperforatedUnstiffenedSinglePlateConfirmed"))],
     ]
+    if value.get("endBearingMode") == "uniaxial_kern_rectangular_plate":
+        rows.extend([
+            ["強軸移轉偏心距 ex (m)", _fmt(value.get("transferEccentricityXM"))],
+            ["強軸附加單支彎矩 Madd,x (tf-m)", _fmt(value.get("additionalMomentXTfMPerMember"))],
+            ["偏心與彎矩來源及方向依據", _fmt(value.get("eccentricityAndMomentBasis"))],
+            ["單向核心區全接觸承壓確認", _fmt(value.get("kernFullContactEndBearingConfirmed"))],
+            ["端板長度 L 沿強軸深度 d 方向確認", _fmt(value.get("endPlateOrientationConfirmed"))],
+            ["H 型鋼端面精平確認", _fmt(value.get("hSectionEndFinishedConfirmed"))],
+            ["單片無孔無加勁端板確認", _fmt(value.get("unperforatedUnstiffenedSinglePlateConfirmed"))],
+        ])
+    else:
+        rows.extend([
+            ["中心全接觸直接承壓確認", _fmt(value.get("centeredFullContactEndBearingConfirmed"))],
+            ["H 型鋼端面精平確認", _fmt(value.get("hSectionEndFinishedConfirmed"))],
+            ["單片無孔無加勁端板確認", _fmt(value.get("unperforatedUnstiffenedSinglePlateConfirmed"))],
+        ])
+    return rows
 
 
 def _demand_rows(context: dict[str, Any]) -> list[list[str]]:
     rsb = context["rsb"]
     source = rsb["source"]
     results = rsb["results"]
-    return [
+    rows = [
         ["來源端移轉需求 PERT (tf)", _fmt(source.get("receiverTransferDemandTf"))],
         ["不均勻放大後單支移轉需求 (tf)", _fmt(results.get("transferDemandPerMemberTf"))],
         ["附加單支軸力 Padd (tf)", _fmt(rsb["input"].get("additionalAxialLoadTfPerMember"))],
         ["單支端部總需求 P (tf)", _fmt(results.get("totalDemandPerMemberTf"))],
     ]
+    if rsb["input"].get("endBearingMode") == "uniaxial_kern_rectangular_plate":
+        rows.extend([
+            ["兩端共用單支強軸彎矩 Mx (tf-m)", _fmt(results.get("momentXTfMPerMember"))],
+            ["兩端共用單支強軸彎矩 M (tf-cm)", _fmt(results.get("momentPerMemberTfCm"))],
+        ])
+    return rows
 
 
 def _summary_rows(context: dict[str, Any]) -> list[list[str]]:
     results = context["rsc"]["results"]
     rsb_results = context["rsb"]["results"]
-    return [
+    rows = [
         ["RSB 上下端承壓結論", _status(rsb_results.get("status"))],
         ["RSC 構件與承壓綜合結論", _status(results.get("status"))],
+    ]
+    interval = results.get("endBearingTransferInterval")
+    if isinstance(interval, dict):
+        rows.extend([
+            [
+                "承壓可行移轉區間 [minTf, maxTf] (tf)",
+                format_receiver_capacity_transfer_interval(interval),
+            ],
+            ["可行區間下限控制項 (lowerGovernedBy)", _fmt(interval.get("lowerGovernedBy"))],
+            ["可行區間上限控制項 (upperGovernedBy)", _fmt(interval.get("upperGovernedBy"))],
+            ["可行區間存在性 (feasible)", _fmt(interval.get("feasible"))],
+        ])
+    rows.extend([
         ["承壓可移轉容量 (tf)", _fmt(results.get("endBearingTransferCapacityTf"))],
         ["構件名義可移轉容量 (tf)", _fmt(results.get("nominalTransferCapacityTf"))],
         ["採用可移轉容量 (tf)", _fmt(results.get("adoptableTransferCapacityTf"))],
         ["控制容量模式", _fmt(results.get("governingCapacityMode"))],
         ["採用容量利用比", _fmt(results.get("capacityUtilizationRatio"))],
-    ]
+    ])
+    return rows
 
 
 def _end_check_rows(end: dict[str, Any]) -> list[list[str]]:
+    if "kernFullContact" in end:
+        bounds = end.get("transferIntervalBoundsTf", {})
+        kern_lower = bounds.get("kernLowerLimitTf")
+        kern_upper = bounds.get("kernUpperLimitTf")
+        return [
+            [
+                "核心區全接觸 (e <= L/6)",
+                f"e={_fmt(end.get('eccentricityCm'))} / L/6={_fmt(end.get('kernLimitCm'))} cm",
+                f"T 下限 = {_fmt(kern_lower)}；T 上限 = {_fmt(kern_upper)}",
+                _status(end.get("checks", {}).get("kernFullContact")),
+            ],
+            [
+                "接觸壓力 q_avg / q_max / q_min",
+                f"{_fmt(end.get('qAvg'))} / {_fmt(end.get('qMax'))} / {_fmt(end.get('qMin'))} tf/cm2",
+                f"Fp={_fmt(end.get('supportAllowableBearingTfPerCm2'))} tf/cm2",
+                _status(end.get("checks", {}).get("kernFullContact")),
+            ],
+            [
+                "支承面承壓 (q_max / Fp)",
+                _fmt(end.get("supportBearingUtilizationRatio")),
+                f"T <= {_fmt(bounds.get('supportBearingUpperLimitTf'))}",
+                _status(end.get("checks", {}).get("supportBearing")),
+            ],
+            [
+                "端板局部彎曲 (ell / treq)",
+                f"{_fmt(end.get('plateBendingUtilizationRatio'))} (ell={_fmt(end.get('governingProjectionCm'))}, treq={_fmt(end.get('requiredPlateThicknessCm'))} cm)",
+                f"T <= {_fmt(bounds.get('endPlateLocalBendingUpperLimitTf'))}",
+                _status(end.get("checks", {}).get("endPlateLocalBending")),
+            ],
+            [
+                "H 型鋼精平端面承壓 (f / Fp,H)",
+                f"{_fmt(end.get('hSectionEndBearingUtilizationRatio'))} (f={_fmt(end.get('hSectionEndBearingStressTfPerCm2'))} tf/cm2)",
+                f"T <= {_fmt(bounds.get('hSectionFinishedEndBearingUpperLimitTf'))}",
+                _status(end.get("checks", {}).get("hSectionFinishedEndBearing")),
+            ],
+            [
+                "單端可行區間 [minTf, maxTf]",
+                f"{_fmt(bounds.get('lowerGovernedBy'))} / {_fmt(bounds.get('upperGovernedBy'))}",
+                format_receiver_capacity_transfer_interval(bounds),
+                _status(end.get("status")),
+            ],
+        ]
     return [
         [
             "支承面承壓",
@@ -466,8 +703,17 @@ def _formula_lines(context: dict[str, Any]) -> list[str]:
     h_section = code_basis.get("hSectionFinishedEndBearing", {})
     connection = code_basis.get("compressionBearingConnectionBoundary", {})
     support_criteria = support.get("criteria", [])
+    is_kern = context["rsb"].get("input", {}).get("endBearingMode") == "uniaxial_kern_rectangular_plate"
+    header_lines = (
+        [
+            "檢核公式：P = PERT x imbalance / memberCount + Padd；Mx = (PERT x imbalance / memberCount) x ex + Madd,x；M = 100 x |Mx|；e = M / P <= L/6.",
+            "閉式可行區間：每端將 e <= L/6、q_max <= Fp、3*q_max*ell^2/(Fb*t^2) <= 1、P/Ag + M/Sx <= Fp,H 寫成 T 之一次不等式，取交集 [minTf, maxTf].",
+        ]
+        if is_kern
+        else ["檢核公式：P = PERT x imbalance / memberCount + Padd."]
+    )
     return [
-        "檢核公式：P = PERT x imbalance / memberCount + Padd.",
+        *header_lines,
         *[str(item) for item in support_criteria],
         str(h_section.get("criterion", "")),
         str(plate.get("criterion", "")),
@@ -479,7 +725,10 @@ def _formula_lines(context: dict[str, Any]) -> list[str]:
 
 def _boundary_lines(context: dict[str, Any]) -> list[str]:
     rsc = context["rsc"]
+    rsb = context["rsb"]
     lines = [str(item) for item in rsc.get("verificationScope", {}).get("uncoveredChecks", [])]
+    for assumption in rsb.get("results", {}).get("assumptions", []):
+        lines.append(f"工程假設：{assumption}")
     labels = {
         "receivingStructureStrengthNotDerived": "未由本附件推導承接結構本體強度。",
         "connectionWeldsBoltsAnchorsNotChecked": "焊道、螺栓、錨定與定位接合未檢核。",
@@ -488,7 +737,7 @@ def _boundary_lines(context: dict[str, Any]) -> list[str]:
         "doesNotAutoApproveReceiverReceipt": "本附件不會自動核可 RVR。",
     }
     for key, label in labels.items():
-        if context["rsb"].get("boundary", {}).get(key) is True:
+        if rsb.get("boundary", {}).get(key) is True:
             lines.append(label)
     lines.append("本獨立接收端附件不會寫入或改動來源專案的主 PDF/DOCX 計算書。")
     return list(dict.fromkeys(line for line in lines if line))
@@ -512,6 +761,8 @@ def _register_embedded_pdf_font() -> str:
 
 
 def _write_pdf(path: Path, context: dict[str, Any], document_metadata: dict[str, str]) -> None:
+    evidence_label = context["reportLabels"]["evidenceVersionLabel"]
+    attachment_title = context["reportLabels"]["attachmentTitle"]
     pdf_font = _register_embedded_pdf_font()
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name="RscTitle", fontName=pdf_font, fontSize=19, leading=26, textColor=colors.HexColor("#0f172a"), alignment=TA_LEFT))
@@ -519,7 +770,7 @@ def _write_pdf(path: Path, context: dict[str, Any], document_metadata: dict[str,
     styles.add(ParagraphStyle(name="RscBody", fontName=pdf_font, fontSize=9.5, leading=14, textColor=colors.HexColor("#0f172a"), alignment=TA_LEFT))
     styles.add(ParagraphStyle(name="RscCell", fontName=pdf_font, fontSize=8.4, leading=10.5, textColor=colors.HexColor("#0f172a"), alignment=TA_LEFT))
     elements: list[Any] = [
-        Paragraph("RSC v4 / RSB v1 接收端獨立計算附件", styles["RscTitle"]),
+        Paragraph(attachment_title, styles["RscTitle"]),
         Paragraph(f"文件狀態：{escape(document_metadata['document_status_label'])}", styles["RscBody"]),
         Spacer(1, 4 * mm),
         Paragraph("一、文件身分與追溯", styles["RscHeading"]),
@@ -535,14 +786,14 @@ def _write_pdf(path: Path, context: dict[str, Any], document_metadata: dict[str,
         _pdf_table(_demand_rows(context), [72 * mm, 98 * mm], styles),
         Spacer(1, 2 * mm),
         _pdf_table(_summary_rows(context), [72 * mm, 98 * mm], styles, status_rows=True),
-        Paragraph("四、上下端三項檢核", styles["RscHeading"]),
+        Paragraph(context["reportLabels"]["endCheckHeading"], styles["RscHeading"]),
     ]
     end_bearing = context["rsc"]["results"]["endBearing"]
     for title, key in (("頂端", "top"), ("底端", "bottom")):
         end = end_bearing[key]
         elements.append(Paragraph(f"{title}：{_status(end.get('status'))}", styles["RscBody"]))
         elements.append(_pdf_table(
-            [["檢核項目", "DCR", "容量 (tf/支)", "結果"], *_end_check_rows(end)],
+            [["檢核項目", context["reportLabels"]["endCheckDemandColumn"], context["reportLabels"]["endCheckLimitColumn"], "結果"], *_end_check_rows(end)],
             [60 * mm, 30 * mm, 45 * mm, 35 * mm],
             styles,
             header=True,
@@ -562,10 +813,14 @@ def _write_pdf(path: Path, context: dict[str, Any], document_metadata: dict[str,
         leftMargin=20 * mm,
         topMargin=18 * mm,
         bottomMargin=18 * mm,
-        title="RSC v4 / RSB v1 接收端獨立計算附件",
+        title=attachment_title,
         author="開挖擋土支撐工具",
     )
-    document.build(elements, onFirstPage=_draw_pdf_frame, onLaterPages=_draw_pdf_frame)
+    document.build(
+        elements,
+        onFirstPage=lambda canvas, doc: _draw_pdf_frame(canvas, doc, evidence_label),
+        onLaterPages=lambda canvas, doc: _draw_pdf_frame(canvas, doc, evidence_label),
+    )
 
 
 def _pdf_table(
@@ -612,28 +867,30 @@ def _pdf_table(
     return table
 
 
-def _draw_pdf_frame(canvas, document) -> None:
+def _draw_pdf_frame(canvas, document, evidence_label: str = "RSC v4 / RSB v1") -> None:
     canvas.saveState()
     canvas.setFont(_PDF_FONT_NAME, 8)
     canvas.setFillColor(colors.HexColor("#64748b"))
-    canvas.drawString(20 * mm, 10 * mm, "RSC v4 / RSB v1 接收端獨立計算附件")
+    canvas.drawString(20 * mm, 10 * mm, f"{evidence_label} 接收端獨立計算附件")
     canvas.drawRightString(A4[0] - 20 * mm, 10 * mm, f"第 {document.page} 頁")
     canvas.restoreState()
 
 
 def _write_docx(path: Path, context: dict[str, Any], document_metadata: dict[str, str]) -> None:
+    evidence_label = context["reportLabels"]["evidenceVersionLabel"]
+    attachment_title = context["reportLabels"]["attachmentTitle"]
     document = Document()
-    _configure_word_document(document)
+    _configure_word_document(document, evidence_label)
     bullet_numbering_id = _add_compact_bullet_numbering(document)
     kicker = document.add_paragraph()
     kicker.paragraph_format.space_before = Pt(16)
     kicker.paragraph_format.space_after = Pt(3)
-    _word_run(kicker, "RSC v4 / RSB v1", bold=True, size=11, color="1F4D78")
+    _word_run(kicker, evidence_label, bold=True, size=11, color="1F4D78")
     title = document.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.LEFT
     title.paragraph_format.space_before = Pt(0)
     title.paragraph_format.space_after = Pt(4)
-    _word_run(title, "接收端獨立計算附件", bold=True, size=23, color="000000")
+    _word_run(title, attachment_title.replace(f"{evidence_label} ", ""), bold=True, size=23, color="000000")
     subtitle = document.add_paragraph()
     subtitle.paragraph_format.space_before = Pt(0)
     subtitle.paragraph_format.space_after = Pt(10)
@@ -657,7 +914,7 @@ def _write_docx(path: Path, context: dict[str, Any], document_metadata: dict[str
     _word_table(document, _demand_rows(context), [2700, 6660])
     document.add_paragraph().paragraph_format.space_after = Pt(1)
     _word_table(document, _summary_rows(context), [2700, 6660], status_rows=True)
-    _word_heading(document, "四、上下端三項檢核")
+    _word_heading(document, context["reportLabels"]["endCheckHeading"])
     end_bearing = context["rsc"]["results"]["endBearing"]
     for title_text, key in (("頂端", "top"), ("底端", "bottom")):
         end = end_bearing[key]
@@ -668,7 +925,7 @@ def _write_docx(path: Path, context: dict[str, Any], document_metadata: dict[str
         _word_run(paragraph, f"{title_text}：{_status(end.get('status'))}", bold=True, size=11)
         _word_table(
             document,
-            [["檢核項目", "DCR", "容量 (tf/支)", "結果"], *_end_check_rows(end)],
+            [["檢核項目", context["reportLabels"]["endCheckDemandColumn"], context["reportLabels"]["endCheckLimitColumn"], "結果"], *_end_check_rows(end)],
             [3300, 1500, 2460, 2100],
             header=True,
             status_column=3,
@@ -683,7 +940,7 @@ def _write_docx(path: Path, context: dict[str, Any], document_metadata: dict[str
     document.save(path)
 
 
-def _configure_word_document(document: Document) -> None:
+def _configure_word_document(document: Document, evidence_label: str = "RSC v4 / RSB v1") -> None:
     normal = document.styles["Normal"]
     normal.font.name = "Calibri"
     normal.font.size = Pt(11)
@@ -714,16 +971,16 @@ def _configure_word_document(document: Document) -> None:
         section.right_margin = Inches(1.0)
         section.header_distance = Inches(0.492)
         section.footer_distance = Inches(0.492)
-        _configure_word_header_footer(section)
+        _configure_word_header_footer(section, evidence_label)
 
 
-def _configure_word_header_footer(section) -> None:
+def _configure_word_header_footer(section, evidence_label: str = "RSC v4 / RSB v1") -> None:
     header = section.header
     footer = section.footer
     header_paragraph = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
     header_paragraph.text = ""
     header_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    _word_run(header_paragraph, "RSC v4 / RSB v1 接收端獨立計算附件", size=8.5, color="64748B")
+    _word_run(header_paragraph, f"{evidence_label} 接收端獨立計算附件", size=8.5, color="64748B")
     footer_paragraph = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
     footer_paragraph.text = ""
     footer_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT

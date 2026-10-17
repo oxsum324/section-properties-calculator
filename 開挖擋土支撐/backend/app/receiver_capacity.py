@@ -23,6 +23,7 @@ SCHEMA_VERSION = 4
 KIND = "excavation-reshore-member-capacity-calculation"
 FINGERPRINT_PREFIX = "RSC"
 BEARING_EVIDENCE_SCHEMA_VERSION = 1
+KERN_BEARING_EVIDENCE_SCHEMA_VERSION = 2
 BEARING_EVIDENCE_KIND = "excavation-reshore-end-bearing-evidence"
 BEARING_EVIDENCE_FINGERPRINT_PREFIX = "RSB"
 STEEL_CODE_PAGE_URL = "https://www.nlma.gov.tw/ch/legislation/regsearch/7176"
@@ -73,7 +74,7 @@ def _section_snapshot(section: SectionProperty) -> dict[str, Any]:
 
 
 def _input_snapshot(value: ReshoreMemberCapacityInput) -> dict[str, Any]:
-    return {
+    snapshot: dict[str, Any] = {
         "analysisMode": value.analysis_mode,
         "sectionName": value.section_name.strip(),
         "memberCount": value.member_count,
@@ -125,6 +126,10 @@ def _input_snapshot(value: ReshoreMemberCapacityInput) -> dict[str, Any]:
         "hSectionEndFinishedConfirmed": value.h_section_end_finished_confirmed,
         "unperforatedUnstiffenedSinglePlateConfirmed": value.unperforated_unstiffened_single_plate_confirmed,
     }
+    if value.end_bearing_mode == "uniaxial_kern_rectangular_plate":
+        snapshot["kernFullContactEndBearingConfirmed"] = value.kern_full_contact_end_bearing_confirmed
+        snapshot["endPlateOrientationConfirmed"] = value.end_plate_orientation_confirmed
+    return snapshot
 
 
 def _validate_input_basis(value: ReshoreMemberCapacityInput) -> None:
@@ -185,6 +190,56 @@ def _validate_input_basis(value: ReshoreMemberCapacityInput) -> None:
             raise ValueError("頂端採加工鋼面承壓時，必須確認支承鋼面已精確鋸平、研磨或加工至真實平面。")
         if value.bottom_support_material == "finished_steel" and not value.bottom_support_true_plane_confirmed:
             raise ValueError("底端採加工鋼面承壓時，必須確認支承鋼面已精確鋸平、研磨或加工至真實平面。")
+        required_bearing_texts = (
+            (value.end_bearing_configuration_basis, "上下端端板配置與密貼依據"),
+            (value.end_plate_bending_method_basis, "端板局部彎曲工程模型採用依據"),
+            (value.top_support_bearing_basis, "頂端支承面容許承壓依據"),
+            (value.bottom_support_bearing_basis, "底端支承面容許承壓依據"),
+        )
+        for text, label in required_bearing_texts:
+            if not text.strip():
+                raise ValueError(f"{label}不得空白。")
+        bearing_values = (
+            value.top_end_plate_fy_tf_per_cm2,
+            value.top_end_plate_width_cm,
+            value.top_end_plate_length_cm,
+            value.top_end_plate_thickness_cm,
+            value.top_support_material_strength_tf_per_cm2,
+            value.bottom_end_plate_fy_tf_per_cm2,
+            value.bottom_end_plate_width_cm,
+            value.bottom_end_plate_length_cm,
+            value.bottom_end_plate_thickness_cm,
+            value.bottom_support_material_strength_tf_per_cm2,
+        )
+        if any(not math.isfinite(item) or item < 0.000001 for item in bearing_values):
+            raise ValueError("啟用上下端直接承壓時，兩端端板尺寸、厚度及材料強度至少須為 0.000001，且必須是有限數值。")
+    elif value.end_bearing_mode == "uniaxial_kern_rectangular_plate":
+        if value.analysis_mode != "axial_biaxial_bending":
+            raise ValueError("單向核心區直接承壓模組只適用於軸壓與雙向彎矩模式。")
+        if value.allowable_stress_increase_factor != 1.0:
+            raise ValueError("單向核心區直接承壓模組目前只接受容許應力提高係數 1.00。")
+        if value.transfer_eccentricity_y_m > 0 or value.additional_moment_y_tf_m_per_member > 0:
+            raise ValueError("單向核心區直接承壓模組不得輸入弱軸偏心距或弱軸附加彎矩。")
+        if value.transfer_eccentricity_x_m <= 0 and value.additional_moment_x_tf_m_per_member <= 0:
+            raise ValueError("單向核心區直接承壓模組至少須輸入強軸偏心距或強軸附加彎矩其中一項。")
+        if not value.kern_full_contact_end_bearing_confirmed:
+            raise ValueError(
+                "單向核心區直接承壓模組必須確認：偏心僅沿端板長度方向（H 型鋼強軸深度方向）、合力位於核心區內、全板密貼、無拉力、無剪力且無錨栓參與。"
+            )
+        if not value.end_plate_orientation_confirmed:
+            raise ValueError(
+                "單向核心區直接承壓模組必須確認上下端板長度 L 皆沿 H 型鋼深度 d 方向（0.95d 與強軸彎矩壓力梯度都沿 L）。"
+            )
+        if not value.h_section_end_finished_confirmed:
+            raise ValueError("單向核心區直接承壓模組必須確認 H 型鋼端面已精確鋸平、研磨或加工至真實平面。")
+        if not value.unperforated_unstiffened_single_plate_confirmed:
+            raise ValueError("單向核心區直接承壓模組只接受無孔洞、無加勁且非疊板的單片矩形端板。")
+        if value.top_support_material == "finished_steel" and not value.top_support_true_plane_confirmed:
+            raise ValueError("頂端採加工鋼面承壓時，必須確認支承鋼面已精確鋸平、研磨或加工至真實平面。")
+        if value.bottom_support_material == "finished_steel" and not value.bottom_support_true_plane_confirmed:
+            raise ValueError("底端採加工鋼面承壓時，必須確認支承鋼面已精確鋸平、研磨或加工至真實平面。")
+        if not value.eccentricity_and_moment_basis.strip():
+            raise ValueError("單向核心區直接承壓模組必須填寫偏心距、彎矩來源與方向依據。")
         required_bearing_texts = (
             (value.end_bearing_configuration_basis, "上下端端板配置與密貼依據"),
             (value.end_plate_bending_method_basis, "端板局部彎曲工程模型採用依據"),
@@ -334,6 +389,221 @@ def _evaluate_end_plate(
     }, governing_capacity_per_member_tf
 
 
+KERN_END_BEARING_ASSUMPTIONS = [
+    "剛性板線性梯形接觸壓力分布（e <= L/6 核心區全板受壓、無翹離）（預設值為假設，需技師確認）",
+    "上下兩端共用桿件強軸設計彎矩 M_x = (T*imbalance/n)*e_x + M_add,x 作為保守包絡（預設值為假設，需技師確認）",
+    "端板局部彎曲以峰值接觸壓力 q_max 均佈作用於整段懸臂投影長度 ell 作為保守包絡（預設值為假設，需技師確認）",
+    "上下端板長度 L 皆沿 H 型鋼強軸深度 d 方向配置（0.95d 與強軸彎矩壓力梯度均沿 L）（預設值為假設，需技師確認）",
+    "核心區內無拉力且靠精確加工端面直接承壓傳遞壓應力，端板與 H 型鋼銲道、螺栓及錨栓不檢核（預設值為假設，需技師確認）",
+    "承接構件局部效應（鋼梁腹板局部降伏與壓皺、RC 局部沖剪與配筋）不在本模組範圍（預設值為假設，需技師確認）",
+    "混凝土全面積承壓採 0.35 f'c，不計 A2/A1 支承面積放大（預設值為假設，需技師確認）",
+    "容許應力提高係數固定為 1.00（預設值為假設，需技師確認）",
+]
+
+
+def _evaluate_kern_end_plate(
+    *,
+    total_demand_per_member_tf: float,
+    moment_x_tf_m_per_member: float,
+    alpha_per_member: float,
+    additional_axial_load_tf_per_member: float,
+    transfer_eccentricity_x_m: float,
+    additional_moment_x_tf_m_per_member: float,
+    width_cm: float,
+    length_cm: float,
+    thickness_cm: float,
+    support_material: str,
+    support_material_strength_tf_per_cm2: float,
+    plate_fy_tf_per_cm2: float,
+    member_fy_tf_per_cm2: float,
+    section: SectionProperty,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Evaluate one uniaxial strong-axis kern rectangular end plate with closed-form transfer bounds."""
+    if total_demand_per_member_tf <= 0:
+        raise ValueError("單向核心區直接承壓模組要求單支設計軸力 P 必須為正值。")
+    plate_area_cm2 = width_cm * length_cm
+    moment_tf_cm = 100.0 * abs(moment_x_tf_m_per_member)
+    eccentricity_cm = moment_tf_cm / total_demand_per_member_tf
+    kern_limit_cm = length_cm / 6.0
+    kern_passed = eccentricity_cm <= kern_limit_cm
+    q_avg = total_demand_per_member_tf / plate_area_cm2
+    q_max = q_avg * (1.0 + 6.0 * eccentricity_cm / length_cm)
+    q_min = q_avg * (1.0 - 6.0 * eccentricity_cm / length_cm)
+    effective_loaded_width_cm = 0.80 * section.flange_width_cm
+    effective_loaded_length_cm = 0.95 * section.depth_cm
+    width_projection_cm = (width_cm - effective_loaded_width_cm) / 2.0
+    length_projection_cm = (length_cm - effective_loaded_length_cm) / 2.0
+    governing_projection_cm = max(width_projection_cm, length_projection_cm)
+    support_allowable_bearing_tf_per_cm2 = (
+        0.90 * min(plate_fy_tf_per_cm2, support_material_strength_tf_per_cm2)
+        if support_material == "finished_steel"
+        else 0.35 * support_material_strength_tf_per_cm2
+    )
+    allowable_plate_bending_stress = 0.60 * plate_fy_tf_per_cm2
+    required_thickness_cm = governing_projection_cm * math.sqrt(
+        3.0 * max(q_max, 0.0) / allowable_plate_bending_stress
+    )
+    support_bearing_utilization = q_max / support_allowable_bearing_tf_per_cm2
+    plate_bending_utilization = (
+        3.0
+        * q_max
+        * governing_projection_cm**2
+        / (allowable_plate_bending_stress * thickness_cm**2)
+    )
+    h_section_end_bearing_stress = (
+        total_demand_per_member_tf / section.area_cm2 + moment_tf_cm / section.sx_cm3
+    )
+    h_section_end_allowable_bearing_stress = 0.90 * min(
+        member_fy_tf_per_cm2,
+        plate_fy_tf_per_cm2,
+    )
+    h_section_end_bearing_utilization = (
+        h_section_end_bearing_stress / h_section_end_allowable_bearing_stress
+    )
+    a_kern = alpha_per_member * (100.0 * transfer_eccentricity_x_m - kern_limit_cm)
+    rhs_kern = (
+        additional_axial_load_tf_per_member * kern_limit_cm
+        - 100.0 * additional_moment_x_tf_m_per_member
+    )
+    if a_kern < -1e-12:
+        kern_lower_tf: float | None = max(0.0, rhs_kern / a_kern)
+        kern_upper_tf: float | None = None
+    elif a_kern > 1e-12:
+        kern_lower_tf = 0.0
+        kern_upper_tf = rhs_kern / a_kern
+    else:
+        kern_lower_tf = 0.0
+        kern_upper_tf = None
+    constant_kern_infeasible = abs(a_kern) <= 1e-12 and rhs_kern < -1e-12
+    infeasible_reason = (
+        "核心區一次不等式的移轉需求係數為零，但常數條件不成立，無可行移轉需求。"
+        if constant_kern_infeasible
+        else None
+    )
+    a_q = alpha_per_member * (1.0 + 600.0 * transfer_eccentricity_x_m / length_cm)
+    b_q = (
+        additional_axial_load_tf_per_member
+        + 600.0 * additional_moment_x_tf_m_per_member / length_cm
+    )
+    support_upper_tf = (support_allowable_bearing_tf_per_cm2 * plate_area_cm2 - b_q) / a_q
+    plate_bending_pressure_capacity = (
+        allowable_plate_bending_stress
+        * thickness_cm**2
+        / (3.0 * governing_projection_cm**2)
+    )
+    plate_bending_upper_tf = (plate_bending_pressure_capacity * plate_area_cm2 - b_q) / a_q
+    a_h = alpha_per_member * (
+        1.0 / section.area_cm2 + 100.0 * transfer_eccentricity_x_m / section.sx_cm3
+    )
+    b_h = (
+        additional_axial_load_tf_per_member / section.area_cm2
+        + 100.0 * additional_moment_x_tf_m_per_member / section.sx_cm3
+    )
+    h_section_upper_tf = (h_section_end_allowable_bearing_stress - b_h) / a_h
+    end_min_tf = kern_lower_tf if kern_lower_tf is not None else 0.0
+    end_lower_governed_by = (
+        "kern_full_contact"
+        if kern_lower_tf is not None and kern_lower_tf > 0.0
+        else "non_negative_transfer"
+    )
+    upper_candidates: list[tuple[str, float]] = [
+        ("support_bearing", support_upper_tf),
+        ("end_plate_local_bending", plate_bending_upper_tf),
+        ("h_section_finished_end_bearing", h_section_upper_tf),
+    ]
+    if kern_upper_tf is not None:
+        upper_candidates.insert(0, ("kern_full_contact", kern_upper_tf))
+    end_upper_governed_by, end_max_tf = min(upper_candidates, key=lambda item: item[1])
+    end_feasible = bool(
+        not constant_kern_infeasible and end_min_tf <= end_max_tf and end_max_tf >= 0.0
+    )
+    support_passed = support_bearing_utilization <= 1.0
+    plate_passed = plate_bending_utilization <= 1.0
+    h_section_end_passed = h_section_end_bearing_utilization <= 1.0
+    raw_bounds: dict[str, Any] = {
+        "kernLowerLimitTf": None if constant_kern_infeasible else kern_lower_tf,
+        "kernUpperLimitTf": kern_upper_tf,
+        "supportBearingUpperLimitTf": support_upper_tf,
+        "endPlateLocalBendingUpperLimitTf": plate_bending_upper_tf,
+        "hSectionFinishedEndBearingUpperLimitTf": h_section_upper_tf,
+        "minTf": end_min_tf,
+        "maxTf": end_max_tf,
+    }
+    if infeasible_reason is not None:
+        raw_bounds["infeasibleReason"] = infeasible_reason
+    return {
+        "status": (
+            "passed"
+            if kern_passed and support_passed and plate_passed and h_section_end_passed
+            else "failed"
+        ),
+        "plateWidthCm": _rounded(width_cm),
+        "plateLengthCm": _rounded(length_cm),
+        "plateAreaCm2": _rounded(plate_area_cm2),
+        "axialLoadPerMemberTf": _rounded(total_demand_per_member_tf),
+        "momentXTfMPerMember": _rounded(moment_x_tf_m_per_member),
+        "momentPerMemberTfCm": _rounded(moment_tf_cm),
+        "eccentricityCm": _rounded(eccentricity_cm),
+        "kernLimitCm": _rounded(kern_limit_cm),
+        "kernFullContact": "passed" if kern_passed else "failed",
+        "qAvg": _rounded(q_avg),
+        "qMax": _rounded(q_max),
+        "qMin": _rounded(q_min),
+        "qAvgTfPerCm2": _rounded(q_avg),
+        "qMaxTfPerCm2": _rounded(q_max),
+        "qMinTfPerCm2": _rounded(q_min),
+        "contactPressureTfPerCm2": _rounded(q_max),
+        "supportMaterial": support_material,
+        "supportMaterialStrengthTfPerCm2": _rounded(support_material_strength_tf_per_cm2),
+        "plateFyTfPerCm2": _rounded(plate_fy_tf_per_cm2),
+        "supportAllowableBearingTfPerCm2": _rounded(support_allowable_bearing_tf_per_cm2),
+        "supportBearingUtilizationRatio": _rounded(support_bearing_utilization),
+        "effectiveLoadedWidthCm": _rounded(effective_loaded_width_cm),
+        "effectiveLoadedLengthCm": _rounded(effective_loaded_length_cm),
+        "widthProjectionCm": _rounded(width_projection_cm),
+        "lengthProjectionCm": _rounded(length_projection_cm),
+        "governingProjectionCm": _rounded(governing_projection_cm),
+        "allowablePlateBendingStressTfPerCm2": _rounded(allowable_plate_bending_stress),
+        "requiredPlateThicknessCm": _rounded(required_thickness_cm),
+        "providedPlateThicknessCm": _rounded(thickness_cm),
+        "plateBendingUtilizationRatio": _rounded(plate_bending_utilization),
+        "hSectionEndBearingStressTfPerCm2": _rounded(h_section_end_bearing_stress),
+        "hSectionEndAllowableBearingStressTfPerCm2": _rounded(
+            h_section_end_allowable_bearing_stress
+        ),
+        "hSectionEndBearingUtilizationRatio": _rounded(
+            h_section_end_bearing_utilization
+        ),
+        "transferIntervalBoundsTf": {
+            "kernLowerLimitTf": (
+                _rounded(kern_lower_tf)
+                if not constant_kern_infeasible and kern_lower_tf is not None and math.isfinite(kern_lower_tf)
+                else None
+            ),
+            "kernUpperLimitTf": (
+                _rounded(kern_upper_tf)
+                if kern_upper_tf is not None and math.isfinite(kern_upper_tf)
+                else None
+            ),
+            "supportBearingUpperLimitTf": _rounded(support_upper_tf),
+            "endPlateLocalBendingUpperLimitTf": _rounded(plate_bending_upper_tf),
+            "hSectionFinishedEndBearingUpperLimitTf": _rounded(h_section_upper_tf),
+            "minTf": None if constant_kern_infeasible else _rounded(end_min_tf),
+            "maxTf": None if constant_kern_infeasible else _rounded(end_max_tf),
+            "lowerGovernedBy": "kern_full_contact" if constant_kern_infeasible else end_lower_governed_by,
+            "upperGovernedBy": "kern_full_contact" if constant_kern_infeasible else end_upper_governed_by,
+            "feasible": end_feasible,
+            **({"infeasibleReason": infeasible_reason} if infeasible_reason is not None else {}),
+        },
+        "checks": {
+            "kernFullContact": "passed" if kern_passed else "failed",
+            "supportBearing": "passed" if support_passed else "failed",
+            "endPlateLocalBending": "passed" if plate_passed else "failed",
+            "hSectionFinishedEndBearing": "passed" if h_section_end_passed else "failed",
+        },
+    }, raw_bounds
+
+
 def calculate_reshore_member_capacity(
     handoff: dict[str, Any],
     transfer_id: str,
@@ -382,7 +652,10 @@ def calculate_reshore_member_capacity(
         section.sy_cm3,
     ) <= 0:
         raise ValueError("軸壓與雙向彎矩模式所需的 rT、Sx 或 Sy 斷面性質不是正值。")
-    if value.end_bearing_mode == "centered_rectangular_plate":
+    if value.end_bearing_mode in {
+        "centered_rectangular_plate",
+        "uniaxial_kern_rectangular_plate",
+    }:
         for label, width_cm, length_cm in (
             (
                 "頂端",
@@ -574,12 +847,15 @@ def calculate_reshore_member_capacity(
             nominal_transfer_capacity_tf = lower
     capacity_effects = evaluate_transfer(nominal_transfer_capacity_tf)
 
-    bearing_checked = value.end_bearing_mode == "centered_rectangular_plate"
+    centered_bearing_checked = value.end_bearing_mode == "centered_rectangular_plate"
+    kern_bearing_checked = value.end_bearing_mode == "uniaxial_kern_rectangular_plate"
+    bearing_checked = centered_bearing_checked or kern_bearing_checked
     top_end_bearing = None
     bottom_end_bearing = None
+    end_bearing_transfer_interval = None
     end_bearing_transfer_capacity_tf = math.inf
     end_bearing_passed = True
-    if bearing_checked:
+    if centered_bearing_checked:
         top_end_bearing, top_end_capacity_per_member_tf = _evaluate_end_plate(
             total_demand_per_member_tf=total_demand_per_member_tf,
             width_cm=value.top_end_plate_width_cm,
@@ -613,6 +889,112 @@ def calculate_reshore_member_capacity(
         end_bearing_passed = (
             top_end_bearing["status"] == "passed"
             and bottom_end_bearing["status"] == "passed"
+        )
+    elif kern_bearing_checked:
+        alpha_per_member = value.imbalance_factor / value.member_count
+        moment_x_per_member = float(current_effects["momentXTfMPerMember"])
+        top_end_bearing, top_raw_bounds = _evaluate_kern_end_plate(
+            total_demand_per_member_tf=total_demand_per_member_tf,
+            moment_x_tf_m_per_member=moment_x_per_member,
+            alpha_per_member=alpha_per_member,
+            additional_axial_load_tf_per_member=value.additional_axial_load_tf_per_member,
+            transfer_eccentricity_x_m=value.transfer_eccentricity_x_m,
+            additional_moment_x_tf_m_per_member=value.additional_moment_x_tf_m_per_member,
+            width_cm=value.top_end_plate_width_cm,
+            length_cm=value.top_end_plate_length_cm,
+            thickness_cm=value.top_end_plate_thickness_cm,
+            support_material=value.top_support_material,
+            support_material_strength_tf_per_cm2=value.top_support_material_strength_tf_per_cm2,
+            plate_fy_tf_per_cm2=value.top_end_plate_fy_tf_per_cm2,
+            member_fy_tf_per_cm2=value.fy_tf_per_cm2,
+            section=section,
+        )
+        bottom_end_bearing, bottom_raw_bounds = _evaluate_kern_end_plate(
+            total_demand_per_member_tf=total_demand_per_member_tf,
+            moment_x_tf_m_per_member=moment_x_per_member,
+            alpha_per_member=alpha_per_member,
+            additional_axial_load_tf_per_member=value.additional_axial_load_tf_per_member,
+            transfer_eccentricity_x_m=value.transfer_eccentricity_x_m,
+            additional_moment_x_tf_m_per_member=value.additional_moment_x_tf_m_per_member,
+            width_cm=value.bottom_end_plate_width_cm,
+            length_cm=value.bottom_end_plate_length_cm,
+            thickness_cm=value.bottom_end_plate_thickness_cm,
+            support_material=value.bottom_support_material,
+            support_material_strength_tf_per_cm2=value.bottom_support_material_strength_tf_per_cm2,
+            plate_fy_tf_per_cm2=value.bottom_end_plate_fy_tf_per_cm2,
+            member_fy_tf_per_cm2=value.fy_tf_per_cm2,
+            section=section,
+        )
+        lower_candidates: list[tuple[str, float]] = [("non_negative_transfer", 0.0)]
+        if top_raw_bounds["kernLowerLimitTf"] is not None:
+            lower_candidates.append(
+                ("top_kern_full_contact", float(top_raw_bounds["kernLowerLimitTf"]))
+            )
+        if bottom_raw_bounds["kernLowerLimitTf"] is not None:
+            lower_candidates.append(
+                ("bottom_kern_full_contact", float(bottom_raw_bounds["kernLowerLimitTf"]))
+            )
+        lower_governed_by, min_tf_raw = max(lower_candidates, key=lambda item: item[1])
+        upper_candidates_all: list[tuple[str, float]] = []
+        if top_raw_bounds["kernUpperLimitTf"] is not None:
+            upper_candidates_all.append(
+                ("top_kern_full_contact", float(top_raw_bounds["kernUpperLimitTf"]))
+            )
+        upper_candidates_all.extend([
+            ("top_support_bearing", float(top_raw_bounds["supportBearingUpperLimitTf"])),
+            ("top_end_plate_local_bending", float(top_raw_bounds["endPlateLocalBendingUpperLimitTf"])),
+            (
+                "top_h_section_finished_end_bearing",
+                float(top_raw_bounds["hSectionFinishedEndBearingUpperLimitTf"]),
+            ),
+        ])
+        if bottom_raw_bounds["kernUpperLimitTf"] is not None:
+            upper_candidates_all.append(
+                ("bottom_kern_full_contact", float(bottom_raw_bounds["kernUpperLimitTf"]))
+            )
+        upper_candidates_all.extend([
+            ("bottom_support_bearing", float(bottom_raw_bounds["supportBearingUpperLimitTf"])),
+            ("bottom_end_plate_local_bending", float(bottom_raw_bounds["endPlateLocalBendingUpperLimitTf"])),
+            (
+                "bottom_h_section_finished_end_bearing",
+                float(bottom_raw_bounds["hSectionFinishedEndBearingUpperLimitTf"]),
+            ),
+        ])
+        upper_governed_by, max_tf_raw = min(upper_candidates_all, key=lambda item: item[1])
+        interval_feasible = bool(min_tf_raw <= max_tf_raw and max_tf_raw >= 0.0)
+        end_bearing_transfer_interval = {
+            "minTf": _rounded(min_tf_raw),
+            "maxTf": _rounded(max_tf_raw),
+            "lowerGovernedBy": lower_governed_by,
+            "upperGovernedBy": upper_governed_by,
+            "feasible": interval_feasible,
+        }
+        impossible_ends = [
+            (name, bounds["infeasibleReason"])
+            for name, bounds in (("top", top_raw_bounds), ("bottom", bottom_raw_bounds))
+            if "infeasibleReason" in bounds
+        ]
+        if impossible_ends:
+            interval_feasible = False
+            end_bearing_transfer_interval = {
+                "minTf": None,
+                "maxTf": None,
+                "lowerGovernedBy": f"{impossible_ends[0][0]}_kern_full_contact",
+                "upperGovernedBy": f"{impossible_ends[0][0]}_kern_full_contact",
+                "feasible": False,
+                "infeasibleReason": "；".join(
+                    f"{'頂端' if name == 'top' else '底端'}：{reason}"
+                    for name, reason in impossible_ends
+                ),
+            }
+        end_bearing_transfer_capacity_tf = max(max_tf_raw, 0.0) if interval_feasible else 0.0
+        demand_within_interval = interval_feasible and (
+            min_tf_raw - 1e-9 <= demand_tf <= max_tf_raw + 1e-9
+        )
+        end_bearing_passed = (
+            top_end_bearing["status"] == "passed"
+            and bottom_end_bearing["status"] == "passed"
+            and demand_within_interval
         )
 
     flange_ratio = section.flange_width_cm / (2.0 * section.flange_thickness_cm)
@@ -674,6 +1056,11 @@ def calculate_reshore_member_capacity(
             "endBearingTransferCapacityTf": (
                 _rounded(end_bearing_transfer_capacity_tf) if bearing_checked else None
             ),
+            **(
+                {"endBearingTransferInterval": end_bearing_transfer_interval}
+                if kern_bearing_checked
+                else {}
+            ),
             "adoptableTransferCapacityTf": _rounded(adoptable_transfer_capacity_tf),
             "governingCapacityMode": governing_capacity_mode,
             "memberTotalUtilizationRatio": _rounded(member_total_utilization_ratio) if math.isfinite(member_total_utilization_ratio) else None,
@@ -721,8 +1108,18 @@ def calculate_reshore_member_capacity(
                     "top": top_end_bearing,
                     "bottom": bottom_end_bearing,
                 }
-                if bearing_checked
-                else None
+                if centered_bearing_checked
+                else (
+                    {
+                        "mode": value.end_bearing_mode,
+                        "endBearingTransferInterval": end_bearing_transfer_interval,
+                        "assumptions": list(KERN_END_BEARING_ASSUMPTIONS),
+                        "top": top_end_bearing,
+                        "bottom": bottom_end_bearing,
+                    }
+                    if kern_bearing_checked
+                    else None
+                )
             ),
             "checks": {
                 "memberSlenderness": "passed" if slenderness_passed else "failed",
@@ -806,8 +1203,45 @@ def calculate_reshore_member_capacity(
                         "officialPdf": STEEL_CODE_CHAPTER_10_URL,
                     },
                 }
-                if bearing_checked
-                else {}
+                if centered_bearing_checked
+                else (
+                    {
+                        "supportBearing": {
+                            "authority": "規範判定",
+                            "chapter": "第十章 10.8 與 10.9",
+                            "criteria": [
+                                "研磨或加工鋼面 q_max <= Fp = 0.90 min(Fy,plate, Fy,support)",
+                                "混凝土全面積承壓 q_max <= Fp = 0.35 f'c（不計 A2/A1 放大）",
+                            ],
+                            "officialPdf": STEEL_CODE_CHAPTER_10_URL,
+                            "basisFields": [
+                                "topSupportBearingBasis",
+                                "bottomSupportBearingBasis",
+                            ],
+                        },
+                        "hSectionFinishedEndBearing": {
+                            "authority": "規範判定",
+                            "chapter": "第十章 10.8",
+                            "criterion": "精確鋸平、研磨或加工端面之 f = P/Ag + M/Sx <= Fp = 0.90 min(Fy,H, Fy,plate)",
+                            "officialPdf": STEEL_CODE_CHAPTER_10_URL,
+                        },
+                        "endPlateLocalBending": {
+                            "authority": "專案指定",
+                            "method": "單向強軸核心區梯形反力下以峰值接觸壓力 q_max 包絡之無加勁矩形承壓板懸臂法",
+                            "formulaId": "PROJECT-SPECIFIED-KERN-BEARING-PLATE-CANTILEVER-QMAX-060FY",
+                            "criterion": "e=M/P<=L/6, q_avg=P/(B*L), q_max=q_avg*(1+6e/L), q_min=q_avg*(1-6e/L), m=(L-0.95d)/2, n=(B-0.80bf)/2, ell=max(m,n), t_required=ell*sqrt(3*q_max/Fb), Fb=0.60Fy",
+                            "mechanicsReference": AISC_BEARING_PLATE_REFERENCE_URL,
+                            "basisField": "endPlateBendingMethodBasis",
+                        },
+                        "compressionBearingConnectionBoundary": {
+                            "chapter": "第十章 10.1.4",
+                            "criterion": "承壓接合仍須另以足夠接合物維持正確位置；其他受壓構材之續接材與接合物至少須承受構件強度 50%，並檢討規定作用",
+                            "officialPdf": STEEL_CODE_CHAPTER_10_URL,
+                        },
+                    }
+                    if kern_bearing_checked
+                    else {}
+                )
             ),
         },
         "verificationScope": {
@@ -871,8 +1305,106 @@ def calculate_reshore_member_capacity(
         },
     }
     if bearing_checked:
+        bearing_input_keys = {
+            "endBearingMode",
+            "memberCount",
+            "imbalanceFactor",
+            "additionalAxialLoadTfPerMember",
+            "fyTfPerCm2",
+            "governingLoadCombination",
+            "loadDistributionBasis",
+            "additionalLoadBasis",
+            "topEndPlateFyTfPerCm2",
+            "topEndPlateWidthCm",
+            "topEndPlateLengthCm",
+            "topEndPlateThicknessCm",
+            "topSupportMaterial",
+            "topSupportMaterialStrengthTfPerCm2",
+            "topSupportTruePlaneConfirmed",
+            "bottomEndPlateWidthCm",
+            "bottomEndPlateLengthCm",
+            "bottomEndPlateThicknessCm",
+            "bottomEndPlateFyTfPerCm2",
+            "bottomSupportMaterial",
+            "bottomSupportMaterialStrengthTfPerCm2",
+            "bottomSupportTruePlaneConfirmed",
+            "endBearingConfigurationBasis",
+            "endPlateBendingMethodBasis",
+            "topSupportBearingBasis",
+            "bottomSupportBearingBasis",
+            "centeredFullContactEndBearingConfirmed",
+            "hSectionEndFinishedConfirmed",
+            "unperforatedUnstiffenedSinglePlateConfirmed",
+            "allowableStressIncreaseFactor",
+            "stressIncreaseBasis",
+        }
+        if kern_bearing_checked:
+            bearing_input_keys.update({
+                "analysisMode",
+                "transferEccentricityXM",
+                "transferEccentricityYM",
+                "additionalMomentXTfMPerMember",
+                "additionalMomentYTfMPerMember",
+                "eccentricityAndMomentBasis",
+                "kernFullContactEndBearingConfirmed",
+                "endPlateOrientationConfirmed",
+            })
+        bearing_results: dict[str, Any] = {
+            "status": "passed" if end_bearing_passed else "failed",
+            "transferDemandPerMemberTf": record["results"]["transferDemandPerMemberTf"],
+            "totalDemandPerMemberTf": record["results"]["totalDemandPerMemberTf"],
+            "endBearingTransferCapacityTf": record["results"]["endBearingTransferCapacityTf"],
+            **(
+                {
+                    "momentXTfMPerMember": record["results"]["momentXTfMPerMember"],
+                    "momentPerMemberTfCm": _rounded(
+                        100.0 * abs(float(record["results"]["momentXTfMPerMember"]))
+                    ),
+                    "endBearingTransferInterval": end_bearing_transfer_interval,
+                    "assumptions": list(KERN_END_BEARING_ASSUMPTIONS),
+                }
+                if kern_bearing_checked
+                else {}
+            ),
+            "top": top_end_bearing,
+            "bottom": bottom_end_bearing,
+        }
+        bearing_boundary = (
+            {
+                "centeredPureCompressionOnly": True,
+                "supportAllowableBearingDerivedFromMaterialStrength": True,
+                "concreteBearingAreaEnhancementNotUsed": True,
+                "singleUnperforatedUnstiffenedRectangularPlateOnly": True,
+                "receivingStructureStrengthNotDerived": True,
+                "connectionWeldsBoltsAnchorsNotChecked": True,
+                "stiffenersAndLocalReinforcementNotChecked": True,
+                "constructionSequenceAndPreloadNotChecked": True,
+                "doesNotAutoApproveReceiverReceipt": True,
+            }
+            if centered_bearing_checked
+            else {
+                "centeredPureCompressionOnly": False,
+                "uniaxialStrongAxisKernFullContactOnly": True,
+                "rigidPlateTrapezoidalPressureAssumed": True,
+                "sharedMemberDesignMomentAtBothEndsAssumed": True,
+                "qMaxUniformCantileverEnvelopeAssumed": True,
+                "endPlateOrientationAlongStrongAxisDepthAssumed": True,
+                "supportAllowableBearingDerivedFromMaterialStrength": True,
+                "concreteBearingAreaEnhancementNotUsed": True,
+                "singleUnperforatedUnstiffenedRectangularPlateOnly": True,
+                "receivingStructureStrengthNotDerived": True,
+                "connectionWeldsBoltsAnchorsNotChecked": True,
+                "stiffenersAndLocalReinforcementNotChecked": True,
+                "constructionSequenceAndPreloadNotChecked": True,
+                "doesNotAutoApproveReceiverReceipt": True,
+            }
+        )
         bearing_record = {
-            "schemaVersion": BEARING_EVIDENCE_SCHEMA_VERSION,
+            "schemaVersion": (
+                KERN_BEARING_EVIDENCE_SCHEMA_VERSION
+                if kern_bearing_checked
+                else BEARING_EVIDENCE_SCHEMA_VERSION
+            ),
             "kind": BEARING_EVIDENCE_KIND,
             "generatedAt": record["generatedAt"],
             "source": {
@@ -884,50 +1416,10 @@ def calculate_reshore_member_capacity(
             "input": {
                 key: child
                 for key, child in record["input"].items()
-                if key
-                in {
-                    "endBearingMode",
-                    "memberCount",
-                    "imbalanceFactor",
-                    "additionalAxialLoadTfPerMember",
-                    "fyTfPerCm2",
-                    "governingLoadCombination",
-                    "loadDistributionBasis",
-                    "additionalLoadBasis",
-                    "topEndPlateFyTfPerCm2",
-                    "topEndPlateWidthCm",
-                    "topEndPlateLengthCm",
-                    "topEndPlateThicknessCm",
-                    "topSupportMaterial",
-                    "topSupportMaterialStrengthTfPerCm2",
-                    "topSupportTruePlaneConfirmed",
-                    "bottomEndPlateWidthCm",
-                    "bottomEndPlateLengthCm",
-                    "bottomEndPlateThicknessCm",
-                    "bottomEndPlateFyTfPerCm2",
-                    "bottomSupportMaterial",
-                    "bottomSupportMaterialStrengthTfPerCm2",
-                    "bottomSupportTruePlaneConfirmed",
-                    "endBearingConfigurationBasis",
-                    "endPlateBendingMethodBasis",
-                    "topSupportBearingBasis",
-                    "bottomSupportBearingBasis",
-                    "centeredFullContactEndBearingConfirmed",
-                    "hSectionEndFinishedConfirmed",
-                    "unperforatedUnstiffenedSinglePlateConfirmed",
-                    "allowableStressIncreaseFactor",
-                    "stressIncreaseBasis",
-                }
+                if key in bearing_input_keys
             },
             "section": record["section"],
-            "results": {
-                "status": "passed" if end_bearing_passed else "failed",
-                "transferDemandPerMemberTf": record["results"]["transferDemandPerMemberTf"],
-                "totalDemandPerMemberTf": record["results"]["totalDemandPerMemberTf"],
-                "endBearingTransferCapacityTf": record["results"]["endBearingTransferCapacityTf"],
-                "top": top_end_bearing,
-                "bottom": bottom_end_bearing,
-            },
+            "results": bearing_results,
             "codeBasis": {
                 key: child
                 for key, child in record["codeBasis"].items()
@@ -941,17 +1433,7 @@ def calculate_reshore_member_capacity(
                     "compressionBearingConnectionBoundary",
                 }
             },
-            "boundary": {
-                "centeredPureCompressionOnly": True,
-                "supportAllowableBearingDerivedFromMaterialStrength": True,
-                "concreteBearingAreaEnhancementNotUsed": True,
-                "singleUnperforatedUnstiffenedRectangularPlateOnly": True,
-                "receivingStructureStrengthNotDerived": True,
-                "connectionWeldsBoltsAnchorsNotChecked": True,
-                "stiffenersAndLocalReinforcementNotChecked": True,
-                "constructionSequenceAndPreloadNotChecked": True,
-                "doesNotAutoApproveReceiverReceipt": True,
-            },
+            "boundary": bearing_boundary,
         }
         bearing_record["calculationFingerprint"] = _digest(
             bearing_record,
@@ -965,7 +1447,7 @@ def calculate_reshore_member_capacity(
             "contentBase64": base64.b64encode(bearing_evidence_bytes).decode("ascii"),
             "fileSha256": hashlib.sha256(bearing_evidence_bytes).hexdigest(),
             "documentReference": bearing_record["calculationFingerprint"],
-            "revision": "v1",
+            "revision": f"v{bearing_record['schemaVersion']}",
             "issuedDate": bearing_record["generatedAt"][:10],
             "pageReference": "JSON 全文",
         }

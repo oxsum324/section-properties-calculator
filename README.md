@@ -179,6 +179,14 @@ T42 鋼構主頁 app／calculator 的私有可讀來源位於 `鋼構工具/src/
 T47：混凝土強度非破壞檢測推估新增同測區配對覆蓋摘要；以既有正規化後的測區識別分類，頁面、計算書、TXT 與 JSON 同源，工程數值與舊案例指紋相容。
 <!-- T47-REGISTRATION-END -->
 
+<!-- T48-REGISTRATION-START -->
+## 2026-10-17：T48 重撐單向核心區端板直接承壓續作
+
+重撐 H 型鋼新增單向強軸核心區矩形端板直接承壓模式，採閉式不等式保留可行移轉區間 `[minTf, maxTf]`。RSC 維持 v4；僅新模式使用 RSB v2，既有模式產生的 RSB v1 bytes 維持不變。新模式限 `e <= L/6`、弱軸彎矩為零、容許應力提高係數 1.00，並保留兩端共用桿件彎矩及板端座標對齊等明示假設。接收端附件使用已驗證的 RSC／RSB 回應產生純格式內容，不將助手資料寫入 ProjectState 或專案主計算書。
+
+零係數常數矛盾代表空集合，區間 `minTf` 與 `maxTf` 均為 `null`、`feasible=false` 並提供非空原因；一般有限界限若 `minTf > maxTf`，仍保留兩個有限值並標示不可行。這項本機續作保留未提交狀態，未推送、未跑測試或建置，不代表正式放行。
+<!-- T48-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->

@@ -470,7 +470,11 @@ class ReshoreMemberCapacityInput(BaseModel):
     bending_stability_basis: str = Field(default="", max_length=400)
     stress_increase_basis: str = Field(default="", max_length=240)
     pure_axial_no_eccentricity_confirmed: bool = False
-    end_bearing_mode: Literal["not_checked", "centered_rectangular_plate"] = "not_checked"
+    end_bearing_mode: Literal[
+        "not_checked",
+        "centered_rectangular_plate",
+        "uniaxial_kern_rectangular_plate",
+    ] = "not_checked"
     top_end_plate_fy_tf_per_cm2: float = Field(default=2.5, gt=0, le=10)
     top_end_plate_width_cm: float = Field(default=0, ge=0, le=500)
     top_end_plate_length_cm: float = Field(default=0, ge=0, le=500)
@@ -490,6 +494,8 @@ class ReshoreMemberCapacityInput(BaseModel):
     top_support_bearing_basis: str = Field(default="", max_length=500)
     bottom_support_bearing_basis: str = Field(default="", max_length=500)
     centered_full_contact_end_bearing_confirmed: bool = False
+    kern_full_contact_end_bearing_confirmed: bool = False
+    end_plate_orientation_confirmed: bool = False
     h_section_end_finished_confirmed: bool = False
     unperforated_unstiffened_single_plate_confirmed: bool = False
 

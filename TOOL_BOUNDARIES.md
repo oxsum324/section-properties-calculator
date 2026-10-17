@@ -218,6 +218,16 @@ NDT 同測區配對覆蓋摘要僅從既有 zoneResults 衍生；測區沿用首
 NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋欄，保留距時值、回讀成功與拒絕／還原的全部原斷言。
 <!-- T47-REGISTRATION-END -->
 
+<!-- T48-REGISTRATION-START -->
+## 2026-10-17：T48 重撐單向核心區直接承壓
+
+`開挖擋土支撐/backend/app/receiver_capacity.py` 新增 `_evaluate_kern_end_plate` 與閉式容量區間；既有 `_evaluate_end_plate` 及舊模式輸出保持不變。`開挖擋土支撐/backend/app/reporting.py` 提供純格式 helper，供 `receiver_capacity_attachment.py` 呈現已驗證的精確 RSC／RSB 回應；不把接收端助手數據寫入 ProjectState 或來源專案主 PDF／DOCX。RSC schema 維持 v4；新模式 RSB 為 v2，既有模式 RSB v1 bytes 不變。
+
+新模式限單向強軸核心區全板接觸 `e <= L/6`、弱軸偏心與附加彎矩均為零、容許應力提高係數 1.00，並要求確認全板密貼及端板方向。頁面與附件列出 e、L/6、接觸壓力、承壓與端板彎曲結果、可行區間和簡化假設。超出核心區、雙向彎矩、錨栓、銲道及承接構件本體不在此模式範圍。零係數常數矛盾輸出 `minTf=null`、`maxTf=null`、`feasible=false` 與非空原因；有限但 `minTf > maxTf` 的空區間保留原有限界限。
+
+本機保留 14 檔未提交工作樹，不推送、不重設基準；本輪未跑測試或建置。門檻與 family wrapper 規則維持原文，dirty 狀態造成的總結果照實記錄，不得調整 wrapper 或宣稱乾淨 HEAD。
+<!-- T48-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->

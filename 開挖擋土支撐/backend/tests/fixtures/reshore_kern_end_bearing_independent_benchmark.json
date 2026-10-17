@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent-engineering-benchmark",
+  "benchmarkId": "EXC-RSB-002",
+  "description": "單向強軸壓彎核心區 H 型鋼上下端矩形無加勁端板直接承壓；頂端混凝土全面積承壓、底端加工鋼面承壓，以閉式一次不等式求可行移轉區間 [minTf, maxTf]。",
+  "independenceBoundary": "預期值由委託人方以獨立腳本計算並逐項手驗後固化；測試只比對固定值（absoluteTolerance 1e-6），不呼叫 production 端板函式產生期望值。",
+  "sourceDemandTf": 106.0,
+  "section": {
+    "name": "RH300X300X10X15",
+    "depthCm": 30.0,
+    "flangeWidthCm": 30.0,
+    "areaCm2": 118.0,
+    "sxCm3": 1350.0
+  },
+  "calculationInput": {
+    "analysis_mode": "axial_biaxial_bending",
+    "section_name": "RH300X300X10X15",
+    "member_count": 2,
+    "unbraced_length_x_m": 3.0,
+    "unbraced_length_y_m": 3.0,
+    "effective_length_factor_kx": 1.0,
+    "effective_length_factor_ky": 1.0,
+    "fy_tf_per_cm2": 2.5,
+    "e_tf_per_cm2": 2040.0,
+    "allowable_stress_increase_factor": 1.0,
+    "imbalance_factor": 1.1,
+    "additional_axial_load_tf_per_member": 1.0,
+    "transfer_eccentricity_x_m": 0.05,
+    "transfer_eccentricity_y_m": 0.0,
+    "additional_moment_x_tf_m_per_member": 0.2,
+    "additional_moment_y_tf_m_per_member": 0.0,
+    "strong_axis_lateral_unbraced_length_m": 3.0,
+    "moment_gradient_coefficient_cb": 1.0,
+    "moment_amplification_coefficient_cmx": 1.0,
+    "moment_amplification_coefficient_cmy": 1.0,
+    "end_bearing_mode": "uniaxial_kern_rectangular_plate",
+    "top_end_plate_fy_tf_per_cm2": 2.5,
+    "top_end_plate_width_cm": 45.0,
+    "top_end_plate_length_cm": 45.0,
+    "top_end_plate_thickness_cm": 4.0,
+    "top_support_material": "concrete_full_area",
+    "top_support_material_strength_tf_per_cm2": 0.28,
+    "top_support_true_plane_confirmed": false,
+    "bottom_end_plate_width_cm": 50.0,
+    "bottom_end_plate_length_cm": 50.0,
+    "bottom_end_plate_thickness_cm": 4.0,
+    "bottom_end_plate_fy_tf_per_cm2": 2.5,
+    "bottom_support_material": "finished_steel",
+    "bottom_support_material_strength_tf_per_cm2": 2.5,
+    "bottom_support_true_plane_confirmed": true,
+    "kern_full_contact_end_bearing_confirmed": true,
+    "end_plate_orientation_confirmed": true,
+    "h_section_end_finished_confirmed": true,
+    "unperforated_unstiffened_single_plate_confirmed": true
+  },
+  "formulaContract": {
+    "totalDemandPerMember": "P = T * imbalance / n + P_add",
+    "sharedStrongAxisMoment": "M_x = (T * imbalance / n) * e_x + M_add,x (tf*m); M = 100 * |M_x| (tf*cm)",
+    "equivalentEccentricityAndKern": "e = M / P <= L / 6",
+    "contactPressureTrapezoid": "q_avg = P / (B * L); q_max = q_avg * (1 + 6e / L); q_min = q_avg * (1 - 6e / L)",
+    "supportBearing": "q_max <= F_p; F_p = 0.35 f'c (concrete_full_area) or 0.90 min(F_y,plate, F_y,support) (finished_steel)",
+    "plateLocalBending": "m = (L - 0.95d) / 2; n = (B - 0.80b_f) / 2; ell = max(m, n); F_b = 0.60 F_y,plate; ratio = 3 q_max ell^2 / (F_b t^2); t_req = ell * sqrt(3 q_max / F_b)",
+    "finishedHEndBearing": "f = P / A_g + M / S_x <= 0.90 min(F_y,H, F_y,plate)",
+    "closedFormTransferInterval": "Linear inequalities in T across both ends intersected as [minTf, maxTf]; no bisection"
+  },
+  "expected": {
+    "absoluteTolerance": 0.000001,
+    "totalDemandPerMemberTf": 59.3,
+    "momentPerMemberTfCm": 311.5,
+    "top": {
+      "axialLoadPerMemberTf": 59.3,
+      "momentPerMemberTfCm": 311.5,
+      "eccentricityCm": 5.252951,
+      "kernLimitCm": 7.5,
+      "kernFullContact": "passed",
+      "qAvg": 0.029284,
+      "qMax": 0.049794,
+      "qMin": 0.008774,
+      "supportAllowableBearingTfPerCm2": 0.098,
+      "supportBearingUtilizationRatio": 0.508104,
+      "governingProjectionCm": 10.5,
+      "allowablePlateBendingStressTfPerCm2": 1.5,
+      "plateBendingUtilizationRatio": 0.686227,
+      "requiredPlateThicknessCm": 3.313552,
+      "hSectionEndBearingStressTfPerCm2": 0.733283,
+      "hSectionEndBearingUtilizationRatio": 0.325904,
+      "transferIntervalBoundsTf": {
+        "kernLowerLimitTf": 9.090909,
+        "supportBearingUpperLimitTf": 212.490909,
+        "endPlateLocalBendingUpperLimitTf": 156.296846,
+        "hSectionFinishedEndBearingUpperLimitTf": 332.441425
+      }
+    },
+    "bottom": {
+      "axialLoadPerMemberTf": 59.3,
+      "momentPerMemberTfCm": 311.5,
+      "eccentricityCm": 5.252951,
+      "kernLimitCm": 8.333333,
+      "kernFullContact": "passed",
+      "qAvg": 0.02372,
+      "qMax": 0.038672,
+      "qMin": 0.008768,
+      "supportAllowableBearingTfPerCm2": 2.25,
+      "supportBearingUtilizationRatio": 0.017188,
+      "governingProjectionCm": 13.0,
+      "allowablePlateBendingStressTfPerCm2": 1.5,
+      "plateBendingUtilizationRatio": 0.816946,
+      "requiredPlateThicknessCm": 3.615403,
+      "hSectionEndBearingStressTfPerCm2": 0.733283,
+      "hSectionEndBearingUtilizationRatio": 0.325904,
+      "transferIntervalBoundsTf": {
+        "kernLowerLimitTf": 6.363636,
+        "supportBearingUpperLimitTf": 6388.181818,
+        "endPlateLocalBendingUpperLimitTf": 130.617267,
+        "hSectionFinishedEndBearingUpperLimitTf": 332.441425
+      }
+    },
+    "endBearingTransferInterval": {
+      "minTf": 9.090909,
+      "maxTf": 130.617267,
+      "lowerGovernedBy": "top_kern_full_contact",
+      "upperGovernedBy": "bottom_end_plate_local_bending",
+      "feasible": true
+    },
+    "endBearingTransferCapacityTf": 130.617267,
+    "governingCapacityMode": "end_bearing",
+    "status": "passed"
+  },
+  "negativeCases": {
+    "exceedsKern": {
+      "description": "反例 1：超出核心區（M_add,x = 5.0 tf·m，其餘同正例，T = 106）",
+      "sourceDemandTf": 106.0,
+      "inputOverrides": {
+        "additional_moment_x_tf_m_per_member": 5.0
+      },
+      "expected": {
+        "eccentricityCm": 13.347386,
+        "topKernLimitCm": 7.5,
+        "bottomKernLimitCm": 8.333333,
+        "topQMin": -0.022831,
+        "bottomQMin": -0.014272,
+        "minTf": 358.181818,
+        "maxTf": 65.162722,
+        "feasible": false,
+        "status": "failed",
+        "endBearingTransferCapacityTf": 0.0
+      }
+    },
+    "belowKernLowerBound": {
+      "description": "反例 2：需求低於核心區下限（同正例輸入，T = 5 tf）",
+      "sourceDemandTf": 5.0,
+      "inputOverrides": {},
+      "expected": {
+        "totalDemandPerMemberTf": 3.75,
+        "eccentricityCm": 9.0,
+        "topKernLimitCm": 7.5,
+        "minTf": 9.090909,
+        "maxTf": 130.617267,
+        "feasible": true,
+        "status": "failed"
+      }
+    }
+  }
+}

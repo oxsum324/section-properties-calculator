@@ -46,6 +46,55 @@ def report_document_metadata(*, approved: bool = False, output_at: datetime | No
     }
 
 
+def receiver_capacity_attachment_report_labels(
+    rsc_record: dict[str, object],
+    rsb_record: dict[str, object],
+) -> dict[str, str]:
+    """Format labels from the exact, already verified RSC and RSB evidence records."""
+    rsc_input = rsc_record.get("input")
+    mode = rsc_input.get("endBearingMode") if isinstance(rsc_input, dict) else None
+    if mode == "centered_rectangular_plate" and rsb_record.get("schemaVersion") == 1:
+        return {
+            "evidenceVersionLabel": "RSC v4 / RSB v1",
+            "attachmentTitle": "RSC v4 / RSB v1 接收端獨立計算附件",
+            "endCheckHeading": "四、上下端三項檢核",
+            "endCheckDemandColumn": "DCR",
+            "endCheckLimitColumn": "容量 (tf/支)",
+        }
+    rsb_input = rsb_record.get("input")
+    if not isinstance(rsc_input, dict) or not isinstance(rsb_input, dict):
+        raise ValueError("接收端附件報表缺少 RSC/RSB 精確輸入記錄。")
+    expected_version = 2
+    if mode not in {"centered_rectangular_plate", "uniaxial_kern_rectangular_plate"}:
+        raise ValueError("接收端附件報表不支援此端部承壓模式。")
+    if mode != "uniaxial_kern_rectangular_plate" or rsb_record.get("schemaVersion") != expected_version or rsb_input.get("endBearingMode") != mode:
+        raise ValueError("接收端附件報表的 RSC/RSB 模式與證據版本不一致。")
+    return {
+        "evidenceVersionLabel": f"RSC v4 / RSB v{expected_version}",
+        "attachmentTitle": f"RSC v4 / RSB v{expected_version} 接收端獨立計算附件",
+        "endCheckHeading": "四、上下端檢核",
+        "endCheckDemandColumn": "需求／比值",
+        "endCheckLimitColumn": "移轉需求 T 界限 (tf)",
+    }
+
+
+def format_receiver_capacity_transfer_interval(interval: dict[str, object]) -> str:
+    """Render finite, empty, and contradictory transfer intervals explicitly."""
+    minimum = interval.get("minTf")
+    maximum = interval.get("maxTf")
+    if minimum is None and maximum is None and interval.get("feasible") is False:
+        reason = str(interval.get("infeasibleReason", "")).strip()
+        return f"無可行區間（{reason}）" if reason else "無可行區間"
+    if isinstance(minimum, bool) or not isinstance(minimum, (int, float)):
+        return "—"
+    if isinstance(maximum, bool) or not isinstance(maximum, (int, float)):
+        return "—"
+    def format_bound(value: int | float) -> str:
+        return f"{float(value):.6f}".rstrip("0").rstrip(".")
+
+    return f"[{format_bound(minimum)}, {format_bound(maximum)}]"
+
+
 def calculation_fingerprint(project: ProjectState) -> str:
     """Return a stable short fingerprint for the calculated report payload."""
     if project.calculation_results is None:

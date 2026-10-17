@@ -1574,8 +1574,14 @@ function App() {
           nextDraft.transfer_eccentricity_y_m = 0;
           nextDraft.additional_moment_x_tf_m_per_member = 0;
           nextDraft.additional_moment_y_tf_m_per_member = 0;
-        } else {
+          if (nextDraft.end_bearing_mode === "uniaxial_kern_rectangular_plate") {
+            nextDraft.end_bearing_mode = "not_checked";
+            nextDraft.kern_full_contact_end_bearing_confirmed = false;
+            nextDraft.end_plate_orientation_confirmed = false;
+          }
+        } else if (nextDraft.end_bearing_mode === "centered_rectangular_plate") {
           nextDraft.end_bearing_mode = "not_checked";
+          nextDraft.centered_full_contact_end_bearing_confirmed = false;
         }
       }
       if (field === "end_bearing_mode" && value === "centered_rectangular_plate") {
@@ -1587,10 +1593,33 @@ function App() {
         nextDraft.additional_moment_y_tf_m_per_member = 0;
         nextDraft.pure_axial_no_eccentricity_confirmed = false;
         nextDraft.centered_full_contact_end_bearing_confirmed = false;
+        nextDraft.kern_full_contact_end_bearing_confirmed = false;
+        nextDraft.end_plate_orientation_confirmed = false;
         nextDraft.h_section_end_finished_confirmed = false;
         nextDraft.unperforated_unstiffened_single_plate_confirmed = false;
         nextDraft.top_support_true_plane_confirmed = false;
         nextDraft.bottom_support_true_plane_confirmed = false;
+      }
+      if (field === "end_bearing_mode" && value === "uniaxial_kern_rectangular_plate") {
+        nextDraft.analysis_mode = "axial_biaxial_bending";
+        nextDraft.allowable_stress_increase_factor = 1;
+        nextDraft.transfer_eccentricity_y_m = 0;
+        nextDraft.additional_moment_y_tf_m_per_member = 0;
+        nextDraft.pure_axial_no_eccentricity_confirmed = false;
+        nextDraft.centered_full_contact_end_bearing_confirmed = false;
+        nextDraft.kern_full_contact_end_bearing_confirmed = false;
+        nextDraft.end_plate_orientation_confirmed = false;
+        nextDraft.h_section_end_finished_confirmed = false;
+        nextDraft.unperforated_unstiffened_single_plate_confirmed = false;
+        nextDraft.top_support_true_plane_confirmed = false;
+        nextDraft.bottom_support_true_plane_confirmed = false;
+      }
+      if (nextDraft.end_bearing_mode !== "not_checked") {
+        nextDraft.allowable_stress_increase_factor = 1;
+      }
+      if (nextDraft.end_bearing_mode === "uniaxial_kern_rectangular_plate") {
+        nextDraft.transfer_eccentricity_y_m = 0;
+        nextDraft.additional_moment_y_tf_m_per_member = 0;
       }
       if (field === "top_support_material") nextDraft.top_support_true_plane_confirmed = false;
       if (field === "bottom_support_material") nextDraft.bottom_support_true_plane_confirmed = false;
@@ -1631,7 +1660,7 @@ function App() {
         draft,
       );
       await validateReshoreCapacityEvidence(response);
-      if (draft.end_bearing_mode === "centered_rectangular_plate" && !response.bearingEvidence) {
+      if (draft.end_bearing_mode !== "not_checked" && !response.bearingEvidence) {
         throw new Error("後端未回傳已啟用之上下端直接承壓 RSB 證據，已停止回填。");
       }
       if (
@@ -1642,15 +1671,15 @@ function App() {
       }
       const bearingEvidenceStatus = response.bearingEvidence
           ? await reshoreBearingEvidenceStatus(
-              response.bearingEvidence,
-              response.calculation.calculationFingerprint,
-              response.evidence.fileName,
-              response.evidence.fileSha256,
+              response,
             )
         : null;
       const calculatedBearingStatus = response.calculation.results.endBearing
         ? response.calculation.results.endBearing.top.status === "passed"
           && response.calculation.results.endBearing.bottom.status === "passed"
+          && (response.calculation.results.endBearingTransferInterval
+            ? response.calculation.results.endBearingTransferInterval.feasible
+            : true)
           ? "passed"
           : "failed"
         : null;
@@ -1764,7 +1793,8 @@ function App() {
       || !calculationResponse?.bearingEvidence
       || !calculationResponse.calculation.results.endBearing
     ) {
-      setError("正式附件只接受已完成 RSC v4 與 RSB v1 精確證據驗證的上下端直接承壓計算。");
+      const rsbVersion = calculationResponse?.calculation.results.endBearing?.mode === "uniaxial_kern_rectangular_plate" ? 2 : 1;
+      setError(`正式附件只接受已完成 RSC v4 與 RSB v${rsbVersion} 精確證據驗證的上下端直接承壓計算。`);
       return;
     }
     const requestToken = Symbol(`reshore-${reportKind}-attachment`);
@@ -1780,20 +1810,21 @@ function App() {
       return { ...current, [transfer.transferId]: remaining };
     });
     try {
-      setBusy(`產生 RSC v4／RSB v1 正式 ${reportKind.toUpperCase()} 附件`);
+      const rsbVersion = calculationResponse.calculation.results.endBearing.mode === "uniaxial_kern_rectangular_plate" ? 2 : 1;
+      setBusy(`產生 RSC v4／RSB v${rsbVersion} 正式 ${reportKind.toUpperCase()} 附件`);
       await validateReshoreCapacityEvidence(calculationResponse);
       const bearingStatus = await reshoreBearingEvidenceStatus(
-        calculationResponse.bearingEvidence,
-        calculationResponse.calculation.calculationFingerprint,
-        calculationResponse.evidence.fileName,
-        calculationResponse.evidence.fileSha256,
+        calculationResponse,
       );
       const calculatedBearingStatus = calculationResponse.calculation.results.endBearing.top.status === "passed"
         && calculationResponse.calculation.results.endBearing.bottom.status === "passed"
+        && (calculationResponse.calculation.results.endBearingTransferInterval
+          ? calculationResponse.calculation.results.endBearingTransferInterval.feasible
+          : true)
         ? "passed"
         : "failed";
       if (bearingStatus !== calculatedBearingStatus) {
-        throw new Error("RSC v4 與 RSB v1 的端部檢核狀態不一致，不得產生正式附件。");
+        throw new Error(`RSC v4 與 RSB v${rsbVersion} 的端部檢核狀態不一致，不得產生正式附件。`);
       }
       const attachment = await api.generateReshoreMemberCapacityAttachment(
         receiverAssistantHandoff,
@@ -8302,7 +8333,7 @@ function App() {
                                 <header>
                                   <div>
                                     <strong>重撐／回撐 H 型鋼構件容量</strong>
-                                    <span>構件可採純軸壓或軸壓＋雙向彎矩互制；純軸壓可另啟用上下端直接承壓＋無加勁端板局部彎曲，仍不涵蓋接頭、加勁、錨定、承接結構本體或施工程序。</span>
+                                    <span>構件可採純軸壓或軸壓＋雙向彎矩互制；純軸壓可搭對心直接承壓，軸壓＋雙向彎矩互制可搭單向強軸核心區（e ≤ L/6）直接承壓＋無加勁端板局部彎曲，仍不涵蓋接頭、加勁、錨定、承接結構本體或施工程序。</span>
                                   </div>
                                   <span className="status-badge">特定承接實算</span>
                                 </header>
@@ -8324,9 +8355,10 @@ function App() {
                                       onChange={(event) => updateReshoreCapacityDraft(result.transferId, "end_bearing_mode", event.target.value)}
                                     >
                                       <option value="not_checked">不檢核</option>
-                                      <option value="centered_rectangular_plate">對心矩形端板＋支承面</option>
+                                      <option value="centered_rectangular_plate" disabled={draft.analysis_mode !== "pure_axial"}>對心矩形端板＋支承面</option>
+                                      <option value="uniaxial_kern_rectangular_plate" disabled={draft.analysis_mode !== "axial_biaxial_bending"}>單向強軸核心區矩形端板＋支承面</option>
                                     </select>
-                                    <small>啟用時自動限制為純軸壓與 1.00 容許應力係數。</small>
+                                    <small>對心模式限純軸壓；單向強軸核心區模式限軸壓＋雙向彎矩互制（e_y = 0、M_add,y = 0），啟用時容許應力係數固定為 1.00。</small>
                                   </label>
                                   <label className="field-block">
                                     <span>H 型鋼斷面</span>
@@ -8381,7 +8413,7 @@ function App() {
                                       onChange={(event) => updateReshoreCapacityDraft(result.transferId, "allowable_stress_increase_factor", event.target.value)}
                                     >
                                       <option value={1}>1.00</option>
-                                      <option value={1.25} disabled={draft.end_bearing_mode === "centered_rectangular_plate"}>1.25（須填依據）</option>
+                                      <option value={1.25} disabled={draft.end_bearing_mode !== "not_checked"}>1.25（須填依據）</option>
                                     </select>
                                   </label>
                                   <NumberField
@@ -8404,6 +8436,7 @@ function App() {
                                       <NumberField
                                         label="產生 My 的移轉偏心距（m）"
                                         value={draft.transfer_eccentricity_y_m}
+                                        disabled={draft.end_bearing_mode === "uniaxial_kern_rectangular_plate"}
                                         onChange={(value) => updateReshoreCapacityDraft(result.transferId, "transfer_eccentricity_y_m", value)}
                                       />
                                       <NumberField
@@ -8414,6 +8447,7 @@ function App() {
                                       <NumberField
                                         label="另加單支 My（tf·m）"
                                         value={draft.additional_moment_y_tf_m_per_member}
+                                        disabled={draft.end_bearing_mode === "uniaxial_kern_rectangular_plate"}
                                         onChange={(value) => updateReshoreCapacityDraft(result.transferId, "additional_moment_y_tf_m_per_member", value)}
                                       />
                                       <NumberField
@@ -8488,9 +8522,13 @@ function App() {
                                     <span>確認本構件為無偏心純軸壓，且無其他彎矩或橫向作用。</span>
                                   </label>
                                 )}
-                                {draft.end_bearing_mode === "centered_rectangular_plate" && (
+                                {draft.end_bearing_mode !== "not_checked" && (
                                   <fieldset className="reshore-end-bearing-fieldset">
-                                    <legend>上下端直接承壓＋無加勁端板局部彎曲</legend>
+                                    <legend>
+                                      {draft.end_bearing_mode === "uniaxial_kern_rectangular_plate"
+                                        ? "單向強軸核心區（e ≤ L/6）直接承壓＋無加勁端板局部彎曲"
+                                        : "上下端直接承壓＋無加勁端板局部彎曲"}
+                                    </legend>
                                     <p>
                                       支承材料請輸入原始強度：加工鋼面輸入 Fy，混凝土全面積承壓輸入 f'c；系統再依材料類別推導容許承壓應力。本模組不檢核端板與 H 型鋼接合、加勁、錨定或支承構造本體。
                                     </p>
@@ -8607,14 +8645,36 @@ function App() {
                                       />
                                     </div>
                                     <div className="reshore-end-bearing-confirmations">
-                                      <label className="check-field reshore-applicability-check">
-                                        <input
-                                          type="checkbox"
-                                          checked={draft.centered_full_contact_end_bearing_confirmed}
-                                          onChange={(event) => updateReshoreCapacityDraft(result.transferId, "centered_full_contact_end_bearing_confirmed", event.target.checked)}
-                                        />
-                                        <span>確認兩端均為對心、全板密貼、無拉力、無剪力且無錨栓參與之直接承壓。</span>
-                                      </label>
+                                      {draft.end_bearing_mode === "centered_rectangular_plate" && (
+                                        <label className="check-field reshore-applicability-check">
+                                          <input
+                                            type="checkbox"
+                                            checked={draft.centered_full_contact_end_bearing_confirmed}
+                                            onChange={(event) => updateReshoreCapacityDraft(result.transferId, "centered_full_contact_end_bearing_confirmed", event.target.checked)}
+                                          />
+                                          <span>確認兩端均為對心、全板密貼、無拉力、無剪力且無錨栓參與之直接承壓。</span>
+                                        </label>
+                                      )}
+                                      {draft.end_bearing_mode === "uniaxial_kern_rectangular_plate" && (
+                                        <>
+                                          <label className="check-field reshore-applicability-check">
+                                            <input
+                                              type="checkbox"
+                                              checked={draft.kern_full_contact_end_bearing_confirmed}
+                                              onChange={(event) => updateReshoreCapacityDraft(result.transferId, "kern_full_contact_end_bearing_confirmed", event.target.checked)}
+                                            />
+                                            <span>確認兩端均為單向強軸核心區（e ≤ L/6）、全板密貼受壓、無掀起、無拉力、無剪力且無錨栓參與之直接承壓。</span>
+                                          </label>
+                                          <label className="check-field reshore-applicability-check">
+                                            <input
+                                              type="checkbox"
+                                              checked={draft.end_plate_orientation_confirmed}
+                                              onChange={(event) => updateReshoreCapacityDraft(result.transferId, "end_plate_orientation_confirmed", event.target.checked)}
+                                            />
+                                            <span>確認端板座標已對齊 H 型鋼：L 平行斷面深 d（強軸 X 彎曲方向），B 平行翼板寬 bf。</span>
+                                          </label>
+                                        </>
+                                      )}
                                       <label className="check-field reshore-applicability-check">
                                         <input
                                           type="checkbox"
@@ -8654,7 +8714,19 @@ function App() {
                                     {calculation.results.endBearing && (
                                       <>
                                         <span>{`直接承壓控制容量 = ${calculation.results.endBearingTransferCapacityTf == null ? "—" : fmt(calculation.results.endBearingTransferCapacityTf, " tf")}；容量控制 = ${calculation.results.governingCapacityMode === "end_bearing" ? "端部直接承壓／端板" : "H 型鋼構件"}`}</span>
-                                        <span>{`頂端：支承承壓比 ${fmt(calculation.results.endBearing.top.supportBearingUtilizationRatio)}、端板局部彎曲比 ${fmt(calculation.results.endBearing.top.plateBendingUtilizationRatio)}、需求厚度 ${fmt(calculation.results.endBearing.top.requiredPlateThicknessCm, " cm")}；底端：支承承壓比 ${fmt(calculation.results.endBearing.bottom.supportBearingUtilizationRatio)}、端板局部彎曲比 ${fmt(calculation.results.endBearing.bottom.plateBendingUtilizationRatio)}、需求厚度 ${fmt(calculation.results.endBearing.bottom.requiredPlateThicknessCm, " cm")}`}</span>
+                                        <span>{`頂端：支承承壓比 ${fmt(calculation.results.endBearing.top.supportBearingUtilizationRatio)}、端板局部彎曲比 ${fmt(calculation.results.endBearing.top.plateBendingUtilizationRatio)}、H 型鋼端面承壓比 ${fmt(calculation.results.endBearing.top.hSectionEndBearingUtilizationRatio)}、需求厚度 ${fmt(calculation.results.endBearing.top.requiredPlateThicknessCm, " cm")}；底端：支承承壓比 ${fmt(calculation.results.endBearing.bottom.supportBearingUtilizationRatio)}、端板局部彎曲比 ${fmt(calculation.results.endBearing.bottom.plateBendingUtilizationRatio)}、H 型鋼端面承壓比 ${fmt(calculation.results.endBearing.bottom.hSectionEndBearingUtilizationRatio)}、需求厚度 ${fmt(calculation.results.endBearing.bottom.requiredPlateThicknessCm, " cm")}`}</span>
+                                        {calculation.results.endBearing.mode === "uniaxial_kern_rectangular_plate" && (
+                                          <>
+                                            <span>{`頂端核心區：e = ${fmt(calculation.results.endBearing.top.eccentricityCm, " cm")} / L/6 = ${fmt(calculation.results.endBearing.top.kernLimitCm, " cm")}（核心區檢核 = ${calculation.results.endBearing.top.kernFullContact ?? "—"}）；核心區 T 下限 / 上限 = ${fmt(calculation.results.endBearing.top.transferIntervalBoundsTf?.kernLowerLimitTf)} / ${fmt(calculation.results.endBearing.top.transferIntervalBoundsTf?.kernUpperLimitTf)} tf；q_avg / q_max / q_min = ${fmt(calculation.results.endBearing.top.qAvg)} / ${fmt(calculation.results.endBearing.top.qMax)} / ${fmt(calculation.results.endBearing.top.qMin)} tf/cm²`}</span>
+                                            <span>{`底端核心區：e = ${fmt(calculation.results.endBearing.bottom.eccentricityCm, " cm")} / L/6 = ${fmt(calculation.results.endBearing.bottom.kernLimitCm, " cm")}（核心區檢核 = ${calculation.results.endBearing.bottom.kernFullContact ?? "—"}）；核心區 T 下限 / 上限 = ${fmt(calculation.results.endBearing.bottom.transferIntervalBoundsTf?.kernLowerLimitTf)} / ${fmt(calculation.results.endBearing.bottom.transferIntervalBoundsTf?.kernUpperLimitTf)} tf；q_avg / q_max / q_min = ${fmt(calculation.results.endBearing.bottom.qAvg)} / ${fmt(calculation.results.endBearing.bottom.qMax)} / ${fmt(calculation.results.endBearing.bottom.qMin)} tf/cm²`}</span>
+                                            {calculation.results.endBearingTransferInterval && (
+                                            <span>{`可行移轉需求區間 [minTf, maxTf] = ${calculation.results.endBearingTransferInterval.minTf === null && calculation.results.endBearingTransferInterval.maxTf === null ? `無可行區間（${calculation.results.endBearingTransferInterval.infeasibleReason ?? "原因未提供"}）` : `[${fmt(calculation.results.endBearingTransferInterval.minTf)}, ${fmt(calculation.results.endBearingTransferInterval.maxTf)}]`} tf；下界控制 = ${calculation.results.endBearingTransferInterval.lowerGovernedBy}；上界控制 = ${calculation.results.endBearingTransferInterval.upperGovernedBy}；區間可行 = ${calculation.results.endBearingTransferInterval.feasible ? "是" : "否"}`}</span>
+                                            )}
+                                            {calculation.results.endBearing.assumptions && (
+                                              <span>{`工程簡化假設：${calculation.results.endBearing.assumptions.join("；")}`}</span>
+                                            )}
+                                          </>
+                                        )}
                                       </>
                                     )}
                                     <span>RSC 構件容量證據已回填為核定承載力文件；啟用端部檢核時，另以不同 SHA-256 的 RSB 回填「承壓」補充查核。若要整列通過，須在五類補充查核中逐項附上正式文件；RSC 不會被當成其他查核的證據。其餘接頭、承接結構本體、側向支撐現況及施工程序仍維持「尚未完成」。</span>
@@ -8663,7 +8735,7 @@ function App() {
                                 {formalAttachmentReady && calculationResponse && (
                                   <div className="reshore-attachment-panel">
                                     <div>
-                                      <strong>RSC v4／RSB v1 獨立計算正式附件</strong>
+                                      <strong>{`RSC v4／RSB v${calculation.results.endBearing?.mode === "uniaxial_kern_rectangular_plate" ? 2 : 1} 獨立計算正式附件`}</strong>
                                       <span>附件只採用畫面上已驗證且可由同一交接列、輸入與 generatedAt 精確重播的 calculationResponse；輸入、草稿或重算一有變動即清除舊附件。</span>
                                     </div>
                                     <div className="action-row">
@@ -9100,11 +9172,11 @@ function TextAreaField(props: { label: string; value: string; onChange: (value: 
   );
 }
 
-function NumberField(props: { label: string; value: number; onChange: (value: string) => void }) {
+function NumberField(props: { label: string; value: number; disabled?: boolean; onChange: (value: string) => void }) {
   return (
     <label className="field-block">
       <span>{props.label}</span>
-      <input type="number" step="any" value={props.value} onChange={(event) => props.onChange(event.target.value)} />
+      <input type="number" step="any" value={props.value} disabled={props.disabled} onChange={(event) => props.onChange(event.target.value)} />
     </label>
   );
 }
@@ -10497,7 +10569,7 @@ function validateReshoreCapacityAttachmentPayload(
 ): void {
   const bearingEvidence = calculationResponse.bearingEvidence;
   if (!bearingEvidence) {
-    throw new Error("正式附件缺少已驗證的 RSB v1 直接承壓證據。");
+    throw new Error("正式附件缺少已驗證的 RSB 直接承壓證據。");
   }
   const sha256Pattern = /^[0-9a-f]{64}$/;
   const rscToken = calculationResponse.calculation.calculationFingerprint.replace(/^RSC-/, "");
@@ -10526,7 +10598,8 @@ function validateReshoreCapacityAttachmentPayload(
     || Number.isNaN(Date.parse(attachment.output_time))
     || !isExpectedAttachmentDownloadUrl(attachment.download_url, attachment.attachment_file_name)
   ) {
-    throw new Error("正式附件回應與既有 RSC v4／RSB v1 指紋、證據檔或輸出檔身分不一致，已停止下載。");
+    const rsbVersion = calculationResponse.calculation.results.endBearing?.mode === "uniaxial_kern_rectangular_plate" ? 2 : 1;
+    throw new Error(`正式附件回應與既有 RSC v4／RSB v${rsbVersion} 指紋、證據檔或輸出檔身分不一致，已停止下載。`);
   }
   const pdfBaseName = attachment.attachment_file_name.replace(/\.pdf$/, "");
   if (expectedReportKind === "pdf") {
@@ -10567,23 +10640,72 @@ function isExpectedAttachmentDownloadUrl(url: string, expectedFileName: string):
 }
 
 async function reshoreBearingEvidenceStatus(
-  evidence: NonNullable<ReshoreMemberCapacityCalculationResponse["bearingEvidence"]>,
-  expectedReshoreCalculationFingerprint: string,
-  expectedReshoreCalculationEvidenceFileName: string,
-  expectedReshoreCalculationEvidenceSha256: string,
+  response: ReshoreMemberCapacityCalculationResponse,
 ): Promise<"passed" | "failed"> {
+  const evidence = response.bearingEvidence;
+  if (!evidence) throw new Error("缺少 RSB 直接承壓證據。");
   const binary = window.atob(evidence.contentBase64);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const record = JSON.parse(new TextDecoder().decode(bytes)) as {
     schemaVersion?: number;
     kind?: string;
     calculationFingerprint?: string;
+    input?: Record<string, unknown>;
     source?: {
       reshoreCalculationFingerprint?: string;
       reshoreCalculationEvidenceFileName?: string;
       reshoreCalculationEvidenceFileSha256?: string;
     };
-    results?: { status?: string };
+    results?: Record<string, unknown> & {
+      status?: string;
+      top?: unknown;
+      bottom?: unknown;
+      totalDemandPerMemberTf?: unknown;
+      endBearingTransferCapacityTf?: unknown;
+      endBearingTransferInterval?: unknown;
+    };
+  };
+  const rscBinary = window.atob(response.evidence.contentBase64);
+  const rscBytes = Uint8Array.from(rscBinary, (character) => character.charCodeAt(0));
+  const rscRecord = JSON.parse(new TextDecoder().decode(rscBytes)) as {
+    schemaVersion?: number;
+    calculationFingerprint?: string;
+    input?: Record<string, unknown>;
+    results?: {
+      status?: string;
+      totalDemandPerMemberTf?: unknown;
+      endBearingTransferCapacityTf?: unknown;
+      endBearingTransferInterval?: unknown;
+      endBearing?: { mode?: string; top?: unknown; bottom?: unknown } | null;
+    };
+  };
+  const mode = rscRecord.input?.endBearingMode;
+  const expectedVersion = mode === "uniaxial_kern_rectangular_plate" ? 2 : 1;
+  const kernMode = mode === "uniaxial_kern_rectangular_plate";
+  const sameEvidenceValue = (left: unknown, right: unknown): boolean => (
+    JSON.stringify(sortEvidenceValue(left)) === JSON.stringify(sortEvidenceValue(right))
+  );
+  const intervalIsValid = (value: unknown): boolean => {
+    if (!value || typeof value !== "object") return false;
+    const interval = value as Record<string, unknown>;
+    if (typeof interval.feasible !== "boolean") return false;
+    if (interval.minTf === null && interval.maxTf === null) {
+      return interval.feasible === false
+        && typeof interval.infeasibleReason === "string"
+        && interval.infeasibleReason.trim().length > 0;
+    }
+    if (
+      typeof interval.minTf !== "number" || !Number.isFinite(interval.minTf)
+      || typeof interval.maxTf !== "number" || !Number.isFinite(interval.maxTf)
+    ) return false;
+    if (interval.feasible) {
+      return interval.minTf <= interval.maxTf && !("infeasibleReason" in interval);
+    }
+    if (
+      "infeasibleReason" in interval
+      && (typeof interval.infeasibleReason !== "string" || !interval.infeasibleReason.trim())
+    ) return false;
+    return interval.minTf > interval.maxTf || interval.maxTf < 0;
   };
   if (
     evidence.mediaType !== "application/json"
@@ -10592,17 +10714,79 @@ async function reshoreBearingEvidenceStatus(
     || evidence.fileName !== `reshore-end-bearing-${evidence.documentReference}.json`
     || !/^[0-9a-f]{64}$/.test(evidence.fileSha256)
     || await bytesSha256Hex(bytes) !== evidence.fileSha256
-    || record.schemaVersion !== 1
+    || !["centered_rectangular_plate", "uniaxial_kern_rectangular_plate"].includes(String(mode))
+    || record.schemaVersion !== expectedVersion
     || record.kind !== "excavation-reshore-end-bearing-evidence"
     || record.calculationFingerprint !== evidence.documentReference
-    || record.source?.reshoreCalculationFingerprint !== expectedReshoreCalculationFingerprint
-    || record.source?.reshoreCalculationEvidenceFileName !== expectedReshoreCalculationEvidenceFileName
-    || record.source?.reshoreCalculationEvidenceFileSha256 !== expectedReshoreCalculationEvidenceSha256
+    || rscRecord.schemaVersion !== 4
+    || rscRecord.calculationFingerprint !== response.calculation.calculationFingerprint
+    || record.source?.reshoreCalculationFingerprint !== response.calculation.calculationFingerprint
+    || record.source?.reshoreCalculationEvidenceFileName !== response.evidence.fileName
+    || record.source?.reshoreCalculationEvidenceFileSha256 !== response.evidence.fileSha256
+    || (kernMode && record.input?.endBearingMode !== mode)
     || !["passed", "failed"].includes(record.results?.status ?? "")
   ) {
-    throw new Error("RSB 直接承壓證據內容、指紋或結果狀態不完整，已停止回填。");
+    throw new Error(kernMode
+      ? "RSB v2 直接承壓證據內容、模式、版本、指紋或結果狀態不完整，已停止回填。"
+      : "RSB 直接承壓證據內容、指紋或結果狀態不完整，已停止回填。");
+  }
+  if (kernMode) {
+    const rscInput = rscRecord.input ?? {};
+    for (const [key, value] of Object.entries(record.input ?? {})) {
+      if (!(key in rscInput) || !sameEvidenceValue(value, rscInput[key])) {
+        throw new Error(`RSC 與 RSB 的輸入欄位 ${key} 不一致，已停止回填。`);
+      }
+    }
+    for (const key of ["kernFullContactEndBearingConfirmed", "endPlateOrientationConfirmed"]) {
+      if (record.input?.[key] !== true || rscInput[key] !== true) {
+        throw new Error(`RSC 與 RSB 的 ${key} 必須明確確認為 true。`);
+      }
+    }
+    for (const key of [
+      "endBearingConfigurationBasis",
+      "endPlateBendingMethodBasis",
+      "topSupportBearingBasis",
+      "bottomSupportBearingBasis",
+      "eccentricityAndMomentBasis",
+    ]) {
+      if (typeof record.input?.[key] !== "string" || !record.input[key].trim()) {
+        throw new Error(`RSB 的 ${key} 不得空白，已停止回填。`);
+      }
+    }
+    const interval = rscRecord.results?.endBearingTransferInterval;
+    const endBearing = rscRecord.results?.endBearing;
+    if (
+      !intervalIsValid(interval)
+      || !sameEvidenceValue(interval, record.results?.endBearingTransferInterval)
+      || !endBearing
+      || !sameEvidenceValue(endBearing.top, record.results?.top)
+      || !sameEvidenceValue(endBearing.bottom, record.results?.bottom)
+      || !sameEvidenceValue(rscRecord.results?.totalDemandPerMemberTf, record.results?.totalDemandPerMemberTf)
+      || !sameEvidenceValue(rscRecord.results?.endBearingTransferCapacityTf, record.results?.endBearingTransferCapacityTf)
+      || endBearing.mode !== mode
+    ) {
+      throw new Error("RSB v2 與 RSC v4 的單向核心區輸入或承壓結果不一致，已停止回填。");
+    }
+    for (const end of [record.results?.top, record.results?.bottom]) {
+      const bounds = (end as { transferIntervalBoundsTf?: unknown } | null)?.transferIntervalBoundsTf;
+      if (!intervalIsValid(bounds)) {
+        throw new Error("RSB v2 的端部可行區間界限不完整，已停止回填。");
+      }
+    }
   }
   return record.results?.status as "passed" | "failed";
+}
+
+function sortEvidenceValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortEvidenceValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, sortEvidenceValue(child)]),
+    );
+  }
+  return value;
 }
 
 async function validateReshoreCapacityEvidence(
@@ -10886,6 +11070,8 @@ function receiverCapacityDrafts(
           top_support_bearing_basis: "",
           bottom_support_bearing_basis: "",
           centered_full_contact_end_bearing_confirmed: false,
+          kern_full_contact_end_bearing_confirmed: false,
+          end_plate_orientation_confirmed: false,
           h_section_end_finished_confirmed: false,
           unperforated_unstiffened_single_plate_confirmed: false,
         } satisfies ReshoreMemberCapacityInput,

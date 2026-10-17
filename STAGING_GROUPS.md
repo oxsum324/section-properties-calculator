@@ -469,6 +469,26 @@ git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "結構工具箱/tools
 git add -- "結構工具箱/tools/local-quick-browser-smoke.test.js"
 <!-- T47-REGISTRATION-END -->
 
+<!-- T48-REGISTRATION-START -->
+## 2026-10-17：T48 重撐單向核心區直接承壓續作（16 檔本機保留）
+
+本包共 16 檔：`開挖擋土支撐/backend/app/receiver_capacity.py`、`開挖擋土支撐/backend/app/receiver_capacity_attachment.py`、`開挖擋土支撐/backend/app/reporting.py`、`開挖擋土支撐/backend/app/schemas.py`、`開挖擋土支撐/backend/tests/test_receiver_capacity.py`、`開挖擋土支撐/backend/tests/test_receiver_capacity_attachment.py`、`開挖擋土支撐/backend/tests/fixtures/reshore_kern_end_bearing_independent_benchmark.json`、`開挖擋土支撐/excavation-traceability.catalog.json`、`開挖擋土支撐/README.md`、`開挖擋土支撐/frontend/src/App.tsx`、`開挖擋土支撐/frontend/src/types.ts`、`結構工具箱/assets/home/src/home.source.js`、`結構工具箱/assets/home/home.js`、`README.md`、`TOOL_BOUNDARIES.md`、`STAGING_GROUPS.md`。
+
+新模式使用 RSC v4／RSB v2；舊模式 RSB v1 bytes 不變。catalog 只修新 trace，metadata/version 與既有條目不變。區間空集合須保留語意：零係數常數矛盾回傳 null 上下界、`feasible=false` 與非空原因；有限下限大於有限上限時保留有限值。reporting helper 僅供獨立附件格式化已驗證回應，不改寫 ProjectState／來源主計算書。
+
+本次保持 dirty 例外，不提交、不推送、不重設基準；不跑測試或建置。`run-phase-gates.ps1` 與 `run-family-wrappers.ps1` 規則維持原樣；family 子項即使全過，dirty 工作樹仍會使總 `passed=false`，照實保存收據，不可放寬或偽裝乾淨。
+
+未執行下列 staging 指令；僅作本包範圍紀錄：
+```powershell
+git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "開挖擋土支撐/README.md" "開挖擋土支撐/excavation-traceability.catalog.json" "開挖擋土支撐/backend/app/receiver_capacity.py" "開挖擋土支撐/backend/app/receiver_capacity_attachment.py" "開挖擋土支撐/backend/app/reporting.py" "開挖擋土支撐/backend/app/schemas.py" "開挖擋土支撐/backend/tests/test_receiver_capacity.py" "開挖擋土支撐/backend/tests/test_receiver_capacity_attachment.py" "開挖擋土支撐/backend/tests/fixtures/reshore_kern_end_bearing_independent_benchmark.json" "開挖擋土支撐/frontend/src/App.tsx" "開挖擋土支撐/frontend/src/types.ts" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js"
+```
+
+提交訊息草案（未執行）： `Support uniaxial kern end-plate bearing in reshore capacity`
+
+
+此二檔為既有首頁日期同步產物，未新增壓縮機制或修改設定；日期檢查待最終串行重驗。
+<!-- T48-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->

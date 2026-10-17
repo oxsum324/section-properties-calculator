@@ -40,6 +40,11 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
         / "fixtures"
         / "reshore_end_bearing_independent_benchmark.json"
     )
+    INDEPENDENT_KERN_END_BEARING_BENCHMARK_PATH = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "reshore_kern_end_bearing_independent_benchmark.json"
+    )
 
     @staticmethod
     def independent_biaxial_reference(benchmark: dict) -> dict[str, float | str | None]:
@@ -963,6 +968,345 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
             json.loads(base64.b64decode(bearing_response.json()["bearingEvidence"]["contentBase64"]))["kind"],
             BEARING_EVIDENCE_KIND,
         )
+
+    @staticmethod
+    def valid_kern_end_bearing_overrides() -> dict:
+        return {
+            "analysis_mode": "axial_biaxial_bending",
+            "pure_axial_no_eccentricity_confirmed": False,
+            "transfer_eccentricity_x_m": 0.05,
+            "transfer_eccentricity_y_m": 0.0,
+            "additional_moment_x_tf_m_per_member": 0.2,
+            "additional_moment_y_tf_m_per_member": 0.0,
+            "strong_axis_lateral_unbraced_length_m": 3.0,
+            "moment_gradient_coefficient_cb": 1.0,
+            "moment_amplification_coefficient_cmx": 1.0,
+            "moment_amplification_coefficient_cmy": 1.0,
+            "eccentricity_and_moment_basis": "單向強軸偏心 e_x=0.05 m 及附加彎矩 M_add,x=0.2 tf·m 均沿 H 型鋼深度方向（端板長度 L 方向），依拆撐節點詳圖 CS-04。",
+            "bending_stability_basis": "Lb=3.0 m，Cb=1.0，Cmx=Cmy=1.0。",
+            "end_bearing_mode": "uniaxial_kern_rectangular_plate",
+            "top_end_plate_fy_tf_per_cm2": 2.5,
+            "top_end_plate_width_cm": 45.0,
+            "top_end_plate_length_cm": 45.0,
+            "top_end_plate_thickness_cm": 4.0,
+            "top_support_material": "concrete_full_area",
+            "top_support_material_strength_tf_per_cm2": 0.28,
+            "top_support_true_plane_confirmed": False,
+            "bottom_end_plate_width_cm": 50.0,
+            "bottom_end_plate_length_cm": 50.0,
+            "bottom_end_plate_thickness_cm": 4.0,
+            "bottom_end_plate_fy_tf_per_cm2": 2.5,
+            "bottom_support_material": "finished_steel",
+            "bottom_support_material_strength_tf_per_cm2": 2.5,
+            "bottom_support_true_plane_confirmed": True,
+            "end_bearing_configuration_basis": "上下端板長度 L 沿 H 型鋼深度 d 方向配置並全板密貼，依施工詳圖 EB-02。",
+            "end_plate_bending_method_basis": "專案指定採單向核心區梯形反力峰值 q_max 包絡懸臂板模型及 Fb=0.60Fy。",
+            "top_support_bearing_basis": "混凝土試驗報告 FC-01，f'c=0.28 tf/cm²；全面積承壓（不計 A2/A1 放大）。",
+            "bottom_support_bearing_basis": "加工鋼支承詳圖 SB-01，Fy=2.5 tf/cm²。",
+            "kern_full_contact_end_bearing_confirmed": True,
+            "end_plate_orientation_confirmed": True,
+            "h_section_end_finished_confirmed": True,
+            "unperforated_unstiffened_single_plate_confirmed": True,
+        }
+
+    def test_independent_kern_end_bearing_benchmark_exc_rsb_002_positive_and_negative_cases(self) -> None:
+        benchmark = json.loads(
+            self.INDEPENDENT_KERN_END_BEARING_BENCHMARK_PATH.read_text(encoding="utf-8")
+        )
+        self.assertEqual(benchmark["benchmarkId"], "EXC-RSB-002")
+        self.assertEqual(benchmark["kind"], "independent-engineering-benchmark")
+        self.assertIn("不呼叫 production 端板函式", benchmark["independenceBoundary"])
+
+        expected = benchmark["expected"]
+        tolerance = float(expected["absoluteTolerance"])
+        overrides = {
+            **self.valid_kern_end_bearing_overrides(),
+            **benchmark["calculationInput"],
+        }
+        result = self.calculate(**overrides)
+        calculation = result["calculation"]
+        values = calculation["results"]
+
+        self.assertEqual(calculation["source"]["receiverTransferDemandTf"], benchmark["sourceDemandTf"])
+        self.assertAlmostEqual(
+            values["totalDemandPerMemberTf"],
+            expected["totalDemandPerMemberTf"],
+            delta=tolerance,
+        )
+        self.assertAlmostEqual(
+            values["momentXTfMPerMember"] * 100.0,
+            expected["momentPerMemberTfCm"],
+            delta=tolerance,
+        )
+        self.assertEqual(values["status"], expected["status"])
+        self.assertEqual(values["governingCapacityMode"], expected["governingCapacityMode"])
+        self.assertGreater(values["nominalTransferCapacityTf"], expected["endBearingTransferCapacityTf"])
+        self.assertAlmostEqual(
+            values["endBearingTransferCapacityTf"],
+            expected["endBearingTransferCapacityTf"],
+            delta=tolerance,
+        )
+        self.assertAlmostEqual(
+            values["adoptableTransferCapacityTf"],
+            expected["endBearingTransferCapacityTf"],
+            delta=tolerance,
+        )
+
+        interval = values["endBearingTransferInterval"]
+        expected_interval = expected["endBearingTransferInterval"]
+        self.assertAlmostEqual(interval["minTf"], expected_interval["minTf"], delta=tolerance)
+        self.assertAlmostEqual(interval["maxTf"], expected_interval["maxTf"], delta=tolerance)
+        self.assertEqual(interval["lowerGovernedBy"], expected_interval["lowerGovernedBy"])
+        self.assertEqual(interval["upperGovernedBy"], expected_interval["upperGovernedBy"])
+        self.assertEqual(interval["feasible"], expected_interval["feasible"])
+
+        for end_name in ("top", "bottom"):
+            observed_end = values["endBearing"][end_name]
+            expected_end = expected[end_name]
+            for field, expected_value in expected_end.items():
+                if field == "transferIntervalBoundsTf":
+                    observed_bounds = observed_end["transferIntervalBoundsTf"]
+                    for bound_field, bound_expected in expected_value.items():
+                        with self.subTest(end=end_name, bound=bound_field):
+                            self.assertAlmostEqual(
+                                float(observed_bounds[bound_field]),
+                                float(bound_expected),
+                                delta=tolerance,
+                            )
+                elif isinstance(expected_value, (int, float)) and not isinstance(expected_value, bool):
+                    with self.subTest(end=end_name, field=field):
+                        self.assertAlmostEqual(
+                            float(observed_end[field]),
+                            float(expected_value),
+                            delta=tolerance,
+                        )
+                else:
+                    with self.subTest(end=end_name, field=field):
+                        self.assertEqual(observed_end[field], expected_value)
+            self.assertEqual(observed_end["status"], "passed")
+            self.assertEqual(set(observed_end["checks"].values()), {"passed"})
+
+        # Negative Case 1: exceeds kern (M_add,x = 5.0 tf*m, T = 106 tf)
+        neg1 = benchmark["negativeCases"]["exceedsKern"]
+        neg1_result = self.calculate(**{**overrides, **neg1["inputOverrides"]})["calculation"]["results"]
+        neg1_expected = neg1["expected"]
+        self.assertAlmostEqual(
+            neg1_result["endBearing"]["top"]["eccentricityCm"],
+            neg1_expected["eccentricityCm"],
+            delta=tolerance,
+        )
+        self.assertAlmostEqual(
+            neg1_result["endBearing"]["bottom"]["eccentricityCm"],
+            neg1_expected["eccentricityCm"],
+            delta=tolerance,
+        )
+        self.assertGreater(
+            neg1_result["endBearing"]["top"]["eccentricityCm"],
+            neg1_expected["topKernLimitCm"],
+        )
+        self.assertGreater(
+            neg1_result["endBearing"]["bottom"]["eccentricityCm"],
+            neg1_expected["bottomKernLimitCm"],
+        )
+        self.assertAlmostEqual(
+            neg1_result["endBearing"]["top"]["qMin"],
+            neg1_expected["topQMin"],
+            delta=tolerance,
+        )
+        self.assertAlmostEqual(
+            neg1_result["endBearing"]["bottom"]["qMin"],
+            neg1_expected["bottomQMin"],
+            delta=tolerance,
+        )
+        self.assertAlmostEqual(
+            neg1_result["endBearingTransferInterval"]["minTf"],
+            neg1_expected["minTf"],
+            delta=tolerance,
+        )
+        self.assertAlmostEqual(
+            neg1_result["endBearingTransferInterval"]["maxTf"],
+            neg1_expected["maxTf"],
+            delta=tolerance,
+        )
+        self.assertEqual(neg1_result["endBearingTransferInterval"]["feasible"], neg1_expected["feasible"])
+        self.assertEqual(neg1_result["status"], neg1_expected["status"])
+        self.assertAlmostEqual(
+            neg1_result["endBearingTransferCapacityTf"],
+            neg1_expected["endBearingTransferCapacityTf"],
+            delta=tolerance,
+        )
+
+        # Negative Case 2: demand below kern lower bound (T = 5 tf < minTf = 9.090909 tf)
+        neg2 = benchmark["negativeCases"]["belowKernLowerBound"]
+        neg2_expected = neg2["expected"]
+        project = load_default_project().model_copy(deep=True)
+        project.metadata.id = "reshore-capacity-test-low-demand"
+        project.metadata.name = "回撐低需求核心區下限測試案"
+        project.calculation_options.auto_temp_force_top_supports = False
+        row = project.top_supports[0]
+        row.support_count = 1
+        row.spacing_m = 1.0
+        row.axial_force_t = float(neg2["sourceDemandTf"])
+        row.temp_force_t = 0.0
+        row.force_source = "analysis_import"
+        row.analysis_stage_cases = [
+            AnalysisForceCase(stage_index=2, stage_label="第二階開挖", axial_force_t=row.axial_force_t),
+        ]
+        row.analysis_install_stage_index = 1
+        row.analysis_install_stage_label = "第一道支撐安裝"
+        row.analysis_control_stage_index = 2
+        row.analysis_control_stage_label = "第二階開挖"
+        row.analysis_removal_stage_index = 3
+        row.analysis_removal_stage_label = "第一道支撐拆除"
+        row.removal_transfer_mode = "reshore"
+        row.removal_transfer_target = "B2F R1 重撐群"
+        row.removal_transfer_direction = "沿原支撐軸線傳至 B2F"
+        row.removal_transfer_basis = "拆撐順序圖 CS-04"
+        row.removal_transfer_confirmed = True
+        row.construction_step_label = "第二階開挖完成"
+        row.analysis_mapping_basis = "施工順序圖 CS-02"
+        row.analysis_mapping_confirmed = True
+        project.calculation_results = calculate_project(project)
+        low_handoff = build_removal_transfer_handoff(
+            project,
+            calculation_fingerprint(project),
+            generated_at="2026-08-11T08:00:00Z",
+        )
+        neg2_calc = calculate_reshore_member_capacity(
+            low_handoff,
+            low_handoff["transfers"][0]["transferId"],
+            self.valid_input(**overrides),
+            generated_at="2026-08-11T09:00:00Z",
+        )["calculation"]
+        self.assertAlmostEqual(
+            neg2_calc["source"]["receiverTransferDemandTf"],
+            float(neg2["sourceDemandTf"]),
+            delta=tolerance,
+        )
+        neg2_result = neg2_calc["results"]
+        self.assertAlmostEqual(
+            neg2_result["totalDemandPerMemberTf"],
+            neg2_expected["totalDemandPerMemberTf"],
+            delta=tolerance,
+        )
+        self.assertAlmostEqual(
+            neg2_result["endBearing"]["top"]["eccentricityCm"],
+            neg2_expected["eccentricityCm"],
+            delta=tolerance,
+        )
+        self.assertGreater(
+            neg2_result["endBearing"]["top"]["eccentricityCm"],
+            neg2_expected["topKernLimitCm"],
+        )
+        self.assertAlmostEqual(
+            neg2_result["endBearingTransferInterval"]["minTf"],
+            neg2_expected["minTf"],
+            delta=tolerance,
+        )
+        self.assertAlmostEqual(
+            neg2_result["endBearingTransferInterval"]["maxTf"],
+            neg2_expected["maxTf"],
+            delta=tolerance,
+        )
+        self.assertEqual(neg2_result["endBearingTransferInterval"]["feasible"], neg2_expected["feasible"])
+        self.assertEqual(neg2_result["status"], neg2_expected["status"])
+
+        # Negative Case 3: weak-axis bending or unconfirmed flags must raise ValueError
+        with self.assertRaisesRegex(ValueError, "弱軸"):
+            self.calculate(**{**overrides, "transfer_eccentricity_y_m": 0.03})
+        with self.assertRaisesRegex(ValueError, "弱軸"):
+            self.calculate(**{**overrides, "additional_moment_y_tf_m_per_member": 0.1})
+        with self.assertRaisesRegex(ValueError, "方向"):
+            self.calculate(**{**overrides, "end_plate_orientation_confirmed": False})
+        with self.assertRaisesRegex(
+            ValueError,
+            "單向核心區直接承壓模組必須確認：偏心僅沿端板長度方向（H 型鋼強軸深度方向）、合力位於核心區內、全板密貼、無拉力、無剪力且無錨栓參與。",
+        ):
+            self.calculate(**{**overrides, "kern_full_contact_end_bearing_confirmed": False})
+
+    def test_kern_constant_contradiction_returns_serializable_empty_interval(self) -> None:
+        result = self.calculate(**{
+            **self.valid_kern_end_bearing_overrides(),
+            "transfer_eccentricity_x_m": 0.075,
+        })
+        values = result["calculation"]["results"]
+        interval = values["endBearingTransferInterval"]
+        self.assertFalse(interval["feasible"])
+        self.assertIsNone(interval["minTf"])
+        self.assertIsNone(interval["maxTf"])
+        self.assertIn("係數為零", interval["infeasibleReason"])
+        self.assertEqual(interval["lowerGovernedBy"], "top_kern_full_contact")
+        self.assertEqual(interval["upperGovernedBy"], "top_kern_full_contact")
+        top_bounds = values["endBearing"]["top"]["transferIntervalBoundsTf"]
+        self.assertFalse(top_bounds["feasible"])
+        self.assertIsNone(top_bounds["minTf"])
+        self.assertIsNone(top_bounds["maxTf"])
+        self.assertEqual(values["endBearingTransferCapacityTf"], 0)
+        self.assertEqual(values["adoptableTransferCapacityTf"], 0)
+        self.assertEqual(values["status"], "failed")
+        self.assertEqual(result["bearingEvidence"]["revision"], "v2")
+        bearing = json.loads(base64.b64decode(result["bearingEvidence"]["contentBase64"]))
+        self.assertEqual(bearing["schemaVersion"], 2)
+        self.assertEqual(bearing["results"]["endBearingTransferInterval"], interval)
+        json.dumps(result, ensure_ascii=False, allow_nan=False)
+
+    def test_kern_zero_coefficient_satisfied_and_upper_bound_cases_remain_finite(self) -> None:
+        satisfied = self.calculate(**{
+            **self.valid_kern_end_bearing_overrides(),
+            "transfer_eccentricity_x_m": 0.075,
+            "additional_axial_load_tf_per_member": 4.0,
+        })["calculation"]["results"]
+        interval = satisfied["endBearingTransferInterval"]
+        self.assertTrue(interval["feasible"])
+        self.assertEqual(interval["minTf"], 0)
+        self.assertTrue(math.isfinite(interval["maxTf"]))
+        self.assertNotIn("infeasibleReason", interval)
+        self.assertEqual(satisfied["endBearing"]["top"]["kernFullContact"], "passed")
+        upper = self.calculate(**{
+            **self.valid_kern_end_bearing_overrides(),
+            "transfer_eccentricity_x_m": 0.09,
+            "additional_axial_load_tf_per_member": 10.0,
+        })["calculation"]["results"]
+        top = upper["endBearing"]["top"]
+        self.assertAlmostEqual(
+            top["transferIntervalBoundsTf"]["kernUpperLimitTf"],
+            66.666667,
+            delta=1e-6,
+        )
+        self.assertEqual(top["kernFullContact"], "failed")
+        self.assertEqual(upper["status"], "failed")
+        self.assertTrue(math.isfinite(upper["endBearingTransferInterval"]["maxTf"]))
+
+    def test_legacy_benchmarks_preserve_exact_fingerprints_sha256_and_key_sets(self) -> None:
+        from backend.app.receiver_capacity import _canonical_json
+
+        bx001_bench = json.loads(self.INDEPENDENT_BENCHMARK_PATH.read_text(encoding="utf-8"))
+        bx001_resp = self.calculate(**bx001_bench["calculationInput"])
+        bx001_full_sha = hashlib.sha256(_canonical_json(bx001_resp).encode("utf-8")).hexdigest()
+        self.assertEqual(bx001_resp["calculation"]["calculationFingerprint"], "RSC-FB0D6F25D373EF239B59")
+        self.assertEqual(bx001_resp["evidence"]["fileSha256"], "64244463f5274d74ca1e03b9d3ef7b424da28368fe7b164b35fcf01f781b36ac")
+        self.assertEqual(bx001_full_sha, "1c31b02c1a0640afd7e5c68bceca8f0d9f62592514afd36ce6f79cb6ebefd46e")
+        self.assertNotIn("endBearingTransferInterval", bx001_resp["calculation"]["results"])
+        self.assertNotIn("kernFullContactEndBearingConfirmed", bx001_resp["calculation"]["input"])
+
+        bx002_bench = json.loads(self.INDEPENDENT_822_BENCHMARK_PATH.read_text(encoding="utf-8"))
+        bx002_resp = self.calculate(**bx002_bench["calculationInput"])
+        bx002_full_sha = hashlib.sha256(_canonical_json(bx002_resp).encode("utf-8")).hexdigest()
+        self.assertEqual(bx002_resp["calculation"]["calculationFingerprint"], "RSC-2A5E0D757C3A86CD1D64")
+        self.assertEqual(bx002_resp["evidence"]["fileSha256"], "69cdbd808089bcb355c332f0c9658431e3e8afbfd20d4b88795d826ac192f995")
+        self.assertEqual(bx002_full_sha, "41c94e6644dd864bb9053d3bb4e1f73a7a61ffc5c3e37f3c97c39b22ffba4307")
+        self.assertNotIn("endBearingTransferInterval", bx002_resp["calculation"]["results"])
+
+        rsb001_bench = json.loads(self.INDEPENDENT_END_BEARING_BENCHMARK_PATH.read_text(encoding="utf-8"))
+        rsb001_resp = self.calculate(**{**self.valid_end_bearing_overrides(), **rsb001_bench["calculationInput"]})
+        rsb001_full_sha = hashlib.sha256(_canonical_json(rsb001_resp).encode("utf-8")).hexdigest()
+        self.assertEqual(rsb001_resp["calculation"]["calculationFingerprint"], "RSC-6CFAD66EF6FDD24871A4")
+        self.assertEqual(rsb001_resp["evidence"]["fileSha256"], "bcec503f39c237fac5d9c3cb441a83591325888e472a3d58258120093e0ca0bd")
+        self.assertEqual(rsb001_resp["bearingEvidence"]["documentReference"], "RSB-DE30B3DB0423A3C98C78")
+        self.assertEqual(rsb001_resp["bearingEvidence"]["fileSha256"], "09fb04b9c3c1e843f71110e1a423d9de24dc0a06704674ccc38536fe2473e0f4")
+        self.assertEqual(rsb001_full_sha, "723c9d120a697988ec56d2a4e12d2b23b2362403519941d4000db899641f282e")
+        self.assertNotIn("endBearingTransferInterval", rsb001_resp["calculation"]["results"])
+        self.assertNotIn("eccentricityCm", rsb001_resp["calculation"]["results"]["endBearing"]["top"])
 
 
 if __name__ == "__main__":
