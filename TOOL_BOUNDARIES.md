@@ -244,6 +244,12 @@ NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋�
 `結構工具箱/tools/release-environment.ps1` 僅供 `preflight-tools.ps1` 的正式 release 路徑，在來源乾淨及取得單例鎖後、平台與慢速稽核前執行。它只用程序層級的 `STRUCTURAL_TOOLS_PYTHON` 選擇 Python；明確指定無效即失敗，不安裝套件，且只在子程序環境固定 Python／原生 Windows PowerShell。完整石材環境 probe、自我檢查與報告契約失敗時，只保存 ignored 私有收據並停止，不形成正式 run 或公開狀態。Windows PowerShell 5.1 僅是 `run-preflight-tools-release.bat` 的執行器要求；一般、quick 與 CI wrapper 規則不變。正式預檢既有 70 keys、順序、命令、3 個 post-checks 與 `Clear-PreflightRuntimeProcesses` 行為均不在此包修改範圍。
 <!-- T51-REGISTRATION-END -->
 
+<!-- T52-REGISTRATION-START -->
+## 2026-10-18：T52 NDT 顯示層鍵名邊界
+
+鍵名轉譯僅在 `結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html`：精確 15 個內建鍵顯示中文名稱及原鍵，畫面、摘要／詳細報告與 TXT 共用同一 helper；未知或自訂鍵原樣顯示。`local-quick-tools.manifest.json` 只准在 NDT 項目追加 `reportNeedles`，其餘項目維持 deep equal。既有首頁日期同步將 NDT 由 2026-10-16 更新至 2026-10-18，範圍僅為 `home.source.js` 與既有建置器產生的 `home.js`，不新增壓縮策略。不得改 core、spec、golden、JSON 或 trace；NDT 維持 assist 身分及既有附件資格，不新增 lazy-load。
+<!-- T52-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 

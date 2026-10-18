@@ -210,7 +210,7 @@
       '/equipment-load': '2026-10-15',
       '/earth-pressure': '2026-10-15',
       '/floor-slab-westergaard': '2026-10-15',
-      '/concrete-strength-ndt': '2026-10-16',
+      '/concrete-strength-ndt': '2026-10-18',
       '/cable-tension-frequency': '2026-10-15',
       '/decking': '2026-10-11',
       '/excavation-support': '2026-10-18'

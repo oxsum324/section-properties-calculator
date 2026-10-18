@@ -496,6 +496,7 @@ git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "開挖擋土支撐/RE
 <!-- P2-NEW-GITADD-START -->
 <!--P2:SG-04-105-->
 git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md preflight-tools.ps1 run-preflight-tools-release.bat toolbox-entrypoints.contract.test.js pages-release-governance.contract.test.js powershell-encoding.contract.test.js "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/release-readiness.contract.test.js" "結構工具箱/tools/release-environment.ps1" "結構工具箱/tools/release-environment.contract.test.js" "石材固定/env_check.py"
+git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" "結構工具箱/tools/local-quick-tools.manifest.json" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js"
 <!-- P2-NEW-GITADD-END -->
 
 ## 2026-10-17：交付物契約追蹤附件標題新位置（T48 放行前修正）
@@ -532,6 +533,12 @@ git add -- "開挖擋土支撐/backend/app/receiver_capacity.py" "開挖擋土�
 
 此包的契約讀者涵蓋 `toolbox-entrypoints.contract.test.js`、`結構工具箱/tools/release-readiness.contract.test.js`、`pages-release-governance.contract.test.js` 與 `結構工具箱/tools/release-environment.contract.test.js`；既有治理 loader／私有 Pages 邊界同步維護。
 <!-- T51-REGISTRATION-END -->
+
+<!-- T52-REGISTRATION-START -->
+## 2026-10-18：T52 NDT 報表鍵名可讀顯示
+
+僅更新 `結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html`：頁面 helper 對精確 15 個內建鍵輸出中文名稱與原鍵，供 screen、摘要／詳細計算書與 TXT 共用；未知或自訂鍵原樣呈現。`結構工具箱/tools/local-quick-tools.manifest.json` 僅在 NDT 項目追加 `reportNeedles`，其他工具項目保持 deep equal。既有日期同步器將 NDT 首頁日期由 2026-10-16 更新為 2026-10-18，因此同包納入 `結構工具箱/assets/home/src/home.source.js` 與既有建置器產生的 `home.js`；只有日期來源行變動，不新增壓縮策略。core、spec、golden、JSON、trace、assist 身分及附件資格均不變，也不新增 lazy-load。
+<!-- T52-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
