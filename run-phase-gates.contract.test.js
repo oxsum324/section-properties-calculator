@@ -6,22 +6,39 @@ const path = require('node:path');
 const root = path.resolve(__dirname);
 const runnerPath = path.join(root, 'run-phase-gates.ps1');
 const dispatchPath = path.join(root, '_tmp', '派工', '小工具優化派工指示-20261008-V3.md');
+const manifestPath = path.join(root, 'phase-gates.commands.json');
 
 assert.ok(fs.existsSync(runnerPath), 'run-phase-gates.ps1 must exist');
-assert.ok(fs.existsSync(dispatchPath), 'the original V3 dispatch must exist');
+assert.ok(fs.existsSync(manifestPath), 'phase-gates.commands.json must exist');
 
-const dispatch = fs.readFileSync(dispatchPath, 'utf8');
-const section = dispatch.match(/^## 0\.[\s\S]*?^```(?:bash|sh)?\s*\r?\n([\s\S]*?)^```/m);
-assert.ok(section, 'V3 section 0 command block must exist');
-const expectedCommands = section[1].split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-assert.equal(expectedCommands.length, 29, 'V3 section 0 must contain the original 26 commands and three added contracts');
-assert.deepEqual(expectedCommands.slice(-3), [
+const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+assert.equal(manifest.schemaVersion, 1, 'phase gate manifest schemaVersion must be 1');
+assert.ok(Array.isArray(manifest.commands) && manifest.commands.every((command) => typeof command === 'string' && command.trim()), 'manifest commands must be non-empty strings');
+const expectedCommands = manifest.commands;
+assert.equal(expectedCommands.length, 31, 'phase gate manifest must contain 31 commands');
+assert.deepEqual(expectedCommands.slice(26, 29), [
   'node 結構工具箱/tools/regulatory-data.contract.test.js',
   'node 結構工具箱/tools/sync-home-update-dates.js --check',
   'node tool-page-a11y-build.contract.test.js',
-], 'the mirror parity, clean-tree homepage dates and generated a11y checks must be appended in order');
+], 'commands 27-29 must preserve the regulatory, homepage-date and generated a11y checks in order');
+assert.deepEqual(expectedCommands.slice(-2), [
+  'node 結構工具箱/tools/delivery-artifacts.contract.test.js',
+  'node 結構工具箱/tools/release-readiness.contract.test.js',
+], 'the delivery-artifacts and release-readiness contracts must be appended in order');
 
-const invokePowerShell = (args) => spawnSync('powershell', [
+if (fs.existsSync(dispatchPath)) {
+  const dispatch = fs.readFileSync(dispatchPath, 'utf8');
+  const section = dispatch.match(/^## 0\.[\s\S]*?^```(?:bash|sh)?\s*\r?\n([\s\S]*?)^```/m);
+  assert.ok(section, 'V3 section 0 command block must exist when the legacy dispatch is present');
+  const legacyCommands = section[1].split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  assert.equal(legacyCommands.length, 29, 'V3 section 0 must contain the original 29 commands');
+  assert.deepEqual(expectedCommands.slice(0, 29), legacyCommands, 'manifest first 29 commands must exactly match V3 section 0 when available');
+} else {
+  console.log('V3 dispatch absent; skipped legacy parity');
+}
+
+const invokePowerShell = (args) => spawnSync(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'), [
+  '-NoLogo',
   '-NoProfile',
   '-ExecutionPolicy', 'Bypass',
   '-File', runnerPath,
@@ -31,7 +48,7 @@ const invokePowerShell = (args) => spawnSync('powershell', [
 const listed = invokePowerShell(['-ListCommands']);
 assert.equal(listed.error, undefined, `command extraction process should start: ${listed.error?.message}`);
 assert.equal(listed.status, 0, `command extraction should pass: ${listed.stderr}`);
-assert.deepEqual(JSON.parse(listed.stdout), expectedCommands, 'runner commands must exactly match V3 section 0 in order');
+assert.deepEqual(JSON.parse(listed.stdout), expectedCommands, 'runner commands must exactly match the tracked manifest in order');
 
 const timestampFor = (value) => {
   const pad = (part) => String(part).padStart(2, '0');
@@ -56,7 +73,7 @@ assert.equal(summary.results.length, 1);
 assert.equal(summary.results[0].command, "node -e process.stderr.write('phase-gate-injected-failure');process.exit(23)");
 assert.equal(summary.results[0].exitCode, 23);
 assert.equal(summary.results[0].error, null);
-assert.equal(summary.sourceFile, path.relative(root, dispatchPath).replace(/\\/g, '/'));
+assert.equal(summary.sourceFile, 'phase-gates.commands.json');
 assert.ok(Number.isFinite(summary.results[0].durationMilliseconds));
 assert.ok(Array.isArray(summary.results[0].stdoutTail));
 assert.ok(Array.isArray(summary.results[0].stderrTail));
@@ -68,4 +85,4 @@ assert.match(summary.results[0].stderrTail.join('\n'), /phase-gate-injected-fail
 assert.match(summary.headSha, /^[0-9a-f]{40}$/);
 assert.equal(typeof summary.dirty, 'boolean');
 
-console.log('run-phase-gates contract passed: exact V3 command extraction and failure recording');
+console.log('run-phase-gates contract passed: tracked command manifest and failure recording');

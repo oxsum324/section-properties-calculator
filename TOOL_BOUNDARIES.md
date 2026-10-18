@@ -232,6 +232,12 @@ NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋�
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->
 
+<!-- T49-REGISTRATION-START -->
+## 2026-10-18：T49 門檻命令清單與交付物契約
+
+`run-phase-gates.ps1` 改讀根目錄版控清單 `phase-gates.commands.json`（31 條）；清單及 runner 為私有治理檔案，不進 Pages 公開成品。
+<!-- T49-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 

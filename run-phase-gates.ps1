@@ -9,28 +9,30 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
-function Get-V3PhaseCommands {
-    $dispatchRelativePath = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('X3RtcC/mtL7lt6Uv5bCP5bel5YW35YSq5YyW5rS+5bel5oyH56S6LTIwMjYxMDA4LVYzLm1k'))
-    $dispatchPath = Join-Path $PSScriptRoot ($dispatchRelativePath.Replace('/', [IO.Path]::DirectorySeparatorChar))
-    if (-not (Test-Path -LiteralPath $dispatchPath -PathType Leaf)) {
-        throw "V3 dispatch file not found: $dispatchPath"
+function Get-PhaseGateCommands {
+    $manifestPath = Join-Path $PSScriptRoot 'phase-gates.commands.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw "Phase gate command manifest not found: $manifestPath"
     }
 
-    $dispatch = [System.IO.File]::ReadAllText($dispatchPath, [System.Text.Encoding]::UTF8)
-    $section = [regex]::Match($dispatch, '(?ms)^## 0\..*?^```(?:bash|sh)?\s*\r?\n(.*?)^```')
-    if (-not $section.Success) {
-        throw 'V3 section 0 command block was not found.'
+    $manifestText = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8
+    try {
+        $manifest = $manifestText | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        throw "Phase gate command manifest is invalid JSON: $($_.Exception.Message)"
     }
-
-    $commands = @(
-        $section.Groups[1].Value -split '\r?\n' |
-            ForEach-Object { $_.Trim() } |
-            Where-Object { $_.Length -gt 0 }
-    )
-    if ($commands.Count -ne 29) {
-        throw "V3 section 0 must contain exactly 29 commands; found $($commands.Count)."
+    if ($manifest.schemaVersion -ne 1) {
+        throw "Phase gate command manifest schemaVersion must be 1; found '$($manifest.schemaVersion)'."
     }
-    return $commands
+    if ($manifest.commands -isnot [System.Array] -or $manifest.commands.Count -eq 0) {
+        throw 'Phase gate command manifest commands must be a non-empty array.'
+    }
+    foreach ($command in $manifest.commands) {
+        if ($command -isnot [string] -or [string]::IsNullOrWhiteSpace($command)) {
+            throw 'Phase gate command manifest commands must contain only non-empty strings.'
+        }
+    }
+    return @($manifest.commands)
 }
 
 if ($ListCommands -and $SelfTestFailure) {
@@ -40,7 +42,7 @@ if ($ListCommands -and $SelfTestFailure) {
 if ($SelfTestFailure) {
     $commands = @("node -e process.stderr.write('phase-gate-injected-failure');process.exit(23)")
 } else {
-    $commands = @(Get-V3PhaseCommands)
+    $commands = @(Get-PhaseGateCommands)
 }
 
 if ($ListCommands) {
@@ -137,7 +139,7 @@ $summary = [ordered]@{
     headSha = $headSha
     dirty = [bool]$dirty
     passed = [bool]$passed
-    sourceFile = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('X3RtcC/mtL7lt6Uv5bCP5bel5YW35YSq5YyW5rS+5bel5oyH56S6LTIwMjYxMDA4LVYzLm1k'))
+    sourceFile = 'phase-gates.commands.json'
     commandCount = $commands.Count
     startedAt = $runStartedAt
     completedAt = (Get-Date).ToUniversalTime().ToString('o')

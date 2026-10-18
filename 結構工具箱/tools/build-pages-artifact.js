@@ -4,6 +4,7 @@ const os = require('os');
 const path = require('path');
 
 const PRIVATE_FILES = new Set([
+  'phase-gates.commands.json',
   '結構工具箱/tools/concrete-ndt/concrete-strength-ndt-golden-cases.js',
   '鋼構工具/src/app.source.js',
   '鋼構工具/src/calculator.source.js',

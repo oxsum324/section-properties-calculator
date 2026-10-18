@@ -5,7 +5,7 @@
 現況鑑定現場紀錄 V0.7.0：入口 `/condition-survey`，新增梁 U 型裂縫條數（不列總長）、磁磚受損塊數快填、房間及照片整理、單張照片機位、主照片選擇與附件同步編號。照片附件可下載含影像 HTML、列印 PDF 及編號對照；原始媒體和全部紀錄另以版本 3 備份保存。保留平面圖庫、簡圖選取刪除、縮放擴展、照片圈註及離線拍照。操作與限制見 [field-survey/README.md](field-survey/README.md)。電腦可用 `啟動現況鑑定紀錄.bat`。
 
 這個資料夾目前已整理成一套分層式結構工具平台，並正式進入 `V1.6`。工具箱首頁已升級為弘一設計系統新版 `結構工具箱/index.html`（深藍 hero、構件子分頁與治理卡，依 `home.js` 單一資料源驅動）；原公文版主選單保留為 `結構工具箱/index-classic.html` 可隨時回退，本機伺服器 clean route 為 `/toolbox-home`。2026-10-03 首頁改為精簡卡片（定位一段＋標籤，「輸出／閱讀狀態」收在「詳情」或「展開卡片詳情」），平台狀態與開發路線移至工具清單下方收合區，手機版分類橫向捲動、篩選 chips、搜尋列置頂；RC 梁／柱／牆／剪力牆改由共用計算操作列鏡射摘要，並在輸入分頁計算後切到綜合結果；鋼梁／鋼柱正式頁新增本機輸入草稿自動保存，啟用 TXT 的計算書預覽另可下載 Word 文書版（10/04 起為真正 `.docx`，非正式附件）。2026-10-08 第四階段：鋼構主頁 MathJax、石材頁 PDF.js 與 DOCX 執行期改為首次使用才載入（鋼構主頁初始 JS 2.64 MB → 0.55 MB、石材頁 1.82 MB → 0.66 MB）；石材本機服務探測改為服務辨識＋埠覆寫；拉力草圖與土壓示意圖版面修正；40 個正式工具頁加入共用無障礙腳本 `tool-page-a11y.js`（axe serious／critical 0）；首頁工具卡加入搜尋別名。平台目前區分：
-第五階段開發門檻使用根目錄 `run-phase-gates.ps1`，直接從 V3 派工第 0 節解析 29 條命令；每個 package 完成並提交後執行，摘要保存在忽略版控的 `output/phase-gates/`，不代表正式預檢或發布。
+第五階段開發門檻使用根目錄 `run-phase-gates.ps1`，讀取根目錄版控清單 `phase-gates.commands.json` 的 31 條命令；每個 package 完成並提交後執行，摘要保存在忽略版控的 `output/phase-gates/`，不代表正式預檢或發布。
 T24 無障礙公開執行期由可讀 source 與固定 Terser 5.44.0 建置為 9,972 bytes（原 16,500），檔名與路徑不變；以 `node 結構工具箱/tools/build-tool-page-a11y.js --check` 驗證逐位元組一致，source／建置器與套件不發布至 Pages。
 T31 共用執行期以 `結構工具箱/tools/build-minified-runtimes.js` 固定 Terser 5.44.0 確定性建置 a11y、案件表頭 profile 與風力核心；可讀來源與建置器列入 Pages 私有清單，公開路徑不變，石材 wind vendor 僅由同步腳本產生。
 T19 工具頁無障礙檢查使用 `test-tool-page-a11y.ps1`，40 頁各以桌機／手機掃描；axe 任一違規、主地標或 H1 數量不是 1 都會失敗，詳細節點與截取結果寫入 ignored `output/playwright/tool-page-a11y/`。

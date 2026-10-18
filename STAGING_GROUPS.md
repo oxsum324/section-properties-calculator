@@ -503,6 +503,17 @@ git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "開挖擋土支撐/RE
 
 git add -- "結構工具箱/tools/delivery-artifacts.contract.test.js" STAGING_GROUPS.md
 
+
+<!-- T49-REGISTRATION-START -->
+## 2026-10-18：T49 門檻執行器改讀版控清單與交付物契約
+
+新增根目錄 `phase-gates.commands.json`，前 29 條沿用 V3 原順序，追加 delivery-artifacts 與 release-readiness 契約為第 30、31 條；`run-phase-gates.ps1` 改讀版控清單，不再依賴 ignored `_tmp/` 派工檔。契約測試同步以 JSON 為準，保留 V3 存在時的逐字 parity、缺席時略過提示與注入失敗負向測試。清單與 runner 納入 Pages 私有治理；不改正式預檢的 70 個 record keys。
+
+```powershell
+git add -- phase-gates.commands.json run-phase-gates.ps1 run-phase-gates.contract.test.js "結構工具箱/tools/build-pages-artifact.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+<!-- T49-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 
