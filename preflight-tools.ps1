@@ -38,18 +38,6 @@ trap {
   exit 1
 }
 
-if (-not (Test-Path $outputDir)) {
-  New-Item -Path $outputDir -ItemType Directory | Out-Null
-}
-
-if (-not (Test-Path $historyDir)) {
-  New-Item -Path $historyDir -ItemType Directory | Out-Null
-}
-
-if (-not (Test-Path $slowStatusDir)) {
-  New-Item -Path $slowStatusDir -ItemType Directory | Out-Null
-}
-
 if ($Quick -and ($ForcePlatformAudit -or $ForceSlowChecks)) {
   throw "Quick preflight cannot be combined with release force flags. Use run-preflight-tools-quick.bat for quick checks or run-preflight-tools-release.bat for release evidence."
 }
@@ -82,6 +70,29 @@ if ($isReleaseMode -and ($sourceCommitSha -notmatch '^[0-9a-f]{40}$' -or -not $s
 }
 if ($isReleaseMode -and $sourceDirty) {
   throw "Release preflight requires a clean Git worktree. Commit or remove tracked and untracked changes before running run-preflight-tools-release.bat."
+}
+
+$releaseEnvironmentState = $null
+if ($isReleaseMode) {
+  . (Join-Path $root "結構工具箱\tools\release-environment.ps1")
+  $releaseEnvironmentState = Invoke-ReleaseEnvironmentPrecheck -WorkspaceRoot $root -SourceCommitSha $sourceCommitSha -SourceBranch $sourceBranch
+  $currentHead = [string](& git -C $root rev-parse HEAD)
+  $currentDirty = @(& git -C $root status --porcelain=v1 --untracked-files=all)
+  if ($LASTEXITCODE -ne 0 -or $currentHead.Trim() -ne $sourceCommitSha -or $currentDirty.Count -gt 0) {
+    throw "Release source changed during environment precheck."
+  }
+}
+
+if (-not (Test-Path $outputDir)) {
+  New-Item -Path $outputDir -ItemType Directory | Out-Null
+}
+
+if (-not (Test-Path $historyDir)) {
+  New-Item -Path $historyDir -ItemType Directory | Out-Null
+}
+
+if (-not (Test-Path $slowStatusDir)) {
+  New-Item -Path $slowStatusDir -ItemType Directory | Out-Null
 }
 
 function Write-Status {
@@ -281,8 +292,9 @@ function Invoke-PreflightCheck {
   ) -join [Environment]::NewLine
   Set-Content -Path $scriptPath -Value ($scriptEncodingBootstrap + [Environment]::NewLine + $Command) -Encoding Unicode
   $startedAt = Get-Date
+  if ($isReleaseMode) { Assert-ReleaseEnvironmentPinned -State $releaseEnvironmentState }
   $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
-  $processInfo.FileName = "powershell"
+  $processInfo.FileName = if ($isReleaseMode) { Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe" } else { "powershell" }
   $processInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
   $processInfo.WorkingDirectory = $Workdir
   $processInfo.UseShellExecute = $false
@@ -2832,6 +2844,7 @@ Update-PreflightHistoryManifest
 
 $runStamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runDir = Join-Path $historyDir $runStamp
+if ($isReleaseMode) { Set-ReleaseEnvironmentRunLink -State $releaseEnvironmentState -RunId $runStamp }
 New-Item -Path $runDir -ItemType Directory -Force | Out-Null
 
 $records = New-Object System.Collections.Generic.List[object]

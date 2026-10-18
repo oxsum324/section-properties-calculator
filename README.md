@@ -187,6 +187,12 @@ T47：混凝土強度非破壞檢測推估新增同測區配對覆蓋摘要；�
 零係數常數矛盾代表空集合，區間 `minTf` 與 `maxTf` 均為 `null`、`feasible=false` 並提供非空原因；一般有限界限若 `minTf > maxTf`，仍保留兩個有限值並標示不可行。這項本機續作保留未提交狀態，未推送、未跑測試或建置，不代表正式放行。
 <!-- T48-REGISTRATION-END -->
 
+<!-- T51-REGISTRATION-START -->
+## 2026-10-18：T51 正式預檢環境私有早檢
+
+正式預檢在來源乾淨並取得 release 鎖後，先檢查石材工具所需的 Python 匯入鏈、自我檢查與完整報告契約；失敗即停止於平台／慢速稽核前，收據留在 ignored `output/preflight/environment-precheck/`，不建立正式 run 證據。`STRUCTURAL_TOOLS_PYTHON` 僅讀取目前程序環境，指定值無效即失敗，不安裝套件。只有 `run-preflight-tools-release.bat` 固定使用 Windows PowerShell 5.1；70 個正式預檢 keys、順序、命令與 3 個後置檢查不變。此早檢本身不代表正式預檢通過或發布。
+<!-- T51-REGISTRATION-END -->
+
 <!-- P2-REGISTRATION-START -->
 治理正文分冊由 `結構工具箱/tools/governance-documents.js` 回填，契約：`結構工具箱/tools/governance-documents.contract.test.js`。分冊按各 include marker 所在位置回填。
 <!-- P2-REGISTRATION-END -->

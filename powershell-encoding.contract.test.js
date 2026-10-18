@@ -63,8 +63,8 @@ const result = JSON.parse(parsed.stdout.replace(/^\uFEFF/, '').trim());
 assert.match(result.shellVersion, /^5\.1\./);
 assert.deepEqual(result.parseErrors, [], 'all scripts and fixtures must parse');
 const whitelist = [{
-  file: 'preflight-tools.ps1', line: 282, command: 'Set-Content', encoding: 'Unicode',
-  reason: 'Existing UTF-16 temporary child script preserves its output format; V11 permits only read-encoding edits in preflight-tools.ps1.',
+  file: 'preflight-tools.ps1', line: 293, command: 'Set-Content', encoding: 'Unicode',
+  reason: 'Existing UTF-16 temporary child script preserves its output format; T51 only moves this exact exception after the environment hook.',
 }];
 assert.ok(whitelist.every(entry => entry.reason.trim().length > 0), 'each encoding exception needs a reason');
 const accepted = row => row.encodingCount === 1 && (/^utf8(?:bom)?$/i.test(row.encoding || '') || whitelist.some(entry =>

@@ -330,6 +330,11 @@ assert(failingSchemaV35Transition.pass === false && failingSchemaV35Transition.f
 ].forEach(needle => assertIncludes(releaseWrapper, needle, `release wrapper keeps ${needle}`));
 assert(!releaseWrapper.includes('-Quick'), 'release wrapper does not run quick mode', 'run-preflight-tools-release.bat');
 assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through arbitrary arguments', 'prevents -Quick override');
+assertIncludes(releaseWrapper, '%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', 'release wrapper pins native Windows PowerShell 5.1');
+assert(!releaseWrapper.includes('pwsh'), 'release wrapper does not select PowerShell 7');
+assertIncludes(preflight, 'Invoke-ReleaseEnvironmentPrecheck', 'release checks the environment before expensive audits');
+assertIncludes(preflight, 'Assert-ReleaseEnvironmentPinned', 'release child commands retain the selected interpreter');
+assert(preflight.indexOf('Invoke-ReleaseEnvironmentPrecheck') < preflight.indexOf('function Write-Status'), 'environment check precedes history setup and all audits');
 [
   'Enter-ReleasePreflightLock',
   'Get-ReleasePreflightMutexName',

@@ -495,6 +495,7 @@ git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "開挖擋土支撐/RE
 
 <!-- P2-NEW-GITADD-START -->
 <!--P2:SG-04-105-->
+git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md preflight-tools.ps1 run-preflight-tools-release.bat toolbox-entrypoints.contract.test.js pages-release-governance.contract.test.js powershell-encoding.contract.test.js "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/release-readiness.contract.test.js" "結構工具箱/tools/release-environment.ps1" "結構工具箱/tools/release-environment.contract.test.js" "石材固定/env_check.py"
 <!-- P2-NEW-GITADD-END -->
 
 ## 2026-10-17：交付物契約追蹤附件標題新位置（T48 放行前修正）
@@ -523,6 +524,14 @@ git add -- phase-gates.commands.json run-phase-gates.ps1 run-phase-gates.contrac
 git add -- "開挖擋土支撐/backend/app/receiver_capacity.py" "開挖擋土支撐/backend/tests/test_receiver_capacity.py" "開挖擋土支撐/frontend/src/types.ts" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" STAGING_GROUPS.md
 ```
 <!-- T50-REGISTRATION-END -->
+
+<!-- T51-REGISTRATION-START -->
+## 2026-10-18：T51 正式預檢環境私有早檢
+
+新增 `結構工具箱/tools/release-environment.ps1` 與契約、擴充 `石材固定/env_check.py` 的 JSON 匯入 probe；正式 release 只有在來源乾淨並取得既有鎖後、平台與慢速稽核前執行。Python 由程序層級 `STRUCTURAL_TOOLS_PYTHON` 指定或沿用該程序 PATH，明確指定無效即失敗；不得自動安裝套件或寫入使用者／機器環境。早檢驗證 Python 執行器與匯入鏈、石材自我檢查及完整報告契約；錯誤只留 ignored `output/preflight/environment-precheck/` 收據，停止於正式 run 建立之前。release wrapper 固定 Windows PowerShell 5.1；其他 wrapper 不變。正式預檢 70 個 record keys、順序、命令、3 個 post-checks 與 `Clear-PreflightRuntimeProcesses` 均維持原樣，不形成正式預檢或發布結論。
+
+此包的契約讀者涵蓋 `toolbox-entrypoints.contract.test.js`、`結構工具箱/tools/release-readiness.contract.test.js`、`pages-release-governance.contract.test.js` 與 `結構工具箱/tools/release-environment.contract.test.js`；既有治理 loader／私有 Pages 邊界同步維護。
+<!-- T51-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引

@@ -979,6 +979,10 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-deployment-mani
 assert.ok(pagesSmoke.includes('結構工具箱/tools/verify-pages-release-lineage.js'), 'Pages smoke blocks release lineage verifier publication');
 assert.ok(pagesSmoke.includes('.github/public-release-decision-anchor.json') && pagesSmoke.includes('.github/public-release-reduction-authorization.json'), 'Pages smoke blocks private release governance configs');
 assert.ok(artifactBuilder.includes('結構工具箱/tools/release-preflight-lock.ps1') && artifactBuilder.includes('結構工具箱/tools/release-preflight-lock.test.js'), 'Pages artifact builder explicitly keeps release singleton lock and its fixture private');
+for (const privatePath of ['結構工具箱/tools/release-environment.ps1', '結構工具箱/tools/release-environment.contract.test.js']) {
+  assert.ok(artifactBuilder.includes(privatePath), `environment tooling has a named private exclusion: ${privatePath}`);
+  assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-tooling' }, `environment tooling stays private: ${privatePath}`);
+}
 assert.ok(pagesSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages smoke validates the public deployment manifest and expected commit');
 assert.ok(pagesSmoke.includes('deployed Pages runId matches the current workflow run') && pagesSmoke.includes('sha256-tree-v1'), 'Pages smoke validates workflow run and tree digest metadata');
 assert.ok(pagesSmoke.includes('validateManifestFileInventory') && pagesSmoke.includes('inventory tree digest'), 'Pages smoke recomputes the closed file inventory digest');

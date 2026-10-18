@@ -238,6 +238,12 @@ NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋�
 `run-phase-gates.ps1` 改讀根目錄版控清單 `phase-gates.commands.json`（31 條）；清單及 runner 為私有治理檔案，不進 Pages 公開成品。
 <!-- T49-REGISTRATION-END -->
 
+<!-- T51-REGISTRATION-START -->
+## 2026-10-18：T51 正式預檢環境與執行器邊界
+
+`結構工具箱/tools/release-environment.ps1` 僅供 `preflight-tools.ps1` 的正式 release 路徑，在來源乾淨及取得單例鎖後、平台與慢速稽核前執行。它只用程序層級的 `STRUCTURAL_TOOLS_PYTHON` 選擇 Python；明確指定無效即失敗，不安裝套件，且只在子程序環境固定 Python／原生 Windows PowerShell。完整石材環境 probe、自我檢查與報告契約失敗時，只保存 ignored 私有收據並停止，不形成正式 run 或公開狀態。Windows PowerShell 5.1 僅是 `run-preflight-tools-release.bat` 的執行器要求；一般、quick 與 CI wrapper 規則不變。正式預檢既有 70 keys、順序、命令、3 個 post-checks 與 `Clear-PreflightRuntimeProcesses` 行為均不在此包修改範圍。
+<!-- T51-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 

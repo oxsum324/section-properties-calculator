@@ -1205,6 +1205,8 @@ assert.ok(preflight.includes('Quick preflight cannot be combined with release fo
 assert.ok(releaseWrapper.includes('-ForceSlowChecks') && releaseWrapper.includes('-ForcePlatformAudit'), 'release wrapper keeps release force flags');
 assert.equal(releaseWrapper.includes('%*'), false, 'release wrapper must not pass through arbitrary arguments');
 assert.equal(releaseWrapper.includes('-Quick'), false, 'release wrapper must not enable quick mode');
+assert.ok(releaseWrapper.includes('%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'), 'release wrapper pins native Windows PowerShell 5.1');
+assert.equal(releaseWrapper.includes('pwsh'), false, 'release wrapper cannot switch shells');
 assert.ok(auditAll.includes('[System.Diagnostics.ProcessStartInfo]::new()'), 'audit-all uses ProcessStartInfo for child audits');
 assert.equal(auditAll.includes('Start-Process -FilePath powershell'), false, 'audit-all avoids Start-Process powershell env dictionary bug');
 assert.match(

@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
+import importlib
+import importlib.metadata
+import json
+import contextlib
+import io
 import os
 from pathlib import Path
 import shutil
@@ -108,5 +113,50 @@ def main() -> int:
     return 0
 
 
+def probe_json() -> int:
+    """Import the complete conversion chain; discovery alone is insufficient."""
+    modules = []
+    errors = []
+    dependencies = [
+        ('docx', ['python-docx']), ('lxml.etree', ['lxml']),
+        ('pdf2docx', ['pdf2docx']), ('fitz', ['PyMuPDF']),
+        ('fontTools', ['fonttools']), ('fire', ['fire']),
+        ('cv2', ['opencv-python', 'opencv-python-headless']), ('numpy', ['numpy']),
+        ('pypdf', ['pypdf']), ('playwright.sync_api', ['playwright']),
+    ]
+    diagnostics = io.StringIO()
+    for name, distributions in dependencies:
+        item = dict(name=name, pass_=False, file=None, distributions={}, error=None)
+        try:
+            with contextlib.redirect_stdout(diagnostics), contextlib.redirect_stderr(diagnostics):
+                module = importlib.import_module(name)
+                if name == 'pdf2docx':
+                    getattr(module, 'Converter')
+                elif name == 'docx':
+                    getattr(module, 'Document')
+            item['file'] = getattr(module, '__file__', None)
+            for distribution in distributions:
+                try:
+                    item['distributions'][distribution] = importlib.metadata.version(distribution)
+                except importlib.metadata.PackageNotFoundError:
+                    pass
+            item['pass_'] = True
+        except Exception as exc:
+            item['error'] = f'{type(exc).__name__}: {exc}'
+            errors.append(f'{name}: {item["error"]}')
+        item['pass'] = item.pop('pass_')
+        modules.append(item)
+    browser = None
+    try:
+        browser = check_playwright_chromium()
+    except Exception as exc:
+        errors.append(f'Chromium: {type(exc).__name__}: {exc}')
+    print(json.dumps({'pass': not errors,
+                      'python': {'executable': sys.executable, 'version': sys.version},
+                      'modules': modules, 'errors': errors, 'browser': browser,
+                      'diagnostics': diagnostics.getvalue()}, ensure_ascii=False))
+    return 1 if errors else 0
+
+
 if __name__ == '__main__':
-    raise SystemExit(main())
+    raise SystemExit(probe_json() if '--json' in sys.argv[1:] else main())
