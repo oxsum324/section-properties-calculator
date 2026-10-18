@@ -615,6 +615,15 @@ export type ReshoreEndBearingResult = {
   };
 };
 
+export type ReshoreKernEndBearingResult = Omit<
+  ReshoreEndBearingResult,
+  "qAvgTfPerCm2" | "qMaxTfPerCm2" | "qMinTfPerCm2" | "contactPressureTfPerCm2"
+> & {
+  qAvg: number;
+  qMax: number;
+  qMin: number;
+};
+
 export type ReshoreEvidenceDownload = ReceiverCapacityEvidence & {
   mediaType: "application/json";
   contentEncoding: "base64";
@@ -673,11 +682,17 @@ export type ReshoreMemberCapacityCalculationResponse = {
       webSlendernessRatio: number;
       webSlendernessLimit: number;
       endBearing: {
-        mode: "centered_rectangular_plate" | "uniaxial_kern_rectangular_plate";
+        mode: "centered_rectangular_plate";
         endBearingTransferInterval?: ReshoreEndBearingTransferInterval;
         assumptions?: string[];
         top: ReshoreEndBearingResult;
         bottom: ReshoreEndBearingResult;
+      } | {
+        mode: "uniaxial_kern_rectangular_plate";
+        endBearingTransferInterval?: ReshoreEndBearingTransferInterval;
+        assumptions?: string[];
+        top: ReshoreKernEndBearingResult;
+        bottom: ReshoreKernEndBearingResult;
       } | null;
       checks: {
         memberSlenderness: "passed" | "failed";

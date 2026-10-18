@@ -1086,6 +1086,36 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
             self.assertEqual(observed_end["status"], "passed")
             self.assertEqual(set(observed_end["checks"].values()), {"passed"})
 
+        obsolete_pressure_keys = {
+            "qAvgTfPerCm2",
+            "qMaxTfPerCm2",
+            "qMinTfPerCm2",
+            "contactPressureTfPerCm2",
+        }
+        rsc_record = json.loads(
+            base64.b64decode(result["evidence"]["contentBase64"], validate=True)
+        )
+        rsb_record = json.loads(
+            base64.b64decode(result["bearingEvidence"]["contentBase64"], validate=True)
+        )
+        evidence_results = {
+            "calculation": values["endBearing"],
+            "RSC evidence": rsc_record["results"]["endBearing"],
+            "RSB evidence": rsb_record["results"],
+        }
+        for source_name, source_result in evidence_results.items():
+            for end_name in ("top", "bottom"):
+                observed_end = source_result[end_name]
+                expected_end = expected[end_name]
+                with self.subTest(source=source_name, end=end_name):
+                    self.assertTrue(obsolete_pressure_keys.isdisjoint(observed_end))
+                    for field in ("qAvg", "qMax", "qMin"):
+                        self.assertAlmostEqual(
+                            observed_end[field],
+                            expected_end[field],
+                            delta=tolerance,
+                        )
+
         # Negative Case 1: exceeds kern (M_add,x = 5.0 tf*m, T = 106 tf)
         neg1 = benchmark["negativeCases"]["exceedsKern"]
         neg1_result = self.calculate(**{**overrides, **neg1["inputOverrides"]})["calculation"]["results"]
@@ -1305,6 +1335,8 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
         self.assertEqual(rsb001_resp["bearingEvidence"]["documentReference"], "RSB-DE30B3DB0423A3C98C78")
         self.assertEqual(rsb001_resp["bearingEvidence"]["fileSha256"], "09fb04b9c3c1e843f71110e1a423d9de24dc0a06704674ccc38536fe2473e0f4")
         self.assertEqual(rsb001_full_sha, "723c9d120a697988ec56d2a4e12d2b23b2362403519941d4000db899641f282e")
+        self.assertEqual(rsb001_resp["calculation"]["results"]["endBearing"]["top"]["contactPressureTfPerCm2"], 0.029284)
+        self.assertEqual(rsb001_resp["calculation"]["results"]["endBearing"]["bottom"]["contactPressureTfPerCm2"], 0.02372)
         self.assertNotIn("endBearingTransferInterval", rsb001_resp["calculation"]["results"])
         self.assertNotIn("eccentricityCm", rsb001_resp["calculation"]["results"]["endBearing"]["top"])
 

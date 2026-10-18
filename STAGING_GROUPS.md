@@ -514,6 +514,16 @@ git add -- phase-gates.commands.json run-phase-gates.ps1 run-phase-gates.contrac
 ```
 <!-- T49-REGISTRATION-END -->
 
+<!-- T50-REGISTRATION-START -->
+## 2026-10-18：T50 單向核心區接觸壓力欄位整理
+
+新模式只輸出 qAvg、qMax、qMin，移除四個重複壓力鍵；舊對心模式型別、輸出、RSC／RSB v1 證據與完整回應指紋不變。前端由父層 mode 聯集關聯上下端結果，RSB 新模式維持 v2；EXC-RSB-002 固定答案及追溯目錄不變。首頁日期由既有同步腳本與既有建置器產生；不新增壓縮或載入方式。
+
+```powershell
+git add -- "開挖擋土支撐/backend/app/receiver_capacity.py" "開挖擋土支撐/backend/tests/test_receiver_capacity.py" "開挖擋土支撐/frontend/src/types.ts" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" STAGING_GROUPS.md
+```
+<!-- T50-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 
