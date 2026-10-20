@@ -15,6 +15,7 @@ T29 耐震靜力與動力頁的 Chart.js 僅於首次繪製反應譜時載入，
 T30 石材兩張節點參考圖改為首次放大或報表輸出才載入；計算書 HTML、Word、DOCX 與伺服器 PDF→DOCX 路徑仍內嵌圖片，失敗時明列固定 fallback。列印視窗同步保留後，以含相對資源 base 的 Blob HTML 導覽，避免 Edge 在 document.write 時停在 Paged.js 前。
 T21 鋼構報表匯出前同步更新計算與摘要並沿用同一結果快照；石材 smoke 暫存以 UUID 子目錄清理，另有約 1,400 ms 靜默 TCP 降級案例。`--probe-only` 只驗本機服務探測，完整入口仍須先通過既有 UI smoke。
 T23 家族慢測使用根目錄 `run-family-wrappers.ps1` 依序執行 14 個既有 wrapper，保存完整逐項 log 與 HEAD／dirty 證據；`-ListCommands` 只列清單供契約檢查。RC、鋼構及 local-quick 中採 Blob 導覽的 legacy 報表案例使用私有 `report-popup-fixture.test.js`，實際讀取 HTML Blob 並等待 Blob URL 文件 load 後再檢查自動列印與內容；六個獨立 local-quick 工具仍以原 `document.write` 測試替身覆蓋其既有輸出 API。測試檔不進 Pages。
+T53（2026-10-20）：正式預檢與平台稽核僅清理本輪 Job Object 所擁有的檢查程序樹，啟動時記錄並略過殘留，並於成功、錯誤及逾時路徑收尾；既有 70 項檢查、3 項收尾檢查與稽核預算維持不變。
 
 Windows 本機可直接雙擊根目錄的 `啟動斷面計算工具.bat` 或 `啟動螺栓檢討工具.bat`，啟動必要的 localhost 服務後直接進入指定工具，不必先經過平台首頁。螺栓工具是模組化 Web App，不應直接雙擊 `anchor/index.html` 以 `file://` 開啟；專用啟動檔可避開瀏覽器模組安全限制，資料仍只在本機處理。命令列亦可使用 `node serve-local.js --route /section` 或 `node serve-local.js --route /anchor`。`serve-local-browser-smoke.test.js` 會以桌機與手機瀏覽器實測鋼構、RC、斷面、錨栓及巡檢儀表板入口，避免資料夾 redirect 或尾斜線造成相對資源與頁內連結失效；本機未產生的部署清冊與 GSM 監控 JSON 只會在明列白名單內回傳帶標記的 `null`，其他遺失資源仍維持 404。
 

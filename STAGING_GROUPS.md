@@ -539,6 +539,17 @@ git add -- "開挖擋土支撐/backend/app/receiver_capacity.py" "開挖擋土�
 
 僅更新 `結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html`：頁面 helper 對精確 15 個內建鍵輸出中文名稱與原鍵，供 screen、摘要／詳細計算書與 TXT 共用；未知或自訂鍵原樣呈現。`結構工具箱/tools/local-quick-tools.manifest.json` 僅在 NDT 項目追加 `reportNeedles`，其他工具項目保持 deep equal。既有日期同步器將 NDT 首頁日期由 2026-10-16 更新為 2026-10-18，因此同包納入 `結構工具箱/assets/home/src/home.source.js` 與既有建置器產生的 `home.js`；只有日期來源行變動，不新增壓縮策略。core、spec、golden、JSON、trace、assist 身分及附件資格均不變，也不新增 lazy-load。
 <!-- T52-REGISTRATION-END -->
+<!-- T53-REGISTRATION-START -->
+## 2026-10-20：T53 正式預檢與平台稽核只清理本輪程序
+
+採 Windows Job Object 管理每項檢查本輪啟動的 Node／Edge 程序樹，設定 KILL_ON_JOB_CLOSE，並以事件閘門阻止子程序在指派前執行。指派失敗只收尾本次剛啟動的子程序 handle；前次自有殘留隨擁有者的 Job handle 關閉而結束，啟動時僅記錄並略過不屬本輪的同名程序；成功、錯誤及逾時均關閉本輪 Job，暫時錯誤重試不停止外部程序。收尾記錄限程序名稱、PID、StartTime 與檢查 key，不保存完整命令列或使用者路徑。70 個正式檢查 keys、次序、命令、3 項收尾檢查與稽核預算維持不變；保留 T51 歷史範圍，本包只調整清理包裝及對應契約。
+
+本組檔案：README.md、TOOL_BOUNDARIES.md、STAGING_GROUPS.md、preflight-tools.ps1、audit-all.ps1、powershell-encoding.contract.test.js、pages-release-governance.contract.test.js、結構工具箱/tools/build-pages-artifact.js、結構工具箱/tools/release-environment.contract.test.js、結構工具箱/tools/release-readiness.contract.test.js、結構工具箱/tools/preflight-process-ownership.ps1、結構工具箱/tools/preflight-process-ownership.fixture.ps1、結構工具箱/tools/preflight-process-ownership.contract.test.js。
+
+```powershell
+git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md preflight-tools.ps1 audit-all.ps1 powershell-encoding.contract.test.js pages-release-governance.contract.test.js "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/release-environment.contract.test.js" "結構工具箱/tools/release-readiness.contract.test.js" "結構工具箱/tools/preflight-process-ownership.ps1" "結構工具箱/tools/preflight-process-ownership.fixture.ps1" "結構工具箱/tools/preflight-process-ownership.contract.test.js"
+```
+<!-- T53-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引

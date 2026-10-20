@@ -15,7 +15,7 @@ const lockSource = fs.readFileSync(path.join(repoRoot, '結構工具箱', 'tools
 const envCheckSource = fs.readFileSync(path.join(repoRoot, '石材固定', 'env_check.py'), 'utf8');
 const stoneContractSource = fs.readFileSync(path.join(repoRoot, '石材固定', 'stone-report.contract.test.js'), 'utf8');
 const autoWordArtifactSource = fs.readFileSync(path.join(repoRoot, '石材固定', 'auto_word_artifact_test.py'), 'utf8');
-const clearFunctionBaselineSha256 = '90dcaa01a5e301d2e713edf5f53ec7fc68e22b13c25ec43b9ef126e5b646985d';
+const clearFunctionBaselineSha256 = 'e4a9241cfd973ac55b1a6379a6e707e5012b83c0f49d9ec4967730a8086cdb83';
 const checksDeclarationBaselineSha256 = '1b00ef12ac0ad72963bf19efeb7cfed148b58d945c43eebe853e051d1119915f';
 
 function assertIncludes(source, needle, message) {
@@ -90,7 +90,7 @@ function persistFixtureEvidence(parent, formalFixture) {
     expectedFormalChecks: formalFixture ? path.join(destination, 'expected-formal-checks.json') : null,
     expectedPostChecks: formalFixture ? path.join(destination, 'expected-post-checks.json') : null,
     privateReceipts: path.join(destination, 'private-attempts'),
-    fixtureSafety: 'The source Clear-PreflightRuntimeProcesses function is checked against its execution-before protected SHA. Only the isolated fixture scopes Get-Process to an empty result to protect the test host; fake check children receive PREFLIGHT_* values and record the original command as JSON data without executing it.',
+    fixtureSafety: 'The source Clear-PreflightRuntimeProcesses function is checked against its T53 protected SHA and owned-job behavior contract. Only the isolated fixture scopes Get-Process to an empty result as extra host protection; fake check children receive PREFLIGHT_* values and record the original command as JSON data without executing it. Real cleanup behavior is tested separately by preflight-process-ownership.contract.test.js.',
   }, null, 2));
   return destination;
 }
@@ -245,7 +245,7 @@ function createPreflightFixture(parent, stoneMode = 'pass') {
     scope: 'isolated full preflight fixture',
     real: ['release-preflight-lock.ps1', 'release-environment.ps1', 'environment-precheck hook', 'formal $checks array and foreach loop', 'three formal post-check invocations'],
     replaced: ['Invoke-PreflightCheck body writes dispatch records instead of launching the expensive commands', 'Start-Process tail returns fixture success without launching Node'],
-    processSafety: 'Fixture script scope shadows Get-Process with an empty result while the original Clear-PreflightRuntimeProcesses function remains unchanged; no production module-import workaround is injected.',
+    processSafety: 'Fixture script scope shadows Get-Process with an empty result as extra host protection; the unchanged production T53 owned-job cleanup function and helper are loaded. Real decoy and descendant cleanup is covered by preflight-process-ownership.contract.test.js.',
     protectedClearSha256: clearFunctionBaselineSha256,
     dispatchPath,
     expectedPath,
@@ -427,7 +427,13 @@ function testStaticContract() {
   assert.ok(clearStart >= 0 && clearEnd > clearStart, 'locate the complete protected process cleanup function');
   const clearFunction = preflightSource.slice(clearStart, clearEnd).trimEnd().replace(/\r\n/g, '\n');
   assert.equal(require('node:crypto').createHash('sha256').update(clearFunction).digest('hex'), clearFunctionBaselineSha256,
-    'Clear-PreflightRuntimeProcesses remains byte-for-byte equal to the execution-before protected AST');
+    'Clear-PreflightRuntimeProcesses remains byte-for-byte equal to its authorized T53 protected AST');
+  assertIncludes(clearFunction, 'Clear-OwnedProcessJobs -Context $script:preflightOwnership -CheckKey $CheckKey -Startup:$Startup',
+    'process cleanup delegates only to the current preflight ownership context');
+  assert.ok(!/Get-Process|Stop-Process|\$Since|AddHours/.test(clearFunction), 'cleanup wrapper never selects peers by name or age');
+  // Static and negative ownership assertions run here without launching the real-process fixture.
+  // The standalone ownership contract separately verifies Node/Edge survival and cleanup.
+  require('./preflight-process-ownership.contract.test.js').staticContract();
   const checksDeclaration = preflightSource.match(/^\$checks = @\(\r?\n  \[pscustomobject\]@\{[\s\S]*?^\)/m);
   assert.ok(checksDeclaration, 'locate the original formal 70-check declaration');
   assert.equal(require('node:crypto').createHash('sha256').update(checksDeclaration[0].replace(/\r\n/g, '\n')).digest('hex'), checksDeclarationBaselineSha256,

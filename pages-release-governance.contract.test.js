@@ -979,7 +979,9 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-deployment-mani
 assert.ok(pagesSmoke.includes('結構工具箱/tools/verify-pages-release-lineage.js'), 'Pages smoke blocks release lineage verifier publication');
 assert.ok(pagesSmoke.includes('.github/public-release-decision-anchor.json') && pagesSmoke.includes('.github/public-release-reduction-authorization.json'), 'Pages smoke blocks private release governance configs');
 assert.ok(artifactBuilder.includes('結構工具箱/tools/release-preflight-lock.ps1') && artifactBuilder.includes('結構工具箱/tools/release-preflight-lock.test.js'), 'Pages artifact builder explicitly keeps release singleton lock and its fixture private');
-for (const privatePath of ['結構工具箱/tools/release-environment.ps1', '結構工具箱/tools/release-environment.contract.test.js']) {
+for (const privatePath of ['結構工具箱/tools/release-environment.ps1', '結構工具箱/tools/release-environment.contract.test.js',
+  '結構工具箱/tools/preflight-process-ownership.ps1', '結構工具箱/tools/preflight-process-ownership.fixture.ps1',
+  '結構工具箱/tools/preflight-process-ownership.contract.test.js']) {
   assert.ok(artifactBuilder.includes(privatePath), `environment tooling has a named private exclusion: ${privatePath}`);
   assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-tooling' }, `environment tooling stays private: ${privatePath}`);
 }

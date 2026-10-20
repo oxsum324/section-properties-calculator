@@ -1,4 +1,4 @@
-param(
+﻿param(
   [switch]$Quiet,
   [switch]$Loop,
   [int]$IntervalSeconds = 60,
@@ -8,6 +8,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $root "結構工具箱/tools/preflight-process-ownership.ps1")
+$script:auditOwnership = $null
 $auditOutputDir = Join-Path $root "output\audit"
 $historyDir = Join-Path $auditOutputDir "history"
 $lockPath = Join-Path $auditOutputDir "platform-audit.lock.json"
@@ -42,25 +44,9 @@ function Test-AuditTransientRuntimeFailure {
 }
 
 function Clear-AuditRuntimeProcesses {
-  param(
-    [datetime]$Since,
-    [string]$Reason,
-    [string[]]$ProcessNames = @("node", "chrome", "msedge")
-  )
-
-  $cutoff = $Since.AddSeconds(-5)
-  $stopped = New-Object System.Collections.Generic.List[string]
-  foreach ($proc in @(Get-Process $ProcessNames -ErrorAction SilentlyContinue)) {
-    try {
-      if ($proc.StartTime -lt $cutoff) { continue }
-      $stopped.Add("$($proc.ProcessName):$($proc.Id)")
-      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-    } catch {}
-  }
-  if ($stopped.Count -gt 0) {
-    Write-Status "[platform-audit] cleared runtime processes after ${Reason}: $($stopped -join ', ')" "DarkGray"
-    Start-Sleep -Seconds 5
-  }
+  param([string]$Reason, [string]$CheckKey = "startup", [switch]$Startup)
+  # Prior-run jobs close with their owner; startup does not kill by name or age.
+  Clear-OwnedProcessJobs -Context $script:auditOwnership -CheckKey $CheckKey -Startup:$Startup
 }
 function Acquire-Lock {
   if (Test-Path $lockPath) {
@@ -122,6 +108,7 @@ function Invoke-Audit {
 
   $escapedWorkdir = $Workdir.Replace("'", "''")
   $scriptLines = @(
+    (Get-OwnedProcessGateBootstrap),
     '$ErrorActionPreference = "Stop"',
     '$utf8NoBom = [System.Text.UTF8Encoding]::new($false)',
     '[Console]::InputEncoding = $utf8NoBom',
@@ -148,7 +135,8 @@ function Invoke-Audit {
   $processInfo.CreateNoWindow = $true
 
   $startedAt = Get-Date
-  $process = [System.Diagnostics.Process]::Start($processInfo)
+  $process = Start-OwnedProcess -Context $script:auditOwnership -CheckKey $safeLabel -StartInfo $processInfo
+  try {
   $stdoutTask = $process.StandardOutput.ReadToEndAsync()
   $stderrTask = $process.StandardError.ReadToEndAsync()
   $timedOut = $false
@@ -171,7 +159,10 @@ function Invoke-Audit {
     $stderr = $stderr + "`n[platform-audit] command timed out after $TimeoutSeconds seconds; process tree was terminated. script=$scriptPath`n"
   }
   $seconds = [Math]::Round(((Get-Date) - $startedAt).TotalSeconds, 1)
-  $process.Dispose()
+  } finally {
+    try { Complete-OwnedProcessCheck -Context $script:auditOwnership -RootPid $process.Id }
+    finally { $process.Dispose() }
+  }
 
   [System.IO.File]::WriteAllText($stdoutPath, $stdout, [System.Text.UTF8Encoding]::new($false))
   [System.IO.File]::WriteAllText($stderrPath, $stderr, [System.Text.UTF8Encoding]::new($false))
@@ -230,9 +221,10 @@ function Update-HistoryManifest {
 function Run-PlatformAuditPass {
   $runStamp = Get-Date -Format "yyyyMMdd-HHmmss"
   $auditPassStartedAt = Get-Date
-  Clear-AuditRuntimeProcesses -Since ((Get-Date).AddHours(-2)) -Reason "platform audit startup existing node cleanup" -ProcessNames @("node")
   $runDir = Join-Path $historyDir $runStamp
   New-Item -Path $runDir -ItemType Directory -Force | Out-Null
+  $script:auditOwnership = New-OwnedProcessContext -LogPath (Join-Path $runDir "process-ownership.jsonl")
+  Clear-AuditRuntimeProcesses -Reason "platform audit startup owned job cleanup" -Startup
 
   $steelDir = (Get-ChildItem -Path $root -Directory | Where-Object {
     Test-Path (Join-Path $_.FullName "plate-check.html")
@@ -295,7 +287,7 @@ function Run-PlatformAuditPass {
     $auditRetryCount = 0
     while ($record.exitCode -ne 0 -and $auditRetryCount -lt 2 -and (Test-AuditTransientRuntimeFailure -LogPath ([string]$record.log))) {
       $auditRetryCount += 1
-      Clear-AuditRuntimeProcesses -Since $auditPassStartedAt -Reason "transient failure in $($job.key)"
+      Clear-AuditRuntimeProcesses -CheckKey $job.key -Reason "transient failure in $($job.key)"
       Write-Status "Retrying $($job.key) audit after transient runtime failure ($auditRetryCount/2)..." "DarkGray"
       Start-Sleep -Seconds 60
       $record = Invoke-Audit -Label $job.label -Workdir $job.workdir -Command $job.command -RunDir $runDir -TimeoutSeconds $jobTimeoutSeconds
@@ -412,5 +404,7 @@ try {
     }
   } while ($Loop)
 } finally {
-  Release-Lock
+  try {
+    if ($null -ne $script:auditOwnership) { Clear-OwnedProcessJobs -Context $script:auditOwnership }
+  } finally { Release-Lock }
 }

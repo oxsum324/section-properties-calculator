@@ -249,6 +249,19 @@ NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋�
 
 鍵名轉譯僅在 `結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html`：精確 15 個內建鍵顯示中文名稱及原鍵，畫面、摘要／詳細報告與 TXT 共用同一 helper；未知或自訂鍵原樣顯示。`local-quick-tools.manifest.json` 只准在 NDT 項目追加 `reportNeedles`，其餘項目維持 deep equal。既有首頁日期同步將 NDT 由 2026-10-16 更新至 2026-10-18，範圍僅為 `home.source.js` 與既有建置器產生的 `home.js`，不新增壓縮策略。不得改 core、spec、golden、JSON 或 trace；NDT 維持 assist 身分及既有附件資格，不新增 lazy-load。
 <!-- T52-REGISTRATION-END -->
+<!-- T53-REGISTRATION-START -->
+## 2026-10-20：T53 預檢與平台稽核程序所有權
+
+正式預檢與平台稽核為每項檢查使用 Windows Job Object 管理本輪啟動的程序樹，包含 Node 與 Edge 子孫；Job 設定 KILL_ON_JOB_CLOSE。事件閘門確保子程序在成功指派 Job 前不能開始執行。若指派失敗，閘門保持關閉，收尾僅限本次剛啟動的子程序 handle；不依程序名稱或啟動時間搜尋、停止既存程序。前次自有殘留由 Windows 在擁有者結束、Job 最後一個 handle 關閉時一併結束；啟動時僅記錄並略過不屬本輪的同名程序，不執行名稱式清理。
+
+檢查成功、錯誤及逾時都會關閉本輪 Job；重試只收尾失敗檢查自己的程序樹，不觸及外部程序。收尾記錄僅含程序名稱、PID、StartTime 與檢查 key，不記完整命令列或使用者路徑。
+
+程序快照或清理紀錄寫入失敗時，最外層 finally 仍關閉自有 Job／事件 handle 並回報失敗，不得因觀測錯誤遺留程序或假報通過。
+
+正式預檢既有 70 個 record keys、次序、命令與 3 項收尾檢查，以及平台稽核項目與預算均維持不變。T51 歷史範圍保留；本包授權僅涵蓋清理包裝與對應契約。
+
+共用機制 `結構工具箱/tools/preflight-process-ownership.ps1`、隔離測例 `結構工具箱/tools/preflight-process-ownership.fixture.ps1` 與契約 `結構工具箱/tools/preflight-process-ownership.contract.test.js` 均為私有工具，以具名清單排除於 Pages 成品之外。
+<!-- T53-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引

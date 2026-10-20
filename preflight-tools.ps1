@@ -9,6 +9,8 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $root "結構工具箱/tools/preflight-process-ownership.ps1")
+$script:preflightOwnership = $null
 $outputDir = Join-Path $root "output\preflight"
 $historyDir = Join-Path $outputDir "history"
 $slowStatusDir = Join-Path $outputDir "slow-check-status"
@@ -21,9 +23,16 @@ $releaseMutexAcquired = $false
 . $releaseLockScript
 
 function Close-ReleasePreflightLock {
-  Exit-ReleasePreflightLock -Mutex $script:releaseMutex -Acquired $script:releaseMutexAcquired
-  $script:releaseMutexAcquired = $false
-  $script:releaseMutex = $null
+  try {
+    if ($null -ne $script:preflightOwnership) {
+      Clear-OwnedProcessJobs -Context $script:preflightOwnership
+      $script:preflightOwnership = $null
+    }
+  } finally {
+    Exit-ReleasePreflightLock -Mutex $script:releaseMutex -Acquired $script:releaseMutexAcquired
+    $script:releaseMutexAcquired = $false
+    $script:releaseMutex = $null
+  }
 }
 
 if ($isReleaseMode) {
@@ -126,25 +135,9 @@ function Test-PreflightTransientRuntimeFailure {
 }
 
 function Clear-PreflightRuntimeProcesses {
-  param(
-    [datetime]$Since,
-    [string]$Reason,
-    [string[]]$ProcessNames = @("node", "chrome", "msedge")
-  )
-
-  $cutoff = $Since.AddSeconds(-5)
-  $stopped = New-Object System.Collections.Generic.List[string]
-  foreach ($proc in @(Get-Process $ProcessNames -ErrorAction SilentlyContinue)) {
-    try {
-      if ($proc.StartTime -lt $cutoff) { continue }
-      $stopped.Add("$($proc.ProcessName):$($proc.Id)")
-      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-    } catch {}
-  }
-  if ($stopped.Count -gt 0) {
-    Write-Status "[preflight] cleared runtime processes after ${Reason}: $($stopped -join ', ')" "DarkGray"
-    Start-Sleep -Seconds 5
-  }
+  param([string]$Reason, [string]$CheckKey = "startup", [switch]$Startup)
+  # Job membership is the authority; names and timestamps never authorize a kill.
+  Clear-OwnedProcessJobs -Context $script:preflightOwnership -CheckKey $CheckKey -Startup:$Startup
 }
 function Write-JsonFile {
   param(
@@ -276,6 +269,7 @@ function Invoke-PreflightCheck {
   Write-Status "=== $Label ===" "Cyan"
   $releaseEvidenceRequired = if ((-not $Quick) -and $ForceSlowChecks -and $ForcePlatformAudit) { '1' } else { '0' }
   $scriptEncodingBootstrap = @(
+    (Get-OwnedProcessGateBootstrap),
     '$utf8NoBom = [System.Text.UTF8Encoding]::new($false)',
     '[Console]::InputEncoding = $utf8NoBom',
     '[Console]::OutputEncoding = $utf8NoBom',
@@ -304,11 +298,10 @@ function Invoke-PreflightCheck {
   $processInfo.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
   $processInfo.CreateNoWindow = $true
 
-  $process = [System.Diagnostics.Process]::new()
-  $process.StartInfo = $processInfo
+  $process = $null
   $timedOut = $false
   try {
-    [void]$process.Start()
+    $process = Start-OwnedProcess -Context $script:preflightOwnership -CheckKey $Key -StartInfo $processInfo
     $stdoutTask = $process.StandardOutput.ReadToEndAsync()
     $stderrTask = $process.StandardError.ReadToEndAsync()
     $timeoutMs = [Math]::Max(1, $TimeoutSeconds) * 1000
@@ -334,7 +327,10 @@ function Invoke-PreflightCheck {
     [System.IO.File]::WriteAllText($stdoutPath, $stdoutText, [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::WriteAllText($stderrPath, $stderrText, [System.Text.UTF8Encoding]::new($false))
   } finally {
-    $process.Dispose()
+    if ($null -ne $process) {
+      try { Complete-OwnedProcessCheck -Context $script:preflightOwnership -RootPid $process.Id }
+      finally { $process.Dispose() }
+    }
   }
   $seconds = [Math]::Round(((Get-Date) - $startedAt).TotalSeconds, 1)
 
@@ -2846,6 +2842,7 @@ $runStamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runDir = Join-Path $historyDir $runStamp
 if ($isReleaseMode) { Set-ReleaseEnvironmentRunLink -State $releaseEnvironmentState -RunId $runStamp }
 New-Item -Path $runDir -ItemType Directory -Force | Out-Null
+$script:preflightOwnership = New-OwnedProcessContext -LogPath (Join-Path $runDir "process-ownership.jsonl")
 
 $records = New-Object System.Collections.Generic.List[object]
 $failures = New-Object System.Collections.Generic.List[string]
@@ -2853,7 +2850,7 @@ $summaryLines = New-Object System.Collections.Generic.List[string]
 $preflightStartedAt = Get-Date
 
 if (-not $Quick -and ($ForceSlowChecks -or $ForcePlatformAudit)) {
-  Clear-PreflightRuntimeProcesses -Since ((Get-Date).AddHours(-2)) -Reason "release startup existing node cleanup" -ProcessNames @("node")
+  Clear-PreflightRuntimeProcesses -Reason "release startup owned job cleanup" -Startup
   Wait-PreflightRuntimeCooldown -Reason "release slow checks startup" -Seconds 20
 }
 
@@ -2865,7 +2862,7 @@ foreach ($check in $checks) {
     $transientRetryCount = 0
     while (-not [bool]$record.pass -and [bool]$check.slow -and $transientRetryCount -lt 2 -and (Test-PreflightTransientRuntimeFailure -LogPath ([string]$record.historyLog))) {
       $transientRetryCount += 1
-      Clear-PreflightRuntimeProcesses -Since $preflightStartedAt -Reason "transient failure in $($check.key)"
+      Clear-PreflightRuntimeProcesses -CheckKey $check.key -Reason "transient failure in $($check.key)"
       Wait-PreflightRuntimeCooldown -Reason "retry $transientRetryCount for $($check.key)" -Seconds 60
       $record = Invoke-PreflightCheck -Key $check.key -Label $check.label -Workdir $check.workdir -Command $check.command -RunDir $runDir -TimeoutSeconds $timeoutSeconds
     }
