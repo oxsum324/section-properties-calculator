@@ -7,6 +7,17 @@ const adapters = require('./tool-workflow-adapters.js');
 const workflow = require('../core/ui/tool-workflow.js');
 const manifest = require('./tool-workflow.manifest.json');
 const root = path.resolve(__dirname, '../..');
+// 頁面主程式逐字外移（column.html → column.app.js）：還原到原內嵌位置後擷取真實 applyPanel 與腳本順序。
+const EXTRACTED_PAGE_SCRIPTS = { '鋼筋混凝土/tools/column.html': 'column.app.js' };
+function readPageSource(file) {
+  const html = fs.readFileSync(path.join(root, file), 'utf8');
+  const app = EXTRACTED_PAGE_SCRIPTS[file];
+  if (!app) return html;
+  const tag = `<script src="${app}"></script>`;
+  const at = html.indexOf(tag);
+  assert.ok(at >= 0 && html.indexOf(tag, at + 1) < 0, `${file}: ${app} is referenced exactly once`);
+  return html.slice(0, at) + '<script>' + fs.readFileSync(path.join(root, path.dirname(file), app), 'utf8') + '</script>' + html.slice(at + tag.length);
+}
 function documentStub() {
   return { querySelectorAll() { return []; }, querySelector() { return null; }, getElementById() { return null; }, activeElement: null };
 }
@@ -27,7 +38,7 @@ assert.equal(existingConnections, 36, 'all 36 existing local adapter connections
 assert.equal(connections, 37, '36 existing connections plus the new NDT adapter');
 
 for (const [key, engine] of [['/rc-beam', 'calcBeam'], ['/rc-column', 'calcColumn'], ['/rc-wall', 'calcWall'], ['/rc-shear-wall', 'calcShearWall']]) {
-  const tool = manifest.tools.find(item => item.key === key), html = fs.readFileSync(path.join(root, tool.file), 'utf8');
+  const tool = manifest.tools.find(item => item.key === key), html = readPageSource(tool.file);
   assert.ok(!html.includes('calc-verdict-strip.js'), `${key}: obsolete verdict strip is not loaded`);
   const scriptTags = [...html.matchAll(/<script\b[^>]*>/g)];
   const lastScript = scriptTags.at(-1);

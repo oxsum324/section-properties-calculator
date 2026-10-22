@@ -131,8 +131,19 @@ const sharedProjectStoragePages = new Set(pageContracts.map(([file]) => file));
 const sharedFieldProjectStoragePages = new Set(['beam.html', 'column.html', 'slab.html', 'wall.html', 'shear-wall.html', 'foundation.html']);
 
 const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-for (const [file, collector, snapshotCall, sourceTool, sourceVersion] of pageContracts) {
+// 頁面主程式逐字外移（column.html → column.app.js）：還原到原內嵌位置後檢查，斷言範圍不變。
+const EXTRACTED_PAGE_SCRIPTS = { 'column.html': 'column.app.js' };
+function readPageSource(file) {
   const html = fs.readFileSync(path.join(__dirname, file), 'utf8');
+  const app = EXTRACTED_PAGE_SCRIPTS[file];
+  if (!app) return html;
+  const tag = `<script src="${app}"></script>`;
+  const at = html.indexOf(tag);
+  assert.ok(at >= 0 && html.indexOf(tag, at + 1) < 0, `${file} should reference ${app} exactly once`);
+  return html.slice(0, at) + '<script>' + fs.readFileSync(path.join(__dirname, app), 'utf8') + '</script>' + html.slice(at + tag.length);
+}
+for (const [file, collector, snapshotCall, sourceTool, sourceVersion] of pageContracts) {
+  const html = readPageSource(file);
   assert.ok(html.includes('shared/report.js?v=10'), `${file} should load the replay-verified shared report`);
   if (sharedProjectStoragePages.has(file)) {
     assert.ok(html.includes('shared/project-storage.js?v=1'), `${file} should load the shared project storage core`);

@@ -366,7 +366,10 @@ for (const relativePath of [
     `${relativePath} gives formal input tables a repeatable continuation header`
   );
 }
-const rcColumnSource = fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/column.html'), 'utf8');
+// RC 柱頁主程式已逐字外移至 column.app.js：計算書輸入群組字面改讀「column.html＋column.app.js」合併文字。
+const rcColumnHtml = fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/column.html'), 'utf8');
+assert.equal(rcColumnHtml.split('<script src="column.app.js"></script>').length - 1, 1, 'RC column page loads its extracted page script exactly once');
+const rcColumnSource = rcColumnHtml + '\n' + fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/column.app.js'), 'utf8');
 assert.ok(
   rcColumnSource.includes("{ group:'外力', keepTogether:true, items:["),
   'RC column report keeps the compact external-load input group together on one page'

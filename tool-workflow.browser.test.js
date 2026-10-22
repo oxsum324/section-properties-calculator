@@ -35,9 +35,12 @@ const groups = {
   native: tool => tool.adapter === 'native-react'
 };
 
+// 頁面主程式逐字外移後，計算函式位於外部頁面腳本（column.html → column.app.js）；明確映射，不猜測。
+const PAGE_APP_SOURCES = { '/rc-column': '鋼筋混凝土/tools/column.app.js' };
 function probeSourceFile(tool) {
   if (tool.key.startsWith('/src-')) return `SRC工具/${slug(tool.key)}.js`;
   if (tool.adapter === 'steel-explicit') return tool.sourceFile;
+  if (PAGE_APP_SOURCES[tool.key]) return PAGE_APP_SOURCES[tool.key];
   return tool.file;
 }
 function compiledCalculationBody(source, entry, key) {

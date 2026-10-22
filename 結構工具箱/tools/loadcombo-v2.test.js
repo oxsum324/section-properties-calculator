@@ -546,6 +546,18 @@ function testForceReceiveKeepsLastAppliedPayload() {
   assert.equal(legacyBannerText.includes('完整配對'), false, 'legacy tuple fails closed');
 }
 
+// RC 柱頁主程式已逐字外移至 column.app.js：還原到原內嵌位置後做同一組字面與 inline script 語法檢查。
+function readConsumerPageSource(repoRoot, relativePath) {
+  const text = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+  const app = { '鋼筋混凝土/tools/column.html': 'column.app.js' }[relativePath];
+  if (!app) return text;
+  const tag = `<script src="${app}"></script>`;
+  const at = text.indexOf(tag);
+  assert.ok(at >= 0 && text.indexOf(tag, at + 1) < 0, relativePath + ' references ' + app + ' exactly once');
+  const appText = fs.readFileSync(path.join(repoRoot, path.dirname(relativePath), app), 'utf8');
+  return text.slice(0, at) + '<script>' + appText + '</script>' + text.slice(at + tag.length);
+}
+
 function testConsumerReportContracts() {
   const repoRoot = path.resolve(__dirname, '../..');
   const consumers = [
@@ -558,7 +570,7 @@ function testConsumerReportContracts() {
   ];
   const texts = new Map();
   consumers.forEach(([relativePath, prefix]) => {
-    const text = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+    const text = readConsumerPageSource(repoRoot, relativePath);
     texts.set(relativePath, text);
     assert.ok(new RegExp("prefix\\s*:\\s*['\"]" + prefix + "['\"]").test(text), relativePath + ' load-combo prefix');
     assert.ok(/tupleMode\s*:\s*['"]select['"]/.test(text), relativePath + ' explicit tuple selection');

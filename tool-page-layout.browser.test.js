@@ -21,6 +21,17 @@ const tools = [
   { key: 'continuous-beam', file: '連續梁分析.html', max: 17, calculate: 'button[onclick="runAnalysis()"]' },
   { key: 'frame-analysis', file: '鋼架/平面剛架分析.html', max: 12 }
 ];
+// 頁面主程式逐字外移（column.html → column.app.js）：inline-style 行數改讀還原到原內嵌位置的頁面全文，上限不變。
+const EXTRACTED_PAGE_SCRIPTS = { '鋼筋混凝土/tools/column.html': 'column.app.js' };
+function readPageSource(file) {
+  const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  const app = EXTRACTED_PAGE_SCRIPTS[file];
+  if (!app) return html;
+  const tag = `<script src="${app}"></script>`;
+  const at = html.indexOf(tag);
+  if (at < 0 || html.indexOf(tag, at + 1) >= 0) throw new Error(`${file}: ${app} must be referenced exactly once`);
+  return html.slice(0, at) + '<script>' + fs.readFileSync(path.join(ROOT, path.dirname(file), app), 'utf8') + '</script>' + html.slice(at + tag.length);
+}
 const selected = tools.filter(t => !process.env.TOOL_PAGE_LAYOUT_ONLY || process.env.TOOL_PAGE_LAYOUT_ONLY.split(',').includes(t.key));
 if (!selected.length) throw new Error('TOOL_PAGE_LAYOUT_ONLY 未選到工具');
 const viewports = [{ width: 1280, height: 900 }, { width: 375, height: 844 }];
@@ -64,7 +75,7 @@ async function capture(page, tool, viewport, stage, errors) {
   const baseUrl = await startServer();
   browser = await chromium.launch({ headless: true, ...(edge ? { executablePath: edge } : {}), args: ['--no-first-run'] });
   for (const tool of selected) {
-    const source = fs.readFileSync(path.join(ROOT, tool.file), 'utf8');
+    const source = readPageSource(tool.file);
     const lines = source.split('\n').filter(line => line.includes('style="')).length;
     if (lines > tool.max) failures.push({ tool: tool.key, rule: 'inline-style-lines', actual: lines, maximum: tool.max });
     for (const viewport of viewports) {

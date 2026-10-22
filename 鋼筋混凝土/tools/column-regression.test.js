@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_TEST_PORT || 8123);
 const TOOL_URL = `http://127.0.0.1:${PORT}/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/tools/column.html`;
 const htmlPath = path.join(__dirname, 'column.html');
+const appPath = path.join(__dirname, 'column.app.js');
 const commonPath = path.join(__dirname, '..', 'shared', 'common.js');
 const casesPath = path.join(__dirname, 'column-regression-cases.json');
 const toleranceDefault = 0.001;
@@ -841,8 +842,18 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
   });
 }
 
-async function main() {
+// column.html 主程式已逐字外移至 column.app.js（一般 classic script，原位置同步載入）：
+// 字面檢查改讀「column.html＋column.app.js」還原到原內嵌位置的頁面全文，斷言範圍與外移前相同。
+const COLUMN_APP_TAG = '<script src="column.app.js"></script>';
+function readColumnPageSource() {
   const html = fs.readFileSync(htmlPath, 'utf8');
+  const at = html.indexOf(COLUMN_APP_TAG);
+  assert(at >= 0 && html.indexOf(COLUMN_APP_TAG, at + 1) < 0, 'column.html references column.app.js once', 'extracted page script stays at its original position');
+  return html.slice(0, at) + '<script>' + fs.readFileSync(appPath, 'utf8') + '</script>' + html.slice(at + COLUMN_APP_TAG.length);
+}
+
+async function main() {
+  const html = readColumnPageSource();
   const common = fs.readFileSync(commonPath, 'utf8');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
   const tolerance = pack.tolerance ?? toleranceDefault;
