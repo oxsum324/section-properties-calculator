@@ -736,7 +736,7 @@ body {
 
 .report-readiness-kicker {
   margin: 0 0 2px;
-  color: var(--fg-3);
+  color: var(--fg-2);
   font-size: var(--fs-xs);
   font-weight: 700;
 }
@@ -777,7 +777,7 @@ body {
 
 .report-readiness-item span {
   display: block;
-  color: var(--fg-3);
+  color: var(--fg-2);
   font-size: var(--fs-xs);
   font-weight: 700;
 }

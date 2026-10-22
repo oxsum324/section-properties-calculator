@@ -2,10 +2,10 @@
  * This UI supports working-page review only and must never enter print/export output.
  */
 .report-readiness {
-  --report-readiness-border: #fde68a;
-  --report-readiness-accent: #d97706;
-  --report-readiness-background: #fffbeb;
-  --report-readiness-color: #78350f;
+  --report-readiness-border: var(--hy-warning, #B8860B);
+  --report-readiness-accent: var(--hy-warning, #B8860B);
+  --report-readiness-background: var(--hy-warning-100, #FBF2DB);
+  --report-readiness-color: var(--hy-warning-ink, #7A5700);
   display: grid;
   gap: 10px;
   margin-top: 10px;
@@ -20,24 +20,24 @@
 }
 
 .report-readiness.ready {
-  --report-readiness-border: #bbf7d0;
-  --report-readiness-accent: #059669;
-  --report-readiness-background: #f0fdf4;
-  --report-readiness-color: #166534;
+  --report-readiness-border: var(--hy-success, #1F7A4D);
+  --report-readiness-accent: var(--hy-success, #1F7A4D);
+  --report-readiness-background: var(--hy-success-100, #E3F1EA);
+  --report-readiness-color: var(--hy-success, #1F7A4D);
 }
 
 .report-readiness.review {
-  --report-readiness-border: #fde68a;
-  --report-readiness-accent: #d97706;
-  --report-readiness-background: #fffbeb;
-  --report-readiness-color: #92400e;
+  --report-readiness-border: var(--hy-warning, #B8860B);
+  --report-readiness-accent: var(--hy-warning, #B8860B);
+  --report-readiness-background: var(--hy-warning-100, #FBF2DB);
+  --report-readiness-color: var(--hy-warning-ink, #7A5700);
 }
 
 .report-readiness.blocked {
-  --report-readiness-border: #fecaca;
-  --report-readiness-accent: #dc2626;
-  --report-readiness-background: #fef2f2;
-  --report-readiness-color: #991b1b;
+  --report-readiness-border: var(--hy-danger, #E00000);
+  --report-readiness-accent: var(--hy-danger, #E00000);
+  --report-readiness-background: var(--hy-danger-100, #FCE5E5);
+  --report-readiness-color: var(--hy-red-deep, #B30000);
 }
 
 .report-readiness-head {
@@ -51,7 +51,7 @@
 .report-readiness-kicker,
 .report-readiness-eyebrow {
   margin: 0 0 2px;
-  color: var(--text-light, #64748b);
+  color: var(--fg-2, #3F4653);
   font-size: 0.76em;
   font-weight: 700;
 }
@@ -87,13 +87,13 @@
   display: grid;
   gap: 2px;
   padding: 9px 10px;
-  border: 1px solid rgba(120, 53, 15, 0.18);
+  border: 1px solid var(--border-strong, #D4D7DC);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.72);
 }
 
 .report-readiness-priority span {
-  color: var(--text-light, #64748b);
+  color: var(--fg-2, #3F4653);
   font-size: 0.82em;
   font-weight: 700;
 }
@@ -112,14 +112,14 @@
 .report-readiness-item {
   min-height: 54px;
   padding: 8px 9px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  border: 1px solid var(--border-strong, #D4D7DC);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.7);
 }
 
 .report-readiness-item > :first-child {
   display: block;
-  color: var(--text-light, #64748b);
+  color: var(--fg-2, #3F4653);
   font-size: 0.82em;
   font-weight: 700;
 }
@@ -127,7 +127,7 @@
 .report-readiness-item > :last-child {
   display: block;
   margin-top: 2px;
-  color: var(--text, #0f172a);
+  color: var(--text, var(--fg-1, #111316));
   font-size: 0.96em;
   font-weight: 800;
   line-height: 1.35;
@@ -136,8 +136,8 @@
 .report-readiness-note {
   margin-top: 2px;
   padding-top: 8px;
-  border-top: 1px dashed rgba(100, 116, 139, 0.38);
-  color: var(--text-light, #64748b);
+  border-top: 1px dashed var(--border-strong, #D4D7DC);
+  color: var(--fg-2, #3F4653);
   font-size: 0.86em;
 }
 
@@ -145,7 +145,7 @@
 .report-readiness ul {
   margin: 0;
   padding-left: 18px;
-  color: var(--text-light, #57534e);
+  color: var(--fg-2, #3F4653);
   font-size: 0.86em;
   line-height: 1.65;
 }

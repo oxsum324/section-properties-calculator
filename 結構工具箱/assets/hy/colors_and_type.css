@@ -172,6 +172,48 @@
   --container-base:   1080px;
   --container-wide:   1280px;
   --container-max:    1440px;
+
+  /* =========================================================================
+     FAMILY ACCENT — 家族強調色（預設 = 品牌 navy）
+     各家族的覆寫集中在 結構工具箱/core/family-theme.css，只靠
+     <body data-family="<id>"> 切換；工具頁 DOM 不動。
+     ========================================================================= */
+  --family-accent:        var(--hy-navy);
+  --family-accent-soft:   var(--hy-navy-100);
+  --family-on-accent:     var(--fg-on-navy);
+
+  /* Semantic ink for *-100 washes（warning-100 底需深色字才達 4.5:1） */
+  --hy-warning-ink:       #7A5700;
+
+  /* =========================================================================
+     BUTTONS — 三階（主要 / 次要 outline / 危險）
+     ========================================================================= */
+  --btn-primary-bg:         var(--hy-navy);
+  --btn-primary-bg-hover:   var(--hy-navy-700);
+  --btn-primary-bg-active:  var(--hy-navy-deep);
+  --btn-primary-fg:         var(--fg-on-navy);
+  --btn-secondary-bg:       var(--bg-surface);
+  --btn-secondary-bg-hover: var(--hy-navy-50);
+  --btn-secondary-fg:       var(--hy-navy);
+  --btn-secondary-border:   var(--hy-navy);
+  --btn-danger-bg:          var(--hy-danger);
+  --btn-danger-bg-hover:    var(--hy-red-deep);
+  --btn-danger-fg:          #FFFFFF;
+
+  /* =========================================================================
+     CHIPS — 與 home.css 的 .tool-chip / .tool-state 同一語意
+     ========================================================================= */
+  --chip-bg:              var(--hy-slate-100);
+  --chip-fg:              var(--fg-2);
+  --chip-family-bg:       var(--hy-navy-50);
+  --chip-family-fg:       var(--hy-navy-500);
+  --chip-formal-bg:       var(--hy-success-100);
+  --chip-formal-fg:       var(--hy-success);
+  --chip-caution-bg:      var(--hy-warning-100);
+  --chip-caution-fg:      var(--hy-warning-ink);
+
+  /* Mono stack that keeps 中文 glyphs in a UI sans（公式區／提示混排 code + 中文用） */
+  --font-mono-tc: 'JetBrains Mono', 'Consolas', 'Menlo', 'Microsoft JhengHei', 'PingFang TC', monospace;
 }
 
 /* ==========================================================================

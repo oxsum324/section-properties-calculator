@@ -1,0 +1,174 @@
+/* =========================================================================
+   結構工具箱 — 家族主題 family-theme.css
+   載入者（@import）：結構工具箱/core/style.css、鋼筋混凝土/shared/style.css、
+   鋼構工具/styles.css、結構工具箱/assets/hy/continuous-beam-ui.css、
+   結構工具箱/assets/hy/frame-analysis-ui.css。
+   前提：弘一 token（結構工具箱/assets/hy/colors_and_type.css）已先載入；
+   本檔不自行 @import token，也不定義任何新 class（DOM 一律不動）。
+   切換方式：只靠 <body data-family="<id>"> 一個屬性。
+   計算書彈窗（report.js 產生之獨立文件）與列印路徑不載本檔。
+
+   ★ 家族色對應表為派工假設值，需技師確認後定案：
+       rc / steel / analysis → navy（品牌主色）
+       wind                  → navy-500
+       seismic               → warning（原首頁用紅；紅只留警示）
+       attachments           → success
+       reference             → slate-500
+       local-quick           → slate-700（原首頁用琥珀）
+   --family-on-accent 皆經 WCAG 對比實算 ≥ 4.5:1
+   （design-tokens.contract.test.js 會重算；warning B8860B 底白字僅 3.3:1，故改深色字）。
+   ========================================================================= */
+
+/* 1. 家族強調色 ---------------------------------------------------------
+   --family-accent：chip／按鈕等淺底上的家族色。
+   --family-bar：深藍頁首左側 4px 色條專用；navy 系家族的 accent 與頁首同色看不見，
+   改用同色系淺階（navy-300／navy-100）或淺階語意色，對 navy 底的對比皆 ≥ 3:1。 */
+body[data-family="rc"],
+body[data-family="steel"],
+body[data-family="analysis"] {
+  --family-accent: var(--hy-navy);
+  --family-accent-soft: var(--hy-navy-100);
+  --family-on-accent: var(--fg-on-navy);
+  --family-bar: var(--hy-navy-300);
+}
+body[data-family="wind"] {
+  --family-accent: var(--hy-navy-500);
+  --family-accent-soft: var(--hy-navy-100);
+  --family-on-accent: var(--fg-on-navy);
+  --family-bar: var(--hy-navy-100);
+}
+body[data-family="seismic"] {
+  --family-accent: var(--hy-warning);
+  --family-accent-soft: var(--hy-warning-100);
+  --family-on-accent: var(--hy-ink);
+  --family-bar: var(--hy-warning);
+}
+body[data-family="attachments"] {
+  --family-accent: var(--hy-success);
+  --family-accent-soft: var(--hy-success-100);
+  --family-on-accent: var(--fg-on-navy);
+  --family-bar: var(--hy-success-100);
+}
+body[data-family="reference"] {
+  --family-accent: var(--hy-slate-500);
+  --family-accent-soft: var(--hy-slate-100);
+  --family-on-accent: var(--fg-on-navy);
+  --family-bar: var(--hy-slate-300);
+}
+body[data-family="local-quick"] {
+  --family-accent: var(--hy-slate-700);
+  --family-accent-soft: var(--hy-slate-100);
+  --family-on-accent: var(--fg-on-navy);
+  --family-bar: var(--hy-slate-100);
+}
+
+/* 2. 頁首統一：平塗 navy + 左側 4px 家族色，不動 padding／高度 -------------
+   屬性選擇器把特異度拉到 (0,1,2)～(0,2,3)，蓋過各頁內嵌的 header{}／.hero{}／
+   .page-header{}（最高 (0,1,1)）。局部快算頁的 header.hero 不是 body 直系子元素，
+   以 main > header.hero／.page > header.hero 補上。 */
+body[data-family] > header,
+body[data-family] > .hero,
+body[data-family] > .page-header,
+body[data-family] > header.family-banner,
+body[data-family] > main > header.hero,
+body[data-family] > .page > header.hero {
+  background: var(--hy-navy);
+  color: var(--fg-on-navy);
+  border-left: 4px solid var(--family-bar, var(--family-accent));
+}
+
+/* 2b. 深藍頁首內未加 class 的連結（例如「官方規範頁」）一律白字底線；
+   這類連結原本吃瀏覽器預設藍，換成深藍頁首後對比不足。已有 class 的連結維持各頁樣式。 */
+body[data-family] > header a:not([class]),
+body[data-family] > .hero a:not([class]),
+body[data-family] > .page-header a:not([class]),
+body[data-family] > main > header.hero a:not([class]),
+body[data-family] > .page > header.hero a:not([class]) {
+  color: var(--fg-on-navy);
+  text-decoration: underline;
+  text-decoration-color: var(--hy-navy-300);
+  text-underline-offset: 3px;
+}
+
+/* 3. 按鈕三階：只對既有 class 加規則，不要求頁面改 class ----------------- */
+/* 主要 */
+body[data-family] .btn-calc,
+body[data-family] .btn-primary,
+body[data-family] .btn-print,
+body[data-family] .mode-bar__report:not(.secondary) {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+  border-color: var(--btn-primary-bg);
+}
+body[data-family] .btn-calc:focus-visible,
+body[data-family] .btn-primary:focus-visible,
+body[data-family] .btn-print:focus-visible,
+body[data-family] .mode-bar__report:not(.secondary):focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+body[data-family] .btn-calc:active,
+body[data-family] .btn-primary:active,
+body[data-family] .btn-print:active,
+body[data-family] .mode-bar__report:not(.secondary):active {
+  background: var(--btn-primary-bg-active);
+}
+
+/* 次要（outline navy；用 inset 陰影畫框，不改既有 border 尺寸） */
+body[data-family] .btn-secondary,
+body[data-family] .mode-bar__report.secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-fg);
+  border-color: var(--btn-secondary-border);
+  box-shadow: inset 0 0 0 2px var(--btn-secondary-border);
+}
+body[data-family] .btn-secondary:focus-visible,
+body[data-family] .mode-bar__report.secondary:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--btn-secondary-border), var(--shadow-focus);
+}
+
+/* 危險 */
+body[data-family] .btn-danger {
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-fg);
+  border-color: var(--btn-danger-bg);
+}
+body[data-family] .btn-danger:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* hover 只在有游標的裝置生效，避免觸控黏滯 */
+@media (hover: hover) {
+  body[data-family] .btn-calc:hover,
+  body[data-family] .btn-primary:hover,
+  body[data-family] .btn-print:hover,
+  body[data-family] .mode-bar__report:not(.secondary):hover {
+    background: var(--btn-primary-bg-hover);
+    border-color: var(--btn-primary-bg-hover);
+    box-shadow: var(--shadow-focus);
+  }
+  body[data-family] .btn-secondary:hover,
+  body[data-family] .mode-bar__report.secondary:hover {
+    background: var(--btn-secondary-bg-hover);
+    box-shadow: inset 0 0 0 2px var(--btn-secondary-border), var(--shadow-focus);
+  }
+  body[data-family] .btn-danger:hover {
+    background: var(--btn-danger-bg-hover);
+    border-color: var(--btn-danger-bg-hover);
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+/* 4. 列印：家族色條不進紙本（頁首黑白規則由各 style.css 的 @media print 維持） */
+@media print {
+  body[data-family] > header,
+  body[data-family] > .hero,
+  body[data-family] > .page-header,
+  body[data-family] > header.family-banner,
+  body[data-family] > main > header.hero,
+  body[data-family] > .page > header.hero {
+    border-left: 0;
+  }
+}

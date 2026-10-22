@@ -28,6 +28,26 @@ a { color: inherit; text-decoration: none; }
 }
 .home-rule { height: 3px; width: 44px; background: var(--hy-red); border: 0; margin: 12px 0 14px; }
 
+/* 家族頁入口（靜態連結列，放在分類卡上方）------------------------------- */
+.family-links {
+  margin: 0 0 14px;
+  font-size: var(--fs-sm);
+  color: var(--fg-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+.family-links a {
+  color: var(--fg-link);
+  font-weight: var(--fw-bold);
+  text-decoration: underline;
+  text-decoration-color: var(--hy-navy-300);
+  text-underline-offset: 3px;
+}
+.family-links a:hover,
+.family-links a:focus-visible { color: var(--hy-navy); text-decoration-color: var(--hy-red); }
+
 /* =========================================================================
    HEADER（深藍 hero）
    ========================================================================= */
@@ -476,16 +496,16 @@ a { color: inherit; text-decoration: none; }
 .tool-card--analysis .tool-card__icon { color: var(--hy-navy); }
 .tool-card--wind { border-top-color: var(--hy-navy-500); }
 .tool-card--wind .tool-card__icon { color: var(--hy-navy-500); }
-.tool-card--seismic { border-top-color: var(--hy-red); }
-.tool-card--seismic .tool-card__icon { color: var(--hy-red); }
+.tool-card--seismic { border-top-color: var(--hy-warning); }
+.tool-card--seismic .tool-card__icon { color: var(--hy-warning); }
 .tool-card--member { border-top-color: var(--hy-navy); }
 .tool-card--member .tool-card__icon { color: var(--hy-navy); }
 .tool-card--attachments { border-top-color: var(--hy-success); }
 .tool-card--attachments .tool-card__icon { color: var(--hy-success); }
 .tool-card--reference { border-top-color: var(--hy-slate-500); }
 .tool-card--reference .tool-card__icon { color: var(--hy-slate-500); }
-.tool-card--temporary { border-top-color: var(--hy-warning); }
-.tool-card--temporary .tool-card__icon { color: var(--hy-warning); }
+.tool-card--temporary { border-top-color: var(--hy-slate-700); }
+.tool-card--temporary .tool-card__icon { color: var(--hy-slate-700); }
 
 .tool-card__head { display: flex; align-items: flex-start; gap: 12px; }
 .tool-title-row { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
