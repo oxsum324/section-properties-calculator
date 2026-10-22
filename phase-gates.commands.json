@@ -33,6 +33,8 @@
     "node 結構工具箱/tools/nav/tool-chrome-build.contract.test.js",
     "node 結構工具箱/tools/nav/family-pages.contract.test.js",
     "node 結構工具箱/tools/design/design-tokens.contract.test.js",
+    "node 結構工具箱/tools/design/tool-shell.contract.test.js",
+    "node 鋼筋混凝土/tools/column-app-extraction.contract.test.js",
     "node 結構工具箱/tools/delivery-artifacts.contract.test.js",
     "node 結構工具箱/tools/release-readiness.contract.test.js"
   ]

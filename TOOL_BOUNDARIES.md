@@ -293,6 +293,17 @@ NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋�
 
 拉力伸展長度依表 25.4.2.3 分條件取係數、收縮與溫度鋼筋比固定 0.0018、基礎單向剪力依表 22.5.5.1(c) 並依 13.2.6.2 區分 λs、雙向剪力係數依表 22.6.5.2。條件資料不足時採保守之「其他情況」並於計算書標示；各模式之 ρw 取法與 Nu = 0 等假設列於計算書，結果不代表該等假設已定案。預設例判定改變（聯合基腳、樁帽單向剪力）屬依原文更正之結果。
 <!-- E3-REGISTRATION-END -->
+<!-- R2-REGISTRATION-START -->
+## 2026-10-23：R2 首屏、首頁分組與頁面程式外移
+
+`結構工具箱/core/tool-shell.css` 是工具頁首屏共用樣式（案件列、主要動作列、壓縮頁首），只用 token，由頁面 link 載入；目前套用 RC 梁、風力 Kzt、鋼索索力三頁。首屏重排只搬移元素與新增外層容器，不改 id、class 名稱、輸入預設值、計算流程或計算書。手機主要動作列以 CSS 固定於底部，不在執行期插入元素。
+
+首頁「全部」檢視依家族分段，家族由既有欄位推導，與 `結構工具箱/tools/nav/tool-nav.manifest.json` 一致；每段預設顯示 6 張，其餘以 class 收合但保留在 DOM。`#categoryFilters` 保留為隱藏狀態鏡像，供既有測試讀取。平台狀態區留在首頁頁尾、不收合；`結構工具箱/platform-status.html` 重用首頁執行期的同一組狀態渲染函式顯示完整內容，不含工具清單，不是計算書；`vercel.json` 的 `/platform-status` 僅適用 Vercel。
+
+`鋼筋混凝土/tools/column.app.js` 是 RC 柱頁主程式，由 `鋼筋混凝土/tools/column.html` 逐字抽出（2026-10-23 V18 由當時 master 之 column.html 重新抽出，含 E1～E3 修正），未壓縮，在原位置同步載入；不得手動與頁面分歧，以 `鋼筋混凝土/tools/column-app-extraction.contract.test.js` 守門。以字面讀取柱頁程式的測試須讀還原後全文。是否以 Terser 壓縮為待決選項（gzip 可再降約 27%），需先處理瀏覽器探針與私有來源登錄。
+
+根目錄 `tool-chrome.css` 只保留頂欄占位的 44px 高度並在列印隱藏，由 49 個注入頂欄的工具頁在 head 第一個樣式表前 link；占位不得使用行內 style。
+<!-- R2-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引

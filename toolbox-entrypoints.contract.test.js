@@ -14,6 +14,18 @@ function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
+// 頁面主程式逐字外移（column.html → column.app.js）：版本一致性改讀還原到原內嵌位置的頁面全文，JS 內 appVersion 仍納入比對。
+const EXTRACTED_PAGE_SCRIPTS = { '鋼筋混凝土/tools/column.html': 'column.app.js' };
+function readPageVersionSource(absoluteFile, relativeFile) {
+  const html = readText(absoluteFile);
+  const app = EXTRACTED_PAGE_SCRIPTS[relativeFile];
+  if (!app) return html;
+  const tag = `<script src="${app}"></script>`;
+  const at = html.indexOf(tag);
+  assert.ok(at >= 0 && html.indexOf(tag, at + 1) < 0, `${relativeFile} references ${app} exactly once`);
+  return html.slice(0, at) + '<script>' + readText(path.join(path.dirname(absoluteFile), app)) + '</script>' + html.slice(at + tag.length);
+}
+
 function readJson(relativePath) {
   return JSON.parse(readText(path.join(repoRoot, ...relativePath.split('/'))));
 }
@@ -1360,7 +1372,7 @@ for (const tool of homeTools) {
     const homeVersion = normalizeVersion(tool.version);
     assert.ok(homeVersion, `${tool.title} home version must be Vn.n or an approved categorical tag: ${tool.version}`);
     if (/\.html?$/i.test(relativeFile)) {
-      const htmlVersion = detectHtmlVersion(readText(absoluteFile), relativeFile);
+      const htmlVersion = detectHtmlVersion(readPageVersionSource(absoluteFile, relativeFile), relativeFile);
       if (htmlVersion) {
         assert.equal(homeVersion, htmlVersion, `${tool.title} home version must match tool version source (${relativeFile})`);
       }
@@ -1502,5 +1514,60 @@ for (const [launcherName, route] of [
   assert.ok(boundaries.includes(needle), `TOOL_BOUNDARIES missing entrypoint governance: ${needle}`);
   assert.ok(staging.includes(needle), `STAGING_GROUPS missing entrypoint governance: ${needle}`);
 });
+
+// R2 首頁：「全部」依家族分段，家族順序、名稱、家族頁與逐工具推導須與共用導覽清冊一致；
+// 平台狀態降級為首頁頁尾精簡摘要，完整內容由 platform-status.html 以同一份 home.js 狀態渲染函式顯示。
+{
+  const navManifest = readJson('結構工具箱/tools/nav/tool-nav.manifest.json');
+  const homeFamilies = evaluateLiteral(extractConstLiteral(homeSource, 'homeFamilies'), 'home-families');
+  assert.deepEqual(
+    homeFamilies.map(family => [family.id, family.label]),
+    navManifest.families.map(family => [family.id, family.label]),
+    'homepage family sections follow the nav manifest family order and labels'
+  );
+  for (const family of homeFamilies) {
+    const manifestFamily = navManifest.families.find(item => item.id === family.id);
+    if (family.page) {
+      assert.equal(/^(?:[a-z][a-z0-9+.-]*:|\/)/i.test(family.page), false, `${family.id} homepage family page link must be relative: ${family.page}`);
+      const resolved = path.posix.normalize(path.posix.join('結構工具箱', family.page));
+      assert.equal(resolved, manifestFamily.file, `${family.id} homepage family page link matches the nav manifest family page`);
+      assert.ok(fs.existsSync(path.join(repoRoot, ...resolved.split('/'))), `${family.id} homepage family page exists: ${resolved}`);
+    } else {
+      assert.equal(manifestFamily.file, `結構工具箱/index.html?category=${family.id}`, `${family.id} has no family page, so the manifest deep-links the homepage category`);
+    }
+  }
+  const familyOfSource = homeSource.match(/\n  function familyOf\(tool\) \{[\s\S]*?\n  \}\n/);
+  assert.ok(familyOfSource, 'home.source.js defines familyOf(tool) for family sections');
+  const familyOf = vm.runInNewContext(`(${familyOfSource[0].trim()})`, {}, { timeout: 1000, filename: 'home-familyOf' });
+  assert.equal(navManifest.tools.length, homeTools.length, 'nav manifest covers every homepage tool');
+  for (const tool of homeTools) {
+    const manifestTool = navManifest.tools.find(item => item.route === tool.href);
+    assert.ok(manifestTool, `${tool.href} is in the nav manifest`);
+    assert.equal(familyOf(tool), manifestTool.family, `${tool.href} homepage family section matches the nav manifest family`);
+  }
+  assert.ok(homeSource.includes('const HOME_FAMILY_PREVIEW_COUNT = 6;'), 'homepage family sections preview six cards before 展開全部');
+  assert.ok(homeSource.includes("shell.classList.add('tool-card-shell--overflow')"), 'cards beyond the preview stay in the DOM and collapse by class');
+  assert.ok(homeSource.includes('if (elements.grid && elements.categoryOverview && elements.count && elements.empty) initToolList();'), 'home.js skips tool list rendering on pages without the tool list');
+
+  const sectionStart = homeIndex.indexOf('id="platformStatusSection"');
+  assert.ok(sectionStart >= 0, 'homepage keeps the platform status section');
+  const beforeSection = homeIndex.slice(0, sectionStart);
+  const sectionMarkup = homeIndex.slice(sectionStart, homeIndex.indexOf('</section>', sectionStart));
+  assert.equal((beforeSection.match(/<details\b/g) || []).length, (beforeSection.match(/<\/details>/g) || []).length, 'homepage status summary is not nested in a collapsible details element');
+  assert.equal(/<details\b/.test(sectionMarkup), false, 'homepage status summary does not use a collapsible details element');
+  assert.ok(sectionMarkup.includes('class="status-section status-section--compact"'), 'homepage status summary uses the compact footer layout');
+  assert.ok(sectionMarkup.includes('href="platform-status.html"'), 'homepage status summary links the full status page with a relative path');
+
+  const statusPage = readText(path.join(toolboxRoot, 'platform-status.html'));
+  assertHomeStatusRegion(statusPage, 'platformStatus', 'platform-status page platform');
+  assertHomeStatusRegion(statusPage, 'preflightStatus', 'platform-status page preflight');
+  assertHomeStatusRegion(statusPage, 'reportReadinessStatus', 'platform-status page report readiness');
+  assert.ok(/<script src="assets\/home\/home\.js(?:\?[^"]*)?" defer><\/script>/.test(statusPage), 'platform-status page reuses home.js status renderers');
+  assert.ok(statusPage.includes('id="reportReadinessDetails"'), 'platform-status page lists full report readiness details');
+  assert.equal(/id="(?:toolGrid|categoryOverview|categoryFilters|toolSearch)"/.test(statusPage), false, 'platform-status page has no tool list elements');
+  assert.equal(/\s(?:href|src)="\//.test(statusPage), false, 'platform-status page uses relative links only');
+  const statusRedirect = vercel.redirects.find(route => route.source === '/platform-status');
+  assert.deepEqual(statusRedirect, { source: '/platform-status', destination: '/結構工具箱/platform-status', permanent: true }, 'vercel.json routes /platform-status to the full status page');
+}
 
 console.log(`toolbox entrypoints contract OK (${homeTools.length} home tools, ${deployedRoutes.size} deployed routes, ${manifestTools.length} manifest tools, ${preflightContractPaths.length} preflight contracts, ${preflightRunnableJsPaths.length} runnable JS files, ${preflightHelperPaths.length} helper scripts)`);

@@ -27,7 +27,7 @@ const STAGING_SEGMENTS = Object.freeze({
   'docs/governance-current/STAGING_GROUPS-ledger-01.md': Object.freeze(Array.from({ length: 7 }, (_, i) => `SG-01-${String(i + 1).padStart(3, '0')}`)),
   'docs/governance-current/STAGING_GROUPS-ledger-02.md': Object.freeze(Array.from({ length: 6 }, (_, i) => `SG-02-${String(i + 1).padStart(3, '0')}`)),
   'docs/governance-current/STAGING_GROUPS-ledger-03.md': Object.freeze(Array.from({ length: 36 }, (_, i) => `SG-03-${String(i + 1).padStart(3, '0')}`)),
-  'docs/governance-current/STAGING_GROUPS-ledger-04.md': Object.freeze(Array.from({ length: 105 }, (_, i) => `SG-04-${String(i + 1).padStart(3, '0')}`)),
+  'docs/governance-current/STAGING_GROUPS-ledger-04.md': Object.freeze(Array.from({ length: 109 }, (_, i) => `SG-04-${String(i + 1).padStart(3, '0')}`)),
 });
 
 const STAGING_MAIN_ORDER = Object.freeze([
@@ -185,6 +185,10 @@ const STAGING_MAIN_ORDER = Object.freeze([
   'SG-03-036',
   'SG-04-104',
   'SG-04-105',
+  'SG-04-106',
+  'SG-04-107',
+  'SG-04-108',
+  'SG-04-109',
 ]);
 
 const UNSPLIT_READMES = Object.freeze([

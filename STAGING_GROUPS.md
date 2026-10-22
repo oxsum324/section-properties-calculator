@@ -632,7 +632,7 @@ git add -- "結構工具箱/core/materials/steel.js" "鋼構工具/core/material
 Kzt μ／γ、表 2.11 查表路線、式 2.21／2.23、圖 3.1／3.2 GCp、Kz 下限、用途係數、式 2.15、GCpi、表 2.10／2.13；既有測試依原文更新。
 
 ```powershell
-git add -- "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-overview.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "結構工具箱/core/loads/src/wind.source.js" "結構工具箱/core/loads/wind.js" "結構工具箱/tests/wind.test.js" "結構工具箱/tools/wind-code-conformance.test.js" "結構工具箱/tools/independent-engineering-adapters/wind-fence-sign.js" "結構工具箱/tools/independent-engineering-adapters/wind-force-mwfrs.js" "結構工具箱/tools/independent-engineering-adapters/wind-object-frame.js" "結構工具箱/tools/independent-engineering-adapters/wind-sign-pole.js"
+<!--P2:SG-04-106-->
 ```
 
 ### E1-地震
@@ -656,7 +656,7 @@ git add -- "石材固定/vendor/loads/wind.js" "石材固定/vendor/loads/seismi
 設備角隅／邊緣穿孔周長、土壓層內水位、覆工板履帶 V2 與 LTB 及 F1-3、開挖 F1-6 與 F1-8 取大；覆工板報表 fixture 更新 4 欄。
 
 ```powershell
-git add -- "結構工具箱/tools/earth/earth-pressure-core.js" "結構工具箱/tools/earth/earth-pressure-core.test.js" "結構工具箱/tools/equipment/equipment-load-core.js" "結構工具箱/tools/equipment/equipment-load-core.test.js" "結構工具箱/tools/equipment/equipment-load.html" "覆工板/decking-mechanics.regression.test.js" "覆工板/index.html" "覆工板/test-fixtures/report-smoke.json" "開挖擋土支撐/backend/app/calculations.py" "開挖擋土支撐/backend/tests/test_calculations.py"
+<!--P2:SG-04-107-->
 ```
 
 ### E1-RC
@@ -664,7 +664,7 @@ git add -- "結構工具箱/tools/earth/earth-pressure-core.js" "結構工具箱
 梁 Vs 上限、柱 M2,min、牆 Vn 上限與最小筋比、板剪力係數與最小厚度（第三列 fy 5,600）、ℓdc 0.0044、獨立／聯合／筏式基腳、樁帽沖剪與實配鋼筋；regression 預期值依修正更新；ℓdc 測試掛入 test-column.ps1。
 
 ```powershell
-git add -- "鋼筋混凝土/shared/beam-evaluator.js" "鋼筋混凝土/shared/beam-evaluator.test.js" "鋼筋混凝土/shared/column-evaluator.js" "鋼筋混凝土/shared/column-evaluator.test.js" "鋼筋混凝土/shared/devlength.js" "鋼筋混凝土/shared/devlength.test.js" "鋼筋混凝土/shared/foundation-isolated.js" "鋼筋混凝土/shared/foundation-isolated.test.js" "鋼筋混凝土/shared/foundation-pile.js" "鋼筋混凝土/shared/foundation-pile.test.js" "鋼筋混凝土/shared/slab-evaluator.js" "鋼筋混凝土/shared/slab-evaluator.test.js" "鋼筋混凝土/shared/wall-base.js" "鋼筋混凝土/shared/wall-evaluator.js" "鋼筋混凝土/shared/wall-evaluator.test.js" "鋼筋混凝土/shared/wall-inplane-evaluator.js" "鋼筋混凝土/shared/wall-inplane-evaluator.test.js" "鋼筋混凝土/shared/wall-rebar-designer.js" "鋼筋混凝土/shared/wall.js" "鋼筋混凝土/tools/beam-regression-cases.json" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column-regression-cases.json" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation-regression-cases.json" "鋼筋混凝土/tools/foundation-regression.test.js" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/single-pile-regression.test.js" "鋼筋混凝土/tools/slab-regression-cases.json" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/test-column.ps1" "鋼筋混凝土/tools/wall.html"
+<!--P2:SG-04-108-->
 ```
 
 ### E1-獨立基準
@@ -703,7 +703,7 @@ git add -A -- anchor/index.html anchor/service-worker.js anchor/deployment-manif
 依各工具版本模型升計算引擎或頁面版本（具名引擎升 *.v1.1.0、數字引擎與公開版本同升、RC 與鋼構升頁面版本、局部快算核心升 minor），遞增 RC 共用腳本、土壓與設備核心之 `?v=`；以既有建置器重產首頁、導覽、家族頁與石材 vendor，首頁更新日依 `結構工具箱/tools/sync-home-update-dates.js` 重算；測試與清冊之版本釘值同步更新，未刪除或放寬斷言。
 
 ```powershell
-git add -- "RC補強斷面性質.html" section-tools.contract.test.js serve-local-browser-smoke.test.js tool-nav.manifest.js "石材固定/vendor/loads/seismic.js" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/core/loads/seismic.js" "結構工具箱/family/local-quick.html" "結構工具箱/family/seismic.html" "結構工具箱/family/steel.html" "結構工具箱/family/wind.html" "結構工具箱/tools/analysis-section-tool-metadata.js" "結構工具箱/tools/construction-stage-load-handoff.js" "結構工具箱/tools/earth/earth-pressure-core.js" "結構工具箱/tools/earth/earth-pressure-rc-bridge.js" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/equipment/equipment-load-core.js" "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/formal-browser-smoke.test.js" "結構工具箱/tools/formal-tool-metadata.js" "結構工具箱/tools/independent-engineering-adapters/rc-slab-strength.js" "結構工具箱/tools/local-quick-tool-metadata.js" "結構工具箱/tools/local-quick-tools.contract.test.js" "結構工具箱/tools/local-quick-tools.manifest.json" "結構工具箱/tools/nav/tool-nav.manifest.json" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/地震力/seismic-dynamic.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/鋼構/steel-column.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-kzt.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-overview.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "覆工板/index.html" "鋼構工具/plate-check.html" "鋼構工具/steel-audit-browser-runner.js" "鋼構工具/steel-beam-formal.html" "鋼構工具/steel-column-formal.html" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/tool-metadata.js" "鋼筋混凝土/index.html" "鋼筋混凝土/shared/pile-cap-3d-stm-bridge.js" "鋼筋混凝土/tools/beam-report-visual.test.js" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column-report-visual.test.js" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation-regression.test.js" "鋼筋混凝土/tools/foundation-report-visual.test.js" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/pile-cap-3d-stm-bridge-regression.test.js" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" "鋼筋混凝土/tools/rc-traceability.catalog.json" "鋼筋混凝土/tools/retrofit-report-visual.test.js" "鋼筋混凝土/tools/shear-wall-regression.test.js" "鋼筋混凝土/tools/shear-wall-report-visual.contract.test.js" "鋼筋混凝土/tools/shear-wall-report-visual.test.js" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/single-pile-regression.test.js" "鋼筋混凝土/tools/single-pile-report-visual.test.js" "鋼筋混凝土/tools/slab-regression.test.js" "鋼筋混凝土/tools/slab-report-visual.test.js" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall-regression.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall.html" "開挖擋土支撐/backend/app/removal_transfer_handoff.py" "開挖擋土支撐/backend/app/reporting.py" "開挖擋土支撐/backend/tests/test_reporting.py"
+<!--P2:SG-04-109-->
 ```
 
 ### E2-黃金案例
@@ -794,6 +794,52 @@ git add -- 結構工具箱/tools/tool-load-budget-baseline.json STAGING_GROUPS.m
 ```
 
 <!-- E3-REGISTRATION-END -->
+<!-- R2-REGISTRATION-START -->
+## 2026-10-23：R2 首屏重排、首頁分組與 RC 柱程式外移
+
+依架構建議第 5 節第二輪，分四組提交。計算核心、計算書模板、正式附件輸出與 `結構工具箱/assets/status/` 快照均未改動；首頁工具卡維持 53 項，載入預算基線未重設。
+
+### R2-0 頂欄占位改由樣式表保留（修正 R1）
+
+R1 的頂欄占位使用行內 `style="min-height:44px"`，使版面測試對鋼構正式頁與連接板的行內樣式上限 0 失敗（R1 未跑該測試）。新增根目錄 `tool-chrome.css` 保留 44px 並在列印隱藏，49 頁移除行內樣式、在 head 第一個樣式表前 link；找不到工具時改以 `data-tool-chrome-empty` 釋放高度。本組對同時屬於 R2-3、R2-5 的 4 頁只提交占位修正部分。
+
+```powershell
+git add -- tool-chrome.css "結構工具箱/tools/nav/tool-chrome.source.js" tool-chrome.js "結構工具箱/tools/nav/tool-chrome-build.contract.test.js" "RC補強斷面性質.html" "SRC工具/src-beam.html" "SRC工具/src-column.html" index.html "合成斷面性質.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/foundation/foundation-local.html" "結構工具箱/tools/rc/column-cover-deviation.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-dynamic.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/鋼構/steel-beam.html" "結構工具箱/tools/鋼構/steel-column.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-kzt.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-overview.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "結構工具箱/tools/風力/wind-special.html" "覆工板/index.html" "連續梁分析.html" "鋼架/平面剛架分析.html" "鋼構工具/index.html" "鋼構工具/plate-check.html" "鋼構工具/steel-beam-formal.html" "鋼構工具/steel-column-formal.html" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/deep-beam-stm.html" "鋼筋混凝土/tools/foundation-deep-beam-stm.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/pile-cap-3d-stm.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html" "開挖擋土支撐/index.html"
+```
+
+### R2-5 RC 柱內嵌程式外移
+
+`鋼筋混凝土/tools/column.html` 的 246,721 bytes 主內嵌程式逐字移到 `鋼筋混凝土/tools/column.app.js`（未壓縮，同位置同步載入），頁面降為 46,336 bytes、純標記 95%；19 個情境的計算書與案例 JSON 改前改後逐位元組相同，HTML 加 JS 合計 gzip +0.70%。9 支以字面讀取柱頁程式的測試改讀還原後全文，未刪斷言。
+
+```powershell
+git add -- "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/column.app.js" "鋼筋混凝土/tools/column-app-extraction.contract.test.js" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" "結構工具箱/tools/loadcombo-v2.test.js" "結構工具箱/tools/rendered-delivery-evidence.contract.test.js" "結構工具箱/tools/tool-workflow-adapters.test.js" "結構工具箱/tools/tool-workflow.manifest.test.js" tool-workflow.browser.test.js tool-page-layout.browser.test.js
+```
+
+### R2-3 工具頁首屏重排
+
+RC 梁、風力 Kzt、鋼索索力三頁改為案件列、輸入、結果、輸出的首屏順序，存讀檔與共用表頭收進案件區，主要動作只留開始計算與計算書；新增 `結構工具箱/core/tool-shell.css` 由頁面 link 載入。三頁第一組工程輸入皆進入手機與桌機首屏；Kzt 原有表單標籤與對比問題修正為 axe 0；計算書與 JSON 逐位元組不變；未改任何 id。
+
+```powershell
+git add -- "鋼筋混凝土/tools/beam.html" "結構工具箱/tools/風力/wind-kzt.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "結構工具箱/core/tool-shell.css" "結構工具箱/tools/design/tool-shell.contract.test.js"
+```
+
+### R2-4 首頁分組與平台狀態降級
+
+分類卡含「全部」成為唯一可見篩選（左側清單保留為隱藏狀態鏡像），「全部」依家族分段、每段先顯示 6 張，53 張卡皆在 DOM；卡片減密、Hero 減半；平台狀態改為頁尾精簡列並新增 `結構工具箱/platform-status.html` 完整狀態專頁與 `/platform-status` 路由。手機捲動長度約減半，CLS 0。
+
+```powershell
+git add -- "結構工具箱/index.html" "結構工具箱/assets/home/home.css" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "結構工具箱/tools/sync-home-initial-view.js" "結構工具箱/platform-status.html" vercel.json homepage-quality.browser.test.js home-recents.browser.test.js "結構工具箱/tools/local-quick-browser-smoke.test.js" "結構工具箱/tools/pages-live-smoke.js"
+```
+
+### R2-整合 門檻與治理登錄
+
+首頁更新日期依賴表補上新檔；`toolbox-entrypoints.contract.test.js` 含柱頁全文讀取與首頁分組斷言；開發門檻由 34 條增為 36 條；新檔登錄 LF；登錄 README、TOOL_BOUNDARIES 與本文件。
+
+```powershell
+git add -- toolbox-entrypoints.contract.test.js phase-gates.commands.json run-phase-gates.contract.test.js .gitattributes README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
+<!-- R2-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
