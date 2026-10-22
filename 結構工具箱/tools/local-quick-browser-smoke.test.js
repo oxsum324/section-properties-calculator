@@ -3396,7 +3396,7 @@ async function main() {
         assertNewHomeState(home.state, manifest.tools, label, preflightStatusPayload, reportReadinessPayload, newHomeCase);
         const searchResults = await evaluate(client, sessionId, `(() => {
           const input = document.getElementById('toolSearch');
-          const all = document.querySelector('#categoryFilters .filter-button');
+          const all = document.querySelector('#categoryOverview .category-card--all');
           if (all) all.click();
           const search = query => {
             input.value = query; input.dispatchEvent(new Event('input', { bubbles: true }));

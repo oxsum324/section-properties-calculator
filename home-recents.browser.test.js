@@ -8,7 +8,8 @@ const deps = path.join(__dirname, 'output/playwright/phase2-quality-deps/node_mo
 const { chromium } = require(path.join(deps, 'playwright'));
 const { expect } = require(path.join(deps, 'playwright/test'));
 const AxeBuilder = require(path.join(deps, '@axe-core/playwright')).default;
-const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\154.0.4258.62\\msedge.exe';
+// 使用 Edge 穩定啟動器路徑；版本子目錄（例如 154.0.4258.62）會隨自動更新消失。
+const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const recentKey = 'structToolbox.home.recentTools';
 const pinnedKey = 'structToolbox.home.pinnedTools';
 const git = (...args) => execFileSync('git', args, { cwd: __dirname, encoding: 'utf8', windowsHide: true }).trim();
@@ -74,7 +75,8 @@ async function main() {
         await page.goto(home);
         await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(53);
         await expect(page.locator('.home-personal')).toHaveCount(0);
-        const routes = await page.locator('#toolGrid .tool-card').evaluateAll(cards => cards.map(card => card.dataset.routeHref));
+        // 「全部」依家族分段，每段超過 6 張的卡片以 class 收合；互動路徑只取可見卡片（DOM 仍為 53 張，上方已斷言）。
+        const routes = await page.locator('#toolGrid .tool-card:visible').evaluateAll(cards => cards.map(card => card.dataset.routeHref));
         for (const [index, href] of routes.slice(0, 2).entries()) {
           const card = page.locator(`#toolGrid .tool-card[data-route-href="${href}"]`);
           if (index) await card.press('Enter'); else await card.click();

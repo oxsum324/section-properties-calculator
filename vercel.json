@@ -65,6 +65,7 @@
 
     { "source": "/platform", "destination": "/結構工具箱/", "permanent": true },
     { "source": "/platform-audit", "destination": "/結構工具箱/audit-dashboard", "permanent": true },
+    { "source": "/platform-status", "destination": "/結構工具箱/platform-status", "permanent": true },
     { "source": "/beam-analysis", "destination": "/連續梁分析", "permanent": true },
     { "source": "/force-picker", "destination": "/結構工具箱/tools/force-picker", "permanent": true },
     { "source": "/test-dashboard", "destination": "/結構工具箱/tools/test-dashboard", "permanent": true },

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="doc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>平台狀態與治理｜結構工具箱</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/hy/colors_and_type.css?v=20261004">
+<link rel="stylesheet" href="assets/home/home.css?v=20261023">
+<script src="assets/home/home.js?v=20261023" defer></script>
+</head>
+<body class="home-page status-page">
+  <header class="home-header home-header--compact">
+    <div class="home-header__inner">
+      <div class="home-header__lead">
+        <p class="home-kicker">結構工具箱 ｜ 平台狀態</p>
+        <h1>平台狀態與治理</h1>
+        <p class="home-header__summary">巡檢、交付前檢查與報告閱讀狀態；不影響各工具的計算與計算書。</p>
+      </div>
+      <div class="home-header__status">
+        <span>工具入口</span>
+        <a class="home-header__back" href="index.html">← 回結構工具箱</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 與首頁共用 assets/home/home.js 的同一組狀態渲染函式；本頁沒有工具清單，home.js 只渲染狀態卡。 -->
+  <main class="home-shell status-shell">
+    <section id="platformStatusSection" class="status-section status-section--full" aria-labelledby="platformStatusTitle">
+      <div class="section-head">
+        <div>
+          <p class="home-kicker">Health</p>
+          <h2 id="platformStatusTitle">最新狀態快照</h2>
+        </div>
+        <p>首頁頁尾只列徽章與 runId；本頁完整列出三項狀態、檢查模式、來源 commit 與報告閱讀狀態指標。</p>
+      </div>
+      <div class="status-actions">
+        <a href="audit-dashboard.html">巡檢儀表板</a>
+        <a href="index-classic.html">舊網址相容入口</a>
+        <a href="index.html">回結構工具箱</a>
+      </div>
+      <div class="status-grid">
+        <div class="status-grid__col">
+          <div id="platformStatus" class="status-card" data-status-card role="status" aria-live="polite" aria-atomic="true">
+            <span class="status-card__badge neutral">讀取中</span>
+            <strong>平台巡檢</strong>
+            <p>正在讀取最近一次平台巡檢結果。</p>
+          </div>
+          <div id="preflightStatus" class="status-card" data-status-card role="status" aria-live="polite" aria-atomic="true">
+            <span class="status-card__badge neutral">讀取中</span>
+            <strong>交付前檢查</strong>
+            <p>正在讀取最近一次 preflight 結果。</p>
+          </div>
+          <div id="reportReadinessStatus" class="status-card status-card--ok" role="status" aria-live="polite" aria-atomic="true">
+            <span class="status-card__badge ok">頁面專用</span>
+            <strong>報告閱讀狀態總覽</strong>
+            <p>頁面診斷明細不會寫入計算書、列印或 PDF；計算書預設內部審閱，明確核可後為正式附件，兩者皆可列印。</p>
+          </div>
+        </div>
+        <section class="status-detail" aria-labelledby="reportReadinessDetailsTitle">
+          <h3 id="reportReadinessDetailsTitle">報告閱讀狀態說明</h3>
+          <ul id="reportReadinessDetails"></ul>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="home-footer">弘一工程顧問有限公司　內部工程工具平台</footer>
+
+</body>
+</html>

@@ -151,46 +151,55 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* =========================================================================
-   CATEGORY OVERVIEW（可點擊篩選卡）
+   CATEGORY OVERVIEW（唯一的分類篩選：「全部」＋ 7 個分類；手機為單列橫向 chips）
+   初始 HTML 由 sync-home-initial-view.js 產生，與 home.js 渲染結構相同。
    ========================================================================= */
 .category-strip { padding-top: 4px; }
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 0;
   border: 1px solid var(--border-default);
   background: var(--bg-surface);
 }
 .category-card {
   appearance: none;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px 8px;
+  align-items: start;
+  min-width: 0;
+  padding: 12px 12px 13px;
   border: 0;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-  padding: 16px 15px 18px;
   border-left: 1px solid var(--border-default);
   border-top: 2px solid transparent;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  transition: background var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
+  background: none;
+  font: inherit;
+  color: var(--fg-1);
+  text-align: left;
+  cursor: pointer;
 }
 .category-card:first-child { border-left: 0; }
 .category-card:hover { background: var(--hy-navy-50); }
+.category-card:focus-visible { z-index: 1; }
 .category-card[aria-pressed="true"],
 .category-card.is-active { background: var(--hy-navy); border-top-color: var(--hy-red); }
-.category-icon {
+.category-icon,
+.category-card__all-icon {
   position: relative;
+  grid-column: 1;
+  grid-row: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   color: var(--hy-navy);
   flex: none;
 }
 .category-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.category-card__all-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
 .icon-mark {
   position: absolute;
   right: -6px;
@@ -204,26 +213,41 @@ a { color: inherit; text-decoration: none; }
   padding: 0 2px;
   line-height: 1.3;
 }
-.category-card__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+/* 桌機：圖示列（數量靠右）→ 分類名稱全寬 → 說明兩行 */
+.category-card__body { display: contents; }
 .category-card__body strong {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  grid-column: 1;
+  grid-row: 2;
   font-size: var(--fs-base);
   font-weight: var(--fw-bold);
   color: var(--fg-1);
   line-height: var(--lh-snug);
 }
 .category-card__body strong span {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  line-height: 24px;
   font-family: var(--font-numeric);
   font-size: var(--fs-md);
   color: var(--hy-navy);
-  flex: none;
 }
-.category-card__body p { margin: 0; font-size: var(--fs-xs); color: var(--fg-3); line-height: var(--lh-normal); }
+.category-card__body p {
+  grid-column: 1;
+  grid-row: 3;
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--fg-3);
+  line-height: var(--lh-normal);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .category-card[aria-pressed="true"] .category-icon,
-.category-card.is-active .category-icon { color: #fff; }
+.category-card.is-active .category-icon,
+.category-card[aria-pressed="true"] .category-card__all-icon,
+.category-card.is-active .category-card__all-icon { color: #fff; }
 .category-card[aria-pressed="true"] .icon-mark,
 .category-card.is-active .icon-mark { background: var(--hy-navy); color: var(--hy-navy-300); }
 .category-card[aria-pressed="true"] .category-card__body strong,
@@ -234,97 +258,15 @@ a { color: inherit; text-decoration: none; }
 .category-card.is-active .category-card__body p { color: rgba(255,255,255,0.78); }
 
 /* =========================================================================
-   WORKSPACE：左側篩選/狀態 + 右側工具
+   WORKSPACE：工具清單全寬；#categoryFilters 只保留為隱藏的狀態鏡像
+   工具區至少一個視窗高：腳本抵達前（空格線）與抵達後（含深連結短清單），
+   其後的狀態摘要都在首屏之外，CLS 歸因 0。
    ========================================================================= */
-.tool-workspace {
-  display: grid;
-  grid-template-columns: 248px 1fr;
-  gap: 28px;
-  align-items: start;
-  padding-top: 32px;
-}
-.workspace-side { display: flex; flex-direction: column; gap: 18px; position: sticky; top: 18px; }
-.workspace-side h2 { margin: 2px 0 10px; font-size: var(--fs-md); font-weight: var(--fw-bold); }
+.tool-workspace { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; min-height: 100vh; padding-top: 24px; }
+.workspace-side[hidden] { display: none; }
 
-/* filter list */
-.filter-panel,
-.status-panel {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: 16px 16px 18px;
-}
-.filter-list { display: flex; flex-direction: column; gap: 4px; }
-.filter-button {
-  appearance: none;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  border-left: 2px solid transparent;
-  font: inherit;
-  color: var(--fg-2);
-  transition: background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
-}
-.filter-button:hover { background: var(--hy-navy-50); color: var(--hy-navy); }
-.filter-button strong { font-size: var(--fs-sm); font-weight: var(--fw-medium); }
-.filter-button span { font-family: var(--font-numeric); font-size: var(--fs-sm); color: var(--fg-3); }
-.filter-button.is-active { background: var(--hy-navy-50); border-left-color: var(--hy-red); color: var(--hy-navy); }
-.filter-button.is-active strong { font-weight: var(--fw-bold); }
-.filter-button.is-active span { color: var(--hy-navy); }
-
-.filter-panel__status-link {
-  display: block;
-  margin-top: 12px;
-  padding: 8px 10px;
-  border-top: 1px solid var(--border-default);
-  font-size: var(--fs-xs);
-  color: var(--fg-3);
-}
-.filter-panel__status-link:hover { color: var(--hy-navy); }
-
-/* status cards（移至工具清單下方，預設收合） */
+/* status cards：首頁為頁尾精簡摘要（.status-section--compact），完整內容在 platform-status.html（.status-section--full），見檔尾 R2 段落 */
 .status-section { padding-top: 28px; }
-.status-details {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-}
-.status-details > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  flex-wrap: wrap;
-  padding: 14px 18px;
-}
-.status-details > summary::-webkit-details-marker { display: none; }
-.status-details > summary::before {
-  content: '\25B8';
-  color: var(--hy-navy);
-  font-size: var(--fs-sm);
-  transition: transform var(--dur-fast) var(--ease-standard);
-}
-.status-details[open] > summary::before { transform: rotate(90deg); }
-.status-details > summary h2 { margin: 0; font-size: var(--fs-md); font-weight: var(--fw-bold); }
-.status-details__hint { font-size: var(--fs-xs); color: var(--fg-3); flex: 1 1 260px; }
-.status-panel--inline {
-  border: 0;
-  border-top: 1px solid var(--border-default);
-  border-radius: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 10px;
-  align-items: start;
-}
-.status-panel--inline .status-actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 8px; }
 .info-details { margin-top: 18px; }
 .info-details > summary {
   list-style: none;
@@ -341,8 +283,6 @@ a { color: inherit; text-decoration: none; }
 .info-details > summary h2 { margin: 0; font-size: var(--fs-md); font-weight: var(--fw-bold); }
 .info-details .info-grid { padding-top: 10px; }
 
-.status-panel { display: flex; flex-direction: column; gap: 10px; }
-.status-panel > .home-kicker { margin-bottom: 0; }
 .status-card {
   background: var(--bg-page);
   border: 1px solid var(--border-default);
@@ -658,24 +598,9 @@ a { color: inherit; text-decoration: none; }
    RESPONSIVE
    ========================================================================= */
 @media (max-width: 1080px) {
-  .category-grid { grid-template-columns: repeat(4, 1fr); }
+  .category-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .category-card:nth-child(4n+1) { border-left: 0; }
   .category-card:nth-child(n+5) { border-top: 1px solid var(--border-default); }
-  .tool-workspace { grid-template-columns: 1fr; gap: 16px; padding-top: 24px; }
-  .workspace-side { position: static; }
-  .filter-panel { padding: 12px 14px; }
-  .filter-panel h2 { display: none; }
-  .filter-list { flex-direction: row; flex-wrap: wrap; gap: 6px; }
-  .filter-button {
-    border: 1px solid var(--border-strong);
-    border-left-width: 1px;
-    border-radius: var(--radius-pill);
-    padding: 6px 12px;
-    gap: 6px;
-  }
-  .filter-button.is-active { background: var(--hy-navy); border-color: var(--hy-navy); color: #fff; }
-  .filter-button.is-active span { color: var(--hy-navy-100); }
-  .filter-panel__status-link { border-top: 0; margin-top: 6px; padding: 4px 2px 0; }
   .tool-search { position: sticky; top: 0; z-index: 5; background: var(--bg-page); padding: 8px 0; margin-bottom: 12px; }
   .tool-search label { display: none; }
   .home-header__art { width: 100%; opacity: 0.35; -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 40%); mask-image: linear-gradient(180deg, transparent 0%, #000 40%); }
@@ -698,9 +623,22 @@ a { color: inherit; text-decoration: none; }
     gap: 0;
     scrollbar-width: thin;
   }
-  .category-card { flex: 0 0 150px; scroll-snap-align: start; padding: 12px 12px 14px; border-top: 2px solid transparent !important; border-left: 1px solid var(--border-default); }
+  .category-card {
+    flex: 0 0 auto;
+    grid-template-columns: 20px auto;
+    align-items: center;
+    scroll-snap-align: start;
+    padding: 8px 12px;
+    border-top: 2px solid transparent !important;
+    border-left: 1px solid var(--border-default);
+  }
   .category-card:first-child { border-left: 0; }
   .category-card[aria-pressed="true"], .category-card.is-active { border-top-color: var(--hy-red) !important; }
+  .category-icon, .category-card__all-icon { width: 20px; height: 20px; }
+  .category-icon svg { width: 18px; height: 18px; }
+  .category-card .icon-mark { display: none; }
+  .category-card__body strong { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 6px; min-height: 20px; white-space: nowrap; font-size: var(--fs-sm); }
+  .category-card__body strong span { position: static; line-height: inherit; }
   .category-card__body p { display: none; }
   .tool-grid, .tool-group__grid { grid-template-columns: 1fr; }
   .info-grid { grid-template-columns: 1fr; }
@@ -709,7 +647,6 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 440px) {
   .home-header__inner, .home-shell, .home-footer { padding-left: 16px; padding-right: 16px; }
   .home-header h1 { font-size: var(--fs-2xl); }
-  .category-card { flex-basis: 136px; }
 }
 /* Search stays inside the existing tool list and shares the category filter. */
 .tool-search { margin: 0 0 20px; }
@@ -718,3 +655,115 @@ a { color: inherit; text-decoration: none; }
 .tool-search input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #b7c3d4; border-radius: 4px; font: inherit; }
 .tool-search button { flex-shrink: 0; padding: 10px 12px; border: 1px solid #b7c3d4; border-radius: 4px; background: #fff; color: #123b68; font: inherit; cursor: pointer; }
 .tool-search :focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+
+/* =========================================================================
+   R2 首頁：精簡 hero、家族分段、卡片減密、平台狀態降級、完整狀態專頁
+   home.css 也被家族頁載入；與家族頁共用的選擇器一律以 .home-header--compact、
+   [data-home-app]、.status-section--* 或 .status-page 限定。
+   ========================================================================= */
+.home-sr-only { position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important; padding: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; clip-path: inset(50%) !important; white-space: nowrap !important; border: 0 !important; }
+
+/* 精簡 hero：高度約為原版一半，標語一句 */
+.home-header--compact .home-header__inner { padding: 18px 28px 16px; gap: 24px; align-items: center; }
+.home-header--compact .home-kicker { margin-bottom: 6px; }
+.home-header--compact h1 { font-size: var(--fs-3xl); }
+.home-header--compact .home-header__summary { margin-top: 6px; font-size: var(--fs-base); line-height: var(--lh-normal); }
+.home-header--compact .home-header__status { padding: 8px 14px 8px 12px; gap: 2px; }
+.home-header--compact .home-header__status strong { font-size: var(--fs-md); }
+.home-header__back { color: #fff; font-size: var(--fs-md); font-weight: var(--fw-bold); border-bottom: 1px solid rgba(255,255,255,0.45); padding-bottom: 1px; }
+.home-header__back:hover { border-bottom-color: #fff; }
+.home-header__back:focus-visible { outline: 2px solid #fff; outline-offset: 3px; box-shadow: none; }
+
+[data-home-app].home-shell { padding-top: 24px; }
+.category-strip .section-head,
+[data-home-app] .family-links { margin-bottom: 12px; }
+[data-home-app] .result-count { min-width: 7.5rem; text-align: right; }
+.tool-panel__status-link,
+.tool-family__page { color: var(--fg-link); text-decoration: underline; text-decoration-color: var(--hy-navy-300); text-underline-offset: 3px; }
+.tool-panel__status-link { font-size: var(--fs-xs); white-space: nowrap; }
+.tool-panel__status-link:hover,
+.tool-family__page:hover { color: var(--hy-navy); text-decoration-color: var(--hy-red); }
+
+/* 工具格線全寬三欄；「全部」依家族分段，每段先顯示 6 張，其餘以 class 收合（DOM 保留 53 張） */
+[data-home-app] .tool-grid,
+[data-home-app] .tool-group__grid,
+.tool-family__grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+[data-home-app] .tool-grid > .tool-card-shell,
+[data-home-app] .tool-group__grid > .tool-card-shell,
+.tool-family__grid > .tool-card-shell { content-visibility: auto; contain-intrinsic-size: auto 9.5rem; }
+.tool-grid--families { display: block; }
+.tool-family { margin-bottom: 22px; }
+.tool-family__head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; padding-bottom: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border-default); }
+.tool-family__head h3 { margin: 0; font-family: var(--font-serif); font-size: var(--fs-lg); font-weight: var(--fw-bold); color: var(--hy-navy); }
+.tool-family__count { font-family: var(--font-numeric); font-size: var(--fs-sm); color: var(--fg-3); }
+.tool-family__page { margin-left: auto; font-size: var(--fs-sm); font-weight: var(--fw-bold); }
+.tool-family__grid { display: grid; }
+.tool-family:not(.is-expanded) .tool-card-shell--overflow { display: none; }
+.tool-family__more { appearance: none; display: inline-flex; align-items: center; min-height: 36px; margin-top: 10px; padding: 6px 14px; font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--hy-navy); background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
+.tool-family__more:hover { background: var(--hy-navy-50); }
+
+/* 卡片減密：標題、一句定位、身分 chip、版本；更新日、輸出、閱讀狀態與其餘 chip 收進「詳情」。
+   DOM 保留（smoke 計數 .tool-updated 與「輸出」「閱讀狀態」），只以 CSS 隱藏。 */
+[data-home-app] .tool-card-shell { position: relative; gap: 0; }
+[data-home-app] .tool-card { gap: 8px; padding: 12px 14px; }
+[data-home-app] .tool-card__icon { width: 30px; height: 30px; }
+[data-home-app] .tool-card__badges { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 6px; max-width: 45%; }
+[data-home-app] .tool-card__more { display: inline-flex; align-items: center; min-height: 24px; min-width: 24px; }
+[data-home-app] .tool-card:not(.is-expanded) .tool-updated { display: none; }
+[data-home-app] .tool-card:not(.is-expanded) .tool-meta > :not(.tool-state) { display: none; }
+[data-home-app] .tool-grid--detailed .tool-card .tool-updated { display: inline; }
+[data-home-app] .tool-grid--detailed .tool-card .tool-meta > :not(.tool-state) { display: block; }
+[data-home-app] .tool-meta { min-height: 32px; align-items: center; padding-right: 112px; }
+[data-home-app] .tool-pin { position: absolute; right: 10px; bottom: 10px; min-height: 32px; padding: 4px 10px; }
+
+/* 平台狀態：首頁頁尾精簡摘要（一列徽章＋runId）。不收合、不 display:none：
+   摘要文字與其餘 chip 以裁切方式視覺隱藏，仍保留在 innerText 與報讀中。 */
+.status-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 16px; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-md); }
+.status-strip__head { display: flex; align-items: baseline; gap: 8px; }
+.status-strip__head h2 { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-bold); }
+.status-strip__cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: center; gap: 8px 20px; flex: 1 1 100%; order: 3; min-width: 0; }
+.status-section--compact .status-card { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; padding: 0; white-space: nowrap; background: none; border: 0; border-radius: 0; }
+.status-section--compact .status-card strong { font-size: var(--fs-xs); }
+.status-section--compact .status-card__badge { align-self: center; min-width: 5em; text-align: center; }
+.status-section--compact .status-card__meta { margin-top: 0; }
+.status-section--compact .status-card > p,
+.status-section--compact .status-card__meta-item:not([data-meta="runId"]) { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+.status-section--compact .status-actions { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin: 0 0 0 auto; order: 2; }
+.status-section--compact .status-actions a { padding: 4px 8px; font-size: var(--fs-xs); }
+.status-actions .status-actions__primary { font-weight: var(--fw-bold); color: var(--fg-link); text-decoration: underline; text-underline-offset: 3px; }
+
+/* 完整狀態專頁：同一組狀態卡完整顯示。CLS 0：隨快照變高的區塊在欄位最下方或預留最小高度，頁尾以 main 最小高度推出首屏。 */
+.status-page main.home-shell { min-height: 100vh; padding-top: 24px; }
+.status-section--full { padding-top: 0; }
+.status-section--full .status-actions { flex-direction: row; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 14px; }
+.status-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 14px; align-items: start; }
+.status-grid__col { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.status-section--full .status-card { padding: 14px 16px; min-width: 0; }
+.status-section--full .status-card p { font-size: var(--fs-sm); }
+.status-section--full #platformStatus { min-height: 9.5rem; }
+.status-section--full #preflightStatus { min-height: 12rem; }
+.status-detail { min-width: 0; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-md); }
+.status-detail h3 { margin: 0 0 10px; font-size: var(--fs-md); font-weight: var(--fw-bold); }
+.status-detail ul { margin: 0; padding-left: 1.2em; }
+.status-detail li { margin-bottom: 6px; font-size: var(--fs-sm); line-height: var(--lh-relaxed); color: var(--fg-2); }
+
+@media (max-width: 1080px) {
+  .status-grid { grid-template-columns: 1fr; }
+  .status-section--full #preflightStatus { min-height: 16rem; }
+}
+@media (max-width: 720px) {
+  .home-header--compact .home-header__inner { padding: 14px 16px; gap: 8px; }
+  .home-header--compact h1 { font-size: var(--fs-2xl); }
+  .home-header--compact .home-header__summary { font-size: var(--fs-sm); margin-top: 4px; }
+  .home-header--compact .home-header__status { display: none; }
+  .status-page .home-header--compact .home-header__status { display: flex; flex-direction: row; align-items: baseline; gap: 10px; }
+  [data-home-app].home-shell { padding-top: 18px; }
+  [data-home-app] .family-links { font-size: var(--fs-xs); gap: 4px 10px; }
+  .tool-workspace { padding-top: 18px; }
+  [data-home-app] .section-head--tools { margin-bottom: 10px; }
+  [data-home-app] .tool-grid,
+  [data-home-app] .tool-group__grid,
+  .tool-family__grid { grid-template-columns: 1fr; }
+  .tool-family__head h3 { font-size: var(--fs-md); }
+  .status-strip { padding: 10px 12px; }
+}

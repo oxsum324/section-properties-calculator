@@ -2,6 +2,8 @@
 'use strict';
 // 首屏分類由 home.js 產生靜態佔位內容，避免腳本抵達後才推動整個工具區。
 // 不另建工具清冊；JavaScript 載入後仍使用同一份資料重新繫結互動。
+// 分類卡（#categoryOverview）是唯一可見的分類篩選，第一張為「全部」；
+// #categoryFilters 為隱藏的狀態鏡像，結構維持原樣。
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -13,10 +15,15 @@ const escape = value => String(value).replace(/[&<>"']/g, ch => ({ '&':'&amp;', 
 function generatedFragments(source) {
   const end = source.indexOf('  const state = {');
   if (end < 0) throw new Error('找不到首頁資料與互動的分界。');
-  const { categories, categoryIcons, tools } = vm.runInNewContext(source.slice(0, end) + '\nreturn { categories, categoryIcons, tools }; })();', {}, { timeout: 1000 });
+  const { categories, categoryIcons, categoryAllIcon, tools } = vm.runInNewContext(source.slice(0, end) + '\nreturn { categories, categoryIcons, categoryAllIcon, tools }; })();', {}, { timeout: 1000 });
   const count = category => category.id === 'all' ? tools.length : tools.filter(tool => tool.categories.includes(category.id)).length;
-  const overview = categories.filter(category => category.id !== 'all').map(category =>
-    `<button type="button" class="category-card" aria-label="篩選 ${escape(category.label)}" disabled><span class="category-icon category-icon--${escape(category.icon)}" aria-hidden="true">${categoryIcons[category.icon] || ''}<span class="icon-mark">${escape(category.mark)}</span></span><div class="category-card__body"><strong>${escape(category.label)}<span>${count(category)}</span></strong><p>${escape(category.summary)}</p></div></button>`).join('');
+  const overview = categories.map(category => {
+    const isAll = category.id === 'all';
+    const icon = isAll
+      ? `<span class="category-card__all-icon" aria-hidden="true">${categoryAllIcon}</span>`
+      : `<span class="category-icon category-icon--${escape(category.icon)}" aria-hidden="true">${categoryIcons[category.icon] || ''}<span class="icon-mark">${escape(category.mark)}</span></span>`;
+    return `<button type="button" class="category-card${isAll ? ' category-card--all is-active' : ''}" data-category-id="${escape(category.id)}" aria-label="篩選 ${escape(category.label)}" aria-pressed="${isAll}" disabled>${icon}<div class="category-card__body"><strong>${escape(category.label)}<span>${count(category)}</span></strong><p>${escape(category.summary)}</p></div></button>`;
+  }).join('');
   const filters = categories.map(category =>
     `<button type="button" class="filter-button${category.id === 'all' ? ' is-active' : ''}" aria-pressed="${category.id === 'all'}" disabled><strong>${escape(category.label)}</strong><span>${count(category)}</span></button>`).join('');
   return { overview, filters };

@@ -15,7 +15,7 @@ const deps = path.join(repo, 'output', 'playwright', 'phase2-quality-deps');
 const outputRoot = path.join(repo, 'output', 'playwright', 'homepage-quality');
 const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const expected = { lighthouse: '13.5.0', playwright: '1.63.0', '@axe-core/playwright': '4.13.0' };
-const sourceFiles = ['結構工具箱/assets/home/src/home.source.js', '結構工具箱/index.html', '結構工具箱/assets/home/home.js', '結構工具箱/assets/home/home.css', '結構工具箱/assets/home/hero-art.jpg', '結構工具箱/assets/home/hero-art.webp'];
+const sourceFiles = ['結構工具箱/assets/home/src/home.source.js', '結構工具箱/index.html', '結構工具箱/platform-status.html', '結構工具箱/assets/home/home.js', '結構工具箱/assets/home/home.css', '結構工具箱/assets/home/hero-art.jpg', '結構工具箱/assets/home/hero-art.webp'];
 const interactionsOnly = process.argv.includes('--interactions-only');
 
 function pkgVersion(name) {
@@ -189,28 +189,62 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
     await page.waitForFunction(() => document.querySelector('#resultCount')?.textContent.includes('項工具'), null, { timeout: 30000 });
     await page.waitForTimeout(500);
     check(checks, 'homepage-loaded', response?.status() === 200 && decodeURIComponent(new URL(page.url()).pathname) === '/結構工具箱/', { status: response?.status(), url: page.url(), title: await page.title() });
+    // R2：「全部」依家族分段，每段先顯示 6 張；53 張卡全在 DOM 中，收合者以 class 隱藏。
+    const families = await page.evaluate(() => {
+      const sections = [...document.querySelectorAll('#toolGrid > .tool-family')];
+      const visible = node => node.getClientRects().length > 0;
+      return {
+        ids: sections.map(section => section.dataset.family),
+        perSection: sections.map(section => ({ id: section.dataset.family, total: section.querySelectorAll('a.tool-card').length, visible: [...section.querySelectorAll('a.tool-card')].filter(visible).length, more: section.querySelector('.tool-family__more')?.textContent || null, page: section.querySelector('.tool-family__page')?.getAttribute('href') || null })),
+        domCards: document.querySelectorAll('#toolGrid a.tool-card').length,
+        visibleCards: [...document.querySelectorAll('#toolGrid a.tool-card')].filter(visible).length,
+        visibleCategoryLists: ['#categoryOverview', '#categoryFilters'].filter(selector => visible(document.querySelector(selector))),
+        activeOverview: [...document.querySelectorAll('#categoryOverview .category-card[aria-pressed="true"]')].map(node => node.innerText.trim()),
+        statusLinkVisible: [...document.querySelectorAll('a[href="#platformStatusSection"]')].some(visible)
+      };
+    });
+    const familyOrder = ['rc', 'steel', 'wind', 'seismic', 'local-quick', 'analysis', 'reference', 'attachments'];
+    const familiesOk = JSON.stringify(families.ids) === JSON.stringify(familyOrder) && families.domCards === 53
+      && families.perSection.every(item => item.visible === Math.min(item.total, 6) && (item.total > 6 ? item.more === `展開全部（${item.total}）` : item.more === null))
+      && families.perSection.filter(item => item.page).length === 5 && families.perSection.every(item => !item.page || !/^([a-z]+:|\/)/i.test(item.page))
+      && JSON.stringify(families.visibleCategoryLists) === JSON.stringify(['#categoryOverview']) && families.activeOverview.length === 1 && families.activeOverview[0].includes('全部')
+      && families.statusLinkVisible;
+    check(checks, 'family-grouped-default-view', familiesOk, families);
+    await page.locator('#toolGrid .tool-family[data-family="rc"] .tool-family__more').click();
+    const expanded = await page.evaluate(() => {
+      const section = document.querySelector('#toolGrid .tool-family[data-family="rc"]');
+      const button = section.querySelector('.tool-family__more');
+      return { visible: [...section.querySelectorAll('a.tool-card')].filter(node => node.getClientRects().length > 0).length, total: section.querySelectorAll('a.tool-card').length, expanded: button.getAttribute('aria-expanded'), controls: button.getAttribute('aria-controls') };
+    });
+    check(checks, 'family-expand-all', expanded.visible === expanded.total && expanded.total > 6 && expanded.expanded === 'true' && expanded.controls === 'tool-family-grid-rc', expanded);
+    const compactStatus = await page.evaluate(() => {
+      const section = document.getElementById('platformStatusSection');
+      const text = id => (document.getElementById(id)?.innerText || '').replace(/\s+/g, ' ').trim();
+      return { insideDetails: !!section.closest('details') || !!section.querySelector('details'), display: getComputedStyle(section).display, platform: text('platformStatus'), preflight: text('preflightStatus'), readiness: text('reportReadinessStatus'), fullLink: section.querySelector('a[href="platform-status.html"]')?.textContent.trim() || null, height: Math.round(section.getBoundingClientRect().height) };
+    });
+    check(checks, 'compact-status-summary', !compactStatus.insideDetails && compactStatus.display !== 'none' && compactStatus.platform.length > 0 && compactStatus.preflight.length > 0 && compactStatus.readiness.includes('報告閱讀狀態總覽') && compactStatus.fullLink === '完整狀態', compactStatus);
     await page.locator('#toolSearch').fill('剪力板');
     await page.waitForFunction(() => [...document.querySelectorAll('#toolGrid a.tool-card')].some(a => a.dataset.routeHref === '/steel-formal'));
     const search = await page.evaluate(() => ({ count: document.querySelectorAll('#toolGrid a.tool-card').length, titles: [...document.querySelectorAll('#toolGrid a.tool-card')].map(a => a.dataset.title) }));
     check(checks, 'search-steel-alias', search.count === 1, search);
     await page.locator('#clearToolSearch').click();
-    await page.locator('#categoryFilters .filter-button').filter({ hasText: '風力規範外力' }).click();
+    await page.locator('#categoryOverview .category-card').filter({ hasText: '風力規範外力' }).click();
     await page.waitForFunction(() => document.querySelector('#resultCount')?.textContent.startsWith('13 /'));
-    const category = await page.evaluate(() => ({ count: document.querySelectorAll('#toolGrid a.tool-card').length, active: [...document.querySelectorAll('#categoryFilters .filter-button[aria-pressed="true"]')].map(x => x.innerText.trim()) }));
-    check(checks, 'sidebar-category-filter', category.count === 13 && category.active.some(x => x.includes('風力規範外力')), category);
+    const category = await page.evaluate(() => ({ count: document.querySelectorAll('#toolGrid a.tool-card').length, active: [...document.querySelectorAll('#categoryOverview .category-card[aria-pressed="true"]')].map(x => x.innerText.trim()), mirror: [...document.querySelectorAll('#categoryFilters .filter-button[aria-pressed="true"]')].map(x => x.textContent.trim()) }));
+    check(checks, 'sidebar-category-filter', category.count === 13 && category.active.some(x => x.includes('風力規範外力')) && category.mirror.length === 1 && category.mirror[0].includes('風力規範外力'), category);
     await page.locator('.category-card').filter({ hasText: '地震力規範外力' }).click();
     await page.waitForFunction(() => document.querySelector('#resultCount')?.textContent.startsWith('4 /'));
-    const overview = await page.evaluate(() => ({ count: document.querySelectorAll('#toolGrid a.tool-card').length, active: [...document.querySelectorAll('#categoryFilters .filter-button[aria-pressed="true"]')].map(x => x.innerText.trim()) }));
-    check(checks, 'overview-card-updates-filter-and-list', overview.count === 4 && overview.active.length === 1 && overview.active[0].includes('地震力規範外力'), overview);
+    const overview = await page.evaluate(() => ({ count: document.querySelectorAll('#toolGrid a.tool-card').length, active: [...document.querySelectorAll('#categoryOverview .category-card[aria-pressed="true"]')].map(x => x.innerText.trim()), mirror: [...document.querySelectorAll('#categoryFilters .filter-button[aria-pressed="true"]')].map(x => x.textContent.trim()) }));
+    check(checks, 'overview-card-updates-filter-and-list', overview.count === 4 && overview.active.length === 1 && overview.active[0].includes('地震力規範外力') && overview.mirror.length === 1 && overview.mirror[0].includes('地震力規範外力'), overview);
     const cards = await page.evaluate(() => [...document.querySelectorAll('#platformStatusSection .status-card')].map(card => ({ id: card.id, role: card.getAttribute('role'), live: card.getAttribute('aria-live') })));
     check(checks, 'three-live-status-cards', cards.length === 3 && cards.every(card => card.role === 'status' && card.live === 'polite'), { cards });
-    await page.locator('#categoryFilters .filter-button').filter({ hasText: '全部' }).click();
+    await page.locator('#categoryOverview .category-card--all').click();
     await page.locator('#toolSearch').fill('quality-harness-no-such-entry');
     await page.waitForFunction(() => !document.querySelector('#emptyState')?.hidden);
     const empty = await page.evaluate(() => ({ visible: !document.querySelector('#emptyState').hidden, cards: document.querySelectorAll('#toolGrid a.tool-card').length, text: document.querySelector('#emptyState').innerText }));
     check(checks, 'empty-search-state', empty.visible && empty.cards === 0, empty);
     await page.locator('#clearToolSearch').click();
-    await page.locator('#categoryFilters .filter-button').filter({ hasText: '構件承載力檢核' }).click();
+    await page.locator('#categoryOverview .category-card').filter({ hasText: '構件承載力檢核' }).click();
     await page.waitForFunction(() => !document.querySelector('#memberSystemPanel').hidden);
     const tabs = page.locator('#memberSystemTabs [role="tab"]');
     const firstTab = tabs.first(); await firstTab.focus();
@@ -266,6 +300,12 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
     check(checks, 'pages-prefix-mobile-no-overflow', Math.max(dimensions.bodyScrollWidth, dimensions.documentScrollWidth) <= dimensions.innerWidth, dimensions);
     flow.pagesSubdirectory = details;
     await page.screenshot({ path: path.join(out, 'pages-prefix-mobile-375.png'), fullPage: true });
+    // R2：首頁「完整狀態」連結（相對路徑）開啟 platform-status.html，共用 home.js 狀態渲染且不渲染工具清單。
+    const statusHref = await page.locator('#platformStatusSection a[href="platform-status.html"]').getAttribute('href');
+    const statusResponse = await page.goto(new URL(statusHref, page.url()).toString(), { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await page.waitForFunction(() => ['platformStatus', 'preflightStatus'].every(id => !(document.getElementById(id)?.innerText || '').includes('讀取中')) && document.getElementById('reportReadinessStatus')?.dataset.statusSource === 'snapshot', null, { timeout: 30000 });
+    const statusPage = await page.evaluate(() => ({ path: decodeURIComponent(location.pathname), hasToolGrid: !!document.getElementById('toolGrid'), cards: [...document.querySelectorAll('#platformStatusSection .status-card')].map(card => ({ id: card.id, role: card.getAttribute('role'), live: card.getAttribute('aria-live'), atomic: card.getAttribute('aria-atomic') })), platform: (document.getElementById('platformStatus')?.innerText || '').replace(/\s+/g, ' ').trim(), preflight: (document.getElementById('preflightStatus')?.innerText || '').replace(/\s+/g, ' ').trim(), details: document.querySelectorAll('#reportReadinessDetails li').length, innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+    check(checks, 'pages-prefix-platform-status-page', statusResponse?.status() === 200 && statusPage.path === '/my-classroom-tools/結構工具箱/platform-status.html' && !statusPage.hasToolGrid && statusPage.cards.length === 3 && statusPage.cards.every(card => card.role === 'status' && card.live === 'polite' && card.atomic === 'true') && statusPage.platform.includes('runId ') && statusPage.preflight.includes('runId ') && statusPage.details > 0 && statusPage.scrollWidth <= statusPage.innerWidth && !errors.pageErrors.length, { status: statusResponse?.status(), ...statusPage, pageErrors: errors.pageErrors });
   } finally { await pagesContext.close(); }
   flow.serverRequests = pagesFixture.requests; flow.completedAt = new Date().toISOString();
   writeJson(path.join(out, 'interactions.json'), flow);

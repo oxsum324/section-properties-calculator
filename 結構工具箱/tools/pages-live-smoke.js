@@ -636,6 +636,12 @@ async function main() {
 
   const homeHtml = await fetchText(homeUrl);
   assert.ok(homeHtml.includes('assets/home/home.js'), 'homepage references home.js');
+  assert.ok(homeHtml.includes('href="platform-status.html"'), 'homepage compact status summary links the full status page');
+  const platformStatusPageHtml = await fetchText(liveUrl(base, '結構工具箱/platform-status.html'));
+  assert.ok(platformStatusPageHtml.includes('assets/home/home.js'), 'platform-status page reuses home.js status renderers');
+  for (const id of ['platformStatus', 'preflightStatus', 'reportReadinessStatus']) {
+    assert.ok(platformStatusPageHtml.includes(`id="${id}"`), `platform-status page exposes #${id}`);
+  }
 
   const auditDashboardHtml = await fetchText(auditDashboardUrl);
   assert.ok(auditDashboardHtml.includes('RC 正式附件完整性'), 'audit dashboard exposes RC formal attachment integrity');
