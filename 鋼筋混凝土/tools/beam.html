@@ -72,6 +72,7 @@
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<link rel="stylesheet" href="../../結構工具箱/core/tool-shell.css">
 <style>
   #warningCard { border: 1px solid var(--hy-warning); background: linear-gradient(180deg, var(--hy-warning-100), var(--bg-surface)); }
   #warningList { font-style: normal; line-height: 1.65; }
@@ -198,46 +199,61 @@
       font-size: var(--fs-sm);
     }
   }
+  /* 首屏穩定：load 時 applyPanel('geom') 會為每張 [data-shows] 卡寫入 style；在那之前先隱藏非「幾何與材料」的卡，
+     使首次繪製即為預設分頁版面，避免結果欄在 load 後收縮位移。JS 寫入 style 後本規則即不再作用。 */
+  @media screen {
+    .main-layout [data-shows]:not([style]):not([data-shows~="geom"]) { display: none; }
+  }
 </style>
 </head>
 <body class="rc-formal-output-page" data-family="rc">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
-<header>
+<header class="tool-shell-header">
   <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.2</span></h1>
-  <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 撓曲、剪力、扭力、跨深比；含特殊抗彎矩構架耐震檢核</p>
+  <p class="tool-shell-header__sub">撓曲、剪力、扭力、跨深比；含特殊抗彎矩構架耐震檢核</p>
 </header>
 
 <div class="container" role="main">
 
-  <!-- 模式切換 -->
-  <div class="card mode-bar">
-    <strong class="mode-bar__label">作業模式：</strong>
-    <div class="mode-bar__group" role="tablist">
-      <button class="mode-bar__btn mode-btn active" data-mode="design">設計</button>
-      <button class="mode-bar__btn mode-btn"        data-mode="check">檢核</button>
-    </div>
-    <span class="mode-bar__hint" id="modeHint">設計模式：給定載重，建議鋼筋配置。</span>
-    <div class="mode-bar__proj">
+  <!-- ① 案件表頭：計畫名稱／編號／設計人一列；存讀檔與跨工具共用表頭收合（共用表頭列執行期接在存讀檔群組之後） -->
+  <section class="card tool-shell-case" aria-label="案件表頭">
+    <div class="mode-bar__proj tool-shell-case__fields">
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo"   class="w-no"   placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-      <button class="mode-bar__report btn-calc" type="button">開始計算</button>
-      <div class="mode-bar__actions" aria-label="梁專案存讀檔">
+    </div>
+    <details class="tool-shell-case__more">
+      <summary>案件存讀檔與共用表頭</summary>
+      <div class="mode-bar__actions project-storage-bar" aria-label="梁專案存讀檔">
         <button id="btnSaveBeamProject" class="mode-bar__action" type="button" title="下載梁專案 JSON 檔">存檔</button>
         <button id="btnLoadBeamProject" class="mode-bar__action" type="button" title="讀取梁專案 JSON 檔">讀檔</button>
         <button id="btnSaveBeamDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
         <button id="btnLoadBeamDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
         <input id="beamProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
+        <span id="beamProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
       </div>
+    </details>
+  </section>
+
+  <!-- ② 輸入：作業模式併入第一列；主要動作只留開始計算與計算書（桌機在表單上方，手機固定於視窗底部） -->
+  <div class="tool-shell-inputbar">
+    <div class="tool-shell-mode">
+      <strong class="mode-bar__label">作業模式：</strong>
+      <div class="mode-bar__group" role="tablist">
+        <button class="mode-bar__btn mode-btn active" data-mode="design">設計</button>
+        <button class="mode-bar__btn mode-btn"        data-mode="check">檢核</button>
+      </div>
+      <span class="mode-bar__hint" id="modeHint">設計模式：給定載重，建議鋼筋配置。</span>
+    </div>
+    <div class="tool-shell-actions" role="group" aria-label="主要動作">
+      <button class="mode-bar__report btn-calc" type="button">開始計算</button>
       <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
-      <button id="btnPrintReport" class="mode-bar__report" type="button">🖨️ 直接列印計算書</button>
-      <span id="beamProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
 
   <!-- 子分頁 -->
-  <div class="section-tabs" id="mainTabs">
+  <div class="section-tabs" id="mainTabs" aria-label="梁設計分頁">
     <button class="active" data-tab="geom">幾何與材料</button>
     <button data-tab="loads">載重</button>
     <button data-tab="flex" id="tab-flex">撓曲</button>
@@ -606,6 +622,12 @@
         <button id="btnPrintReport2" class="btn-secondary" type="button">🖨️ 直接列印計算書</button>
         <button id="btnCopyJson" class="btn-secondary" type="button">複製輸入 JSON</button>
         <p class="hint">計算書內容會依目前「設計／檢核」模式自動切換群組與標題；預覽視窗可下載文字備查版 TXT，或列印／存成 PDF。</p>
+      </div>
+
+      <!-- ⑤ 輸出（次要）：置於輸入欄末端；計算操作面板執行期接在本卡之後，不推擠首屏 -->
+      <div class="card mode-bar tool-shell-dock">
+        <span class="tool-shell-dock__label">其他輸出</span>
+        <button id="btnPrintReport" class="mode-bar__report secondary" type="button">🖨️ 直接列印計算書</button>
       </div>
     </div>
 

@@ -1,0 +1,270 @@
+/* =========================================================================
+   結構工具箱 — 工具頁首屏共用元件 tool-shell.css（第二輪第 3 包）
+   首屏「五區」：案件表頭 → 輸入 → 結果摘要 → 詳細檢核 → 輸出。
+   載入者（<link>，不得 @import：axe 預載 CSSOM 會把 @import 相對路徑當成相對頁面解析而 404）：
+     鋼筋混凝土/tools/beam.html、結構工具箱/tools/風力/wind-kzt.html、
+     結構工具箱/tools/cable-tension/cable-tension-frequency.html。
+   載入位置：各頁既有共用樣式表（含 family-theme.css）之後、頁面內嵌 <style> 之前——
+     同特異度時可覆寫共用表（style.css／tool-page.css）的版面，頁面內嵌樣式仍保有最後微調權。
+   前提：colors_and_type.css 與 family-theme.css 已先載入；本檔只用 token，不寫十六進位色。
+   範圍：版面規則一律 @media screen；列印、直接列印封鎖頁與計算書彈窗不受影響。
+   DOM 約定（不改既有 id／class，只加 tool-shell-* class 與外層容器）：
+     .tool-shell-header      壓縮頁首（手機標題一行、規範副標縮小）
+     .tool-shell-case        案件表頭一列；.tool-shell-case__fields 三欄；.tool-shell-case__more 收合存讀檔與共用表頭
+     .tool-shell-case-zone   案件區外層：執行期插在 .mode-bar 後的存讀檔列／共用表頭列，於收合時隱藏（Kzt）
+     .tool-shell-inputbar    輸入區第一列（作業模式＋主要動作）；.tool-shell-mode 作業模式群
+     .tool-shell-actions     主要動作（開始計算、計算書）：桌機在表單上方；手機固定於視窗底部
+     .tool-shell-dock        輸入區之後的輸出列，兼作計算操作面板（tool-workflow.js）的插入點；
+                             與 .mode-bar 併用（RC 梁沿用 .mode-bar 橫列；鋼索 ④ 卡由頁面樣式還原為區塊）
+     .tool-shell-secondary   降為次要的重複列印鈕
+   ========================================================================= */
+
+@media screen {
+  /* 1. 壓縮頁首 ------------------------------------------------------------ */
+  header.tool-shell-header {
+    padding: var(--space-3) var(--space-6);
+  }
+  header.tool-shell-header h1 {
+    line-height: var(--lh-snug);
+  }
+  header.tool-shell-header .tool-shell-header__sub {
+    margin-top: var(--space-1);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+    color: var(--fg-on-navy);
+  }
+
+  /* 2. 案件表頭一列 ------------------------------------------------------- */
+  .tool-shell-case {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+  }
+  .card.tool-shell-case {
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+  .tool-shell-case .tool-shell-case__fields {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-2);
+    flex: 1 1 420px;
+    min-width: 0;
+    width: auto;
+    margin: 0;
+  }
+  .tool-shell-case .tool-shell-case__fields > input {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+  .tool-shell-case__more {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .tool-shell-case__more[open] {
+    flex: 1 1 100%;
+  }
+  .tool-shell-case__more > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: 36px;
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    color: var(--fg-link);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    cursor: pointer;
+  }
+  .tool-shell-case__more > summary:focus-visible {
+    outline: 2px solid var(--hy-navy);
+    outline-offset: 2px;
+  }
+  .tool-shell-case__more[open] > summary {
+    margin-bottom: var(--space-2);
+  }
+  /* 執行期插在案件卡後的存讀檔列與共用表頭列：收合時不佔版面，展開時接在案件卡下方。 */
+  .tool-shell-case-zone:has(.tool-shell-case__more:not([open])) > :is(.project-storage-bar, .project-meta-profile-bar) {
+    display: none;
+  }
+
+  /* 3. 輸入區第一列（作業模式＋主要動作） ---------------------------------- */
+  .tool-shell-inputbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+  .tool-shell-mode {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    flex: 1 1 420px;
+    min-width: 0;
+  }
+
+  /* 4. 主要動作：只放「開始計算」「計算書」兩顆主要按鈕 -------------------- */
+  .tool-shell-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--space-2);
+    min-width: 0;
+    margin: 0 0 var(--space-4);
+  }
+  .tool-shell-inputbar .tool-shell-actions {
+    margin: 0;
+  }
+  .tool-shell-actions > button {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 132px;
+    min-height: 44px;
+    margin: 0;
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-bold);
+    line-height: var(--lh-snug);
+  }
+  /* 主要動作列內一律主要按鈕外觀（原為次要樣式者亦同），焦點與 hover 沿用家族三階 token。 */
+  body[data-family] .tool-shell-actions > button {
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-fg);
+    border-color: var(--btn-primary-bg);
+    box-shadow: none;
+  }
+  body[data-family] .tool-shell-actions > button:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+  body[data-family] .tool-shell-actions > button:active {
+    background: var(--btn-primary-bg-active);
+  }
+
+  /* 5. 輸入區之後的輸出列 --------------------------------------------------- */
+  .tool-shell-dock__label {
+    color: var(--fg-2);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+  }
+  .tool-shell-dock.mode-bar {
+    margin-bottom: 0;
+  }
+
+  /* 6. 降為次要的重複列印鈕 ----------------------------------------------- */
+  body[data-family] .tool-shell-secondary {
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-fg);
+    border-color: var(--btn-secondary-border);
+    box-shadow: inset 0 0 0 2px var(--btn-secondary-border);
+  }
+  body[data-family] .tool-shell-secondary:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--btn-secondary-border), var(--shadow-focus);
+  }
+}
+
+@media screen and (hover: hover) {
+  body[data-family] .tool-shell-actions > button:hover {
+    background: var(--btn-primary-bg-hover);
+    border-color: var(--btn-primary-bg-hover);
+    box-shadow: var(--shadow-focus);
+  }
+  body[data-family] .tool-shell-secondary:hover {
+    background: var(--btn-secondary-bg-hover);
+    box-shadow: inset 0 0 0 2px var(--btn-secondary-border), var(--shadow-focus);
+  }
+}
+
+/* 手機：頁首一行、案件三欄一列、主要動作固定於視窗底部（position: fixed 不佔文流，不造成版面位移）。 */
+@media screen and (max-width: 768px) {
+  header.tool-shell-header {
+    padding: var(--space-2) var(--space-3);
+  }
+  header.tool-shell-header h1 {
+    font-size: var(--fs-md);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  header.tool-shell-header .tool-shell-header__sub {
+    margin-top: 2px;
+    font-size: var(--fs-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card.tool-shell-case {
+    padding: var(--space-3);
+  }
+  .tool-shell-case .tool-shell-case__fields {
+    flex-basis: 100%;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+  .tool-shell-case__more {
+    flex: 1 1 100%;
+  }
+
+  .tool-shell-inputbar {
+    margin-bottom: var(--space-2);
+  }
+  /* 作業模式：標籤與設計／檢核切換同一行，說明文字換到下一行。 */
+  .tool-shell-mode {
+    flex-basis: 100%;
+    gap: var(--space-1) var(--space-2);
+  }
+  .tool-shell-mode .mode-bar__label {
+    flex: 0 0 auto;
+  }
+  .tool-shell-mode .mode-bar__group {
+    width: auto;
+    flex: 1 1 0;
+  }
+  .tool-shell-mode .mode-bar__hint {
+    flex: 1 1 100%;
+  }
+
+  .tool-shell-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    margin: 0;
+    padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-lg);
+  }
+  .tool-shell-actions > button {
+    width: 100%;
+    min-width: 0;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--fs-base);
+  }
+  /* 固定列高度 = 44 + 8 × 2 + 1 ≈ 61px；頁尾預留，避免最後一張卡被遮住。 */
+  body:has(.tool-shell-actions) {
+    padding-bottom: calc(var(--space-16) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* 列印：收合鈕與主要動作列一律不進紙本（Kzt 頁面列印仍列出計畫資訊卡本身）。 */
+@media print {
+  .tool-shell-case__more,
+  .tool-shell-actions {
+    display: none !important;
+  }
+}

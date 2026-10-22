@@ -9,13 +9,14 @@
 <link rel="stylesheet" href="../../core/family-theme.css">
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
+<link rel="stylesheet" href="../../core/tool-shell.css">
 <style>
-  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#0d9488; color:#fff; }
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--hy-navy-500); color:var(--fg-on-navy); }
   .step { margin-bottom:14px; }
   .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px; padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
   .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
   .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
-  .step-body .val.hl { font-size:1.05em; color:#0d9488; }
+  .step-body .val.hl { font-size:1.05em; color:var(--hy-success); }
   .topo-svg { width:100%; max-width:480px; height:auto; display:block; margin:8px auto; background:#fff; border:1px solid var(--border); border-radius:8px; }
   table.zone { width:100%; border-collapse:collapse; font-size:0.84em; }
   table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
@@ -27,8 +28,12 @@
     font-family:'Consolas',monospace;
   }
   .info-pill { display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.78em; background:#f0fdfa; color:#0f766e; font-weight:700; margin-right:6px; }
+  /* 首屏穩定：地形說明由頁尾腳本填入（兩行），預留兩行高度，避免其下輸入欄在首次繪製後下移。 */
+  @media screen { #topoHint { min-height: 2lh; } }
   @media print {
     .page-only-report-status { display:none !important; }
+    /* 頁首舊返回連結段落（列印時連結隱藏、僅留 4px 上邊距）已移除；補回 4px，紙本版面逐像素不變。 */
+    .tool-shell-header__sub { margin-bottom:4px; }
   }
   @media (max-width: 768px) {
   }
@@ -36,25 +41,34 @@
 </head>
 <body data-family="wind">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
-<header>
+<header class="tool-shell-header">
   <h1>建築物耐風設計 — K<sub>zt</sub> 地形係數計算器 <span class="badge-v">V1.1</span></h1>
-  <p>規範 §2.7 / Eq 2.8：K<sub>zt</sub> = (1 + K<sub>1</sub>·K<sub>2</sub>·K<sub>3</sub>)²</p>
-  <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
+  <p class="tool-shell-header__sub">規範 §2.7 / Eq 2.8：K<sub>zt</sub> = (1 + K<sub>1</sub>·K<sub>2</sub>·K<sub>3</sub>)²</p>
 </header>
 
-<div class="container">
-<div class="card mode-bar print-meta">
+<div class="container" role="main">
+<!-- ① 案件表頭：計畫資訊一列（列印仍輸出本卡）。執行期插在本卡之後的存讀檔列與跨工具共用表頭列，
+     由「案件存讀檔與共用表頭」收合控制，收合時不佔版面，不推擠下方輸入。 -->
+<div class="tool-shell-case-zone">
+<div class="card mode-bar print-meta tool-shell-case">
   <strong class="mode-bar__label">計畫資訊：</strong>
-  <div class="mode-bar__proj">
+  <div class="mode-bar__proj tool-shell-case__fields">
     <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
     <input type="text" id="projNo" class="w-no" placeholder="編號">
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <button class="mode-bar__report" type="button">📄 列印頁面結果</button>
   </div>
-  <div class="page-only-report-status report-readiness blocked" id="kztReportReadiness" role="status" aria-live="polite"></div>
+  <details class="tool-shell-case__more">
+    <summary>案件存讀檔與共用表頭</summary>
+  </details>
+</div>
 </div>
 <div class="main-layout">
 <div>
+  <!-- ② 輸入：主要動作（桌機在表單上方；手機固定於視窗底部） -->
+  <div class="tool-shell-actions" role="group" aria-label="主要動作">
+    <button class="btn-calc" id="btnCalc">計算 K<sub>zt</sub></button>
+    <button class="mode-bar__report" type="button">📄 列印頁面結果</button>
+  </div>
   <div class="card">
     <h2>適用範圍</h2>
     <div class="note">
@@ -67,7 +81,7 @@
   <div class="card">
     <h2>地形與位置</h2>
     <div class="form-group">
-      <label>地形類型</label>
+      <label for="topoType">地形類型</label>
       <select id="topoType">
         <option value="flat">平地（K<sub>zt</sub> = 1.0）</option>
         <option value="ridge" selected>山脊 / Ridge（雙坡山形）</option>
@@ -77,7 +91,7 @@
       <div class="hint" id="topoHint"></div>
     </div>
     <div class="form-group">
-      <label>地況分類（用於決定 K<sub>1</sub>/(H/L<sub>h</sub>)）</label>
+      <label for="terrainGrp">地況分類（用於決定 K<sub>1</sub>/(H/L<sub>h</sub>)）</label>
       <select id="terrainGrp">
         <option value="C" selected>地況 C（開闊平坦地）</option>
         <option value="AB">地況 A 或 B（市中心 / 郊區）</option>
@@ -85,34 +99,34 @@
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>地形高度 H (m)</label>
+        <label for="H">地形高度 H (m)</label>
         <input id="H" type="number" value="60" step="1">
         <div class="hint">山脊頂至腳之垂直高度</div>
       </div>
       <div class="form-group">
-        <label>地形半長 L<sub>h</sub> (m)</label>
+        <label for="Lh">地形半長 L<sub>h</sub> (m)</label>
         <input id="Lh" type="number" value="120" step="1">
         <div class="hint">自頂至 H/2 處之水平距離</div>
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>建築物距山頂水平距離 x (m)</label>
+        <label for="x">建築物距山頂水平距離 x (m)</label>
         <input id="x" type="number" value="50" step="1">
         <div class="hint">上風側填負值，下風側填正值</div>
       </div>
       <div class="form-group">
-        <label>離地面高度 z (m)</label>
+        <label for="z">離地面高度 z (m)</label>
         <input id="z" type="number" value="10" step="0.5">
         <div class="hint">通常取建築物計算高度（如 z = H_bldg）</div>
       </div>
     </div>
-    <button class="btn-calc" id="btnCalc">計算 K<sub>zt</sub></button>
     <div class="chk-detail">
       <input type="checkbox" id="chkDetail" checked>
       <label for="chkDetail">顯示逐步計算過程</label>
     </div>
-    <button class="btn-print" type="button">列印頁面結果</button>
+    <button class="btn-print tool-shell-secondary" type="button">列印頁面結果</button>
+    <div class="page-only-report-status report-readiness blocked" id="kztReportReadiness" role="status" aria-live="polite"></div>
   </div>
 </div>
 
@@ -134,7 +148,7 @@
 
   <div class="card">
     <h2>採用表</h2>
-    <table class="zone" id="adoptTable">
+    <table class="zone" id="adoptTable" tabindex="0" aria-label="Kzt 採用表">
       <thead><tr><th>項目</th><th>採用值</th><th>說明</th></tr></thead>
       <tbody></tbody>
     </table>

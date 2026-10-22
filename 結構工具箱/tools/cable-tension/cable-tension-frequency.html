@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="../../core/style.css">
   <link rel="stylesheet" href="../../core/direct-print-boundary.css">
   <link rel="stylesheet" href="../../core/report-readiness.css">
+  <link rel="stylesheet" href="../../core/tool-shell.css">
   <style>
     :root{--cable:#1d4ed8;--cable-dark:#172554;--cable-soft:#eff6ff;--line:#d8e2ef;--ink:#17212b}
     *{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:var(--ink);font-family:"Microsoft JhengHei",Arial,sans-serif;line-height:1.55}
@@ -28,6 +29,9 @@
     @media(max-width:920px){.main-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.span-3{grid-column:1/-1}}
     @media(max-width:560px){.page{padding:10px}.form-grid,.metrics{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.hero{padding:18px}.btn{width:100%}}
     @media print{.page-only-report-status,.case-actions{display:none!important}}
+    .case-card.tool-shell-case{margin-bottom:0}.case-card.tool-shell-case .section-title{margin:0;padding:0;border:0}.case-card .tool-shell-case__more .case-actions{margin-top:0}.stack>.tool-shell-actions{margin:0}.tool-shell-dock.mode-bar{display:block}
+    @media screen and (min-width:561px){.case-card .tool-shell-case__more .case-actions .btn{width:auto;margin-top:0}}
+    @media screen and (max-width:768px){.hero.tool-shell-header .hero-meta{gap:4px;margin-top:6px}.hero.tool-shell-header .tag{padding:1px 6px;font-size:var(--fs-xs)}.case-card.tool-shell-case{margin-top:10px}.case-card.tool-shell-case .section-title{flex:1 1 100%;font-size:var(--fs-base)}.case-card .tool-shell-case__fields .field label{font-size:var(--fs-xs);margin-bottom:2px}.case-card .tool-shell-case__fields .field input{padding:7px 8px}}
   </style>
 </head>
 <body class="local-quick-output-page" data-family="local-quick">
@@ -38,20 +42,22 @@
     <p>請回工具頁按「列印計算書」，在獨立計算書視窗列印或存成 PDF。</p>
   </div>
   <main class="page">
-    <header class="hero" data-smoke="cable-tension-frequency-smoke">
+    <header class="hero tool-shell-header" data-smoke="cable-tension-frequency-smoke">
       <h1>鋼索索力評估（頻率法）</h1>
-      <p>以振動有效長度、單位長度質量與實測固有頻率，依 taut-string 關係式反算軸向索力。</p>
+      <p class="tool-shell-header__sub">以振動有效長度、單位長度質量與實測固有頻率，依 taut-string 關係式反算軸向索力。</p>
       <div class="hero-meta"><span class="tag">局部快算</span><span class="tag">現場量測初估</span><span class="tag">SI 單位</span><span class="tag" id="coreVersion">Core v0.1.0</span><span class="tag">公開版本 V0.1</span></div>
     </header>
 
-    <section class="card case-card">
+    <section class="card case-card tool-shell-case">
       <h2 class="section-title">案件資料與案例管理</h2>
-      <div class="form-grid">
+      <div class="form-grid tool-shell-case__fields">
         <div class="field"><label for="projName">計畫名稱</label><input id="projName" autocomplete="off"></div>
         <div class="field"><label for="projNo">計畫編號</label><input id="projNo" autocomplete="off"></div>
         <div class="field"><label for="projDesigner">設計／整理人</label><input id="projDesigner" autocomplete="off"></div>
       </div>
-      <div class="case-actions">
+      <details class="tool-shell-case__more">
+      <summary>案件存讀檔與共用表頭</summary>
+      <div class="case-actions project-storage-bar">
         <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
         <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
         <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
@@ -60,10 +66,16 @@
         <input id="jsonFile" type="file" accept="application/json,.json" hidden>
         <span class="json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</span>
       </div>
+      </details>
     </section>
 
     <div class="main-layout cable-tension-shell">
       <div class="stack">
+        <!-- ② 輸入：主要動作只留反算與計算書（桌機在表單上方，手機固定於視窗底部） -->
+        <div class="tool-shell-actions" role="group" aria-label="主要動作">
+          <button class="btn btn-primary" id="btnCalc" type="button">反算鋼索索力</button>
+          <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
+        </div>
         <section class="card">
           <h2 class="section-title">① 鋼索與量測基準</h2>
           <div class="warning-box">目前 L、m、頻率列與判定門檻都是示例資料；請依專案量測與文件覆寫。即使勾選模型確認，只要必要依據仍含「示例資料」或其他不可追溯文字，就只能形成內部審閱，不得升為附件。</div>
@@ -100,18 +112,16 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card page-only-report-status" id="cableTensionReportReadiness" data-report-readiness="blocked" data-report-readiness-scope="page-only"></section>
+
+        <section class="card mode-bar tool-shell-dock">
           <h2 class="section-title">④ 計算與輸出</h2>
           <div class="warning-box">本頁只反算現況索力，不檢核鋼索強度、疲勞、錨頭、夾具、端部滑移、腐蝕斷絲、施工張拉程序或整體結構安全。若模型確認未勾選、諧波不一致或有阻尼器，結果僅供人工複核，應改採包含幾何與彎曲勁度的專案分析或直接量測。</div>
           <div class="output-actions">
-            <button class="btn btn-primary" id="btnCalc" type="button">反算鋼索索力</button>
-            <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
             <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
             <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
           </div>
         </section>
-
-        <section class="card page-only-report-status" id="cableTensionReportReadiness" data-report-readiness="blocked" data-report-readiness-scope="page-only"></section>
       </div>
 
       <aside class="stack">
