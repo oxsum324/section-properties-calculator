@@ -198,7 +198,7 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
         perSection: sections.map(section => ({ id: section.dataset.family, total: section.querySelectorAll('a.tool-card').length, visible: [...section.querySelectorAll('a.tool-card')].filter(visible).length, more: section.querySelector('.tool-family__more')?.textContent || null, page: section.querySelector('.tool-family__page')?.getAttribute('href') || null })),
         domCards: document.querySelectorAll('#toolGrid a.tool-card').length,
         visibleCards: [...document.querySelectorAll('#toolGrid a.tool-card')].filter(visible).length,
-        visibleCategoryLists: ['#categoryOverview', '#categoryFilters'].filter(selector => visible(document.querySelector(selector))),
+        visibleCategoryLists: ['#categoryOverview', '#categoryFilters'].filter(selector => { const node = document.querySelector(selector); return !!node && visible(node); }),
         activeOverview: [...document.querySelectorAll('#categoryOverview .category-card[aria-pressed="true"]')].map(node => node.innerText.trim()),
         statusLinkVisible: [...document.querySelectorAll('a[href="#platformStatusSection"]')].some(visible)
       };
@@ -230,12 +230,12 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
     await page.locator('#clearToolSearch').click();
     await page.locator('#categoryOverview .category-card').filter({ hasText: '風力規範外力' }).click();
     await page.waitForFunction(() => document.querySelector('#resultCount')?.textContent.startsWith('13 /'));
-    const category = await page.evaluate(() => ({ count: document.querySelectorAll('#toolGrid a.tool-card').length, active: [...document.querySelectorAll('#categoryOverview .category-card[aria-pressed="true"]')].map(x => x.innerText.trim()), mirror: [...document.querySelectorAll('#categoryFilters .filter-button[aria-pressed="true"]')].map(x => x.textContent.trim()) }));
-    check(checks, 'sidebar-category-filter', category.count === 13 && category.active.some(x => x.includes('風力規範外力')) && category.mirror.length === 1 && category.mirror[0].includes('風力規範外力'), category);
+    const category = await page.evaluate(() => ({ count: document.querySelectorAll('#toolGrid a.tool-card').length, active: [...document.querySelectorAll('#categoryOverview .category-card[aria-pressed="true"]')].map(x => x.innerText.trim()), mirror: document.querySelectorAll('#categoryFilters, .filter-button').length }));
+    check(checks, 'sidebar-category-filter', category.count === 13 && category.active.some(x => x.includes('風力規範外力')) && category.mirror === 0, category);
     await page.locator('.category-card').filter({ hasText: '地震力規範外力' }).click();
     await page.waitForFunction(() => document.querySelector('#resultCount')?.textContent.startsWith('4 /'));
-    const overview = await page.evaluate(() => ({ count: document.querySelectorAll('#toolGrid a.tool-card').length, active: [...document.querySelectorAll('#categoryOverview .category-card[aria-pressed="true"]')].map(x => x.innerText.trim()), mirror: [...document.querySelectorAll('#categoryFilters .filter-button[aria-pressed="true"]')].map(x => x.textContent.trim()) }));
-    check(checks, 'overview-card-updates-filter-and-list', overview.count === 4 && overview.active.length === 1 && overview.active[0].includes('地震力規範外力') && overview.mirror.length === 1 && overview.mirror[0].includes('地震力規範外力'), overview);
+    const overview = await page.evaluate(() => ({ count: document.querySelectorAll('#toolGrid a.tool-card').length, active: [...document.querySelectorAll('#categoryOverview .category-card[aria-pressed="true"]')].map(x => x.innerText.trim()), mirror: document.querySelectorAll('#categoryFilters, .filter-button').length }));
+    check(checks, 'overview-card-updates-filter-and-list', overview.count === 4 && overview.active.length === 1 && overview.active[0].includes('地震力規範外力') && overview.mirror === 0, overview);
     const cards = await page.evaluate(() => [...document.querySelectorAll('#platformStatusSection .status-card')].map(card => ({ id: card.id, role: card.getAttribute('role'), live: card.getAttribute('aria-live') })));
     check(checks, 'three-live-status-cards', cards.length === 3 && cards.every(card => card.role === 'status' && card.live === 'polite'), { cards });
     await page.locator('#categoryOverview .category-card--all').click();

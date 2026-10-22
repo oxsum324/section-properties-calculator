@@ -831,6 +831,14 @@ git add -- "鋼筋混凝土/tools/beam.html" "結構工具箱/tools/風力/wind-
 git add -- "結構工具箱/index.html" "結構工具箱/assets/home/home.css" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "結構工具箱/tools/sync-home-initial-view.js" "結構工具箱/platform-status.html" vercel.json homepage-quality.browser.test.js home-recents.browser.test.js "結構工具箱/tools/local-quick-browser-smoke.test.js" "結構工具箱/tools/pages-live-smoke.js"
 ```
 
+### R2-6 移除首頁隱藏分類鏡像（LCP 修正）
+
+改前改後交替量測手機 Lighthouse：R2-4 後 LCP 由約 2,155 ms 升到約 2,480 ms。原因是首頁文件 14,804 bytes 超過模擬的初始傳輸視窗（約 14.6 KB），多一次往返；樣式表大小不是原因（壓縮到 27 KB 仍不變）。移除只供舊測試讀取的隱藏 `#categoryFilters` 鏡像後首頁降為 13,002 bytes；兩支測試改為斷言「不得有第二份分類清單」，未刪除按下狀態檢查。
+
+```powershell
+git add -- "結構工具箱/index.html" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/home.css" "結構工具箱/tools/sync-home-initial-view.js" "結構工具箱/tools/nav/tool-chrome.browser.test.js" homepage-quality.browser.test.js
+```
+
 ### R2-整合 門檻與治理登錄
 
 首頁更新日期依賴表補上新檔；`toolbox-entrypoints.contract.test.js` 含柱頁全文讀取與首頁分組斷言；開發門檻由 34 條增為 36 條；新檔登錄 LF；登錄 README、TOOL_BOUNDARIES 與本文件。

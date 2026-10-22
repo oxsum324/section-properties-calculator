@@ -1153,7 +1153,6 @@
   const isFileMode = window.location.protocol === 'file:';
   const elements = {
     categoryOverview: document.getElementById('categoryOverview'),
-    filters: document.getElementById('categoryFilters'),
     memberSystemPanel: document.getElementById('memberSystemPanel'),
     memberSystemTabs: document.getElementById('memberSystemTabs'),
     memberSystemHint: document.getElementById('memberSystemHint'),
@@ -1392,29 +1391,6 @@
       card.classList.toggle('is-active', active);
       card.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
-  }
-
-  // #categoryFilters 為隱藏的狀態鏡像（不再顯示第二份分類清單）；保留 DOM 與按下狀態，
-  // 供既有導覽深連結測試讀取 aria-pressed。
-  function renderFilters() {
-    if (!elements.filters) return;
-    elements.filters.replaceChildren(...categories.map(category => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = `filter-button${state.category === category.id ? ' is-active' : ''}`;
-      button.setAttribute('aria-pressed', state.category === category.id ? 'true' : 'false');
-      button.addEventListener('click', () => {
-        state.category = category.id;
-        state.memberSystem = 'all';
-        render();
-      });
-      const label = document.createElement('strong');
-      label.textContent = category.label;
-      const count = document.createElement('span');
-      count.textContent = String(countByCategory(category.id));
-      button.append(label, count);
-      return button;
-    }));
   }
 
   function renderMemberSystemPanel() {
@@ -1998,7 +1974,6 @@
 
   function render() {
     updateCategoryPressed();
-    renderFilters();
     renderMemberSystemPanel();
     renderTools();
   }

@@ -258,12 +258,11 @@ a { color: inherit; text-decoration: none; }
 .category-card.is-active .category-card__body p { color: rgba(255,255,255,0.78); }
 
 /* =========================================================================
-   WORKSPACE：工具清單全寬；#categoryFilters 只保留為隱藏的狀態鏡像
+   WORKSPACE：工具清單全寬；分類卡（#categoryOverview）是唯一的分類清單
    工具區至少一個視窗高：腳本抵達前（空格線）與抵達後（含深連結短清單），
    其後的狀態摘要都在首屏之外，CLS 歸因 0。
    ========================================================================= */
 .tool-workspace { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; min-height: 100vh; padding-top: 24px; }
-.workspace-side[hidden] { display: none; }
 
 /* status cards：首頁為頁尾精簡摘要（.status-section--compact），完整內容在 platform-status.html（.status-section--full），見檔尾 R2 段落 */
 .status-section { padding-top: 28px; }

@@ -3,7 +3,6 @@
 // 首屏分類由 home.js 產生靜態佔位內容，避免腳本抵達後才推動整個工具區。
 // 不另建工具清冊；JavaScript 載入後仍使用同一份資料重新繫結互動。
 // 分類卡（#categoryOverview）是唯一可見的分類篩選，第一張為「全部」；
-// #categoryFilters 為隱藏的狀態鏡像，結構維持原樣。
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -24,13 +23,11 @@ function generatedFragments(source) {
       : `<span class="category-icon category-icon--${escape(category.icon)}" aria-hidden="true">${categoryIcons[category.icon] || ''}<span class="icon-mark">${escape(category.mark)}</span></span>`;
     return `<button type="button" class="category-card${isAll ? ' category-card--all is-active' : ''}" data-category-id="${escape(category.id)}" aria-label="篩選 ${escape(category.label)}" aria-pressed="${isAll}" disabled>${icon}<div class="category-card__body"><strong>${escape(category.label)}<span>${count(category)}</span></strong><p>${escape(category.summary)}</p></div></button>`;
   }).join('');
-  const filters = categories.map(category =>
-    `<button type="button" class="filter-button${category.id === 'all' ? ' is-active' : ''}" aria-pressed="${category.id === 'all'}" disabled><strong>${escape(category.label)}</strong><span>${count(category)}</span></button>`).join('');
-  return { overview, filters };
+  return { overview };
 }
 function update(source, html) {
   const fragments = generatedFragments(source);
-  for (const [id, className, fragment] of [['categoryOverview','category-grid',fragments.overview], ['categoryFilters','filter-list',fragments.filters]]) {
+  for (const [id, className, fragment] of [['categoryOverview','category-grid',fragments.overview]]) {
     const marker = `<!-- home-initial:${id}:start -->`;
     const endMarker = `<!-- home-initial:${id}:end -->`;
     const generated = `${marker}<div id="${id}" class="${className}">${fragment}</div>${endMarker}`;
