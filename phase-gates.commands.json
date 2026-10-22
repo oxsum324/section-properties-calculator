@@ -30,6 +30,9 @@
     "node 結構工具箱/tools/regulatory-data.contract.test.js",
     "node 結構工具箱/tools/sync-home-update-dates.js --check",
     "node tool-page-a11y-build.contract.test.js",
+    "node 結構工具箱/tools/nav/tool-chrome-build.contract.test.js",
+    "node 結構工具箱/tools/nav/family-pages.contract.test.js",
+    "node 結構工具箱/tools/design/design-tokens.contract.test.js",
     "node 結構工具箱/tools/delivery-artifacts.contract.test.js",
     "node 結構工具箱/tools/release-readiness.contract.test.js"
   ]

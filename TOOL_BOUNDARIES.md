@@ -263,6 +263,18 @@ NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋�
 共用機制 `結構工具箱/tools/preflight-process-ownership.ps1`、隔離測例 `結構工具箱/tools/preflight-process-ownership.fixture.ps1` 與契約 `結構工具箱/tools/preflight-process-ownership.contract.test.js` 均為私有工具，以具名清單排除於 Pages 成品之外。
 <!-- T53-REGISTRATION-END -->
 
+<!-- R1-REGISTRATION-START -->
+## 2026-10-22：R1 工具頁導覽、家族頁與家族主題
+
+共用導覽頂欄由根目錄 `tool-chrome.js` 與 `tool-nav.manifest.js` 構成，只提供頁面瀏覽：麵包屑「結構工具箱、家族、工具」、同家族工具清單、版本與身分標籤。它不參與任何計算，不改變輸入、結果、JSON 或計算書。頂欄渲染進每頁 body 開頭的 44px 靜態占位，固定高度，不造成版面位移；占位與頂欄帶 `page-only-tool-chrome` 類別，`結構工具箱/core/direct-print-boundary.css` 與 `鋼筋混凝土/shared/direct-print-boundary.css` 在列印時隱藏。計算書由字串在獨立視窗建構，不序列化工具頁 DOM，因此不含頂欄。現況鑑定紀錄、錨栓、石材固定與外部套件 struct.dx 不注入。
+
+導覽清冊由 `結構工具箱/tools/nav/build-tool-nav-manifest.js` 從 `結構工具箱/assets/home/src/home.source.js` 產生，家族依既有欄位推定（RC、鋼構／SRC、風力、地震、施工臨設與局部快算，其餘取第一個分類），不得手改，以 `--check` 驗證。`結構工具箱/tools/nav/tool-chrome.source.js`、`結構工具箱/tools/nav/build-tool-chrome.js`、清冊產生器與 `結構工具箱/tools/nav/tool-nav.manifest.json` 為私有檔案，以具名清單排除於 Pages 成品之外。
+
+家族頁由 `結構工具箱/tools/nav/build-family-pages.js` 從同一資料源靜態產出 5 頁，屬導覽層，不是計算書；每頁以列印邊界封鎖直接列印。`鋼筋混凝土/index.html` 改為產出物，保留平台公開巡檢狀態卡；首頁工具登錄變更後須重新產出，`--check` 不一致即失敗。家族頁連結一律相對路徑；`vercel.json` 的 `/family-` 開頭路由僅適用 Vercel。
+
+`結構工具箱/core/family-theme.css` 只調整顏色、頁首底色、頁首連結與按鈕階層，不改版面尺寸；計算書視窗不載入。被不同深度頁面共用的樣式表不得使用 @import，token 與家族主題由頁面以 link 依序載入；僅 `鋼筋混凝土/shared/style.css` 因頁面與樣式表同深度保留 @import。家族色對應為假設值，需技師確認後定案。首頁網址參數 `category` 與 `member` 僅設定初始篩選，無效值忽略。
+<!-- R1-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 

@@ -551,6 +551,45 @@ git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md preflight-tools.ps1 au
 ```
 <!-- T53-REGISTRATION-END -->
 
+<!-- R1-REGISTRATION-START -->
+## 2026-10-22：R1 工具箱導覽閉合、家族頁與設計系統收斂
+
+依 2026-10-22 架構建議分包，第一輪合併 1A、1B、2 三包並分四組提交。各工具計算核心、計算書模板、正式附件輸出與 `結構工具箱/assets/status/` 快照均未改動；首頁工具卡維持 53 項，載入預算基線未重設。
+
+### R1-2 設計系統收斂
+
+弘一 token 為唯一來源；`結構工具箱/core/style.css` 與 `鋼筋混凝土/shared/style.css` 改引用 token，新增 `結構工具箱/core/family-theme.css`（RC 共用樣式以 @import 載入，其餘由頁面 link），依 body 的 data-family 屬性切換家族強調色、頁首深藍平塗加 4px 家族色條與按鈕三階。首頁卡片配色地震改琥珀、施工臨設改石板灰，並加入家族頁入口列樣式。只動顏色、字體、圓角與陰影，選擇器與版面尺寸不變。core 版 style.css、鋼構 styles.css 與連續梁、剛架 UI 樣式不使用 @import，改由 39 個連結它們的頁面依序 link token、family-theme 與原樣式表（axe 預載 CSSOM 會把 @import 相對路徑當成相對於頁面解析而 404）；本組另含 4 個未注入頂欄、但連結 core 版 style.css 的頁面。深藍頁首內未加 class 的連結改為白字底線。
+
+```powershell
+git add -- "結構工具箱/assets/hy/colors_and_type.css" "結構工具箱/core/style.css" "結構工具箱/core/family-theme.css" "結構工具箱/core/report-readiness.css" "鋼筋混凝土/shared/style.css" "鋼構工具/styles.css" "結構工具箱/assets/home/home.css" "結構工具箱/tools/design/design-tokens.contract.test.js" "結構工具箱/audit-dashboard.html" "結構工具箱/index-classic.html" "結構工具箱/tools/force-picker.html" "結構工具箱/tools/test-dashboard.html"
+```
+
+### R1-1A 共用導覽頂欄
+
+根目錄 `tool-chrome.js` 與 `tool-nav.manifest.js` 為公開執行期，可讀來源、建置器、清冊產生器與私有清冊 JSON 位於 `結構工具箱/tools/nav/`。49 支工具頁各加 body 的 data-family 屬性、一個 44px 靜態占位與兩個 defer script（其中 35 頁同時含 R1-2 的樣式 link）；首頁支援分類與構件深連結；列印邊界樣式排除頂欄（RC 副本由 `鋼構工具/sync-formal-core.ps1` 同步並更新鏡像清單）。8 支既有契約的 body 釘值依新屬性改為精確字串，未刪斷言。
+
+```powershell
+git add -- .gitattributes "RC補強斷面性質.html" "SRC工具/src-beam.contract.test.js" "SRC工具/src-beam.html" "SRC工具/src-column-page.contract.test.js" "SRC工具/src-column.html" continuous-beam-regression.test.js decking-tools.contract.test.js frame-analysis.contract.test.js index.html section-tools.contract.test.js tool-chrome.js tool-nav.manifest.js "合成斷面性質.html" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/core/direct-print-boundary.css" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/floor-slab/floor-slab-westergaard.html" "結構工具箱/tools/formal-tools.contract.test.js" "結構工具箱/tools/foundation/foundation-local.html" "結構工具箱/tools/nav/build-tool-chrome.js" "結構工具箱/tools/nav/build-tool-nav-manifest.js" "結構工具箱/tools/nav/tool-chrome-build.contract.test.js" "結構工具箱/tools/nav/tool-chrome.browser.test.js" "結構工具箱/tools/nav/tool-chrome.source.js" "結構工具箱/tools/nav/tool-nav.manifest.json" "結構工具箱/tools/rc/column-cover-deviation.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-dynamic.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/鋼構/steel-beam.html" "結構工具箱/tools/鋼構/steel-column.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-kzt.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-overview.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "結構工具箱/tools/風力/wind-special.html" "覆工板/index.html" "連續梁分析.html" "鋼架/平面剛架分析.html" "鋼構工具/index.html" "鋼構工具/plate-check.html" "鋼構工具/steel-beam-formal.html" "鋼構工具/steel-column-formal.html" "鋼構工具/steel-formal.regression-test.js" "鋼筋混凝土/shared/direct-print-boundary.css" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/deep-beam-stm.html" "鋼筋混凝土/tools/foundation-deep-beam-stm.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/pile-cap-3d-stm.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html" "開挖擋土支撐/index.html" "鋼構工具/core/formal-core-manifest.json"
+```
+
+### R1-1B 家族頁
+
+`結構工具箱/tools/nav/build-family-pages.js` 由 `結構工具箱/assets/home/src/home.source.js` 靜態產出 5 個家族頁：`鋼筋混凝土/index.html`（路徑與巡檢卡不變）與 `結構工具箱/family/` 下 4 頁。`vercel.json` 新增 4 條家族路由。RC 巡檢契約的基礎深梁卡片標題改取首頁登錄名。
+
+```powershell
+git add -- "結構工具箱/tools/nav/build-family-pages.js" "結構工具箱/tools/nav/family-pages.contract.test.js" "結構工具箱/family/family.css" "結構工具箱/family/steel.html" "結構工具箱/family/wind.html" "結構工具箱/family/seismic.html" "結構工具箱/family/local-quick.html" "鋼筋混凝土/index.html" "鋼筋混凝土/tools/rc-index-menu-browser-smoke.test.js" "鋼筋混凝土/README.md" "鋼筋混凝土/tools/audit-status.contract.test.js" vercel.json
+```
+
+### R1-整合 門檻與治理登錄
+
+首頁加入家族頁入口列；開發門檻清單由 31 條增為 34 條（第 30 至 32 條為導覽、家族頁與設計 token 契約）；登錄 README、TOOL_BOUNDARIES 與本文件。
+
+```powershell
+git add -- "結構工具箱/index.html" phase-gates.commands.json run-phase-gates.contract.test.js README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
+<!-- R1-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 

@@ -15,7 +15,12 @@ const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 assert.equal(manifest.schemaVersion, 1, 'phase gate manifest schemaVersion must be 1');
 assert.ok(Array.isArray(manifest.commands) && manifest.commands.every((command) => typeof command === 'string' && command.trim()), 'manifest commands must be non-empty strings');
 const expectedCommands = manifest.commands;
-assert.equal(expectedCommands.length, 31, 'phase gate manifest must contain 31 commands');
+assert.equal(expectedCommands.length, 34, 'phase gate manifest must contain 34 commands');
+assert.deepEqual(expectedCommands.slice(29, 32), [
+  'node 結構工具箱/tools/nav/tool-chrome-build.contract.test.js',
+  'node 結構工具箱/tools/nav/family-pages.contract.test.js',
+  'node 結構工具箱/tools/design/design-tokens.contract.test.js',
+], 'commands 30-32 must be the round-1 navigation and design contracts in order');
 assert.deepEqual(expectedCommands.slice(26, 29), [
   'node 結構工具箱/tools/regulatory-data.contract.test.js',
   'node 結構工具箱/tools/sync-home-update-dates.js --check',
