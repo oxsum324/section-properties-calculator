@@ -23,7 +23,7 @@ const RUNTIME_MANIFEST = manifestBuilder.RUNTIME_MANIFEST;
 const OUTPUT = chromeBuilder.OUTPUT;
 const RUNTIME_BYTE_LIMIT = 8192;
 const RUNTIME_MANIFEST_BYTE_LIMIT = 12288;
-const SLOT_MARKUP = '<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>';
+const SLOT_MARKUP = '<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>';
 // 本輪不注入：PWA、SPA、石材自有列印管線；外部套件依 state 排除。
 const EXCLUDED_ROUTES = ['/condition-survey', '/anchor', '/stone-fixing'];
 const EXPECTED_TARGET_COUNT = 49;
@@ -115,6 +115,11 @@ const targets = manifest.tools.filter(tool => tool.state !== 'external' && !EXCL
 assert.equal(targets.length, EXPECTED_TARGET_COUNT, `injection targets derived from the manifest: ${targets.length}`);
 const publicRuntime = path.join(root, OUTPUT);
 const publicManifest = path.join(root, RUNTIME_MANIFEST);
+const slotStylesheet = fs.readFileSync(path.join(root, 'tool-chrome.css'), 'utf8');
+assert.match(slotStylesheet, /\.tool-chrome-slot\s*\{[^}]*min-height:\s*44px/, 'tool-chrome.css reserves the 44px slot height');
+assert.match(slotStylesheet, /@media print\s*\{[^@]*\.tool-chrome-slot[^}]*display:\s*none/, 'tool-chrome.css hides the slot in print');
+assert.equal(/style=\"/.test(SLOT_MARKUP), false, 'slot markup carries no inline style');
+
 for (const tool of targets) {
   const htmlPath = path.join(root, tool.file);
   const html = fs.readFileSync(htmlPath, 'utf8');
@@ -140,6 +145,11 @@ for (const tool of targets) {
   assert.ok(navManifest.index < chrome.index, `${tool.route} loads tool-nav.manifest.js before tool-chrome.js`);
   assert.equal(scripts.indexOf(chrome), scripts.indexOf(navManifest) + 1, `${tool.route} loads the two nav scripts consecutively`);
   assert.equal(navManifest[2].replace(/tool-nav\.manifest\.js$/, ''), chrome[2].replace(/tool-chrome\.js$/, ''), `${tool.route} uses one relative prefix for both nav scripts`);
+  // 占位高度由根目錄 tool-chrome.css 保留（不得用行內 style），link 必須在 head 內、與頂欄腳本同前綴。
+  const slotSheets = [...html.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]*)tool-chrome\.css"\s*>/g)];
+  assert.equal(slotSheets.length, 1, `${tool.route} links tool-chrome.css exactly once`);
+  assert.ok(slotSheets[0].index < html.search(/<\/head>/i), `${tool.route} links tool-chrome.css inside <head>`);
+  assert.equal(slotSheets[0][1], chrome[2].replace(/tool-chrome\.js$/, ''), `${tool.route} uses the tool-chrome.js prefix for tool-chrome.css`);
   const a11y = scripts.find(match => /(?:^|\/)tool-page-a11y\.js(?:\?|$)/.test(match[2]));
   if (a11y) {
     assert.ok(chrome.index < a11y.index, `${tool.route} keeps tool-chrome.js before tool-page-a11y.js`);
@@ -185,7 +195,8 @@ assert.ok(/@media print\{\.page-only-tool-chrome\{display:none !important\}\}/.t
 const sourceText = fs.readFileSync(path.join(root, SOURCE), 'utf8');
 assert.ok(!sourceText.includes('__TOOL_NAV_MANIFEST__'), 'readable source no longer carries an embed placeholder');
 assert.ok(sourceText.includes("'data-tool-chrome'") && sourceText.includes('page-only-tool-chrome') && sourceText.includes("'工具箱導覽'"), 'source renders the governed nav markup');
-assert.ok(sourceText.includes("slot.style.minHeight = ''"), 'source releases the slot height only on the not-found error path');
+assert.ok(sourceText.includes("slot.setAttribute('data-tool-chrome-empty', '')"), 'source releases the slot height only on the not-found error path');
+assert.ok(!/\.style\.minHeight\s*=/.test(sourceText), 'source does not size the slot with inline style (tool-chrome.css owns the height)');
 
 // --- direct-print-boundary.css：一般與 RC 兩種列印規則都隱藏頂欄（含占位） ---
 const printBoundary = fs.readFileSync(path.join(root, '結構工具箱/core/direct-print-boundary.css'), 'utf8');

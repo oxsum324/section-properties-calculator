@@ -1,0 +1,19 @@
+/* 共用導覽頂欄占位（tool-chrome.js）
+   每個注入頂欄的工具頁在 body 開頭有一個靜態占位，本檔以樣式表保留 44px 高度，
+   讓頂欄在執行期渲染時不造成版面位移；不使用行內 style（版面測試限制行內樣式行數）。
+   找不到工具時，tool-chrome.js 會加上 data-tool-chrome-empty 釋放高度。
+   頂欄只供頁面瀏覽，列印一律隱藏。 */
+.tool-chrome-slot {
+  display: block;
+  min-height: 44px;
+}
+
+.tool-chrome-slot[data-tool-chrome-empty] {
+  min-height: 0;
+}
+
+@media print {
+  .tool-chrome-slot {
+    display: none !important;
+  }
+}

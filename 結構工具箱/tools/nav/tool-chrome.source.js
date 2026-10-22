@@ -2,7 +2,7 @@
   'use strict';
   // 結構工具箱共用導覽頂欄（由 build-tool-chrome.js 以 Terser 產生根目錄 tool-chrome.js）。
   // 清冊資料由同目錄 tool-nav.manifest.js 提供（window.STRUCT_TOOL_NAV，先於本檔載入）。
-  // 工具頁 <body> 之後有靜態占位 <div data-tool-chrome-slot style="min-height:44px">，本檔把固定 44px 高的 nav 渲染進占位，
+  // 工具頁 <body> 之後有靜態占位 <div data-tool-chrome-slot>（高度由根目錄 tool-chrome.css 保留），本檔把固定 44px 高的 nav 渲染進占位，
   // 不插入新節點、不改變既有版面高度（CLS 貢獻 0）；找不到占位才退回插在 body 第一子節點。
   // 不碰計算、不碰計算書；計算書由字串建構，頂欄節點永不進入正式輸出，列印時亦整段隱藏。
   const manifest = window.STRUCT_TOOL_NAV;
@@ -163,7 +163,7 @@
     const tool = locateTool();
     if (!tool) {
       // 錯誤路徑：本頁不在清冊或清冊未載入，釋放占位高度（允許此時的版面位移）。
-      if (slot) slot.style.minHeight = '';
+      if (slot) slot.setAttribute('data-tool-chrome-empty', '');
       return;
     }
     if (!body.hasAttribute('data-family')) body.setAttribute('data-family', tool.family);
