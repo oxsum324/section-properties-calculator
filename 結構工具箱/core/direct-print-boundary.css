@@ -28,6 +28,11 @@
     display: none !important;
   }
 
+  /* 共用導覽頂欄（tool-chrome.js）只供畫面導覽，列印與計算書一律不含。 */
+  .page-only-tool-chrome {
+    display: none !important;
+  }
+
   body.formal-tool-output-page > .formal-direct-print-boundary,
   body.local-quick-output-page > .local-quick-direct-print-boundary,
   body.steel-formal-output-page > .steel-formal-direct-print-boundary {
@@ -79,6 +84,10 @@
   }
 
   body.rc-formal-output-page > :not(.rc-direct-print-boundary) {
+    display: none !important;
+  }
+
+  body.rc-formal-output-page > .page-only-tool-chrome {
     display: none !important;
   }
 

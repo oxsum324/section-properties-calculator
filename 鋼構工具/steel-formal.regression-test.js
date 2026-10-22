@@ -486,11 +486,12 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
     `${label} page should expose a calculation-source JSON import`,
   );
 }
-for (const [label, html, expectedVersion] of [
-  ["steel main", indexSource, "V1.3"],
-  ["steel plate", plateCheckSource, "V1.0"],
-  ["steel beam", beamFormalHtmlSource, "V1.0"],
-  ["steel column", columnFormalHtmlSource, "V1.0"],
+// navFamily：共用導覽頂欄（tool-chrome.js）加在 <body> 的 data-family；連接板檢核屬連接附掛物家族。
+for (const [label, html, expectedVersion, navFamily] of [
+  ["steel main", indexSource, "V1.3", "steel"],
+  ["steel plate", plateCheckSource, "V1.0", "attachments"],
+  ["steel beam", beamFormalHtmlSource, "V1.0", "steel"],
+  ["steel column", columnFormalHtmlSource, "V1.0", "steel"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
   const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";
@@ -508,7 +509,7 @@ for (const [label, html, expectedVersion] of [
   );
   assert.match(
     html,
-    /<body class="steel-formal-output-page">[\s\S]*class="steel-formal-direct-print-boundary"/,
+    new RegExp(`<body class="steel-formal-output-page" data-family="${navFamily}">[\\s\\S]*class="steel-formal-direct-print-boundary"`),
     `${label} work page should expose the steel formal direct-print boundary`,
   );
   for (const needle of [

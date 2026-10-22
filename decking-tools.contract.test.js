@@ -98,7 +98,7 @@ assert(html.includes('function setActionStatus'), 'decking tool action status he
 assert(html.includes('function confirmResetAll'), 'decking reset confirmation helper exists', 'confirmResetAll');
 assert(html.includes('function cancelResetAll'), 'decking reset cancellation helper exists', 'cancelResetAll');
 assert(html.includes('href="../結構工具箱/core/direct-print-boundary.css"'), 'decking loads shared direct-print boundary', 'direct-print-boundary.css');
-assert(html.includes('<body class="formal-tool-output-page">'), 'decking uses governed work-page body class', 'formal-tool-output-page');
+assert(html.includes('<body class="formal-tool-output-page" data-family="local-quick">'), 'decking uses governed work-page body class', 'formal-tool-output-page');
 assert(html.includes('class="formal-direct-print-boundary"'), 'decking exposes direct-print boundary', 'formal-direct-print-boundary');
 ['覆工板工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件'].forEach((needle) => {
   assert(html.includes(needle), 'decking direct-print boundary explains blocked work-page print', needle);

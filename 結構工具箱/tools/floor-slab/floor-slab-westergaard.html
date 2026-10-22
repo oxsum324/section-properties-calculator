@@ -26,7 +26,8 @@
     @media print{.page-only-report-status,.case-actions{display:none!important}}
   </style>
 </head>
-<body class="local-quick-output-page">
+<body class="local-quick-output-page" data-family="local-quick">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
   <div class="local-quick-direct-print-boundary" aria-hidden="true">
     <h1>局部快算主頁列印已封鎖</h1>
     <p>此頁是操作介面，不是計算書；本頁不得作為附件。</p>
@@ -407,6 +408,8 @@
   </script>
 <script src="../../core/ui/tool-workflow.js"></script>
 <script src="../tool-workflow-adapters.js" data-tool-key="/floor-slab-westergaard" data-workflow-result="#bannerStatus" data-workflow-calculate="#btnCalc"></script>
+<script src="../../../tool-nav.manifest.js" defer></script>
+<script src="../../../tool-chrome.js" defer></script>
 <script src="../../../tool-page-a11y.js" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>

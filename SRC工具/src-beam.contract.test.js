@@ -122,7 +122,7 @@ function visibleText(reportHtml) {
 assert.equal(Page.PAGE_VERSION, 'v1.0');
 assert.equal(Page.TOOL_ID, 'src-beam');
 assert.equal(Page.CASE_SCHEMA, 'src-beam.case.v1');
-assert.match(html, /<body class="formal-tool-output-page">/);
+assert.match(html, /<body class="formal-tool-output-page" data-family="steel">/);
 assert.match(html, /class="formal-direct-print-boundary"/);
 assert.match(html, /core\/direct-print-boundary\.css/);
 assert.match(html, /core\/ui\/report\.js\?v=7/);

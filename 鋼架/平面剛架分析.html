@@ -101,7 +101,8 @@
 <link rel="stylesheet" href="../結構工具箱/core/family-theme.css">
 <link rel="stylesheet" href="../結構工具箱/assets/hy/frame-analysis-ui.css">
 </head>
-<body class="formal-tool-output-page">
+<body class="formal-tool-output-page" data-family="analysis">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>分析工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的計算書輸出按鈕產生只包含案件資料、分析輸入、計算結果與必要結論的計算書；本頁不得作為附件。</span></div>
 <header>
   <h1>平面剛架分析 <span id="frameAnalysisVersion"></span></h1>
@@ -4120,6 +4121,8 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 <script src="../結構工具箱/core/ui/tool-workflow.js"></script>
 <script src="../結構工具箱/tools/tool-workflow-adapters.js" data-tool-key="/frame-analysis" data-workflow-result="#storyResponseCard" data-workflow-calculate="#btnCalc"></script>
+<script src="../tool-nav.manifest.js" defer></script>
+<script src="../tool-chrome.js" defer></script>
 <script src="../tool-page-a11y.js" defer></script>
 <script src="../結構工具箱/tools/project-meta-profile.js"></script>
 </body>

@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const calculationBookContentBoundary = require('./calculation-book-content-boundary.json');
+// 共用導覽頂欄清冊：工具頁 <body> 的 data-family 由此推得（build-tool-nav-manifest.js 自 home.source.js 產生）。
+const toolNavManifest = require('./nav/tool-nav.manifest.json');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -794,9 +796,11 @@ for (const tool of tools) {
     `../../${manifest.shared.directPrintBoundaryStylesheet}`,
     `${tool.key} loads shared direct-print boundary`
   );
+  const navFamily = toolNavManifest.tools.find(entry => entry.route === tool.route)?.family;
+  assert.ok(navFamily, `${tool.key} has a tool-nav family for ${tool.route}`);
   assertIncludes(
     html,
-    `<body class="${manifest.shared.directPrintBodyClass}">`,
+    `<body class="${manifest.shared.directPrintBodyClass}" data-family="${navFamily}">`,
     `${tool.key} blocks direct work-page print`
   );
   assertIncludes(

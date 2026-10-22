@@ -33,7 +33,8 @@
   }
 </style>
 </head>
-<body>
+<body data-family="wind">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <header>
   <h1>建築物耐風設計 — K<sub>zt</sub> 地形係數計算器 <span class="badge-v">V1</span></h1>
   <p>規範 §2.7 / Eq 2.8：K<sub>zt</sub> = (1 + K<sub>1</sub>·K<sub>2</sub>·K<sub>3</sub>)²</p>
@@ -370,6 +371,8 @@ calc();
 </script>
 <script src="../project-storage.js" data-tool-id="wind-kzt" data-tool-name="Kzt 地形係數計算器" data-tool-version="V1"></script>
 <script src="wind-shared-profile.js" data-wind-tool-id="wind-kzt"></script>
+<script src="../../../tool-nav.manifest.js" defer></script>
+<script src="../../../tool-chrome.js" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>
 </html>

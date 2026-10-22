@@ -34,7 +34,8 @@
   }
 </style>
 </head>
-<body>
+<body data-family="wind">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <header>
   <h1>建築物耐風設計 — 案件總覽 <span class="badge-v">V1</span></h1>
   <p>輸入一次案件基本參數，自動派送至各子工具 ｜ 依 103 年版規範</p>
@@ -398,6 +399,8 @@ document.getElementById('btnSave').addEventListener('click', () => {
 loadOverview();
 </script>
 <script src="../project-storage.js" data-tool-id="wind-overview" data-tool-name="耐風設計案件總覽" data-tool-version="V1"></script>
+<script src="../../../tool-nav.manifest.js" defer></script>
+<script src="../../../tool-chrome.js" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>
 </html>

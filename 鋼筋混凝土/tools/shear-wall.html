@@ -76,7 +76,8 @@
   }
 </style>
 </head>
-<body class="rc-formal-output-page">
+<body class="rc-formal-output-page" data-family="rc">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
   <h1>剪力牆 Shear Wall 設計／檢核 <span data-ui="version">V0.4</span></h1>
@@ -2043,6 +2044,8 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
 </script>
 <script src="../../結構工具箱/core/ui/tool-workflow.js"></script>
 <script src="../../結構工具箱/tools/tool-workflow-adapters.js" data-tool-key="/rc-shear-wall" data-workflow-result="#bannerStatus" data-workflow-create-calculate="true"></script>
+<script src="../../tool-nav.manifest.js" defer></script>
+<script src="../../tool-chrome.js" defer></script>
 <script src="../../tool-page-a11y.js" defer></script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>
 </body>

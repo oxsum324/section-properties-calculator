@@ -61,7 +61,7 @@ assert(html.includes('page-only-report-status'), 'attachment readiness is page-o
 assert(html.includes('不會寫入計算書或列印 PDF'), 'attachment readiness boundary copy exists', 'page-only wording');
 assert(html.includes('頁面顯示，不進計算書、列印或 PDF'), 'attachment readiness boundary row exists', 'page-only boundary row');
 assert(html.includes('href="結構工具箱/core/direct-print-boundary.css"'), 'continuous beam loads shared direct-print boundary', 'shared print stylesheet');
-assert(/<body class="formal-tool-output-page">[\s\S]*class="formal-direct-print-boundary"/.test(html), 'continuous beam exposes work-page direct-print boundary', 'formal output page boundary');
+assert(/<body class="formal-tool-output-page" data-family="analysis">[\s\S]*class="formal-direct-print-boundary"/.test(html), 'continuous beam exposes work-page direct-print boundary', 'formal output page boundary');
 ['分析工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件'].forEach(needle => {
   assert(html.includes(needle), 'continuous beam explains blocked direct print', needle);
 });

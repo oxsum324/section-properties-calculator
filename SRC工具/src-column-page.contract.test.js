@@ -184,7 +184,7 @@ assert.equal(Page.ORIGINAL_PAGE_VERSION, 'v0.3');
 assert.match(html, /SRC 柱方向可選耐震核算 V1\.0/);
 assert.match(html, /案件 schema v1/);
 assert.match(html, /雙向案件 schema v1/);
-assert.match(html, /<body class="formal-tool-output-page">/);
+assert.match(html, /<body class="formal-tool-output-page" data-family="steel">/);
 assert.match(html, /SRC 柱操作頁列印已封鎖/);
 assert.match(html, /id="btnReport"/);
 assert.match(html, /id="btnExportCase"/);

@@ -553,14 +553,16 @@ for (const tool of tools) {
 }
 
 const directPrintBoundarySource = read(path.join('結構工具箱', 'core', 'direct-print-boundary.css'));
+// family：首頁工具頁由共用導覽頂欄（tool-chrome.js）加 data-family；獨立頁沒有。
 for (const tool of [
-  { label: 'section property picker', path: 'index.html' },
-  { label: 'section property standalone', path: '斷面性質計算.html' },
-  { label: 'composite section report', path: '合成斷面性質.html' },
+  { label: 'section property picker', path: 'index.html', family: 'reference' },
+  { label: 'section property standalone', path: '斷面性質計算.html', family: null },
+  { label: 'composite section report', path: '合成斷面性質.html', family: 'reference' },
 ]) {
   const html = read(tool.path);
+  const bodyTag = tool.family ? `<body class="formal-tool-output-page" data-family="${tool.family}">` : '<body class="formal-tool-output-page">';
   assert(html.includes('href="結構工具箱/core/direct-print-boundary.css"'), `${tool.label} loads shared direct-print boundary`, tool.path);
-  assert(/<body class="formal-tool-output-page">[\s\S]*class="formal-direct-print-boundary"/.test(html), `${tool.label} exposes direct-print boundary`, tool.path);
+  assert(html.includes(bodyTag) && /class="formal-direct-print-boundary"/.test(html.slice(html.indexOf(bodyTag))), `${tool.label} exposes direct-print boundary`, tool.path);
   for (const needle of ['斷面工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件']) {
     assert(html.includes(needle), `${tool.label} explains blocked direct print`, needle);
   }

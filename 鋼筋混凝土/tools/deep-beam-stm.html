@@ -39,7 +39,8 @@
   @media (max-width:560px) { .action-row { grid-template-columns:1fr; } }
 </style>
 </head>
-<body class="rc-formal-output-page">
+<body class="rc-formal-output-page" data-family="rc">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <aside class="rc-direct-print-boundary" aria-hidden="true">
   <strong>RC 工具主頁列印已封鎖</strong>
   <span>此頁是操作介面，不是計算書。請關閉列印視窗，使用「產生計算書」開啟可列印的內部審閱文件，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span>
@@ -497,6 +498,8 @@
 </script>
 <script src="../../結構工具箱/core/ui/tool-workflow.js"></script>
 <script src="../../結構工具箱/tools/tool-workflow-adapters.js" data-tool-key="/rc-deep-beam-stm" data-workflow-result="#statusBanner" data-workflow-calculate="#btnCalc"></script>
+<script src="../../tool-nav.manifest.js" defer></script>
+<script src="../../tool-chrome.js" defer></script>
 <script src="../../tool-page-a11y.js" defer></script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>
 </body>

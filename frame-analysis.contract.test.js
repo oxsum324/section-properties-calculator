@@ -527,7 +527,7 @@ assertIncludesAll(frameAnalysisHtml, [
 
 assertIncludesAll(frameAnalysisHtml, [
   'href="../結構工具箱/core/direct-print-boundary.css"',
-  '<body class="formal-tool-output-page">',
+  '<body class="formal-tool-output-page" data-family="analysis">',
   'class="formal-direct-print-boundary"',
   '分析工具主頁列印已封鎖',
   '此頁是操作介面，不是計算書',

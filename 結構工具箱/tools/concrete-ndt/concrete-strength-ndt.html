@@ -52,7 +52,8 @@
     @media(max-width:560px) { main { padding:11px; } .grid,.metrics { grid-template-columns:1fr; } }
   </style>
 </head>
-<body class="local-quick-output-page">
+<body class="local-quick-output-page" data-family="reference">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
   <div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書；本頁不得作為附件。</span><span>請回工具頁按「列印計算書」，在獨立內部審閱計算書視窗列印或存成 PDF。</span></div>
   <main data-smoke="concrete-strength-ndt-smoke" role="main">
     <header class="hero">
@@ -444,6 +445,8 @@
   </script>
   <script src="../../core/ui/tool-workflow.js"></script>
   <script src="../tool-workflow-adapters.js" data-tool-key="/concrete-strength-ndt" data-workflow-result="#bannerStatus" data-workflow-calculate="#btnCalc"></script>
+  <script src="../../../tool-nav.manifest.js" defer></script>
+  <script src="../../../tool-chrome.js" defer></script>
   <script src="../../../tool-page-a11y.js" defer></script>
   <script src="../project-meta-profile.js"></script>
 </body>
