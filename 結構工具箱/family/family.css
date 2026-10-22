@@ -1,0 +1,63 @@
+/* =========================================================================
+   結構工具箱 — 家族頁專用樣式
+   由 tools/nav/build-family-pages.js 產出的靜態家族頁使用；只補 home.css
+   未涵蓋的家族頁元件（回首頁連結、固定入口區塊、頁面骨架），不覆寫 home.css
+   既有 class。色彩與字體 token 由 assets/hy/colors_and_type.css 提供。
+   ========================================================================= */
+
+body.family-page { min-height: 100vh; display: flex; flex-direction: column; }
+body.family-page > main { flex: 1 0 auto; width: 100%; }
+
+/* header：回首頁連結放在右側狀態欄 */
+.family-header .home-header__status { gap: 6px; }
+.family-header__back {
+  display: inline-block;
+  color: #fff;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255,255,255,0.45);
+  padding-bottom: 1px;
+}
+.family-header__back:hover { border-bottom-color: #fff; }
+.family-header__back:focus-visible { outline: 2px solid #fff; outline-offset: 3px; box-shadow: none; }
+
+/* 固定入口區塊（風力家族：案件參數與總覽） */
+.family-entry { margin-bottom: 32px; }
+.family-entry .section-head { margin-bottom: 14px; }
+.family-entry__card {
+  display: grid;
+  gap: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-left: 4px solid var(--hy-red);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  color: var(--fg-1);
+  text-decoration: none;
+  transition: box-shadow var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard);
+}
+.family-entry__card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.family-entry__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--hy-navy);
+}
+.family-entry__summary { margin: 0; font-size: var(--fs-sm); line-height: var(--lh-relaxed); color: var(--fg-2); }
+.family-entry__meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.family-entry__cta { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--hy-navy-500); }
+
+/* 工具清單：家族頁無搜尋與篩選，標題列只保留數量 */
+.family-tool-panel .section-head--tools { margin-bottom: 18px; }
+.family-tool-grid > .tool-card { height: 100%; }
+.family-tool-grid .tool-profile__item p { font-size: var(--fs-sm); }
+
+@media (max-width: 720px) {
+  .family-entry__card { padding: 16px; }
+  .family-entry__title { font-size: var(--fs-md); }
+}

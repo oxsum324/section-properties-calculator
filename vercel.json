@@ -58,6 +58,11 @@
     { "source": "/cable-tension-frequency", "destination": "/結構工具箱/tools/cable-tension/cable-tension-frequency", "permanent": true },
     { "source": "/rc-column-cover-deviation", "destination": "/結構工具箱/tools/rc/column-cover-deviation", "permanent": true },
 
+    { "source": "/family-steel", "destination": "/結構工具箱/family/steel", "permanent": true },
+    { "source": "/family-wind", "destination": "/結構工具箱/family/wind", "permanent": true },
+    { "source": "/family-seismic", "destination": "/結構工具箱/family/seismic", "permanent": true },
+    { "source": "/family-local-quick", "destination": "/結構工具箱/family/local-quick", "permanent": true },
+
     { "source": "/platform", "destination": "/結構工具箱/", "permanent": true },
     { "source": "/platform-audit", "destination": "/結構工具箱/audit-dashboard", "permanent": true },
     { "source": "/beam-analysis", "destination": "/連續梁分析", "permanent": true },

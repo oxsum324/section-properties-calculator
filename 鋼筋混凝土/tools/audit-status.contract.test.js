@@ -178,7 +178,7 @@ const expectedHrefs = [
 const columnCoverDeviationHref = '../結構工具箱/tools/rc/column-cover-deviation.html';
 const expectedAuxiliaryCards = [
   { href: 'tools/deep-beam-stm.html', title: '深梁 STM' },
-  { href: 'tools/foundation-deep-beam-stm.html', title: '基礎深梁 STM' },
+  { href: 'tools/foundation-deep-beam-stm.html', title: '基礎深梁二維 STM' }, // 2026-10-22：RC 首頁改由 home.source.js 產生，標題取首頁登錄名
   { href: 'tools/pile-cap-3d-stm.html', title: '樁帽三維 STM' },
   { href: '../RC補強斷面性質.html', title: 'RC 補強斷面' },
   { href: columnCoverDeviationHref, title: '柱保護層偏差強度評估' },

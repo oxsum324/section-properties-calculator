@@ -160,9 +160,13 @@ async function main() {
 
     const indexResponse = await page.goto(indexUrl, { waitUntil: 'load', timeout: 30000 });
     assert(indexResponse && indexResponse.status() === 200, 'index loads', `status=${indexResponse && indexResponse.status()}`);
-    await page.waitForSelector('.menu-card', { timeout: 10000 });
+    // 首頁入口由 結構工具箱/tools/nav/build-family-pages.js 產出：body 標示 data-family="rc"，
+    // 工具卡集中在 .menu-grid[data-family-tools]，選擇器以該區塊為準，避免巡檢卡等其他區塊混入計數。
+    await page.waitForSelector('body[data-family="rc"] .menu-grid[data-family-tools] .menu-card', { timeout: 10000 });
+    const familyId = await page.getAttribute('body', 'data-family');
+    assert(familyId === 'rc', 'index declares RC family page', `data-family=${familyId}`);
 
-    const cards = await page.$$eval('.menu-card', nodes => nodes.map(node => ({
+    const cards = await page.$$eval('.menu-grid[data-family-tools] .menu-card', nodes => nodes.map(node => ({
       href: node.getAttribute('href') || '',
       title: (node.querySelector('h3')?.textContent || node.textContent || '').replace(/\s+/g, ' ').trim(),
     })));

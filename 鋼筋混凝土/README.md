@@ -2,6 +2,8 @@
 
 目前工具入口為 [index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/index.html)，模組位於 [tools](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools:1)，共用函式位於 [shared](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/shared:1)。
 
+`index.html` 是產生器輸出物：由 `結構工具箱/tools/nav/build-family-pages.js` 讀 `結構工具箱/assets/home/src/home.source.js` 的 `tools`（`memberSystem` 為 `rc` 者）與 `routeFileMap` 靜態產出，工具卡標題、版本、狀態、定位與適用文字皆來自該資料源；巡檢狀態卡、關於本工具箱與列印邊界 aside 為產生器固定樣板。新增或調整 RC 工具卡時只改 `home.source.js`，再於 repo 根目錄執行 `node 結構工具箱/tools/nav/build-family-pages.js` 重新產出，不得手改 `index.html`；`node 結構工具箱/tools/nav/family-pages.contract.test.js` 會以 `--check` 逐位元組比對並釘住 RC 家族 12 張工具卡。
+
 ## 目前模組
 
 - `梁 Beam`
@@ -304,7 +306,7 @@ node .\tools\rc-project-fingerprint.contract.test.js
 - 純函式 shared module，不直接依賴 DOM。
 - 對應 shared `*.test.js`，涵蓋數值黃金案例、邊界條件與警示/待確認語意。
 - 頁面 regression 守衛，確認 HTML 載入相對路徑、沒有重複內嵌核心公式、報告與摘要會呈現關鍵判定。
-- 新增或調整首頁入口時，需同步更新首頁選單 contract 與首頁入口瀏覽器 smoke。
+- 新增或調整首頁入口時，需同步更新首頁選單 contract 與首頁入口瀏覽器 smoke；入口卡片內容改 `home.source.js` 後重跑 `build-family-pages.js`，並更新 `family-pages.contract.test.js` 與瀏覽器 smoke 的 RC 卡片釘值。
 - 正式 `audit-tool.ps1` 必須接上該 suite；不能只依賴手動 `node` 測試。
 - 新增 regression、report visual、browser smoke 或 shared test 時，需確認檔案沒有被 `.gitignore` 擋掉，並納入稽核狀態 contract。
 - 若頁面輸出會影響使用者判讀，需以瀏覽器 QA 驗證摘要、報告與可見文字沒有 `NaN` / `Infinity` / 誤導性 OK。
