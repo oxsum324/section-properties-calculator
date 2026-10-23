@@ -174,11 +174,11 @@
     return { lambdaS, rhoW:rho, vc, Vc, phiVc, phiVn:phiVc, Vs:0 };
   }
 
+  // 112 年版 24.4.3.2：收縮與溫度竹節鋼筋比不小於 0.0018，與 fyt 無關
+  // （解說：舊版 fy > 4,200 之折減已取消）；fyt 仍用於伸展與錨定
   function temperatureRatio(fyT) {
-    const fy = finitePositive(fyT, 'fyT');
-    if (fy <= 2800) return { rho:0.002, branch:'fy-le-2800' };
-    if (fy <= 4200) return { rho:0.0018, branch:'fy-le-4200' };
-    return { rho:Math.max(0.0018 * 4200 / fy, 0.0014), branch:'fy-gt-4200' };
+    finitePositive(fyT, 'fyT');
+    return { rho:0.0018, branch:'fixed-0.0018' };
   }
 
   const api = { getCoefficients, getShearFactor, flatThicknessRatio, minimumThickness, stripMoment, analyzeStripMoments, sizeEffectLambda, oneWayShearNoReinf, temperatureRatio };

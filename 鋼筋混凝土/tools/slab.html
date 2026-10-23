@@ -1292,8 +1292,8 @@
     const lambdaS = sizeEffectLambda(d);
     const vc = Math.min(
       1.06 * lambdaS * lambda * Math.sqrt(fc),
-      0.27 * (2 + 4 / beta_c) * lambdaS * lambda * Math.sqrt(fc),
-      0.27 * (alpha_s * d / bo + 2) * lambdaS * lambda * Math.sqrt(fc)
+      0.53 * (1 + 2 / beta_c) * lambdaS * lambda * Math.sqrt(fc),
+      0.265 * (alpha_s * d / bo + 2) * lambdaS * lambda * Math.sqrt(fc)
     );
     return { lambdaS, vc };
   }
@@ -1721,11 +1721,7 @@
     const fyT = num('fyT') || 2800;
     const temperatureResult = SlabEvaluator.temperatureRatio(fyT);
     const rhoT = temperatureResult.rho;
-    const rhoTFormula = temperatureResult.branch === 'fy-le-2800'
-      ? '0.0020 (fy ≤ 2800)'
-      : temperatureResult.branch === 'fy-le-4200'
-        ? '0.0018 (fy = 4200)'
-        : `max(0.0018·4200/${fyT}, 0.0014) = ${rhoT.toFixed(5)}`;
+    const rhoTFormula = `${rhoT.toFixed(4)}（規範 24.4.3.2，與 fyt 無關）`;
     const AsMin_temp = rhoT * b * h;            // cm²/m (溫度筋下限)
     // 主筋最大間距 — 規範 7.7.2.3 (一向板): min(3h, 45)；§ 8.7.2.2 (二向板): min(2h, 45)
     const sMaxFlex = Math.min(isOneWay ? 3*h : 2*h, 45);
@@ -2362,7 +2358,7 @@
         { label:`φVn ≥ Vu (衝剪)${r.punchData.puOn?'（含 Vs，規範 22.6）':'（Vs=0）'}`,
           formula: r.punchData.puOn
             ? 'vn = vc(折減) + vs，vs = Av·fyt/(bo·s)，vn ≤ 上限'
-            : 'vc = min(1.06λs√fc, 0.27(2+4/βc)λs√fc, 0.27(αs·d/bo+2)λs√fc)',
+            : 'vc = min(1.06λs√fc, 0.53(1+2/βc)λs√fc, 0.265(αs·d/bo+2)λs√fc)',
           sub:`d = ${r.punchData.dPunch.toFixed(2)} cm，λs = ${r.punchData.lambdaS.toFixed(3)}`
             + `\nφVc（混凝土單獨）= ${r.punchData.phiVc2.toFixed(2)} tf`
             + (r.punchData.puOn && r.punchData.punchVs

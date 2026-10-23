@@ -30,9 +30,10 @@ const twoWay = SlabEvaluator.analyzeStripMoments({
 close(twoWay.alphaX + twoWay.alphaY, 1, 1e-12, 'two-way load fractions');
 close(twoWay.Xpos, SlabEvaluator.stripMoment({ wu:1.092, alpha:twoWay.alphaX, spanM:3.5, coefficient:16 }), 1e-12, 'two-way X moment');
 
-assert.deepEqual(SlabEvaluator.temperatureRatio(2800), { rho:0.002, branch:'fy-le-2800' });
-assert.deepEqual(SlabEvaluator.temperatureRatio(4200), { rho:0.0018, branch:'fy-le-4200' });
-close(SlabEvaluator.temperatureRatio(5000).rho, 0.0018 * 4200 / 5000, 1e-12, 'high-strength temperature ratio');
+// 112 年版 24.4.3.2（原 PDF p.436）：ρt ≥ 0.0018，不隨 fyt 變動
+for (const fyT of [2800, 4200, 5000, 5600]) {
+  assert.deepEqual(SlabEvaluator.temperatureRatio(fyT), { rho:0.0018, branch:'fixed-0.0018' }, `temperature ratio fyT=${fyT}`);
+}
 
 const shear = SlabEvaluator.oneWayShearNoReinf({ fc:280, lambda:1, b:100, d:10, rhoW:0.01, phi:0.75 });
 close(shear.lambdaS, 1, 1e-12, 'size effect');
