@@ -477,7 +477,7 @@
       const bt = cls.lambdaF;
       const lim1 = 1.03 * Math.sqrt(E / Fy);
       if (bt <= lim1) {
-        Qs = 1.415 - 0.65 * bt * Math.sqrt(Fy / E);
+        Qs = Math.min(1.0, 1.415 - 0.74 * bt * Math.sqrt(Fy / E)); // rolled-shape E7-5
       } else {
         Qs = 0.69 * E / (Fy * bt * bt);
       }
@@ -1267,8 +1267,9 @@
       Cv2 = 1.51 * kv * E / (ratio ** 2 * Fy);
     }
     const Vn = 0.6 * Fy * Aw * Cv2;
-    const phiV = isCompactWeb ? PHI.shearCompact : PHI.shear;
-    const omgV = isCompactWeb ? OMEGA.shearCompact : OMEGA.shear;
+    // AISC 360-16 G1: phi_v = 0.90 / Omega_v = 1.67 for HSS (G2.1(a) phi = 1.00 is limited to rolled I-shape webs)
+    const phiV = PHI.shear;
+    const omgV = OMEGA.shear;
     return {
       axis,
       Vn,
@@ -1303,8 +1304,9 @@
       Cv2 = 1.51 * kv * E / (ratio ** 2 * Fy);
     }
     const Vn = 0.6 * Fy * sec.Aw * Cv2;
-    const phiV = isCompactWeb ? PHI.shearCompact : PHI.shear;
-    const omgV = isCompactWeb ? OMEGA.shearCompact : OMEGA.shear;
+    // AISC 360-16 G1: phi_v = 0.90 / Omega_v = 1.67 for HSS (G2.1(a) phi = 1.00 is limited to rolled I-shape webs)
+    const phiV = PHI.shear;
+    const omgV = OMEGA.shear;
     return {
       Vn,
       Cv1: Cv2,
@@ -1332,8 +1334,9 @@
     const Fcr = Math.min(0.6 * Fy, Math.max(buckling1, buckling2));
     const Vn = Fcr * Ag / 2;
     const yieldingControls = Fcr >= 0.6 * Fy - 1e-9;
-    const phiV = yieldingControls ? PHI.shearCompact : PHI.shear;
-    const omgV = yieldingControls ? OMEGA.shearCompact : OMEGA.shear;
+    // AISC 360-16 G1: phi_v = 0.90 / Omega_v = 1.67 for HSS (G2.1(a) phi = 1.00 is limited to rolled I-shape webs)
+    const phiV = PHI.shear;
+    const omgV = OMEGA.shear;
     return {
       Vn,
       Fcr,

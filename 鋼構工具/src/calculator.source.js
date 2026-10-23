@@ -1292,6 +1292,33 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
     return { columns, rows };
   }
 
+  function blockShearNominalForAreas({ fy, fu, Agv, Anv, Agt, Ant }) {
+    const tensionRupture = fu * Ant;
+    const shearRupture = 0.6 * fu * Anv;
+    return tensionRupture >= shearRupture
+      ? Math.min(0.6 * fy * Agv + tensionRupture, shearRupture + tensionRupture)
+      : Math.min(shearRupture + fy * Agt, shearRupture + tensionRupture);
+  }
+
+  // Shear planes run along the two outer bolt lines, so the tension plane is either the strip between those
+  // lines (block containing the bolts) or the two edge strips outside them; the governing (smaller) path is used.
+  // With a single bolt line the edge-strip path equals the former full-width expression.
+  function selectBoltGroupBlockTensionAreas({ grossWidth, holeCountAcross, transverseSpacing, holeWidth, thickness, fy, fu, Agv, Anv }) {
+    const lines = Math.max(holeCountAcross, 1);
+    const spread = Math.max(lines - 1, 0) * transverseSpacing;
+    const edgeWidth = Math.max(grossWidth - spread, 0);
+    const candidates = [];
+    if (lines > 1) {
+      candidates.push({ Agt: spread * thickness, Ant: Math.max(spread - (lines - 1) * holeWidth, 0) * thickness });
+    }
+    candidates.push({ Agt: edgeWidth * thickness, Ant: Math.max(edgeWidth - holeWidth, 0) * thickness });
+    const valid = candidates.filter((item) => item.Ant > 0);
+    if (!valid.length) return candidates[0];
+    return valid.reduce((best, item) => (
+      blockShearNominalForAreas({ fy, fu, Agv, Anv, ...item }) < blockShearNominalForAreas({ fy, fu, Agv, Anv, ...best }) ? item : best
+    ));
+  }
+
   function derivePlateAreasFromGeometry(state) {
     const orientation = getPlateOrientation(state);
     const holeWidth = netHoleWidth(state.holeDiameter);
@@ -1303,10 +1330,19 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
     const controlNetWidth = straightNetWidth;
     const controlNetType = "straight";
     const shearLength = Math.min(orientation.startDistance, orientation.endDistance) + Math.max(orientation.holeCountAlong - 1, 0) * orientation.parallelSpacing;
-    const Agt = orientation.grossWidth * state.plateThickness;
-    const AntAuto = Math.max(controlNetWidth, 0) * state.plateThickness;
     const AgvAuto = 2 * shearLength * state.plateThickness;
     const AnvAuto = 2 * Math.max(shearLength - (orientation.holeCountAlong - 0.5) * holeWidth, 0) * state.plateThickness;
+    const { Agt, Ant: AntAuto } = selectBoltGroupBlockTensionAreas({
+      grossWidth: orientation.grossWidth,
+      holeCountAcross: orientation.holeCountAcross,
+      transverseSpacing: orientation.transverseSpacing,
+      holeWidth,
+      thickness: state.plateThickness,
+      fy: state.plateYieldStrength,
+      fu: state.plateUltimateStrength,
+      Agv: AgvAuto,
+      Anv: AnvAuto,
+    });
     const autoBlockValid = shearLength > 0 && AgvAuto > 0 && AnvAuto > 0 && Agt > 0 && AntAuto > 0;
 
     const derived = {
@@ -1678,8 +1714,17 @@ ${buildAvailableStrengthLatex(designMethod, "blockShear", nominal)}
         const grossWidth = state.memberWidth;
         Agv = 2 * shearLength * state.memberThickness;
         Anv = 2 * Math.max(shearLength - (state.tensionBoltLineCount - 0.5) * holeWidth, 0) * state.memberThickness;
-        Agt = grossWidth * state.memberThickness;
-        Ant = Math.max(grossWidth - state.tensionBoltRowCount * holeWidth, 0) * state.memberThickness;
+        ({ Agt, Ant } = selectBoltGroupBlockTensionAreas({
+          grossWidth,
+          holeCountAcross: state.tensionBoltRowCount,
+          transverseSpacing: state.tensionGaugeTransverse,
+          holeWidth,
+          thickness: state.memberThickness,
+          fy: state.memberYieldStrength,
+          fu: state.memberUltimateStrength,
+          Agv,
+          Anv,
+        }));
       }
     } else {
       grossArea = state.tensionGrossArea;

@@ -992,4 +992,67 @@ const tensionManual = calculateConnection({
 });
 assert.equal(tensionManual.sketchData.mode, "manual_area", "manual tension area mode should switch to text sketch state");
 
+
+// Independent block-shear closed forms (D-steel review). Two bolt lines across the force, one bolt row along it:
+// W = 200 mm, t = 12 mm, g = 100 mm, end distance 40 mm, dh = 22 mm (+1.5 mm net-width allowance),
+// Fy = 245 MPa, Fu = 400 MPa. The block is bounded by the two outer bolt lines (shear planes) and either
+// the tension plane between them or the two edge strips; a full-plate-width tension plane is not a block path.
+// Agv = 2*40*12 = 960, Anv = 2*(40-11.75)*12 = 678, Agt = 100*12 = 1200, Ant = (100-23.5)*12 = 918 mm^2;
+// FuAnt = 367.2 kN >= 0.6FuAnv = 162.72 kN -> Rn = min(0.6FyAgv + FuAnt, 0.6FuAnv + FuAnt) = 508.32 kN, phiRn = 381.24 kN.
+const independentBlockShearShared = { ...shared, boltDiameter: 20, holeDiameter: 22 };
+const independentPlateBlock = calculateConnection({
+  ...independentBlockShearShared,
+  connectionType: "plate_check",
+  requiredTension: 500,
+  plateInputMode: "geometry",
+  loadDirection: "vertical",
+  plateWidth: 200,
+  plateLength: 200,
+  plateThickness: 12,
+  plateYieldStrength: 245,
+  plateUltimateStrength: 400,
+  rowCount: 1,
+  lineCount: 2,
+  pitchX: 100,
+  pitchY: 70,
+  endDistanceStart: 40,
+  endDistanceEnd: 40,
+  edgeDistanceTop: 50,
+  edgeDistanceBottom: 50,
+  netSectionMode: "straight_only",
+  blockShearMode: "auto_with_override",
+  useManualBlockShearPath: "false",
+});
+assert.equal(independentPlateBlock.derivedAreas.Agt, 1200, "plate block shear Agt must span only the outer bolt lines, not the full plate width");
+assert.equal(independentPlateBlock.derivedAreas.Ant, 918, "plate block shear Ant must deduct the holes inside the block tension plane only");
+assert.ok(Math.abs(independentPlateBlock.checks.find((item) => item.key === "plateBlockShear").available - 381.24) < 0.01, "plate block shear phiRn closed form = 381.24 kN");
+assert.equal(independentPlateBlock.passes, false, "Tu = 500 kN exceeds the independent block shear phiRn = 381.24 kN");
+
+const independentTensionBlock = calculateConnection({
+  ...independentBlockShearShared,
+  connectionType: "tension_member",
+  requiredTension: 300,
+  tensionConnectionMode: "bolted",
+  tensionSectionType: "connection_plate",
+  tensionAreaInput: "geometry",
+  memberYieldStrength: 245,
+  memberUltimateStrength: 400,
+  memberWidth: 200,
+  memberThickness: 12,
+  unsupportedLength: 1000,
+  radiusOfGyration: 10,
+  tensionShearLagCase: "connection_plate_cap",
+  tensionBoltLineCount: 1,
+  tensionBoltRowCount: 2,
+  tensionShearPlanes: 1,
+  tensionEndDistance: 40,
+  tensionPitchLongitudinal: 70,
+  tensionGaugeTransverse: 100,
+  tensionEdgeDistanceNear: 50,
+  tensionEdgeDistanceFar: 50,
+});
+assert.equal(independentTensionBlock.derivedAreas.Agt, 1200, "tension member block shear Agt must not use the full member width");
+assert.equal(independentTensionBlock.derivedAreas.Ant, 918, "tension member block shear Ant closed form");
+assert.ok(Math.abs(independentTensionBlock.checks.find((item) => item.key === "tensionBlockShear").available - 381.24) < 0.01, "tension member block shear phiRn closed form = 381.24 kN");
+
 console.log("calculator.smoke-test.js passed");

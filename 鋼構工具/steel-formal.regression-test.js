@@ -187,6 +187,36 @@ const chsShear = Steel.calcRoundHssShear(chs, 2500, 400);
 assert.ok(chsShear.phiVn_tf > 0, "round HSS shear should return a usable LRFD strength");
 assert.ok(chsShear.Fcr > 0, "round HSS shear should expose a critical shear stress");
 
+// Independent hand checks (D-steel review), E = 2.04e6 kgf/cm2.
+// (1) Rolled-shape unstiffened flange Qs (AISC 360-10 E7-4/E7-5, Table B4.1a case 1): for 0.56*sqrt(E/Fy) < b/t < 1.03*sqrt(E/Fy)
+//     Qs = 1.415 - 0.74*(b/t)*sqrt(Fy/E); the expression is continuous with Qs = 1 at 0.56*sqrt(E/Fy) and never exceeds 1.
+//     Custom H300x300x10x10 (R = 0), SN490B Fy = 3.3 tf/cm2 = 3300 kgf/cm2: b/t = 15 > 0.56*sqrt(E/Fy) = 13.923,
+//     Qs = 1.415 - 0.74*15*sqrt(3300/2.04e6) = 0.968545.
+const slenderFlangeH = Steel.calcProps({ n: "H300x300x10x10", H: 300, B: 300, tw: 10, tf: 10, R: 0 });
+const slenderFlangePn = Steel.calcPn(slenderFlangeH, 3300, 0.001, 0.001);
+assert.ok(Math.abs(slenderFlangePn.qr.Qs - (1.415 - 0.74 * 15 * Math.sqrt(3300 / 2.04e6))) < 1e-9, "rolled-shape slender flange Qs must use the 0.74 coefficient");
+assert.ok(slenderFlangePn.Q <= 1, "slender-element reduction Q must never exceed 1");
+assert.ok(slenderFlangePn.Pn <= 3300 * slenderFlangeH.A * (1 + 1e-12), "slender H-column Pn must not exceed the squash load Fy*Ag");
+// Catalog *H338x351x13x13, SM520 Fy = 3600: b/t = 13.5 just above 0.56*sqrt(E/Fy) = 13.331 -> Qs = 0.99531 (not 1.046).
+const catalogSlenderPn = Steel.calcPn(Steel.calcProps({ n: "*H338x351x13x13", H: 338, B: 351, tw: 13, tf: 13, R: 13 }), 3600, 0.001, 0.001);
+assert.ok(Math.abs(catalogSlenderPn.qr.Qs - (1.415 - 0.74 * 13.5 * Math.sqrt(3600 / 2.04e6))) < 1e-9, "catalog section just past the flange limit keeps Qs continuous below 1");
+// (2) HSS shear (AISC 360-16 G1, G4, G5): phi_v = 0.90 / Omega_v = 1.67; phi = 1.00 of G2.1(a) applies only to rolled I-shape webs.
+//     SHS 200x200x9, Fy = 3300: t = 0.93*0.9 = 0.837 cm, h = 20 - 3t = 17.489 cm, h/t = 20.89 <= 1.10*sqrt(5E/Fy) -> Cv2 = 1,
+//     Aw = 2*h*t = 29.2766 cm2, Vn = 0.6*3300*29.2766 = 57.968 tf, phiVn = 52.171 tf, Vn/Omega = 34.711 tf.
+const shsShearHand = Steel.calcSquareHssShear(Steel.calcSquareHssProps({ B: 200, t: 9 }), 3300);
+const shsShearAw = 2 * (20 - 3 * 0.837) * 0.837;
+assert.ok(Math.abs(shsShearHand.Vn - 0.6 * 3300 * shsShearAw) < 1e-6, "SHS nominal shear closed form");
+assert.equal(shsShearHand.phiV, 0.9, "square HSS shear must use phi_v = 0.90");
+assert.ok(Math.abs(shsShearHand.phiVn_tf - 0.9 * 0.6 * 3300 * shsShearAw / 1000) < 1e-9, "square HSS phiVn = 0.90 Vn");
+assert.ok(Math.abs(shsShearHand.VnOmega_tf - 0.6 * 3300 * shsShearAw / 1.67 / 1000) < 1e-9, "square HSS Vn/Omega uses Omega_v = 1.67");
+const rhsShearHand = Steel.calcRectHssShear(Steel.calcRectHssProps({ H: 300, B: 200, t: 9 }), 3300, "x");
+assert.equal(rhsShearHand.phiV, 0.9, "rectangular HSS shear must use phi_v = 0.90");
+assert.equal(rhsShearHand.omgV, 1.67, "rectangular HSS shear must use Omega_v = 1.67");
+const chsShearHand = Steel.calcRoundHssShear(Steel.calcRoundHssProps({ D: 318.5, t: 10.3 }), 3300, 300);
+assert.equal(chsShearHand.phiV, 0.9, "round HSS shear must use phi_v = 0.90 even when 0.6Fy controls Fcr");
+assert.ok(Math.abs(chsShearHand.phiVn - 0.9 * 0.6 * 3300 * chsShearHand.Ag / 2) < 1e-6, "round HSS phiVn = 0.90 * 0.6Fy * Ag / 2");
+
+
 const columnFormalPath = path.join(__dirname, "steel-column-formal.js");
 const columnFormalSource = fs.readFileSync(columnFormalPath, "utf8");
 const columnFormalHtmlPath = path.join(__dirname, "steel-column-formal.html");
