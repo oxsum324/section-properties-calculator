@@ -732,6 +732,45 @@ git add -- 結構工具箱/tools/tool-load-budget-baseline.json
 
 <!-- E2-REGISTRATION-END -->
 
+<!-- E3-REGISTRATION-START -->
+## 2026-10-23：E3 工程判斷事項更正
+
+委託人同意 `docs/審查複核紀錄-2026-10-23.md` 第四節前四項依 112 年版原文更正（說明見同檔第十節）。本批未升頁面版本與 `?v=`（E2 已遞增且尚未發布）；覆工板原始 Excel 撓度改閉合解另存第二版（`.xls` 不納入版本控制）。
+
+### E3-拉力伸展長度
+
+依表 25.4.2.3 分有利條件（6.6／5.3）與其他情況（4.4／3.5），ψt·ψe ≤ 1.7；梁依淨間距、保護層與最少箍筋判定，柱依 25.7.2.1 排內根數判定，未提供條件時採其他情況；回歸預期值依手算更新，柱 A 類不適用例改用可鑑別之搭接長度。
+
+```powershell
+git add -- "鋼筋混凝土/shared/devlength.js" "鋼筋混凝土/shared/devlength.test.js" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/beam-regression-cases.json" "鋼筋混凝土/tools/column-regression-cases.json"
+```
+
+### E3-板溫度筋與沖剪係數
+
+收縮與溫度鋼筋比依 24.4.3.2 固定 0.0018；沖剪係數依表 22.6.5.2 改為 0.53(1+2/β)、0.265(2+αs·d/bo)；板回歸例 Y 向 φVc 依手算更新。
+
+```powershell
+git add -- "鋼筋混凝土/shared/slab-evaluator.js" "鋼筋混凝土/shared/slab-evaluator.test.js" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/slab-regression-cases.json"
+```
+
+### E3-基礎剪力
+
+單向剪力依表 22.5.5.1(c) 計 ρw 與上限，13.2.6.2 淺基礎與擋土牆取 λs = 1、樁帽單向與雙向剪力計 λs；雙向係數依表 22.6.5.2；基腳握裹與耐震錨定改用共用 DevLength；樁帽撓曲分列強度與最小鋼筋量；`鋼筋混凝土/tools/pile-cap-3d-stm.html` 之橋接腳本補 `?v=3`；獨立基準同步。
+
+```powershell
+git add -- "鋼筋混凝土/shared/foundation-isolated.js" "鋼筋混凝土/shared/foundation-isolated.test.js" "鋼筋混凝土/shared/foundation-pile.js" "鋼筋混凝土/shared/foundation-pile.test.js" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/foundation-regression.test.js" "鋼筋混凝土/tools/foundation-regression-cases.json" "鋼筋混凝土/tools/pile-cap-3d-stm.html" "結構工具箱/tools/independent-engineering-benchmarks.js"
+```
+
+### E3-文件
+
+複核紀錄補第十節與覆工板 Excel 第二版，治理文件登錄。
+
+```powershell
+git add -- "docs/審查複核紀錄-2026-10-23.md" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
+<!-- E3-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 
