@@ -862,6 +862,14 @@ git add -- toolbox-entrypoints.contract.test.js phase-gates.commands.json run-ph
 git add -- sync-anchor-deployment.ps1 tool-page-a11y-build.contract.test.js "結構工具箱/tools/anchor-a11y-tag.js" "結構工具箱/tools/build-pages-artifact.js" STAGING_GROUPS.md TOOL_BOUNDARIES.md
 ```
 
+### V18-T55b 本機 serve smoke 鋼構標題
+
+`serve-local-browser-smoke.test.js` 於 `steel-formal/` 路由原等候寫死之「鋼構連接板正式規範核算工具 V1.1」，實際主套件標題為「鋼構正式規範核算工具 V1.3」，30 秒逾時並使後續路由從未執行（乾淨 9b964467 即失敗）；改由 `鋼構工具/tool-metadata.js` 之接頭版本與 `鋼構工具/src/app.source.js` 之主套件名稱組成期望標題。修正後 5 路由 × 2 視窗與 26 個報表就緒頁全數通過，後續路由未發現其他問題。
+
+```powershell
+git add -- serve-local-browser-smoke.test.js STAGING_GROUPS.md
+```
+
 <!-- V18-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->

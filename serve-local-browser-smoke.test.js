@@ -5,10 +5,22 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { once } = require('node:events');
 const { spawn } = require('node:child_process');
+const vm = require('node:vm');
 const { chromium } = require('playwright');
 
 const repoRoot = __dirname;
 const serverPath = path.join(repoRoot, 'serve-local.js');
+
+// 鋼構主套件頁標題 = 主套件名稱 + 接頭模組版本（鋼構工具/src/app.source.js 之 withFormalToolVersion）；不寫死版本
+function steelMainSuiteTitle() {
+  const sandbox = {};
+  vm.runInNewContext(fs.readFileSync(path.join(repoRoot, '鋼構工具', 'tool-metadata.js'), 'utf8'), sandbox);
+  const appSource = fs.readFileSync(path.join(repoRoot, '鋼構工具', 'src', 'app.source.js'), 'utf8');
+  const name = (appSource.match(/const MAIN_SUITE_PAGE_TITLE = "([^"]+)";/) || [])[1];
+  const version = sandbox.SteelToolMetadata?.connection?.version;
+  assert.ok(name && version, 'steel main suite title parts are readable');
+  return `${name} ${version}`;
+}
 const browserCandidates = [
   process.env.CHROME_PATH,
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -319,7 +331,8 @@ async function verifySectionShapeInteractions(page) {
 
 async function exerciseEntrypoints(page, base) {
   await verifyRoute(page, base, 'steel-formal/', async () => {
-    await page.waitForFunction(() => document.title === '鋼構連接板正式規範核算工具 V1.1');
+    const expectedSteelTitle = steelMainSuiteTitle();
+    await page.waitForFunction(title => document.title === title, expectedSteelTitle);
     assert.equal(decodeURIComponent(new URL(page.url()).pathname), '/鋼構工具/');
     assert.ok(await page.locator('#examplePresetSelect option').count() > 1, 'steel presets require app.js');
   });
