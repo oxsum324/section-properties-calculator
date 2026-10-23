@@ -481,7 +481,8 @@ function calcBaseH(H, B, tw, tf, R) {
   if (R > 0) {
     const Af = R*R*(1 - PI/4), yf = R/(6*(1 - PI/4));
     const Ic = R**4*(16 - 3*PI)/48, Io = Ic - Af*yf*yf;
-    const dx = (H/2 - tf) - yf, dy = tw/2 + yf;
+    // yf 為圓角形心距圓弧圓心；形心距翼板內面／腹板面 = R−yf (≈0.2234R)
+    const dx = (H/2 - tf) - (R - yf), dy = tw/2 + (R - yf);
     A  += 4*Af;
     Ix += 4*(Io + Af*dx*dx);
     Iy += 4*(Io + Af*dy*dy);

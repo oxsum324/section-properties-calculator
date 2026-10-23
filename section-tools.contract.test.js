@@ -911,4 +911,170 @@ const failedSharedReportHtml = renderSharedReportPayload(sharedReportSource, sha
 assert(failedSharedReportHtml.includes('data-initial-approved="false"'), 'shared renderer keeps NG result printable as internal review', 'data-initial-approved="false"');
 assert(!failedSharedReportHtml.includes('DRAFT／非正式附件'), 'shared renderer does not turn an NG engineering result into a DRAFT document', 'clean NG attachment');
 
+// ---------------------------------------------------------------------------
+// 斷面性質數值回歸：以獨立閉合解或多邊形格林定理積分比對（不採工具自身輸出為預期值）
+// ---------------------------------------------------------------------------
+function assertRelNear(actual, expected, relTolerance, title) {
+  const error = Math.abs(Number(actual) - expected);
+  assert(Number.isFinite(Number(actual)) && error <= relTolerance * Math.abs(expected), title,
+    `actual=${actual}, expected=${expected}, relError=${(error / Math.abs(expected)).toExponential(3)}, tolerance=${relTolerance}`);
+}
+
+function polygonSectionProperties(points) {
+  let A = 0, Sx = 0, Sy = 0, Ixx = 0, Iyy = 0;
+  for (let i = 0; i < points.length; i++) {
+    const [x1, y1] = points[i];
+    const [x2, y2] = points[(i + 1) % points.length];
+    const cross = x1 * y2 - x2 * y1;
+    A += cross / 2;
+    Sx += (x1 + x2) * cross / 6;
+    Sy += (y1 + y2) * cross / 6;
+    Ixx += (y1 * y1 + y1 * y2 + y2 * y2) * cross / 12;
+    Iyy += (x1 * x1 + x1 * x2 + x2 * x2) * cross / 12;
+  }
+  const cx = Sx / A, cy = Sy / A;
+  return { A, cx, cy, Ix: Ixx - A * cy * cy, Iy: Iyy - A * cx * cx };
+}
+
+function filletedHPolygon(H, B, tw, tf, R, segments = 256) {
+  const points = [];
+  const yi = H / 2 - tf, xw = tw / 2;
+  const arc = (cx, cy, a0, a1) => {
+    for (let k = 0; k <= segments; k++) {
+      const angle = a0 + (a1 - a0) * k / segments;
+      points.push([cx + R * Math.cos(angle), cy + R * Math.sin(angle)]);
+    }
+  };
+  points.push([-B / 2, -H / 2], [B / 2, -H / 2], [B / 2, -yi]);
+  arc(xw + R, -yi + R, -Math.PI / 2, -Math.PI);
+  arc(xw + R, yi - R, Math.PI, Math.PI / 2);
+  points.push([B / 2, yi], [B / 2, H / 2], [-B / 2, H / 2], [-B / 2, yi]);
+  arc(-xw - R, yi - R, Math.PI / 2, 0);
+  arc(-xw - R, -yi + R, 0, -Math.PI / 2);
+  points.push([-B / 2, -yi]);
+  return polygonSectionProperties(points);
+}
+
+function createSectionCalcContext(html, functionNames) {
+  const inputs = {};
+  let lastResults = null;
+  const context = {
+    PI: Math.PI, Math, console,
+    document: { getElementById(id) { return Object.prototype.hasOwnProperty.call(inputs, id) ? { value: String(inputs[id]) } : null; } },
+    showResults(items) { lastResults = items; },
+    drawSection() {}, dimText() {}, drawAxes() {},
+  };
+  ['drawGeoRect', 'drawGeoRotRect', 'drawGeoDiamond', 'drawGeoHollowRect', 'drawGeoCircle', 'drawGeoSemicircle', 'drawGeoTriangle',
+    'drawGeoTrapezoid', 'drawGeoPolygon', 'drawGeoHollowDiamond', 'drawGeoTee', 'drawGeoGeneral'].forEach(name => { context[name] = () => {}; });
+  vm.createContext(context);
+  functionNames.forEach(name => vm.runInContext(functionSource(html, name), context, { filename: `section-calc:${name}` }));
+  return {
+    run(functionName, values) {
+      Object.keys(inputs).forEach(key => delete inputs[key]);
+      Object.assign(inputs, values);
+      lastResults = null;
+      context[functionName]();
+      return Object.fromEntries((lastResults || []).map(([label, value]) => [label, value]));
+    },
+  };
+}
+
+{
+  const sectionCalc = createSectionCalcContext(read('index.html'),
+    ['val', 'calcHBeam', 'calcCChannel', 'calcGeo']);
+
+  // H 型鋼圓角：以含真實圓弧的多邊形積分為獨立基準（JIS H400×200×8×13 r16 表列 A=84.12、Ix=23700、Iy=1740）
+  for (const [H, B, tw, tf, R] of [[400, 200, 8, 13, 16], [588, 300, 12, 20, 28]]) {
+    const exact = filletedHPolygon(H / 10, B / 10, tw / 10, tf / 10, R / 10);
+    const result = sectionCalc.run('calcHBeam', { 'h-H': H, 'h-B': B, 'h-tw': tw, 'h-tf': tf, 'h-R': R });
+    const label = `H${H}x${B}x${tw}x${tf} r${R}`;
+    assertRelNear(result['A (斷面積)'], exact.A, 1e-5, `${label} fillet area matches arc polygon`);
+    assertRelNear(result['Ix (強軸慣性矩)'], exact.Ix, 1e-5, `${label} Ix uses fillet centroid 0.2234R from web/flange faces`);
+    assertRelNear(result['Iy (弱軸慣性矩)'], exact.Iy, 1e-5, `${label} Iy uses fillet centroid 0.2234R from web/flange faces`);
+  }
+  {
+    const H = 40, B = 20, tw = 0.8, tf = 1.3, hw = H - 2 * tf;
+    const result = sectionCalc.run('calcHBeam', { 'h-H': 400, 'h-B': 200, 'h-tw': 8, 'h-tf': 13, 'h-R': 0 });
+    assertRelNear(result['Zy (弱軸塑性模數)'], 2 * tf * B * B / 4 + hw * tw * tw / 4, 1e-12, 'H-beam Zy counts web hw·tw²/4 once');
+    assertRelNear(result['Zx (強軸塑性模數)'], B * tf * (H - tf) + tw * hw * hw / 4, 1e-12, 'H-beam Zx closed form');
+    const ArT = B * tf + (hw / 6) * tw;
+    const IrT = tf * B ** 3 / 12 + (hw / 6) * tw ** 3 / 12;
+    assertRelNear(result.rT, Math.sqrt(IrT / ArT), 1e-12, 'H-beam rT = compression flange + 1/3 of compression web (hw/6)');
+  }
+
+  // 唇形 C 型鋼：銳角多邊形為獨立基準（中心線模型容許 1% 內差異）；Sy 外緣在 x=B
+  {
+    const t = 0.32, B = 6.5, H = 15, C = 2;
+    const exact = polygonSectionProperties([[0, 0], [B, 0], [B, C], [B - t, C], [B - t, t], [t, t], [t, H - t], [B - t, H - t], [B - t, H - C], [B, H - C], [B, H], [0, H]]);
+    const result = sectionCalc.run('calcCChannel', { 'cc-H': 150, 'cc-B': 65, 'cc-C': 20, 'cc-t': 3.2 });
+    assertRelNear(result.Cy, exact.cx, 0.01, 'lipped C centroid from web back');
+    assertRelNear(result.Iy, exact.Iy, 0.01, 'lipped C Iy');
+    assertRelNear(result.Sy, exact.Iy / Math.max(exact.cx, B - exact.cx), 0.01, 'lipped C Sy uses extreme fibre at x=B (lips parallel to web)');
+  }
+
+  // 梯形：b=下底 400、b1=上底 200、h=300 mm
+  {
+    const trap = polygonSectionProperties([[0, 0], [40, 0], [30, 30], [10, 30]]);
+    let result = sectionCalc.run('calcGeo', { 'geo-type': 'trapezoid-c', 'g-b': 400, 'g-b1': 200, 'g-h': 300 });
+    assertRelNear(result['e (形心距下底)'], trap.cy, 1e-12, 'trapezoid centroid measured from bottom base b');
+    assertRelNear(result['e₁ (形心距上底)'], 30 - trap.cy, 1e-12, 'trapezoid centroid measured from top base b1');
+    result = sectionCalc.run('calcGeo', { 'geo-type': 'trapezoid-e', 'g-b': 400, 'g-b1': 200, 'g-h': 300 });
+    assertRelNear(result['I (下底軸)'], trap.Ix + trap.A * trap.cy ** 2, 1e-12, 'trapezoid I about bottom base = h³(b+3b1)/12');
+  }
+
+  // 弓形：圓弧多邊形積分；2α=180° 時須退化為半圓 (π/8 − 8/9π)R⁴
+  for (const twoAlpha of [120, 180]) {
+    const R = 20, alpha = twoAlpha / 2 * Math.PI / 180;
+    const points = [];
+    for (let k = 0; k <= 4000; k++) {
+      const theta = Math.PI / 2 - alpha + 2 * alpha * k / 4000;
+      points.push([R * Math.cos(theta), R * Math.sin(theta)]);
+    }
+    const exact = polygonSectionProperties(points);
+    const result = sectionCalc.run('calcGeo', { 'geo-type': 'segment', 'g-R': 200, 'g-alpha': twoAlpha });
+    assertRelNear(result['形心距弦'], exact.cy - R * Math.cos(alpha), 1e-5, `segment 2α=${twoAlpha}° centroid measured from chord`);
+    assertRelNear(result['I (形心軸)'], exact.Ix, 1e-5, `segment 2α=${twoAlpha}° centroidal I parallel to chord`);
+  }
+  {
+    const result = sectionCalc.run('calcGeo', { 'geo-type': 'segment', 'g-R': 200, 'g-alpha': 180 });
+    assertRelNear(result['I (形心軸)'], (Math.PI / 8 - 8 / (9 * Math.PI)) * 20 ** 4, 1e-9, 'segment 2α=180° equals semicircle centroidal I');
+  }
+
+  // 拋物線：形心距底 = 2h/5（頂點在上）
+  for (const shape of ['parabola', 'half-parabola']) {
+    const result = sectionCalc.run('calcGeo', { 'geo-type': shape, 'g-b': 150, 'g-h': 300 });
+    assertRelNear(result['e (形心距底)'], 2 * 30 / 5, 1e-12, `${shape} centroid from base = 2h/5`);
+    assertRelNear(result['e₁ (形心距頂)'], 3 * 30 / 5, 1e-12, `${shape} centroid from vertex = 3h/5`);
+  }
+}
+
+{
+  // 合成斷面基礎 H 型鋼圓角：與 index.html 同一獨立多邊形基準
+  const context = { PI: Math.PI, Math };
+  vm.createContext(context);
+  vm.runInContext(functionSource(read('合成斷面性質.html'), 'calcBaseH'), context, { filename: 'composite:calcBaseH' });
+  const exact = filletedHPolygon(40, 20, 0.8, 1.3, 1.6);
+  const base = context.calcBaseH(40, 20, 0.8, 1.3, 1.6);
+  assertRelNear(base.A, exact.A, 1e-5, 'composite base H fillet area matches arc polygon');
+  assertRelNear(base.Ix, exact.Ix, 1e-5, 'composite base H Ix fillet centroid');
+  assertRelNear(base.Iy, exact.Iy, 1e-5, 'composite base H Iy fillet centroid');
+}
+
+{
+  // RC 補強未開裂轉換斷面：外貼鋼板／FRP 不排開混凝土，應以 n·A 轉換（內埋鋼筋才用 (n−1)·A）
+  const context = { Math };
+  vm.createContext(context);
+  vm.runInContext(functionSource(read('RC補強斷面性質.html'), 'uncrackedTransSection'), context, { filename: 'rc-retrofit:uncrackedTransSection' });
+  const parts = [[30 * 60, 30, 30 * 60 ** 3 / 12], [7 * 15.2, 6, 0], [8 * 30, -0.6, 0]];
+  const A = parts.reduce((sum, part) => sum + part[0], 0);
+  const yb = parts.reduce((sum, part) => sum + part[0] * part[1], 0) / A;
+  const I = parts.reduce((sum, part) => sum + part[2] + part[0] * (part[1] - yb) ** 2, 0);
+  const plated = context.uncrackedTransSection(30, 60, 15.2, 0, 54, 6, 8, 0, 0, 60, 30, 60.6, 8);
+  assertRelNear(plated.A, A, 1e-12, 'RC retrofit uncracked area counts external plate as n·Ap');
+  assertRelNear(plated.yb, yb, 1e-12, 'RC retrofit uncracked centroid with external plate');
+  assertRelNear(plated.I, I, 1e-12, 'RC retrofit uncracked I with external plate');
+  const wrapped = context.uncrackedTransSection(30, 60, 15.2, 0, 54, 6, 8, 2.0, 9.2, 60, 0, 60, 0);
+  assertRelNear(wrapped.A, 30 * 60 + 7 * 15.2 + 9.2 * 2.0, 1e-12, 'RC retrofit uncracked area counts bonded FRP as nf·Af');
+}
+
 console.log('\nAll section tools contract checks passed.');

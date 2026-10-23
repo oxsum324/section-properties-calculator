@@ -812,17 +812,18 @@ function calcHBeam() {
   let Ix=2*(B*tfc**3/12+B*tfc*((H-tfc)/2)**2)+twc*hw**3/12;
   let Iy=2*tfc*B**3/12+hw*twc**3/12;
   let Zx=2*(B*tfc*(H/2-tfc/2)+twc*(hw/2)*(hw/4));
-  let Zy=2*(tfc*B**2/4+hw*twc**2/4);
+  let Zy=2*tfc*B**2/4+hw*twc**2/4;
   // Fillet correction
   if(Rc>0){
     const Af=Rc**2*(1-PI/4), yf=Rc/(6*(1-PI/4));
     const Ic=Rc**4*(16-3*PI)/48, Io=Ic-Af*yf**2;
-    const dx=(H/2-tfc)-yf, dy=twc/2+yf;
+    // yf 為圓角形心距圓弧圓心；形心距翼板內面／腹板面 = Rc−yf (≈0.2234R)
+    const dx=(H/2-tfc)-(Rc-yf), dy=twc/2+(Rc-yf);
     A+=4*Af; Ix+=4*(Io+Af*dx**2); Iy+=4*(Io+Af*dy**2); Zx+=4*Af*dx; Zy+=4*Af*dy;
   }
   const Sx=Ix/(H/2),Sy=Iy/(B/2),rx=Math.sqrt(Ix/A),ry=Math.sqrt(Iy/A);
   const Avx=hw*twc,Avy=2*B*tfc,J=(2*B*tfc**3+hw*twc**3)/3,Cw=Iy*(H-tfc)**2/4,W=A*0.785;
-  const hw3=hw/3,ArT=B*tfc+hw3*twc,IyrT=tfc*B**3/12+hw3*twc**3/12,rT=Math.sqrt(IyrT/ArT);
+  const hw6=hw/6,ArT=B*tfc+hw6*twc,IyrT=tfc*B**3/12+hw6*twc**3/12,rT=Math.sqrt(IyrT/ArT); // 受壓翼板 + 1/3 受壓腹板 (hw/2)/3
   showResults([['A (斷面積)',A,'cm²'],['W (單位重)',W,'kg/m'],['Ix (強軸慣性矩)',Ix,'cm⁴'],['Iy (弱軸慣性矩)',Iy,'cm⁴'],['Sx (強軸斷面模數)',Sx,'cm³'],['Sy (弱軸斷面模數)',Sy,'cm³'],['rx (強軸迴轉半徑)',rx,'cm'],['ry (弱軸迴轉半徑)',ry,'cm'],['Zx (強軸塑性模數)',Zx,'cm³'],['Zy (弱軸塑性模數)',Zy,'cm³'],['Avx (腹板剪力面積)',Avx,'cm²'],['Avy (翼板剪力面積)',Avy,'cm²'],['J (扭轉常數)',J,'cm⁴'],['Cw (翹曲常數)',Cw,'cm⁶'],['rT',rT,'cm'],['翼板寬厚比 B/(2tf)',Bmm/(2*tf),''],['腹板寬厚比 h/tw',(Hmm-2*tf)/tw,'']]);
   drawSection((ctx,W,H)=>{
     const sc=Math.min((W-60)/Bmm,(H-40)/Hmm),sw=Bmm*sc,sh=Hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2,stw=tw*sc,stf=tf*sc;
@@ -879,10 +880,10 @@ function calcCChannel() {
   const Hmm=val('cc-H'),Bmm=val('cc-B'),Cmm=val('cc-C'),tmm=val('cc-t'); if(!Hmm||!Bmm||!tmm) return;
   const H=Hmm/10,B=Bmm/10,C=Cmm/10,t=tmm/10,hc=H-t,bc=B-t,cc=C-t/2;
   const Aw=hc*t,Af=2*bc*t,Al=2*cc*t,A=Aw+Af+Al;
-  const xw=t/2,xf=t+bc/2,xl=t+bc,Cy=(Aw*xw+Af*xf+Al*xl)/A;
+  const xw=t/2,xf=t/2+bc/2,xl=t/2+bc,Cy=(Aw*xw+Af*xf+Al*xl)/A; // 中心線模型：翼板 t/2→B−t/2，唇緣中心線 x=B−t/2
   const Ix=t*hc**3/12+2*(bc*t**3/12+bc*t*(hc/2)**2)+2*(t*cc**3/12+cc*t*((hc-cc)/2)**2);
   const Iy=hc*t**3/12+Aw*(Cy-xw)**2+2*(t*bc**3/12+bc*t*(xf-Cy)**2)+2*(cc*t**3/12+cc*t*(xl-Cy)**2);
-  showResults([['A',A,'cm²'],['W',A*0.785,'kg/m'],['Cy',Cy,'cm'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(H/2),'cm³'],['Sy',Iy/Math.max(Cy,B+C-Cy),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']]);
+  showResults([['A',A,'cm²'],['W',A*0.785,'kg/m'],['Cy',Cy,'cm'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(H/2),'cm³'],['Sy',Iy/Math.max(Cy,B-Cy),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']]);
   drawSection((ctx,W,H)=>{const tot=Bmm+Cmm,sc=Math.min((W-80)/tot,(H-40)/Hmm),sh=Hmm*sc,sb=Bmm*sc,scc=Cmm*sc,st=tmm*sc,ox=(W-(sb+scc))/2,oy=(H-sh)/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sb,oy);ctx.lineTo(ox+sb,oy+scc);ctx.lineTo(ox+sb-st,oy+scc);ctx.lineTo(ox+sb-st,oy+st);ctx.lineTo(ox+st,oy+st);ctx.lineTo(ox+st,oy+sh-st);ctx.lineTo(ox+sb-st,oy+sh-st);ctx.lineTo(ox+sb-st,oy+sh-scc);ctx.lineTo(ox+sb,oy+sh-scc);ctx.lineTo(ox+sb,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();});
 }
 
@@ -958,8 +959,8 @@ function calcGeo() {
   } else if (t==='trapezoid-c') {
     const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return;
     const A=h*(b+b1)/2;
-    const e=h*(b1+2*b)/(3*(b1+b)); // from bottom
-    const e1=h*(b+2*b1)/(3*(b1+b)); // from top
+    const e=h*(b+2*b1)/(3*(b1+b)); // from bottom (b = 下底)
+    const e1=h*(b1+2*b)/(3*(b1+b)); // from top
     const I=h**3*(b**2+4*b*b1+b1**2)/(36*(b+b1));
     const S=I/Math.max(e,e1);
     results=[['A',A,'cm²'],['I (形心軸)',I,'cm⁴'],['S',S,'cm³'],['r',Math.sqrt(I/A),'cm'],['e (形心距下底)',e,'cm'],['e₁ (形心距上底)',e1,'cm']];
@@ -967,7 +968,7 @@ function calcGeo() {
   } else if (t==='trapezoid-e') {
     const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return;
     const A=h*(b+b1)/2;
-    const I=h**3*(3*b+b1)/12;
+    const I=h**3*(b+3*b1)/12; // 對下底 b 軸
     results=[['A',A,'cm²'],['I (下底軸)',I,'cm⁴'],['S',I/h,'cm³'],['r',Math.sqrt(I/A),'cm'],['e (底到頂)',h,'cm']];
     drawGeoTrapezoid(g('b'),g('b1'),g('h'),'edge');
   } else if (t==='hexagon') {
@@ -1070,21 +1071,23 @@ function calcGeo() {
     const A=R**2/2*(2*alpha-Math.sin(2*alpha));
     const e=R*Math.sin(alpha);
     const sin3=Math.sin(alpha)**3, cos1=Math.cos(alpha), sin2a=Math.sin(2*alpha);
-    const e_cg=4*R*sin3/(3*(2*alpha-sin2a));
-    const I_chord=R**4/4*(alpha-sin2a/2-2*sin3*sin3*4/(9*(2*alpha-sin2a)));
-    results=[['A',A,'cm²'],['e (弦到弧頂)',R*(1-cos1),'cm'],['形心距弦',e_cg,'cm'],['I (形心軸,近似)',Math.abs(I_chord),'cm⁴'],['r',Math.sqrt(Math.abs(I_chord)/A),'cm']];
+    const e_center=4*R*sin3/(3*(2*alpha-sin2a)); // 形心距圓心
+    const e_cg=e_center-R*cos1; // 形心距弦
+    const I_center=R**4/4*(alpha-sin2a/2+2*sin3*cos1); // 對過圓心且平行弦之軸
+    const I_cg=I_center-A*e_center**2;
+    results=[['A',A,'cm²'],['e (弦到弧頂)',R*(1-cos1),'cm'],['形心距弦',e_cg,'cm'],['I (形心軸)',I_cg,'cm⁴'],['r',Math.sqrt(I_cg/A),'cm']];
     drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('R')*2),(H-40)/g('R')),sr=g('R')*sc,cx=W/2,cy=H/2;const a=alpha;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,sr,PI/2-a,PI/2+a);ctx.closePath();ctx.fill();ctx.stroke();});
 
   } else if (t==='parabola') {
     const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
-    const A=4*b*h/3, e=3*h/5, e1=2*h/5;
+    const A=4*b*h/3, e=2*h/5, e1=3*h/5; // 頂點在上，形心距底 2h/5
     const I=16*b*h**3/175;
     results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['S',0.1524*b*h**2,'cm³'],['S₁',0.2286*b*h**2,'cm³'],['r',0.263*h,'cm']];
     drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('b')*2),(H-40)/g('h')),sw=g('b')*sc,sh=g('h')*sc,cx=W/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-sw,bot);for(let i=-1;i<=1;i+=0.02){const x=i*sw,y=bot-sh*(1-i*i);}ctx.moveTo(cx-sw,bot);for(let i=0;i<=40;i++){const tt=i/40,xx=-1+2*tt;ctx.lineTo(cx+xx*sw,bot-sh*(1-xx*xx));}ctx.lineTo(cx+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();dimText(ctx,`2b=${g('b')*2}`,cx,bot+16);dimText(ctx,`h=${g('h')}`,cx-sw-22,H/2);});
 
   } else if (t==='half-parabola') {
     const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
-    const A=2*b*h/3, e=3*h/5, e1=2*h/5;
+    const A=2*b*h/3, e=2*h/5, e1=3*h/5; // 頂點在上，形心距底 2h/5
     const I=8*b*h**3/175;
     results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['r',0.263*h,'cm']];
     drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('b'),(H-40)/g('h')),sw=g('b')*sc,sh=g('h')*sc,ox=W/2-sw/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,bot);for(let i=0;i<=40;i++){const tt=i/40;ctx.lineTo(ox+tt*sw,bot-sh*(1-tt*tt));}ctx.lineTo(ox+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();});

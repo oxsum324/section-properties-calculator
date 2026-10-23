@@ -1326,9 +1326,9 @@ function uncrackedTransSection(b, h, As, Asp, d, dp, ns, Af, nf, df, Ap_plate, d
   // 附加鋼筋（轉換為 (ns-1)As；內嵌於混凝土內）
   let sumA = A_c;
   let sumAy = A_c * y_c;
-  const addTrans = (Am, n, y) => {
+  const addTrans = (Am, n, y, external = false) => {
     if (!Am || n<=0) return;
-    const A_trans = (n - 1) * Am;  // 減 1 因既有混凝土佔位
+    const A_trans = (external ? n : n - 1) * Am;  // 內埋鋼筋減 1 因既有混凝土佔位；外貼 FRP／鋼板不排開混凝土
     sumA += A_trans;
     sumAy += A_trans * y;
   };
@@ -1339,8 +1339,8 @@ function uncrackedTransSection(b, h, As, Asp, d, dp, ns, Af, nf, df, Ap_plate, d
   const y_p   = h - dsp;   // 鋼板位置
   addTrans(As,  ns, y_As);
   addTrans(Asp, ns, y_Asp);
-  addTrans(Af,  nf, y_f);
-  addTrans(Ap_plate, ns_plate, y_p);
+  addTrans(Af,  nf, y_f, true);
+  addTrans(Ap_plate, ns_plate, y_p, true);
 
   const yb = sumAy / sumA;  // 形心距下緣
   const yt = h - yb;
@@ -1348,15 +1348,15 @@ function uncrackedTransSection(b, h, As, Asp, d, dp, ns, Af, nf, df, Ap_plate, d
   // 計算 I（對形心軸）
   // 混凝土
   let I = b * h**3 / 12 + A_c * (y_c - yb)**2;
-  const addI = (Am, n, y) => {
+  const addI = (Am, n, y, external = false) => {
     if (!Am || n<=0) return;
-    const A_trans = (n - 1) * Am;
+    const A_trans = (external ? n : n - 1) * Am;
     I += A_trans * (y - yb)**2;  // 鋼筋近似點面積，自身 I 忽略
   };
   addI(As,  ns, y_As);
   addI(Asp, ns, y_Asp);
-  addI(Af,  nf, y_f);
-  addI(Ap_plate, ns_plate, y_p);
+  addI(Af,  nf, y_f, true);
+  addI(Ap_plate, ns_plate, y_p, true);
 
   return { A: sumA, I, yb, yt, Sb: I/yb, St: I/yt };
 }
