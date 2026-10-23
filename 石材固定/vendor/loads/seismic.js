@@ -165,16 +165,17 @@
 
   /**
    * 設計週期 Tdesign
-   * Tdesign = min(CU × Tcode, Tdyna)
-   * CU = 1.4 (113 年版)
-   * Ref: 規範 2.6 節解說
+   * 有結構力學（動力）週期時：Tdesign = min(CU × Tcode, Tdyna)
+   * 無結構力學週期時：Tdesign = Tcode（經驗公式週期本身，不得逕取 CU 倍）
+   * CU = 1.4
+   * Ref: 規範 2.6 節「基本振動週期得用其他結構力學方法計算。但所得之 T 值不得大於前述經驗公式週期之 1.4 倍。」
    */
   function calcTdesign(Tcode, Tdyna, CU) {
     if (CU == null) CU = 1.4;
     if (Tdyna != null && Tdyna > 0) {
       return Math.min(CU * Tcode, Tdyna);
     }
-    return CU * Tcode;
+    return Tcode;
   }
 
   /**
@@ -356,6 +357,22 @@
     return { K: Math.max(KD, KM), KD, KM };
   }
 
+  /**
+   * 2.4/2.5 節：近斷層區域之震區係數取表 2-1 與表 2-3-1~2-3-4 內插值之大者，
+   * 再依式 (2-4) 以 Fa/Fv 放大為工址係數（表 2-3 為震區係數，非工址係數）。
+   * @param {number} siteClass
+   * @param {number[]} zoneVals  表 2-1 [SsD, S1D, SsM, S1M]
+   * @param {number[][]} faultValsList 各斷層依距離內插之 [SsD, S1D, SsM, S1M]
+   */
+  function calcNearFaultSiteCoeff(siteClass, zoneVals, faultValsList) {
+    const zonal = zoneVals.slice(0, 4).map(Number);
+    (faultValsList || []).forEach(vals => {
+      for (let i = 0; i < 4; i++) zonal[i] = Math.max(zonal[i], Number(vals[i]));
+    });
+    const site = calcSiteCoeff(siteClass, zonal[0], zonal[1], zonal[2], zonal[3]);
+    return { ...site, SsD: zonal[0], S1D: zonal[1], SsM: zonal[2], S1M: zonal[3] };
+  }
+
   // ══════════════════════════════
   //  第三章 — 反應譜動力分析整理
   // ══════════════════════════════
@@ -390,7 +407,8 @@
     const shortCoeff = Sshort / (BS || 1);
     const oneSecCoeff = Sone / (B1 || 1);
     const To = oneSecCoeff / shortCoeff;
-    if (T <= 0.2 * To) return shortCoeff * (0.4 + 3.0 * T / To);
+    // 表 3-2/3-3 較短週期段：SaD = SDS[0.4 + (1/BS − 0.4)·T/(0.2T0)]，T=0 時為 0.4SDS（不受阻尼修正）
+    if (T <= 0.2 * To) return Sshort * (0.4 + (1 / (BS || 1) - 0.4) * T / (0.2 * To));
     if (T <= To) return shortCoeff;
     if (T <= 2.5 * To) return oneSecCoeff / T;
     return Math.max(0.4 * shortCoeff, oneSecCoeff / T);
@@ -845,7 +863,7 @@
   function calcSaFuM_V(ratio, isNearFault) {
     const lo = isNearFault ? 0.20 : 0.15;
     const hi = isNearFault ? 0.53 : 0.40;
-    const c  = 0.18 * hi;  // continuity: 0.52*hi + c = 0.70*hi → c = 0.18*hi
+    const c  = isNearFault ? 0.096 : 0.072;  // 式 (C2-11a)(C2-11b) 條文常數
     if (ratio >= hi)  return 0.70 * ratio;
     if (ratio >  lo)  return 0.52 * ratio + c;
     return ratio;
@@ -868,8 +886,9 @@
     const SaD = calcSa(T, SDS, SD1);
     const SaD_V = calcSaDV(SaD, isNearFault);
 
-    // 垂直方向使用固定 Ra=3.0
-    const Ra_V = 3.0;
+    // 垂直方向暫訂韌性容量 R=3.0，再依式 (2-10)/(2-11) 求 Ra（解說 2.18）
+    const R_V = 3.0;
+    const Ra_V = calcRa(R_V, isTaipeiBasin);
     const Fuv = calcFu(Ra_V, T, ToD);
     const ratio = SaD_V / Fuv;
     const ratio_m = calcSaFuM_V(ratio, isNearFault);
@@ -879,11 +898,11 @@
 
     // 柱系統簡化係數 (式 C2-12)
     const col_coeff = isNearFault
-      ? (0.80 * SDS * I / 3)
-      : (0.40 * SDS * I / 2);
+      ? (0.80 * SDS * I / (3 * alphaY))
+      : (0.40 * SDS * I / (2 * alphaY));
 
     return {
-      SaD, SaD_V, Ra_V, Fuv,
+      SaD, SaD_V, R_V, Ra_V, Fuv,
       ratio, ratio_m,
       VZ, col_coeff,
       isNearFault, W_slab, I, alphaY, T, ToD, SDS
@@ -1092,6 +1111,7 @@
     calcFt,
     calcVerticalDist,
     calcSubK,
+    calcNearFaultSiteCoeff,
     // 第三章 — 反應譜動力分析整理
     resolveSpectrumSite,
     calcResponseSpectrumSa,
