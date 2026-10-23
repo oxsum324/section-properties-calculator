@@ -36,7 +36,9 @@ const groups = {
 };
 
 // 頁面主程式逐字外移後，計算函式位於外部頁面腳本（column.html → column.app.js）；明確映射，不猜測。
-const PAGE_APP_SOURCES = { '/rc-column': '鋼筋混凝土/tools/column.app.js' };
+// 路徑取自單一來源 column-app-source.test.js；探針比對 URL pathname，不受 ?v= 快取參數影響。
+const { COLUMN_APP_RELATIVE } = require('./鋼筋混凝土/tools/column-app-source.test.js');
+const PAGE_APP_SOURCES = { '/rc-column': COLUMN_APP_RELATIVE };
 function probeSourceFile(tool) {
   if (tool.key.startsWith('/src-')) return `SRC工具/${slug(tool.key)}.js`;
   if (tool.adapter === 'steel-explicit') return tool.sourceFile;

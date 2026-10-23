@@ -1,13 +1,15 @@
 // RC 柱頁主程式外移契約：column.html 只留標記與極小內嵌，主程式在 column.app.js（一般 classic script），
 // 於原內嵌位置同步載入（devlength.js 之後、forces-receive.js 之前，不加 defer/async/module）。
+// app 標籤字串與 ?v= 快取參數的單一來源在 column-app-source.test.js（其他測試共用同一份還原邏輯）。
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const columnPage = require('./column-app-source.test.js');
 
 const toolsDir = __dirname;
 const htmlPath = path.join(toolsDir, 'column.html');
 const appPath = path.join(toolsDir, 'column.app.js');
-const APP_SRC = 'column.app.js';
+const APP_SRC = columnPage.COLUMN_APP_FILE;
 const HEADER_NEEDLE = '由 column.html 逐字抽出，勿手動分歧';
 const MAX_INLINE_SCRIPT_BYTES = 1024;
 const MIN_MARKUP_RATIO = 0.8;
@@ -50,8 +52,11 @@ assert(appRefs.length === 1, 'column.html references column.app.js exactly once'
 assert(html.split(APP_SRC).length - 1 === 1, 'column.app.js appears once in column.html text', `count=${html.split(APP_SRC).length - 1}`);
 const appRef = appRefs[0];
 if (appRef) {
-  assert(appRef.tag === `<script src="${APP_SRC}">`, 'column.app.js tag has no defer/async/type/module attributes', appRef.tag);
+  assert(/\?v=[1-9]\d*$/.test(appRef.src), 'column.app.js carries a ?v= cache parameter like the RC shared scripts', appRef.src);
+  assert(appRef.src === columnPage.COLUMN_APP_SRC, 'column.app.js ?v= matches COLUMN_APP_VERSION in column-app-source.test.js (bump both together)', `${appRef.src} vs ${columnPage.COLUMN_APP_SRC}`);
+  assert(appRef.tag === `<script src="${columnPage.COLUMN_APP_SRC}">`, 'column.app.js tag has no defer/async/type/module attributes', appRef.tag);
   assert(appRef.body === '', 'column.app.js tag has no inline body', JSON.stringify(appRef.body.slice(0, 40)));
+  assert(html.split(columnPage.COLUMN_APP_TAG).length - 1 === 1, 'column.html contains the shared COLUMN_APP_TAG string exactly once', columnPage.COLUMN_APP_TAG);
   const position = scripts.indexOf(appRef);
   const previous = scripts[position - 1];
   const next = scripts[position + 1];
@@ -81,6 +86,12 @@ try {
 assert(parsed, 'column.app.js parses as a classic script', parseError || 'vm.Script ok');
 assert(!/^\s*(?:import\s+[\w{*'"]|export\s+(?:default|const|let|var|function|class|\{))/m.test(app), 'column.app.js has no ES module syntax', 'classic script');
 assert(!/<\/script/i.test(app), 'column.app.js has no closing script tag literal', 'can be restored inline verbatim');
+{
+  let restored = '';
+  let restoreError = '';
+  try { restored = lf(columnPage.readColumnPageSource()); } catch (error) { restoreError = String(error && error.message || error); }
+  assert(!restoreError && restored.includes('<script>' + app + '</script>') && !restored.includes(APP_SRC), 'shared restore helper puts column.app.js back at its original inline position', restoreError || `restored=${bytes(restored)} bytes`);
+}
 assert(/^  function initColumnForceCandidateReview\(/m.test(app), 'column.app.js declares the top-level receiver initializer used by the inline call', 'initColumnForceCandidateReview');
 assert(/^  function applyPanel\(tab\) \{/m.test(app) && /^  function calcColumn\(/m.test(app), 'column.app.js keeps the top-level workflow entry functions', 'applyPanel / calcColumn');
 

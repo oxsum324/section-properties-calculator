@@ -15,15 +15,11 @@ function readText(filePath) {
 }
 
 // 頁面主程式逐字外移（column.html → column.app.js）：版本一致性改讀還原到原內嵌位置的頁面全文，JS 內 appVersion 仍納入比對。
-const EXTRACTED_PAGE_SCRIPTS = { '鋼筋混凝土/tools/column.html': 'column.app.js' };
+// 標籤字串與還原邏輯的單一來源：鋼筋混凝土/tools/column-app-source.test.js（標籤缺漏或重複時擲錯）。
+const columnPage = require('./鋼筋混凝土/tools/column-app-source.test.js');
 function readPageVersionSource(absoluteFile, relativeFile) {
-  const html = readText(absoluteFile);
-  const app = EXTRACTED_PAGE_SCRIPTS[relativeFile];
-  if (!app) return html;
-  const tag = `<script src="${app}"></script>`;
-  const at = html.indexOf(tag);
-  assert.ok(at >= 0 && html.indexOf(tag, at + 1) < 0, `${relativeFile} references ${app} exactly once`);
-  return html.slice(0, at) + '<script>' + readText(path.join(path.dirname(absoluteFile), app)) + '</script>' + html.slice(at + tag.length);
+  if (relativeFile === columnPage.COLUMN_HTML_RELATIVE) return columnPage.readColumnPageSource({ root: repoRoot });
+  return readText(absoluteFile);
 }
 
 function readJson(relativePath) {

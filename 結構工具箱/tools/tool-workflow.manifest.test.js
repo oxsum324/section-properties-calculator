@@ -7,16 +7,9 @@ const root = path.resolve(__dirname, '../..');
 const manifest = require('./tool-workflow.manifest.json');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 // 頁面主程式逐字外移（column.html → column.app.js）：還原到原內嵌位置後檢查計算入口與結果錨點。
-const EXTRACTED_PAGE_SCRIPTS = { '鋼筋混凝土/tools/column.html': 'column.app.js' };
-function readPageSource(file) {
-  const html = read(file);
-  const app = EXTRACTED_PAGE_SCRIPTS[file];
-  if (!app) return html;
-  const tag = `<script src="${app}"></script>`;
-  const at = html.indexOf(tag);
-  assert.ok(at >= 0 && html.indexOf(tag, at + 1) < 0, `${file}: ${app} is referenced exactly once`);
-  return html.slice(0, at) + '<script>' + read(path.posix.join(path.posix.dirname(file), app)) + '</script>' + html.slice(at + tag.length);
-}
+// 標籤字串與還原邏輯的單一來源：鋼筋混凝土/tools/column-app-source.test.js（標籤缺漏或重複時擲錯）。
+const { readPageSource: readSharedPageSource } = require('../../鋼筋混凝土/tools/column-app-source.test.js');
+const readPageSource = file => readSharedPageSource(file, { root });
 const homepage = read('結構工具箱/assets/home/src/home.source.js');
 const match = homepage.match(/const tools = (\[[\s\S]*?\n  \]);/);
 assert.ok(match, 'homepage tool inventory is readable');

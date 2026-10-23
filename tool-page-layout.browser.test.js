@@ -22,16 +22,9 @@ const tools = [
   { key: 'frame-analysis', file: '鋼架/平面剛架分析.html', max: 12 }
 ];
 // 頁面主程式逐字外移（column.html → column.app.js）：inline-style 行數改讀還原到原內嵌位置的頁面全文，上限不變。
-const EXTRACTED_PAGE_SCRIPTS = { '鋼筋混凝土/tools/column.html': 'column.app.js' };
-function readPageSource(file) {
-  const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
-  const app = EXTRACTED_PAGE_SCRIPTS[file];
-  if (!app) return html;
-  const tag = `<script src="${app}"></script>`;
-  const at = html.indexOf(tag);
-  if (at < 0 || html.indexOf(tag, at + 1) >= 0) throw new Error(`${file}: ${app} must be referenced exactly once`);
-  return html.slice(0, at) + '<script>' + fs.readFileSync(path.join(ROOT, path.dirname(file), app), 'utf8') + '</script>' + html.slice(at + tag.length);
-}
+// 標籤字串與還原邏輯的單一來源：鋼筋混凝土/tools/column-app-source.test.js（標籤缺漏或重複時擲錯）。
+const { readPageSource: readSharedPageSource } = require('./鋼筋混凝土/tools/column-app-source.test.js');
+const readPageSource = file => readSharedPageSource(file, { root: ROOT });
 const selected = tools.filter(t => !process.env.TOOL_PAGE_LAYOUT_ONLY || process.env.TOOL_PAGE_LAYOUT_ONLY.split(',').includes(t.key));
 if (!selected.length) throw new Error('TOOL_PAGE_LAYOUT_ONLY 未選到工具');
 const viewports = [{ width: 1280, height: 900 }, { width: 375, height: 844 }];

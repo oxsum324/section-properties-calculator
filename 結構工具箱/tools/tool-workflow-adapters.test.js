@@ -8,16 +8,9 @@ const workflow = require('../core/ui/tool-workflow.js');
 const manifest = require('./tool-workflow.manifest.json');
 const root = path.resolve(__dirname, '../..');
 // 頁面主程式逐字外移（column.html → column.app.js）：還原到原內嵌位置後擷取真實 applyPanel 與腳本順序。
-const EXTRACTED_PAGE_SCRIPTS = { '鋼筋混凝土/tools/column.html': 'column.app.js' };
-function readPageSource(file) {
-  const html = fs.readFileSync(path.join(root, file), 'utf8');
-  const app = EXTRACTED_PAGE_SCRIPTS[file];
-  if (!app) return html;
-  const tag = `<script src="${app}"></script>`;
-  const at = html.indexOf(tag);
-  assert.ok(at >= 0 && html.indexOf(tag, at + 1) < 0, `${file}: ${app} is referenced exactly once`);
-  return html.slice(0, at) + '<script>' + fs.readFileSync(path.join(root, path.dirname(file), app), 'utf8') + '</script>' + html.slice(at + tag.length);
-}
+// 標籤字串與還原邏輯的單一來源：鋼筋混凝土/tools/column-app-source.test.js（標籤缺漏或重複時擲錯）。
+const { readPageSource: readSharedPageSource } = require('../../鋼筋混凝土/tools/column-app-source.test.js');
+const readPageSource = file => readSharedPageSource(file, { root });
 function documentStub() {
   return { querySelectorAll() { return []; }, querySelector() { return null; }, getElementById() { return null; }, activeElement: null };
 }

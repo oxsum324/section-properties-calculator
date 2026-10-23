@@ -896,6 +896,14 @@ git add -- "石材固定/js/version-sync.js" "石材固定/js/version-sync-smoke
 git add -- sync-anchor-deployment.ps1 tool-page-a11y-build.contract.test.js "結構工具箱/tools/anchor-a11y-tag.js" TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
+### V18-審查修正-2 柱頁主程式快取參數與共用還原
+
+審查第 3、5 項：`column.html` 改載 `column.app.js?v=1`；新增私有測試輔助 `鋼筋混凝土/tools/column-app-source.test.js` 集中標籤、`COLUMN_APP_VERSION` 與還原全文，九支測試改用（日後調升只改頁面標籤與該常數）。`rc-format.contract` 對柱頁改讀還原全文，並以記憶體變異證明在 app.js 寫回 `function fmt(` 會被抓到。
+
+```powershell
+git add -- "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/column-app-source.test.js" "鋼筋混凝土/tools/column-app-extraction.contract.test.js" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" rc-format.contract.test.js toolbox-entrypoints.contract.test.js tool-page-layout.browser.test.js tool-workflow.browser.test.js "結構工具箱/tools/loadcombo-v2.test.js" "結構工具箱/tools/rendered-delivery-evidence.contract.test.js" "結構工具箱/tools/tool-workflow-adapters.test.js" "結構工具箱/tools/tool-workflow.manifest.test.js" STAGING_GROUPS.md
+```
+
 <!-- V18-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->

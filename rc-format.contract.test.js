@@ -43,9 +43,23 @@ const expectedProfiles = {
   'foundation-deep-beam-stm': ['RCUI.formatFinite'], 'shear-wall': ['RCUI.formatOneDecimal'],
   'single-pile-designer': ['RCUI.formatFinite'], wall: ['RCUI.formatOneDecimal'],
 };
+// 柱頁主程式已外移至 column.app.js：column 改讀還原到原內嵌位置的頁面全文（單一來源 column-app-source.test.js），
+// 否則只讀 column.html 會讓本檢查對主程式完全失效。
+const columnPage = require('./鋼筋混凝土/tools/column-app-source.test.js');
+const LOCAL_FMT = /(?:const|let|var)\s+fmt\s*=|function\s+fmt\s*\(/;
+const readRcToolSource = file => columnPage.readPageSource(`鋼筋混凝土/tools/${file}.html`, { root });
 for (const [file, profiles] of Object.entries(expectedProfiles)) {
-  const source = fs.readFileSync(path.join(root, `鋼筋混凝土/tools/${file}.html`), 'utf8');
-  assert.doesNotMatch(source, /(?:const|let|var)\s+fmt\s*=|function\s+fmt\s*\(/, `${file} 不得保留局部 fmt 實作`);
+  const source = readRcToolSource(file);
+  assert.doesNotMatch(source, LOCAL_FMT, `${file} 不得保留局部 fmt 實作`);
   for (const profile of profiles) assert.ok(source.includes(profile + '('), `${file} 應採既有型別與位數政策`);
+}
+// 變異守門：檢查對象必須是柱頁真正的主程式（含共用 fmt 呼叫），且在 column.app.js 內加入局部 fmt 時必被偵測。
+{
+  const columnSource = readRcToolSource('column');
+  assert.ok((columnSource.match(/\bfmt\(/g) || []).length > 0, 'column 檢查對象含主程式的共用 fmt 呼叫（不是只有標記的 column.html）');
+  const html = fs.readFileSync(path.join(root, ...columnPage.COLUMN_HTML_RELATIVE.split('/')), 'utf8');
+  const app = fs.readFileSync(path.join(root, ...columnPage.COLUMN_APP_RELATIVE.split('/')), 'utf8');
+  assert.match(columnPage.restoreColumnPageSource(html, app + '\nfunction fmt(value) { return String(value); }\n'), LOCAL_FMT,
+    'column.app.js 內的局部 fmt 實作必被本檢查偵測');
 }
 console.log('rc-format.contract.test.js passed (9 local implementations removed; coercion/digits/fallback/errors preserved)');
