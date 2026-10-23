@@ -849,6 +849,21 @@ git add -- toolbox-entrypoints.contract.test.js phase-gates.commands.json run-ph
 
 <!-- R2-REGISTRATION-END -->
 
+<!-- V18-REGISTRATION-START -->
+## 2026-10-23：第十八階段（V18）R2 重新落地與上線後小修
+
+依 `_tmp/派工/小工具優化派工指示-20261023-V18.md` 於本機執行（Codex 沙箱無法啟動瀏覽器工作階段，改由本機代為執行）。
+
+### V18-T55a 錨栓同步保留無障礙標籤
+
+`sync-anchor-deployment.ps1` 鏡像 dist 後呼叫私有工具 `結構工具箱/tools/anchor-a11y-tag.js`，於 `anchor/index.html` 缺 `../tool-page-a11y.js` 標籤時補回（冪等）；`tool-page-a11y-build.contract.test.js` 以無標籤之 dist 樣本驗證補回恰一個、重複執行不變，並確認同步腳本於複製後呼叫。腳本維持純 ASCII。以 `-SkipVerify` 實際同步一次確認標籤補回後，`anchor/` 已還原至 HEAD。
+
+```powershell
+git add -- sync-anchor-deployment.ps1 tool-page-a11y-build.contract.test.js "結構工具箱/tools/anchor-a11y-tag.js" "結構工具箱/tools/build-pages-artifact.js" STAGING_GROUPS.md TOOL_BOUNDARIES.md
+```
+
+<!-- V18-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 

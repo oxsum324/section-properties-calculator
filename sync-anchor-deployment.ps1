@@ -155,6 +155,20 @@ if (Test-Path -LiteralPath $assets) {
 
 Copy-Item -Path (Join-Path $resolvedDist '*') -Destination $resolvedAnchor -Recurse -Force
 
+# The dist index.html lacks the shared accessibility runtime tag; restore it
+# after mirroring (idempotent) so a rebuild never needs a manual patch.
+$a11yHelper = Get-ChildItem -LiteralPath $resolvedRoot -Directory |
+  ForEach-Object { Join-Path $_.FullName 'tools\anchor-a11y-tag.js' } |
+  Where-Object { Test-Path -LiteralPath $_ } |
+  Select-Object -First 1
+if (-not $a11yHelper) {
+  throw "Missing anchor accessibility helper under workspace root: $resolvedRoot"
+}
+node $a11yHelper (Join-Path $resolvedAnchor 'index.html')
+if ($LASTEXITCODE -ne 0) {
+  exit $LASTEXITCODE
+}
+
 $indexPath = Join-Path $resolvedAnchor 'index.html'
 $index = Get-Content -LiteralPath $indexPath -Raw -Encoding UTF8
 $referencedAssets = [regex]::Matches($index, '(?:\./)?assets/([^"''<>]+)') |

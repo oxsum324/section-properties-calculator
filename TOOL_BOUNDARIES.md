@@ -305,6 +305,13 @@ NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋�
 根目錄 `tool-chrome.css` 只保留頂欄占位的 44px 高度並在列印隱藏，由 49 個注入頂欄的工具頁在 head 第一個樣式表前 link；占位不得使用行內 style。
 <!-- R2-REGISTRATION-END -->
 
+<!-- V18-REGISTRATION-START -->
+## 2026-10-23：第十八階段（V18）
+
+`結構工具箱/tools/anchor-a11y-tag.js` 為私有開發工具（不進 Pages），只在錨栓部署同步後補回 `anchor/index.html` 之共用無障礙執行期標籤，不改其他內容。
+
+<!-- V18-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 
