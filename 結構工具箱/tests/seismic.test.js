@@ -285,6 +285,51 @@ function run() {
   approx(designActions[1].requiredScale, 2.310924369747899, 1e-12, 'dynamic Y required scale');
   assert.equal(designActions[0].hasAdopted, false, 'dynamic design action without adopted shear');
 
+  // ── 規範 2.6 節：未輸入結構力學週期時取經驗公式週期 T = Ta（1.4 倍僅為力學週期上限）──
+  // 手算：Ta = 0.070 × 17.5^0.75 = 0.59893 s；第二類地盤 SsD=0.6/S1D=0.35 → SDS=0.66, SD1=0.49, T0D=0.7424
+  // 0.2T0D < Ta ≤ T0D → SaD = SDS；Fu > 1 且 SaD/Fu < 0.3 → V* = I·SaD/(4.2αy)·W = 0.66/4.2×2500 = 392.857 tf 控制
+  approx(S.calcTdesign(0.6, null, 1.4), 0.6, 1e-12, 'Tdesign without mechanics period equals empirical period');
+  approx(S.calcTdesign(0.6, 1.0, 1.4), 0.84, 1e-12, 'Tdesign capped at 1.4 Ta when mechanics period is longer');
+  approx(S.calcTdesign(0.6, 0.5, 1.4), 0.5, 1e-12, 'Tdesign uses shorter mechanics period');
+  const caseNoDyn = S.calcFullSeismic({
+    systemKey: 'SMRF_RC', hn: 17.5, I: 1, siteClass: 2, SsD: 0.6, S1D: 0.35, SsM: 0.8, S1M: 0.5,
+    floors: Array.from({ length: 5 }, () => ({ W: 500, dH: 3.5 })),
+  });
+  approx(caseNoDyn.Tdesign, 0.070 * Math.pow(17.5, 0.75), 1e-12, 'full static Tdesign without Tdyna');
+  approx(caseNoDyn.Vdesign, 0.66 / 4.2 * 2500, 1e-9, 'full static Vdesign without Tdyna (hand calc 392.857 tf)');
+
+  // ── 2.4/2.5 節：表 2-3 為近斷層「震區」係數，須再經 Fa/Fv（式 2-4）──
+  // 新竹縣竹北市（表 2-1：0.8/0.45/1.0/0.55）、新城斷層 r = 1 km（表 2-3：0.88/0.52/1.20/0.74）、第三類地盤
+  // 手算：Fa(0.88)=1.0, Fv(0.52)=1.4, Fa(1.20)=1.0, Fv(0.74)=1.4 → SDS=0.88, SD1=0.728, SMS=1.20, SM1=1.036
+  const nf = S.calcNearFaultSiteCoeff(3, [0.8, 0.45, 1.0, 0.55], [[0.88, 0.52, 1.2, 0.74]]);
+  approx(nf.SDS, 0.88, 1e-12, 'near-fault SDS = Fa x SsD(table 2-3)');
+  approx(nf.SD1, 0.728, 1e-12, 'near-fault SD1 = Fv x S1D(table 2-3)');
+  approx(nf.SMS, 1.2, 1e-12, 'near-fault SMS');
+  approx(nf.SM1, 1.036, 1e-12, 'near-fault SM1');
+  // 斷層值小於表 2-1 時取表 2-1（獅潭斷層 13 km 列 0.70，頭份市表 2-1 為 0.80）；第二類地盤 Fa(0.8)=1.0, Fv(0.45)=1.2
+  const nfFar = S.calcNearFaultSiteCoeff(2, [0.8, 0.45, 1.0, 0.55], [[0.7, 0.4, 0.9, 0.5]]);
+  approx(nfFar.SDS, 0.8, 1e-12, 'near-fault keeps table 2-1 when larger (SDS)');
+  approx(nfFar.SD1, 0.54, 1e-12, 'near-fault keeps table 2-1 when larger (SD1)');
+
+  // ── 2.18 節解說：垂直向暫訂 R = 3.0 → Ra = 1 + 2/1.5 = 2.3333（臺北盆地 2.0）──
+  // 手算：SDS=0.66, SD1=0.49, T=0.30 s, T0D=0.74242；0.2T0D ≤ T < 0.6T0D → Fuv = √(2Ra−1) = √(11/3) = 1.914854
+  // SaD,V = 0.5×0.66 = 0.33；比值 0.172337 → 0.52×0.172337 + 0.072 = 0.161615；VZ = 0.161615/1.4×100 = 11.5439 tf
+  const vert = S.calcVerticalSeismic({ SDS: 0.66, SD1: 0.49, I: 1, alphaY: 1, T: 0.3, ToD: 0.49 / 0.66, isNearFault: false, isTaipeiBasin: false, W_slab: 100 });
+  approx(vert.Ra_V, 1 + 2 / 1.5, 1e-12, 'vertical Ra from R=3.0');
+  approx(vert.Fuv, Math.sqrt(11 / 3), 1e-12, 'vertical Fuv');
+  approx(vert.VZ, (0.52 * (0.33 / Math.sqrt(11 / 3)) + 0.072) / 1.4 * 100, 1e-9, 'vertical VZ hand calc');
+  const vertTB = S.calcVerticalSeismic({ SDS: 0.6, SD1: 0.96, I: 1, alphaY: 1, T: 0.5, ToD: 1.6, isNearFault: false, isTaipeiBasin: true, W_slab: 1 });
+  approx(vertTB.Ra_V, 2.0, 1e-12, 'vertical Ra Taipei basin');
+  approx(S.calcSaFuM_V(0.3, true), 0.52 * 0.3 + 0.096, 1e-12, 'near-fault vertical (C2-11b) constant 0.096');
+  approx(S.calcVerticalSeismic({ SDS: 0.66, SD1: 0.49, I: 1, alphaY: 1.5, T: 0.3, ToD: 0.742, isNearFault: false, W_slab: 1 }).col_coeff,
+    0.40 * 0.66 / (2 * 1.5), 1e-12, 'column vertical coefficient 0.40 SDS I / (2 alphaY)');
+
+  // ── 表 3-2：阻尼修正之較短週期段 SaD = SDS[0.4 + (1/BS − 0.4)T/(0.2T0)]，T=0 → 0.4SDS ──
+  approx(S.calcResponseSpectrumSa(0, 0.66, 0.49, 1.33, 1.25), 0.4 * 0.66, 1e-12, 'damped spectrum at T=0 equals 0.4 SDS');
+  const T0damped = 0.49 * 1.33 / (0.66 * 1.25);
+  approx(S.calcResponseSpectrumSa(0.2 * T0damped, 0.66, 0.49, 1.33, 1.25), 0.66 / 1.33, 1e-12, 'damped spectrum at 0.2T0 equals SDS/BS');
+  approx(S.calcResponseSpectrumSa(0.1 * T0damped, 0.66, 0.49, 1.33, 1.25), 0.66 * (0.4 + (1 / 1.33 - 0.4) * 0.5), 1e-12, 'damped spectrum mid short branch');
+
   console.log('seismic.js tests passed');
 }
 

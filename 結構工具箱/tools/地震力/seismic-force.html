@@ -1205,8 +1205,7 @@ document.getElementById('chkXY').addEventListener('change', function() {
     }
 
     const siteClassNow = +document.getElementById('siteClass').value || 2;
-    const baseSite = S.calcSiteCoeff(siteClassNow, d[0], d[1], d[2], d[3]);
-    let best = [baseSite.SDS, baseSite.SD1, baseSite.SMS, baseSite.SM1];
+    const faultValsList = [];
     let hasOverride = false;
 
     d[5].forEach(fName => {
@@ -1225,8 +1224,8 @@ document.getElementById('chkXY').addEventListener('change', function() {
         }
         return fInfo.d[dists[dists.length - 1]][idx];
       }
-      const vals = [interp(0), interp(1), interp(2), interp(3)];
-      for (let i = 0; i < 4; i++) best[i] = Math.max(best[i], +vals[i].toFixed(3));
+      // 表 2-3-1~2-3-4 為近斷層「震區」係數 SsD/S1D/SsM/S1M，仍須依式 (2-4) 經 Fa/Fv 放大
+      faultValsList.push([interp(0), interp(1), interp(2), interp(3)].map(v => +v.toFixed(3)));
     });
 
     if (!hasOverride) {
@@ -1235,13 +1234,22 @@ document.getElementById('chkXY').addEventListener('change', function() {
       return;
     }
 
+    const nfSite = S.calcNearFaultSiteCoeff(siteClassNow, d, faultValsList);
     setNearFaultOverride(city, dist, userDist, {
-      SDS: best[0],
-      SD1: best[1],
-      SMS: best[2],
-      SM1: best[3]
+      SDS: nfSite.SDS,
+      SD1: nfSite.SD1,
+      SMS: nfSite.SMS,
+      SM1: nfSite.SM1,
+      FaD: nfSite.FaD,
+      FvD: nfSite.FvD,
+      FaM: nfSite.FaM,
+      FvM: nfSite.FvM,
+      nfSsD: nfSite.SsD,
+      nfS1D: nfSite.S1D,
+      nfSsM: nfSite.SsM,
+      nfS1M: nfSite.S1M
     });
-    hintEl.innerHTML = `<b>${city} ${dist}</b> (近斷層 ${userDist} km 控制)　SDS=${best[0]}, SD1=${best[1]}, SMS=${best[2]}, SM1=${best[3]}`;
+    hintEl.innerHTML = `<b>${city} ${dist}</b> (近斷層 ${userDist} km 控制)　SsD=${nfSite.SsD}, S1D=${nfSite.S1D}, SsM=${nfSite.SsM}, S1M=${nfSite.S1M} → SDS=${fmt(nfSite.SDS,3)}, SD1=${fmt(nfSite.SD1,3)}, SMS=${fmt(nfSite.SMS,3)}, SM1=${fmt(nfSite.SM1,3)}`;
   });
 
   document.getElementById('siteClass').addEventListener('change', function() {
@@ -2522,24 +2530,28 @@ function calc() {
   let html = '';
 
   // Step 1: Fa/Fv
-  if (r.siteSource === 'direct' && r.directSite) {
-    html += step('① 近斷層控制譜值', `
+  if (r.siteSource === 'direct' && r.directSite && r.directSite.userDist != null) {
+    const nf = r.directSite;
+    html += step('① 近斷層震區係數 (2.4 節、表 2-3-1~2-3-4)', `
       地盤分類 = <span class="val">${r.siteClass}</span> 類<br>
-      原始區域輸入仍保留為 SsD=${r.SsD}, S1D=${r.S1D}, SsM=${r.SsM}, S1M=${r.S1M}<br>
-      近斷層距離 = <span class="val">${fmt(r.directSite.userDist,1)}</span> km<br>
-      本次計算直接採用控制後譜值：
-      S<sub>DS</sub> = <span class="val hl">${fmt(site.SDS,4)}</span> g，
-      S<sub>D1</sub> = <span class="val hl">${fmt(site.SD1,4)}</span> g，
-      S<sub>MS</sub> = <span class="val">${fmt(site.SMS,4)}</span> g，
-      S<sub>M1</sub> = <span class="val">${fmt(site.SM1,4)}</span> g
-    `, `近斷層資料表提供的是直接控制後之 S<sub>DS</sub>/S<sub>D1</sub>/S<sub>MS</sub>/S<sub>M1</sub>，本案直接採用該控制值，避免再經 F<sub>a</sub>/F<sub>v</sub> 重複放大。`);
+      表 2-1 區域輸入 SsD=${r.SsD}, S1D=${r.S1D}, SsM=${r.SsM}, S1M=${r.S1M}<br>
+      近斷層距離 = <span class="val">${fmt(nf.userDist,1)}</span> km<br>
+      近斷層調整後震區係數（取表 2-1 與表 2-3 內插值之大者）：
+      S<sub>sD</sub> = <span class="val">${nf.nfSsD}</span>，S<sub>1D</sub> = <span class="val">${nf.nfS1D}</span>，
+      S<sub>sM</sub> = <span class="val">${nf.nfSsM}</span>，S<sub>1M</sub> = <span class="val">${nf.nfS1M}</span>
+    `, `表 2-3-1~2-3-4 所列為近斷層區域之「震區」水平譜加速度係數，依 2.5 節式 (2-4) 仍須經工址放大係數 F<sub>a</sub>/F<sub>v</sub> 計算工址係數。`);
 
-    html += step('② 工址水平譜加速度係數', `
-      本次採用直接控制譜值，不再由 F<sub>a</sub>、F<sub>v</sub> 與 Ss/S1 反算。<br>
-      S<sub>DS</sub> = <span class="val">${fmt(site.SDS,4)}</span> g<br>
-      S<sub>D1</sub> = <span class="val">${fmt(site.SD1,4)}</span> g<br>
-      S<sub>MS</sub> = <span class="val">${fmt(site.SMS,4)}</span> g<br>
-      S<sub>M1</sub> = <span class="val">${fmt(site.SM1,4)}</span> g
+    html += step('② 工址水平譜加速度係數 (式 2-4)', `
+      S<sub>DS</sub> = F<sub>aD</sub> × S<sub>sD</sub> = ${fmt(site.FaD,3)} × ${nf.nfSsD} = <span class="val">${fmt(site.SDS,4)}</span> g<br>
+      S<sub>D1</sub> = F<sub>vD</sub> × S<sub>1D</sub> = ${fmt(site.FvD,3)} × ${nf.nfS1D} = <span class="val">${fmt(site.SD1,4)}</span> g<br>
+      S<sub>MS</sub> = F<sub>aM</sub> × S<sub>sM</sub> = ${fmt(site.FaM,3)} × ${nf.nfSsM} = <span class="val">${fmt(site.SMS,4)}</span> g<br>
+      S<sub>M1</sub> = F<sub>vM</sub> × S<sub>1M</sub> = ${fmt(site.FvM,3)} × ${nf.nfS1M} = <span class="val">${fmt(site.SM1,4)}</span> g
+    `);
+  } else if (r.siteSource === 'direct' && r.directSite) {
+    html += step('①② 臺北盆地微分區譜值 (表 2-6(c)、表 2-7)', `
+      微分區 = <span class="val">${r.directSite.basinZoneName || '—'}</span>（${r.directSite.basinVillage || '—'}），T<sub>0D</sub> = T<sub>0M</sub> = <span class="val">${fmt(r.directSite.basinT0,2)}</span> sec<br>
+      S<sub>DS</sub> = <span class="val hl">${fmt(site.SDS,4)}</span> g，S<sub>MS</sub> = <span class="val">${fmt(site.SMS,4)}</span> g（表 2-6(c)，不再經 F<sub>a</sub>/F<sub>v</sub> 放大）<br>
+      中週期段以 S<sub>D1</sub> = S<sub>DS</sub>·T<sub>0D</sub> = <span class="val">${fmt(site.SD1,4)}</span> g、S<sub>M1</sub> = S<sub>MS</sub>·T<sub>0M</sub> = <span class="val">${fmt(site.SM1,4)}</span> g 表示表 2-7 之 S<sub>DS</sub>T<sub>0D</sub>/T
     `);
   } else {
     html += step('① 工址放大係數 F<sub>a</sub>, F<sub>v</sub> (表 2-4)', `
@@ -2580,11 +2592,11 @@ F<sub>vM</sub>：S<sub>1M</sub>=${r.S1M} → 查表內插得 <b>${fmt(site.FvM,3
     T<sub>code</sub> = C × h<sub>n</sub><sup>3/4</sup> = ${C} × ${hn}<sup>0.75</sup> = <span class="val">${fmt(r.Tcode,4)}</span> sec<br>
     ${r.Tdyna ? `T<sub>dyna</sub> = <span class="val">${fmt(r.Tdyna,3)}</span> sec (使用者輸入動力分析結果)<br>` : ''}
     C<sub>U</sub> = ${r.CU}<br>
-    T<sub>design</sub> = ${r.Tdyna ? `min(C<sub>U</sub>×T<sub>code</sub>, T<sub>dyna</sub>) = min(${fmt(r.CU*r.Tcode,4)}, ${fmt(r.Tdyna,3)})` : `C<sub>U</sub> × T<sub>code</sub> = ${r.CU} × ${fmt(r.Tcode,4)}`} = <span class="val hl">${fmt(r.Tdesign,4)}</span> sec
+    T<sub>design</sub> = ${r.Tdyna ? `min(C<sub>U</sub>×T<sub>code</sub>, T<sub>dyna</sub>) = min(${fmt(r.CU*r.Tcode,4)}, ${fmt(r.Tdyna,3)})` : `T<sub>code</sub>（未輸入結構力學週期，依 2.6 節採經驗公式週期；C<sub>U</sub> 僅為力學週期上限）`} = <span class="val hl">${fmt(r.Tdesign,4)}</span> sec
   `);
 
   // Step 5: Ra
-  const raFormula = r.site.FaD > 0 && document.getElementById('chkTaipei').checked
+  const raFormula = isTB
     ? `1 + (R−1)/2 = 1 + (${r.R}−1)/2` : `1 + (R−1)/1.5 = 1 + (${r.R}−1)/1.5`;
   html += step('⑤ 容許韌性容量 R<sub>a</sub> (式 2-10/2-11)', `
     R = <span class="val">${r.R}</span>　(${r.sys.name})<br>
@@ -3043,8 +3055,8 @@ function calcVertical() {
         S<sub>aD,V</sub> = ${nfLabel} × ${fmt(r.SaD,4)} = <span class="val">${fmt(r.SaD_V,4)}</span> g
         ${isNF ? '<br><span style="color:#dc2626;">※ 近斷層：垂直譜取 ⅔ 倍</span>' : ''}<br><br>
 
-        <strong>垂直方向折減 (R<sub>a</sub>=3.0 固定):</strong><br>
-        F<sub>uv</sub> = calcFu(R<sub>a</sub>=3.0, T=${fmt(r.T,3)}, T<sub>oD</sub>=${fmt(r.ToD,4)}) = <span class="val">${fmt(r.Fuv,4)}</span><br><br>
+        <strong>垂直方向折減 (暫訂 R=3.0 → R<sub>a</sub>=${fmt(r.Ra_V,4)}):</strong><br>
+        F<sub>uv</sub> = calcFu(R<sub>a</sub>=${fmt(r.Ra_V,4)}, T=${fmt(r.T,3)}, T<sub>oD</sub>=${fmt(r.ToD,4)}) = <span class="val">${fmt(r.Fuv,4)}</span><br><br>
 
         <strong>式(C2-11) 修正:</strong><br>
         S<sub>aD,V</sub>/F<sub>uv</sub> = ${fmt(r.SaD_V,4)} / ${fmt(r.Fuv,4)} = <span class="val">${fmt(r.ratio,4)}</span><br>
@@ -3057,8 +3069,8 @@ function calcVertical() {
         &emsp;= <span class="val hl">${fmt(r.VZ,3)}</span> tf<br><br>
 
         <strong>式(C2-12) 柱軸力簡化係數:</strong><br>
-        ${isNF ? `0.80×S<sub>DS</sub>×I/3 = 0.80×${fmt(r.SDS,4)}×${r.I}/3` :
-                 `0.40×S<sub>DS</sub>×I/2 = 0.40×${fmt(r.SDS,4)}×${r.I}/2`}
+        ${isNF ? `0.80×S<sub>DS</sub>×I/(3α<sub>y</sub>) = 0.80×${fmt(r.SDS,4)}×${r.I}/(3×${r.alphaY})` :
+                 `0.40×S<sub>DS</sub>×I/(2α<sub>y</sub>) = 0.40×${fmt(r.SDS,4)}×${r.I}/(2×${r.alphaY})`}
         = <span class="val">${fmt(r.col_coeff,4)}</span> × W<sub>col</sub>
       </div>
     </div>`;
