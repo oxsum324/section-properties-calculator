@@ -590,6 +590,7 @@
 <script src="../shared/report-utils.js"></script>
 <script src="../../結構工具箱/core/ui/report-docx.js"></script>
 <script src="../shared/report.js?v=10"></script>
+<script src="../shared/project-replay.js?v=1"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=3"></script>
@@ -696,13 +697,19 @@
     if (el) {
       el.textContent = message || '';
       el.style.color = status === 'fail' ? 'var(--danger)' : (status === 'warn' ? 'var(--warn)' : 'var(--text-light)');
+      el.dataset.projectStatus = message ? status : '';
     }
     if (!message) return;
     const note = document.createElement('div');
     note.textContent = message;
-    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? 'var(--hy-danger-100)' : 'var(--hy-success-100)'};color:${status === 'fail' ? 'var(--hy-red-deep)' : 'var(--hy-success)'};border:1px solid ${status === 'fail' ? 'var(--hy-danger)' : 'var(--hy-success)'};padding:10px 14px;border-radius:var(--radius-lg);font-size:var(--fs-sm);box-shadow:var(--shadow-md);max-width:min(420px,calc(100vw - 20px));`;
+    const tone = status === 'fail'
+      ? { bg: 'var(--hy-danger-100)', fg: 'var(--hy-red-deep)', border: 'var(--hy-danger)', ms: 6000 }
+      : (status === 'warn'
+        ? { bg: 'var(--hy-warning-100)', fg: 'var(--hy-warning-ink)', border: 'var(--hy-warning)', ms: 9000 }
+        : { bg: 'var(--hy-success-100)', fg: 'var(--hy-success)', border: 'var(--hy-success)', ms: 4500 });
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${tone.bg};color:${tone.fg};border:1px solid ${tone.border};padding:10px 14px;border-radius:var(--radius-lg);font-size:var(--fs-sm);box-shadow:var(--shadow-md);max-width:min(420px,calc(100vw - 20px));`;
     document.body.appendChild(note);
-    setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
+    setTimeout(() => note.remove(), tone.ms);
   }
   const slabProjectStorage = window.RCProjectStorage.createManager({
     documentRef: document,
@@ -754,19 +761,12 @@
     }
   }
   function normalizeSlabProjectPayload(raw) {
-    let parsed = raw;
-    if (typeof raw === 'string') {
-      try { parsed = JSON.parse(raw); } catch { parsed = raw; }
-    }
-    const sourceVersion = String(parsed?.appVersion || parsed?.tool?.pageVersion || parsed?.pageVersion || '')
-      .trim()
-      .replace(/^v/i, 'V');
-    // V3.1、V3.2 舊檔：以原版本驗證指紋後依 V3.3 重新計算，提示另存
-    const expectedVersion = LEGACY_REPLAY_VERSIONS.includes(sourceVersion) ? sourceVersion : 'V3.3';
-    return window.RCReportFingerprint.validateProjectCalculationSource(parsed, {
+    // V3.1、V3.2 舊檔：以原版本驗證存檔指紋後依 V3.3 重新計算；版本正規化與舊版判定見 shared/project-replay.js
+    return window.RCProjectReplay.validateLegacyProjectSource(raw, {
       expectedSchema: SLAB_PROJECT_SCHEMA,
       expectedToolId: 'rc-slab',
-      expectedVersion,
+      expectedVersion: 'V3.3',
+      legacyVersions: LEGACY_REPLAY_VERSIONS,
       sourceKey: 'fields'
     });
   }
@@ -775,8 +775,6 @@
   }
   function applySlabProjectData(raw, options = {}) {
     const payload = normalizeSlabProjectPayload(raw);
-    const sourceVersion = String(payload.appVersion || '').trim().replace(/^v/i, 'V');
-    const upgradedFromLegacy = LEGACY_REPLAY_VERSIONS.includes(sourceVersion);
     const previous = options.skipReplayCheck ? null : collectSlabProjectData();
     setSlabMode(payload.mode, { recalculate: false });
     if (payload.loadMode) setLoadMode(payload.loadMode);
@@ -792,23 +790,27 @@
     syncDetailHelp();
     syncAdvancedCaseTools();
     if (typeof calcSlab === 'function') calcSlab();
+    let replay = null;
     if (!options.skipReplayCheck) {
       try {
-        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectSlabProjectData());
+        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.3 結果接受並揭露
+        replay = window.RCProjectReplay.reconcileProjectCalculationReplay(payload, collectSlabProjectData(), {
+          legacyVersions: LEGACY_REPLAY_VERSIONS,
+          sourceKey: 'fields'
+        });
       } catch (error) {
         applySlabProjectData(previous, { silent: true, skipReplayCheck: true });
         throw error;
       }
     }
-    if (!options.silent) {
-      const source = options.sourceLabel || '板專案檔';
-      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
-        || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
-        || '未命名專案';
-      const upgradeNote = upgradedFromLegacy ? `｜原為 ${sourceVersion} 專案檔，已依 V3.3 重新計算，請另存 V3.3 專案檔` : '';
-      showSlabProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}${upgradeNote}`);
+    if (!options.silent && replay) {
+      const notice = window.RCProjectReplay.describeProjectCalculationReplay(replay, {
+        sourceLabel: options.sourceLabel || '板專案檔',
+        applied
+      });
+      showSlabProjectStatus(notice.message, notice.status);
     }
-    return { payload, applied };
+    return { payload, applied, replay };
   }
   async function loadSlabProjectFile(file) {
     if (!file) return null;

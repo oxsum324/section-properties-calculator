@@ -240,6 +240,7 @@ async function exerciseSlabProjectStorage(page) {
   }));
   assert(legacyV32Import.projectName === '板專案存讀檔測試' && legacyV32Import.Lx === '620', 'slab accepts V3.2 project inputs for recalculation', JSON.stringify(legacyV32Import));
   assert(legacyV32Import.appVersion === 'V3.3' && legacyV32Import.status.includes('請另存 V3.3 專案檔'), 'slab migrates V3.2 projects like V3.1', legacyV32Import.status);
+  assert(!legacyV32Import.status.includes('判定由') && legacyV32Import.status.includes('已讀取板專案檔並重現計算'), 'slab V3.2 project with unchanged result keeps the reproduced-status text', legacyV32Import.status);
   await page.setInputFiles('#slabProjectFile', {
     name: 'rc-slab-project.json',
     mimeType: 'application/json',
@@ -278,6 +279,114 @@ async function exerciseSlabProjectStorage(page) {
   assert(draft.Lx === '620', 'slab project draft restores Lx', draft.Lx);
   assert(draft.status.includes('已讀取瀏覽器暫存'), 'slab project draft status', draft.status);
   assert(draft.raw && draft.raw.includes('rc-slab-project-v1'), 'slab project draft localStorage payload', 'draft saved');
+}
+
+async function importSlabProjectThroughFileInput(page, name, payload) {
+  await page.evaluate(() => {
+    const status = document.getElementById('slabProjectStatus');
+    if (status) status.textContent = '';
+    window.slabLast = null;
+  });
+  await page.setInputFiles('#slabProjectFile', {
+    name,
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(payload), 'utf8')
+  });
+  await page.waitForFunction(() => (document.getElementById('slabProjectStatus')?.textContent || '').length > 0);
+  return page.evaluate(() => {
+    const status = document.getElementById('slabProjectStatus');
+    const recalculated = !!window.slabLast;
+    const current = window.collectSlabProjectData();
+    return {
+      status: status?.textContent || '',
+      statusTone: status?.dataset.projectStatus || '',
+      recalculated,
+      summaryText: window.slabLast?.summaryText || '',
+      banner: document.getElementById('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+      current
+    };
+  });
+}
+
+function slabFieldMismatches(savedFields, currentFields) {
+  return Object.keys(savedFields).filter(id => JSON.stringify(savedFields[id]) !== JSON.stringify(currentFields[id]));
+}
+
+// 真實判定翻轉：fixture 由 a2054691（V3.2 上線版）頁面另存，未重簽；V3.3 依規範 6.5.4 端跨剪力係數 1.15/2 重算後剪力 NG
+async function exerciseSlabLegacyResultFlip(page) {
+  const flipFixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'tests', 'fixtures', 'slab-project-v3.2-shear-flip.json'), 'utf8'));
+  assert(flipFixture.appVersion === 'V3.2' && flipFixture.summary.banner.startsWith('✓ OK'), 'slab flip fixture is a real V3.2 OK save', flipFixture.summary.banner);
+
+  const accepted = await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.2-shear-flip.json', flipFixture);
+  const newBanner = accepted.current.summary.banner;
+  assert(newBanner !== flipFixture.summary.banner && newBanner.startsWith('✗ NG') && newBanner.includes('✗ 剪力'), 'slab V3.3 recalculation flips the V3.2 verdict', newBanner);
+  assert(accepted.recalculated && accepted.banner === newBanner && accepted.summaryText.startsWith('✗ NG'), 'slab flip import recalculates under V3.3', JSON.stringify({ banner: accepted.banner, summaryText: accepted.summaryText }));
+  const mismatched = slabFieldMismatches(flipFixture.fields, accepted.current.fields);
+  assert(mismatched.length === 0 && Object.keys(accepted.current.fields).length === Object.keys(flipFixture.fields).length, 'slab flip import reproduces every saved input field', `fields=${Object.keys(flipFixture.fields).length} mismatched=${JSON.stringify(mismatched)}`);
+  assert(accepted.current.mode === flipFixture.mode && accepted.current.loadMode === flipFixture.loadMode, 'slab flip import reproduces mode and load mode', `${accepted.current.mode}/${accepted.current.loadMode}`);
+  const expectedDisclosure = `原為 V3.2 專案檔，已依 V3.3 重新計算；判定由「${flipFixture.summary.banner}」改為「${newBanner}」（審查警示 ${flipFixture.summary.reviewWarningCount}→${accepted.current.summary.reviewWarningCount} 項），請另存 V3.3 專案檔`;
+  assert(accepted.status.includes(expectedDisclosure), 'slab discloses the V3.2 to V3.3 verdict change and asks for a V3.3 save', accepted.status);
+  assert(accepted.status.startsWith('已讀取板專案檔並依 V3.3 重新計算：板判定翻轉測試') && !accepted.status.includes('並重現計算'), 'slab flip status does not claim the saved result was reproduced', accepted.status);
+  assert(accepted.status.includes(`計算指紋 ${flipFixture.calculationFingerprint}（V3.2 存檔）→ ${accepted.current.calculationFingerprint}（V3.3 重算）`) && accepted.current.calculationFingerprint !== flipFixture.calculationFingerprint, 'slab flip status traces old and new calculation fingerprints', accepted.status);
+  assert(accepted.statusTone === 'warn' && accepted.current.appVersion === 'V3.3', 'slab flip status uses the warning style and V3.3 provenance', `${accepted.statusTone} ${accepted.current.appVersion}`);
+
+  // 版本字串變體：驗證與提示讀同一組欄位、同一正規化
+  const pageVersionOnly = JSON.parse(JSON.stringify(flipFixture));
+  delete pageVersionOnly.appVersion;
+  pageVersionOnly.pageVersion = 'V3.2';
+  for (const [label, variant] of [
+    ["appVersion '3.2'", { ...flipFixture, appVersion: '3.2' }],
+    ["appVersion ' v3.2 '", { ...flipFixture, appVersion: ' v3.2 ' }],
+    ['pageVersion only', pageVersionOnly],
+  ]) {
+    const result = await importSlabProjectThroughFileInput(page, 'rc-slab-project-variant.json', variant);
+    assert(result.status === accepted.status && result.statusTone === 'warn', `slab treats ${label} exactly like V3.2`, result.status);
+  }
+
+  const markBeforeImport = () => page.evaluate(() => {
+    document.getElementById('projName').value = '匯入前';
+    document.getElementById('Lx').value = '111';
+  });
+  const readGuarded = () => page.evaluate(() => ({
+    projectName: document.getElementById('projName')?.value,
+    Lx: document.getElementById('Lx')?.value
+  }));
+
+  const tampered = JSON.parse(JSON.stringify(flipFixture));
+  tampered.fields.wuManual.value = '5.0';
+  await markBeforeImport();
+  const tamperedResult = await importSlabProjectThroughFileInput(page, 'rc-slab-project-tampered.json', tampered);
+  const tamperedGuard = await readGuarded();
+  assert(tamperedResult.status.includes('已保留原輸入') && tamperedResult.status.includes('來源內容與計算指紋不一致'), 'slab rejects a tampered legacy input that was not re-signed', tamperedResult.status);
+  assert(tamperedGuard.projectName === '匯入前' && tamperedGuard.Lx === '111', 'slab keeps current inputs after tampered legacy rejection', JSON.stringify(tamperedGuard));
+
+  for (const [label, mutate, needle] of [
+    ['retired field', payload => { payload.fields.retiredSlabInput = { kind: 'input', inputType: 'number', value: '7' }; }, '目前版本無此欄位：retiredSlabInput（存檔 「7」）'],
+    ['unavailable option', payload => { payload.fields.barNoXBot.value = '#99'; }, 'barNoXBot（存檔 「#99」，套用後'],
+  ]) {
+    // 模擬「V3.2 當時就有此輸入」的完整性有效舊檔：以同一指紋演算法簽署（僅測試內合成，不寫入 fixture）
+    const unreproducible = JSON.parse(JSON.stringify(flipFixture));
+    mutate(unreproducible);
+    const signed = await page.evaluate(payload => window.RCReportFingerprint.withProjectCalculationFingerprint(payload), unreproducible);
+    await markBeforeImport();
+    const result = await importSlabProjectThroughFileInput(page, `rc-slab-project-${label.replace(/\s+/g, '-')}.json`, signed);
+    const guard = await readGuarded();
+    assert(result.status.includes('已保留原輸入') && result.status.includes('原為 V3.2 專案檔，下列輸入無法於 V3.3 逐欄重現，未載入') && result.status.includes(needle), `slab rejects a legacy project whose ${label} cannot be reproduced and names it`, result.status);
+    assert(guard.projectName === '匯入前' && guard.Lx === '111', `slab keeps current inputs after ${label} rejection`, JSON.stringify(guard));
+  }
+
+  // 現行版 V3.3 檔維持嚴格比對：結果不符（重簽）仍拒收
+  await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.2-shear-flip.json', flipFixture);
+  const currentMismatch = await page.evaluate(() => {
+    const payload = window.collectSlabProjectData();
+    payload.summary = { ...payload.summary, banner: '✓ OK — 初步檢查通過（竄改）' };
+    return window.RCReportFingerprint.withProjectCalculationFingerprint(payload);
+  });
+  await markBeforeImport();
+  const currentResult = await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.3-mismatch.json', currentMismatch);
+  const currentGuard = await readGuarded();
+  assert(currentResult.status.includes('已保留原輸入') && currentResult.status.includes('專案 JSON 重現失敗') && currentResult.status.includes('存檔結果與重算結果不同'), 'slab still rejects a V3.3 project whose saved result differs', currentResult.status);
+  assert(currentGuard.projectName === '匯入前' && currentGuard.Lx === '111', 'slab keeps current inputs after V3.3 mismatch rejection', JSON.stringify(currentGuard));
 }
 
 async function exerciseSlabReportOutputActions(page) {
@@ -369,6 +478,7 @@ async function main() {
     assert(failedResponses.length === 0, 'slab page resources', 'no missing static resources during initial load');
     await exerciseSlabReportOutputActions(page);
     await exerciseSlabProjectStorage(page);
+    await exerciseSlabLegacyResultFlip(page);
     assert(pageErrors.length === 0, 'slab project storage workflow', 'no page errors during project save/load checks');
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
     await wait(250);

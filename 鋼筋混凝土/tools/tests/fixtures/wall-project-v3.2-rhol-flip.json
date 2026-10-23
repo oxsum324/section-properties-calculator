@@ -1,0 +1,399 @@
+{
+  "schema": "rc-wall-project-v1",
+  "tool": "rc-wall",
+  "toolTitle": "牆 Wall 設計／檢核",
+  "appVersion": "V3.2",
+  "savedAt": "2026-10-23T17:19:06.023Z",
+  "mode": "check",
+  "activeTab": "summary",
+  "metadata": {
+    "projectName": "牆判定翻轉測試",
+    "projectNo": "RC-WALL-FLIP",
+    "designer": "QA"
+  },
+  "fields": {
+    "projName": {
+      "kind": "input",
+      "inputType": "text",
+      "value": "牆判定翻轉測試"
+    },
+    "projNo": {
+      "kind": "input",
+      "inputType": "text",
+      "value": "RC-WALL-FLIP"
+    },
+    "projDesigner": {
+      "kind": "input",
+      "inputType": "text",
+      "value": "QA"
+    },
+    "testCaseSelect": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": ""
+    },
+    "showDetailHelp": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "showCaseTools": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "seismicMode": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "showSteps": {
+      "kind": "checkbox",
+      "checked": true
+    },
+    "wallType": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "bearing"
+    },
+    "fc": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "280"
+    },
+    "fy": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "4200"
+    },
+    "lambdaSel": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "1.00"
+    },
+    "h": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "50"
+    },
+    "lw": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "400"
+    },
+    "lc": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "350"
+    },
+    "k": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "1.0"
+    },
+    "hw": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "350"
+    },
+    "lcWall_P_D": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_P_L": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_P_W": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_P_E": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_M_D": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_M_L": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_M_W": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_M_E": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_V_D": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_V_L": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_V_W": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_V_E": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcWall_tupleSelect_0": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "0"
+    },
+    "lcWall_tupleSelect_1": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "1"
+    },
+    "lcWall_tupleSelect_2": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "2"
+    },
+    "lcWall_tupleSelect_3": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "3"
+    },
+    "lcWall_tupleSelect_4": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "4"
+    },
+    "lcWall_tupleSelect_5": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "5"
+    },
+    "lcWall_tupleSelect_6": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "6"
+    },
+    "lcWall_tupleSelect_7": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "7"
+    },
+    "lcWall_tupleSelect_8": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "8"
+    },
+    "lcWall_tupleSelect_9": {
+      "kind": "input",
+      "inputType": "radio",
+      "value": "9"
+    },
+    "Pu": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "60"
+    },
+    "e": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "2"
+    },
+    "MuIn": {
+      "kind": "input",
+      "inputType": "number",
+      "value": ""
+    },
+    "Vu": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "10"
+    },
+    "vBar": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "#6"
+    },
+    "hBar": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "#5"
+    },
+    "vSp": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "44"
+    },
+    "hSp": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "18"
+    },
+    "layers": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "1"
+    },
+    "cover": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "2"
+    },
+    "pmBoundaryRebar": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "pmBoundaryBar": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "#8"
+    },
+    "pmBoundaryCountEach": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "4"
+    },
+    "Mua": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "2"
+    },
+    "PuOop": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "20"
+    },
+    "basementWall": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "bwSupport": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "cantilever"
+    },
+    "bwH": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "3.0"
+    },
+    "bwGamma": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "1.8"
+    },
+    "bwKa": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0.33"
+    },
+    "bwSurch": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "1.0"
+    },
+    "bwHw": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "bwGw": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "1.0"
+    },
+    "sigmaMax": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "80"
+    },
+    "MuW": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "800"
+    },
+    "duhw": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0.012"
+    },
+    "cBE": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "80"
+    },
+    "fytBE": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "4200"
+    },
+    "slenderMethod": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "simple"
+    },
+    "sbeExtMethod": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "linear"
+    },
+    "sbeStressData": {
+      "kind": "textarea",
+      "inputType": "textarea",
+      "value": "0, 80\n50, 60\n120, 30\n200, 0"
+    },
+    "flangeShape": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "rect"
+    },
+    "flangeTf": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "20"
+    },
+    "flangeBfAct": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "200"
+    },
+    "flangeHalf": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "300"
+    },
+    "flangeHw": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "350"
+    },
+    "hasOpening": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "hasConstrJoint": {
+      "kind": "checkbox",
+      "checked": true
+    }
+  },
+  "aggRows": [],
+  "summary": {
+    "banner": "⚠ 待確認 — 1 項需正式分析確認✓ Wall Pier ｜ ✓ fc' 上限 ｜ ✓ 牆厚 ｜ ✓ P-M 封包 ｜ ✓ φVn ≥ Vu ｜ ✓ ρℓ ｜ ✓ ρt ｜ ✓ 層數 ｜ ✓ 面外 Δs ｜ ✓ 面外 φMn ｜ ✓ 筋距細部 ｜ ✓ 施工縫剪摩擦待確認：面外 Slender Wall / P-Delta 目前採單位寬條帶、輸入保護層與簡化邊界假設，數值通過仍須以正式面外分析與配筋位置確認。",
+    "reviewWarningCount": 1
+  },
+  "calculationFingerprint": "CF-B0AB2A46E4470D92"
+}

@@ -310,32 +310,129 @@ async function exerciseWallProjectStorage(page) {
   assert(!!restored.draftRaw, 'wall project draft saved to localStorage', 'rc.wall.project.draft');
   assert(restored.wallLastOk, 'wall project recalculates after restore', 'wallLast present');
 
-  const legacyReplay = await page.evaluate(payload => {
-    const legacy = { ...payload, appVersion: 'V3.1' };
-    const signedLegacy = window.RCReportFingerprint.withProjectCalculationFingerprint(legacy, { ignoredKeys: ['activeTab'] });
-    const replay = window.applyWallProjectData(signedLegacy, { silent: true });
+  // 重播前清掉 window.wallLast，並讀狀態列文字，確認確實依 V3.3 重算且揭露遷移
+  const replayWallLegacy = (legacy, label) => page.evaluate(({ legacy, label }) => {
+    const status = document.getElementById('wallProjectStatus');
+    if (status) status.textContent = '';
+    window.wallLast = null;
+    const replay = window.applyWallProjectData(legacy, { sourceLabel: label });
     return {
       acceptedVersion: replay.payload.appVersion,
       currentVersion: window.collectWallProjectData().appVersion,
       projectName: document.getElementById('projName')?.value,
       wallLastOk: !!window.wallLast,
+      status: status?.textContent || '',
+      statusTone: status?.dataset.projectStatus || '',
     };
-  }, saved);
+  }, { legacy, label });
+  const signedLegacy = await page.evaluate(payload => window.RCReportFingerprint.withProjectCalculationFingerprint({ ...payload, appVersion: 'V3.1' }, { ignoredKeys: ['activeTab'] }), saved);
+  const legacyReplay = await replayWallLegacy(signedLegacy, '牆專案檔');
   assert(legacyReplay.acceptedVersion === 'V3.1' && legacyReplay.currentVersion === 'V3.3', 'wall replays verified V3.1 project under V3.3', JSON.stringify(legacyReplay));
   assert(legacyReplay.projectName === '牆專案存讀檔測試' && legacyReplay.wallLastOk, 'wall V3.1 migration preserves inputs and recalculates', JSON.stringify(legacyReplay));
+  assert(legacyReplay.status === `已讀取牆專案檔並重現計算：牆專案存讀檔測試，套用 ${Object.keys(saved.fields).length} 個欄位｜計算指紋 ${signedLegacy.calculationFingerprint}｜原為 V3.1 專案檔，已依 V3.3 重新計算，請另存 V3.3 專案檔`, 'wall V3.1 migration status asks for a V3.3 save', legacyReplay.status);
 
   // fixture 由 a2054691（V3.2 上線版）頁面以上方同一組輸入另存，保留其原始計算指紋
   const legacyV32Fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'tests', 'fixtures', 'wall-project-v3.2.json'), 'utf8'));
-  const legacyV32Replay = await page.evaluate(legacy => {
-    const replay = window.applyWallProjectData(legacy, { silent: true });
-    return {
-      acceptedVersion: replay.payload.appVersion,
-      currentVersion: window.collectWallProjectData().appVersion,
-      projectName: document.getElementById('projName')?.value,
-      wallLastOk: !!window.wallLast,
-    };
-  }, legacyV32Fixture);
+  const legacyV32Replay = await replayWallLegacy(legacyV32Fixture, '牆專案檔');
   assert(legacyV32Replay.acceptedVersion === 'V3.2' && legacyV32Replay.currentVersion === 'V3.3' && legacyV32Replay.projectName === '牆專案存讀檔測試' && legacyV32Replay.wallLastOk, 'wall replays verified V3.2 project under V3.3', JSON.stringify(legacyV32Replay));
+  assert(legacyV32Replay.status.includes(`計算指紋 ${legacyV32Fixture.calculationFingerprint}｜原為 V3.2 專案檔，已依 V3.3 重新計算，請另存 V3.3 專案檔`) && !legacyV32Replay.status.includes('判定由') && legacyV32Replay.statusTone === 'ok', 'wall V3.2 project with unchanged result keeps the reproduced-status text', legacyV32Replay.status);
+}
+
+async function importWallProjectThroughFileInput(page, name, payload) {
+  await page.evaluate(() => {
+    const status = document.getElementById('wallProjectStatus');
+    if (status) status.textContent = '';
+    window.wallLast = null;
+  });
+  await page.setInputFiles('#wallProjectFile', {
+    name,
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(payload), 'utf8'),
+  });
+  await page.waitForFunction(() => (document.getElementById('wallProjectStatus')?.textContent || '').length > 0, null, { timeout: 10000 });
+  return page.evaluate(() => {
+    const status = document.getElementById('wallProjectStatus');
+    const recalculated = !!window.wallLast;
+    return {
+      status: status?.textContent || '',
+      statusTone: status?.dataset.projectStatus || '',
+      recalculated,
+      summaryText: window.wallLast?.summaryText || '',
+      okRhol: window.wallLast?.okRhol,
+      rhol: window.wallLast?.rhol,
+      rholMin: window.wallLast?.rholMin,
+      current: window.collectWallProjectData(),
+    };
+  });
+}
+
+// 真實判定翻轉：fixture 由 a2054691（V3.2 上線版）頁面另存，未重簽；非耐震承重牆、豎向筋 #6、ρℓ≈0.00130，V3.3 依表 11.6.1 取 0.0015 後 NG
+async function exerciseWallLegacyResultFlip(page) {
+  const flipFixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'tests', 'fixtures', 'wall-project-v3.2-rhol-flip.json'), 'utf8'));
+  assert(flipFixture.appVersion === 'V3.2' && flipFixture.summary.banner.startsWith('⚠ 待確認') && flipFixture.summary.banner.includes('✓ ρℓ'), 'wall flip fixture is a real V3.2 pending-review save', flipFixture.summary.banner);
+
+  const accepted = await importWallProjectThroughFileInput(page, 'rc-wall-project-v3.2-rhol-flip.json', flipFixture);
+  const newBanner = accepted.current.summary.banner;
+  assert(newBanner !== flipFixture.summary.banner && newBanner.startsWith('✗ NG') && newBanner.includes('✗ ρℓ'), 'wall V3.3 recalculation flips the V3.2 verdict', newBanner);
+  assert(accepted.recalculated && accepted.okRhol === false && accepted.rholMin === 0.0015 && accepted.rhol > 0.0012 && accepted.rhol < 0.0015, 'wall flip import recalculates ρℓ against the V3.3 table 11.6.1 minimum', JSON.stringify({ rhol: accepted.rhol, rholMin: accepted.rholMin, okRhol: accepted.okRhol }));
+  const mismatched = Object.keys(flipFixture.fields).filter(id => JSON.stringify(flipFixture.fields[id]) !== JSON.stringify(accepted.current.fields[id]));
+  assert(mismatched.length === 0 && Object.keys(accepted.current.fields).length === Object.keys(flipFixture.fields).length, 'wall flip import reproduces every saved input field', `fields=${Object.keys(flipFixture.fields).length} mismatched=${JSON.stringify(mismatched)}`);
+  assert(accepted.current.mode === flipFixture.mode && JSON.stringify(accepted.current.aggRows) === JSON.stringify(flipFixture.aggRows), 'wall flip import reproduces mode and aggregate rows', `${accepted.current.mode} ${JSON.stringify(accepted.current.aggRows)}`);
+  const expectedDisclosure = `原為 V3.2 專案檔，已依 V3.3 重新計算；判定由「${flipFixture.summary.banner}」改為「${newBanner}」（審查警示 ${flipFixture.summary.reviewWarningCount}→${accepted.current.summary.reviewWarningCount} 項），請另存 V3.3 專案檔`;
+  const expectedCount = flipFixture.summary.reviewWarningCount === accepted.current.summary.reviewWarningCount
+    ? expectedDisclosure.replace(`（審查警示 ${flipFixture.summary.reviewWarningCount}→${accepted.current.summary.reviewWarningCount} 項）`, `（審查警示 ${accepted.current.summary.reviewWarningCount} 項）`)
+    : expectedDisclosure;
+  assert(accepted.status.includes(expectedCount), 'wall discloses the V3.2 to V3.3 verdict change and asks for a V3.3 save', accepted.status);
+  assert(accepted.status.startsWith('已讀取牆專案檔並依 V3.3 重新計算：牆判定翻轉測試') && !accepted.status.includes('並重現計算'), 'wall flip status does not claim the saved result was reproduced', accepted.status);
+  assert(accepted.status.includes(`計算指紋 ${flipFixture.calculationFingerprint}（V3.2 存檔）→ ${accepted.current.calculationFingerprint}（V3.3 重算）`) && accepted.statusTone === 'warn', 'wall flip status traces fingerprints with the warning style', `${accepted.statusTone} ${accepted.status}`);
+
+  const pageVersionOnly = JSON.parse(JSON.stringify(flipFixture));
+  delete pageVersionOnly.appVersion;
+  pageVersionOnly.pageVersion = 'V3.2';
+  for (const [label, variant] of [
+    ["appVersion '3.2'", { ...flipFixture, appVersion: '3.2' }],
+    ["appVersion ' v3.2 '", { ...flipFixture, appVersion: ' v3.2 ' }],
+    ['pageVersion only', pageVersionOnly],
+  ]) {
+    const result = await importWallProjectThroughFileInput(page, 'rc-wall-project-variant.json', variant);
+    assert(result.status === accepted.status && result.statusTone === 'warn', `wall treats ${label} exactly like V3.2`, result.status);
+  }
+
+  const markBeforeImport = () => page.evaluate(() => {
+    document.getElementById('projName').value = '匯入前';
+    document.getElementById('fc').value = '245';
+  });
+  const readGuarded = () => page.evaluate(() => ({
+    projectName: document.getElementById('projName')?.value,
+    fc: document.getElementById('fc')?.value,
+  }));
+
+  const tampered = JSON.parse(JSON.stringify(flipFixture));
+  tampered.fields.vSp.value = '40';
+  await markBeforeImport();
+  const tamperedResult = await importWallProjectThroughFileInput(page, 'rc-wall-project-tampered.json', tampered);
+  const tamperedGuard = await readGuarded();
+  assert(tamperedResult.status.includes('已保留原輸入') && tamperedResult.status.includes('來源內容與計算指紋不一致') && tamperedGuard.projectName === '匯入前' && tamperedGuard.fc === '245', 'wall rejects a tampered legacy input that was not re-signed', `${tamperedResult.status} ${JSON.stringify(tamperedGuard)}`);
+
+  const retired = JSON.parse(JSON.stringify(flipFixture));
+  retired.fields.retiredWallInput = { kind: 'input', inputType: 'number', value: '7' };
+  const signedRetired = await page.evaluate(payload => window.RCReportFingerprint.withProjectCalculationFingerprint(payload, { ignoredKeys: ['activeTab'] }), retired);
+  await markBeforeImport();
+  const retiredResult = await importWallProjectThroughFileInput(page, 'rc-wall-project-retired-field.json', signedRetired);
+  const retiredGuard = await readGuarded();
+  assert(retiredResult.status.includes('已保留原輸入') && retiredResult.status.includes('原為 V3.2 專案檔，下列輸入無法於 V3.3 逐欄重現，未載入') && retiredResult.status.includes('目前版本無此欄位：retiredWallInput（存檔 「7」）'), 'wall rejects a legacy project with a field V3.3 cannot apply and names it', retiredResult.status);
+  assert(retiredGuard.projectName === '匯入前' && retiredGuard.fc === '245', 'wall keeps current inputs after unreproducible legacy rejection', JSON.stringify(retiredGuard));
+
+  await importWallProjectThroughFileInput(page, 'rc-wall-project-v3.2-rhol-flip.json', flipFixture);
+  const currentMismatch = await page.evaluate(() => {
+    const payload = window.collectWallProjectData();
+    payload.summary = { ...payload.summary, banner: '✓ OK — 符合規範（竄改）' };
+    return window.RCReportFingerprint.withProjectCalculationFingerprint(payload, { ignoredKeys: ['activeTab'] });
+  });
+  await markBeforeImport();
+  const currentResult = await importWallProjectThroughFileInput(page, 'rc-wall-project-v3.3-mismatch.json', currentMismatch);
+  const currentGuard = await readGuarded();
+  assert(currentResult.status.includes('已保留原輸入') && currentResult.status.includes('專案 JSON 重現失敗') && currentResult.status.includes('存檔結果與重算結果不同') && currentGuard.projectName === '匯入前' && currentGuard.fc === '245', 'wall still rejects a V3.3 project whose saved result differs', `${currentResult.status} ${JSON.stringify(currentGuard)}`);
 }
 
 async function exerciseWallCapacityLoadCombo(page) {
@@ -604,6 +701,19 @@ async function main() {
     await exerciseWallProjectStorage(storagePage);
     await exerciseWallCapacityLoadCombo(storagePage);
     await storagePage.close();
+
+    // 舊版遷移頁另用獨立 guard：預期的拒收會留下 3 筆「wall project load failed」主控台紀錄，其餘錯誤一律失敗
+    const migrationGuard = { consoleErrors: [], pageErrors: [], failedResponses: [] };
+    const migrationPage = await browser.newPage({ viewport: { width: 1320, height: 980 }, deviceScaleFactor: 1 });
+    attachPageGuards(migrationPage, migrationGuard, 'legacy-migration:tool');
+    const migrationResponse = await migrationPage.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
+    assert(migrationResponse && migrationResponse.status() === 200, 'wall legacy migration page loads', `status=${migrationResponse && migrationResponse.status()}`);
+    await exerciseWallLegacyResultFlip(migrationPage);
+    await migrationPage.close();
+    const unexpectedMigrationErrors = migrationGuard.consoleErrors.filter(item => !item.text.startsWith('wall project load failed'));
+    assert(migrationGuard.pageErrors.length === 0 && migrationGuard.failedResponses.length === 0 && unexpectedMigrationErrors.length === 0 && migrationGuard.consoleErrors.length === 3,
+      'wall legacy migration logs only the expected rejections',
+      JSON.stringify({ pageErrors: migrationGuard.pageErrors, failedResponses: migrationGuard.failedResponses, consoleErrors: migrationGuard.consoleErrors.map(item => item.text.slice(0, 80)) }));
 
     for (const key of CASE_KEYS) {
       const expected = EXPECTED[key];

@@ -195,6 +195,7 @@ const requiredQaArtifacts = [
   'tools/rc-index-menu-browser-smoke.test.js',
   'tools/test-rc-index-menu.ps1',
   'shared/direct-print-boundary.css',
+  'shared/project-replay.js',
   'tools/beam-regression.test.js',
   'tools/beam-regression-cases.json',
   'tools/beam-report-visual.test.js',

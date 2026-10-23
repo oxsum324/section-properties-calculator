@@ -52,8 +52,10 @@ function main() {
   assert(wallHtml.includes('id="btnSaveWallProject"') && wallHtml.includes('id="btnLoadWallProject"'), 'wall.html has project file controls', 'save/load buttons present');
   assert(wallHtml.includes('id="btnSaveWallDraft"') && wallHtml.includes('id="btnLoadWallDraft"'), 'wall.html has browser draft controls', 'draft buttons present');
   assert(wallHtml.includes('rc.wall.project.draft'), 'wall.html has localStorage draft key', 'wall draft key present');
-  assert(wallHtml.includes("LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2'])") && wallHtml.includes("LEGACY_REPLAY_VERSIONS.includes(sourceVersion) ? sourceVersion : 'V3.3'"), 'wall.html accepts verified V3.1 and V3.2 projects', 'legacy projects replay under the V3.3 page');
-  assert(wallHtml.includes('已依 V3.3 重新計算，請另存 V3.3 專案檔'), 'wall.html discloses V3.1 project migration', 'legacy replay prompts a V3.3 save');
+  assert(wallHtml.includes("LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2'])") && /expectedVersion: 'V3\.3',\s+legacyVersions: LEGACY_REPLAY_VERSIONS/.test(wallHtml), 'wall.html accepts verified V3.1 and V3.2 projects', 'legacy projects replay under the V3.3 page');
+  assert(wallHtml.includes('<script src="../shared/project-replay.js?v=1"></script>') && wallHtml.includes('RCProjectReplay.reconcileProjectCalculationReplay(payload, collectWallProjectData()') && wallHtml.includes('RCProjectReplay.describeProjectCalculationReplay(replay'), 'wall.html discloses V3.1 / V3.2 project migration through the shared replay comparison', 'legacy replay prompts a V3.3 save');
+  const projectReplay = fs.readFileSync(path.join(ROOT, 'shared', 'project-replay.js'), 'utf8');
+  assert(projectReplay.includes('已依 ${o.currentVersion} 重新計算') && projectReplay.includes('請另存 ${o.currentVersion} 專案檔') && projectReplay.includes('判定由「${banner(saved)}」改為「${banner(current)}」'), 'shared project replay states the migration notice and verdict change', 'old/new verdict and V3.3 save prompt');
   assert(wallHtml.includes('function collectWallProjectData()'), 'wall.html can collect wall project payload', 'project collect helper exists');
   assert(wallHtml.includes('function applyWallProjectData(raw'), 'wall.html can apply wall project payload', 'project apply helper exists');
   assert(wallHtml.includes('WALL_PROJECT_EXCLUDED_IDS') && wallHtml.includes('caseJson') && wallHtml.includes('baselineReport'), 'wall project excludes case-tool textareas', 'case JSON / baseline are not project inputs');

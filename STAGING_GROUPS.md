@@ -904,6 +904,14 @@ git add -- sync-anchor-deployment.ps1 tool-page-a11y-build.contract.test.js "結
 git add -- "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/column-app-source.test.js" "鋼筋混凝土/tools/column-app-extraction.contract.test.js" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" rc-format.contract.test.js toolbox-entrypoints.contract.test.js tool-page-layout.browser.test.js tool-workflow.browser.test.js "結構工具箱/tools/loadcombo-v2.test.js" "結構工具箱/tools/rendered-delivery-evidence.contract.test.js" "結構工具箱/tools/tool-workflow-adapters.test.js" "結構工具箱/tools/tool-workflow.manifest.test.js" STAGING_GROUPS.md
 ```
 
+### V18-審查修正-3 板、牆舊檔判定改變時載入並揭露
+
+審查第 1、7 項與 S5（委託人裁定選項 A）：新增 `鋼筋混凝土/shared/project-replay.js`（`window.RCProjectReplay`，gzip 約 3 KB），只由板、牆於 `report.js` 後載入；`report.js` 與其他 RC 頁不變。V3.1、V3.2 舊檔仍須通過來源指紋驗證且輸入逐欄重現；僅結果摘要不同時接受，狀態列以警示揭露「原判定 → V3.3 判定」與審查警示數並要求另存；輸入無法重現者拒收並列出欄位；V3.3 檔維持嚴格比對。版本正規化與 report.js 逐字等價（契約比對 17 組輸入）。fixture 以 a2054691 頁面另存之判定翻轉檔（板端跨剪力、牆 #6 ρℓ=0.001295），未重簽。首頁 `/rc-slab`、`/rc-wall` 更新日相依加入新檔；`audit-status.contract` 列為必備 QA 檔。
+
+```powershell
+git add -- "鋼筋混凝土/shared/project-replay.js" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" "鋼筋混凝土/tools/slab-regression.test.js" "鋼筋混凝土/tools/wall-regression.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" "鋼筋混凝土/tools/tests/fixtures/slab-project-v3.2-shear-flip.json" "鋼筋混凝土/tools/tests/fixtures/wall-project-v3.2-rhol-flip.json" "鋼筋混凝土/tools/audit-status.contract.test.js" "鋼筋混凝土/README.md" "結構工具箱/assets/home/src/home.source.js" STAGING_GROUPS.md
+```
+
 <!-- V18-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
