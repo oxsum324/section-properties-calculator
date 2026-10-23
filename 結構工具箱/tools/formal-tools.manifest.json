@@ -181,14 +181,14 @@
             "chkAccel": false
           },
           "expectedSelectors": {
-            "#comboSummary": "依第二章 2.12，本案計算以 X 風向 為主，採 { WD,x, WL,x, WT,x } 進行結構分析。 X 風向：WD = 107249 kgf， WL = 114277 kgf， WT = 600595 kgf·m。 橫風向 / 扭矩採用路徑：Eq 2.21 / Eq 2.23。 Y 風向結果列於下表；若 X / Y 方向動力特性不同，應於 fa,y、ft,y 分別採用對應值。",
-            "#controlTable tbody": "順風向設計風力 W_D 107249 175006 Y 風向 175006 kgf 橫風向設計風力 W_L 114277 124316 Y 風向 124316 kgf 扭轉向設計扭矩 W_T 600595 1470052 Y 風向 1470052 kgf·m",
-            "#dirComboTable tbody": "X 風向 20.0 / 30.0 垂直於屋脊 107249 114277 600595 Eq 2.21 / Eq 2.23 Y 風向 30.0 / 20.0 平行於屋脊 175006 124316 1470052 Eq 2.21 / Eq 2.23"
+            "#comboSummary": "依第二章 2.12，本案計算以 X 風向 為主，採 { WD,x, WL,x, WT,x } 進行結構分析。 X 風向：WD = 107527 kgf， WL = 140323 kgf， WT = 1473530 kgf·m。 橫風向 / 扭矩採用路徑：Eq 2.21 / Eq 2.23。 Y 風向結果列於下表；若 X / Y 方向動力特性不同，應於 fa,y、ft,y 分別採用對應值。",
+            "#controlTable tbody": "順風向設計風力 W_D 107527 175420 Y 風向 175420 kgf 橫風向設計風力 W_L 140323 101744 X 風向 140323 kgf 扭轉向設計扭矩 W_T 1473530 1473530 X 風向 1473530 kgf·m",
+            "#dirComboTable tbody": "X 風向 20.0 / 30.0 垂直於屋脊 107527 140323 1473530 Eq 2.21 / Eq 2.23 Y 風向 30.0 / 20.0 平行於屋脊 175420 101744 1473530 Eq 2.21 / Eq 2.23"
           },
           "expectedTextNeedles": [
             "Eq 2.21 / Eq 2.23",
-            "控制 WD = Y 風向，控制值 = 175006 kgf",
-            "Vb = Σ Fi = 107249 kgf = 107.2 tf"
+            "控制 WD = Y 風向，控制值 = 175420 kgf",
+            "Vb = Σ Fi = 107527 kgf = 107.5 tf"
           ]
         },
         {
@@ -212,12 +212,12 @@
             "chkAccel": false
           },
           "expectedSelectors": {
-            "#comboSummary": "依第二章 2.12，本案計算以 X 風向 為主，採 { WD,x, WL,x, WT,x } 進行結構分析。 X 風向：WD = 68068 kgf， WL = 68381 kgf， WT = 343064 kgf·m。 橫風向 / 扭矩採用路徑：Eq 2.21 / Eq 2.23。 Y 風向結果列於下表；若 X / Y 方向動力特性不同，應於 fa,y、ft,y 分別採用對應值。",
-            "#controlTable tbody": "順風向設計風力 W_D 68068 95857 Y 風向 95857 kgf 橫風向設計風力 W_L 68381 72223 Y 風向 72223 kgf 扭轉向設計扭矩 W_T 343064 644157 Y 風向 644157 kgf·m",
-            "#dirComboTable tbody": "X 風向 18.0 / 24.0 平行於屋脊 68068 68381 343064 Eq 2.21 / Eq 2.23 Y 風向 24.0 / 18.0 垂直於屋脊 95857 72223 644157 Eq 2.21 / Eq 2.23"
+            "#comboSummary": "依第二章 2.12，本案計算以 X 風向 為主，採 { WD,x, WL,x, WT,x } 進行結構分析。 X 風向：WD = 65010 kgf， WL = 75412 kgf， WT = 616951 kgf·m。 橫風向 / 扭矩採用路徑：Eq 2.21 / Eq 2.23。 Y 風向結果列於下表；若 X / Y 方向動力特性不同，應於 fa,y、ft,y 分別採用對應值。",
+            "#controlTable tbody": "順風向設計風力 W_D 65010 91808 Y 風向 91808 kgf 橫風向設計風力 W_L 75412 59905 X 風向 75412 kgf 扭轉向設計扭矩 W_T 616951 616951 X 風向 616951 kgf·m",
+            "#dirComboTable tbody": "X 風向 18.0 / 24.0 平行於屋脊 65010 75412 616951 Eq 2.21 / Eq 2.23 Y 風向 24.0 / 18.0 垂直於屋脊 91808 59905 616951 Eq 2.21 / Eq 2.23"
           },
           "expectedTextNeedles": [
-            "封閉型式：部分封閉式 (GCpi = ±1.145)",
+            "封閉型式：部分封閉式 (GCpi = ±1.146)",
             "屋頂型式：雙斜屋頂；屋脊方向：屋脊平行 L 向。",
             "已計入 MWFRS 女兒牆：h_p = 1.20 m，依 Eq 2.3 另列迎風/背風壓力。",
             "MWFRS 女兒牆 女兒牆頂標高 z = h + hp = 21.20 m， qp = 105.4 kgf/m²。"
@@ -313,17 +313,17 @@
           },
           "expectedSelectors": {
             "#r-zone-name .value": "區域 5 — 牆面角隅",
-            "#r-p-abs .value": "496.0",
-            "#r-p-pos .value": "288.8",
-            "#r-p-neg .value": "-496.0",
-            "#r-gcp-pos .value": "1.79",
-            "#r-gcp-neg .value": "-3.34",
+            "#r-p-abs .value": "545.2",
+            "#r-p-pos .value": "298.3",
+            "#r-p-neg .value": "-545.2",
+            "#r-gcp-pos .value": "1.86",
+            "#r-gcp-neg .value": "-3.71",
             "#r-gcpi .value": "±0.375",
             "#r-qh .value": "133.4",
             "#r-qz .value": "133.42",
             "#r-qh0 .value": "—",
-            "#designAdoptTable tbody": "控制正壓 288.8 區域 4 — 牆面內部 各區域 p+ 取最大值 控制負壓 -496.0 區域 5 — 牆面角隅 各區域 p− 取最不利吸力 控制絕對值 496.0 區域 5 — 牆面角隅 各區域設計風壓取最大絕對值",
-            "#zoneSummaryTable tbody": "區域 4 — 牆面內部 1.79 -1.84 288.8 -295.4 區域 5 — 牆面角隅 (控制絕對值) 1.79 -3.34 288.8 -496.0"
+            "#designAdoptTable tbody": "控制正壓 298.3 區域 4 — 牆面內部 各區域 p+ 取最大值 控制負壓 -545.2 區域 5 — 牆面角隅 各區域 p− 取最不利吸力 控制絕對值 545.2 區域 5 — 牆面角隅 各區域設計風壓取最大絕對值",
+            "#zoneSummaryTable tbody": "區域 4 — 牆面內部 1.86 -1.87 298.3 -298.9 區域 5 — 牆面角隅 (控制絕對值) 1.86 -3.71 298.3 -545.2"
           },
           "expectedTextNeedles": [
             "封閉式 → h > 18m → 使用 圖 3.2",
@@ -348,17 +348,17 @@
           },
           "expectedSelectors": {
             "#r-zone-name .value": "區域 3 — 屋面角隅",
-            "#r-p-abs .value": "231.6",
-            "#r-p-pos .value": "91.8",
-            "#r-p-neg .value": "-231.6",
-            "#r-gcp-pos .value": "0.53",
-            "#r-gcp-neg .value": "-3.09",
-            "#r-gcpi .value": "±1.145",
+            "#r-p-abs .value": "240.1",
+            "#r-p-pos .value": "88.5",
+            "#r-p-neg .value": "-240.1",
+            "#r-gcp-pos .value": "0.47",
+            "#r-gcp-neg .value": "-3.25",
+            "#r-gcpi .value": "±1.146",
             "#r-qh .value": "54.7",
             "#r-qz .value": "—",
             "#r-qh0 .value": "—",
-            "#designAdoptTable tbody": "控制正壓 91.8 區域 1 — 屋面內部 各區域 p+ 取最大值 控制負壓 -231.6 區域 3 — 屋面角隅 各區域 p− 取最不利吸力 控制絕對值 231.6 區域 3 — 屋面角隅 各區域設計風壓取最大絕對值",
-            "#zoneSummaryTable tbody": "區域 1 — 屋面內部 0.53 -1.81 91.8 -161.8 區域 2 — 屋面邊緣 0.53 -2.86 91.8 -218.7 區域 3 — 屋面角隅 (控制絕對值) 0.53 -3.09 91.8 -231.6"
+            "#designAdoptTable tbody": "控制正壓 88.5 區域 1 — 屋面內部 各區域 p+ 取最大值 控制負壓 -240.1 區域 3 — 屋面角隅 各區域 p− 取最不利吸力 控制絕對值 240.1 區域 3 — 屋面角隅 各區域設計風壓取最大絕對值",
+            "#zoneSummaryTable tbody": "區域 1 — 屋面內部 0.47 -1.93 88.5 -168.2 區域 2 — 屋面邊緣 0.47 -2.68 88.5 -209.4 區域 3 — 屋面角隅 (控制絕對值) 0.47 -3.25 88.5 -240.1"
           },
           "expectedTextNeedles": [
             "部分封閉 → h ≤ 18m → 使用 圖 3.1",
@@ -500,17 +500,17 @@
           "expectedSelectors": {
             "#applicStatus": "依規範條件概算如下",
             "#r-zone-name .value": "區域 2",
-            "#r-p-abs .value": "186.4",
-            "#r-p-pos .value": "60.1",
-            "#r-p-neg .value": "-186.4",
-            "#r-qh .value": "43.0",
+            "#r-p-abs .value": "128.0",
+            "#r-p-pos .value": "41.3",
+            "#r-p-neg .value": "-128.0",
+            "#r-qh .value": "29.5",
             "#r-huse .value": "10.00",
             "#r-g .value": "1.749",
             "#r-a .value": "1.60",
             "#r-cpn-pos .value": "0.80",
             "#r-cpn-neg .value": "-2.48",
-            "#designAdoptTable tbody": "控制正壓 60.1 區域 2 各區域 p+ 取最大值 控制負壓 -186.4 區域 2 各區域 p− 取最不利吸力 控制絕對值 186.4 區域 2 各區域設計風壓取最大絕對值",
-            "#zoneSummaryTable tbody": "區域 1 0.50 -1.64 37.6 -123.3 區域 2 (控制絕對值) 0.80 -2.48 60.1 -186.4 區域 3 0.80 -2.48 60.1 -186.4",
+            "#designAdoptTable tbody": "控制正壓 41.3 區域 2 各區域 p+ 取最大值 控制負壓 -128.0 區域 2 各區域 p− 取最不利吸力 控制絕對值 128.0 區域 2 各區域設計風壓取最大絕對值",
+            "#zoneSummaryTable tbody": "區域 1 0.50 -1.64 25.8 -84.6 區域 2 (控制絕對值) 0.80 -2.48 41.3 -128.0 區域 3 0.80 -2.48 41.3 -128.0",
             "#zoneSummaryNote": "本頁同時計算區域 1 / 2 / 3；表中加粗列為控制絕對值之區域。Cpn 採 圖 3.3(b) p.83。",
             "#designAdoptNote": "本表彙整開放式建築屋面區域 1 / 2 / 3 的控制設計值，可直接作為屋面設計採用摘要；本次採 圖 3.3(b) p.83。"
           },
@@ -618,13 +618,13 @@
             "#r-qp .value": "136.3",
             "#r-gcpi .value": "±0.375",
             "#r-gcpn .value": "—",
-            "#r-front-gcp .value": "1.79",
-            "#r-back-gcp .value": "-4.65",
-            "#r-front-p .value": "295.1",
-            "#r-back-p .value": "-685.5",
-            "#r-diff-p .value": "980.6",
-            "#designAdoptTable tbody": "控制正面設計壓力 -506.9 背風面 / 角隅 正面設計壓力取絕對值最大者；來源 = 外牆 zone5 負壓 控制背面設計壓力 -685.5 迎風面 / 角隅 背面設計壓力取絕對值最大者；來源 = 屋面 zone3 負壓 控制前後面壓差 980.6 迎風面 / 角隅 前後面壓差取絕對值最大者；正面 = 外牆 zone5 正壓，背面 = 屋面 zone3 負壓",
-            "#ccSummaryTable tbody": "迎風面 / 一般邊緣 外牆 zone4 正壓 屋面 zone2 負壓 1.79 -3.46 295.1 -523.4 818.6 迎風面 / 角隅 (控制壓差) 外牆 zone5 正壓 屋面 zone3 負壓 1.79 -4.65 295.1 -685.5 980.6 背風面 / 一般邊緣 外牆 zone4 負壓 外牆 zone4 正壓 -1.84 1.79 -301.8 295.1 -597.0 背風面 / 角隅 外牆 zone5 負壓 外牆 zone5 正壓 -3.34 1.79 -506.9 295.1 -802.1",
+            "#r-front-gcp .value": "1.86",
+            "#r-back-gcp .value": "-6.30",
+            "#r-front-p .value": "304.8",
+            "#r-back-p .value": "-909.9",
+            "#r-diff-p .value": "1214.7",
+            "#designAdoptTable tbody": "控制正面設計壓力 -557.2 背風面 / 角隅 正面設計壓力取絕對值最大者；來源 = 外牆 zone5 負壓 控制背面設計壓力 -909.9 迎風面 / 角隅 背面設計壓力取絕對值最大者；來源 = 屋面 zone3 負壓 控制前後面壓差 1214.7 迎風面 / 角隅 前後面壓差取絕對值最大者；正面 = 外牆 zone5 正壓，背面 = 屋面 zone3 負壓",
+            "#ccSummaryTable tbody": "迎風面 / 一般邊緣 外牆 zone4 正壓 屋面 zone2 負壓 1.86 -4.51 304.8 -665.4 970.2 迎風面 / 角隅 (控制壓差) 外牆 zone5 正壓 屋面 zone3 負壓 1.86 -6.30 304.8 -909.9 1214.7 背風面 / 一般邊緣 外牆 zone4 負壓 外牆 zone4 正壓 -1.87 1.86 -305.4 304.8 -610.3 背風面 / 角隅 外牆 zone5 負壓 外牆 zone5 正壓 -3.71 1.86 -557.2 304.8 -862.0",
             "#ccSummaryNote": "C&C 模式同時計算圖 3.4 之迎風面 / 背風面與一般邊緣 / 角隅；GCp 取值依 圖 3.2。 ★ 標示為主控值（橘框：控制 p_front / p_back / p_diff；橘色左框：控制壓差之條件列）。",
             "#designAdoptNote": "本表彙整圖 3.4 建築物屋頂女兒牆四個條件之控制值，可直接作為女兒牆設計採用摘要；GCp 取值依 圖 3.2。",
             "#refTitle": "圖 3.4 受壓方向示意",
@@ -633,7 +633,7 @@
           "expectedTextNeedles": [
             "設計模式 = C&C (第三章 Eq 3.3 / 圖 3.4)",
             "女兒牆頂端高度 z = h + hp = 21.5 m",
-            "p_front = 136.34 × (1.790 + 0.375) = 295.15 kgf/m²",
+            "p_front = 136.34 × (1.861 + 0.375) = 304.81 kgf/m²",
             "本頁已將圖 3.4 的迎風 / 背風與一般邊緣 / 角隅全部條件列入比較"
           ]
         },
@@ -807,11 +807,11 @@
           "expectedSelectors": {
             "#r-route .value": "控制：M/N",
             "#r-cf .value": "1.500",
-            "#r-qz .value": "45.1",
+            "#r-qz .value": "33.6",
             "#r-g .value": "1.881",
-            "#r-force .value": "763.5",
-            "#r-shear .value": "763.5",
-            "#r-moment .value": "1145.2",
+            "#r-force .value": "569.1",
+            "#r-shear .value": "569.1",
+            "#r-moment .value": "853.6",
             "#r-ecc .value": "0.60"
           },
           "expectedTextNeedles": [
@@ -842,11 +842,11 @@
           "expectedSelectors": {
             "#r-route .value": "控制：ν",
             "#r-cf .value": "1.350",
-            "#r-qz .value": "45.1",
+            "#r-qz .value": "33.6",
             "#r-g .value": "1.872",
-            "#r-force .value": "328.2",
-            "#r-shear .value": "328.2",
-            "#r-moment .value": "1247.0",
+            "#r-force .value": "244.6",
+            "#r-shear .value": "244.6",
+            "#r-moment .value": "929.5",
             "#r-ecc .value": "0.18"
           },
           "expectedTextNeedles": [
@@ -945,18 +945,18 @@
           },
           "expectedSelectors": {
             "#r-type .value": "中空式 / 圓形斷面構材",
-            "#r-cf .value": "1.800",
+            "#r-cf .value": "1.300",
             "#r-qz .value": "122.4",
             "#r-g .value": "1.850",
-            "#r-force .value": "3260.7",
-            "#r-shear .value": "3260.7",
-            "#r-moment .value": "48910.8",
+            "#r-force .value": "2355.0",
+            "#r-shear .value": "2355.0",
+            "#r-moment .value": "35324.4",
             "#r-extra .value": "φ=0.20；D√q(z)=1.66"
           },
           "expectedTextNeedles": [
             "表 2.11 圓斷面，D√q(z) ≤ 1.70",
             "F = q(z) · G · C_f · A",
-            "F = 122.38 × 1.850 × 1.800 × 8.00 = 3260.72 kgf"
+            "F = 122.38 × 1.850 × 1.300 × 8.00 = 2354.96 kgf"
           ]
         },
         {
@@ -976,12 +976,12 @@
           },
           "expectedSelectors": {
             "#r-type .value": "中空式 / 平邊構材",
-            "#r-cf .value": "1.100",
+            "#r-cf .value": "1.600",
             "#r-qz .value": "74.3",
             "#r-g .value": "1.795",
-            "#r-force .value": "1761.0",
-            "#r-shear .value": "1761.0",
-            "#r-moment .value": "44025.2",
+            "#r-force .value": "2561.5",
+            "#r-shear .value": "2561.5",
+            "#r-moment .value": "64036.7",
             "#r-extra .value": "φ=0.45；平邊構材"
           }
         }
@@ -1081,9 +1081,9 @@
             "#r-cf .value": "3.060",
             "#r-qz .value": "166.9",
             "#r-g .value": "1.819",
-            "#r-force .value": "26625.7",
-            "#r-shear .value": "26625.7",
-            "#r-moment .value": "666861.7",
+            "#r-force .value": "26694.3",
+            "#r-shear .value": "26694.3",
+            "#r-moment .value": "667054.6",
             "#r-extra .value": "基本=3.060；構材=1.000；斜風向=1.000"
           },
           "expectedTextNeedles": [
@@ -1115,9 +1115,9 @@
             "#r-cf .value": "1.497",
             "#r-qz .value": "89.0",
             "#r-g .value": "1.696",
-            "#r-force .value": "16854.6",
-            "#r-shear .value": "16854.6",
-            "#r-moment .value": "669033.8",
+            "#r-force .value": "16280.7",
+            "#r-shear .value": "16280.7",
+            "#r-moment .value": "663294.6",
             "#r-extra .value": "基本=2.125；構材=0.704；斜風向=1.000"
           }
         }
@@ -1219,9 +1219,9 @@
             "#r-qd .value": "32.04",
             "#r-cf .value": "0.650",
             "#r-g .value": "1.824",
-            "#r-shear .value": "15255.6",
-            "#r-moment .value": "338766.9",
-            "#r-zr .value": "22.21",
+            "#r-shear .value": "15296.2",
+            "#r-moment .value": "338868.4",
+            "#r-zr .value": "22.15",
             "#r-topf .value": "0.0"
           },
           "expectedTextNeedles": [
@@ -1351,17 +1351,17 @@
             "#r-zr .value": "1.00",
             "#r-aspect .value": "3.00",
             "#r-cf .value": "1.200",
-            "#r-qz .value": "85.3",
+            "#r-qz .value": "88.0",
             "#r-g .value": "1.872",
             "#r-area .value": "12.00",
-            "#r-force .value": "2298.6",
-            "#r-shear .value": "2298.6",
-            "#r-moment .value": "2298.6"
+            "#r-force .value": "2372.4",
+            "#r-shear .value": "2372.4",
+            "#r-moment .value": "2372.4"
           },
           "expectedTextNeedles": [
             "依表 2.10 判定 C_f = 1.200",
-            "F = 2298.6 kgf",
-            "M = 2298.6 kgf·m"
+            "F = 2372.4 kgf",
+            "M = 2372.4 kgf·m"
           ]
         },
         {
@@ -1383,12 +1383,12 @@
             "#r-zr .value": "3.50",
             "#r-aspect .value": "2.67",
             "#r-cf .value": "1.170",
-            "#r-qz .value": "47.3",
+            "#r-qz .value": "35.3",
             "#r-g .value": "1.829",
             "#r-area .value": "24.00",
-            "#r-force .value": "2432.0",
-            "#r-shear .value": "2432.0",
-            "#r-moment .value": "8511.9"
+            "#r-force .value": "1812.7",
+            "#r-shear .value": "1812.7",
+            "#r-moment .value": "6344.4"
           }
         }
       ],
@@ -1490,17 +1490,17 @@
             "chkDetail": true
           },
           "expectedSelectors": {
-            "#r-totalV .value": "1782.1",
-            "#r-totalM .value": "10267.5",
-            "#r-zbar .value": "5.76",
+            "#r-totalV .value": "1785.9",
+            "#r-totalM .value": "10276.7",
+            "#r-zbar .value": "5.75",
             "#r-panelF .value": "1660.6",
-            "#r-supportF .value": "121.6",
-            "#r-lineLoad .value": "24.3"
+            "#r-supportF .value": "125.4",
+            "#r-lineLoad .value": "25.1"
           },
           "expectedTextNeedles": [
             "表 2.10 實體標示物",
             "表 2.14 繩、竿、管",
-            "V = Fp + Fs = 1782.1 kgf"
+            "V = Fp + Fs = 1785.9 kgf"
           ]
         },
         {
@@ -1526,12 +1526,12 @@
             "chkDetail": true
           },
           "expectedSelectors": {
-            "#r-totalV .value": "1518.3",
-            "#r-totalM .value": "6695.6",
-            "#r-zbar .value": "4.41",
-            "#r-panelF .value": "1125.8",
-            "#r-supportF .value": "392.5",
-            "#r-lineLoad .value": "98.1"
+            "#r-totalV .value": "1152.4",
+            "#r-totalM .value": "5099.4",
+            "#r-zbar .value": "4.42",
+            "#r-panelF .value": "859.9",
+            "#r-supportF .value": "292.5",
+            "#r-lineLoad .value": "73.1"
           }
         }
       ],
@@ -1596,16 +1596,16 @@
             "Tdyna": ""
           },
           "expectedSelectors": {
-            "#banner": "設計水平總橫力 Vdesign = 352.38 tf ( = 14.10% W ) V* 控制",
-            "#bannerKey": "VD/W11.97% V*/W14.10% W2500 tf Tdesign0.828 secFt20.42 tf譜來源一般工址",
-            "#resultPanel table.cmp": "VDV*VM 力 (tf) 299.19 352.38 247.21 V/W 11.97% 14.10% 9.89%",
-            "#storyTable": "樓層hi (m)Wi (tf) Wi·hiFi (tf)Vstory (tf) 5F 17.20 500 8600 131.07 131.07 4F 13.76 500 6880 88.52 219.60 3F 10.32 500 5160 66.39 285.99 2F 6.88 500 3440 44.26 330.25 1F 3.44 500 1720 22.13 352.38"
+            "#banner": "設計水平總橫力 Vdesign = 394.39 tf ( = 15.78% W ) VD 控制",
+            "#bannerKey": "VD/W15.78% V*/W15.71% W2500 tf Tdesign0.591 secFt0.00 tf譜來源一般工址",
+            "#resultPanel table.cmp": "VDV*VM 力 (tf) 394.39 392.86 344.55 V/W 15.78% 15.71% 13.78%",
+            "#storyTable": "樓層hi (m)Wi (tf) Wi·hiFi (tf)Vstory (tf) 5F 17.20 500 8600 131.46 131.46 4F 13.76 500 6880 105.17 236.63 3F 10.32 500 5160 78.88 315.51 2F 6.88 500 3440 52.58 368.09 1F 3.44 500 1720 26.29 394.39"
           },
           "expectedTextNeedles": [
             "SDS = FaD × SsD = 1.10 × 0.6 = 0.6600 g",
-            "Tdesign = CU × Tcode = 1.4 × 0.5912 = 0.8277 sec",
-            "V* = [I·Fu/(4.2·αy)] × (SaD/Fu)m × W = [1×3.53/(4.2×1)] × 0.1675 × 2500 = 352.38 tf",
-            "Ft = 20.42 tf"
+            "Tdesign = Tcode（未輸入結構力學週期，依 2.6 節採經驗公式週期；CU 僅為力學週期上限） = 0.5912 sec",
+            "V* = [I·Fu/(4.2·αy)] × (SaD/Fu)m × W = [1×2.99/(4.2×1)] × 0.2209 × 2500 = 392.86 tf",
+            "Ft = 0.00 tf"
           ]
         },
         {
