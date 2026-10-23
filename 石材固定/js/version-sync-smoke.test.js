@@ -22,7 +22,7 @@ if(!context.window.StoneVersionSync || typeof context.window.StoneVersionSync.sy
   throw new Error('StoneVersionSync.syncToolHeaderVersion was not exported');
 }
 
-if(context.window.StonePublicMetadata?.version !== 'V3.1.0'){
+if(context.window.StonePublicMetadata?.version !== 'V3.1.1'){
   throw new Error(`Unexpected canonical stone version: ${context.window.StonePublicMetadata?.version}`);
 }
 

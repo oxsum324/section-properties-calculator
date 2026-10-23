@@ -621,7 +621,7 @@
       "route": "/stone-fixing",
       "file": "石材固定/石材計算書產生器_規範版V2.html",
       "title": "石材固定構件計算書",
-      "version": "V3.1.0",
+      "version": "V3.1.1",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "attachments",

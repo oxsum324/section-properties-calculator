@@ -878,6 +878,14 @@ git add -- serve-local-browser-smoke.test.js STAGING_GROUPS.md
 git add -- "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/slab-regression.test.js" "鋼筋混凝土/tools/wall-regression.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" STAGING_GROUPS.md
 ```
 
+### V18-T55d 石材固定 V3.1.1
+
+石材 vendor 之 wind.js、seismic.js 已同步修正後計算核心，公開版本依 `石材固定/CHANGELOG.md` 規則升為 V3.1.1：`APP_VERSION`（version-sync.js）、`SERVER_VERSION`（server.py）、頁面標題、位置與頁首標籤、交付檢查清單、版本 smoke 釘值、首頁卡；`home.js`、導覽清冊與家族頁以建置器重產。calculator `VERSION` 與 profile archive 不動。石材回歸 smoke、版本 smoke、規範 profile smoke、Python 55 項測試與 `self_check.py` 通過；回歸數值未變。
+
+```powershell
+git add -- "石材固定/js/version-sync.js" "石材固定/js/version-sync-smoke.test.js" "石材固定/server.py" "石材固定/石材計算書產生器_規範版V2.html" "石材固定/RELEASE_CHECKLIST.md" "石材固定/CHANGELOG.md" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "結構工具箱/tools/nav/tool-nav.manifest.json" tool-nav.manifest.js STAGING_GROUPS.md
+```
+
 <!-- V18-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->

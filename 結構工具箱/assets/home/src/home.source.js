@@ -944,7 +944,7 @@
     },
     {
       title: '石材固定構件計算書',
-      version: 'V3.1.0',
+      version: 'V3.1.1',
       href: '/stone-fixing',
       aliases: ['stone cladding anchor', '外牆石材錨固'],
       categories: ['attachments'],

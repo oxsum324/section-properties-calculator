@@ -19,7 +19,7 @@ TOOL_DIR = Path(__file__).parent          # …/石材固定/
 ROOT_DIR = TOOL_DIR.parent                # …/小工具製作/，僅用來保留 /石材固定/... URL
 TOOL_HTML = '石材計算書產生器_規範版V2.html'
 TOOL_URL_PATH = f'/石材固定/{TOOL_HTML}'
-SERVER_VERSION = '3.1.0'
+SERVER_VERSION = '3.1.1'
 SERVER_ID = 'stonecalc-local'
 LOCAL_HTTP_ORIGINS = {
     f'http://127.0.0.1:{PORT}',

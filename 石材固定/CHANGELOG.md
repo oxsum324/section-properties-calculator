@@ -2,6 +2,16 @@
 
 本檔記錄石材固定計算書工具的主要版本變更。正式修改工具前後，請同步更新此檔、`APP_VERSION`、`SERVER_VERSION`，必要時也更新 `TEMPLATE_CATALOG_VERSION` 與回歸測試基準值。
 
+## V3.1.1 - 2026-10-23
+
+版本同步：`APP_VERSION = V3.1.1`；`SERVER_VERSION = 3.1.1`。`calculator.spec.js` 之 `VERSION` 與 profile archive（V3.1.0 快照）不變。
+
+### 重點：同步修正後之耐風、耐震計算核心
+
+- `vendor/loads/wind.js`、`vendor/loads/seismic.js` 已由 `結構工具箱/tools/sync-stone-regulatory-vendor.js` 同步 2026-10-23 計算核心審查修正（耐風 C&C 圖 3.1／3.2 GCp、z ≤ 5 m 之 K(z) 下限依式 2.7、用途係數 1.1／0.9、部分封閉 GCpi 等；耐震近斷層 Fa／Fv、垂直 Ra 等）。
+- 採用 C&C 風壓或工址係數由工具計算之案件，風壓與地震力可能與 V3.1.0 不同；專案指定風壓或 SDS 之案件不受影響。既有回歸與 golden 案例數值未變（`js/regression-smoke.test.js` 通過）。
+- 首頁卡片同步顯示 V3.1.1。
+
 ## V3.1.0 - 2026-09-29
 
 版本同步：`APP_VERSION = V3.1.0`；`SERVER_VERSION = 3.1.0`。
