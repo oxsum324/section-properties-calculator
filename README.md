@@ -17,6 +17,7 @@ T21 鋼構報表匯出前同步更新計算與摘要並沿用同一結果快照�
 T23 家族慢測使用根目錄 `run-family-wrappers.ps1` 依序執行 14 個既有 wrapper，保存完整逐項 log 與 HEAD／dirty 證據；`-ListCommands` 只列清單供契約檢查。RC、鋼構及 local-quick 中採 Blob 導覽的 legacy 報表案例使用私有 `report-popup-fixture.test.js`，實際讀取 HTML Blob 並等待 Blob URL 文件 load 後再檢查自動列印與內容；六個獨立 local-quick 工具仍以原 `document.write` 測試替身覆蓋其既有輸出 API。測試檔不進 Pages。
 T53（2026-10-20）：正式預檢與平台稽核僅清理本輪 Job Object 所擁有的檢查程序樹，啟動時記錄並略過殘留，並於成功、錯誤及逾時路徑收尾；既有 70 項檢查、3 項收尾檢查與稽核預算維持不變。
 R1（2026-10-22）：工具頁共用導覽頂欄（根目錄 `tool-chrome.js` 與 `tool-nav.manifest.js`，49 頁，固定 44px、列印與計算書排除）、5 個由首頁登錄產生的家族頁（`結構工具箱/tools/nav/build-family-pages.js`）、`結構工具箱/core/family-theme.css` 家族色與頁首統一；首頁支援 `category`、`member` 網址參數，開發門檻增為 34 條。計算核心、計算書與首頁 53 項工具卡未改動。
+E1（2026-10-23）：計算核心審查修正 60 餘項（約 40 項偏不保守），涵蓋錨栓、斷面、連續梁、鋼構、風力、地震、施工臨設與 RC；複核與補充修正見 `docs/審查複核紀錄-2026-10-23.md`，需技師決定事項未代為修改。
 
 Windows 本機可直接雙擊根目錄的 `啟動斷面計算工具.bat` 或 `啟動螺栓檢討工具.bat`，啟動必要的 localhost 服務後直接進入指定工具，不必先經過平台首頁。螺栓工具是模組化 Web App，不應直接雙擊 `anchor/index.html` 以 `file://` 開啟；專用啟動檔可避開瀏覽器模組安全限制，資料仍只在本機處理。命令列亦可使用 `node serve-local.js --route /section` 或 `node serve-local.js --route /anchor`。`serve-local-browser-smoke.test.js` 會以桌機與手機瀏覽器實測鋼構、RC、斷面、錨栓及巡檢儀表板入口，避免資料夾 redirect 或尾斜線造成相對資源與頁內連結失效；本機未產生的部署清冊與 GSM 監控 JSON 只會在明列白名單內回傳帶標記的 `null`，其他遺失資源仍維持 404。
 

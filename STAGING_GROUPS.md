@@ -590,6 +590,101 @@ git add -- "結構工具箱/index.html" phase-gates.commands.json run-phase-gate
 
 <!-- R1-REGISTRATION-END -->
 
+<!-- E1-REGISTRATION-START -->
+## 2026-10-23：E1 計算核心審查修正
+
+依 `docs/審查報告-2026-10-23.md` 修正 60 餘項計算錯誤（約 40 項偏不保守），經 `docs/審查複核紀錄-2026-10-23.md` 獨立複核並補充修正後分組提交。計算書數值隨之改變；黃金案例、計算引擎版本與快取參數另以後續提交處理。
+
+### E1-錨栓
+
+拉破 Nb 於 hef 280–635 mm 改 SI 係數 3.9 並限預埋擴頭錨栓；後置錨栓改 kc 7；剪破改 √da 並加 le ≤ 8da；補彎鉤與 M12 可觀測測試。
+
+```powershell
+git add -- "螺栓檢討/bolt-review-tool/src/calc.ts" "螺栓檢討/bolt-review-tool/src/calc.test.ts"
+```
+
+### E1-斷面
+
+弓形形心與 I、梯形對底邊 I、H 型鋼圓角形心與 Zy、rT、唇形 C 型鋼、梯形與拋物線 e/e₁；合成斷面圓角；RC 補強外貼材料轉換面積 n·A。
+
+```powershell
+git add -- index.html "合成斷面性質.html" "RC補強斷面性質.html" section-tools.contract.test.js
+```
+
+### E1-連續梁
+
+勁度矩陣對角正規化與殘差複核，機構（鉸支＋自由端）改為拒算。
+
+```powershell
+git add -- "連續梁分析.html" continuous-beam-regression.test.js
+```
+
+### E1-鋼構
+
+熱軋翼板 Qs 0.74 且 ≤ 1、HSS 剪力 φv 0.90、區塊剪力拉力面依實際區塊邊；鏡像清單以同步腳本重產。
+
+```powershell
+git add -- "結構工具箱/core/materials/steel.js" "鋼構工具/core/materials/steel.js" "鋼構工具/core/formal-core-manifest.json" "鋼構工具/src/calculator.source.js" "鋼構工具/calculator.js" "鋼構工具/calculator.smoke-test.js" "鋼構工具/steel-formal.regression-test.js"
+```
+
+### E1-風力
+
+Kzt μ／γ、表 2.11 查表路線、式 2.21／2.23、圖 3.1／3.2 GCp、Kz 下限、用途係數、式 2.15、GCpi、表 2.10／2.13；既有測試依原文更新。
+
+```powershell
+git add -- "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-overview.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "結構工具箱/core/loads/src/wind.source.js" "結構工具箱/core/loads/wind.js" "結構工具箱/tests/wind.test.js" "結構工具箱/tools/wind-code-conformance.test.js" "結構工具箱/tools/independent-engineering-adapters/wind-fence-sign.js" "結構工具箱/tools/independent-engineering-adapters/wind-force-mwfrs.js" "結構工具箱/tools/independent-engineering-adapters/wind-object-frame.js" "結構工具箱/tools/independent-engineering-adapters/wind-sign-pole.js"
+```
+
+### E1-地震
+
+無力學週期取 Ta、近斷層表 2-3 乘 Fa／Fv、垂直 Ra、阻尼短週期段、(C2-11b) 0.096、αy、盆地 Ra 顯示。
+
+```powershell
+git add -- "結構工具箱/core/loads/seismic.js" "結構工具箱/tests/seismic.test.js" "結構工具箱/tools/地震力/seismic-force.html"
+```
+
+### E1-石材 vendor 同步
+
+以 `結構工具箱/tools/sync-stone-regulatory-vendor.js` 同步新版 wind.js 與 seismic.js。
+
+```powershell
+git add -- "石材固定/vendor/loads/wind.js" "石材固定/vendor/loads/seismic.js"
+```
+
+### E1-施工臨設
+
+設備角隅／邊緣穿孔周長、土壓層內水位、覆工板履帶 V2 與 LTB 及 F1-3、開挖 F1-6 與 F1-8 取大；覆工板報表 fixture 更新 4 欄。
+
+```powershell
+git add -- "結構工具箱/tools/earth/earth-pressure-core.js" "結構工具箱/tools/earth/earth-pressure-core.test.js" "結構工具箱/tools/equipment/equipment-load-core.js" "結構工具箱/tools/equipment/equipment-load-core.test.js" "結構工具箱/tools/equipment/equipment-load.html" "覆工板/decking-mechanics.regression.test.js" "覆工板/index.html" "覆工板/test-fixtures/report-smoke.json" "開挖擋土支撐/backend/app/calculations.py" "開挖擋土支撐/backend/tests/test_calculations.py"
+```
+
+### E1-RC
+
+梁 Vs 上限、柱 M2,min、牆 Vn 上限與最小筋比、板剪力係數與最小厚度（第三列 fy 5,600）、ℓdc 0.0044、獨立／聯合／筏式基腳、樁帽沖剪與實配鋼筋；regression 預期值依修正更新；ℓdc 測試掛入 test-column.ps1。
+
+```powershell
+git add -- "鋼筋混凝土/shared/beam-evaluator.js" "鋼筋混凝土/shared/beam-evaluator.test.js" "鋼筋混凝土/shared/column-evaluator.js" "鋼筋混凝土/shared/column-evaluator.test.js" "鋼筋混凝土/shared/devlength.js" "鋼筋混凝土/shared/devlength.test.js" "鋼筋混凝土/shared/foundation-isolated.js" "鋼筋混凝土/shared/foundation-isolated.test.js" "鋼筋混凝土/shared/foundation-pile.js" "鋼筋混凝土/shared/foundation-pile.test.js" "鋼筋混凝土/shared/slab-evaluator.js" "鋼筋混凝土/shared/slab-evaluator.test.js" "鋼筋混凝土/shared/wall-base.js" "鋼筋混凝土/shared/wall-evaluator.js" "鋼筋混凝土/shared/wall-evaluator.test.js" "鋼筋混凝土/shared/wall-inplane-evaluator.js" "鋼筋混凝土/shared/wall-inplane-evaluator.test.js" "鋼筋混凝土/shared/wall-rebar-designer.js" "鋼筋混凝土/shared/wall.js" "鋼筋混凝土/tools/beam-regression-cases.json" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column-regression-cases.json" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation-regression-cases.json" "鋼筋混凝土/tools/foundation-regression.test.js" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/single-pile-regression.test.js" "鋼筋混凝土/tools/slab-regression-cases.json" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/test-column.ps1" "鋼筋混凝土/tools/wall.html"
+```
+
+### E1-獨立基準
+
+覆工板、錨栓剪破、RC 補強轉換面積、RC 板剪力、RC 牆剪力上限與最小筋比之判定式改為獨立正確寫法；牆介接同步正式頁；條號 13.4.6.5。
+
+```powershell
+git add -- "結構工具箱/tools/independent-engineering-benchmarks.js" "結構工具箱/tools/independent-engineering-benchmarks.catalog.json" "結構工具箱/tools/independent-engineering-benchmarks.test.js" "結構工具箱/tools/independent-engineering-adapters/rc-wall-strength.js"
+```
+
+### E1-文件
+
+審查報告原檔、複核紀錄、治理文件登錄，以及 `結構工具箱/tools/sync-home-update-dates.js` 重算之首頁工具更新日期。
+
+```powershell
+git add -- "docs/審查報告-2026-10-23.md" "docs/審查複核紀錄-2026-10-23.md" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js"
+```
+
+<!-- E1-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 
