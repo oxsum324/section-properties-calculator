@@ -91,8 +91,10 @@
     const isRect = Math.abs(L - B) > 1;
 
     const v1Arm = Math.max(0, arm - d);
-    const Vu1Kgf = quKgfCm2 * B * v1Arm;
-    const Vc1Kgf = 0.53 * lambda * Math.sqrt(fc) * B * d;
+    // 控制懸臂沿 X（臂長 armX）時臨界斷面寬為 B；沿 Y（臂長 armY）時為 L
+    const v1Width = armX >= armY ? B : L;
+    const Vu1Kgf = quKgfCm2 * v1Width * v1Arm;
+    const Vc1Kgf = 0.53 * lambda * Math.sqrt(fc) * v1Width * d;
     const phiVc1Kgf = phiShear * Vc1Kgf;
 
     const c1d = c1 + d;
@@ -114,7 +116,7 @@
       AsProvX, AsProvY, phiMnXTfm, phiMnYTfm, MuMode, phiMnTfm,
       AsMinPerM, flexuralAsX: designX.As, flexuralAsY: designY.As, AsReqX, AsReqY, AsReq,
       betaRect, centerBandRatio, isRect,
-      v1Arm, Vu1Kgf, Vc1Kgf, phiVc1Kgf,
+      v1Arm, v1Width, Vu1Kgf, Vc1Kgf, phiVc1Kgf,
       c1d, c2d, bo, criticalAreaM2, Vu2Kgf, betaC, vcA, vcB, alphaS, vcC, vc2, phiVc2Kgf
     };
   }

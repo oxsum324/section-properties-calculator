@@ -116,6 +116,26 @@ function main() {
   assert(service.shearFricActive === false, '服務工況未觸發剪摩擦', JSON.stringify({ shearFricActive: service.shearFricActive }));
   assert(Array.isArray(service.reviewWarnings) && service.reviewWarnings.some(w => w.includes('水平施工縫剪摩擦已初估')), '服務工況回傳施工縫圖說確認 warning', service.reviewWarnings.join(' / '));
 
+  // ── E1 審查新增：單一實心牆 Vn ≤ 2.12λ√fc'·Acv (18.7.4.4 全牆段共同抵抗；2.65 僅適用個別牆段) ──
+  {
+    const hb = makeBase(ctx);
+    const gHigh = { ...hb, dH: '#5', sH: 10 };
+    const highBase = { ...gHigh, ...ctx.WallBase.buildBase(gHigh, { pmSteps: 140 }), rholOk: true, rhotOk: true, spVOk: true, spHOk: true };
+    const Acv = 30 * 500;
+    const rhot = 2 * 1.979 / (30 * 10);
+    const VnFormula = Acv * (0.53 * Math.sqrt(280) + rhot * 4200);   // ≈ 964 tf
+    const VnCap = 2.12 * Math.sqrt(280) * Acv;                         // ≈ 532.1 tf
+    near(highBase.Vn, VnFormula, 1e-9, 'E1 高 ρt 牆 Vn 公式值');
+    const Mn150 = WallEvaluator.nominalMomentAtPu(highBase.pm.nominal, 150);
+    const Ve = 450;   // φ·2.12√fc'Acv = 399.1 < 450 < φ·2.65√fc'Acv = 498.9
+    const r = WallEvaluator.evaluateLoadCase(highBase, {
+      name: 'LC-E1-cap', Pu: 150, Mu: 0.9 * Mn150, Vu: Ve, Vuns: 0, VuEh: Ve, omegaV: 1.5, omegaW: 1,
+      duhw: 0.01, shearDemandMode: 'direct',
+    });
+    assert(r.phiShear === 0.75, 'E1 上限案例採 φ=0.75', r.shearPhiNote);
+    near(r.phiVn / 1000, 0.75 * VnCap / 1000, 1e-9, 'E1 φVn 取 0.75·2.12√fc′Acv');
+    assert(!(r.shearOk && r.vnMaxOk), 'E1 Ve=450 tf 超過 φ·2.12√fc′Acv=399.1 tf 須判不合格', JSON.stringify({ shearOk: r.shearOk, vnMaxOk: r.vnMaxOk, phiVn: r.phiVn }));
+  }
   const flangedReviewBase = makeBase(ctx);
   flangedReviewBase.bComp = 45;
   const flangedReview = WallEvaluator.evaluateLoadCase(flangedReviewBase, {

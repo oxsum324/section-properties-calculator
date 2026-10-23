@@ -1076,6 +1076,7 @@ async function main() {
           okNbar: r.okNbar ?? null,
           isShort: r.isShort ?? null,
           deltaNS: r.deltaNS ?? null,
+          Mc: r.Mc ?? null,
           AstReq: r.AstReq ?? null
         };
       })())));

@@ -116,6 +116,13 @@
     return { skin, tip, Qs: skin.Qs, Qb: tip.Qb, Qult, Qall: Qult / safetyFactor };
   }
 
+  function pileReactionFactor(signedDistanceFromSection, pileDiameter) {
+    const half = pileDiameter / 2;
+    if (signedDistanceFromSection >= half) return 1;
+    if (signedDistanceFromSection <= -half) return 0;
+    return (signedDistanceFromSection + half) / pileDiameter;
+  }
+
   function validateGroupAndCapInput(input) {
     const issues = [];
     const positive = ['fc', 'fy', 'phiShear', 'lambda', 'c1', 'c2', 'pileD', 'pileNL', 'pileNB', 'pileSL', 'pileSB', 'hc', 'db', 'capSteelAreaTotal'];
@@ -190,18 +197,23 @@
       0.27 * (40 * d / bo + 2) * lambda * Math.sqrt(fc)
     );
     const phiVc2Kgf = phiShear * vc * bo * d;
+    // 規範 13.4.6.5（ACI 318 同條）：樁中心在臨界斷面外側 ≥ dpile/2 全額計入，
+    // 在內側 ≥ dpile/2 不計入，其間以線性內插。signedDistance > 0 表示位於臨界斷面外側。
     let Vu2Tf = 0;
     let excludedCount = 0;
-    reactions.forEach((reaction, index) => {
+    let partialCount = 0;
+    const punchingFactors = reactions.map((reaction, index) => {
       const distX = Math.abs(xs[index]) - c1d / 2;
       const distY = Math.abs(ys[index]) - c2d / 2;
       const insideCritical = distX <= 0 && distY <= 0;
-      const distance = insideCritical ? 0 : Math.hypot(Math.max(0, distX), Math.max(0, distY));
-      if (distance < pileD / 2) {
-        excludedCount += 1;
-      } else {
-        Vu2Tf += Math.max(0, reaction);
-      }
+      const signedDistance = insideCritical
+        ? Math.max(distX, distY)
+        : Math.hypot(Math.max(0, distX), Math.max(0, distY));
+      const factor = pileReactionFactor(signedDistance, pileD);
+      if (factor <= 0) excludedCount += 1;
+      else if (factor < 1) partialCount += 1;
+      Vu2Tf += Math.max(0, reaction) * factor;
+      return factor;
     });
 
     const rowSpanL = pileNL > 1 ? (pileNL - 1) * pileSL / 100 : pileD / 100;
@@ -218,28 +230,95 @@
     });
     const controlRowL = Math.max(...pileReactionRowsL);
     const controlRowB = Math.max(...pileReactionRowsB);
-    const capMuLongTfm = controlRowL * Math.max(rowSpanL, pileD / 100) / 8;
-    const capMuTransTfm = controlRowB * Math.max(rowSpanB, pileD / 100) / 8;
+
+    // 樁帽撓曲：柱面臨界斷面（規範 13.2.7.1），取單側樁反力對柱面之力矩，全帽寬承擔。
+    // 單向剪力：距柱面 d 之臨界斷面（規範 13.2.7.2），樁反力依 13.4.6.5 內插。
+    const faceMoment = (coords, halfColumn) => {
+      let positive = 0;
+      let negative = 0;
+      reactions.forEach((reaction, index) => {
+        const arm = Math.abs(coords[index]) - halfColumn;
+        if (!(arm > 0) || !(reaction > 0)) return;
+        if (coords[index] > 0) positive += reaction * arm;
+        else negative += reaction * arm;
+      });
+      return Math.max(positive, negative) / 100;
+    };
+    const oneWayShear = (coords, sectionDistance) => {
+      let positive = 0;
+      let negative = 0;
+      reactions.forEach((reaction, index) => {
+        if (!(reaction > 0)) return;
+        const factor = pileReactionFactor(Math.abs(coords[index]) - sectionDistance, pileD);
+        if (coords[index] > 0) positive += reaction * factor;
+        else if (coords[index] < 0) negative += reaction * factor;
+      });
+      return Math.max(positive, negative);
+    };
+    const capMuLongTfm = faceMoment(xs, c1 / 2);
+    const capMuTransTfm = faceMoment(ys, c2 / 2);
     const capMuTfm = Math.max(capMuLongTfm, capMuTransTfm);
-    const capVuTf = Math.max(controlRowL / 2, controlRowB / 2, Math.max(rMax, 0));
-    const capDesign = Flexure.designAsRect({ b:100, d, Mu_kgcm:capMuTfm * 1e5, fc, fy });
-    if (!capDesign.converged || !Number.isFinite(capDesign.As)) throw new RangeError('pile-cap-flexure-design-not-converged');
-    const capAsReq = Math.max(0.0018 * 100 * hc, capDesign.As);
-    const capAsProv = Math.max(capSteelAreaTotal / 2, capAsReq);
-    const capPhiMnTfm = Flexure.phiMnRect({ b:100, d, h:hc, As:capAsProv, fc, fy }).phiMn / 1e5;
-    const capPhiVcTf = phiShear * 0.53 * lambda * Math.sqrt(fc) * 100 * d / 1000;
-    const capVsTf = 11.4 * 2800 * d / 10 / 1000;
-    const capPhiVnTf = capPhiVcTf + capVsTf;
+    const capVuLongTf = oneWayShear(xs, c1 / 2 + d);
+    const capVuTransTf = oneWayShear(ys, c2 / 2 + d);
+    const capVuTf = Math.max(capVuLongTf, capVuTransTf);
+
+    const capB = Number(input.capB);
+    const capL = Number(input.capL);
+    const capGeometryProvided = Number.isFinite(capB) && capB > 0 && Number.isFinite(capL) && capL > 0;
+    const capAsProv = capSteelAreaTotal;
+    let capFlexuralAs = NaN;
+    let capAsReq = NaN;
+    let capPhiMnTfm = NaN;
+    let capPhiMnLongTfm = NaN;
+    let capPhiMnTransTfm = NaN;
+    let capPhiVcLongTf = NaN;
+    let capPhiVcTransTf = NaN;
+    let capPhiVnTf = NaN;
+    let capFlexConverged = false;
+    let okCapFlex = false;
+    let okCapShear = false;
+    if (capGeometryProvided) {
+      // 長向主筋（沿 L）分布於帽寬 capB；橫向主筋（沿 B）分布於帽長 capL；每方向鋼筋量 = capSteelAreaTotal。
+      const designLong = Flexure.designAsRect({ b:capB, d, Mu_kgcm:capMuLongTfm * 1e5, fc, fy });
+      const designTrans = Flexure.designAsRect({ b:capL, d, Mu_kgcm:capMuTransTfm * 1e5, fc, fy });
+      capFlexConverged = designLong.converged && designTrans.converged
+        && Number.isFinite(designLong.As) && Number.isFinite(designTrans.As);
+      const asMinLong = 0.0018 * capB * hc;
+      const asMinTrans = 0.0018 * capL * hc;
+      const capAsReqLong = capFlexConverged ? Math.max(asMinLong, designLong.As) : NaN;
+      const capAsReqTrans = capFlexConverged ? Math.max(asMinTrans, designTrans.As) : NaN;
+      capFlexuralAs = capFlexConverged ? Math.max(designLong.As, designTrans.As) : NaN;
+      capAsReq = capFlexConverged ? Math.max(capAsReqLong, capAsReqTrans) : NaN;
+      capPhiMnLongTfm = Flexure.phiMnRect({ b:capB, d, h:hc, As:capAsProv, fc, fy }).phiMn / 1e5;
+      capPhiMnTransTfm = Flexure.phiMnRect({ b:capL, d, h:hc, As:capAsProv, fc, fy }).phiMn / 1e5;
+      const longRatio = capPhiMnLongTfm > 0 ? capMuLongTfm / capPhiMnLongTfm : Infinity;
+      const transRatio = capPhiMnTransTfm > 0 ? capMuTransTfm / capPhiMnTransTfm : Infinity;
+      capPhiMnTfm = longRatio >= transRatio ? capPhiMnLongTfm : capPhiMnTransTfm;
+      okCapFlex = capFlexConverged
+        && capPhiMnLongTfm >= capMuLongTfm && capPhiMnTransTfm >= capMuTransTfm
+        && capAsProv >= capAsReqLong && capAsProv >= capAsReqTrans;
+      capPhiVcLongTf = phiShear * 0.53 * lambda * Math.sqrt(fc) * capB * d / 1000;
+      capPhiVcTransTf = phiShear * 0.53 * lambda * Math.sqrt(fc) * capL * d / 1000;
+      const vLongRatio = capVuLongTf / capPhiVcLongTf;
+      const vTransRatio = capVuTransTf / capPhiVcTransTf;
+      capPhiVnTf = vLongRatio >= vTransRatio ? capPhiVcLongTf : capPhiVcTransTf;
+      okCapShear = capPhiVcLongTf >= capVuLongTf && capPhiVcTransTf >= capVuTransTf;
+    }
+    // 本核心未輸入樁帽剪力筋，Vs 不計入。
+    const capPhiVcTf = capPhiVnTf;
+    const capVsTf = 0;
 
     return {
       d, nPile, xs, ys, sumX2, sumY2, reactions, rMax, rMin, minSpacing,
-      c1d, c2d, bo, betaC, vc, phiVc2Kgf, Vu2Tf, excludedCount,
+      c1d, c2d, bo, betaC, vc, phiVc2Kgf, Vu2Tf, excludedCount, partialCount, punchingFactors,
       rowSpanL, rowSpanB, pileReactionRowsL, pileReactionRowsB, controlRowL, controlRowB,
-      capMuLongTfm, capMuTransTfm, capMuTfm, capVuTf,
-      capFlexuralAs:capDesign.As, capAsReq, capAsProv, capPhiMnTfm, capPhiVcTf, capVsTf, capPhiVnTf,
+      capMuLongTfm, capMuTransTfm, capMuTfm, capVuLongTf, capVuTransTf, capVuTf,
+      capB, capL, capGeometryProvided, capFlexConverged,
+      capFlexuralAs, capAsReq, capAsProv, capPhiMnTfm, capPhiMnLongTfm, capPhiMnTransTfm,
+      capPhiVcLongTf, capPhiVcTransTf, capPhiVcTf, capVsTf, capPhiVnTf,
       okPunching:phiVc2Kgf / 1000 >= Vu2Tf,
-      okCapFlex:capPhiMnTfm >= capMuTfm,
-      okCapShear:capPhiVnTf >= capVuTf
+      okCapFlex,
+      okCapShear
     };
   }
 
@@ -251,6 +330,7 @@
     integrateSkinFriction,
     calculateTipResistance,
     calculateAxialCapacity,
+    pileReactionFactor,
     validateGroupAndCapInput,
     calculateGroupAndCap
   };

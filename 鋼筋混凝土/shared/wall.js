@@ -145,16 +145,32 @@
 
   // === 最小鋼筋比 (表 11.6.1 + 18.7.2.4) ===
   // 回傳 { rholMin, rhotMin }
-  Wall.minRho = function ({ seismic, isShearWall, needTwoLayer, hwlw, rhot }) {
+  // fy (kgf/cm²)、dbV / dbH (cm) 未提供時沿用 ≤#5、fy≥4200 列；highShear (Vu > 0.5φαcλ√fc'Acv) 未提供時不套 11.6.2
+  Wall.minRho = function ({ seismic, isShearWall, needTwoLayer, hwlw, rhot, fy, dbV, dbH, highShear, rhotRequired }) {
     let rholMin, rhotMin;
     if (seismic || isShearWall) {
       rholMin = 0.0025;
       rhotMin = 0.0025;
     } else {
-      rholMin = 0.0012;  // 竹節 fy ≥ 4200 且 ≤ #5
-      rhotMin = 0.0020;
+      // 表 11.6.1：竹節筋 ≤ #5 (db ≤ 1.588 cm) 且 fy ≥ 4200 → 0.0012 / 0.0020；其他竹節筋 → 0.0015 / 0.0025
+      const fyKnown = Number.isFinite(Number(fy)) && Number(fy) > 0;
+      const smallBar = db => !(Number(db) > 1.588 + 1e-6);
+      const highGrade = !fyKnown || Number(fy) >= 4200 - 1e-6;
+      rholMin = (highGrade && smallBar(dbV)) ? 0.0012 : 0.0015;
+      rhotMin = (highGrade && smallBar(dbH)) ? 0.0020 : 0.0025;
     }
+    const highShearUse = !!highShear;
     if (needTwoLayer) rhotMin = Math.max(rhotMin, 0.0025);
+    if (highShearUse) {
+      // 11.6.2：Vu > 0.5φVc → ρt ≥ 0.0025；ρl ≥ max(0.0025, 0.0025 + 0.5(2.5 − hw/ℓw)(ρt − 0.0025))
+      rhotMin = Math.max(rhotMin, 0.0025);
+      const hr = Number.isFinite(Number(hwlw)) ? Number(hwlw) : 2.5;
+      const rt = Number.isFinite(Number(rhot)) ? Number(rhot) : 0.0025;
+      let rholShear = 0.0025 + 0.5 * (2.5 - hr) * (rt - 0.0025);
+      // 但不必超過 11.5.4 強度所需 ρt
+      if (Number.isFinite(Number(rhotRequired))) rholShear = Math.min(rholShear, Math.max(0.0025, Number(rhotRequired)));
+      rholMin = Math.max(rholMin, 0.0025, rholShear);
+    }
     return { rholMin, rhotMin };
   };
 

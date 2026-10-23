@@ -679,7 +679,7 @@ async function main() {
   assert(html.includes('../shared/foundation-pile.js?v=1') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
   assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
   assert(!/designAsRect\(\{[^\n}]*\bMu\s*:/.test(html), 'foundation flexural design uses the Mu_kgcm interface', 'no obsolete Mu key remains');
-  assert(html.includes('Mu_kgcm:Mu_long_tfm * 1e5') && pileCore.includes('Mu_kgcm:capMuTfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
+  assert(html.includes('Mu_kgcm:Mu_long_tfm * 1e5') && pileCore.includes('Mu_kgcm:capMuLongTfm * 1e5') && pileCore.includes('Mu_kgcm:capMuTransTfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
   assert(html.includes('id="cHDL"') && html.includes('id="cHE"'), 'combined footing has horizontal force inputs', 'HDL/HE inputs exist');
   assert(html.includes('id="cc-slide"') && html.includes('id="cr-FSslide"'), 'combined footing has sliding checks', 'combined sliding UI exists');
   assert(!html.includes('預留，尚未做抗滑檢核'), 'combined footing sliding input is not stale placeholder text', 'cMu is active');
@@ -890,8 +890,9 @@ async function main() {
         assert(Number.isFinite(actual.capAsReq), `${tc.key} :: pile-cap reinforcement demand is finite`, String(actual.capAsReq));
       }
 
+      const caseTolerance = tc.tolerance ?? tolerance;
       Object.entries(tc.expected).forEach(([key, expected]) => {
-        const pass = nearlyEqual(actual[key], expected, tolerance);
+        const pass = nearlyEqual(actual[key], expected, caseTolerance);
         assert(pass, `${tc.key} :: ${key}`, `expected=${expected} actual=${actual[key]}`);
       });
     }

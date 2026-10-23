@@ -1553,7 +1553,7 @@
     const qo = Math.max(1, qoBase);
     const B = Math.max(pileD_m, 1e-6);
     const D = Math.max(pileLength, 1e-6);
-    const Cs = mode === 'manual' ? safePositive(CsInput, (0.93 + 0.16 * (D / B) * 0.5) * Cp) : (0.93 + 0.16 * (D / B) * 0.5) * Cp;
+    const Cs = mode === 'manual' ? safePositive(CsInput, (0.93 + 0.16 * Math.sqrt(D / B)) * Cp) : (0.93 + 0.16 * Math.sqrt(D / B)) * Cp;
     const Ws_m = ((Qb + xi * Qs) * pileLength) / Math.max(pileArea_m2 * Ep, 1e-6);
     const Wpp_m = (Cp * Qb) / Math.max(B * qo, 1e-6);
     const Wps_m = (Cs * Qs) / Math.max(D * qo, 1e-6);
@@ -1987,7 +1987,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
           const xx = Math.max(0, Math.min(L_m, x));
           if (xx <= x0) return 0;
           const u = xx - x0;
-          return B_m * qMax * (x0 * u * u / (2 * a) + u * u * u / (3 * a));
+          return B_m * qMax * u * u * u / (6 * a);
         }
       };
     }
@@ -2008,7 +2008,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       Msoil(x) {
         const xx = Math.max(0, Math.min(L_m, x));
         const u = Math.min(xx, a);
-        return B_m * qMax * (u * u / 2 - u * u * u / (3 * a));
+        return B_m * qMax * ((xx * u - u * u / 2) - (xx * u * u / 2 - u * u * u / 3) / a);
       }
     };
   }
@@ -3746,6 +3746,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const eccOk = kernUtil <= 1/6 + 1e-9;
     const ecc_cm = ex_cm;
     let qmax, qmin;
+    let biaxialPartialUnsupported = false;
     if (eccOk) {
       const qAvg = Pforecc / Ag_m2;
       const dqx = (6 * Pforecc * ex_m) / (B_m * L_m * L_m);
@@ -3757,8 +3758,14 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       const denom = 3 * B_m * (L_m / 2 - ex_m);
       qmax = denom > 0 ? (2 * Pforecc) / denom : Infinity;
       qmin = 0;
+    } else if (ex_m < 1e-6) {
+      const denom = 3 * L_m * (B_m / 2 - ey_m);
+      qmax = denom > 0 ? (2 * Pforecc) / denom : Infinity;
+      qmin = 0;
     } else {
-      qmax = (Pforecc / Ag_m2) * 1.5;
+      // 雙向偏心且合力超出核心：部分接觸 qmax 須另行分析，拒算（不以估值放行）。
+      biaxialPartialUnsupported = true;
+      qmax = Infinity;
       qmin = 0;
     }
     const okQ = qmax <= qa;
@@ -3770,12 +3777,19 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const FS_slide = H_total > 0 ? (mu_f * N_total) / H_total : Infinity;
     const okSlide = FS_slide >= 1.5;
 
-    // === 抗傾覆 ===
-    const M_resist = Pservice * L_m / 2;
+    // === 抗傾覆（X 向：Mx、H 對 L/2；Y 向：My 對 B/2，取較小 FS）===
+    const M_resist_x = Pservice * L_m / 2;
     const M_over_DL = Math.abs(MDL) + Math.abs(HDL) * (hf / 100);
     const M_over_E  = Math.abs(MDL + ME) + Math.abs(HDL + HE) * (hf / 100);
-    const M_overturn = Math.max(M_over_DL, M_over_E);
-    const FS_over = M_overturn > 0 ? M_resist / M_overturn : Infinity;
+    const M_overturn_x = Math.max(M_over_DL, M_over_E);
+    const M_resist_y = Pservice * B_m / 2;
+    const M_overturn_y = Math.max(Math.abs(MDLy), Math.abs(MDLy + MEy));
+    const FS_over_x = M_overturn_x > 0 ? M_resist_x / M_overturn_x : Infinity;
+    const FS_over_y = M_overturn_y > 0 ? M_resist_y / M_overturn_y : Infinity;
+    const overYGoverns = FS_over_y < FS_over_x;
+    const M_resist = overYGoverns ? M_resist_y : M_resist_x;
+    const M_overturn = overYGoverns ? M_overturn_y : M_overturn_x;
+    const FS_over = Math.min(FS_over_x, FS_over_y);
     const okOver = FS_over >= 1.5;
 
     // === 因數化 ===
@@ -3797,7 +3811,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       MuMode, phiMnTfm: phiMn_tfm,
       AsMinPerM: AsMin_per_m, AsReqX, AsReqY, AsReq,
       betaRect: beta_rect, centerBandRatio: cbRatio, isRect,
-      v1Arm, Vu1Kgf: Vu1, Vc1Kgf: Vc1, phiVc1Kgf: phiVc1,
+      v1Arm, v1Width, Vu1Kgf: Vu1, Vc1Kgf: Vc1, phiVc1Kgf: phiVc1,
       c1d, c2d, bo, criticalAreaM2: Acrit_m2, Vu2Kgf: Vu2,
       betaC: beta_c, vcA: vc_a, vcB: vc_b, alphaS: alpha_s,
       vcC: vc_c, vc2, phiVc2Kgf: phiVc2
@@ -3959,13 +3973,13 @@ Ag = B × L = ${B} × ${L} = ${(B*L).toFixed(0)} cm² = ${Ag_m2.toFixed(4)} m²
 ex = Mx/P = ${Mxs.toFixed(2)}/${Pforecc.toFixed(2)} = ${ex_m.toFixed(4)} m = ${ex_cm.toFixed(2)} cm
 ey = My/P = ${Mys.toFixed(2)}/${Pforecc.toFixed(2)} = ${ey_m.toFixed(4)} m = ${ey_cm.toFixed(2)} cm
 Kern: ex/L + ey/B = ${kernUtil.toFixed(4)}  ${eccOk ? '≤' : '>'} 1/6 = ${(1/6).toFixed(4)}  → ${eccOk ? '全寬受壓 ✓' : '部分浮起 ⚠'}
-qmax = ${qmax.toFixed(2)} tf/m²  ${okQ ? '≤' : '>'} qa = ${qa} tf/m²  → ${okQ ? '✓' : '✗'}
+qmax = ${qmax.toFixed(2)} tf/m²  ${okQ ? '≤' : '>'} qa = ${qa} tf/m²  → ${okQ ? '✓' : '✗'}${biaxialPartialUnsupported ? '\n⚠ 雙向偏心且合力超出核心：本工具不計算部分接觸 qmax，判定 NG，請另行分析' : ''}
 qmin = ${qmin.toFixed(2)} tf/m²
 
 <span class="h">▸ 抗滑 / 抗傾覆</span>
 W_soil = Df/100 × Ag × γs = ${(Df/100).toFixed(2)} × ${Ag_m2.toFixed(4)} × ${gamma_s} = ${W_soil.toFixed(2)} tf
 FS_slide = μ·N/H = ${mu_f}×${N_total.toFixed(2)}/${H_total.toFixed(2)} = ${isFinite(FS_slide)?FS_slide.toFixed(2):'∞'}  ${okSlide?'≥':'<'} 1.5
-FS_over = Mr/Mo = ${M_resist.toFixed(2)}/${M_overturn.toFixed(2)} = ${isFinite(FS_over)?FS_over.toFixed(2):'∞'}  ${okOver?'≥':'<'} 1.5
+FS_over = Mr/Mo = ${M_resist.toFixed(2)}/${M_overturn.toFixed(2)} = ${isFinite(FS_over)?FS_over.toFixed(2):'∞'}  ${okOver?'≥':'<'} 1.5 (${overYGoverns ? 'Y 向 My 控制' : 'X 向 Mx+H 控制'})
 
 <span class="h">▸ 因數化載重</span>
 Pu = 1.2×${PD} + 1.6×${PL} + 1.0×${PE} = ${Pu_tf.toFixed(2)} tf
@@ -3989,8 +4003,8 @@ As,req(X/Y) = ${AsReqX.toFixed(2)} / ${AsReqY.toFixed(2)} cm²
 
 <span class="h">▸ 單向剪力</span>
 臨界面距柱面 d = ${d.toFixed(1)} cm;  arm−d = ${v1Arm.toFixed(1)} cm
-Vu = qu×B×(arm−d) = ${(Vu1/1000).toFixed(2)} tf
-φVc = 0.75×0.53×√${fc}×${B}×${d.toFixed(1)} = ${(phiVc1/1000).toFixed(2)} tf → ${okV1 ? '✓' : '✗'}
+Vu = qu×b×(arm−d), b = ${v1Width} cm = ${(Vu1/1000).toFixed(2)} tf
+φVc = 0.75×0.53×√${fc}×${v1Width}×${d.toFixed(1)} = ${(phiVc1/1000).toFixed(2)} tf → ${okV1 ? '✓' : '✗'}
 
 <span class="h">▸ 雙向衝剪</span>
 bo = 2×((${c1}+${d.toFixed(1)})+(${c2}+${d.toFixed(1)})) = ${bo.toFixed(1)} cm
@@ -4020,6 +4034,7 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
       dX, dY, d, Ag_m2, mu_f, gamma_s, Df,
       ecc_cm, eLim, eccOk, kernUtil, qmin, qmax, Pforecc,
       W_soil, N_total, H_total, FS_slide, okSlide, M_resist, M_overturn, FS_over, okOver,
+      FS_over_x, FS_over_y, biaxialPartialUnsupported,
       Pservice, Pu_tf, qu, qu_kgf_cm2,
       armX, armY, arm, Mu_kgcm, Mu_tfm, Mux_tfm, Muy_tfm,
       phiMn_kgcm, phiMn_tfm, phiMnX_tfm, phiMnY_tfm, AsMin_per_m, AsReqX, AsReqY, AsReq, MuMode,
@@ -4072,15 +4087,17 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
     const P2u = factoredAxial(P2D, P2L, P2E);
     const Pu_tf = P1u + P2u;
 
-    // 服務載重合力位置偏心
+    // 服務載重合力位置偏心（柱1 位於 x1 = max(0,(L−s)/2)，與長向梁化包絡同一幾何）
+    const col1X_cm = Math.max(0, (L - colDist) / 2);
     const xR = Ptot > 0 ? (P2service * colDist) / Ptot : 0;   // 距柱1 (cm)
-    const ecc_cm = xR - L / 2;
+    const ecc_cm = col1X_cm + xR - L / 2;
     const eccOk = Math.abs(ecc_cm) <= L / 6;
 
     const qAvg = Ptot / Ag_m2;
     const dqx = Ag_m2 > 0 ? (6 * Ptot * Math.abs(ecc_cm / 100)) / (B_m * L_m * L_m) : 0;
-    const qmax = qAvg + dqx;
-    const qmin = qAvg - dqx;
+    const contactDenom = 3 * B_m * (L_m / 2 - Math.abs(ecc_cm / 100));
+    const qmax = eccOk ? qAvg + dqx : (contactDenom > 0 ? (2 * Ptot) / contactDenom : Infinity);
+    const qmin = eccOk ? qAvg - dqx : 0;
     const okQ = qmax <= qa;
 
     const W_soil = (Df / 100) * Ag_m2 * gamma_s;
@@ -4092,7 +4109,7 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
     const qu = Pu_tf / Ag_m2;
     const qu_kgf = qu / 10;
     const xRu = Pu_tf > 0 ? (P2u * colDist) / Pu_tf : 0;
-    const ecc_u_cm = xRu - L / 2;
+    const ecc_u_cm = col1X_cm + xRu - L / 2;
     const ecc_u_ok = Math.abs(ecc_u_cm) <= L / 6;
     const soilDist = buildSoilDistribution({ L_m, B_m, Pu_tf, ecc_m:ecc_u_cm / 100 });
     const qLeft_u = soilDist.qLeft;
@@ -4137,24 +4154,32 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
     ].map(col => {
       const c1d = col.dims.c1 + d;
       const c2d = col.dims.c2 + d;
-      const bo = 2 * (c1d + c2d);
+      // 臨界周長僅計基腳範圍內之邊；越出基腳邊緣之邊不計入，αs 依剩餘邊數 4/3/2 取 40/30/20
+      const xa = col.x * 100 - c1d / 2, xb = col.x * 100 + c1d / 2;
+      const ya = -c2d / 2, yb = c2d / 2;
+      const xIn = Math.max(0, Math.min(xb, L) - Math.max(xa, 0));
+      const yIn = Math.max(0, Math.min(yb, B / 2) - Math.max(ya, -B / 2));
+      const sides = [xa > 0, xb < L, ya > -B / 2, yb < B / 2];
+      const bo = (sides[0] ? yIn : 0) + (sides[1] ? yIn : 0) + (sides[2] ? xIn : 0) + (sides[3] ? xIn : 0);
+      const sideCount = sides.filter(Boolean).length;
+      const alphaS = sideCount >= 4 ? 40 : sideCount === 3 ? 30 : 20;
       const upliftTf = integratePressurePatch(
         soilDist,
         col.x - c1d / 200,
         col.x + c1d / 200,
-        c2d / 100
+        Math.min(c2d, B) / 100
       );
       const beta_c = Math.max(col.dims.c1, col.dims.c2) / Math.min(col.dims.c1, col.dims.c2);
       const vc = Math.min(
         1.06 * lambda * Math.sqrt(fc),
         0.27 * (2 + 4 / beta_c) * lambda * Math.sqrt(fc),
-        0.27 * (40 * d / bo + 2) * lambda * Math.sqrt(fc)
+        0.27 * (alphaS * d / bo + 2) * lambda * Math.sqrt(fc)
       );
       const phiVc2 = PHI.shear * vc * bo * d;
       const Vu2 = Math.max(0, (col.Pu - upliftTf) * 1000);
-      return { ...col, c1d, c2d, bo, upliftTf, beta_c, vc, phiVc2, Vu2, ok: phiVc2 >= Vu2 };
+      return { ...col, c1d, c2d, bo, alphaS, upliftTf, beta_c, vc, phiVc2, Vu2, ok: phiVc2 >= Vu2 };
     });
-    const controlPunch = punchingCols.reduce((a, b) => (b.Vu2 > a.Vu2 ? b : a));
+    const controlPunch = punchingCols.reduce((a, b) => (b.Vu2 / b.phiVc2 > a.Vu2 / a.phiVc2 ? b : a));
     const Vu2 = controlPunch.Vu2;
     const phiVc2 = controlPunch.phiVc2;
 
@@ -4219,7 +4244,7 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
 P1,service = ${P1D} + ${P1L} = ${P1service.toFixed(2)} tf
 P2,service = ${P2D} + ${P2L} = ${P2service.toFixed(2)} tf
 Ptot,service = ${Ptot.toFixed(2)} tf
-合力位置距柱1 = P2,service·s/Ptot = ${xR.toFixed(1)} cm; L/2 = ${(L/2).toFixed(1)} cm → e = ${ecc_cm.toFixed(1)} cm
+合力位置距柱1 = P2,service·s/Ptot = ${xR.toFixed(1)} cm; 柱1 距左緣 = (L−s)/2 = ${col1X_cm.toFixed(1)} cm; L/2 = ${(L/2).toFixed(1)} cm → e = ${ecc_cm.toFixed(1)} cm
 qmax = ${qmax.toFixed(2)} tf/m²  ${okQ ? '≤' : '>'} qa = ${qa} → ${okQ ? '✓' : '✗'}
 W_soil = Df·B·L·γs = ${(Df/100).toFixed(2)}×${B_m.toFixed(2)}×${L_m.toFixed(2)}×${gamma_s} = ${W_soil.toFixed(2)} tf
 N = Ptot,service + W_soil = ${Ptot.toFixed(2)} + ${W_soil.toFixed(2)} = ${N_total.toFixed(2)} tf
@@ -4238,8 +4263,8 @@ Y 向配置 = ${barNoY} @ ${spY.toFixed(1)} cm → AsY = ${AsY_per_m.toFixed(2)}
 Mu = ${Mu_tfm.toFixed(2)} tf·m; φMn = ${phiMn_tfm.toFixed(2)} tf·m → ${okFlex ? '✓' : '✗'}
 Mu,long = ${Mu_long_tfm.toFixed(2)} tf·m; Mu,trans = ${Mu_trans_tfm.toFixed(2)} tf·m → 控制 = ${MuMode}
 Vu,long @ ${beamEnv.maxShear.name} = ${(Vu1/1000).toFixed(2)} tf; φVc = ${(phiVc1/1000).toFixed(2)} tf → ${okV1 ? '✓' : '✗'}
-柱1 衝剪 (${col1.raw})：Vu = ${(punchingCols[0].Vu2/1000).toFixed(2)} tf; 上浮 = ${punchingCols[0].upliftTf.toFixed(2)} tf; φVc = ${(punchingCols[0].phiVc2/1000).toFixed(2)} tf → ${punchingCols[0].ok ? '✓' : '✗'}
-柱2 衝剪 (${col2.raw})：Vu = ${(punchingCols[1].Vu2/1000).toFixed(2)} tf; 上浮 = ${punchingCols[1].upliftTf.toFixed(2)} tf; φVc = ${(punchingCols[1].phiVc2/1000).toFixed(2)} tf → ${punchingCols[1].ok ? '✓' : '✗'}
+柱1 衝剪 (${col1.raw})：bo = ${punchingCols[0].bo.toFixed(1)} cm, αs = ${punchingCols[0].alphaS}; Vu = ${(punchingCols[0].Vu2/1000).toFixed(2)} tf; 上浮 = ${punchingCols[0].upliftTf.toFixed(2)} tf; φVc = ${(punchingCols[0].phiVc2/1000).toFixed(2)} tf → ${punchingCols[0].ok ? '✓' : '✗'}
+柱2 衝剪 (${col2.raw})：bo = ${punchingCols[1].bo.toFixed(1)} cm, αs = ${punchingCols[1].alphaS}; Vu = ${(punchingCols[1].Vu2/1000).toFixed(2)} tf; 上浮 = ${punchingCols[1].upliftTf.toFixed(2)} tf; φVc = ${(punchingCols[1].phiVc2/1000).toFixed(2)} tf → ${punchingCols[1].ok ? '✓' : '✗'}
 控制柱 = ${controlPunch.name}
 ⚠ 長向反力、剪力與彎矩包絡仍未建立完整連續分布分析；結果請視為初步近似`;
     }
@@ -4329,13 +4354,18 @@ Vu,long @ ${beamEnv.maxShear.name} = ${(Vu1/1000).toFixed(2)} tf; φVc = ${(phiV
     const beta_c = Math.max(c1, c2) / Math.min(c1, c2);
     const c1d = c1 + d, c2d = c2 + d;
     const bo = 2 * (c1d + c2d);
-    const vc = Math.min(
-      1.06 * lambda * Math.sqrt(fc),
-      0.27 * (2 + 4 / beta_c) * lambda * Math.sqrt(fc),
-      0.27 * (40 * d / bo + 2) * lambda * Math.sqrt(fc)
-    );
-    const phiVc1_tf = PHI.shear * 0.53 * lambda * Math.sqrt(fc) * 100 * d / 1000;
-    const phiVc2_tf = PHI.shear * vc * bo * d / 1000;
+    // 衝剪臨界周長與 αs 依柱位：內柱 4 邊 / αs=40；邊柱（柱心在板緣）3 邊 / αs=30；角柱（柱心在板角）2 邊 / αs=20
+    const punchingFor = (key) => {
+      const boCase = key === 'interior' ? bo : key === 'edge' ? c1d + c2d : (c1d + c2d) / 2;
+      const alphaS = key === 'interior' ? 40 : key === 'edge' ? 30 : 20;
+      const vcCase = Math.min(
+        1.06 * lambda * Math.sqrt(fc),
+        0.27 * (2 + 4 / beta_c) * lambda * Math.sqrt(fc),
+        0.27 * (alphaS * d / boCase + 2) * lambda * Math.sqrt(fc)
+      );
+      return { bo:boCase, alphaS, vc:vcCase, phiVc2_tf:PHI.shear * vcCase * boCase * d / 1000 };
+    };
+    const phiVc1PerM_tf = PHI.shear * 0.53 * lambda * Math.sqrt(fc) * 100 * d / 1000;
     const caseDefs = [
       { key:'interior', label:'內柱', load:parseLoadTriplet($('mColInteriorLoad')?.value, 120, 40, 0), trib:parseRectDims($('mTribInterior')?.value, 600, 600) },
       { key:'edge', label:'邊柱', load:parseLoadTriplet($('mColEdgeLoad')?.value, 90, 30, 0), trib:parseRectDims($('mTribEdge')?.value, 600, 300) },
@@ -4343,15 +4373,25 @@ Vu,long @ ${beamEnv.maxShear.name} = ${(Vu1/1000).toFixed(2)} tf; φVc = ${(phiV
     ].map(item => {
       const colPu = factoredAxial(item.load.D, item.load.L, item.load.E);
       const tribB_m = item.trib.c1 / 100, tribL_m = item.trib.c2 / 100;
-      const armX_m = Math.max(0, (tribL_m - c1 / 100) / 2 - d / 100);
-      const armY_m = Math.max(0, (tribB_m - c2 / 100) / 2 - d / 100);
-      const MuStripX_tfm = qu * armX_m * armX_m / 2;
-      const MuStripY_tfm = qu * armY_m * armY_m / 2;
+      const armFaceX_m = Math.max(0, (tribL_m - c1 / 100) / 2);
+      const armFaceY_m = Math.max(0, (tribB_m - c2 / 100) / 2);
+      const armX_m = Math.max(0, armFaceX_m - d / 100);
+      const armY_m = Math.max(0, armFaceY_m - d / 100);
+      // 撓曲臨界斷面在柱面；單向剪力臨界斷面在柱面外 d
+      const MuStripX_tfm = qu * armFaceX_m * armFaceX_m / 2;
+      const MuStripY_tfm = qu * armFaceY_m * armFaceY_m / 2;
       const MuStrip_tfm = Math.max(MuStripX_tfm, MuStripY_tfm);
       const MuStripDir = MuStripX_tfm >= MuStripY_tfm ? 'X向' : 'Y向';
       const Vu1x_tf = qu * tribB_m * armX_m;
       const Vu1y_tf = qu * tribL_m * armY_m;
-      const Vu1_tf = Math.max(Vu1x_tf, Vu1y_tf);
+      // 單向剪力需求為整條 tributary 寬之合力，強度亦取同一寬度
+      const phiVc1x_tf = phiVc1PerM_tf * tribB_m;
+      const phiVc1y_tf = phiVc1PerM_tf * tribL_m;
+      const v1xGoverns = (phiVc1x_tf > 0 ? Vu1x_tf / phiVc1x_tf : Infinity) >= (phiVc1y_tf > 0 ? Vu1y_tf / phiVc1y_tf : Infinity);
+      const Vu1_tf = v1xGoverns ? Vu1x_tf : Vu1y_tf;
+      const phiVc1_tf = v1xGoverns ? phiVc1x_tf : phiVc1y_tf;
+      const punching = punchingFor(item.key);
+      const phiVc2_tf = punching.phiVc2_tf;
       let slabRect;
       if (item.key === 'interior') {
         slabRect = { x1:-tribL_m/2, x2:tribL_m/2, y1:-tribB_m/2, y2:tribB_m/2 };
@@ -4370,11 +4410,13 @@ Vu,long @ ${beamEnv.maxShear.name} = ${(Vu1/1000).toFixed(2)} tf; φVc = ${(phiV
       const okFlexX = phiMnStripX_tfm >= MuStripX_tfm;
       const okFlexY = phiMnStripY_tfm >= MuStripY_tfm;
       const okFlex = okFlexX && okFlexY;
-      const okV1 = phiVc1_tf >= Vu1_tf;
+      const okV1 = phiVc1x_tf >= Vu1x_tf && phiVc1y_tf >= Vu1y_tf;
       const okV2 = phiVc2_tf >= Vu2_tf;
       return {
         ...item, colPu, MuStripX_tfm, MuStripY_tfm, MuStrip_tfm, MuStripDir,
-        Vu1x_tf, Vu1y_tf, Vu1_tf, upliftArea_m2, upliftTf, Vu2_tf,
+        Vu1x_tf, Vu1y_tf, Vu1_tf, phiVc1x_tf, phiVc1y_tf, phiVc1_tf,
+        bo:punching.bo, alphaS:punching.alphaS, vc:punching.vc, phiVc2_tf,
+        upliftArea_m2, upliftTf, Vu2_tf,
         okFlexX, okFlexY, okFlex, okV1, okV2, slabRect
       };
     });
@@ -4383,8 +4425,10 @@ Vu,long @ ${beamEnv.maxShear.name} = ${(Vu1/1000).toFixed(2)} tf; φVc = ${(phiV
       { label:`${c.label} Y`, phiMn_tfm:phiMnStripY_tfm, Mu_tfm:c.MuStripY_tfm, ratio: phiMnStripY_tfm > 0 ? c.MuStripY_tfm / phiMnStripY_tfm : Infinity }
     ]));
     const controlFlex = flexControls.reduce((a, b) => (b.ratio > a.ratio ? b : a));
-    const controlV1 = caseDefs.reduce((a, b) => (b.Vu1_tf > a.Vu1_tf ? b : a));
-    const controlV2 = caseDefs.reduce((a, b) => (b.Vu2_tf > a.Vu2_tf ? b : a));
+    const controlV1 = caseDefs.reduce((a, b) => (b.Vu1_tf / b.phiVc1_tf > a.Vu1_tf / a.phiVc1_tf ? b : a));
+    const controlV2 = caseDefs.reduce((a, b) => (b.Vu2_tf / b.phiVc2_tf > a.Vu2_tf / a.phiVc2_tf ? b : a));
+    const phiVc1_tf = controlV1.phiVc1_tf;
+    const phiVc2_tf = controlV2.phiVc2_tf;
     const okFlex = caseDefs.every(c => c.okFlex);
     const okV1 = caseDefs.every(c => c.okV1);
     const okV2 = caseDefs.every(c => c.okV2);
@@ -4572,7 +4616,7 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
       fc, fy, phiShear: PHI.shear, lambda,
       c1, c2, pileD, pileNL, pileNB, pileSL, pileSB,
       PuTf: Pu_tf, MxTfm: Mx, MyTfm: My,
-      hc, cover: pcCover, db, capSteelAreaTotal: As
+      hc, cover: pcCover, db, capSteelAreaTotal: As, capB: Bc, capL: Lc
     });
     const {
       xs, ys, reactions: pileReactions, rMax, rMin, minSpacing,
@@ -4881,14 +4925,15 @@ Wo = Ws + Wpp + Wps = ${settlement.Wo_cm.toFixed(2)} cm ${okSettlement ? '≤' :
 <span class="h">▸ 樁帽衝剪 (含排除規則)</span>
 d = hc − cover − db = ${hc} − ${pcCover} − ${db.toFixed(2)} = ${d.toFixed(2)} cm ${okDMin ? '≥' : '<'} 30 cm → ${okDMin ? '✓' : '✗'}
 bo = 2×((${c1}+${d.toFixed(1)})+(${c2}+${d.toFixed(1)})) = ${bo.toFixed(1)} cm
-排除規則：距臨界面 < dp/2=${(pileD/2).toFixed(0)} cm 之樁不計入 Vu
-排除樁數 = ${excludedCount}; 計入樁數 = ${nPile - excludedCount}
-Vu (排除後) = ${Vu2_tf.toFixed(2)} tf; φVc = ${(phiVc2/1000).toFixed(2)} tf → ${okV2 ? '✓' : '✗'}
+計入規則：樁心在臨界面外 ≥ dp/2=${(pileD/2).toFixed(0)} cm 全計、在內 ≥ dp/2 不計，其間線性內插
+排除樁數 = ${excludedCount}; 部分計入樁數 = ${pileSystem.partialCount}; 全額計入樁數 = ${nPile - excludedCount - pileSystem.partialCount}
+Vu (內插後) = ${Vu2_tf.toFixed(2)} tf; φVc = ${(phiVc2/1000).toFixed(2)} tf → ${okV2 ? '✓' : '✗'}
 ${prestressed ? `\n<span class="h">▸ 預力樁上限</span>\nAg_pile = π×(${pileD}/2)² = ${Ag_pile.toFixed(0)} cm²\nPu ≤ 0.4×Ag×fc' = 0.4×${Ag_pile.toFixed(0)}×${fc}/1000 = ${puLimit.toFixed(2)} tf\nRmax = ${rMax.toFixed(2)} tf → ${okPrestress ? '✓' : '✗'}` : ''}
 ${pileType === 'cast-in-place' ? `\n<span class="h">▸ 場鑄混凝土樁斷面限制</span>\n主筋至少 6 支且直徑不得小於 19 mm；As,prov = ${castInPlaceAreaProv.toFixed(2)} cm² ${castInPlaceAreaProv >= castInPlaceAreaReq ? '≥' : '<'} 0.005Ag = ${castInPlaceAreaReq.toFixed(2)} cm² → ${castInPlaceBarOk ? '✓' : '✗'}` : `\n<span class="h">▸ 鋼管樁斷面限制</span>\nOD = ${pileD.toFixed(0)} cm ${pileD >= 25 ? '≥' : '<'} 25 cm；t = ${pileSteelThickness.toFixed(0)} mm ${pileSteelThickness >= 9 ? '≥' : '<'} 9 mm → ${steelPipeOk ? '✓' : '✗'}`}
 \n<span class="h">▸ 樁身 / 樁帽結構設計</span>
 樁身壓應力 = ${pileStressKgCm2.toFixed(2)} kgf/cm² ${okPileStress ? '≤' : '>'} ${pileStressAllow.toFixed(2)} kgf/cm² → ${okPileStress ? '✓' : '✗'}
-梁化跨度 L/B = ${rowSpanL.toFixed(2)} / ${rowSpanB.toFixed(2)} m；控制列反力 = ${controlRowL.toFixed(2)} / ${controlRowB.toFixed(2)} tf
+樁帽撓曲取柱面斷面：Mu = Σ單側樁反力 × (樁心至柱面距離)；全帽寬 Bc/Lc = ${Bc} / ${Lc} cm 承擔，As(每方向) = ${As.toFixed(2)} cm²
+樁帽單向剪力取距柱面 d 斷面（樁反力依 dp/2 內插）；未輸入剪力筋，Vs = 0
 樁帽 Mu,long / Mu,trans = ${capMuLong_tfm.toFixed(2)} / ${capMuTrans_tfm.toFixed(2)} tf·m；控制 Mu / φMn = ${capMu_tfm.toFixed(2)} / ${capPhiMn_tfm.toFixed(2)} tf·m → ${okCapFlex ? '✓' : '✗'}
 樁帽 Vu,max / φ(Vc+Vs) = ${capVu_tfm.toFixed(2)} / ${capPhiVn_tfm.toFixed(2)} tf → ${okCapShear ? '✓' : '✗'}
 ${isSoft ? '\n<span class="h">▸ 第3類軟弱土壤</span>\n⚠ 須於樁全長配置橫向圍束箍筋' : ''}

@@ -97,4 +97,37 @@ const invalid = Evaluator.shearScore({ ...base, phiShear:0 }, { P:80, V:30 });
 assert.equal(invalid.status, 'capacity-unresolved');
 assert.equal(invalid.scoreLabel, '容量待確認');
 
+// ── E1 審查新增：面內剪力 Vn 上限 2.12λ√fc'·Acv（ACI 318-19 11.5.4.2 / 18.10.4.4，等同舊式 2.65√fc'·h·d、d=0.8ℓw）──
+{
+  const fc = 280, h = 20, lw = 300, rhot = 0.01, fy = 4200;
+  const Acv = h * lw;
+  const alphaC = 0.53;                                   // hw/ℓw = 2.0
+  const VnFormula = Acv * (alphaC * Math.sqrt(fc) + rhot * fy);   // 305,215 kgf
+  const VnCap = 2.12 * Math.sqrt(fc) * Acv;                        // 212,844 kgf
+  assert.ok(VnFormula > VnCap);
+  for (const variant of [{ seismic:false, wallType:'bearing' }, { seismic:true, wallType:'shear' }]) {
+    const cap = Evaluator.computeCapacity({ ...base, ...variant, h, lw, hw:600, rhot, fy, fc });
+    assert.ok(Math.abs(cap.phiVn - 0.75 * VnCap) < 1e-6, `${variant.wallType}: φVn ${cap.phiVn} != ${0.75 * VnCap}`);
+    const over = Evaluator.evaluateDemand({ ...base, ...variant, h, lw, hw:600, rhot, fy, fc }, { P:0, V:200 });
+    assert.equal(over.ok, false, `${variant.wallType}: Vu=200 tf > φ·2.12√fc'Acv=159.6 tf must fail`);
+  }
+}
+// ── E1 審查新增：表 11.6.1 / 11.6.2 最小鋼筋比依鋼筋號數、fy 與剪力水準 ──
+{
+  const Wall = global.Wall;
+  const near = (a, b, label) => assert.ok(Math.abs(a - b) < 1e-12, `${label}: ${a} != ${b}`);
+  const low = { seismic:false, isShearWall:false, needTwoLayer:false, highShear:false, hwlw:1.0, rhot:0.003 };
+  let m = Wall.minRho({ ...low, fy:4200, dbV:1.27, dbH:1.27 });          // ≤ #5、fy ≥ 4200
+  near(m.rholMin, 0.0012, '#4 fy4200 ρl'); near(m.rhotMin, 0.0020, '#4 fy4200 ρt');
+  m = Wall.minRho({ ...low, fy:4200, dbV:1.905, dbH:1.905 });             // #6：其他竹節筋
+  near(m.rholMin, 0.0015, '#6 ρl'); near(m.rhotMin, 0.0025, '#6 ρt');
+  m = Wall.minRho({ ...low, fy:2800, dbV:1.27, dbH:1.27 });               // fy < 4200
+  near(m.rholMin, 0.0015, 'fy2800 ρl'); near(m.rhotMin, 0.0025, 'fy2800 ρt');
+  // 11.6.2：Vu > 0.5φVc → ρt ≥ 0.0025，ρl ≥ 0.0025 + 0.5(2.5 − hw/ℓw)(ρt − 0.0025)
+  m = Wall.minRho({ ...low, highShear:true, needTwoLayer:true, hwlw:1.0, rhot:0.004, fy:4200, dbV:1.27, dbH:1.27 });
+  near(m.rhotMin, 0.0025, 'high shear ρt'); near(m.rholMin, 0.0025 + 0.5 * 1.5 * 0.0015, 'high shear ρl');
+  // 11.6.2(a) 但書：ρl 不必超過強度所需 ρt
+  m = Wall.minRho({ ...low, highShear:true, hwlw:0.5, rhot:0.010, rhotRequired:0.003, fy:4200, dbV:1.27, dbH:1.27 });
+  near(m.rholMin, 0.003, 'high shear ρl capped by required ρt');
+}
 console.log('wall-inplane-evaluator.test.js: PASS');

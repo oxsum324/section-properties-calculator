@@ -99,6 +99,13 @@ async function main() {
     assert(snapshot.recommendation && snapshot.recommendation.QallShort >= snapshot.shortTermLoad, 'single-pile short-term bearing check', `QallShort=${snapshot.recommendation?.QallShort} short=${snapshot.shortTermLoad}`);
     assert(snapshot.recommendation && snapshot.recommendation.upliftRa > 0, 'single-pile uplift output', `Ra=${snapshot.recommendation?.upliftRa}`);
     assert(snapshot.complianceOk === true, 'single-pile compliance defaults', 'default preset stays within conservative defaults');
+    {
+      // Vesic (1977) pile settlement: Cs = (0.93 + 0.16 * sqrt(L / D)) * Cp, independent of tool internals.
+      const rec = snapshot.bestCandidate;
+      const s = rec.settlement;
+      const expectedCs = (0.93 + 0.16 * Math.sqrt(rec.depthM / (rec.diaCm / 100))) * s.Cp;
+      assert(Math.abs(s.Cs - expectedCs) <= 1e-9, 'single-pile Vesic Cs uses sqrt(L/D)', `Cs=${s.Cs} expected=${expectedCs} (L=${rec.depthM} m, D=${rec.diaCm} cm)`);
+    }
 
     const rowCount = await page.locator('#candidateTable tbody tr').count();
     assert(rowCount > 10, 'single-pile candidate rows', `rows=${rowCount}`);

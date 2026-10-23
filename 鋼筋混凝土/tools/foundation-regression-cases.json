@@ -34,25 +34,26 @@
       "tab": "combined",
       "expected": {
         "tab": "combined",
-        "qmax": 41.6,
-        "qmin": -1.6000000000000014,
+        "qmax": 29.6,
+        "qmin": 10.399999999999999,
         "H_total": 0,
         "N_total": 227,
         "okSlide": null,
-        "Mu_tfm": 337.9999999999999,
+        "Mu_tfm": 97.75835951159485,
         "phiMn_tfm": 95.10587418705884,
-        "Vu1_tf": 87.67462112048608,
+        "Vu1_tf": 57.86526750817282,
         "phiVc1_tf": 80.1871869962794,
-        "Vu2_tf": 98.48578799956456,
-        "phiVc2_tf": 385.7901791015397,
+        "Vu2_tf": 108.66616921151159,
+        "phiVc2_tf": 273.0822765470493,
         "okQ": false,
-        "okV1": false,
+        "okV1": true,
         "okV2": true,
         "okFlex": false,
         "okAs": true,
-        "controlPunchName": "柱2",
-        "banner": "✗ NG — 不符合規範✗ qmax ≤ qa ｜ · 抗滑 FS ≥ 1.5 ｜ ✗ φVc ≥ Vu (單向) ｜ ✓ φVc ≥ Vu (衝剪) ｜ ✗ φMn ≥ Mu ｜ ✓ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax"
-      }
+        "controlPunchName": "柱1",
+        "banner": "✗ NG — 不符合規範✗ qmax ≤ qa ｜ · 抗滑 FS ≥ 1.5 ｜ ✓ φVc ≥ Vu (單向) ｜ ✓ φVc ≥ Vu (衝剪) ｜ ✗ φMn ≥ Mu ｜ ✓ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax"
+      },
+      "tolerance": 0.01
     },
     {
       "key": "combined_pass_warn",
@@ -95,17 +96,17 @@
         "As_per_m": 14.25,
         "AsMin_per_m": 14.399999999999999,
         "Vu1_tf": 77.76795,
-        "phiVc1_tf": 46.95589158567259,
+        "phiVc1_tf": 281.73534951403553,
         "Vu2_tf": 196.91421488375,
-        "phiVc2_tf": 490.57637293047287,
+        "phiVc2_tf": 122.64409323261822,
         "okQ": true,
         "okAs": false,
         "okFlex": true,
-        "okV1": false,
+        "okV1": true,
         "okV2": true,
         "mcDdmText": "DDM / EFM 分析待確認 — 本工具未提供",
         "mcDdmWarn": true,
-        "banner": "✗ NG — 不符合規範✓ q ≤ qa ｜ ✗ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax ｜ ✓ 各點 φMn ≥ Mu (柱帶) ｜ ✗ 各點 φVc ≥ Vu (單向) ｜ ✓ 各點 φVc ≥ Vu (衝剪)"
+        "banner": "✗ NG — 不符合規範✓ q ≤ qa ｜ ✗ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax ｜ ✓ 各點 φMn ≥ Mu (柱帶) ｜ ✓ 各點 φVc ≥ Vu (單向) ｜ ✓ 各點 φVc ≥ Vu (衝剪)"
       }
     },
     {
@@ -157,9 +158,10 @@
         "recommendationDepth": 12.5,
         "okSettlement": false,
         "okPileStress": false,
-        "okCapFlex": true,
+        "okCapFlex": false,
         "okCapShear": true,
-        "banner": "✗ NG — 不符合規範✓ Rmax ≤ Qa·η ｜ ✓ |Rmin| ≤ Qt ｜ ✓ 樁距 ≥ 2.5Dp ｜ ✓ d ≥ 30 cm ｜ ✓ φVc ≥ Vu (衝剪) ｜ ✓ 土層資料有效 ｜ ✓ 斷面/配筋限制 ｜ ✗ Wo ≤ 容許沉陷 ｜ ✗ 樁身壓應力 ｜ ✓ 樁帽 φMn ≥ Mu ｜ ✓ 樁帽 φ(Vc+Vs) ≥ Vu,max ｜ ✓ Qall ≥ 服務需求"
+        "banner": "✗ NG — 不符合規範✓ Rmax ≤ Qa·η ｜ ✓ |Rmin| ≤ Qt ｜ ✓ 樁距 ≥ 2.5Dp ｜ ✓ d ≥ 30 cm ｜ ✓ φVc ≥ Vu (衝剪) ｜ ✓ 土層資料有效 ｜ ✓ 斷面/配筋限制 ｜ ✗ Wo ≤ 容許沉陷 ｜ ✗ 樁身壓應力 ｜ ✗ 樁帽 φMn ≥ Mu ｜ ✓ 樁帽 φ(Vc+Vs) ≥ Vu,max ｜ ✓ Qall ≥ 服務需求",
+        "capAsReq": 86.4
       }
     },
     {
@@ -273,6 +275,221 @@
         "summaryText": "⚠ 待確認 — 2 項需人工複核",
         "reviewWarningCount": 2,
         "banner": "⚠ 待確認 — 2 項需人工複核✓ 抗滑 FS ≥ 1.5 ｜ ✓ 抗傾覆 FS ≥ 2.0 ｜ ✓ qmax ≤ qa ｜ ✓ qmin ≥ 0 ｜ ✓ 牆身 φMn ≥ Mu ｜ ✓ 牆身 φVc ≥ Vu ｜ · 趾版強度 ｜ · 踵版強度⚠ 數值檢核通過，但仍有尚未自動完成的模型或人工複核事項，不可列為最終 OK。"
+      }
+    },
+    {
+      "key": "iso_ecc_y_beyond_kern",
+      "label": "獨立基腳 Y 向單向偏心超出核心（三角形部分接觸）",
+      "tab": "iso",
+      "values": {
+        "PD": 70,
+        "PL": 30,
+        "PE": 0,
+        "MDL": 0,
+        "ME": 0,
+        "MDLy": 50,
+        "MEy": 0,
+        "HDL": 0,
+        "HE": 0,
+        "B": 250,
+        "L": 250,
+        "qa": 100
+      },
+      "expected": {
+        "tab": "iso",
+        "qmax": 35.55555555555556,
+        "qmin": 0,
+        "okQ": true,
+        "FS_over": 2.5
+      }
+    },
+    {
+      "key": "iso_ecc_y_at_kern",
+      "label": "獨立基腳 Y 向 e = B/6（全面接觸邊界）",
+      "tab": "iso",
+      "values": {
+        "PD": 70,
+        "PL": 30,
+        "PE": 0,
+        "MDL": 0,
+        "ME": 0,
+        "MDLy": 41.666666666666664,
+        "MEy": 0,
+        "HDL": 0,
+        "HE": 0,
+        "B": 250,
+        "L": 250,
+        "qa": 100
+      },
+      "expected": {
+        "tab": "iso",
+        "qmax": 32.0,
+        "qmin": 0,
+        "okQ": true
+      }
+    },
+    {
+      "key": "iso_ecc_y_just_beyond_kern",
+      "label": "獨立基腳 Y 向 e 略大於 B/6（三角形分布連續）",
+      "tab": "iso",
+      "values": {
+        "PD": 70,
+        "PL": 30,
+        "PE": 0,
+        "MDL": 0,
+        "ME": 0,
+        "MDLy": 42,
+        "MEy": 0,
+        "HDL": 0,
+        "HE": 0,
+        "B": 250,
+        "L": 250,
+        "qa": 100
+      },
+      "expected": {
+        "tab": "iso",
+        "qmax": 32.128514056224894,
+        "qmin": 0,
+        "okQ": true
+      }
+    },
+    {
+      "key": "iso_ecc_x_at_kern",
+      "label": "獨立基腳 X 向 e = L/6（全面接觸邊界）",
+      "tab": "iso",
+      "values": {
+        "PD": 70,
+        "PL": 30,
+        "PE": 0,
+        "MDL": 41.666666666666664,
+        "ME": 0,
+        "MDLy": 0,
+        "MEy": 0,
+        "HDL": 0,
+        "HE": 0,
+        "B": 250,
+        "L": 250,
+        "qa": 100
+      },
+      "expected": {
+        "tab": "iso",
+        "qmax": 32.0,
+        "qmin": 0,
+        "okQ": true,
+        "FS_over": 3
+      }
+    },
+    {
+      "key": "iso_biaxial_outside_kern_refused",
+      "label": "獨立基腳雙向偏心超出核心拒算",
+      "tab": "iso",
+      "values": {
+        "PD": 70,
+        "PL": 30,
+        "PE": 0,
+        "MDL": 30,
+        "ME": 0,
+        "MDLy": 30,
+        "MEy": 0,
+        "HDL": 0,
+        "HE": 0,
+        "B": 250,
+        "L": 250,
+        "qa": 100
+      },
+      "expected": {
+        "tab": "iso",
+        "okQ": false,
+        "qmin": 0
+      }
+    },
+    {
+      "key": "iso_overturning_y",
+      "label": "獨立基腳 Y 向傾覆控制",
+      "tab": "iso",
+      "values": {
+        "PD": 70,
+        "PL": 30,
+        "PE": 0,
+        "MDL": 0,
+        "ME": 0,
+        "MDLy": 100,
+        "MEy": 0,
+        "HDL": 0,
+        "HE": 0,
+        "B": 250,
+        "L": 250,
+        "qa": 1000
+      },
+      "expected": {
+        "tab": "iso",
+        "qmax": 106.66666666666667,
+        "FS_over": 1.25,
+        "okOver": false
+      }
+    },
+    {
+      "key": "combined_partial_contact",
+      "label": "聯合基腳合力超出核心（部分接觸、自由端力矩閉合）",
+      "tab": "combined",
+      "values": {
+        "cB": 200,
+        "cL": 500,
+        "cHf": 70,
+        "cQa": 20,
+        "cColDist": 400,
+        "cP1D": 30,
+        "cP1L": 10,
+        "cP1E": 0,
+        "cP2D": 120,
+        "cP2L": 40,
+        "cP2E": 0
+      },
+      "tolerance": 0.01,
+      "expected": {
+        "tab": "combined",
+        "qmax": 51.28205128205128,
+        "qmin": 0,
+        "Mu_tfm": 91.66327811159432
+      }
+    },
+    {
+      "key": "mat_corner_punching",
+      "label": "筏基角柱衝剪（兩邊臨界周長、αs = 20）",
+      "tab": "mat",
+      "values": {
+        "mHf": 80,
+        "mBarNoX": "#6",
+        "mBarSpX": 20,
+        "mBarNoY": "#6",
+        "mBarSpY": 20,
+        "mColCornerLoad": "90/30/0",
+        "mCaseView": "corner"
+      },
+      "expected": {
+        "tab": "mat",
+        "okV2": false,
+        "phiVc2_tf": 122.64409323261822,
+        "Vu2_tf": 153.2285537209375
+      }
+    },
+    {
+      "key": "pile_cap_punching_interpolation",
+      "label": "樁帽衝剪 dp/2 內插（樁心在臨界面外 < dp/2）",
+      "tab": "pile",
+      "values": {
+        "pileNL": 2,
+        "pileNB": 2,
+        "pileSL": 180,
+        "pileSB": 180,
+        "pileD": 50,
+        "pcH": 100,
+        "pcB": 280,
+        "pcL": 280
+      },
+      "expected": {
+        "tab": "pile",
+        "Vu2_tf": 338.68238024313945
       }
     }
   ]

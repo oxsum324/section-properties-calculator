@@ -65,4 +65,35 @@ const zero = ColumnEvaluator.limitStateScore({ ...base, axisX:{...base.axisX,isS
 assert.equal(zero.status, 'evaluated');
 assert.equal(zero.score, 0);
 
+// ── E1 審查新增：6.6.4.5.4 細長柱最小彎矩 M2,min = Pu·(1.5 + 0.03h) cm ──
+{
+  const Pu = 200, h = 40, Pc = 293.6;
+  const M2min = Pu * (1.5 + 0.03 * h) / 100;             // 5.4 tf·m
+  const delta = 1.0 / (1 - Pu / (0.75 * Pc));            // M2,min 控制時 Cm 取 1.0
+  const axis = { Pc, Cm:0.6, isShort:false, minEccCm:1.5 + 0.03 * h };
+  const zeroM = ColumnEvaluator.magnifyAxis(axis, Pu, 0, 1);
+  assert.ok(Math.abs(zeroM.moment - delta * M2min) < 1e-9, `Mc ${zeroM.moment} != ${delta * M2min}`);
+  assert.equal(zeroM.m2minGoverns, true);
+  // 計算彎矩大於 M2,min：維持原 Cm 與 Mu
+  const bigM = ColumnEvaluator.magnifyAxis(axis, Pu, 20, 1);
+  const deltaBig = Math.max(1, 0.6 / (1 - Pu / (0.75 * Pc)));
+  assert.ok(Math.abs(bigM.moment - 20 * deltaBig) < 1e-9);
+  assert.equal(bigM.m2minGoverns, false);
+  // 短柱不放大、不套 M2,min
+  const shortM = ColumnEvaluator.magnifyAxis({ ...axis, isShort:true }, Pu, 0, 1);
+  assert.equal(shortM.moment, 0);
+}
+// M2,min 雙軸逐軸分別施加：不得兩軸同時套最小偏心
+{
+  const Pu = 100;
+  const axisX = { Pc:1000, Cm:0.6, isShort:false, minEccCm:1.5 + 0.03 * 60 };
+  const axisY = { Pc:800, Cm:0.6, isShort:false, minEccCm:1.5 + 0.03 * 40 };
+  const r = ColumnEvaluator.evaluateDemand({ ...base, axisX, axisY }, { Pu, Mx:0, My:0 }, { capacityAtPu });
+  const dX = 1 / (1 - Pu / 750), dY = 1 / (1 - Pu / 600);
+  const mxMin = dX * Pu * 3.3 / 100, myMin = dY * Pu * 2.7 / 100;
+  const phiMx = ColumnEvaluator.interpAt(pmDesignX, Pu, 'P', 'M'), phiMy = ColumnEvaluator.interpAt(pmDesignY, Pu, 'P', 'M');
+  const expected = Math.max(mxMin / phiMx, myMin / phiMy);   // 單軸逐一施加
+  assert.ok(Math.abs(r.utilization - expected) < 1e-9, `biaxial M2,min utilization ${r.utilization} != ${expected}`);
+  assert.ok(Math.abs(r.Mc - mxMin) < 1e-9 && Math.abs(r.Mcy - myMin) < 1e-9);
+}
 console.log('column-evaluator.test.js: PASS');

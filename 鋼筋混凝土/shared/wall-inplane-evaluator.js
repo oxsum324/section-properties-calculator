@@ -28,7 +28,11 @@
     const Acv = h * lw;
     const hwlw = lw > 0 ? hw / lw : NaN;
     const alpha_c = Wall.alphaC(hwlw);
-    const Vn = Wall.vn({ Acv, alpha_c, lambda, fc, rhot, fy });
+    // 11.5.4 / 18.7.4.4：Vn = Acv(αc·λ√fc' + ρt·fy) 且 Vn ≤ 2.12λ√fc'·Acv (Acv = h·ℓw)
+    const VnFormula = Wall.vn({ Acv, alpha_c, lambda, fc, rhot, fy });
+    const VnCap = Wall.vnMaxTotal(fc, lambda, Acv);
+    const vnCapGoverns = VnFormula > VnCap + 1e-9;
+    const Vn = Math.min(VnFormula, VnCap);
     const phiVn = phiShear * Vn;
     const VnLimit = Wall.vnMaxSingle(fc, Acv);
     const isShearWall = base?.seismic === true || String(base?.wallType || '') === 'shear';
@@ -39,7 +43,7 @@
       valid,
       reason:valid ? '' : '牆面內容量無法建立',
       e, eLimit, eOk, Ag, Pn, phiPn,
-      Acv, hwlw, alpha_c, Vn, phiVn, VnLimit,
+      Acv, hwlw, alpha_c, Vn, phiVn, VnLimit, VnFormula, VnCap, vnCapGoverns,
       isShearWall, effectiveShearCapacity,
     };
   };

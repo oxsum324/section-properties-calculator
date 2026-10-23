@@ -661,7 +661,7 @@
         "columnDevTop": 100,
         "columnDevBottom": 200,
         "columnLdTension": 151.794033385468,
-        "columnLdCompression": 458.724,
+        "columnLdCompression": 47.81512051642242,
         "columnDevReq": 151.794033385468,
         "okColumnDevTop": false,
         "okColumnDevBottom": true,
@@ -728,7 +728,7 @@
         "columnDevTopText": "柱頂彎鉤錨定；非直線 ℓd 自動檢核，須依配筋圖與相對應錨定構造規定人工複核",
         "columnDevBottomText": "柱底機械錨定；非直線 ℓd 自動檢核，須依產品認可資料、專案文件與配筋圖人工複核",
         "columnLdTension": 151.794033385468,
-        "columnLdCompression": 458.724,
+        "columnLdCompression": 47.81512051642242,
         "columnDevReq": 151.794033385468,
         "okColumnDevTop": null,
         "okColumnDevBottom": null,
@@ -1456,6 +1456,44 @@
         "⚠ 部分項目需人工複核",
         "人工複核項目："
       ]
+    },
+    {
+      "key": "slender_min_moment_m2min",
+      "label": "E1 審查：細長柱分析彎矩甚小時 M2,min = Pu(1.5+0.03h) 控制",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "swayMode": false,
+        "manualLayout": false,
+        "tieOverride": false
+      },
+      "selects": {
+        "colType": "rect",
+        "barNo": "#8"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "b": 40,
+        "h": 40,
+        "lu": 600,
+        "k": 1,
+        "cover": 4,
+        "nBar": 8,
+        "Pu": 200,
+        "Mux": 0.5,
+        "Muy": 0,
+        "Vu": 5,
+        "Ve": 0,
+        "m1m2": 1,
+        "betaDns": 0.6
+      },
+      "expected": {
+        "isShort": false,
+        "deltaNS": 10.900944612224125,
+        "Mc": 58.86510090601028,
+        "pmOk": false
+      }
     }
   ]
 }

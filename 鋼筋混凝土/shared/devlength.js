@@ -10,7 +10,8 @@
  *   #7 以上:  ℓd = (fy·ψt·ψe / (4.2·λ·√fc')) · db
  *
  * Compression (25.4.9):
- *   ℓdc = max( (0.24·fy)/(λ·√fc')·db,  0.043·fy·db ),  下限 20 cm
+ *   SI 式 ℓdc = max(0.24·fy/(λ·√fc'), 0.043·fy)·db (MPa)；換算 kgf/cm²：
+ *   ℓdc = max( (0.075·fy)/(λ·√fc')·db,  0.0044·fy·db ),  下限 20 cm
  *
  * Lap splice (25.5.2):
  *   Class A: 1.0·ℓd  (As 配置 ≥ 2·As 需求 且 搭接量 ≤ 50%)
@@ -34,8 +35,9 @@
   function ldCompression(opts){
     const fc = opts.fc, fy = opts.fy, db = opts.db;
     const lambda = opts.lambda || 1.0;
-    const ldc1 = (0.24 * fy) / (lambda * Math.sqrt(fc)) * db;
-    const ldc2 = 0.043 * fy * db;
+    // kgf/cm² 版係數 (SI 0.24 / 0.043 經 1 MPa = 10.197 kgf/cm² 換算)
+    const ldc1 = (0.075 * fy) / (lambda * Math.sqrt(fc)) * db;
+    const ldc2 = 0.0044 * fy * db;
     return Math.max(ldc1, ldc2, 20);
   }
 
@@ -61,7 +63,7 @@
         sub:`= (${opts.fy}·${opts.psit||1}·${opts.psie||1} / (${k}·${opts.lambda||1}·√${opts.fc}))·${opts.db.toFixed(2)} = ${ld.toFixed(1)} cm`,
         value: ld.toFixed(1), unit:'cm', ok:null },
       { label:'壓力 ℓdc',
-        formula:"ℓdc = max(0.24·fy/(λ·√fc')·db, 0.043·fy·db) ≥ 20 cm",
+        formula:"ℓdc = max(0.075·fy/(λ·√fc')·db, 0.0044·fy·db) ≥ 20 cm (kgf/cm²)",
         sub:`= ${ldc.toFixed(1)} cm`,
         value: ldc.toFixed(1), unit:'cm', ok:null },
       { label:'搭接長度 ℓs (Class B 1.3·ℓd)',

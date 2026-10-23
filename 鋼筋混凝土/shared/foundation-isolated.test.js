@@ -24,6 +24,12 @@ near(result.phiVc2Kgf / 1000, 295.0346406607326, 1e-10, 'default footing punchin
 near(result.AsReqX, 27, 1e-10, 'default footing X reinforcement demand remains finite');
 near(result.AsReqY, 27, 1e-10, 'default footing Y reinforcement demand remains finite');
 
+// Rectangular footing whose Y cantilever governs: one-way section width must be L (200 cm), not B.
+// qu = 150 tf / 6 m2 = 2.5 kgf/cm2; armY = (300 - 50) / 2 = 125 cm; d = 60 - 7.5 - 1.905 = 50.595 cm.
+const rect = FoundationIsolated.calculateStrength({ ...input, B:300, L:200, c1:50, c2:50, dbX:1.905, dbY:1.905, AsXPerM:15, AsYPerM:15, PuTf:150 });
+near(rect.Vu1Kgf / 1000, 2.5 * 200 * (125 - 50.595) / 1000, 1e-9, 'rectangular footing one-way shear uses width L for Y cantilever');
+near(rect.phiVc1Kgf / 1000, 0.75 * 0.53 * Math.sqrt(280) * 200 * 50.595 / 1000, 1e-9, 'rectangular footing one-way shear capacity uses width L');
+
 const wrongKey = Flexure.designAsRect({ b: 250, d: 50, Mu: 1e6, fc: 280, fy: 4200 });
 assert.equal(wrongKey.converged, false, 'wrong flexure demand key fails closed');
 assert.ok(Number.isNaN(wrongKey.As), 'wrong flexure demand key cannot silently become zero reinforcement');

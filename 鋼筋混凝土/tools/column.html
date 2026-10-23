@@ -2332,8 +2332,12 @@
     // 搖擺架構: Mc = δns·M_ns + δs·M_s
     // ⚠ 簡化處理：本工具未分離 sway / non-sway 彎矩，採 Mc = δns·δs·Mu 乘積法保守估算
     const swayMul = swayMode ? deltaS : 1;
-    const magnifiedX = ColumnEvaluator.magnifyAxis({ Pc, Cm, isShort }, Pu, Mux, swayMul);
-    const magnifiedY = ColumnEvaluator.magnifyAxis({ Pc:Pc_y, Cm, isShort }, Pu, Muy, swayMul);
+    // 6.6.4.5.4 M2,min = Pu·(1.5 + 0.03h)，h 為彎曲方向斷面深度 (cm)
+    const isCircM2 = (colType === 'circle' || colType === 'circleTied');
+    const minEccX = 1.5 + 0.03 * (isCircM2 ? b : h);
+    const minEccY = 1.5 + 0.03 * b;
+    const magnifiedX = ColumnEvaluator.magnifyAxis({ Pc, Cm, isShort, minEccCm:minEccX }, Pu, Mux, swayMul);
+    const magnifiedY = ColumnEvaluator.magnifyAxis({ Pc:Pc_y, Cm, isShort, minEccCm:minEccY }, Pu, Muy, swayMul);
     const deltaNS = magnifiedX.delta;
     const deltaNS_y = magnifiedY.delta;
     const Mc = magnifiedX.moment;
@@ -2437,8 +2441,8 @@
     const columnEvaluatorBase = {
       pmDesignX: secX.pmDesign,
       pmDesignY: secY.pmDesign,
-      axisX: { Pc, Cm, isShort },
-      axisY: { Pc:Pc_y, Cm, isShort },
+      axisX: { Pc, Cm, isShort, minEccCm:minEccX },
+      axisY: { Pc:Pc_y, Cm, isShort, minEccCm:minEccY },
       swayMode,
       deltaS,
       biaxialOptions: {
@@ -2462,8 +2466,8 @@
             const evaluation = ColumnEvaluator.evaluateDemand({
               pmDesignX:candidateX.pmDesign,
               pmDesignY:candidateY.pmDesign,
-              axisX:{ Pc, Cm, isShort },
-              axisY:{ Pc:Pc_y, Cm, isShort },
+              axisX:{ Pc, Cm, isShort, minEccCm:minEccX },
+              axisY:{ Pc:Pc_y, Cm, isShort, minEccCm:minEccY },
               swayMode,
               deltaS,
               biaxialOptions:{
@@ -2567,11 +2571,20 @@
       }
     }
 
-    const biaxialSurface = computeBiaxialSurfaceAtPu({
-      colType, b, h, cover, nBar, ab, db, layout: columnLayout,
-      fc, fy, beta1, Pu, Mx: Mc, My: Mcy,
-      phiFactorComp, phiPnMax, phiMnAtPu, phiMnyAtPu
-    });
+    // 6.6.4.5.4 M2,min 逐軸分別施加：(Mc 含 M2,min, Mcy 實際) 與 (Mc 實際, Mcy 含 M2,min) 取較不利者
+    const biaxialScenarios = (magnifiedX.m2minGoverns || magnifiedY.m2minGoverns)
+      ? [
+          { Mx: Mc, My: magnifiedY.m2minGoverns ? magnifiedY.momentActual : Mcy },
+          { Mx: magnifiedX.m2minGoverns ? magnifiedX.momentActual : Mc, My: Mcy },
+        ]
+      : [{ Mx: Mc, My: Mcy }];
+    const biaxialSurface = biaxialScenarios
+      .map(scenario => computeBiaxialSurfaceAtPu({
+        colType, b, h, cover, nBar, ab, db, layout: columnLayout,
+        fc, fy, beta1, Pu, Mx: scenario.Mx, My: scenario.My,
+        phiFactorComp, phiPnMax, phiMnAtPu, phiMnyAtPu
+      }))
+      .reduce((worst, item) => (!worst || item.ratio > worst.ratio) ? item : worst, null);
     const biaxialSurfaceRatio = biaxialSurface.ratio;
     const biaxialSurfaceOk = biaxialSurface.ok;
 
@@ -3566,8 +3579,9 @@
   Cm = max(0.4, 0.6 + 0.4·${m1m2}) = ${fmt(Cm,3)}
   EI = 0.4·Ec·Ig_x / (1+βdns) = 0.4·${fmt(Ec,0)}·${fmt(Ig_x,0)}/(1+${betaDns})
   Pc_x = π²·EI/(k·ℓu)² = π²·EI/(${k}·${lu})² = ${fmt(Pc,1)} tf
-  δns,x = ${isShort?'1.0 (短柱)':`Cm/(1−Pu/(0.75·Pc)) = ${fmt(Cm,3)}/(1−${Pu}/(0.75·${fmt(Pc,1)})) = ${isFinite(deltaNS)?fmt(deltaNS,3):'∞'}`}
-  Mc = δns·Mux = ${isFinite(deltaNS)?fmt(deltaNS,3):'∞'}·${Mux} = ${isFinite(Mc)?fmt(Mc,2):'∞'} tf·m
+  δns,x = ${isShort?'1.0 (短柱)':`Cm/(1−Pu/(0.75·Pc)) = ${fmt(magnifiedX.Cm,3)}/(1−${Pu}/(0.75·${fmt(Pc,1)})) = ${isFinite(deltaNS)?fmt(deltaNS,3):'∞'}`}
+  M2,min = Pu·(1.5+0.03h) = ${Pu}·${fmt(minEccX,2)}/100 = ${fmt(magnifiedX.M2min,2)} tf·m${isShort?' (短柱不適用)':(magnifiedX.m2minGoverns?' → 控制，Cm 取 1.0 (6.6.4.5.4)':'')}
+  Mc = δns·max(Mux, M2,min) = ${isFinite(deltaNS)?fmt(deltaNS,3):'∞'}·${fmt(magnifiedX.M2used,2)} = ${isFinite(Mc)?fmt(Mc,2):'∞'} tf·m
 
 【3】P-M 互制掃描 (應變相容)
   在曲線上找 P=Pu 對應的 φMn = ${fmt(phiMnAtPu,2)} tf·m
@@ -3776,6 +3790,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       forceVc0, forceVc0X, forceVc0Y, lowAxialCol, highEqShear, highEqShearX, highEqShearY,
       d, d_x, d_y, shearDepth, klr, r, klrLim, isShort, m1m2, betaDns, Cm, Ec, Ig_x, Ig_y, Pc, Pc_y,
       deltaNS, deltaNS_y, Mc, Mcy,
+      M2minX:magnifiedX.M2min, M2minY:magnifiedY.M2min, M2usedX:magnifiedX.M2used, M2usedY:magnifiedY.M2used,
+      m2minGovernsX:magnifiedX.m2minGoverns, m2minGovernsY:magnifiedY.m2minGoverns, CmUsedX:magnifiedX.Cm, CmUsedY:magnifiedY.Cm,
       AstReq, rhogReq, bestCombo, sCodeSugg, sSugg, sSuggReason, shearSpacingLimitAuto, shearSpacingReason,
       dbLongSpacing, adoptedTieSpacing, nonseismicTieSpacingLimit, codeTieSpacingLimit, codeTieSpacingReason,
       seismicHx, seismicTieSpacing, okSeismicTieSpacing, seismicHighHxTrigger, seismicHxLimit, okLateralSupport, lateralSupportDetail,
@@ -4544,15 +4560,15 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
           value: r.Pc.toFixed(1), unit:'tf', ok: (r.Pu < 0.75*r.Pc) },
         { label:'δns,x 放大係數',
           formula:'δns = Cm / (1 − Pu/(0.75·Pc)) ≥ 1.0',
-          sub: r.isShort ? '短柱 δns = 1.0' : `= ${r.Cm.toFixed(3)} / (1 − ${r.Pu}/(0.75·${r.Pc.toFixed(1)})) = ${isFinite(r.deltaNS)?r.deltaNS.toFixed(3):'∞'}`,
+          sub: r.isShort ? '短柱 δns = 1.0' : `= ${Number(r.CmUsedX ?? r.Cm).toFixed(3)} / (1 − ${r.Pu}/(0.75·${r.Pc.toFixed(1)})) = ${isFinite(r.deltaNS)?r.deltaNS.toFixed(3):'∞'}`,
           value: isFinite(r.deltaNS)?r.deltaNS.toFixed(3):'∞', ok: isFinite(r.deltaNS)&&r.deltaNS<=1.4 },
         { label:'δns,y 放大係數',
           formula:'同 X 方向，Ig 用 h·b³/12',
           sub:`Pc_y=${r.Pc_y.toFixed(1)} tf → δns,y = ${isFinite(r.deltaNS_y)?r.deltaNS_y.toFixed(3):'∞'}`,
           value: isFinite(r.deltaNS_y)?r.deltaNS_y.toFixed(3):'∞', ok: isFinite(r.deltaNS_y)&&r.deltaNS_y<=1.4 },
         { label:'放大彎矩 Mc, Mcy',
-          formula:'Mc = δns·Mu',
-          sub:`Mc = ${r.deltaNS.toFixed(3)}·${r.Mux} = ${isFinite(r.Mc)?r.Mc.toFixed(2):'∞'} tf·m;  Mcy = ${r.deltaNS_y.toFixed(3)}·${r.Muy} = ${isFinite(r.Mcy)?r.Mcy.toFixed(2):'∞'} tf·m`,
+          formula:'Mc = δns·max(Mu, M2,min)，M2,min = Pu(1.5+0.03h) (6.6.4.5.4)',
+          sub:`Mc = ${r.deltaNS.toFixed(3)}·${Number(r.M2usedX ?? r.Mux).toFixed(2)} = ${isFinite(r.Mc)?r.Mc.toFixed(2):'∞'} tf·m;  Mcy = ${r.deltaNS_y.toFixed(3)}·${Number(r.M2usedY ?? r.Muy).toFixed(2)} = ${isFinite(r.Mcy)?r.Mcy.toFixed(2):'∞'} tf·m${(r.m2minGovernsX||r.m2minGovernsY)?'（M2,min 控制，Cm=1.0）':''}`,
           value:`${isFinite(r.Mc)?r.Mc.toFixed(2):'∞'} / ${isFinite(r.Mcy)?r.Mcy.toFixed(2):'∞'}`, unit:'tf·m', ok:null }
       ]},
       { group:'P-M 互制檢核', items:[

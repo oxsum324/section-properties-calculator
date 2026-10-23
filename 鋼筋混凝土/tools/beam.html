@@ -1673,7 +1673,7 @@
       lambda, Vc, phiVc, AvProvidedPerS, Vs_provided, phiVs, phiVn,
       forceVc0, phiVn_eff, shearDemand, shearDemandSource, AvMinPerS, hasMinStir,
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress,
-      torNegligible, torsionNeedsDesign, Tu_th
+      torNegligible, torsionNeedsDesign, Tu_th, VsMax, vsExceedsMax, phiVnSectionLimit
     } = strength;
     const VuLimit_minStir = PHI.shear * 0.265 * lambda * Math.sqrt(fc) * bw * d;
     const needsMinStir = shearDemand > VuLimit_minStir;
@@ -1703,6 +1703,7 @@
     return {
       lambda, Vc, phiVc, Av, AvProvidedPerS, Vs_provided, phiVs, phiVn,
       forceVc0, phiVn_eff, shearDemand, shearDemandSource, VuLimit_minStir, needsMinStir, AvMinPerS, hasMinStir,
+      VsMax, vsExceedsMax, phiVnSectionLimit,
       needsShearRebar, okShearMin, lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress,
       shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit, okShearSpacing,
       torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, torsionDesignStatus, Tu_th
@@ -2284,6 +2285,7 @@
     const shearData = calcShearData({ sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion, torsionDesignStatus, rhoShear, cover, tieDb });
     const {
       lambda, Vc, phiVc, Av, AvProvidedPerS, Vs_provided, phiVs, phiVn, forceVc0, phiVn_eff,
+      VsMax, vsExceedsMax, phiVnSectionLimit,
       shearDemand, shearDemandSource, VuLimit_minStir, needsMinStir, AvMinPerS, hasMinStir, needsShearRebar, okShearMin,
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
       okShearSpacing, torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, Tu_th
@@ -2708,6 +2710,7 @@ ${layerBars.map(L => {
 【3】總剪力強度
   φVn = ${forceVc0?'φVs':'φVc + φVs'}
       = ${RCUI.formatFinite(phiVn_eff/1000,2)} tf
+  斷面上限 (22.5.1.2): φ(Vc + 2.12λ√fc'·bw·d) = 0.75·(${RCUI.formatFinite(Vc/1000,2)} + ${RCUI.formatFinite(VsMax/1000,2)}) = ${RCUI.formatFinite(phiVnSectionLimit/1000,2)} tf${vsExceedsMax?'  ⚠ Vs 超過 2.12λ√fc′bw·d，超出部分不計入':''}
 
 【4】檢核
   Vd = ${RCUI.formatFinite(shearDemand/1000,2)} tf (${shearDemandSource} 控制)
@@ -2898,6 +2901,7 @@ ${layerBars.map(L => {
       AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo,
       Mcr, Mcr_pos, Mcr_neg, fr, Ig, yt_pos, yt_neg,
       Vc_kgf: Vc, phiVc_kgf: phiVc, phiVs_kgf: phiVs, phiVn_kgf: phiVn_eff,
+      VsMax_kgf: VsMax, vsExceedsMax, phiVnSectionLimit,
       forceVc0, shearDemand, shearDemandSource, needsMinStir, AvMinPerS, AvProvidedPerS, hasMinStir, needsShearRebar,
       okShearStrength, okShearMin, okShearSpacing,
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
@@ -3386,8 +3390,8 @@ ${layerBars.map(L => {
           sub:`= 0.75·${r.Av.toFixed(2)}·${r.fyt}·${r.d.toFixed(1)}/${r.s} = ${(r.phiVs_kgf/1000).toFixed(2)} tf`,
           value:`${(r.phiVs_kgf/1000).toFixed(2)}`, unit:'tf', ok:null },
         { label:'φVn ≥ Vd',
-          formula:'Vd = max(Vu, Ve) when SMRF is enabled; otherwise Vd = Vu',
-          sub:`φVn = ${(r.phiVn_kgf/1000).toFixed(2)} tf    Vd = ${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})`,
+          formula:'Vd = max(Vu, Ve) when SMRF is enabled; otherwise Vd = Vu；φVn ≤ φ(Vc + 2.12λ√fc′bw·d) (22.5.1.2)',
+          sub:`φVn = ${(r.phiVn_kgf/1000).toFixed(2)} tf    Vd = ${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})${r.vsExceedsMax?`；Vs 超過上限，φVn 取斷面上限 ${(r.phiVnSectionLimit/1000).toFixed(2)} tf`:''}`,
           value:`${(r.phiVn_kgf/1000).toFixed(2)} / ${(r.shearDemand/1000).toFixed(2)}`, unit:'tf', ok:r.okShearStrength },
         { label:'Av/s ≥ Av,min/s',
           formula:'Av,min/s = max(0.2√fc bw/fyt, 3.5 bw/fyt)',

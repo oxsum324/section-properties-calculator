@@ -44,17 +44,23 @@
     const lambdaS = Math.min(1, Math.sqrt(2 / (1 + Math.max(d, 0) / 25)));
     const VcSimple = vcSimpleStress * bw * d;
     const VcRho = vcRhoStress * bw * d;
-    const VcRaw = hasMinStir ? Math.max(VcSimple, VcRho) : lambdaS * VcRho;
+    // 表 22.5.5.1(c)：Av < Av,min 時 λs 僅乘混凝土項 2.12λs·λ·ρw^(1/3)·√fc'，不乘 Nu/(6Ag)
+    const VcSizeEffect = Math.max(0, lambdaS * 2.12 * lambda * Math.cbrt(rhoForVc) * sqrtFc + axialStress) * bw * d;
+    const VcRaw = hasMinStir ? Math.max(VcSimple, VcRho) : VcSizeEffect;
     const VcMax = 1.33 * lambda * sqrtFc * bw * d;
     const Vc = Math.max(0, Math.min(VcRaw, VcMax));
     const phiVc = phiShear * Vc;
     const VsProvided = s > 0 ? Av * fyt * d / s : 0;
     const phiVs = phiShear * VsProvided;
     const phiVn = phiVc + phiVs;
+    // 22.5.1.2 斷面尺寸上限：Vu ≤ φ(Vc + 2.12λ√fc'·bw·d)；超過部分之 Vs 不得計入
+    const VsMax = 2.12 * lambda * sqrtFc * bw * d;
+    const vsExceedsMax = VsProvided > VsMax + 1e-9;
+    const phiVnSectionLimit = phiShear * (Vc + VsMax);
     const shearDemand = seismic ? Math.max(Vu, Ve) : Vu;
     const shearDemandSource = seismic && Ve > Vu ? 'Ve' : 'Vu';
     const forceVc0 = seismic && Ve > 0.5 * shearDemand && Pu < Ag * fc / 20;
-    const phiVnEff = forceVc0 ? phiVs : phiVn;
+    const phiVnEff = Math.min(forceVc0 ? phiVs : phiVn, phiVnSectionLimit);
 
     const torsionActive = base?.enableTorsion === true;
     let TuThreshold = 0;
@@ -80,6 +86,7 @@
       status:'evaluated', valid:true,
       Pu, Vu, Tu, lambda, Vc, phiVc, Av, AvProvidedPerS,
       Vs_provided:VsProvided, phiVs, phiVn, forceVc0, phiVn_eff:phiVnEff,
+      VsMax, vsExceedsMax, phiVnSectionLimit,
       shearDemand, shearDemandSource, AvMinPerS, hasMinStir,
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress,
       Tu_th:TuThreshold, torNegligible:torsionNegligible,

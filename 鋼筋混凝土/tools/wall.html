@@ -1566,7 +1566,7 @@
       wallType,
     };
     const inplaneCapacity = WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase);
-    const { eLimit, eOk, Ag, Pn, Acv, hwlw, alpha_c, Vn, phiVn, VnLimit } = inplaneCapacity;
+    const { eLimit, eOk, Ag, Pn, Acv, hwlw, alpha_c, Vn, phiVn, VnLimit, VnFormula, VnCap, vnCapGoverns } = inplaneCapacity;
     const phiPn = inplaneCapacity.phiPn == null ? NaN : inplaneCapacity.phiPn;
     const pmDemand = WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase, { P:Pu / 1000, M:MuIn });
     const okPM = pmDemand.status === 'evaluated' && pmDemand.ok;
@@ -1575,7 +1575,11 @@
     const needTwoLayer = Wall.needTwoLayer({ Vu, phi: PHI.shear, alpha_c, lambda, fc, Acv, hwlw });
 
     // === 表 11.6.1 鋼筋比下限 ===
-    const { rholMin, rhotMin } = Wall.minRho({ seismic, isShearWall, needTwoLayer, hwlw, rhot });
+    // 11.6.2 高剪力判定：Vu > 0.5·φ·αc·λ·√fc'·Acv
+    const highShearWall = Vu > 0.5 * PHI.shear * alpha_c * lambda * Math.sqrt(fc) * Acv;
+    const rhotRequiredShear = (Vu / (PHI.shear * Acv) - alpha_c * lambda * Math.sqrt(fc)) / fy;
+    const { rholMin, rhotMin } = Wall.minRho({ seismic, isShearWall, needTwoLayer, hwlw, rhot, fy,
+      dbV: REBAR_TABLE[vBar].db, dbH: REBAR_TABLE[hBar].db, highShear: highShearWall, rhotRequired: rhotRequiredShear });
 
     // === 面外撓曲 (Alternative method, 規範 11.8) ===
     // 取單位寬度 b=100 cm
@@ -2063,7 +2067,8 @@
 【2】面內剪力 (規範 11.5.4)
   Vn = Acv·(αc·λ·√fc' + ρt·fy)
      = ${fmt(Acv,0)}·(${fmt(alpha_c,3)}·${fmt(lambda,2)}·√${fc} + ${fmt(rhot,4)}·${fy})
-     = ${fmt(Vn/1000,1)} tf
+     = ${fmt(VnFormula/1000,1)} tf
+  Vn ≤ 2.12·λ·√fc'·Acv = ${fmt(VnCap/1000,1)} tf → 採用 Vn = ${fmt(Vn/1000,1)} tf${vnCapGoverns?'（上限控制）':''}
   φVn = 0.75·Vn = ${fmt(phiVn/1000,1)} tf
   檢核: φVn ${phiVn>=Vu?'≥':'<'} Vu = ${fmt(Vu/1000,1)} → ${phiVn>=Vu?'✓':'✗'}
   單段上限: Vn ≤ 2.65·√fc'·Acv = ${fmt(VnLimit/1000,1)} tf
@@ -2175,7 +2180,7 @@ ${basementStepTxt}
       dbV: REBAR_TABLE[vBar]?.db,
       hmin, Ag, Pn_kgf:Pn, phiPn_kgf:phiPn,
       rhol, rhot, rholMin, rhotMin, needTwoLayer,
-      Acv, hwlw, alpha_c, Vn_kgf:Vn, phiVn_kgf:phiVn, VnLimit_kgf:VnLimit,
+      Acv, hwlw, alpha_c, Vn_kgf:Vn, phiVn_kgf:phiVn, VnLimit_kgf:VnLimit, VnFormula_kgf:VnFormula, VnCap_kgf:VnCap, vnCapGoverns,
       hSugg, layerSugg, designSearch,
       okH, okRhol, okRhot, okLayers, okAxial, okPM, okShear:okShearChk,
       // gates
@@ -2708,8 +2713,8 @@ ${basementStepTxt}
         { label:'αc 內插', formula:'hw/lw ≤1.5→0.80, ≥2.0→0.53',
           sub:`hw/lw = ${r.hwlw.toFixed(2)}  →  αc = ${r.alpha_c.toFixed(3)}`,
           value:r.alpha_c.toFixed(3), ok:null },
-        { label:'φVn ≥ Vu', formula:'φVn = 0.75·Acv·(αc·λ·√fc + ρt·fy)',
-          sub:`Acv=${r.Acv}, ρt=${r.rhot.toFixed(4)}  →  φVn=${(r.phiVn_kgf/1000).toFixed(1)} tf`,
+        { label:'φVn ≥ Vu', formula:'φVn = 0.75·min[Acv·(αc·λ·√fc + ρt·fy), 2.12λ√fc·Acv]',
+          sub:`Acv=${r.Acv}, ρt=${r.rhot.toFixed(4)}  →  φVn=${(r.phiVn_kgf/1000).toFixed(1)} tf${r.vnCapGoverns?'（2.12λ√fc·Acv 上限控制）':''}`,
           value:`${(r.phiVn_kgf/1000).toFixed(1)} / ${(r.Vu_kgf/1000).toFixed(1)}`, unit:'tf', ok:r.okShear },
         ...(r.seismic?[{ label:'Vu ≤ Vn上限', formula:'2.65√fc·Acv',
           sub:`Vn上限 = ${(r.VnLimit_kgf/1000).toFixed(1)} tf`,

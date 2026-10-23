@@ -111,6 +111,10 @@
     const alpha_c = Wall.alphaC(geom.hwlw);
     const Vn = Wall.vn({ Acv: geom.Acv, alpha_c, lambda: g.lambda, fc: g.fc, rhot, fy: g.fyt });
     const VnMaxSingle = Wall.vnMaxSingle(g.fc, geom.Acv);
+    // 18.7.4.4：共同抵抗側力之全部牆段 ΣVn ≤ 2.12λ√fc'·ΣAcv；單一實心牆即為全部牆段，故此上限控制
+    const VnMaxTotal = Wall.vnMaxTotal(g.fc, g.lambda, geom.Acv);
+    const VnMaxGoverning = Math.min(VnMaxSingle, VnMaxTotal);
+    const VnCapped = Math.min(Vn, VnMaxGoverning);
 
     const bc = Math.max(0, g.tw - 2 * g.coreCover);
     const sbeCoreLength = Math.max(0, g.lbe - 2 * g.coreCover);
@@ -162,6 +166,9 @@
       alpha_c,
       Vn,
       VnMaxSingle,
+      VnMaxTotal,
+      VnMaxGoverning,
+      VnCapped,
       bc,
       sbeCoreLength,
       sbeAg,

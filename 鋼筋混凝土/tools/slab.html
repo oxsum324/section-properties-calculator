@@ -1571,6 +1571,7 @@
 
     // 各 support 類型的代號 → 中文 (用於說明)
     const SUP_NAME = { simple:'簡支代表跨', oneEnd:'端跨 (一端外端)', bothEnd:'內跨 (兩端連續)', cantilever:'懸臂' };
+    const SHEAR_COEF_TEXT = { simple:'1/2', oneEnd:'1.15/2', bothEnd:'1/2', cantilever:'1' };
     const stripAnalysis = SlabEvaluator.analyzeStripMoments({
       stype: isOneWay ? 'one' : 'two', Lx, Ly, wu, supportX: supX, supportY: supY,
     });
@@ -1600,9 +1601,9 @@
         });
       }
       moments.push({
-        dir:'X', loc:'剪力 V (d 處)', coef:'wu·ℓn/2', M: 0, V: VuLine,
-        ref: '支承反力之半',
-        step: `Vu = wu × ℓn / 2 = ${wuT.toFixed(3)} × ${lnX.toFixed(2)} / 2 = ${VuLine.toFixed(3)} tf/m`
+        dir:'X', loc:'剪力 V (d 處)', coef:`${SHEAR_COEF_TEXT[supX] || '1/2'}·wu·ℓn`, M: 0, V: VuLine,
+        ref: '規範 6.5.4 剪力係數 (內跨/簡支 1/2、端跨第一內支承 1.15/2、懸臂 1)',
+        step: `Vu = ${SHEAR_COEF_TEXT[supX] || '1/2'} × wu × ℓn = ${stripAnalysis.shearFactorX.toFixed(3)} × ${wuT.toFixed(3)} × ${lnX.toFixed(2)} = ${VuLine.toFixed(3)} tf/m`
       });
       moments.push({ dir:'Y', loc:'長向 (僅溫度收縮筋)', coef:'—', M: 0, V: 0,
         ref:'長短向比 > 2 → 長向不分擔撓曲，僅配溫度收縮筋' });
@@ -1687,14 +1688,14 @@
       const VuX = stripAnalysis.VuX;       // tf/m
       const VuY = stripAnalysis.VuY;
       moments.push({
-        dir:'X (短)', loc:'剪力 V', coef:'α_x·wu·ℓnx/2', M:0, V:VuX,
-        ref:'支承反力之半 (短向 strip)',
-        step:`Vu_x = α_x·wu·ℓnx/2 = ${alphaX.toFixed(3)}×${wu.toFixed(3)}×${lnX.toFixed(2)}/2 = ${VuX.toFixed(3)} tf/m`
+        dir:'X (短)', loc:'剪力 V', coef:`${SHEAR_COEF_TEXT[supX] || '1/2'}·α_x·wu·ℓnx`, M:0, V:VuX,
+        ref:'規範 6.5.4 剪力係數 (短向 strip)',
+        step:`Vu_x = ${stripAnalysis.shearFactorX.toFixed(3)}·α_x·wu·ℓnx = ${stripAnalysis.shearFactorX.toFixed(3)}×${alphaX.toFixed(3)}×${wu.toFixed(3)}×${lnX.toFixed(2)} = ${VuX.toFixed(3)} tf/m`
       });
       moments.push({
-        dir:'Y (長)', loc:'剪力 V', coef:'α_y·wu·ℓny/2', M:0, V:VuY,
-        ref:'支承反力之半 (長向 strip)',
-        step:`Vu_y = α_y·wu·ℓny/2 = ${alphaY.toFixed(3)}×${wu.toFixed(3)}×${lnY.toFixed(2)}/2 = ${VuY.toFixed(3)} tf/m`
+        dir:'Y (長)', loc:'剪力 V', coef:`${SHEAR_COEF_TEXT[supY] || '1/2'}·α_y·wu·ℓny`, M:0, V:VuY,
+        ref:'規範 6.5.4 剪力係數 (長向 strip)',
+        step:`Vu_y = ${stripAnalysis.shearFactorY.toFixed(3)}·α_y·wu·ℓny = ${stripAnalysis.shearFactorY.toFixed(3)}×${alphaY.toFixed(3)}×${wu.toFixed(3)}×${lnY.toFixed(2)} = ${VuY.toFixed(3)} tf/m`
       });
       // 暴露給後續：剪力檢核仍使用 VuX/VuY
       window.__slab_alphaX = alphaX; window.__slab_alphaY = alphaY;
@@ -2302,7 +2303,7 @@
             ? 'hmin = ℓn/k · (0.4+fy/7000)'
             : (r.stype==='two'
                 ? 'hmin = ℓn(0.8+fy/14000) / [36+5β(α_fm−0.2) 或 36+9β]'
-                : 'hmin = ℓn/k · (0.4+fy/7000)'),
+                : 'hmin = ℓn/k，k 依表 8.3.1.1 (fy 線性內插)'),
           sub: `淨跨 ℓnx = Lx − c = ${r.Lx} − ${r.supW} = ${r.lnX_cm.toFixed(1)} cm`
              + `\n淨跨 ℓny = Ly − c = ${r.Ly} − ${r.supW} = ${r.lnY_cm.toFixed(1)} cm`
              + (isFinite(r.alphaFm) ? `\nα_fm = ${r.alphaFm.toFixed(2)}` : '')

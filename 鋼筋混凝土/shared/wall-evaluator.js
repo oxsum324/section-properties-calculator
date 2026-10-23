@@ -72,6 +72,9 @@
     const cUsable = pmAxialOk && isFinite(cAtPu);
     const MnNomAtPu = WallEvaluator.nominalMomentAtPu(base.pm.nominal, Pu);
 
+    // 18.7.4.4：Vn 取公式值與 min(2.65√fc'Acw, 2.12λ√fc'ΣAcv) 之較小者
+    const VnCapLimit = Number.isFinite(base.VnMaxGoverning) ? base.VnMaxGoverning : base.VnMaxSingle;
+    const VnUse = Math.min(base.Vn, VnCapLimit);
     let shearPhiMode = 'flexure-comparison';
     let shearPhiNote = '';
     let Vmn_kgf = null;
@@ -81,19 +84,19 @@
       shearPhiNote = 'Ve=0，剪力需求不控制；φVn 僅列示容量。';
     } else if (MuAbs > 0 && MnNomAtPu > 0) {
       Vmn_kgf = (Ve * 1000) * (MnNomAtPu / MuAbs);
-      flexureControlled = base.Vn < Vmn_kgf;
+      flexureControlled = VnUse < Vmn_kgf;
       shearPhiNote = flexureControlled
-        ? `Vn=${(base.Vn/1000).toFixed(1)} tf < Vmn=${(Vmn_kgf/1000).toFixed(1)} tf，採 φ=0.60`
-        : `Vn=${(base.Vn/1000).toFixed(1)} tf ≥ Vmn=${(Vmn_kgf/1000).toFixed(1)} tf，採 φ=0.75`;
+        ? `Vn=${(VnUse/1000).toFixed(1)} tf < Vmn=${(Vmn_kgf/1000).toFixed(1)} tf，採 φ=0.60`
+        : `Vn=${(VnUse/1000).toFixed(1)} tf ≥ Vmn=${(Vmn_kgf/1000).toFixed(1)} tf，採 φ=0.75`;
     } else {
       shearPhiMode = 'vmn-not-applicable';
       shearPhiNote = 'Mu≤0 或 Mn@Pu≤0，Vmn=Ve·Mn/Mu 無法建立；須確認此工況之剪力 φ 採用依據。';
     }
 
     const phiShear = flexureControlled ? 0.60 : 0.75;
-    const phiVn = phiShear * base.Vn;
+    const phiVn = phiShear * VnUse;
     const shearOk = phiVn >= Ve * 1000 - 1e-9;
-    const vnMaxOk = Ve * 1000 <= phiShear * base.VnMaxSingle + 1e-9;
+    const vnMaxOk = Ve * 1000 <= phiShear * VnCapLimit + 1e-9;
     const needTwoLayer = Wall.needTwoLayer({
       Vu: Ve * 1000,
       phi: phiShear,

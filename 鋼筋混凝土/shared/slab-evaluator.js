@@ -21,6 +21,29 @@
     return SUPPORT_COEFFICIENTS[support] || SUPPORT_COEFFICIENTS.bothEnd;
   }
 
+  // 6.5.4 剪力係數 (Vu = k·wu·ℓn)：內跨 / 簡支 1/2；端跨第一內支承外側面 1.15/2；懸臂固定端 1.0
+  const SHEAR_FACTORS = Object.freeze({ simple:0.5, oneEnd:1.15 / 2, bothEnd:0.5, cantilever:1.0 });
+  function getShearFactor(support) {
+    return SHEAR_FACTORS[support] || SHEAR_FACTORS.bothEnd;
+  }
+
+  // 表 8.3.1.1 無內梁雙向板最小厚度 ℓn/k（112 年版原 PDF p.97，fy 列 2800／4200／5600）；fy 介於表列值之間時線性內插 (fy < 2800 取 2800 列)
+  const FLAT_THICKNESS_TABLE = Object.freeze([
+    Object.freeze({ fy:2800, noDrop:{ extNoBeam:33, extWithBeam:36, interior:36 }, drop:{ extNoBeam:36, extWithBeam:40, interior:40 } }),
+    Object.freeze({ fy:4200, noDrop:{ extNoBeam:30, extWithBeam:33, interior:33 }, drop:{ extNoBeam:33, extWithBeam:36, interior:36 } }),
+    Object.freeze({ fy:5600, noDrop:{ extNoBeam:27, extWithBeam:30, interior:30 }, drop:{ extNoBeam:30, extWithBeam:33, interior:33 } }),
+  ]);
+  function flatThicknessRatio(fy, hasDrop, panelPos) {
+    const key = hasDrop ? 'drop' : 'noDrop';
+    const pos = ['extNoBeam', 'extWithBeam', 'interior'].includes(panelPos) ? panelPos : 'interior';
+    const rows = FLAT_THICKNESS_TABLE.map(row => ({ fy:row.fy, k:row[key][pos], ratio:1 / row[key][pos] }));
+    const f = Math.max(Number(fy), rows[0].fy);
+    let lo = rows[0], hi = rows[1];
+    if (f > rows[1].fy) { lo = rows[1]; hi = rows[2]; }
+    const ratio = lo.ratio + (hi.ratio - lo.ratio) * (f - lo.fy) / (hi.fy - lo.fy);
+    return { ratio, kEq:1 / ratio, k4200:rows[1].k, extrapolated:Number(fy) > rows[2].fy };
+  }
+
   function supportName(support) {
     return ({
       simple:'簡支代表跨', oneEnd:'端跨 (一端外端)', bothEnd:'內跨 (兩端連續)', cantilever:'懸臂',
@@ -55,10 +78,11 @@
     if (stype === 'two') {
       const alphaFm = Number(input.alphaFm) || 0;
       if (alphaFm <= 0.2) {
-        const hmin = Math.max(lnLong / 30 * fyFactor1Way, 12.5);
+        const tbl = flatThicknessRatio(fy, false, 'extNoBeam');
+        const hmin = Math.max(lnLong * tbl.ratio, 12.5);
         return {
-          hmin, lnX, lnY, lnLong, lnShort, beta, denominator:30,
-          formula:`α_fm=${alphaFm.toFixed(2)} ≤ 0.2 → 套用 8.3.1.1; max(ℓn/30·(0.4+fy/7000), 12.5)\n  = max(${lnLong.toFixed(1)}/30×${fyFactor1Way.toFixed(3)}, 12.5)`,
+          hmin, lnX, lnY, lnLong, lnShort, beta, denominator:tbl.kEq,
+          formula:`α_fm=${alphaFm.toFixed(2)} ≤ 0.2 → 套用表 8.3.1.1 (外版無邊梁列，fy=${fy} 線性內插 k=${tbl.kEq.toFixed(2)}); max(ℓn/k, 12.5)\n  = max(${lnLong.toFixed(1)}/${tbl.kEq.toFixed(2)}, 12.5)`,
           reference:'規範 8.3.1.2(a) → 8.3.1.1 (α_fm ≤ 0.2)',
           branch:'two-way-low-alpha',
         };
@@ -85,13 +109,14 @@
 
     const hasDrop = stype === 'flatDrop';
     const panelPos = input.panelPos || 'interior';
-    const factor = hasDrop ? (panelPos === 'extNoBeam' ? 33 : 36) : (panelPos === 'extNoBeam' ? 30 : 33);
+    const tbl = flatThicknessRatio(fy, hasDrop, panelPos);
+    const factor = tbl.kEq;
     const positionName = ({ interior:'內版', extWithBeam:'外版(有邊梁)', extNoBeam:'外版(無邊梁)' })[panelPos] || panelPos;
     const absoluteMinimum = hasDrop ? 10 : 12.5;
-    const hmin = Math.max(lnLong / factor * fyFactor1Way, absoluteMinimum);
+    const hmin = Math.max(lnLong * tbl.ratio, absoluteMinimum);
     return {
       hmin, lnX, lnY, lnLong, lnShort, beta, factor, absoluteMinimum,
-      formula:`${positionName}${hasDrop?'·有柱頭板':'·無柱頭板'}: max(ℓn/${factor}·(0.4+fy/7000), ${absoluteMinimum})\n  = max(${lnLong.toFixed(1)}/${factor}×${fyFactor1Way.toFixed(3)}, ${absoluteMinimum})`,
+      formula:`${positionName}${hasDrop?'·有柱頭板':'·無柱頭板'}: 表 8.3.1.1 fy=${fy} 線性內插 k=${factor.toFixed(2)}${tbl.extrapolated?' (fy>5600 外插)':''}; max(ℓn/k, ${absoluteMinimum})\n  = max(${lnLong.toFixed(1)}/${factor.toFixed(2)}, ${absoluteMinimum})`,
       reference:`規範 8.3.1.1 (${positionName}${hasDrop?'，有柱頭板':'，無柱頭板'})`,
       branch:hasDrop ? 'flat-drop' : 'flat',
     };
@@ -113,7 +138,8 @@
         lnX:Lx, lnY:Ly, mRatio:Lx / Ly, alphaX:1, alphaY:0,
         Xpos:stripMoment({ wu, spanM:Lx, coefficient:cfX.pos }),
         Xneg:stripMoment({ wu, spanM:Lx, coefficient:cfX.neg }),
-        Ypos:0, Yneg:0, VuX:wu * Lx / 2, VuY:0,
+        Ypos:0, Yneg:0, VuX:getShearFactor(input.supportX) * wu * Lx, VuY:0,
+        shearFactorX:getShearFactor(input.supportX), shearFactorY:NaN,
       };
     }
     const mRatio = Lx / Ly;
@@ -126,8 +152,10 @@
       Xneg:stripMoment({ wu, alpha:alphaX, spanM:Lx, coefficient:cfX.neg }),
       Ypos:stripMoment({ wu, alpha:alphaY, spanM:Ly, coefficient:cfY.pos }),
       Yneg:stripMoment({ wu, alpha:alphaY, spanM:Ly, coefficient:cfY.neg }),
-      VuX:alphaX * wu * Lx / 2,
-      VuY:alphaY * wu * Ly / 2,
+      VuX:getShearFactor(input.supportX) * alphaX * wu * Lx,
+      VuY:getShearFactor(input.supportY) * alphaY * wu * Ly,
+      shearFactorX:getShearFactor(input.supportX),
+      shearFactorY:getShearFactor(input.supportY),
     };
   }
 
@@ -153,7 +181,7 @@
     return { rho:Math.max(0.0018 * 4200 / fy, 0.0014), branch:'fy-gt-4200' };
   }
 
-  const api = { getCoefficients, minimumThickness, stripMoment, analyzeStripMoments, sizeEffectLambda, oneWayShearNoReinf, temperatureRatio };
+  const api = { getCoefficients, getShearFactor, flatThicknessRatio, minimumThickness, stripMoment, analyzeStripMoments, sizeEffectLambda, oneWayShearNoReinf, temperatureRatio };
   globalScope.SlabEvaluator = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

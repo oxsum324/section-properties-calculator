@@ -80,6 +80,9 @@
       Acv,
       hwlw,
     });
+    // 11.6.2 高剪力判定：Vu > 0.5·φ·αc·λ·√fc'·Acv
+    const highShear = Math.abs(V) * 1000 > 0.5 * Number(base.phiShear) * alpha_c * Number(base.lambda) * Math.sqrt(Number(base.fc)) * Acv;
+    const rhotRequired = (Math.abs(V) * 1000 / (Number(base.phiShear) * Acv) - alpha_c * Number(base.lambda) * Math.sqrt(Number(base.fc))) / Number(base.fy);
     const layersOptions = needTwoLayer || isShearWall ? [2] : [1, 2];
     const limits = Wall.spacingLimits(h, lw);
     const vSpacingMax = isShearWall ? Math.min(limits.general, limits.inplaneVertical) : limits.general;
@@ -99,7 +102,7 @@
         for (const hSp of spacings) {
           if (hSp > hSpacingMax + 1e-9) continue;
           const rhot = layers * hInfo.area / (h * hSp);
-          const mins = Wall.minRho({ seismic, isShearWall, needTwoLayer, hwlw, rhot });
+          const mins = Wall.minRho({ seismic, isShearWall, needTwoLayer, hwlw, rhot, fy:Number(base.fy), dbH:hInfo.db, highShear, rhotRequired });
           if (rhot + 1e-12 < mins.rhotMin) continue;
 
           const shearBase = { ...base, hBarDb:hInfo.db, layers, rhot };
@@ -121,7 +124,8 @@
             for (const vSp of spacings) {
               if (vSp > vSpacingMax + 1e-9) continue;
               const rhol = layers * vInfo.area / (h * vSp);
-              if (rhol + 1e-12 < mins.rholMin) continue;
+              const minsV = Wall.minRho({ seismic, isShearWall, needTwoLayer, hwlw, rhot, fy:Number(base.fy), dbV:vInfo.db, dbH:hInfo.db, highShear, rhotRequired });
+              if (rhol + 1e-12 < minsV.rholMin) continue;
 
               for (const boundary of boundaryOptions) {
                 const bInfo = boundary.enabled ? barTable[boundary.bar] : null;

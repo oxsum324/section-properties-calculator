@@ -7,6 +7,7 @@ $pmSectionTest = Join-Path (Split-Path -Parent $root) 'shared\pmsection.test.js'
 $columnEvaluatorTest = Join-Path (Split-Path -Parent $root) 'shared\column-evaluator.test.js'
 $columnRebarDesignerTest = Join-Path (Split-Path -Parent $root) 'shared\column-rebar-designer.test.js'
 $columnTransverseDesignerTest = Join-Path (Split-Path -Parent $root) 'shared\column-transverse-designer.test.js'
+$devLengthTest = Join-Path (Split-Path -Parent $root) 'shared\devlength.test.js'
 $playwrightDepsScript = Join-Path $root 'ensure-playwright-deps.ps1'
 . $playwrightDepsScript -Root $root -PreferredDirName '.column-testdeps'
 
@@ -32,6 +33,12 @@ Write-Host "`n== Shared column transverse designer unit tests ==" -ForegroundCol
 node $columnTransverseDesignerTest
 if ($LASTEXITCODE -ne 0) {
   throw "shared column transverse designer tests failed with exit code $LASTEXITCODE"
+}
+
+Write-Host "`n== Shared development length unit tests (25.4.9 compression) ==" -ForegroundColor Cyan
+node $devLengthTest
+if ($LASTEXITCODE -ne 0) {
+  throw "shared development length tests failed with exit code $LASTEXITCODE"
 }
 
 Write-Host "`n== Column regression tests ==" -ForegroundColor Cyan

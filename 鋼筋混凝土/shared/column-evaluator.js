@@ -29,24 +29,38 @@
 
   ColumnEvaluator.magnifyAxis = function (axis, Pu, moment, swayMultiplier) {
     const Pc = Number(axis?.Pc);
-    const Cm = Math.max(0.4, Number(axis?.Cm) || 0.4);
+    const CmInput = Math.max(0.4, Number(axis?.Cm) || 0.4);
+    const momentAbs = Math.abs(Number(moment) || 0);
+    // 6.6.4.5.4：細長柱 M2 不得小於 M2,min = Pu·(1.5 + 0.03h) (cm)；M2,min 控制時 Cm 取 1.0
+    const minEccCm = Number(axis?.minEccCm);
+    const M2min = (!axis?.isShort && Number.isFinite(minEccCm) && minEccCm > 0 && Pu > 0) ? Pu * minEccCm / 100 : 0;
+    const m2minGoverns = M2min > momentAbs;
+    const M2used = m2minGoverns ? M2min : momentAbs;
+    const Cm = m2minGoverns ? 1.0 : CmInput;
     let delta = 1;
+    let deltaActual = 1;
     if (!axis?.isShort && Pc > 0) {
       const denominator = 1 - Pu / (0.75 * Pc);
       if (!(denominator > 0)) {
-        return { stable:false, Pc, Cm, delta:Infinity, moment:Infinity, reason:'Pu >= 0.75Pc' };
+        return { stable:false, Pc, Cm, delta:Infinity, moment:Infinity, momentActual:Infinity, M2min, M2used, m2minGoverns, reason:'Pu >= 0.75Pc' };
       }
       delta = Math.max(1, Cm / denominator);
+      deltaActual = Math.max(1, CmInput / denominator);
     }
     if (!Number.isFinite(swayMultiplier)) {
-      return { stable:false, Pc, Cm, delta, moment:Infinity, reason:'δs 無法建立' };
+      return { stable:false, Pc, Cm, delta, moment:Infinity, momentActual:Infinity, M2min, M2used, m2minGoverns, reason:'δs 無法建立' };
     }
     return {
       stable:true,
       Pc,
       Cm,
       delta,
-      moment:Math.abs(Number(moment) || 0) * delta * swayMultiplier,
+      moment:M2used * delta * swayMultiplier,
+      // 未套 M2,min 之放大彎矩；雙軸檢核時 M2,min 僅逐軸分別施加
+      momentActual:momentAbs * deltaActual * swayMultiplier,
+      M2min,
+      M2used,
+      m2minGoverns,
       reason:'',
     };
   };
@@ -100,16 +114,30 @@
     if (typeof capacityAtPu !== 'function') {
       return { status:'capacity-unresolved', ok:false, utilization:null, Pu, Mx, My, Mc:x.moment, Mcy:y.moment, reason:'雙向容量 evaluator 未提供' };
     }
+    // 6.6.4.5.4 M2,min 逐軸分別施加：(Mx 含 M2,min, My 實際) 與 (Mx 實際, My 含 M2,min) 取較不利者
+    const scenarios = (x.m2minGoverns || y.m2minGoverns)
+      ? [
+          { Mc:x.moment, Mcy:y.m2minGoverns ? y.momentActual : y.moment },
+          { Mc:x.m2minGoverns ? x.momentActual : x.moment, Mcy:y.moment },
+        ]
+      : [{ Mc:x.moment, Mcy:y.moment }];
     let surface;
+    let governing = scenarios[0];
     try {
-      surface = capacityAtPu({
-        ...(base.biaxialOptions || {}),
-        Pu,
-        Mx:x.moment,
-        My:y.moment,
-        phiMnAtPu,
-        phiMnyAtPu,
-      });
+      for (const scenario of scenarios) {
+        const trial = capacityAtPu({
+          ...(base.biaxialOptions || {}),
+          Pu,
+          Mx:scenario.Mc,
+          My:scenario.Mcy,
+          phiMnAtPu,
+          phiMnyAtPu,
+        });
+        if (!surface || !(Number(surface?.ratio) >= Number(trial?.ratio))) {
+          surface = trial;
+          governing = scenario;
+        }
+      }
     } catch (error) {
       return { status:'capacity-unresolved', ok:false, utilization:null, Pu, Mx, My, Mc:x.moment, Mcy:y.moment, reason:error instanceof Error ? error.message : String(error) };
     }
@@ -127,6 +155,8 @@
       deltaS:swayMultiplier,
       Mc:x.moment,
       Mcy:y.moment,
+      biaxialMc:governing.Mc,
+      biaxialMcy:governing.Mcy,
       phiMnAtPu,
       phiMnyAtPu,
       surface,

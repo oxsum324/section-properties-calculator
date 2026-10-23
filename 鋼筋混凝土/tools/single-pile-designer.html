@@ -991,7 +991,7 @@
     const Cp = mode === 'manual' ? safePositive(cpInput, 0.09) : 0.09;
     const B = Math.max(pileD_m, 1e-6);
     const D = Math.max(pileLength, 1e-6);
-    const Cs = mode === 'manual' ? safePositive(csInput, (0.93 + 0.16 * (D / B) * 0.5) * Cp) : (0.93 + 0.16 * (D / B) * 0.5) * Cp;
+    const Cs = mode === 'manual' ? safePositive(csInput, (0.93 + 0.16 * Math.sqrt(D / B)) * Cp) : (0.93 + 0.16 * Math.sqrt(D / B)) * Cp;
     const Ep = 15000 * Math.sqrt(Math.max(fc, 1)) * 10;
     const qo = Math.max(1, mode === 'manual' ? safePositive(qoInput, qbUlt || (Qb / Math.max(pileArea_m2, 1e-6))) : (qbUlt || (Qb / Math.max(pileArea_m2, 1e-6))));
     const Ws = ((Qb + xi * Qs) * pileLength) / Math.max(pileArea_m2 * Ep, 1e-6);

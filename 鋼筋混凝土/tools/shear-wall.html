@@ -402,7 +402,7 @@
           <div class="result-item" id="r-rhot"><span class="label">ρt 腹部橫筋</span><span class="value">—</span></div>
           <div class="result-item" id="r-Vn"><span class="label">Vn = Acv(αc·λ√fc+ρt·fy)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
           <div class="result-item" id="r-phiVn"><span class="label">φVn (φ=0.75)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
-          <div class="result-item" id="r-VnMax"><span class="label">Vn 上限 2.65√fc·Acv</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="r-VnMax"><span class="label">Vn 上限 min(2.65√fc·Acv, 2.12λ√fc·Acv)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
           <div class="result-item" id="c-shear"><span class="label">φVn ≥ Ve</span><span class="value">—</span></div>
           <div class="result-item" id="c-vnmax"><span class="label">Ve ≤ φ·Vn上限</span><span class="value">—</span></div>
           <div class="result-item" id="c-twolayer"><span class="label">雙層鋼筋網需求</span><span class="value">—</span></div>
@@ -1136,7 +1136,7 @@
       Ag, Acv, hwlw, isPier, fcOk, scopeWarnings, scopeOk, positiveGeomOk, coverOk, coreCoverOk, lbeCoverOk, lbeOverlapOk, geomModelOk, geomModelIssues,
       bars, aV, aH, aBE, AsBEend, rhol, rhot, AstTotal,
       pm, cAtPu, dem, pmAxialOk, pmOutOfRange,
-      alpha_c, Vn, VnMaxSingle,
+      alpha_c, Vn, VnMaxSingle, VnMaxGoverning,
       bc, sbeAg, sbeAch, sbeAgAchRatio, so, sbeSpLimit,
       AshReqEqA, AshReqEqB, AshReqControl, AshReqRatio, AshReq, AshProv,
       spVmax, spHmax,
@@ -1184,7 +1184,7 @@
     setResult('r-rhot', rhot.toFixed(4), '', 4);
     setResult('r-Vn', Vn / 1000, 'tf', 1);
     setResult('r-phiVn', phiVn / 1000, 'tf', 1, shearOk ? 'ok' : 'fail');
-    setResult('r-VnMax', VnMaxSingle / 1000, 'tf', 1);
+    setResult('r-VnMax', VnMaxGoverning / 1000, 'tf', 1);
     setCheck('c-shear', shearOk, `${(phiVn/1000).toFixed(0)} / ${Ve.toFixed(0)} tf`);
     setCheck('c-vnmax', vnMaxOk, vnMaxOk ? '✓ 未超上限' : '✗ 超剪力上限');
     setCheck('c-twolayer', twoLayerOk, needTwoLayer ? (g.nLayer >= 2 ? '✓ 已雙層' : '✗ 需雙層') : '單層可');
@@ -1483,8 +1483,9 @@ P-M 設計軸力範圍 = ${f(r.pmPMin,1)} ~ ${f(r.pmPMax,1)} tf；軸壓端受 �
 Vn = Acv·(αc·λ·√fc' + ρt·fy) = ${r.Acv}·(${f(r.alpha_c,3)}·${r.lambda}·√${r.fc} + ${f(r.rhot,4)}·${r.fyt})
    = ${f(r.Vn/1000,1)} tf
 ${shearPhiStep}
-φVn = ${f(r.phiShear,2)}·Vn = ${f(r.phiVn/1000,1)} tf  vs  Ve = ${f(r.Ve,1)} tf → ${r.shearOk?'✓':'✗'}
-Vn 上限 = 2.65√fc'·Acv = ${f(r.VnMaxSingle/1000,1)} tf；φ·上限 vs Ve → ${r.vnMaxOk?'✓':'✗'}
+Vn 上限 = min(2.65√fc'·Acv, 2.12λ√fc'·Acv) = min(${f(r.VnMaxSingle/1000,1)}, ${f(r.VnMaxTotal/1000,1)}) = ${f(r.VnMaxGoverning/1000,1)} tf（18.7.4.4；單一實心牆由 2.12 控制）
+φVn = ${f(r.phiShear,2)}·min(Vn, 上限) = ${f(r.phiVn/1000,1)} tf  vs  Ve = ${f(r.Ve,1)} tf → ${r.shearOk?'✓':'✗'}
+φ·上限 vs Ve → ${r.vnMaxOk?'✓':'✗'}
 雙層需求：${r.needTwoLayer?'須雙層':'單層可'} (Ve>0.5φαcλ√fc·Acv 或 hw/ℓw≥2)`;
 
     $('stepsDetailBody').textContent =
@@ -1801,8 +1802,8 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         { label:'設計剪力 Ve', formula:r.shearDemandMode === 'amplified' ? 'Ve=Vuns+Ωv·ωv·VuEh (18.7.3.1)' : 'Vu 已為設計剪力 Ve', sub:r.shearDemandMode === 'amplified' ? `Vuns=${r.Vuns.toFixed(1)}, VuEh=${r.VuEh.toFixed(1)}, Ωv=${r.omegaV.toFixed(2)}, ωv=${r.omegaW.toFixed(2)}` : '直接採用輸入剪力', value:r.Ve.toFixed(1), unit:'tf', ok:null },
         { label:'αc 內插', formula:'hw/ℓw≤1.5→0.80, ≥2.0→0.53', sub:`hw/ℓw=${r.hwlw.toFixed(2)}`, value:r.alpha_c.toFixed(3), ok:null },
         { label:'剪力 φ', formula:r.shearPhiMode === 'flexure-comparison' ? 'Vn<Vmn(=Ve·Mn/|Mu|) → φ=0.60 (21.2.4.1)' : (r.shearPhiMode === 'zero-shear' ? 'Ve=0，剪力需求不控制' : 'Mu 或 Mn@Pu 非正，Vmn=Ve·Mn/|Mu| 不適用'), sub:r.shearPhiNote, value:r.phiShear.toFixed(2), ok:null },
-        { label:'φVn ≥ Ve', formula:`φVn=${r.phiShear.toFixed(2)}·Acv(αc·λ√fc+ρt·fy)`, sub:`Acv=${r.Acv}, ρt=${r.rhot.toFixed(4)}`, value:`${(r.phiVn/1000).toFixed(1)} / ${r.Ve.toFixed(1)}`, unit:'tf', ok:r.shearOk },
-        { label:'Ve ≤ φ·Vn上限', formula:'Vn上限=2.65√fc·Acv', sub:`上限=${(r.VnMaxSingle/1000).toFixed(1)} tf`, value:`${r.Ve.toFixed(1)} / ${(r.phiShear*r.VnMaxSingle/1000).toFixed(1)}`, unit:'tf', ok:r.vnMaxOk },
+        { label:'φVn ≥ Ve', formula:`φVn=${r.phiShear.toFixed(2)}·min[Acv(αc·λ√fc+ρt·fy), Vn上限]`, sub:`Acv=${r.Acv}, ρt=${r.rhot.toFixed(4)}`, value:`${(r.phiVn/1000).toFixed(1)} / ${r.Ve.toFixed(1)}`, unit:'tf', ok:r.shearOk },
+        { label:'Ve ≤ φ·Vn上限', formula:'Vn上限=min(2.65√fc·Acv, 2.12λ√fc·Acv)', sub:`上限=${(r.VnMaxGoverning/1000).toFixed(1)} tf`, value:`${r.Ve.toFixed(1)} / ${(r.phiShear*r.VnMaxGoverning/1000).toFixed(1)}`, unit:'tf', ok:r.vnMaxOk },
         { label:'雙層鋼筋網', formula:'Ve>0.5φVc 或 hw/ℓw≥2 須雙層', sub:r.needTwoLayer?`須雙層, 目前 ${r.nLayer}`:'單層可', value:r.needTwoLayer?(r.nLayer>=2?'OK':'不足'):'單層', ok:r.twoLayerOk },
       ]},
       ...(r.loadCasesActive || r.loadCaseParseErrors.length ? [{ group:'多組載重工況控制', items:[
