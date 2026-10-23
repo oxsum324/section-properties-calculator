@@ -28,8 +28,10 @@
     #sensitivityResult table{min-width:0;table-layout:fixed}#sensitivityResult th{white-space:normal}#sensitivityResult th,#sensitivityResult td{overflow-wrap:anywhere}
     @media(max-width:920px){.main-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.span-3{grid-column:1/-1}}
     @media(max-width:560px){.page{padding:10px}.form-grid,.metrics{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.hero{padding:18px}.btn{width:100%}}
-    @media print{.page-only-report-status,.case-actions{display:none!important}}
+    @media print{.page-only-report-status,.case-actions,.tool-shell-dock .json-status{display:none!important}}
     .case-card.tool-shell-case{margin-bottom:0}.case-card.tool-shell-case .section-title{margin:0;padding:0;border:0}.case-card .tool-shell-case__more .case-actions{margin-top:0}.stack>.tool-shell-actions{margin:0}.tool-shell-dock.mode-bar{display:block}
+    /* ④ 輸出卡的 JSON 狀態列：「下載 JSON」在收合區外，確認訊息就近顯示；空白時高度為 0，不佔版面。 */
+    .tool-shell-dock .json-status{display:block;margin:0}.tool-shell-dock .json-status:not(:empty){margin-top:8px}
     @media screen and (min-width:561px){.case-card .tool-shell-case__more .case-actions .btn{width:auto;margin-top:0}}
     @media screen and (max-width:768px){.hero.tool-shell-header .hero-meta{gap:4px;margin-top:6px}.hero.tool-shell-header .tag{padding:1px 6px;font-size:var(--fs-xs)}.case-card.tool-shell-case{margin-top:10px}.case-card.tool-shell-case .section-title{flex:1 1 100%;font-size:var(--fs-base)}.case-card .tool-shell-case__fields .field label{font-size:var(--fs-xs);margin-bottom:2px}.case-card .tool-shell-case__fields .field input{padding:7px 8px}}
   </style>
@@ -64,7 +66,7 @@
         <button class="btn btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
         <button class="btn btn-danger" id="btnReset" type="button">恢復示例</button>
         <input id="jsonFile" type="file" accept="application/json,.json" hidden>
-        <span class="json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</span>
+        <span class="json-status" id="jsonStatus" role="status">JSON 可用於保存與回讀本頁案例。</span>
       </div>
       </details>
     </section>
@@ -121,6 +123,7 @@
             <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
             <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
           </div>
+          <p class="json-status" role="status" data-json-status="output"></p>
         </section>
       </div>
 
@@ -223,7 +226,9 @@
     }
     function renderCalculationFailure(message){lastResult=null;lastValidationMessage=String(message||'輸入或衍生計算不合法，已封鎖結果。');$('bannerStatus').className='banner-status fail';$('bannerStatus').textContent=lastValidationMessage;$('metricGrid').innerHTML='';$('checkList').innerHTML='';$('stepBody').innerHTML=`<div class="warning-box">${escapeHtml(lastValidationMessage)}</div>`;renderSensitivity(null);drawDiagram(null);renderReadiness(lastValidationMessage);return null;}
     function calculateCableTensionFrequency(){const input=gatherInputs();const errors=Core.validateInput(input);if(errors.length)return renderCalculationFailure(errors.join(' '));let result;try{result=Core.calculate(input);}catch(error){return renderCalculationFailure(`計算已封鎖：${error&&error.message?error.message:error}`);}lastResult=result;lastValidationMessage='';renderBanner(result);renderMetrics(result);renderChecks(result);renderSteps(result);renderSensitivity(result);drawDiagram(result);renderReadiness('');return result;}
-    function setJsonStatus(message,isError){$('jsonStatus').textContent=message;$('jsonStatus').style.color=isError?'#991b1b':'';}
+    function setJsonStatus(message,isError,target){const node=target||$('jsonStatus');node.textContent=message;node.style.color=isError?'#991b1b':'';}
+    // 「下載 JSON」在收合區外的 ④ 輸出卡：確認訊息寫入同卡的 role=status，收合區內的 #jsonStatus 只服務收合區內按鈕。
+    function setOutputJsonStatus(message,isError){setJsonStatus(message,isError,document.querySelector('[data-json-status="output"]'));}
     function applyProjectInfo(project){const data=project||{};if(data.name!=null)$('projName').value=Exporter.normalizeProjectFieldValue(data.name);if(data.no!=null)$('projNo').value=Exporter.normalizeProjectFieldValue(data.no);if(data.designer!=null)$('projDesigner').value=Exporter.normalizeProjectFieldValue(data.designer);saveProjectInfo();}
     function applyCaseSnapshot(snapshot){
       const source=snapshot||{};const normalized=Core.normalizeInput(source.input);const errors=Core.validateInput(normalized);if(errors.length)throw new Error(errors.join(' '));
@@ -273,7 +278,7 @@
       });
       payload.schema=CASE_SCHEMA_VERSION;payload.calculationFingerprint=reportTrace.calculationFingerprint;return payload;
     }
-    function downloadResultJson(){const payload=buildProjectPayload();if(!payload||!payload.result)return;Exporter.downloadJson(`cable-tension-frequency-${payload.generatedAt.slice(0,10)}.json`,payload);setJsonStatus('已產生含 schema、版本與計算指紋的 JSON，可用「讀取 JSON」驗證回復本頁案例。',false);}
+    function downloadResultJson(){const payload=buildProjectPayload();if(!payload||!payload.result)return;Exporter.downloadJson(`cable-tension-frequency-${payload.generatedAt.slice(0,10)}.json`,payload);setOutputJsonStatus('已產生含 schema、版本與計算指紋的 JSON，可用「讀取 JSON」驗證回復本頁案例。',false);}
     function downloadProjectJson(){const payload=buildProjectPayload();if(!payload||!payload.result)return;Exporter.downloadJson(`cable-tension-frequency-project-${payload.generatedAt.slice(0,10)}.json`,payload);setJsonStatus('已存檔含 schema、版本與計算指紋的案件 JSON；回讀時會重算核對。',false);}
 
     function reportRows(rows){return rows.map(row=>`<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join('');}

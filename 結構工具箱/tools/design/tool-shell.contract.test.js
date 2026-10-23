@@ -5,11 +5,13 @@
  *       結構工具箱/tools/cable-tension/cable-tension-frequency.html 與 結構工具箱/core/tool-shell.css
  * - 3 頁以 <link> 載入 tool-shell.css（位於既有共用樣式表之後、頁面內嵌 <style> 之前），全站不得 @import 它
  * - tool-shell.css 只用 colors_and_type.css token、無十六進位色、無 @import；版面規則一律包在 @media screen／print
- * - 舊「← 回主選單」連結已移除（頂欄提供），頁首帶 .tool-shell-header 與次要副標
+ * - 舊「← 回主選單」連結已移除（頂欄提供），頁首帶 .tool-shell-header 與次要副標；
+ *   RC 梁、Kzt 頁首另有 <noscript> 回首頁相對連結（.tool-shell-noscript，JS 正常時不渲染、列印隱藏）
  * - 主要動作列 .tool-shell-actions 恰好兩顆按鈕：開始計算＋計算書
  * - 案件表頭（計畫名稱／編號／設計人）一列且不收合；收合區只允許存讀檔類 id
  * - 執行期插入點：.mode-bar 位於輸入之後（RC 梁、鋼索），共用表頭列接在收合區內的 .project-storage-bar 後；
- *   Kzt 的 .mode-bar 為列印計畫資訊卡，所在的 .tool-shell-case-zone 由收合鈕控制執行期插入列
+ *   Kzt 的 .mode-bar 為列印計畫資訊卡，執行期插在其後的存讀檔列由頁面腳本移入原生 <details>（不以 :has() 收合兄弟）
+ * - 鋼索：收合區外的「下載 JSON」在 ④ 輸出卡有自己的 role=status 確認訊息；RC 梁子分頁靜態為具名 role=group
  * - 關鍵 id 全數保留：以下清單凍結自 HEAD 6958a2dd 的靜態標記（排除 <script>/<style>/註解），
  *   表單控制項文件順序亦凍結（JSON fields 鍵序與案例回讀依此）；class 只可增不可減（僅移除舊連結 class="back"）
  * 執行：node 結構工具箱/tools/design/tool-shell.contract.test.js
@@ -34,6 +36,7 @@ const PAGES = [
     boundary: '<div class="rc-direct-print-boundary" aria-hidden="true">',
     maxInlineStyleLines: 17,
     loadsWorkflow: true,
+    noscriptHome: '結構工具箱/index.html',
     primary: [
       { label: '開始計算', match: node => hasClass(node, 'btn-calc') && hasClass(node, 'mode-bar__report') },
       { label: '計算書', match: node => node.attrs.id === 'btnReport' },
@@ -81,6 +84,7 @@ const PAGES = [
     boundary: null,
     maxInlineStyleLines: 8,
     loadsWorkflow: false,
+    noscriptHome: '結構工具箱/index.html',
     primary: [
       { label: '計算 Kzt', match: node => node.attrs.id === 'btnCalc' },
       { label: '列印頁面結果', match: node => hasClass(node, 'mode-bar__report') },
@@ -100,6 +104,7 @@ const PAGES = [
     boundary: '<div class="local-quick-direct-print-boundary" aria-hidden="true">',
     maxInlineStyleLines: 4,
     loadsWorkflow: true,
+    noscriptHome: null,
     primary: [
       { label: '反算鋼索索力', match: node => node.attrs.id === 'btnCalc' },
       { label: '列印計算書', match: node => node.attrs.id === 'btnPrint' },
@@ -186,6 +191,7 @@ assert.equal(/(^|[;{\s])--[\w-]+\s*:/.test(shellBody), false, 'tool-shell.css de
   assert.ok(printBlock, 'tool-shell.css has a print block');
   assert.match(printBlock[1], /\.tool-shell-case__more/, 'print hides the collapse toggle');
   assert.match(printBlock[1], /\.tool-shell-actions/, 'print hides the primary action bar');
+  assert.match(printBlock[1], /\.tool-shell-noscript/, 'print hides the no-JavaScript home link');
   const outsidePrint = shellBody.replace(printBlock[0], '');
   assert.equal(outsidePrint.includes('!important'), false, 'screen rules do not use !important');
 }
@@ -193,7 +199,9 @@ const mobileBlock = shellBody.match(/@media\s+screen\s+and\s+\(max-width:\s*768p
 assert.ok(mobileBlock, 'tool-shell.css has the 768px mobile block before the print block');
 assert.match(mobileBlock[1], /\.tool-shell-actions\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*0;/, 'mobile primary actions are fixed to the viewport bottom (no runtime insertion, no layout shift)');
 assert.match(mobileBlock[1], /header\.tool-shell-header h1\s*\{[^}]*white-space:\s*nowrap;/, 'mobile header title stays on one line');
-assert.match(shellBody, /\.tool-shell-case-zone:has\(\.tool-shell-case__more:not\(\[open\]\)\)\s*>\s*:is\(\.project-storage-bar,\s*\.project-meta-profile-bar\)\s*\{\s*display:\s*none;/, 'collapsed case zone hides runtime storage/profile bars');
+// 存讀檔／共用表頭列改由原生 <details> 收合（Kzt 由頁面腳本移入），不再以 :has() 隱藏 <details> 之外的兄弟元素。
+assert.equal(/tool-shell-case-zone[^{]*:has\(/.test(shellBody), false, 'case zone no longer collapses sibling bars with :has()');
+assert.equal(/\.tool-shell-noscript\b[^{]*\{[^}]*display\s*:\s*none/.test(shellBody.replace(/@media\s+print\s*\{[\s\S]*$/, '')), false, 'no-JavaScript home link is not hidden on screen');
 
 /* ---------- 2. 全站不得以 @import 載入 tool-shell.css ---------- */
 {
@@ -242,6 +250,23 @@ for (const page of PAGES) {
   assert.equal(all(root, node => node.tag === 'h1' && !ancestors(node).some(parent => parent.attrs['aria-hidden'] === 'true')).length, 1, `${label}: one page h1`);
   assert.equal(html.includes('回主選單'), false, `${label}: legacy back-to-menu text removed`);
   assert.equal(all(root, node => node.tag === 'a' && hasClass(node, 'back')).length, 0, `${label}: legacy a.back removed`);
+  // 無 JS 退路：返回首頁原本完全依賴 defer 的 tool-chrome.js；<noscript> 內容在 JS 正常時不渲染（畫面與版面不變）。
+  const noscripts = all(root, node => node.tag === 'noscript');
+  if (page.noscriptHome) {
+    assert.equal(noscripts.length, 1, `${label}: one <noscript> fallback`);
+    assert.ok(within(noscripts[0], headers[0]), `${label}: <noscript> fallback sits in the page header`);
+    const fallback = all(noscripts[0], node => hasClass(node, 'tool-shell-noscript'));
+    assert.equal(fallback.length, 1, `${label}: <noscript> fallback uses .tool-shell-noscript (print-hidden)`);
+    const links = all(noscripts[0], node => node.tag === 'a');
+    assert.equal(links.length, 1, `${label}: <noscript> fallback holds one link`);
+    const href = links[0].attrs.href || '';
+    assert.ok(href && !href.startsWith('/') && !/^[a-z][\w+.-]*:/i.test(href), `${label}: <noscript> home link is relative (Pages subdirectory / file://): ${href}`);
+    const target = path.relative(repoRoot, path.resolve(path.dirname(abs(page.file)), href.split(/[?#]/)[0])).replace(/\\/g, '/');
+    assert.equal(target, page.noscriptHome, `${label}: <noscript> link returns to the toolbox home`);
+    assert.ok(fs.existsSync(abs(target)), `${label}: <noscript> home target exists`);
+  } else {
+    assert.equal(noscripts.length, 0, `${label}: no <noscript> fallback declared for this page`);
+  }
 
   // 3d. 主要動作：恰兩顆主要按鈕
   const bars = all(root, node => hasClass(node, 'tool-shell-actions'));
@@ -290,6 +315,15 @@ for (const page of PAGES) {
     assert.ok(within(modeBars[0], zone[0]) && modeBars[0] === caseRows[0], `${label}: the print-meta .mode-bar card is the case row inside the zone`);
     assert.ok(hasClass(modeBars[0], 'print-meta'), `${label}: print-meta card kept for page printing`);
     assert.equal(zone[0].children.at(-1), modeBars[0], `${label}: runtime bars insert directly after the case card, inside the zone`);
+    // 原生收合：project-storage.js 於 DOMContentLoaded 插入存讀檔列後，緊接其後註冊的頁面腳本把列移入 <details>；
+    // 該腳本須在 project-meta-profile.js 之前，共用表頭列才會接在已移入的 .project-storage-bar 之後。
+    const relocation = html.match(/<script src="\.\.\/project-storage\.js"[^>]*><\/script>\s*<script>([\s\S]*?)<\/script>/);
+    assert.ok(relocation, `${label}: a page script directly follows project-storage.js`);
+    for (const needle of ["'DOMContentLoaded'", '.tool-shell-case-zone .tool-shell-case__more', '.tool-shell-case-zone > .project-storage-bar', '.project-meta-profile-bar', 'appendChild']) {
+      assert.ok(relocation[1].includes(needle), `${label}: case-file bar relocation script includes ${needle}`);
+    }
+    assert.ok(relocation.index < html.lastIndexOf('project-meta-profile.js'), `${label}: relocation listener registers before project-meta-profile.js`);
+    assert.equal(details[0].children.length, 1, `${label}: static <details> holds only its summary (bars arrive at runtime)`);
   }
 
   // 3g. 凍結 id／控制項順序／class
@@ -314,6 +348,12 @@ for (const page of PAGES) {
   assert.equal(ancestors(group).some(node => hasClass(node, 'card')), false, 'beam: design/check switch no longer occupies a card');
   assert.ok(inputbar[0].order < byId(beam, 'mainTabs')[0].order, 'beam: input first row precedes the section tabs');
   assert.ok(hasClass(byId(beam, 'btnPrintReport')[0], 'secondary'), 'beam: direct print demoted to secondary');
+  // 子分頁靜態語意：按鈕未在標記中實作 tab 模式，故為具名 role=group（aria-label 才會被報讀）；
+  // tool-page-a11y.js 執行期再升級為完整 tablist（role=tab、aria-selected、aria-controls、方向鍵），由瀏覽器 a11y 測試驗證。
+  const tabs = byId(beam, 'mainTabs')[0];
+  assert.equal(tabs.attrs.role, 'group', 'beam: section tabs are a static role=group');
+  assert.ok(tabs.attrs['aria-label'], 'beam: section tab group has an accessible name');
+  assert.ok(tabs.children.length > 1 && tabs.children.every(node => node.tag === 'button' && !node.attrs.role && !('aria-selected' in node.attrs)), 'beam: static tab buttons claim no partial tab semantics');
 }
 {
   const kztHtml = read('結構工具箱/tools/風力/wind-kzt.html');
@@ -350,6 +390,17 @@ for (const page of PAGES) {
   assert.ok(within(byId(cable, 'btnJson')[0], dock) && within(byId(cable, 'reportMode')[0], dock), 'cable: JSON export and report mode stay in the output dock');
   // ④ 卡加上 .mode-bar 只為執行期插入點；core/style.css 的 .mode-bar 橫列版面須由頁面樣式還原為區塊。
   assert.ok(read('結構工具箱/tools/cable-tension/cable-tension-frequency.html').includes('.tool-shell-dock.mode-bar{display:block}'), 'cable: output dock keeps block layout despite .mode-bar');
+  // 收合區外的「下載 JSON」須有看得到的確認：④ 輸出卡內一個 role=status；收合區內 #jsonStatus 亦為 role=status。
+  assert.equal(byId(cable, 'jsonStatus')[0].attrs.role, 'status', 'cable: collapsed-area #jsonStatus is a status region');
+  const dockStatus = all(dock, node => node.attrs['data-json-status'] === 'output');
+  assert.equal(dockStatus.length, 1, 'cable: output dock has one JSON status region');
+  assert.equal(dockStatus[0].attrs.role, 'status', 'cable: output dock JSON status is role=status');
+  assert.equal(ancestors(dockStatus[0]).some(node => node.tag === 'details'), false, 'cable: output dock JSON status is never collapsed');
+  const cableHtml = read('結構工具箱/tools/cable-tension/cable-tension-frequency.html');
+  const downloadStart = cableHtml.indexOf('function downloadResultJson(');
+  const downloadBody = cableHtml.slice(downloadStart, cableHtml.indexOf('function ', downloadStart + 1));
+  assert.ok(downloadStart >= 0 && downloadBody.includes('setOutputJsonStatus('), 'cable: 下載 JSON writes its confirmation to the output dock status');
+  assert.ok(cableHtml.includes(`document.querySelector('[data-json-status="output"]')`), 'cable: output status setter targets the dock status region');
 }
 
 console.log(`tool-shell contract OK (${PAGES.length} pages; ${SHELL})`);

@@ -10,8 +10,10 @@
    範圍：版面規則一律 @media screen；列印、直接列印封鎖頁與計算書彈窗不受影響。
    DOM 約定（不改既有 id／class，只加 tool-shell-* class 與外層容器）：
      .tool-shell-header      壓縮頁首（手機標題一行、規範副標縮小）
+     .tool-shell-noscript    頁首內 <noscript> 的回首頁相對連結：只在未啟用 JavaScript（頂欄無法渲染）時出現，列印隱藏
      .tool-shell-case        案件表頭一列；.tool-shell-case__fields 三欄；.tool-shell-case__more 收合存讀檔與共用表頭
-     .tool-shell-case-zone   案件區外層：執行期插在 .mode-bar 後的存讀檔列／共用表頭列，於收合時隱藏（Kzt）
+     .tool-shell-case-zone   案件區外層（Kzt）：執行期插在 .mode-bar 後的存讀檔列／共用表頭列，由頁面腳本移入
+                             .tool-shell-case__more（原生 <details>），不以 CSS 收合兄弟元素
      .tool-shell-inputbar    輸入區第一列（作業模式＋主要動作）；.tool-shell-mode 作業模式群
      .tool-shell-actions     主要動作（開始計算、計算書）：桌機在表單上方；手機固定於視窗底部
      .tool-shell-dock        輸入區之後的輸出列，兼作計算操作面板（tool-workflow.js）的插入點；
@@ -32,6 +34,18 @@
     font-size: var(--fs-sm);
     line-height: var(--lh-snug);
     color: var(--fg-on-navy);
+  }
+  /* 未啟用 JavaScript 時的回首頁退路（<noscript> 內容在 JS 正常時不渲染，版面不變）。 */
+  header.tool-shell-header .tool-shell-noscript {
+    margin-top: var(--space-1);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+    color: var(--fg-on-navy);
+  }
+  header.tool-shell-header .tool-shell-noscript a {
+    color: var(--fg-on-navy);
+    font-weight: var(--fw-bold);
+    text-decoration: underline;
   }
 
   /* 2. 案件表頭一列 ------------------------------------------------------- */
@@ -86,10 +100,6 @@
   }
   .tool-shell-case__more[open] > summary {
     margin-bottom: var(--space-2);
-  }
-  /* 執行期插在案件卡後的存讀檔列與共用表頭列：收合時不佔版面，展開時接在案件卡下方。 */
-  .tool-shell-case-zone:has(.tool-shell-case__more:not([open])) > :is(.project-storage-bar, .project-meta-profile-bar) {
-    display: none;
   }
 
   /* 3. 輸入區第一列（作業模式＋主要動作） ---------------------------------- */
@@ -261,10 +271,11 @@
   }
 }
 
-/* 列印：收合鈕與主要動作列一律不進紙本（Kzt 頁面列印仍列出計畫資訊卡本身）。 */
+/* 列印：收合鈕、主要動作列與無 JS 回首頁連結一律不進紙本（Kzt 頁面列印仍列出計畫資訊卡本身）。 */
 @media print {
   .tool-shell-case__more,
-  .tool-shell-actions {
+  .tool-shell-actions,
+  .tool-shell-noscript {
     display: none !important;
   }
 }

@@ -44,11 +44,12 @@
 <header class="tool-shell-header">
   <h1>建築物耐風設計 — K<sub>zt</sub> 地形係數計算器 <span class="badge-v">V1.1</span></h1>
   <p class="tool-shell-header__sub">規範 §2.7 / Eq 2.8：K<sub>zt</sub> = (1 + K<sub>1</sub>·K<sub>2</sub>·K<sub>3</sub>)²</p>
+  <noscript><p class="tool-shell-noscript"><a href="../../index.html">← 結構工具箱首頁</a>（未啟用 JavaScript，頂欄導覽無法顯示）</p></noscript>
 </header>
 
 <div class="container" role="main">
-<!-- ① 案件表頭：計畫資訊一列（列印仍輸出本卡）。執行期插在本卡之後的存讀檔列與跨工具共用表頭列，
-     由「案件存讀檔與共用表頭」收合控制，收合時不佔版面，不推擠下方輸入。 -->
+<!-- ① 案件表頭：計畫資訊一列（列印仍輸出本卡）。執行期插入的存讀檔列與跨工具共用表頭列，
+     由頁尾腳本移入下方「案件存讀檔與共用表頭」<details>，以原生收合控制：收合時不佔版面，不推擠下方輸入。 -->
 <div class="tool-shell-case-zone">
 <div class="card mode-bar print-meta tool-shell-case">
   <strong class="mode-bar__label">計畫資訊：</strong>
@@ -385,6 +386,21 @@ document.querySelectorAll('.btn-print, .mode-bar__report').forEach((button) => {
 calc();
 </script>
 <script src="../project-storage.js" data-tool-id="wind-kzt" data-tool-name="Kzt 地形係數計算器" data-tool-version="V1.1"></script>
+<script>
+// 案件存讀檔列由 project-storage.js 於 DOMContentLoaded 插在案件卡（第一個 .mode-bar）之後；本監聽註冊在其後，
+// 隨即把該列移入案件卡內的 <details>，收合／展開與報讀狀態一律由原生 <details> 決定。
+// 本監聽也註冊在 project-meta-profile.js 之前，故共用表頭列會接在已移入的 .project-storage-bar 之後，同在 <details> 內。
+(function () {
+  function moveCaseBarsIntoDetails() {
+    const more = document.querySelector('.tool-shell-case-zone .tool-shell-case__more');
+    if (!more) return;
+    document.querySelectorAll('.tool-shell-case-zone > .project-storage-bar, .tool-shell-case-zone > .project-meta-profile-bar')
+      .forEach(bar => more.appendChild(bar));
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveCaseBarsIntoDetails);
+  else moveCaseBarsIntoDetails();
+})();
+</script>
 <script src="wind-shared-profile.js" data-wind-tool-id="wind-kzt"></script>
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>

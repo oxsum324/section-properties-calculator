@@ -912,6 +912,14 @@ git add -- "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/column-app
 git add -- "鋼筋混凝土/shared/project-replay.js" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" "鋼筋混凝土/tools/slab-regression.test.js" "鋼筋混凝土/tools/wall-regression.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" "鋼筋混凝土/tools/tests/fixtures/slab-project-v3.2-shear-flip.json" "鋼筋混凝土/tools/tests/fixtures/wall-project-v3.2-rhol-flip.json" "鋼筋混凝土/tools/audit-status.contract.test.js" "鋼筋混凝土/README.md" "結構工具箱/assets/home/src/home.source.js" STAGING_GROUPS.md
 ```
 
+### V18-審查修正-4 三頁首屏可用性
+
+審查第 6 項與 S1～S3：鋼索 ④ 輸出卡加 `role="status"` 狀態列（空白時高度 0），「下載 JSON」確認改寫於此；梁、Kzt 頁首加 `<noscript>` 相對首頁連結；梁子分頁靜態 `role="group"`（執行期仍升級為 tablist）；Kzt 存讀檔列移入原生 `<details>`，刪除 `:has()` 收合規則。四頁兩種寬度版面位移與列印截圖與 HEAD 相同。
+
+```powershell
+git add -- "鋼筋混凝土/tools/beam.html" "結構工具箱/tools/風力/wind-kzt.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "結構工具箱/core/tool-shell.css" "結構工具箱/tools/design/tool-shell.contract.test.js" STAGING_GROUPS.md
+```
+
 <!-- V18-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
