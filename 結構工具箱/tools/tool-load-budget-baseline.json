@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-10-23T06:07:06.054Z",
-  "sourceCommit": "e31c757ec605a398bd22b98e7c84350837229721",
+  "capturedAt": "2026-10-23T10:41:09.544Z",
+  "sourceCommit": "2b62f9a30f59ce2264e52644a4b1eadd498ed5ab",
   "routeCount": 53,
-  "totalJsBytes": 14324731,
+  "totalJsBytes": 14345255,
   "docxRuntimePath": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/package/dist/index.iife.js",
   "docxRuntimeBytes": 857630,
   "routes": [
@@ -144,7 +144,7 @@
     },
     {
       "route": "/rc-beam",
-      "jsBytes": 266996,
+      "jsBytes": 268551,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -208,7 +208,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=3",
-          "bytes": 3193
+          "bytes": 4748
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/forces-receive.js",
@@ -280,7 +280,7 @@
     },
     {
       "route": "/rc-column",
-      "jsBytes": 266807,
+      "jsBytes": 268362,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -344,7 +344,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=3",
-          "bytes": 3193
+          "bytes": 4748
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/forces-receive.js",
@@ -366,7 +366,7 @@
     },
     {
       "route": "/rc-slab",
-      "jsBytes": 237269,
+      "jsBytes": 238837,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -394,7 +394,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/slab-evaluator.js?v=2",
-          "bytes": 9200
+          "bytes": 9213
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -422,7 +422,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=3",
-          "bytes": 3193
+          "bytes": 4748
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -440,7 +440,7 @@
     },
     {
       "route": "/rc-wall",
-      "jsBytes": 270392,
+      "jsBytes": 271947,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -488,7 +488,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=3",
-          "bytes": 3193
+          "bytes": 4748
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/flexure.js?v=1",
@@ -526,7 +526,7 @@
     },
     {
       "route": "/rc-shear-wall",
-      "jsBytes": 265402,
+      "jsBytes": 266957,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -574,7 +574,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=3",
-          "bytes": 3193
+          "bytes": 4748
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/wall.js?v=3",
@@ -612,7 +612,7 @@
     },
     {
       "route": "/rc-foundation",
-      "jsBytes": 381172,
+      "jsBytes": 391762,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -640,11 +640,11 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/foundation-isolated.js?v=2",
-          "bytes": 5605
+          "bytes": 12494
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/foundation-pile.js?v=2",
-          "bytes": 15294
+          "bytes": 17440
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/retaining-base-demand.js?v=1",
@@ -708,7 +708,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/devlength.js?v=3",
-          "bytes": 3193
+          "bytes": 4748
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -799,7 +799,7 @@
           "bytes": 14880
         },
         {
-          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-cap-3d-stm-bridge.js",
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pile-cap-3d-stm-bridge.js?v=3",
           "bytes": 22932
         },
         {
@@ -842,7 +842,7 @@
     },
     {
       "route": "/rc-pile",
-      "jsBytes": 200310,
+      "jsBytes": 202456,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/common.js?v=4",
@@ -870,7 +870,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/foundation-pile.js?v=2",
-          "bytes": 15294
+          "bytes": 17440
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",

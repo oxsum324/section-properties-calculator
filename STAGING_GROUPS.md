@@ -785,6 +785,14 @@ Pages 部署流程之 `結構工具箱/tools/pages-live-smoke.js` 仍以 `V1.7` 
 git add -- "結構工具箱/tools/pages-live-smoke.js" STAGING_GROUPS.md
 ```
 
+### E3-載入預算基線
+
+經委託人授權，以 `node 結構工具箱/tools/tool-load-budget.browser.test.js --write-baseline` 重設 53 路由基準 14,324,731 → 14,345,255 bytes（基準 commit 7d4aabdf → 2b62f9a3）。檢查模式先列出 11 條 capacityDifferences：`devlength.js?v=3` 3,193 → 4,748（梁、柱、板、牆、剪力牆、基礎 6 路由）、`foundation-isolated.js?v=2` 5,605 → 12,494、`foundation-pile.js?v=2` 15,294 → 17,440（基礎、單樁）、`slab-evaluator.js?v=2` 9,200 → 9,213，以及 `/rc-pile-cap-3d-stm` 之 `pile-cap-3d-stm-bridge.js?v=3`（22,932 bytes，僅快取參數變更、大小不變）；功能失敗 0、來源未漂移。重設後檢查模式 0 失敗。基準 JSON 只能由該指令產生，不得手改。
+
+```powershell
+git add -- 結構工具箱/tools/tool-load-budget-baseline.json STAGING_GROUPS.md
+```
+
 <!-- E3-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
