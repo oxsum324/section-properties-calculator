@@ -130,19 +130,30 @@
       const svTop = sigmaV, svBot = sigmaV + gamma * h;
       const saTop = Ka * (svTop - uTop) - twoCsqrtKa; // 有效主動壓力
       const saBot = Ka * (svBot - uBot) - twoCsqrtKa;
-      const seg = segForceMoment(saTop, saBot, zTop, zBot, H);
-      soilForce += seg.force;
-      soilMoment += seg.moment;
-      // 自頂面延伸之張力裂縫深度（可跨層累計，直到有效主動壓力轉為正值）
-      if (crackOpen) {
-        if (saTop <= 0 && saBot <= 0) { tensionCrackDepth = zBot; }
-        else if (saTop <= 0 && saBot > 0) { tensionCrackDepth = zTop + (-saTop / (saBot - saTop)) * h; crackOpen = false; }
-        else { crackOpen = false; }
+      // 地下水位落在層內時，孔隙水壓於 zw 轉折，有效主動壓力非線性；於 zw 分段積分。
+      const pts = [{ z: zTop, sa: saTop }];
+      if (zw > zTop && zw < zBot) {
+        pts.push({ z: zw, sa: Ka * (svTop + gamma * (zw - zTop)) - twoCsqrtKa });
+      }
+      pts.push({ z: zBot, sa: saBot });
+      let layerForce = 0;
+      for (let k = 0; k + 1 < pts.length; k++) {
+        const p0 = pts[k], p1 = pts[k + 1];
+        const seg = segForceMoment(p0.sa, p1.sa, p0.z, p1.z, H);
+        soilForce += seg.force;
+        soilMoment += seg.moment;
+        layerForce += seg.force;
+        // 自頂面延伸之張力裂縫深度（可跨層累計，直到有效主動壓力轉為正值）
+        if (crackOpen) {
+          if (p0.sa <= 0 && p1.sa <= 0) { tensionCrackDepth = p1.z; }
+          else if (p0.sa <= 0 && p1.sa > 0) { tensionCrackDepth = p0.z + (-p0.sa / (p1.sa - p0.sa)) * (p1.z - p0.z); crackOpen = false; }
+          else { crackOpen = false; }
+        }
       }
       byLayer.push({
         type: Ly.type, typeLabel: SOIL_TYPE_LABELS[isClay ? 'clay' : 'sand'],
         h, gamma, phiDeg: numberValue(Ly.phi), c, Ka,
-        zTop, zBot, saTop, saBot, force: seg.force
+        zTop, zBot, saTop, saBot, force: layerForce
       });
       sigmaV = svBot; z = zBot;
     }

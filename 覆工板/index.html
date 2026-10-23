@@ -878,14 +878,39 @@ function lateralBracing(B, H, Af, Fy, Lt) {
   else               { code = 30; label = '未充分側撐'; }
   return { L1, L2, Lc, Lu, code, label };
 }
+// AISC ASD（1989）式以 ksi 表示；本工具 Fy 單位 kgf/cm²，1 ksi = 70.307 kgf/cm²
+const KSI_TO_KGFCM2 = 70.307;
+function compressionFlangeRt(B, H, tf, tw) {
+  // 受壓翼板 + 1/3 受壓腹板（= 腹板淨高 /6）對弱軸之迴轉半徑 rT
+  const hw = H - 2*tf;
+  const I = tf*Math.pow(B,3)/12 + (hw/6)*Math.pow(tw,3)/12;
+  const A = B*tf + hw*tw/6;
+  return Math.sqrt(I/A);
+}
 function calcFb(beta, Fy, flangeCode, brace, B, H, tf, Lt, rt) {
-  // 簡化規則：充分側撐+結實 → 0.66Fy；其餘保守取 0.6Fy
+  // 充分側撐+結實 → 0.66Fy；充分側撐+半結實 → Fy[0.79 − 0.002(b/2tf)√Fy]（ksi 式換算 kgf/cm²）；
+  // 未充分側撐 → max(F1-6/F1-7, F1-8) ≤ 0.6Fy（Cb 保守取 1.0）；其餘 0.6Fy
   let Fb_basic;
   if (brace.code === 10 && flangeCode === 1) {
     Fb_basic = 0.66 * Fy;
   } else if (brace.code === 10 && flangeCode === 2) {
-    Fb_basic = Fy * (1.07 - 0.005*(B/(2*tf))*Math.sqrt(Fy));
+    Fb_basic = Fy * (0.79 - 0.002/Math.sqrt(KSI_TO_KGFCM2)*(B/(2*tf))*Math.sqrt(Fy));
     if (Fb_basic > 0.66*Fy) Fb_basic = 0.66*Fy;
+    if (Fb_basic < 0.6*Fy) Fb_basic = 0.6*Fy;
+  } else if (brace.code === 30 && Lt > 0) {
+    const Cb = 1.0;
+    const FyKsi = Fy / KSI_TO_KGFCM2;
+    const Af = B * tf;
+    const fb18 = 12e3 * Cb / (Lt * H / Af) * KSI_TO_KGFCM2;
+    let fb67 = 0;
+    if (rt > 0) {
+      const lr = Lt / rt;
+      const lim1 = Math.sqrt(102e3 * Cb / FyKsi), lim2 = Math.sqrt(510e3 * Cb / FyKsi);
+      if (lr <= lim1) fb67 = 0.6 * Fy;
+      else if (lr <= lim2) fb67 = (2/3 - FyKsi*lr*lr/(1530e3*Cb)) * Fy;
+      else fb67 = 170e3 * Cb / (lr*lr) * KSI_TO_KGFCM2;
+    }
+    Fb_basic = Math.min(0.6 * Fy, Math.max(fb18, fb67));
   } else {
     Fb_basic = 0.6 * Fy;
   }
@@ -906,7 +931,8 @@ function loadCombo({WT, WT2, L, P_HS, P_crane, Wc, trackLen=4.35, useWT2_for_cra
     V2 = 0.5*WT*L + 0.5*Wc*L;
   } else {
     M2 = (1/8)*WT*L*L + (1/8)*Wc*(L*L - 4*Math.pow((L-trackLen)/2, 2));
-    V2 = 0.5*WT*L + 0.5*Wc*trackLen;
+    // 履帶段緊靠支承時剪力最大：V = Wc·c·(1 − c/(2L))
+    V2 = 0.5*WT*L + Wc*trackLen*(1 - trackLen/(2*L));
   }
   // M3, V3: 吊車集中（不衝擊）
   const W3 = useWT2_for_crane ? WT2 : WT;
@@ -1110,7 +1136,7 @@ function calcStringer() {
   const flange = classifyFlange(sec.B, sec.tf, g.Fy);
   const web    = classifyWeb(sec.H, sec.tw, g.Fy, fa);
   const brace  = lateralBracing(sec.B, sec.H, Af_unit, g.Fy, Lt);
-  const Fb     = calcFb(g.beta, g.Fy, flange.code, brace, sec.B, sec.H, sec.tf, Lt);
+  const Fb     = calcFb(g.beta, g.Fy, flange.code, brace, sec.B, sec.H, sec.tf, Lt, compressionFlangeRt(sec.B, sec.H, sec.tf, sec.tw));
 
   const fb = c.Mmax * 1e5 / Sx;
   const Fv = 0.4 * g.Fy * g.beta;
@@ -1210,7 +1236,7 @@ function calcGirder() {
   const flange = classifyFlange(sec.B, sec.tf, g.Fy);
   const web    = classifyWeb(sec.H, sec.tw, g.Fy, fa);
   const brace  = lateralBracing(sec.B, sec.H, Af_unit, g.Fy, Lt);
-  const Fb     = calcFb(g.beta, g.Fy, flange.code, brace, sec.B, sec.H, sec.tf, Lt);
+  const Fb     = calcFb(g.beta, g.Fy, flange.code, brace, sec.B, sec.H, sec.tf, Lt, compressionFlangeRt(sec.B, sec.H, sec.tf, sec.tw));
 
   const fb = c.Mmax * 1e5 / Sx;
   const Fv = 0.4 * g.Fy * g.beta;
@@ -1966,7 +1992,7 @@ function buildReport() {
     <h3>7. 檢核方法說明</h3>
     <div style="font-size:12px; line-height:1.7; color:#333;">
       <p><b>(1) 載重組合：</b>對覆工板面、覆工小梁、覆工大梁各分三組工況（HS20 集中＋衝擊；PC400 履帶分佈＋衝擊；吊車集中不衝擊），取 M、V、δ 之最大值控制設計。</p>
-      <p><b>(2) 容許應力法：</b>Fb = 0.6·Fy·β（充分側撐+結實斷面取 0.66·Fy·β）；Fv = 0.4·Fy·β。β 為短期應力放大係數（一般載重 1.33、吊車工況 1.25）。</p>
+      <p><b>(2) 容許應力法：</b>Fb = 0.6·Fy·β（充分側撐+結實斷面取 0.66·Fy·β；充分側撐+半結實取 Fy[0.79−0.002(b/2tf)√Fy]（ksi 式換算）；未充分側撐取 AISC F1-6/F1-7/F1-8 之大值且 ≤ 0.6·Fy，Cb=1.0）；Fv = 0.4·Fy·β。β 為短期應力放大係數（一般載重 1.33、吊車工況 1.25）。</p>
       <p><b>(3) 撓度嚴謹解：</b>全跨均佈 δ = 5wL⁴/(384EI)；集中載重於中央 δ = PL³/(48EI)；對稱部分均佈長度 c 於中央 δ = wc(8L³−4c²L+c³)/(384EI)。三工況各別疊加，取最大為控制撓度。允許值 L/${g.defl}。</p>
       <p><b>(4) 共構柱：</b>AISC ASD 軸壓＋雙軸彎交互式（fa/Fa > 0.15 採二次彎矩放大）；短期放大 β 與舊料折減（新料 1.0、舊料 0.9）併用。</p>
       <p><b>(5) H 型鋼貫入 PC：</b>τ = 0.03·fc'；拉拔阻力 F = τ·L·ls；壓入阻力 N = τ·L·ls + 0.35·fc'·As'。</p>

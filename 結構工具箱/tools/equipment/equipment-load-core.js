@@ -233,7 +233,14 @@
     if (!isPunchingEnabled(i)) return null;
     const beta = Math.max(i.contactB / i.contactL, i.contactL / i.contactB);
     const alpha = PUNCHING_ALPHA[i.punchingPosition] || PUNCHING_ALPHA.interior;
-    const bo = 2 * (i.contactB + i.contactL + 2 * i.effectiveDepth);
+    // 臨界斷面距支承面 d/2；邊緣、角隅支承假設支承面齊板自由邊（αs=30 對應三邊、αs=20 對應兩邊臨界周長），
+    // 邊緣支承未指定方向時取兩向較小周長。
+    const d = i.effectiveDepth;
+    const bo = i.punchingPosition === 'corner'
+      ? (i.contactB + d / 2) + (i.contactL + d / 2)
+      : (i.punchingPosition === 'edge'
+        ? Math.min(2 * (i.contactB + d / 2) + (i.contactL + d), 2 * (i.contactL + d / 2) + (i.contactB + d))
+        : 2 * (i.contactB + i.contactL + 2 * d));
     const boCm = bo * M_TO_CM;
     const dCm = i.effectiveDepth * M_TO_CM;
     const sqrtFc = Math.sqrt(i.concreteFc);

@@ -241,4 +241,23 @@ const DEG = Math.PI / 180;
   assert.ok(errors.some(m => m.includes('厚度總和')));
 }
 
+// 獨立手算：單層砂 H=6 m，γ=2，φ=30°(Ka=1/3)，γw=1，地下水位於層內 zw=3 m（hw=3）。
+// 有效應力：z=0→0，z=3→σ'v=6 (pa=2)，z=6→σ'v=6+1×3=9 (pa=3)。
+// Pa' = ½·2·3 + (2+3)/2·3 = 10.5 tf/m；M = 3×4 + 7.5×(6−4.6) = 22.5 tf·m/m；水壓 ½·1·3² = 4.5。
+{
+  const base = { H: 6, gammaSoil: 2, phiDeg: 30, surcharge: 0, gammaWater: 1, waterDepth: 3, baseB: 4, verticalLoad: 50, qa: 30, mu: 0.5, fsSlideReq: 1.5, fsOverReq: 2, layeredMode: true };
+  const one = EarthPressureCore.calculate(Object.assign({}, base, { layers: [{ type: 'sand', h: 6, gamma: 2, phi: 30 }] }));
+  approx(one.layered.soilForce, 10.5, 1e-9);
+  approx(one.layered.soilMoment, 22.5, 1e-9);
+  approx(one.layered.waterForce, 4.5, 1e-12);
+  const split = EarthPressureCore.calculate(Object.assign({}, base, { layers: [{ type: 'sand', h: 3, gamma: 2, phi: 30 }, { type: 'sand', h: 3, gamma: 2, phi: 30 }] }));
+  approx(one.layered.soilForce, split.layered.soilForce, 1e-9);
+  approx(one.layered.soilMoment, split.layered.soilMoment, 1e-9);
+  // 黏土層含水位：c=1，φ=0(Ka=1)，H=6，zw=3 → pa: z=0 −2, z=1 0, z=3 4, z=6 4+3=7
+  // Pa' = ½·4·2 + (4+7)/2·3 = 4 + 16.5 = 20.5；裂縫深 1 m
+  const clay = EarthPressureCore.calculate(Object.assign({}, base, { layers: [{ type: 'clay', h: 6, gamma: 2, phi: 0, c: 1 }] }));
+  approx(clay.layered.soilForce, 20.5, 1e-9);
+  approx(clay.layered.tensionCrackDepth, 1, 1e-12);
+}
+
 console.log('earth pressure core regression OK (incl. Coulomb + Mononobe-Okabe + layered sand/clay)');

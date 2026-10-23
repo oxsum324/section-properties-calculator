@@ -127,4 +127,32 @@ for (const goldenCase of goldenCases) {
   assert.ok(geometryErrors.some(msg => msg.includes('Y 向支點間距 Sy')));
 }
 
+// 獨立手算：穿孔剪力臨界周長須與 αs 位置一致（kgf/cm² 式）。
+// b = l = 0.30 m，d = 0.20 m，f'c = 280，φ = 0.75：
+//   內部 bo = 2(0.3+0.3+0.4) = 2.0 m；邊緣 bo = 2(0.3+0.1)+(0.3+0.2) = 1.3 m；角隅 bo = (0.3+0.1)×2 = 0.8 m
+//   角隅 vc = min(1.06, 0.53×3, 0.265×(20×20/80+2))√280 = 1.06√280；φVn = 0.75×1.06√280×80×20/1000 = 21.28 tf
+{
+  const base = {
+    ...goldenCases[0].input,
+    contactB: 0.3, contactL: 0.3,
+    concreteFc: 280, effectiveDepth: 0.2, concretePhiShear: 0.75
+  };
+  const sq = Math.sqrt(280);
+  const interior = EquipmentLoadCore.calculate({ ...base, punchingPosition: 'interior' });
+  const edge = EquipmentLoadCore.calculate({ ...base, punchingPosition: 'edge' });
+  const corner = EquipmentLoadCore.calculate({ ...base, punchingPosition: 'corner' });
+  approx(interior.punchingBo, 2.0, 1e-12);
+  approx(edge.punchingBo, 1.3, 1e-12);
+  approx(corner.punchingBo, 0.8, 1e-12);
+  approx(corner.punchingVc, Math.min(1.06, 0.53 * 3, 0.265 * (20 * 20 / 80 + 2)) * sq, 1e-9);
+  approx(corner.punchingDesignShear, 0.75 * 1.06 * sq * 80 * 20 / 1000, 1e-9);
+  const edgeVc = Math.min(1.06, 0.53 * 3, 0.265 * (30 * 20 / 130 + 2)) * sq;
+  approx(edge.punchingDesignShear, 0.75 * edgeVc * 130 * 20 / 1000, 1e-9);
+  assert.ok(corner.punchingDesignShear < edge.punchingDesignShear);
+  assert.ok(edge.punchingDesignShear < interior.punchingDesignShear);
+  // 矩形支承之邊緣周長取兩向較小者：b = 0.2, l = 0.6, d = 0.2 → min(2×0.3+0.8, 2×0.7+0.4) = 1.4 m
+  const rect = EquipmentLoadCore.calculate({ ...base, contactB: 0.2, contactL: 0.6, punchingPosition: 'edge' });
+  approx(rect.punchingBo, 1.4, 1e-12);
+}
+
 console.log('equipment load core regression OK');

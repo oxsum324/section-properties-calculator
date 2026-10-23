@@ -956,5 +956,20 @@ class CalculationTests(unittest.TestCase):
         self.assertIn("必須為有限數值", check.details["message"])
 
 
+    def test_allowable_fbx_takes_larger_of_f1_6_and_f1_8_independent(self) -> None:
+        # 獨立手算（AISC ASD 1989 F1.3 換算 tf/cm²，Cb = 1）：H400×400×13×21，Fy = 2.5 tf/cm²
+        # rT = √[(tf·bf³/12 + (hw/6)·tw³/12) / (bf·tf + hw·tw/6)] = 11.05 cm
+        # Lb = 1200 cm：l/rT = 108.6 < √(35800/2.5) = 119.7 → F1-6 = (2/3 − 2.5×108.6²/107600)×2.5 = 0.9815
+        #               F1-8 = 840/(1200×40/(40×2.1)) = 1.47 → Fb = min(max(0.9815, 1.47), 0.6Fy = 1.5) = 1.47
+        d, bf, tw, tf, fy = 40.0, 40.0, 1.3, 2.1, 2.5
+        hw = d - 2.0 * tf
+        rt = math.sqrt((tf * bf**3 / 12.0 + (hw / 6.0) * tw**3 / 12.0) / (bf * tf + hw * tw / 6.0))
+        self.assertAlmostEqual(rt, 11.05, places=2)
+        fb = allowable_fbx(d, bf, tw, tf, rt, 1200.0, 0.0, 1.0, fy, "結實斷面")
+        self.assertAlmostEqual(fb, 840.0 / (1200.0 * d / (bf * tf)), places=9)
+        self.assertAlmostEqual(fb, 1.47, places=2)
+        # Lb = 900 cm：F1-8 = 1.96 > 0.6Fy → 上限 0.6Fy = 1.5
+        self.assertAlmostEqual(allowable_fbx(d, bf, tw, tf, rt, 900.0, 0.0, 1.0, fy, "結實斷面"), 1.5, places=9)
+
 if __name__ == "__main__":
     unittest.main()

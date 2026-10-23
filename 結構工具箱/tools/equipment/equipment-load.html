@@ -733,7 +733,7 @@
       <div class="step-title">6. RC 穿孔剪力初判</div>
       <div>
         ${r.punchingApplicable ? `
-        <code>bo = 2 × (b + l + 2d) = ${fmt(r.punchingBo)} m；beta = ${fmt(r.punchingBeta, 2)}；alpha = ${fmt(r.punchingAlpha, 0)}</code><br>
+        <code>bo = ${r.punchingPosition === 'corner' ? '(b + d/2) + (l + d/2)' : (r.punchingPosition === 'edge' ? 'min[2(b + d/2) + (l + d), 2(l + d/2) + (b + d)]' : '2 × (b + l + 2d)')} = ${fmt(r.punchingBo)} m；beta = ${fmt(r.punchingBeta, 2)}；alpha = ${fmt(r.punchingAlpha, 0)}</code><br>
         <code>vc = min(${fmt(r.punchingVc1)}, ${fmt(r.punchingVc2)}, ${fmt(r.punchingVc3)}) = ${fmt(r.punchingVc)} kgf/cm²；phiVn = ${fmt(r.punchingDesignShear)} tf</code>` : '未啟用穿孔剪力基準。'}
       </div>
       <div class="step-title">7. 鋼板分散厚度初判</div>
@@ -967,7 +967,7 @@
     }
     if (r.punchingApplicable) {
       extra += `<div class="rpt-step"><h3>6. RC 穿孔剪力初判（雙向剪力）</h3>
-<p><code>bo = 2(b + l + 2d) = ${fmt(r.punchingBo)} m；β = ${fmt(r.punchingBeta, 2)}；αs = ${fmt(r.punchingAlpha, 0)}</code></p>
+<p><code>bo = ${r.punchingPosition === 'corner' ? '(b + d/2) + (l + d/2)' : (r.punchingPosition === 'edge' ? 'min[2(b + d/2) + (l + d), 2(l + d/2) + (b + d)]' : '2(b + l + 2d)')} = ${fmt(r.punchingBo)} m；β = ${fmt(r.punchingBeta, 2)}；αs = ${fmt(r.punchingAlpha, 0)}</code></p>
 <p><code>vc = min(1.06√f'c, 0.53(1+2/β)√f'c, 0.265(αs·d/bo+2)√f'c) = ${fmt(r.punchingVc)} kgf/cm²</code></p>
 <p><code>φVn = ${fmt(r.punchingDesignShear)} tf ${r.maximumReaction <= r.punchingDesignShear ? '≥' : '&lt;'} Rmax = ${fmt(r.maximumReaction)} tf</code></p></div>`;
     }

@@ -188,6 +188,8 @@ def allowable_fbx(
         fbx = max(fbx, fb)
     else:
         fbx = (2.0 / 3.0 - fy * (lb_cm / rt) ** 2 / (107600.0 * cb)) * fy
+        # AISC ASD F1.3：F1-6 / F1-7 與 F1-8 取較大值（兩區段皆同）
+        fbx = max(fbx, 840.0 * cb / (lb_cm * d / (bf * tf)))
     return min(fbx, 0.6 * fy)
 
 
