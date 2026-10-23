@@ -692,10 +692,10 @@ git add -- "docs/審查報告-2026-10-23.md" "docs/審查複核紀錄-2026-10-23
 
 ### E2-錨栓部署
 
-以 `sync-anchor-deployment.ps1` 執行 verify 後重建並鏡像 `anchor/`（雜湊檔名整批替換），計算引擎版本隨建置 commit 更新。
+以 `sync-anchor-deployment.ps1` 執行 verify 後重建並鏡像 `anchor/`（雜湊檔名整批替換），計算引擎版本隨建置 commit 更新。同步腳本不保留 `anchor/index.html` 之 `../tool-page-a11y.js` 載入標籤，鏡像後另行補回。
 
 ```powershell
-git add -- anchor/assets/ProductScanAssistant-B13l1ald.js anchor/assets/ProductScanAssistant-Cekj8gT3.js anchor/assets/ProductTemplateLibrary-BcvTzF2t.js anchor/assets/ProductTemplateLibrary-DpIOMyHv.js anchor/assets/ProjectTemplateLibrary-CNKnJ2le.js anchor/assets/ProjectTemplateLibrary-HlhU34sk.js anchor/assets/appMeta-Ba-uCSmk.js anchor/assets/appMeta-DC_t360q.js anchor/assets/backup-BKGYoUGY.js anchor/assets/backup-DEhq4gJR.js anchor/assets/defaults-DB-AKB_-.js anchor/assets/defaults-Ds0IqQjb.js anchor/assets/index-CCTwbrs2.js anchor/assets/index-CcuthDGB.js anchor/assets/reportDocx-Bw-BBIYH.js anchor/assets/reportDocx-DVxPk-dS.js anchor/assets/reportExport-CaUr_7E_.js anchor/assets/reportExport-DrGQu5kc.js anchor/assets/reportWorkbook-BSB0w1-N.js anchor/assets/reportWorkbook-ZHnky9SD.js anchor/deployment-manifest.json anchor/index.html anchor/service-worker.js
+git add -A -- anchor/index.html anchor/service-worker.js anchor/deployment-manifest.json anchor/assets
 ```
 
 ### E2-計算引擎版本與快取參數
