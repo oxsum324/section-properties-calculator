@@ -685,6 +685,45 @@ git add -- "docs/審查報告-2026-10-23.md" "docs/審查複核紀錄-2026-10-23
 
 <!-- E1-REGISTRATION-END -->
 
+<!-- E2-REGISTRATION-START -->
+## 2026-10-23：E2 計算核心審查後續
+
+依 `docs/審查報告-2026-10-23.md` 本機待辦 2–5、8 處理：錨栓部署重建、計算引擎版本與快取參數、正式工具黃金案例；覆工板原始 Excel 之更正另存新檔（`.xls` 不納入版本控制）。說明見 `docs/審查複核紀錄-2026-10-23.md` 第五至七節。
+
+### E2-錨栓部署
+
+以 `sync-anchor-deployment.ps1` 執行 verify 後重建並鏡像 `anchor/`（雜湊檔名整批替換），計算引擎版本隨建置 commit 更新。
+
+```powershell
+git add -- anchor/assets/ProductScanAssistant-B13l1ald.js anchor/assets/ProductScanAssistant-Cekj8gT3.js anchor/assets/ProductTemplateLibrary-BcvTzF2t.js anchor/assets/ProductTemplateLibrary-DpIOMyHv.js anchor/assets/ProjectTemplateLibrary-CNKnJ2le.js anchor/assets/ProjectTemplateLibrary-HlhU34sk.js anchor/assets/appMeta-Ba-uCSmk.js anchor/assets/appMeta-DC_t360q.js anchor/assets/backup-BKGYoUGY.js anchor/assets/backup-DEhq4gJR.js anchor/assets/defaults-DB-AKB_-.js anchor/assets/defaults-Ds0IqQjb.js anchor/assets/index-CCTwbrs2.js anchor/assets/index-CcuthDGB.js anchor/assets/reportDocx-Bw-BBIYH.js anchor/assets/reportDocx-DVxPk-dS.js anchor/assets/reportExport-CaUr_7E_.js anchor/assets/reportExport-DrGQu5kc.js anchor/assets/reportWorkbook-BSB0w1-N.js anchor/assets/reportWorkbook-ZHnky9SD.js anchor/deployment-manifest.json anchor/index.html anchor/service-worker.js
+```
+
+### E2-計算引擎版本與快取參數
+
+依各工具版本模型升計算引擎或頁面版本（具名引擎升 *.v1.1.0、數字引擎與公開版本同升、RC 與鋼構升頁面版本、局部快算核心升 minor），遞增 RC 共用腳本、土壓與設備核心之 `?v=`；以既有建置器重產首頁、導覽、家族頁與石材 vendor，首頁更新日依 `結構工具箱/tools/sync-home-update-dates.js` 重算；測試與清冊之版本釘值同步更新，未刪除或放寬斷言。
+
+```powershell
+git add -- "RC補強斷面性質.html" section-tools.contract.test.js serve-local-browser-smoke.test.js tool-nav.manifest.js "石材固定/vendor/loads/seismic.js" "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/core/loads/seismic.js" "結構工具箱/family/local-quick.html" "結構工具箱/family/seismic.html" "結構工具箱/family/steel.html" "結構工具箱/family/wind.html" "結構工具箱/tools/analysis-section-tool-metadata.js" "結構工具箱/tools/construction-stage-load-handoff.js" "結構工具箱/tools/earth/earth-pressure-core.js" "結構工具箱/tools/earth/earth-pressure-rc-bridge.js" "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/equipment/equipment-load-core.js" "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/formal-browser-smoke.test.js" "結構工具箱/tools/formal-tool-metadata.js" "結構工具箱/tools/independent-engineering-adapters/rc-slab-strength.js" "結構工具箱/tools/local-quick-tool-metadata.js" "結構工具箱/tools/local-quick-tools.contract.test.js" "結構工具箱/tools/local-quick-tools.manifest.json" "結構工具箱/tools/nav/tool-nav.manifest.json" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/地震力/seismic-dynamic.html" "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/鋼構/steel-column.html" "結構工具箱/tools/風力/wind-cc.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-kzt.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-overview.html" "結構工具箱/tools/風力/wind-parapet.html" "結構工具箱/tools/風力/wind-sign-pole.html" "覆工板/index.html" "鋼構工具/plate-check.html" "鋼構工具/steel-audit-browser-runner.js" "鋼構工具/steel-beam-formal.html" "鋼構工具/steel-column-formal.html" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/tool-metadata.js" "鋼筋混凝土/index.html" "鋼筋混凝土/shared/pile-cap-3d-stm-bridge.js" "鋼筋混凝土/tools/beam-report-visual.test.js" "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column-report-visual.test.js" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation-regression.test.js" "鋼筋混凝土/tools/foundation-report-visual.test.js" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/pile-cap-3d-stm-bridge-regression.test.js" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" "鋼筋混凝土/tools/rc-traceability.catalog.json" "鋼筋混凝土/tools/retrofit-report-visual.test.js" "鋼筋混凝土/tools/shear-wall-regression.test.js" "鋼筋混凝土/tools/shear-wall-report-visual.contract.test.js" "鋼筋混凝土/tools/shear-wall-report-visual.test.js" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/single-pile-designer.html" "鋼筋混凝土/tools/single-pile-regression.test.js" "鋼筋混凝土/tools/single-pile-report-visual.test.js" "鋼筋混凝土/tools/slab-regression.test.js" "鋼筋混凝土/tools/slab-report-visual.test.js" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall-regression.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall.html" "開挖擋土支撐/backend/app/removal_transfer_handoff.py" "開挖擋土支撐/backend/app/reporting.py" "開挖擋土支撐/backend/tests/test_reporting.py"
+```
+
+### E2-黃金案例
+
+以 `結構工具箱/tools/formal-golden-harvest.js` 收割 28 案，18 案依修正後輸出更新 82 個 expectedSelectors 與 11 個 expectedTextNeedles。
+
+```powershell
+git add -- "結構工具箱/tools/formal-tools.manifest.json"
+```
+
+### E2-文件
+
+複核紀錄補 Excel 更正、黃金案例與錨栓部署三節，治理文件登錄。
+
+```powershell
+git add -- "docs/審查複核紀錄-2026-10-23.md" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
+<!-- E2-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 
