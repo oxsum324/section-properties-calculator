@@ -722,6 +722,14 @@ git add -- "結構工具箱/tools/formal-tools.manifest.json"
 git add -- "docs/審查複核紀錄-2026-10-23.md" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
+### E2-載入預算基線
+
+經委託人授權，以 `node 結構工具箱/tools/tool-load-budget.browser.test.js --write-baseline` 重設 53 路由基準 13,426,910 → 14,324,731 bytes（基準 commit 6a07e52c → e31c757e）。檢查模式先列出 48 條 capacityDifferences（RC 共用腳本 `?v=` 遞增 19 條、核心 steel.js、wind.js、seismic.js 增大 29 條），功能失敗 0、來源未漂移。總增量中 853,188 bytes 為 R1 加入之 `tool-nav.manifest.js`（10,981）與 `tool-chrome.js`（6,431）於 49 條路由，其路徑不屬共用腳本量測範圍，未列入 capacityDifferences；其餘 44,633 bytes 來自本批計算核心修正。重設後檢查模式 0 失敗。基準 JSON 只能由該指令產生，不得手改。
+
+```powershell
+git add -- 結構工具箱/tools/tool-load-budget-baseline.json
+```
+
 <!-- E2-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
