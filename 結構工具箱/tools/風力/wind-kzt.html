@@ -389,7 +389,7 @@ calc();
 <script>
 // 案件存讀檔列由 project-storage.js 於 DOMContentLoaded 插在案件卡（第一個 .mode-bar）之後；本監聽註冊在其後，
 // 隨即把該列移入案件卡內的 <details>，收合／展開與報讀狀態一律由原生 <details> 決定。
-// 本監聽也註冊在 project-meta-profile.js 之前，故共用表頭列會接在已移入的 .project-storage-bar 之後，同在 <details> 內。
+// 本監聽也註冊在頁尾共用表頭腳本之前，故共用表頭列會接在已移入的 .project-storage-bar 之後，同在 <details> 內。
 (function () {
   function moveCaseBarsIntoDetails() {
     const more = document.querySelector('.tool-shell-case-zone .tool-shell-case__more');
