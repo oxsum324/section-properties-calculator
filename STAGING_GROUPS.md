@@ -777,6 +777,14 @@ git add -- "docs/審查複核紀錄-2026-10-23.md" README.md TOOL_BOUNDARIES.md 
 git add -- "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/beam-regression-cases.json" "鋼筋混凝土/tools/column-regression-cases.json" "鋼筋混凝土/tools/foundation-regression-cases.json" "鋼筋混凝土/tools/foundation-regression.test.js" "docs/審查複核紀錄-2026-10-23.md" STAGING_GROUPS.md
 ```
 
+### E3-Pages 公開頁錨點
+
+Pages 部署流程之 `結構工具箱/tools/pages-live-smoke.js` 仍以 `V1.7` 檢查 RC 入口頁，RC 補強已於 E2 升為 V1.8，致 run 39932966975 於「Verify staged Pages artifact」失敗、未部署；錨點改為 `V1.8`，本機 `run-pages-artifact-smoke.ps1` 通過（HTTP 53 路由、瀏覽器 53 路由雙視窗 112 項）。
+
+```powershell
+git add -- "結構工具箱/tools/pages-live-smoke.js" STAGING_GROUPS.md
+```
+
 <!-- E3-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->

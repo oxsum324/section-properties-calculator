@@ -15,7 +15,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: 'field-survey/sketch.js', needles: ['createSketcher', 'sketchImage', '未按比例'] },
   {
     path: '鋼筋混凝土/',
-    needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '../結構工具箱/audit-dashboard.html', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', 'RC 工具箱入口列印已封鎖', '明確核可後可作為正式附件', 'V1.7'],
+    needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '../結構工具箱/audit-dashboard.html', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', 'RC 工具箱入口列印已封鎖', '明確核可後可作為正式附件', 'V1.8'],
     forbidden: ['最後改版日期', 'ver-draft', 'badge-new', '>NEW<', '僅供初步設計與檢算參考']
   },
   {
