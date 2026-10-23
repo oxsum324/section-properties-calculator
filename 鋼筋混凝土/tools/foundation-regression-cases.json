@@ -556,6 +556,34 @@
         "tab": "pile",
         "Vu2_tf": 338.68238024313945
       }
+    },
+    {
+      "key": "iso_dev_y_governs",
+      "label": "獨立基腳 Y 向鋼筋過密時握裹由 Y 向控制",
+      "tab": "iso",
+      "values": {
+        "B": 300,
+        "L": 300,
+        "c1": 50,
+        "c2": 50,
+        "barNoX": "#6",
+        "barSpX": 25,
+        "barNoY": "#8",
+        "barSpY": 7
+      },
+      "expected": {
+        "tab": "iso",
+        "ld": 182.15284006256158,
+        "ldAvail": 117.5,
+        "sizeFactor": 3.5,
+        "ldCondition": "other",
+        "okDev": false
+      },
+      "handCalc": [
+        "armX = armY = (300 − 50)/2 = 125 cm；可用 = 125 − 7.5 = 117.5 cm",
+        "X 向 #6@25：淨距 23.095 ≥ 2db、保護層 7.5 ≥ db → 有利 6.6：ℓd = 72.447 cm ≤ 117.5 ✓",
+        "Y 向 #8@7：淨距 4.46 < 2db = 5.08 → 其他情況 3.5：ℓd = 182.153 cm > 117.5 ✗（原僅檢核控制彎矩方向，會漏判）"
+      ]
     }
   ]
 }

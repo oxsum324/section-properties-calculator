@@ -3692,12 +3692,24 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   function calcFdtn() {
     markAllResultsPending();
     const tab = currentTab;
-    if (tab === 'iso')       calcIso();
-    else if (tab === 'combined') calcCombined();
-    else if (tab === 'mat')  calcMat();
-    else if (tab === 'pile') calcPileCap();
-    else if (tab === 'retain') calcRetain();
-    else if (tab === 'seismic') calcSeismicFdtn();
+    // 本次計算未完成（輸入無效致核心拒算）時，不得沿用上一次結果產生計算書
+    window.ftLast = null;
+    try {
+      if (tab === 'iso')       calcIso();
+      else if (tab === 'combined') calcCombined();
+      else if (tab === 'mat')  calcMat();
+      else if (tab === 'pile') calcPileCap();
+      else if (tab === 'retain') calcRetain();
+      else if (tab === 'seismic') calcSeismicFdtn();
+    } catch (error) {
+      window.ftLast = null;
+      const banner = $('bannerStatus');
+      if (banner) {
+        banner.className = 'banner-status fail';
+        banner.textContent = '✗ 輸入不完整或超出適用範圍，未完成計算（請檢查厚度、尺寸、材料強度等欄位）';
+      }
+      console.warn('foundation calculation rejected', error);
+    }
     updateFoundationAttachmentReadiness(window.ftLast);
   }
 
@@ -3826,12 +3838,23 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const clearMinY = Math.max(dbY, 2.5);
 
     // === 握裹（表 25.4.2.3；基腳無箍筋，僅能以「淨間距 ≥ 2db 且淨保護層 ≥ db」判定有利條件）===
-    const dbDev = MuMode === 'X 向柱面懸臂' ? dbX : dbY;
-    const clearDev = MuMode === 'X 向柱面懸臂' ? clearX : clearY;
-    const ldCondition = DevLength.spacingCondition({ db: dbDev, clearSpacing: clearDev, clearCover: cover, minTransverse: false });
-    const sizeFactor = DevLength.tensionCoefficient({ db: dbDev, condition: ldCondition });
-    const ld = DevLength.ldTension({ fc, fy, db: dbDev, lambda, psit: 1.0, psie: 1.0, condition: ldCondition });
-    const ldAvail = arm - cover;
+    // X、Y 兩向鋼筋各自檢核：X 向筋可用長度 armX − cover、Y 向筋 armY − cover；顯示需求／可用比較大者
+    const devFor = (dir, db, clear, armDir) => {
+      const condition = DevLength.spacingCondition({ db, clearSpacing: clear, clearCover: cover, minTransverse: false });
+      const k = DevLength.tensionCoefficient({ db, condition });
+      const ldDir = DevLength.ldTension({ fc, fy, db, lambda, psit: 1.0, psie: 1.0, condition });
+      const avail = armDir - cover;
+      return { dir, db, clear, condition, k, ld: ldDir, avail, ok: avail >= ldDir, ratio: avail > 0 ? ldDir / avail : Infinity };
+    };
+    const devX = devFor('X', dbX, clearX, armX);
+    const devY = devFor('Y', dbY, clearY, armY);
+    const devGov = devX.ratio >= devY.ratio ? devX : devY;
+    const dbDev = devGov.db;
+    const clearDev = devGov.clear;
+    const ldCondition = devGov.condition;
+    const sizeFactor = devGov.k;
+    const ld = devGov.ld;
+    const ldAvail = devGov.avail;
 
     // === d ≥ 15 cm ===
     const okDMin = d >= 15;
@@ -3852,7 +3875,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const okAsMin = okAsX && okAsY;
     const okSpacing = spX <= sMax && spY <= sMax;
     const okClear = clearX >= clearMinX && clearY >= clearMinY;
-    const okDev = ldAvail >= ld;
+    const okDev = devX.ok && devY.ok;
 
     // === 設計建議 (design mode) ===
     const Breq_m = Math.sqrt(Pservice / qa);
@@ -4025,8 +4048,8 @@ vc = min(a,b,c) = ${vc2.toFixed(2)} kgf/cm²
 Vu = (Pu−qu·Acrit)×1000 = ${(Vu2/1000).toFixed(2)} tf;  φVc = ${(phiVc2/1000).toFixed(2)} tf → ${okV2 ? '✓' : '✗'}
 
 <span class="h">▸ 握裹長度（表 25.4.2.3）</span>
-條件：${DevLength.CONDITION_LABELS[ldCondition]}；淨間距 = ${clearDev.toFixed(1)} cm、淨保護層 = ${cover} cm、db = ${dbDev.toFixed(2)} cm（基腳無箍筋）
-ℓd = (fy·ψt·ψe/(${sizeFactor}·λ·√fc′))·db = (${fy}×1.0×1.0/(${sizeFactor}×${lambda}×${Math.sqrt(fc).toFixed(3)}))×${dbDev.toFixed(3)} = ${ld.toFixed(1)} cm（≥ 30 cm）；可用 = arm−cover = ${ldAvail.toFixed(1)} cm → ${okDev ? '✓' : '✗'}
+${[devX, devY].map(dv => `${dv.dir} 向筋：${DevLength.CONDITION_LABELS[dv.condition]}；淨間距 = ${dv.clear.toFixed(1)} cm、淨保護層 = ${cover} cm、db = ${dv.db.toFixed(2)} cm（基腳無箍筋）
+  ℓd = (fy·ψt·ψe/(${dv.k}·λ·√fc′))·db = (${fy}×1.0×1.0/(${dv.k}×${lambda}×${Math.sqrt(fc).toFixed(3)}))×${dv.db.toFixed(3)} = ${dv.ld.toFixed(1)} cm（≥ 30 cm）；可用 = arm${dv.dir}−cover = ${dv.avail.toFixed(1)} cm → ${dv.ok ? '✓' : '✗'}`).join('\n')}
 
 <span class="h">▸ 沉陷</span>
 Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=${soilSa} cm → ${okSettle ? '✓' : '✗'}`;
@@ -4053,7 +4076,7 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
       phiMn_kgcm, phiMn_tfm, phiMnX_tfm, phiMnY_tfm, AsMin_per_m, AsReqX, AsReqY, AsReq, MuMode,
       v1Arm, v1Width, v1Direction, v1As, lambdaS1, rhoW1, vc1, Vu1, Vc1, phiVc1, bo, c1d, c2d, beta_c,
       lambdaS2, vc_a, vc_b, vc_c, vc2, Vu2, phiVc2, Acrit_m2,
-      ld, ldAvail, sizeFactor, ldCondition, clearDev, dbDev,
+      ld, ldAvail, sizeFactor, ldCondition, clearDev, dbDev, devX, devY,
       sMax, clearX, clearY, clearMinX, clearMinY,
       okQ, okV1, okV2, okFlex, okAsX, okAsY, okAsMin, okSpacing, okClear, okDev, okDMin,
       Breq_cm, hfReq, bestSugg,
@@ -4888,9 +4911,11 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     setCheck('pc-settlement', okSettlement, settlement ? `${settlement.Wo_cm.toFixed(2)} / ${pileSettlementAllow.toFixed(2)} cm` : '土層資料不足');
     setCheck('pc-pileStress', okPileStress, `${pileStressKgCm2.toFixed(2)} / ${pileStressAllow.toFixed(2)} kgf/cm²`);
     setCheck('pc-capFlex', okCapFlexStrength, `${capPhiMn_tfm.toFixed(2)} / ${capMu_tfm.toFixed(2)} tf·m`);
-    setCheck('pc-capAsMin', okCapAsMin, okCapAsMin
-      ? `${capAsProv.toFixed(2)} / ${capAsMin.toFixed(2)} cm²`
-      : `最小鋼筋量不足（實配 ${capAsProv.toFixed(2)} < 需求 ${capAsMin.toFixed(2)} cm²）`);
+    setCheck('pc-capAsMin', okCapAsMin, !Number.isFinite(capAsMin)
+      ? '未輸入樁帽尺寸（Bc、Lc），無法計算最小鋼筋量'
+      : okCapAsMin
+        ? `${capAsProv.toFixed(2)} / ${capAsMin.toFixed(2)} cm²`
+        : `最小鋼筋量不足（實配 ${capAsProv.toFixed(2)} < 需求 ${capAsMin.toFixed(2)} cm²）`);
     setCheck('pc-capShear', okCapShear, `${capPhiVn_tfm.toFixed(2)} / ${capVu_tfm.toFixed(2)} tf`);
     setCheck(
       'pc-structural',
@@ -4971,7 +4996,7 @@ ${pileType === 'cast-in-place' ? `\n<span class="h">▸ 場鑄混凝土樁斷面
 樁帽撓曲取柱面斷面：Mu = Σ單側樁反力 × (樁心至柱面距離)；全帽寬 Bc/Lc = ${Bc} / ${Lc} cm 承擔，As(每方向) = ${As.toFixed(2)} cm²
 樁帽單向剪力取距柱面 d 斷面（樁反力依 dp/2 內插）；未輸入剪力筋，Vs = 0
 樁帽 Mu,long / Mu,trans = ${capMuLong_tfm.toFixed(2)} / ${capMuTrans_tfm.toFixed(2)} tf·m；控制 φMn ≥ Mu：${capPhiMn_tfm.toFixed(2)} / ${capMu_tfm.toFixed(2)} tf·m → ${okCapFlexStrength ? '✓' : '✗'}
-樁帽最小鋼筋量 As ≥ 0.0018·b·h：${okCapAsMin ? `${capAsProv.toFixed(2)} ≥ ${capAsMin.toFixed(2)} cm² → ✓` : `最小鋼筋量不足（實配 ${capAsProv.toFixed(2)} < 需求 ${capAsMin.toFixed(2)} cm²） → ✗`}
+樁帽最小鋼筋量 As ≥ 0.0018·b·h：${!Number.isFinite(capAsMin) ? '未輸入樁帽尺寸（Bc、Lc），無法計算' : okCapAsMin ? `${capAsProv.toFixed(2)} ≥ ${capAsMin.toFixed(2)} cm² → ✓` : `最小鋼筋量不足（實配 ${capAsProv.toFixed(2)} < 需求 ${capAsMin.toFixed(2)} cm²） → ✗`}
 樁帽單向剪力 表 22.5.5.1(c)：vc = 2.12·λs·λ·ρw^(1/3)·√fc′，λs = ${capLambdaS.toFixed(4)}，Nu = 0
   長向（b = Bc = ${Bc} cm）：ρw = ${capAsProv.toFixed(2)}/(${Bc}×${d.toFixed(2)}) = ${capRhoWLong.toFixed(5)}；vc = ${capVcStressLong.toFixed(3)} kgf/cm²；Vu / φVc = ${capVuLongTf.toFixed(2)} / ${capPhiVcLongTf.toFixed(2)} tf → ${capPhiVcLongTf >= capVuLongTf ? '✓' : '✗'}
   橫向（b = Lc = ${Lc} cm）：ρw = ${capAsProv.toFixed(2)}/(${Lc}×${d.toFixed(2)}) = ${capRhoWTrans.toFixed(5)}；vc = ${capVcStressTrans.toFixed(3)} kgf/cm²；Vu / φVc = ${capVuTransTf.toFixed(2)} / ${capPhiVcTransTf.toFixed(2)} tf → ${capPhiVcTransTf >= capVuTransTf ? '✓' : '✗'}
@@ -6256,7 +6281,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         { group:'樁帽結構', items:[
           { label:'φVc ≥ Vu (衝剪)', value:`${r.phiVc2.toFixed(2)} / ${r.Vu2_tf.toFixed(2)}（λs=${r.capLambdaS.toFixed(3)}）`, unit:'tf', ok:r.okV2 },
           { label:'樁帽 φMn ≥ Mu', value:`${r.capPhiMn_tfm.toFixed(2)} / ${r.capMu_tfm.toFixed(2)}`, unit:'tf·m', ok:r.okCapFlexStrength },
-          { label:'樁帽 As ≥ As,min (0.0018·b·h)', value:r.okCapAsMin ? `${r.capAsProv.toFixed(2)} / ${r.capAsMin.toFixed(2)}` : `最小鋼筋量不足（實配 ${r.capAsProv.toFixed(2)} < 需求 ${r.capAsMin.toFixed(2)} cm²）`, unit:r.okCapAsMin ? 'cm²' : '', ok:r.okCapAsMin },
+          { label:'樁帽 As ≥ As,min (0.0018·b·h)', value:!Number.isFinite(r.capAsMin) ? '未輸入樁帽尺寸（Bc、Lc）' : r.okCapAsMin ? `${r.capAsProv.toFixed(2)} / ${r.capAsMin.toFixed(2)}` : `最小鋼筋量不足（實配 ${r.capAsProv.toFixed(2)} < 需求 ${r.capAsMin.toFixed(2)} cm²）`, unit:r.okCapAsMin ? 'cm²' : '', ok:r.okCapAsMin },
           ...(!r.okCapFlex && r.okCapFlexStrength && r.okCapAsMin ? [{ label:'樁帽撓曲配筋需求', value:`${r.capAsProv.toFixed(2)} / ${Number.isFinite(r.capAsReq) ? r.capAsReq.toFixed(2) : '未收斂'}`, unit:'cm²', ok:false }] : []),
           { label:'樁帽 φ(Vc+Vs) ≥ Vu,max', value:`${r.capPhiVn_tfm.toFixed(2)} / ${r.capVu_tfm.toFixed(2)}（表22.5.5.1(c) λs=${r.capLambdaS.toFixed(3)}、ρw 長/橫=${r.capRhoWLong.toFixed(4)}/${r.capRhoWTrans.toFixed(4)}）`, unit:'tf', ok:r.okCapShear }
         ]}

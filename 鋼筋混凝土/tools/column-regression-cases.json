@@ -1494,6 +1494,49 @@
         "Mc": 58.86510090601028,
         "pmOk": false
       }
+    },
+    {
+      "key": "development_tie_spacing_exceeds_other",
+      "label": "箍筋間距超過規範上限且淨距 < 2db 時採表 25.4.2.3 其他情況",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "swayMode": false,
+        "manualLayout": false,
+        "tieOverride": false
+      },
+      "selects": {
+        "colType": "rect",
+        "tieNo": "#3"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "b": 50,
+        "h": 50,
+        "lu": 300,
+        "k": 1,
+        "cover": 4,
+        "Pu": 200,
+        "Mux": 20,
+        "Muy": 0,
+        "Vu": 20,
+        "Vuy": 0,
+        "tieS": 45,
+        "crossTieS": 45,
+        "columnDevTop": 100,
+        "columnDevBottom": 200,
+        "nBar": 20
+      },
+      "expected": {
+        "columnLdTension": 182.15284006256158,
+        "columnDevReq": 182.15284006256158
+      },
+      "handCalc": [
+        "自動配置 20 根 → 每側 6 位置；淨距 (50 − 2×(4 + 0.953) − 6×2.54)/5 = 4.971 cm：≥ db 但 < 2db = 5.08",
+        "箍筋上限 min(16×2.54, 48×0.953, 50) = 40.64 cm < s = 45 → 不得採「有最少箍筋」之有利路徑 → 其他情況",
+        "ℓd = 4200/(3.5×√280)×2.54 = 182.153 cm（若箍筋條件寫死為符合會誤取 120.290 cm）"
+      ]
     }
   ]
 }

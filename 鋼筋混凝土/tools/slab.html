@@ -2402,7 +2402,7 @@
         });
       })() },
       { group:'鋼筋細節', items:[
-        { label:'溫度筋 As,min', formula:`ρt·b·h　(ρt 由 fyt 決定)`,
+        { label:'溫度筋 As,min', formula:`ρt·b·h　(ρt = 0.0018，24.4.3.2)`,
           sub: r.showSteps
             ? `規範 24.4.3.2：fyt=${r.fyT} → ρt = ${r.rhoTFormula}\nAs,min = ${r.rhoT.toFixed(4)} × 100 × ${r.h} = ${r.AsMin.toFixed(2)} cm²/m`
             : `ρt=${r.rhoT.toFixed(4)} (fyt=${r.fyT}) → ${r.rhoT.toFixed(4)}·100·${r.h} = ${r.AsMin.toFixed(2)}`,

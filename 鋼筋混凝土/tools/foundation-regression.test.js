@@ -680,7 +680,7 @@ async function main() {
   assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
   assert(!/0\.53 \* lambda/.test(html) && !/0\.53 \* lambda/.test(pileCore), 'foundation one-way shear no longer uses the simplified 0.53λ√fc′ expression', 'Table 22.5.5.1(c) is required without shear reinforcement');
   assert(html.includes('FoundationIsolated.oneWayShearNoStirrups') && pileCore.includes('FoundationShear.oneWayShearNoStirrups') && pileCore.includes('FoundationShear.sizeEffectFactor(d)'), 'foundation shear calls the shared Table 22.5.5.1(c) and λs helpers', 'shared foundation shear core');
-  assert(html.includes('DevLength.ldTension({ fc, fy, db: dbDev') && html.includes('DevLength.spacingCondition({ db: dbDev, clearSpacing: clearDev, clearCover: cover, minTransverse: false })'), 'isolated footing development length uses shared Table 25.4.2.3 helper', 'DevLength.ldTension with spacing condition');
+  assert(html.includes('DevLength.ldTension({ fc, fy, db, lambda, psit: 1.0, psie: 1.0, condition })') && html.includes('DevLength.spacingCondition({ db, clearSpacing: clear, clearCover: cover, minTransverse: false })') && html.includes("const devX = devFor('X', dbX, clearX, armX);") && html.includes("const devY = devFor('Y', dbY, clearY, armY);") && html.includes('const okDev = devX.ok && devY.ok;'), 'isolated footing development length uses shared Table 25.4.2.3 helper in both directions', 'DevLength.ldTension with spacing condition for X and Y bars');
   assert(!/designAsRect\(\{[^\n}]*\bMu\s*:/.test(html), 'foundation flexural design uses the Mu_kgcm interface', 'no obsolete Mu key remains');
   assert(html.includes('Mu_kgcm:Mu_long_tfm * 1e5') && pileCore.includes('Mu_kgcm:capMuLongTfm * 1e5') && pileCore.includes('Mu_kgcm:capMuTransTfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
   assert(html.includes('id="cHDL"') && html.includes('id="cHE"'), 'combined footing has horizontal force inputs', 'HDL/HE inputs exist');
@@ -876,6 +876,7 @@ async function main() {
           lambdaS1: r.lambdaS1,
           lambdaS_retain: r.lambdaS_retain,
           ld: r.ld,
+          ldAvail: r.ldAvail,
           sizeFactor: r.sizeFactor,
           ldCondition: r.ldCondition,
           lateralRequired: r.lateralRequired,

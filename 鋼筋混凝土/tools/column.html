@@ -2696,14 +2696,24 @@
     let lapSpliceClass = lapSpliceClassRequested;
     let lapSpliceClassB = lapSpliceClass !== 'A';
     const lapDb = dbMax;
-    // 表 25.4.2.3 條件：排內根數符合 25.7.2.1（淨距 ≥ max(1.5db_eq, 4 cm) ≥ db）且有箍筋時，
-    // 以淨保護層（cover + 箍筋 db）是否 ≥ db 判定有利條件；根數不符時採其他情況
-    const columnBarsFit = (colType === 'rect' && columnLayout)
-      ? (columnLayout.topN <= nMaxB && columnLayout.botN <= nMaxB && columnLayout.leftN <= nMaxH && columnLayout.rightN <= nMaxH)
-      : nBar <= nBarMaxRect;
-    const columnDevCondition = columnBarsFit
-      ? DevLength.spacingCondition({ db: dbEq, clearSpacing: sClearCol, clearCover: cover + tieDb, minTransverse: true })
-      : 'other';
+    // 表 25.4.2.3 條件：以實際最小淨距判定（矩形柱取四側位置數，圓形柱取弦長淨距），
+    // 淨保護層 = cover + 箍筋 db；箍筋間距 ≤ 規範上限時才視為「肋筋或箍筋不少於最小值」
+    const columnClearCover = cover + tieDb;
+    const columnClearSpacing = (() => {
+      if (colType === 'rect' && columnLayout) {
+        const side = (face, n) => n > 1 ? (face - 2 * columnClearCover - n * dbEq) / (n - 1) : Infinity;
+        return Math.min(side(b, columnLayout.topN), side(b, columnLayout.botN), side(h, columnLayout.leftN), side(h, columnLayout.rightN));
+      }
+      if (colType !== 'rect' && nBar > 1) {
+        const radius = (b - 2 * columnClearCover - dbEq) / 2;
+        return 2 * radius * Math.sin(Math.PI / nBar) - dbEq;
+      }
+      return NaN;
+    })();
+    const columnTieSpacingOk = adoptedTieSpacing <= codeTieSpacingLimit + 1e-6;
+    const columnDevCondition = DevLength.spacingCondition({
+      db: dbEq, clearSpacing: columnClearSpacing, clearCover: columnClearCover, minTransverse: columnTieSpacingOk
+    });
     const lapDevOpts = { fc, fy, db: lapDb, lambda: 1.0, psit: 1.0, psie: 1.0, condition: columnDevCondition };
     const lapLdTension = window.DevLength?.ldTension ? window.DevLength.ldTension(lapDevOpts) : null;
     const lapLengthReqA = window.DevLength?.lapSplice ? window.DevLength.lapSplice({ ...lapDevOpts, classB: false }) : null;

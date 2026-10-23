@@ -769,6 +769,14 @@ git add -- "鋼筋混凝土/shared/foundation-isolated.js" "鋼筋混凝土/shar
 git add -- "docs/審查複核紀錄-2026-10-23.md" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
 
+### E3-審查後修正
+
+獨立程式審查指出之條件判定問題：梁逐排判定（含排間淨距與箍筋間距）、柱以實際淨距與箍筋間距判定、獨立基腳握裹兩向檢核；基礎頁無效輸入不沿用上次結果、樁帽缺尺寸不顯示 NaN、計算書文字補正；新增三個手算回歸案例。
+
+```powershell
+git add -- "鋼筋混凝土/tools/beam.html" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/foundation.html" "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/beam-regression-cases.json" "鋼筋混凝土/tools/column-regression-cases.json" "鋼筋混凝土/tools/foundation-regression-cases.json" "鋼筋混凝土/tools/foundation-regression.test.js" "docs/審查複核紀錄-2026-10-23.md" STAGING_GROUPS.md
+```
+
 <!-- E3-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->
