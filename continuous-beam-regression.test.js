@@ -831,8 +831,150 @@ function main() {
   };
   ctx.redrawAll();
   assert(redrawCalls >= 1, 'redrawAll re-renders influence line', `drawILDiagram calls=${redrawCalls}`);
+  ctx.drawILDiagram = originalDrawIL;
+
+  runIndependentClosedFormChecks(ctx);
+  runInstabilityChecks(ctx);
 
   console.log('\nAll continuous beam regression checks passed.');
+}
+
+// ===== 獨立閉合解核對（預期值由結構力學公式推導，不讀取工具輸出） =====
+function setupBeam(ctx, { supports, spans, loads, E = '204000000', I = '0.00042' }) {
+  ctx.document.getElementById('ilEnabled').checked = false;
+  ctx.toggleIL();
+  ctx.document.getElementById('iMode').value = 'direct';
+  ctx.document.getElementById('globalI').value = I;
+  ctx.document.getElementById('eVal').value = E; // 預設 EI ≈ 85,680 kN·m²，實務量級
+  ctx.initModel(spans.length);
+  supports.forEach((type, i) => { ctx.model.supports[i] = { type }; });
+  spans.forEach((sp, i) => { ctx.model.spans[i] = { L: sp.L, eiMul: sp.eiMul || 1, hinges: sp.hinges || [] }; });
+  spans.forEach((_, i) => { ctx.model.loads[i] = (loads[i] || []).map(ld => ({ ...ld })); });
+  ctx.renderSpanInputs();
+  ctx.renderLoadSpanSelect();
+  ctx.renderLoadInputs();
+  ctx.runAnalysis();
+}
+
+function spanEndMoment(ctx, spanIndex, end) {
+  const ms = ctx.diagrams.spans[spanIndex].ms;
+  return end === 'start' ? ms[0] : ms[ms.length - 1];
+}
+
+function runIndependentClosedFormChecks(ctx) {
+  const relTol = (expected) => Math.max(1e-6, Math.abs(expected) * 1e-6);
+
+  // 1) 兩等跨連續梁、全跨均佈：R_A = R_C = 3wL/8，R_B = 5wL/4，M_B = −wL²/8
+  {
+    const w = 10, L = 6;
+    setupBeam(ctx, { supports: ['pin', 'roller', 'roller'], spans: [{ L }, { L }], loads: [[{ type: 'udl', w }], [{ type: 'udl', w }]] });
+    assert(!!ctx.solution, 'two equal spans solves', 'solution present');
+    const R = ctx.solution.reactions;
+    assertNear(R[0].Ry, 3 * w * L / 8, relTol(22.5), 'two equal spans end reaction', 'R_A = 3wL/8');
+    assertNear(R[1].Ry, 5 * w * L / 4, relTol(75), 'two equal spans interior reaction', 'R_B = 5wL/4');
+    assertNear(R[2].Ry, 3 * w * L / 8, relTol(22.5), 'two equal spans far end reaction', 'R_C = 3wL/8');
+    assertNear(spanEndMoment(ctx, 0, 'end'), -w * L * L / 8, relTol(45), 'two equal spans interior support moment', 'M_B = -wL^2/8');
+    assertNear(spanEndMoment(ctx, 1, 'start'), -w * L * L / 8, relTol(45), 'two equal spans moment continuous across support', 'M_B (span 2 start) = -wL^2/8');
+    assertNear(Math.max(...ctx.diagrams.spans[0].ms), 9 * w * L * L / 128, 1e-3, 'two equal spans max positive moment', 'M+ = 9wL^2/128 at x = 3L/8');
+  }
+
+  // 2) 三等跨連續梁、全跨均佈：M_B = M_C = −wL²/10，R_A = 0.4wL，R_B = 1.1wL
+  {
+    const w = 12, L = 5;
+    setupBeam(ctx, { supports: ['pin', 'roller', 'roller', 'roller'], spans: [{ L }, { L }, { L }], loads: [[{ type: 'udl', w }], [{ type: 'udl', w }], [{ type: 'udl', w }]] });
+    const R = ctx.solution.reactions;
+    assertNear(R[0].Ry, 0.4 * w * L, relTol(24), 'three equal spans end reaction', 'R_A = 0.4wL');
+    assertNear(R[1].Ry, 1.1 * w * L, relTol(66), 'three equal spans first interior reaction', 'R_B = 1.1wL');
+    assertNear(spanEndMoment(ctx, 0, 'end'), -w * L * L / 10, relTol(30), 'three equal spans support B moment', 'M_B = -wL^2/10');
+    assertNear(spanEndMoment(ctx, 1, 'end'), -w * L * L / 10, relTol(30), 'three equal spans support C moment', 'M_C = -wL^2/10');
+  }
+
+  // 3) 不等跨、不同 EI 之兩跨連續梁：三彎矩方程式
+  //    2M_B(L1/I1 + L2/I2) = −(wL1³/(4I1) + wL2³/(4I2))
+  {
+    const w = 10, L1 = 5, L2 = 8, I1 = 1, I2 = 0.85;
+    const MB = -(w * L1 ** 3 / I1 + w * L2 ** 3 / I2) / (8 * (L1 / I1 + L2 / I2));
+    const RA = w * L1 / 2 + MB / L1;
+    const RC = w * L2 / 2 + MB / L2;
+    const RB = w * (L1 + L2) - RA - RC;
+    setupBeam(ctx, { supports: ['pin', 'roller', 'roller'], spans: [{ L: L1, eiMul: I1 }, { L: L2, eiMul: I2 }], loads: [[{ type: 'udl', w }], [{ type: 'udl', w }]] });
+    const R = ctx.solution.reactions;
+    assertNear(spanEndMoment(ctx, 0, 'end'), MB, relTol(MB), 'unequal spans with EI ratio support moment', `three-moment M_B = ${MB.toFixed(6)}`);
+    assertNear(R[0].Ry, RA, relTol(RA), 'unequal spans with EI ratio left reaction', `R_A = wL1/2 + M_B/L1 = ${RA.toFixed(6)}`);
+    assertNear(R[1].Ry, RB, relTol(RB), 'unequal spans with EI ratio interior reaction', `R_B = ${RB.toFixed(6)}`);
+    assertNear(R[2].Ry, RC, relTol(RC), 'unequal spans with EI ratio right reaction', `R_C = wL2/2 + M_B/L2 = ${RC.toFixed(6)}`);
+  }
+
+  // 4) 一端固定一端滾支（propped cantilever）均佈：R_roller = 3wL/8，|M_fixed| = wL²/8
+  {
+    const w = 10, L = 6;
+    setupBeam(ctx, { supports: ['fixed', 'roller'], spans: [{ L }], loads: [[{ type: 'udl', w }]] });
+    const R = ctx.solution.reactions;
+    assertNear(R[1].Ry, 3 * w * L / 8, relTol(22.5), 'propped cantilever roller reaction', 'R_B = 3wL/8');
+    assertNear(R[0].Ry, 5 * w * L / 8, relTol(37.5), 'propped cantilever fixed reaction', 'R_A = 5wL/8');
+    assertNear(Math.abs(R[0].Mr), w * L * L / 8, relTol(45), 'propped cantilever fixed-end moment magnitude', '|M_A| = wL^2/8');
+    assertNear(spanEndMoment(ctx, 0, 'start'), -w * L * L / 8, relTol(45), 'propped cantilever fixed-end hogging moment', 'M_A = -wL^2/8');
+  }
+
+  // 5) 兩端固定、跨中集中載重：M_end = −PL/8，M_mid = +PL/8，R = P/2
+  {
+    const P = 20, L = 6;
+    setupBeam(ctx, { supports: ['fixed', 'fixed'], spans: [{ L }], loads: [[{ type: 'point', P, a: L / 2 }]] });
+    const R = ctx.solution.reactions;
+    assertNear(R[0].Ry, P / 2, relTol(10), 'fixed-fixed midspan point load reaction', 'R = P/2');
+    assertNear(spanEndMoment(ctx, 0, 'start'), -P * L / 8, relTol(15), 'fixed-fixed midspan point load end moment', 'M_end = -PL/8');
+    assertNear(Math.max(...ctx.diagrams.spans[0].ms), P * L / 8, 1e-6, 'fixed-fixed midspan point load midspan moment', 'M_mid = +PL/8');
+  }
+
+  // 6) 外伸梁（自由端＋鉸支＋滾支）：外伸 a = 2、主跨 L = 6、全長均佈
+  //    R_C = w(L²/2 − a²/2)/L，R_B = w(a + L) − R_C，M_B = −wa²/2，自由端反力 = 0
+  {
+    const w = 10, a = 2, L = 6;
+    const RC = w * (L * L / 2 - a * a / 2) / L;
+    const RB = w * (a + L) - RC;
+    setupBeam(ctx, { supports: ['free', 'pin', 'roller'], spans: [{ L: a }, { L }], loads: [[{ type: 'udl', w }], [{ type: 'udl', w }]] });
+    const R = ctx.solution.reactions;
+    assertNear(R[0].Ry, 0, 1e-6, 'overhang beam free end carries no reaction', 'R_free = 0');
+    assertNear(R[1].Ry, RB, relTol(RB), 'overhang beam support reaction', `R_B = ${RB.toFixed(6)}`);
+    assertNear(R[2].Ry, RC, relTol(RC), 'overhang beam far reaction', `R_C = ${RC.toFixed(6)}`);
+    assertNear(spanEndMoment(ctx, 0, 'end'), -w * a * a / 2, relTol(20), 'overhang beam support moment', 'M_B = -wa^2/2');
+  }
+}
+
+// ===== 不穩定結構（機構）須拒算，不得輸出反力 =====
+function runInstabilityChecks(ctx) {
+  const cases = [
+    { title: 'pin + free single span', supports: ['pin', 'free'], spans: [{ L: 6 }] },
+    { title: 'roller + free single span', supports: ['roller', 'free'], spans: [{ L: 6 }] },
+    { title: 'simple span with internal hinge', supports: ['pin', 'roller'], spans: [{ L: 6, hinges: [3] }] },
+    { title: 'two spans with only one vertical support', supports: ['free', 'pin', 'free'], spans: [{ L: 4 }, { L: 4 }] },
+  ];
+  // 原絕對門檻 1e-14 是否抓到機構取決於 EI 數值的捨入巧合（例：EI = 85,680 可抓到、86,000 抓不到），
+  // 故以多組實務量級 EI（鋼梁／RC 梁／小斷面）逐一驗證拒算行為。
+  const stiffnessVariants = [
+    { E: '204000000', I: '0.00042', label: 'steel EI=85680' },
+    { E: '200000000', I: '0.00043', label: 'steel EI=86000' },
+    { E: '25000000', I: '0.0045', label: 'RC EI=112500' },
+    { E: '204000000', I: '0.0000123', label: 'small EI=2509.2' },
+  ];
+  for (const c of cases) {
+    for (const v of stiffnessVariants) {
+      setupBeam(ctx, { supports: c.supports, spans: c.spans, loads: c.spans.map(() => [{ type: 'udl', w: 10 }]), E: v.E, I: v.I });
+      const msg = ctx.document.getElementById('errorMsg').textContent;
+      assert(ctx.solution == null, `unstable model rejected: ${c.title} (${v.label})`, `solution=${ctx.solution ? JSON.stringify(ctx.solution.reactions) : 'null'}`);
+      assert(msg.includes('結構不穩定'), `unstable model shows instability message: ${c.title} (${v.label})`, msg);
+    }
+  }
+  // 穩定模型在同一組 EI 範圍內不得被誤判為不穩定
+  for (const v of stiffnessVariants) {
+    setupBeam(ctx, { supports: ['pin', 'roller', 'roller'], spans: [{ L: 6 }, { L: 6 }], loads: [[{ type: 'udl', w: 10 }], [{ type: 'udl', w: 10 }]], E: v.E, I: v.I });
+    assert(!!ctx.solution, `stable two-span model not falsely rejected (${v.label})`, ctx.document.getElementById('errorMsg').textContent || 'solution present');
+    assertNear(ctx.solution.reactions[1].Ry, 75, 1e-6, `stable two-span interior reaction independent of EI (${v.label})`, 'R_B = 5wL/4');
+  }
+  // 拒算後恢復穩定模型須可正常求解（不殘留錯誤狀態）
+  setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L: 6 }], loads: [[{ type: 'udl', w: 10 }]] });
+  assert(!!ctx.solution, 'stable model solves again after instability rejection', 'solution present');
+  assertNear(ctx.solution.reactions[0].Ry, 30, 1e-6, 'stable model reaction after rejection', 'R = wL/2');
 }
 
 main();

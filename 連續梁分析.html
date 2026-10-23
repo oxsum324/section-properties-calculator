@@ -749,14 +749,26 @@ function onILTypeChange() {
 function zeros(n) { return Array.from({length:n}, ()=>new Float64Array(n)); }
 function zerosVec(n) { return new Float64Array(n); }
 
+// 奇異判定採對角正規化：先以 D = diag(1/sqrt(Kii)) 將勁度矩陣縮放為單位對角，
+// 主元門檻才與 EI、跨長及單位無關；原先固定 1e-14 絕對門檻在實務 EI（約 1e4–1e5 kN·m²）
+// 下無法辨識機構（如鉸支＋自由端），會輸出看似平衡的錯誤反力。求解後再以殘差複核。
+const GAUSS_SCALED_PIVOT_TOL = 1e-12;
+const GAUSS_RELATIVE_RESIDUAL_TOL = 1e-8;
+
 function gaussSolve(A, b) {
   const n = b.length;
-  const a = A.map(r => Float64Array.from(r));
-  const x = Float64Array.from(b);
+  const dScale = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const diag = A[i][i];
+    if (!(diag > 0) || !isFinite(diag)) return null; // 自由度無勁度或非正定：結構不穩定
+    dScale[i] = 1 / Math.sqrt(diag);
+  }
+  const a = A.map((r, i) => Float64Array.from(r, (v, j) => v * dScale[i] * dScale[j]));
+  const x = Float64Array.from(b, (v, i) => v * dScale[i]);
   for (let col = 0; col < n; col++) {
     let maxRow = col, maxVal = Math.abs(a[col][col]);
     for (let r = col+1; r < n; r++) { const v = Math.abs(a[r][col]); if (v > maxVal) { maxVal = v; maxRow = r; } }
-    if (maxVal < 1e-14) return null;
+    if (!(maxVal >= GAUSS_SCALED_PIVOT_TOL)) return null;
     [a[col], a[maxRow]] = [a[maxRow], a[col]];
     [x[col], x[maxRow]] = [x[maxRow], x[col]];
     for (let r = col+1; r < n; r++) {
@@ -771,6 +783,17 @@ function gaussSolve(A, b) {
     for (let j = i+1; j < n; j++) res[i] -= a[i][j] * res[j];
     res[i] /= a[i][i];
   }
+  for (let i = 0; i < n; i++) res[i] *= dScale[i];
+  // 殘差複核：|K·d − F| 相對於 |K|·|d| + |F| 須在容許範圍內，否則視為病態／不穩定
+  let resid = 0, scale = 0;
+  for (let i = 0; i < n; i++) {
+    let ki = 0, kabs = 0;
+    for (let j = 0; j < n; j++) { ki += A[i][j] * res[j]; kabs += Math.abs(A[i][j] * res[j]); }
+    if (!isFinite(ki)) return null;
+    resid = Math.max(resid, Math.abs(ki - b[i]));
+    scale = Math.max(scale, kabs + Math.abs(b[i]));
+  }
+  if (scale > 0 && resid > GAUSS_RELATIVE_RESIDUAL_TOL * scale) return null;
   return res;
 }
 
