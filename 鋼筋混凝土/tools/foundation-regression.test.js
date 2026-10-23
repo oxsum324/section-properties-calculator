@@ -678,6 +678,9 @@ async function main() {
   assert(html.includes('../shared/foundation-isolated.js?v=2') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
   assert(html.includes('../shared/foundation-pile.js?v=2') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
   assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
+  assert(!/0\.53 \* lambda/.test(html) && !/0\.53 \* lambda/.test(pileCore), 'foundation one-way shear no longer uses the simplified 0.53λ√fc′ expression', 'Table 22.5.5.1(c) is required without shear reinforcement');
+  assert(html.includes('FoundationIsolated.oneWayShearNoStirrups') && pileCore.includes('FoundationShear.oneWayShearNoStirrups') && pileCore.includes('FoundationShear.sizeEffectFactor(d)'), 'foundation shear calls the shared Table 22.5.5.1(c) and λs helpers', 'shared foundation shear core');
+  assert(html.includes('DevLength.ldTension({ fc, fy, db: dbDev') && html.includes('DevLength.spacingCondition({ db: dbDev, clearSpacing: clearDev, clearCover: cover, minTransverse: false })'), 'isolated footing development length uses shared Table 25.4.2.3 helper', 'DevLength.ldTension with spacing condition');
   assert(!/designAsRect\(\{[^\n}]*\bMu\s*:/.test(html), 'foundation flexural design uses the Mu_kgcm interface', 'no obsolete Mu key remains');
   assert(html.includes('Mu_kgcm:Mu_long_tfm * 1e5') && pileCore.includes('Mu_kgcm:capMuLongTfm * 1e5') && pileCore.includes('Mu_kgcm:capMuTransTfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
   assert(html.includes('id="cHDL"') && html.includes('id="cHE"'), 'combined footing has horizontal force inputs', 'HDL/HE inputs exist');
@@ -862,7 +865,19 @@ async function main() {
           okSettlement: r.okSettlement,
           okPileStress: r.okPileStress,
           okCapFlex: r.okCapFlex,
+          okCapFlexStrength: r.okCapFlexStrength,
+          okCapAsMin: r.okCapAsMin,
+          capAsMin: r.capAsMin,
+          capLambdaS: r.capLambdaS,
+          capPhiVn_tfm: r.capPhiVn_tfm,
+          capVu_tfm: r.capVu_tfm,
           okCapShear: r.okCapShear,
+          rhoW1: r.rhoW1,
+          lambdaS1: r.lambdaS1,
+          lambdaS_retain: r.lambdaS_retain,
+          ld: r.ld,
+          sizeFactor: r.sizeFactor,
+          ldCondition: r.ldCondition,
           lateralRequired: r.lateralRequired,
           lateralSupported: r.lateralGroup?.supported,
           lateralMaxX: r.lateralGroup?.x?.maxPerPile,

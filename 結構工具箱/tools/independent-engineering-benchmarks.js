@@ -1858,19 +1858,31 @@ function rcFoundationOracle(i) {
   const AsMinPerM = 0.0018 * 100 * i.hf;
   const AsReqX = Math.max(flexuralAsX, AsMinPerM * i.B / 100);
   const AsReqY = Math.max(flexuralAsY, AsMinPerM * i.L / 100);
-  const v1Arm = Math.max(0, Math.max(armX, armY) - d);
-  const Vu1Kgf = quKgfCm2 * i.B * v1Arm;
-  const phiVc1Kgf = i.phiShear * 0.53 * i.lambda * Math.sqrt(i.fc) * i.B * d;
+  // One-way shear without stirrups, Table 22.5.5.1(c): Vc = 2.12 lambda_s lambda (As/(b d))^(1/3) sqrt(fc') b d,
+  // lambda_s = 1 for a shallow footing bearing directly on soil (13.2.6.2(a)); each cantilever uses its own width and bars.
+  const oneWay = [
+    { arm: armX, width: i.B, steel: AsProvX },
+    { arm: armY, width: i.L, steel: AsProvY }
+  ].map(({ arm, width, steel }) => {
+    const demand = quKgfCm2 * width * Math.max(0, arm - d);
+    const stress = Math.min(2.12 * i.lambda * Math.pow(steel / (width * d), 1 / 3) * Math.sqrt(i.fc), 1.33 * i.lambda * Math.sqrt(i.fc));
+    const capacity = i.phiShear * stress * width * d;
+    return { demand, capacity, ratio: demand / capacity };
+  });
+  const governingOneWay = oneWay[1].ratio > oneWay[0].ratio ? oneWay[1] : oneWay[0];
+  const Vu1Kgf = governingOneWay.demand;
+  const phiVc1Kgf = governingOneWay.capacity;
   const c1d = i.c1 + d;
   const c2d = i.c2 + d;
   const bo = 2 * (c1d + c2d);
   const criticalAreaM2 = c1d * c2d / 1e4;
   const Vu2Kgf = (i.PuTf - quTfM2 * criticalAreaM2) * 1000;
   const betaC = Math.max(i.c1, i.c2) / Math.min(i.c1, i.c2);
+  // Punching (22.6.5.2), lambda_s = 1 for the shallow footing (13.2.6.2(a)).
   const vc = Math.min(
     1.06 * i.lambda * Math.sqrt(i.fc),
-    0.27 * (2 + 4 / betaC) * i.lambda * Math.sqrt(i.fc),
-    0.27 * (40 * d / bo + 2) * i.lambda * Math.sqrt(i.fc)
+    0.53 * (1 + 2 / betaC) * i.lambda * Math.sqrt(i.fc),
+    0.265 * (40 * d / bo + 2) * i.lambda * Math.sqrt(i.fc)
   );
   const phiVc2Kgf = i.phiShear * vc * bo * d;
   return {
@@ -1930,10 +1942,12 @@ function rcPileOracle(i) {
   const c2d = i.c2 + d;
   const bo = 2 * (c1d + c2d);
   const betaC = Math.max(i.c1, i.c2) / Math.min(i.c1, i.c2);
-  const vc = Math.min(
+  // A pile cap is supported on piles, so the 13.2.6.2 waiver does not apply: lambda_s = sqrt(2 / (1 + d/25)) <= 1 (22.5.5.1.3).
+  const sizeEffect = Math.min(1, Math.sqrt(2 / (1 + d / 25)));
+  const vc = sizeEffect * Math.min(
     1.06 * i.lambda * Math.sqrt(i.fc),
-    0.27 * (2 + 4 / betaC) * i.lambda * Math.sqrt(i.fc),
-    0.27 * (40 * d / bo + 2) * i.lambda * Math.sqrt(i.fc)
+    0.53 * (1 + 2 / betaC) * i.lambda * Math.sqrt(i.fc),
+    0.265 * (40 * d / bo + 2) * i.lambda * Math.sqrt(i.fc)
   );
   // 13.4.6.5: full share when the pile centre is >= dp/2 outside the section, none when >= dp/2 inside, linear between.
   const share = (signed) => Math.min(1, Math.max(0, (signed + i.pileD / 2) / i.pileD));
@@ -1981,7 +1995,12 @@ function rcPileOracle(i) {
   const phiMnLong = mnFor(i.capB);
   const phiMnTrans = mnFor(i.capL);
   const capPhiMnTfm = capMuLongTfm / phiMnLong >= capMuTransTfm / phiMnTrans ? phiMnLong : phiMnTrans;
-  const vcFor = (width) => i.phiShear * 0.53 * i.lambda * Math.sqrt(i.fc) * width * d / 1000;
+  // Table 22.5.5.1(c) (no stirrups): rho_w = As / (b d) per direction, multiplied by lambda_s; capped at 1.33 lambda sqrt(fc') b d.
+  const vcFor = (width) => {
+    const rhoW = i.capSteelAreaTotal / (width * d);
+    const stress = Math.min(2.12 * sizeEffect * i.lambda * Math.pow(rhoW, 1 / 3) * Math.sqrt(i.fc), 1.33 * i.lambda * Math.sqrt(i.fc));
+    return i.phiShear * stress * width * d / 1000;
+  };
   const capPhiVcTf = vuLong / vcFor(i.capB) >= vuTrans / vcFor(i.capL) ? vcFor(i.capB) : vcFor(i.capL);
   const capVsTf = 0;
 
@@ -4641,9 +4660,8 @@ function rcSlabStrengthOracle(input) {
     // 6.5.4：端跨第一內支承面 Vu = 1.15·wu·ℓn/2；懸臂固定端 wu·ℓn；內跨與簡支 wu·ℓn/2
     const shearCoefficient = ({ simple:1 / 2, oneEnd:1.15 / 2, bothEnd:1 / 2, cantilever:1 })[i.supportX];
     const shearDemand = shearCoefficient * i.wu * spanM;
-    const temperatureRatio = i.fyT <= 2800 ? 0.002
-      : i.fyT <= 4200 ? 0.0018
-        : Math.max(0.0018 * 4200 / i.fyT, 0.0014);
+    // 24.4.3.2（112 年版）：收縮與溫度鋼筋比 ≥ 0.0018，不隨 fyt 折減
+    const temperatureRatio = 0.0018;
     const AsMinimum = temperatureRatio * b * i.h;
     const effectiveDepth = i.h - i.cover - i.barDiameter / 2;
     const AsProvided = i.barArea * 100 / i.barSpacing;

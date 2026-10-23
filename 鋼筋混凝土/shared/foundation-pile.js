@@ -3,12 +3,14 @@
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory(require('./flexure.js'));
+    module.exports = factory(require('./flexure.js'), require('./foundation-isolated.js'));
   } else {
-    root.FoundationPile = factory(root.Flexure);
+    root.FoundationPile = factory(root.Flexure, root.FoundationIsolated);
   }
-})(typeof self !== 'undefined' ? self : globalThis, function (Flexure) {
+})(typeof self !== 'undefined' ? self : globalThis, function (Flexure, FoundationShear) {
   'use strict';
+  // 樁帽混凝土剪力（單向表 22.5.5.1(c)、雙向 22.6.5.2）與尺寸效應 λs 由 foundation-isolated.js 之共用函式提供；
+  // 樁帽由基樁支撐，不屬 13.2.6.2 可免計 λs 之淺基礎或擋土牆，λs 依 22.5.5.1.3 計算。
 
   function getLayerAtDepth(layers, depth) {
     return layers.find(layer => depth >= layer.from - 1e-9 && depth <= layer.to + 1e-9) || null;
@@ -144,6 +146,10 @@
     if (!Flexure || typeof Flexure.designAsRect !== 'function' || typeof Flexure.phiMnRect !== 'function') {
       throw new Error('pile-cap-flexure-dependency-missing');
     }
+    if (!FoundationShear || typeof FoundationShear.oneWayShearNoStirrups !== 'function'
+      || typeof FoundationShear.twoWayShearStressNoStirrups !== 'function' || typeof FoundationShear.sizeEffectFactor !== 'function') {
+      throw new Error('pile-cap-shear-dependency-missing');
+    }
 
     const fc = Number(input.fc);
     const fy = Number(input.fy);
@@ -191,11 +197,10 @@
     const c2d = c2 + d;
     const bo = 2 * (c1d + c2d);
     const betaC = Math.max(c1, c2) / Math.min(c1, c2);
-    const vc = Math.min(
-      1.06 * lambda * Math.sqrt(fc),
-      0.27 * (2 + 4 / betaC) * lambda * Math.sqrt(fc),
-      0.27 * (40 * d / bo + 2) * lambda * Math.sqrt(fc)
-    );
+    // 22.5.5.1.3 尺寸效應：樁帽不適用 13.2.6.2 免計，單向與雙向剪力皆乘 λs
+    const lambdaS = FoundationShear.sizeEffectFactor(d);
+    const punchingStress = FoundationShear.twoWayShearStressNoStirrups({ fc, lambda, lambdaS, betaC, alphaS: 40, bo, d });
+    const vc = punchingStress.vc;
     const phiVc2Kgf = phiShear * vc * bo * d;
     // 規範 13.4.6.5（ACI 318 同條）：樁中心在臨界斷面外側 ≥ dpile/2 全額計入，
     // 在內側 ≥ dpile/2 不計入，其間以線性內插。signedDistance > 0 表示位於臨界斷面外側。
@@ -274,8 +279,15 @@
     let capPhiVcLongTf = NaN;
     let capPhiVcTransTf = NaN;
     let capPhiVnTf = NaN;
+    let capShearLong = null;
+    let capShearTrans = null;
+    let capAsMinLong = NaN;
+    let capAsMinTrans = NaN;
+    let capAsMin = NaN;
     let capFlexConverged = false;
     let okCapFlex = false;
+    let okCapFlexStrength = false;
+    let okCapAsMin = false;
     let okCapShear = false;
     if (capGeometryProvided) {
       // 長向主筋（沿 L）分布於帽寬 capB；橫向主筋（沿 B）分布於帽長 capL；每方向鋼筋量 = capSteelAreaTotal。
@@ -285,6 +297,9 @@
         && Number.isFinite(designLong.As) && Number.isFinite(designTrans.As);
       const asMinLong = 0.0018 * capB * hc;
       const asMinTrans = 0.0018 * capL * hc;
+      capAsMinLong = asMinLong;
+      capAsMinTrans = asMinTrans;
+      capAsMin = Math.max(asMinLong, asMinTrans);
       const capAsReqLong = capFlexConverged ? Math.max(asMinLong, designLong.As) : NaN;
       const capAsReqTrans = capFlexConverged ? Math.max(asMinTrans, designTrans.As) : NaN;
       capFlexuralAs = capFlexConverged ? Math.max(designLong.As, designTrans.As) : NaN;
@@ -294,11 +309,17 @@
       const longRatio = capPhiMnLongTfm > 0 ? capMuLongTfm / capPhiMnLongTfm : Infinity;
       const transRatio = capPhiMnTransTfm > 0 ? capMuTransTfm / capPhiMnTransTfm : Infinity;
       capPhiMnTfm = longRatio >= transRatio ? capPhiMnLongTfm : capPhiMnTransTfm;
+      // 撓曲判定分列：強度（φMn ≥ Mu）與最小鋼筋量（As ≥ 0.0018·b·h）各自標示；整體 okCapFlex 判定式不變。
+      okCapFlexStrength = capPhiMnLongTfm >= capMuLongTfm && capPhiMnTransTfm >= capMuTransTfm;
+      okCapAsMin = capAsProv >= asMinLong && capAsProv >= asMinTrans;
       okCapFlex = capFlexConverged
         && capPhiMnLongTfm >= capMuLongTfm && capPhiMnTransTfm >= capMuTransTfm
         && capAsProv >= capAsReqLong && capAsProv >= capAsReqTrans;
-      capPhiVcLongTf = phiShear * 0.53 * lambda * Math.sqrt(fc) * capB * d / 1000;
-      capPhiVcTransTf = phiShear * 0.53 * lambda * Math.sqrt(fc) * capL * d / 1000;
+      // 單向剪力 表 22.5.5.1(c)：長向斷面寬 capB、橫向斷面寬 capL；ρw = 每方向實配 As/(b·d)；λs 依 22.5.5.1.3
+      capShearLong = FoundationShear.oneWayShearNoStirrups({ fc, lambda, bw:capB, d, As:capAsProv, lambdaS, phi:phiShear });
+      capShearTrans = FoundationShear.oneWayShearNoStirrups({ fc, lambda, bw:capL, d, As:capAsProv, lambdaS, phi:phiShear });
+      capPhiVcLongTf = capShearLong.phiVc / 1000;
+      capPhiVcTransTf = capShearTrans.phiVc / 1000;
       const vLongRatio = capVuLongTf / capPhiVcLongTf;
       const vTransRatio = capVuTransTf / capPhiVcTransTf;
       capPhiVnTf = vLongRatio >= vTransRatio ? capPhiVcLongTf : capPhiVcTransTf;
@@ -310,14 +331,22 @@
 
     return {
       d, nPile, xs, ys, sumX2, sumY2, reactions, rMax, rMin, minSpacing,
-      c1d, c2d, bo, betaC, vc, phiVc2Kgf, Vu2Tf, excludedCount, partialCount, punchingFactors,
+      c1d, c2d, bo, betaC, lambdaS, vcA:punchingStress.vcA, vcB:punchingStress.vcB, vcC:punchingStress.vcC,
+      vc, phiVc2Kgf, Vu2Tf, excludedCount, partialCount, punchingFactors,
       rowSpanL, rowSpanB, pileReactionRowsL, pileReactionRowsB, controlRowL, controlRowB,
       capMuLongTfm, capMuTransTfm, capMuTfm, capVuLongTf, capVuTransTf, capVuTf,
       capB, capL, capGeometryProvided, capFlexConverged,
       capFlexuralAs, capAsReq, capAsProv, capPhiMnTfm, capPhiMnLongTfm, capPhiMnTransTfm,
+      capAsMinLong, capAsMinTrans, capAsMin,
+      capRhoWLong:capShearLong ? capShearLong.rhoW : NaN,
+      capRhoWTrans:capShearTrans ? capShearTrans.rhoW : NaN,
+      capVcStressLong:capShearLong ? capShearLong.vcStress : NaN,
+      capVcStressTrans:capShearTrans ? capShearTrans.vcStress : NaN,
       capPhiVcLongTf, capPhiVcTransTf, capPhiVcTf, capVsTf, capPhiVnTf,
       okPunching:phiVc2Kgf / 1000 >= Vu2Tf,
       okCapFlex,
+      okCapFlexStrength,
+      okCapAsMin,
       okCapShear
     };
   }
