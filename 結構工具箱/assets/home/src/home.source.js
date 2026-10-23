@@ -175,7 +175,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-10-23',
+    generatedAt: '2026-10-24',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -185,11 +185,11 @@
       '/struct-dx': '2026-08-13',
       '/section': '2026-10-23',
       '/composite-section': '2026-10-23',
-      '/rc-beam': '2026-10-23',
+      '/rc-beam': '2026-10-24',
       '/rc-deep-beam-stm': '2026-10-23',
-      '/rc-column': '2026-10-23',
-      '/rc-slab': '2026-10-23',
-      '/rc-wall': '2026-10-23',
+      '/rc-column': '2026-10-24',
+      '/rc-slab': '2026-10-24',
+      '/rc-wall': '2026-10-24',
       '/rc-shear-wall': '2026-10-23',
       '/rc-foundation': '2026-10-23',
       '/rc-foundation-deep-beam-stm': '2026-10-23',
@@ -206,7 +206,7 @@
       '/steel-beam': '2026-10-23',
       '/steel-column': '2026-10-23',
       '/wind-overview': '2026-10-23',
-      '/wind-kzt': '2026-10-23',
+      '/wind-kzt': '2026-10-24',
       '/wind-special': '2026-10-23',
       '/wind-force': '2026-10-23',
       '/wind-cc': '2026-10-23',
@@ -229,7 +229,7 @@
       '/earth-pressure': '2026-10-23',
       '/floor-slab-westergaard': '2026-10-23',
       '/concrete-strength-ndt': '2026-10-23',
-      '/cable-tension-frequency': '2026-10-23',
+      '/cable-tension-frequency': '2026-10-24',
       '/decking': '2026-10-23',
       '/excavation-support': '2026-10-23'
     }
