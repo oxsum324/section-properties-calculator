@@ -7,7 +7,7 @@
 
   const BRIDGE_SCHEMA = 'earth-pressure-to-rc-foundation.v1';
   const SOURCE_TOOL_ID = 'earth-pressure';
-  const SOURCE_PAGE_VERSION = 'V0.6';
+  const SOURCE_PAGE_VERSION = 'V0.7';
   const RELATIVE_TOLERANCE = 1e-8;
 
   function parsePayload(raw) {

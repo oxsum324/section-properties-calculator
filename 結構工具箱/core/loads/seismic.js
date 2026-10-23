@@ -20,7 +20,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '2.1.0';
+  const VERSION = '2.2.0';
   const SOURCE = Object.freeze({
     authority: '內政部國土管理署',
     document: '建築物耐震設計規範及解說（113 年版）',

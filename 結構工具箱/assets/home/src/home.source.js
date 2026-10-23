@@ -163,7 +163,7 @@
     routes: {
       '/condition-survey': '2026-10-11',
       '/beam-analysis': '2026-10-23',
-      '/frame-analysis': '2026-10-22',
+      '/frame-analysis': '2026-10-23',
       '/struct-dx': '2026-08-13',
       '/section': '2026-10-23',
       '/composite-section': '2026-10-23',
@@ -175,18 +175,18 @@
       '/rc-shear-wall': '2026-10-23',
       '/rc-foundation': '2026-10-23',
       '/rc-foundation-deep-beam-stm': '2026-10-22',
-      '/rc-pile-cap-3d-stm': '2026-10-22',
+      '/rc-pile-cap-3d-stm': '2026-10-23',
       '/rc-pile': '2026-10-23',
       '/rc-retrofit-section': '2026-10-23',
-      '/rc-column-cover-deviation': '2026-10-22',
+      '/rc-column-cover-deviation': '2026-10-23',
       '/src-beam': '2026-10-22',
       '/src-column': '2026-10-22',
       '/steel-formal': '2026-10-23',
-      '/steel-beam-formal': '2026-10-22',
-      '/steel-column-formal': '2026-10-22',
+      '/steel-beam-formal': '2026-10-23',
+      '/steel-column-formal': '2026-10-23',
       '/steel-plate': '2026-10-23',
       '/steel-beam': '2026-10-22',
-      '/steel-column': '2026-10-22',
+      '/steel-column': '2026-10-23',
       '/wind-overview': '2026-10-23',
       '/wind-kzt': '2026-10-23',
       '/wind-special': '2026-10-22',
@@ -204,14 +204,14 @@
       '/seismic-dynamic': '2026-10-23',
       '/seismic-appendage': '2026-10-23',
       '/seismic-misc': '2026-10-23',
-      '/anchor': '2026-10-09',
+      '/anchor': '2026-10-23',
       '/stone-fixing': '2026-10-23',
-      '/foundation-local': '2026-10-22',
+      '/foundation-local': '2026-10-23',
       '/equipment-load': '2026-10-23',
       '/earth-pressure': '2026-10-23',
-      '/floor-slab-westergaard': '2026-10-22',
-      '/concrete-strength-ndt': '2026-10-22',
-      '/cable-tension-frequency': '2026-10-22',
+      '/floor-slab-westergaard': '2026-10-23',
+      '/concrete-strength-ndt': '2026-10-23',
+      '/cable-tension-frequency': '2026-10-23',
       '/decking': '2026-10-23',
       '/excavation-support': '2026-10-23'
     }
@@ -380,7 +380,7 @@
     },
     {
       title: 'RC 梁',
-      version: 'V3.1',
+      version: 'V3.2',
       href: '/rc-beam',
       aliases: ['RC beam design', '鋼筋混凝土梁'],
       categories: ['member'],
@@ -410,7 +410,7 @@
     },
     {
       title: 'RC 柱',
-      version: 'V3.1',
+      version: 'V3.2',
       href: '/rc-column',
       aliases: ['RC column design', '柱軸壓強度'],
       categories: ['member'],
@@ -425,7 +425,7 @@
     },
     {
       title: 'RC 板',
-      version: 'V3.2',
+      version: 'V3.3',
       href: '/rc-slab',
       aliases: ['RC slab design', '單向板配筋'],
       categories: ['member'],
@@ -440,7 +440,7 @@
     },
     {
       title: 'RC 牆',
-      version: 'V3.2',
+      version: 'V3.3',
       href: '/rc-wall',
       aliases: ['RC structural wall', '牆體軸力檢核'],
       categories: ['member'],
@@ -455,7 +455,7 @@
     },
     {
       title: 'RC 剪力牆',
-      version: 'V0.4',
+      version: 'V0.5',
       href: '/rc-shear-wall',
       aliases: ['RC shear wall', '特殊邊界構材'],
       categories: ['member'],
@@ -470,7 +470,7 @@
     },
     {
       title: 'RC 基礎',
-      version: 'V3.1',
+      version: 'V3.2',
       href: '/rc-foundation',
       aliases: ['spread footing', 'RC footing design'],
       categories: ['member'],
@@ -515,7 +515,7 @@
     },
     {
       title: '單樁承載力設計器',
-      version: 'V3.1',
+      version: 'V3.2',
       href: '/rc-pile',
       aliases: ['single pile capacity', '樁軸向承載'],
       categories: ['member'],
@@ -530,7 +530,7 @@
     },
     {
       title: 'RC 補強斷面',
-      version: 'V1.7',
+      version: 'V1.8',
       href: '/rc-retrofit-section',
       aliases: ['RC retrofit', 'CFRP 補強'],
       categories: ['member'],
@@ -605,7 +605,7 @@
     },
     {
       title: '鋼梁正式頁',
-      version: 'V1.0',
+      version: 'V1.1',
       href: '/steel-beam-formal',
       aliases: ['steel beam check', '鋼梁正式檢核'],
       categories: ['member'],
@@ -620,7 +620,7 @@
     },
     {
       title: '鋼柱正式頁',
-      version: 'V1.0',
+      version: 'V1.1',
       href: '/steel-column-formal',
       aliases: ['steel column check', '鋼柱正式檢核'],
       categories: ['member'],
@@ -635,7 +635,7 @@
     },
     {
       title: '連接板檢核',
-      version: 'V1.0',
+      version: 'V1.1',
       href: '/steel-plate',
       aliases: ['connection plate', '連接板強度'],
       categories: ['attachments'],
@@ -677,7 +677,7 @@
     },
     {
       title: '耐風案件總覽',
-      version: 'V1',
+      version: 'V1.1',
       href: '/wind-overview',
       aliases: ['wind case overview', '耐風工具總覽'],
       categories: ['wind'],
@@ -690,7 +690,7 @@
     },
     {
       title: 'Kzt 地形係數',
-      version: 'V1',
+      version: 'V1.1',
       href: '/wind-kzt',
       aliases: ['topographic factor', '地形增幅係數'],
       categories: ['wind'],
@@ -772,7 +772,7 @@
     },
     {
       title: '實體標示物風力',
-      version: 'V4.0',
+      version: 'V4.1',
       href: '/wind-object-solid',
       aliases: ['solid sign wind force', '實體標示物 Cf'],
       categories: ['wind'],
@@ -786,7 +786,7 @@
     },
     {
       title: '中空式 / 格子式風力',
-      version: 'V3.3',
+      version: 'V3.4',
       href: '/wind-object-frame',
       aliases: ['lattice sign wind', '中空標示物風力'],
       categories: ['wind'],
@@ -800,7 +800,7 @@
     },
     {
       title: '桁架高塔風力',
-      version: 'V1.1',
+      version: 'V1.2',
       href: '/wind-lattice-tower',
       aliases: ['trussed tower wind', '格子塔風力'],
       categories: ['wind'],
@@ -814,7 +814,7 @@
     },
     {
       title: '煙囪 / 水塔風力',
-      version: 'V3.2',
+      version: 'V3.3',
       href: '/wind-object-tower',
       aliases: ['chimney wind pressure', 'water tank wind'],
       categories: ['wind'],
@@ -828,7 +828,7 @@
     },
     {
       title: '圍籬牆 / 獨立招牌風力',
-      version: 'V2.1',
+      version: 'V2.2',
       href: '/wind-fence-sign',
       aliases: ['freestanding sign wind', '獨立招牌風力'],
       categories: ['wind'],
@@ -842,7 +842,7 @@
     },
     {
       title: '招牌 / 燈桿組合風力',
-      version: 'V1.0',
+      version: 'V1.1',
       href: '/wind-sign-pole',
       aliases: ['pole sign wind load', '燈桿附掛招牌'],
       categories: ['wind'],
@@ -870,7 +870,7 @@
     },
     {
       title: '動力分析摘要',
-      version: 'V3.8',
+      version: 'V3.9',
       href: '/seismic-dynamic',
       aliases: ['response spectrum analysis', '反應譜分析結果'],
       categories: ['seismic'],
@@ -898,7 +898,7 @@
     },
     {
       title: '雜項工作物地震力',
-      version: 'V3.4',
+      version: 'V3.5',
       href: '/seismic-misc',
       aliases: ['nonbuilding structure seismic', '第五章雜項地震力'],
       categories: ['seismic'],
@@ -954,7 +954,7 @@
     },
     {
       title: '設備局部荷重',
-      version: 'V0.3',
+      version: 'V0.4',
       href: '/equipment-load',
       aliases: ['equipment base reaction', '設備支點反力'],
       categories: ['temporary'],
@@ -968,7 +968,7 @@
     },
     {
       title: '擋土土壓局部檢核',
-      version: 'V0.6',
+      version: 'V0.7',
       href: '/earth-pressure',
       aliases: ['retaining wall pressure', 'Rankine Coulomb'],
       categories: ['temporary'],
@@ -1024,7 +1024,7 @@
     },
     {
       title: '覆工板系統計算',
-      version: 'V1.0',
+      version: 'V1.1',
       href: '/decking',
       aliases: ['temporary decking design', '施工覆工板'],
       categories: ['temporary'],

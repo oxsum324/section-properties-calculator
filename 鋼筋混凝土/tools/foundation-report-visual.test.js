@@ -125,7 +125,7 @@ const EXPECTED = {
       '基礎設計計算書 — 擋土牆',
       '採用土壓來源與穩定參數',
       '外部土壓 JSON',
-      'earth-pressure-core:v0.6',
+      'earth-pressure-core:v0.7',
       '側向合力 / 傾覆矩',
       '穩定檢核',
       '牆身強度檢核',
@@ -245,7 +245,7 @@ async function applyCase(page, tc) {
     await page.evaluate(input => {
       const result = window.EarthPressureCore.calculate(input);
       window.applyEarthPressurePayload({
-        tool: { id: 'earth-pressure', name: '擋土土壓局部檢核', pageVersion: 'V0.6' },
+        tool: { id: 'earth-pressure', name: '擋土土壓局部檢核', pageVersion: 'V0.7' },
         project: { name: 'RC 基礎正式附件測試', no: 'RC-FT-001', designer: 'QA' },
         generatedAt: '2026-08-04T01:00:00.000Z', input, result
       }, { silent: true });
@@ -436,7 +436,7 @@ async function main() {
         caseKey: tc.key,
         label: `${tc.key} foundation report`,
         assert,
-        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.1'],
+        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.2'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {

@@ -80,7 +80,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>剪力牆 Shear Wall 設計／檢核 <span data-ui="version">V0.4</span></h1>
+  <h1>剪力牆 Shear Wall 設計／檢核 <span data-ui="version">V0.5</span></h1>
   <p><a class="back" href="../index.html">← 回 RC 工具箱</a> ｜ 面內撓曲 P-M 互制、面內剪力、特殊邊界構材 (依 112 規範 11 章 ＋ 18.7 章)</p>
 </header>
 
@@ -509,12 +509,12 @@
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
-<script src="../shared/devlength.js?v=2"></script>
-<script src="../shared/wall.js?v=2"></script>
+<script src="../shared/devlength.js?v=3"></script>
+<script src="../shared/wall.js?v=3"></script>
 <script src="../shared/loadcases.js?v=1"></script>
 <script src="../shared/pmsection.js?v=3"></script>
-<script src="../shared/wall-base.js?v=2"></script>
-<script src="../shared/wall-evaluator.js?v=2"></script>
+<script src="../shared/wall-base.js?v=3"></script>
+<script src="../shared/wall-evaluator.js?v=3"></script>
 <script>
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id)?.value) || 0;
@@ -640,7 +640,7 @@
       schema: SHEAR_WALL_PROJECT_SCHEMA,
       tool: 'rc-shear-wall',
       toolTitle: '剪力牆 Shear Wall 設計／檢核',
-      appVersion: 'V0.4',
+      appVersion: 'V0.5',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -680,7 +680,7 @@
     return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
       expectedSchema: SHEAR_WALL_PROJECT_SCHEMA,
       expectedToolId: 'rc-shear-wall',
-      expectedVersion: 'V0.4',
+      expectedVersion: 'V0.5',
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
     });
@@ -1879,7 +1879,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
     openReport({
       title:'剪力牆設計計算書',
       textExport:true,
-      outputSource:{ tool:'剪力牆 Shear Wall 設計／檢核', version:'V0.4' },
+      outputSource:{ tool:'剪力牆 Shear Wall 設計／檢核', version:'V0.5' },
       subtitle:'RC Shear Wall Design Report (依 112 規範 11 / 18.7 章)',
       project:proj,
       calculationFingerprint:projectSnapshot.calculationFingerprint,

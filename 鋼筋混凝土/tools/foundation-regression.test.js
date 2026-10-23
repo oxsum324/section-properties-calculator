@@ -427,7 +427,7 @@ async function exerciseEarthPressureBridge(page) {
     };
     const result = window.EarthPressureCore.calculate(input);
     const source = window.applyEarthPressurePayload({
-      tool: { id: 'earth-pressure', name: '擋土土壓局部檢核', pageVersion: 'V0.6' },
+      tool: { id: 'earth-pressure', name: '擋土土壓局部檢核', pageVersion: 'V0.7' },
       project: { name: '土壓銜接測試', no: 'EARTH-RC-001', designer: 'QA' },
       generatedAt: '2026-08-04T01:00:00.000Z', input, result
     }, { silent: true });
@@ -675,8 +675,8 @@ async function main() {
   assert(html.includes('id="mainTabs"'), 'foundation.html has section tabs', 'multi-foundation tab UI exists');
   assert(html.includes('id="bannerStatus"'), 'foundation.html has banner', 'summary banner exists');
   assert(html.includes('window.ftLast'), 'foundation.html exports ftLast', 'result snapshot exists for regression capture');
-  assert(html.includes('../shared/foundation-isolated.js?v=1') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
-  assert(html.includes('../shared/foundation-pile.js?v=1') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
+  assert(html.includes('../shared/foundation-isolated.js?v=2') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
+  assert(html.includes('../shared/foundation-pile.js?v=2') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
   assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
   assert(!/designAsRect\(\{[^\n}]*\bMu\s*:/.test(html), 'foundation flexural design uses the Mu_kgcm interface', 'no obsolete Mu key remains');
   assert(html.includes('Mu_kgcm:Mu_long_tfm * 1e5') && pileCore.includes('Mu_kgcm:capMuLongTfm * 1e5') && pileCore.includes('Mu_kgcm:capMuTransTfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
@@ -716,7 +716,7 @@ async function main() {
   assert(html.includes('PILE_PY_BRIDGE.inspectState'), 'foundation revalidates adopted p-y source against current model', 'fail-closed replay gate exists');
   assert(reportSrc.includes("group:'專項 p-y 分析結果'"), 'foundation report includes adopted p-y calculation results', 'formal report result group exists');
   assert(reportSrc.includes("label:'分析範圍 / Hx / Hy'") && reportSrc.includes("label:'來源表格換算'"), 'foundation report identifies p-y analysis scope and table provenance', 'formal report provenance exists');
-  assert(html.includes('pile-cap-3d-stm-bridge.js?v=2') && html.includes('id="btnOpenPileCap3DSTM"') && html.includes('id="btnDownloadPileCap3DSTM"'), 'foundation exposes versioned pile-cap 3D STM bridge', 'one-click and JSON fallback controls exist');
+  assert(html.includes('pile-cap-3d-stm-bridge.js?v=3') && html.includes('id="btnOpenPileCap3DSTM"') && html.includes('id="btnDownloadPileCap3DSTM"'), 'foundation exposes versioned pile-cap 3D STM bridge', 'one-click and JSON fallback controls exist');
   assert(html.includes('pile-cap-load-combinations.js?v=1') && html.includes('id="pileCap3DSTMCaseMode"') && html.includes('id="btnPreviewPileCap3DSTMCombos"'), 'foundation exposes automatic LRFD component-to-combination workflow', 'shared LoadCombo adapter, source mode and preview controls exist');
   assert(html.includes('PILE_CAP_LOAD_COMBINATIONS.generate') && html.includes("method:'LRFD'") && html.includes('loadCombinationSource = generated'), 'foundation generates traceable LRFD pile-cap cases from the shared load-combination core', 'automatic cases preserve component and schema provenance');
   assert(html.includes('loadcombo-components-v1') && html.includes('id="btnImportPileCapLoadComponents"') && html.includes('id="btnAdoptPileCapLoadComponents"') && html.includes('forces-receive.js'), 'foundation accepts common D/L/W/E component packages as review candidates', 'analysis JSON and ForcePicker candidates require explicit adoption');
@@ -768,7 +768,7 @@ async function main() {
         await page.evaluate(input => {
           const result = window.EarthPressureCore.calculate(input);
           window.applyEarthPressurePayload({
-            tool: { id: 'earth-pressure', name: '擋土土壓局部檢核', pageVersion: 'V0.6' },
+            tool: { id: 'earth-pressure', name: '擋土土壓局部檢核', pageVersion: 'V0.7' },
             project: { name: '土壓銜接回歸', no: 'EARTH-RC-REG', designer: 'QA' },
             generatedAt: '2026-08-04T01:00:00.000Z', input, result
           }, { silent: true });

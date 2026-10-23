@@ -8,10 +8,10 @@
   'use strict';
 
   const CORE_NAME = 'EquipmentLoadCore';
-  const CORE_VERSION = '0.3.0';
+  const CORE_VERSION = '0.4.0';
   const INPUT_SCHEMA_VERSION = 'equipment-load.input.v0.3';
   const RESULT_SCHEMA_VERSION = 'equipment-load.result.v0.3';
-  const LOGIC_SIGNATURE = 'equipment-load-core:v0.3:uniform-or-eccentric-four-support-reactions-contact-spread-concrete-punching-steelplate';
+  const LOGIC_SIGNATURE = 'equipment-load-core:v0.4:uniform-or-eccentric-four-support-reactions-contact-spread-concrete-punching-steelplate';
   const KGCM2_TO_TFM2 = 10;
   const M_TO_CM = 100;
   const PUNCHING_ALPHA = {

@@ -72,7 +72,7 @@ function buildHandoff(payload, options = {}) {
     source: {
       toolId: 'fugongban',
       toolName: '覆工板系統計算工具',
-      toolVersion: 'v1.0',
+      toolVersion: 'v1.1',
       projectName: String(payload?.project?.name || '').trim(),
       projectNo: String(payload?.project?.no || '').trim(),
       calculationFingerprint,

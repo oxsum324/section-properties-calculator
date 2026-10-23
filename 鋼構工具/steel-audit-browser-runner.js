@@ -86,9 +86,9 @@ const STEEL_DIRECT_PRINT_BODY = '此頁是操作介面，不是計算書。請�
 const MAIN_ROUTE_CANONICAL_PAGE_TITLE = '鋼構正式規範核算工具 V1.3';
 const steelDirectPrintPages = [
   { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.3' },
-  { key: 'steel-plate-formal', url: '/plate-check.html', pageTitle: '鋼構連接板正式規範核算工具 V1.0' },
-  { key: 'steel-beam-formal', url: '/steel-beam-formal.html', pageTitle: '鋼梁正式規範核算工具 V1.0' },
-  { key: 'steel-column-formal', url: '/steel-column-formal.html', pageTitle: '鋼柱正式規範核算工具 V1.0' },
+  { key: 'steel-plate-formal', url: '/plate-check.html', pageTitle: '鋼構連接板正式規範核算工具 V1.1' },
+  { key: 'steel-beam-formal', url: '/steel-beam-formal.html', pageTitle: '鋼梁正式規範核算工具 V1.1' },
+  { key: 'steel-column-formal', url: '/steel-column-formal.html', pageTitle: '鋼柱正式規範核算工具 V1.1' },
 ];
 
 const FORMAL_PROJECT_META = {

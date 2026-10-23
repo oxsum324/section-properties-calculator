@@ -535,11 +535,11 @@ const tools = [
     label: 'RC retrofit section reports',
     path: 'RC補強斷面性質.html',
     needles: [
-      '<title>RC 補強斷面性質計算 V1.7</title>',
+      '<title>RC 補強斷面性質計算 V1.8</title>',
       'id="b-report-status"', 'id="c-report-status"', 'id="b-report-readiness"', 'id="c-report-readiness"',
       'id="caseStatus"', 'id="retrofitJsonFile"', 'function collectRetrofitProjectData',
       'function validateRetrofitProjectData', 'function applyRetrofitProjectData',
-      'rc-retrofit-section.project.v1', "version: 'V1.7'", 'function renderReportReadiness', 'page-only-report-status',
+      'rc-retrofit-section.project.v1', "version: 'V1.8'", 'function renderReportReadiness', 'page-only-report-status',
     ],
   },
 ];

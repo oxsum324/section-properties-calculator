@@ -109,7 +109,7 @@ function main() {
   const buildReportSrc = html.slice(html.indexOf('function buildReport'), html.indexOf('function svgToDataURL'));
   assert(buildReportSrc.includes('summary:false'), '剪力牆計算書關閉頂部狀態 summary', 'report summary false');
   assert(buildReportSrc.includes('textExport:true'), '剪力牆計算書啟用受治理 TXT 下載', 'shared report text export is explicit');
-  assert(buildReportSrc.includes("outputSource:{ tool:'剪力牆 Shear Wall 設計／檢核', version:'V0.4' }"), '剪力牆計算書明示與專案 JSON 相同的產出工具及版本', 'V0.4 source trace');
+  assert(buildReportSrc.includes("outputSource:{ tool:'剪力牆 Shear Wall 設計／檢核', version:'V0.5' }"), '剪力牆計算書明示與專案 JSON 相同的產出工具及版本', 'V0.5 source trace');
   assert(html.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), '剪力牆專案 payload 會清除 placeholder 案名', 'project storage metadata normalized');
   assert(!buildReportSrc.includes("$('projName').value.trim()"), '剪力牆計算書不直接輸出 placeholder 專案欄位', 'report project header normalized');
   assert(!buildReportSrc.includes('RCUI.buildReviewCheckGroup'), '剪力牆計算書不輸出待確認總覽群組', 'review overview stays page-only');

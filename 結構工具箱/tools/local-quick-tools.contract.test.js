@@ -118,7 +118,7 @@ const bridgeInput = Object.assign({
 }, earthPressureGoldenCases[0].input);
 const bridgeResult = EarthPressureCore.calculate(bridgeInput);
 const bridgePayload = {
-  tool: { id: 'earth-pressure', pageVersion: 'V0.6' },
+  tool: { id: 'earth-pressure', pageVersion: 'V0.7' },
   project: { name: '跨工具銜接', no: 'BRIDGE-001', designer: 'QA' },
   generatedAt: '2026-08-04T01:00:00.000Z',
   input: bridgeInput,
@@ -984,12 +984,12 @@ assertHomeToolCategories('桁架高塔風力', ['wind'], 'lattice tower wind sta
 assertHomeToolCategories('煙囪 / 水塔風力', ['wind'], 'chimney and water tower wind stays in wind category');
 assertHomeToolCategories('圍籬牆 / 獨立招牌風力', ['wind'], 'fence sign wind stays in wind category');
 assertHomeToolCategories('招牌 / 燈桿組合風力', ['wind'], 'sign pole combo wind stays in wind category');
-assert.match(repoDocs.homeJs, /title: '實體標示物風力'[\s\S]*?version: 'V4\.0'/, 'solid object wind new home version');
-assert.match(repoDocs.homeJs, /title: '中空式 \/ 格子式風力'[\s\S]*?version: 'V3\.3'/, 'frame object wind new home version');
-assert.match(repoDocs.homeJs, /title: '桁架高塔風力'[\s\S]*?version: 'V1\.1'/, 'lattice tower wind home version');
-assert.match(repoDocs.homeJs, /title: '煙囪 \/ 水塔風力'[\s\S]*?version: 'V3\.2'/, 'chimney and water tower wind home version');
-assert.match(repoDocs.homeJs, /title: '圍籬牆 \/ 獨立招牌風力'[\s\S]*?version: 'V2\.1'/, 'fence sign wind new home version');
-assert.match(repoDocs.homeJs, /title: '招牌 \/ 燈桿組合風力'[\s\S]*?version: 'V1\.0'/, 'sign pole wind home version');
+assert.match(repoDocs.homeJs, /title: '實體標示物風力'[\s\S]*?version: 'V4\.1'/, 'solid object wind new home version');
+assert.match(repoDocs.homeJs, /title: '中空式 \/ 格子式風力'[\s\S]*?version: 'V3\.4'/, 'frame object wind new home version');
+assert.match(repoDocs.homeJs, /title: '桁架高塔風力'[\s\S]*?version: 'V1\.2'/, 'lattice tower wind home version');
+assert.match(repoDocs.homeJs, /title: '煙囪 \/ 水塔風力'[\s\S]*?version: 'V3\.3'/, 'chimney and water tower wind home version');
+assert.match(repoDocs.homeJs, /title: '圍籬牆 \/ 獨立招牌風力'[\s\S]*?version: 'V2\.2'/, 'fence sign wind new home version');
+assert.match(repoDocs.homeJs, /title: '招牌 \/ 燈桿組合風力'[\s\S]*?version: 'V1\.1'/, 'sign pole wind home version');
 assert.equal(repoDocs.homeJs.includes('H/B、M/N 判定 Cf'), false, 'solid object homepage no longer mixes object height and section ratio');
 assert.equal(repoDocs.homeJs.includes('斜風向 0.3B 偏心'), false, 'solid object homepage uses wind-width eccentricity wording');
 assert.equal(repoDocs.homeSource.includes('風力係數選用導引'), false, 'shape factor guide removed from homepage surfaces');
@@ -1042,7 +1042,7 @@ assertHomeToolCategories('覆工板系統計算', ['temporary'], 'deck system st
 assertIncludes(repoDocs.vercel, '"source": "/toolbox-home"', 'new home vercel route');
 assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home vercel destination');
 [
-  '<title>建築物耐震設計 — 反應譜動力分析規範整理 V3.8</title>',
+  '<title>建築物耐震設計 — 反應譜動力分析規範整理 V3.9</title>',
   '總橫力調整檢核',
   'id="designActionPanel"',
   '規範反應譜資料表',
@@ -1124,7 +1124,7 @@ assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home 
 ].forEach(needle => assertIncludes(repoDocs.seismicAppendage, needle, 'seismic appendage case workflow'));
 assert.equal(repoDocs.seismicAppendage.includes('id="btnPrint"'), false, 'seismic appendage removes duplicate print action');
 [
-  '<title>雜項工作物地震力 V3.4</title>',
+  '<title>雜項工作物地震力 V3.5</title>',
   'TOOL_VERSION',
   'CASE_SCHEMA_VERSION',
   'seismic-misc.case.v1',
@@ -1162,7 +1162,7 @@ assert.equal(repoDocs.seismicAppendage.includes('id="btnPrint"'), false, 'seismi
 assert.equal(repoDocs.seismicMisc.includes('id="btnPrint"'), false, 'seismic misc removes duplicate print action');
 assert.equal(repoDocs.seismicMisc.includes('diagram-caption'), false, 'seismic misc removes diagram caption copy');
 [
-  '<title>建築物耐風設計 — 實體標示物風力 V4.0</title>',
+  '<title>建築物耐風設計 — 實體標示物風力 V4.1</title>',
   'CASE_SCHEMA_VERSION',
   'wind-object-solid.case.v3',
   '匯出案件 JSON',
@@ -1298,7 +1298,7 @@ assert.equal(solidConditionRowsBlock.includes("['工具版本'"), false, 'solid 
 assert.equal(solidReportBuilderBlock.includes('shapeBasisPanel'), false, 'solid object report omits UI-only Cf reminder panel');
 assert.equal(solidReportBuilderBlock.includes('formError'), false, 'solid object report omits UI-only validation prompt');
 [
-  '<title>建築物耐風設計 — 中空式 / 格子式風力 V3.3</title>',
+  '<title>建築物耐風設計 — 中空式 / 格子式風力 V3.4</title>',
   'TOOL_VERSION',
   'CASE_SCHEMA_VERSION',
   'wind-object-frame.case.v2',
@@ -1344,7 +1344,7 @@ assert.equal(repoDocs.windObjectFrame.includes('桁架高塔'), false, 'frame ob
 assert.equal(repoDocs.windObjectFrame.includes('id="mode"'), false, 'frame object wind removes mixed calculation-type select');
 assert.equal(repoDocs.windObjectFrame.includes('lSegments'), false, 'frame object wind removes tower segment input');
 [
-  '<title>建築物耐風設計 — 桁架高塔風力 V1.1</title>',
+  '<title>建築物耐風設計 — 桁架高塔風力 V1.2</title>',
   'TOOL_VERSION',
   'CASE_SCHEMA_VERSION',
   'wind-lattice-tower.case.v1',
@@ -1441,7 +1441,7 @@ assert.equal(latticeConditionRowsBlock.includes('getProjectInfo'), false, 'latti
 assert.equal(latticeReportBuilderBlock.includes('applicList'), false, 'lattice tower report omits UI-only applicability list');
 assert.equal(latticeReportBuilderBlock.includes('formError'), false, 'lattice tower report omits UI-only validation prompt');
 [
-  '<title>建築物耐風設計 — 煙囪 / 水塔風力 V3.2</title>',
+  '<title>建築物耐風設計 — 煙囪 / 水塔風力 V3.3</title>',
   'TOOL_VERSION',
   'CASE_SCHEMA_VERSION',
   'wind-object-tower.case.v2',
@@ -1511,7 +1511,7 @@ assert.equal(towerConditionRowsBlock.includes('getProjectInfo'), false, 'tower o
 assert.equal(towerReportBuilderBlock.includes('applicList'), false, 'tower object report omits UI-only applicability list');
 assert.equal(towerReportBuilderBlock.includes('formError'), false, 'tower object report omits UI-only validation prompt');
 [
-  '<title>建築物耐風設計 — 圍籬牆 / 獨立招牌風力 V2.1</title>',
+  '<title>建築物耐風設計 — 圍籬牆 / 獨立招牌風力 V2.2</title>',
   'TOOL_VERSION',
   'CASE_SCHEMA_VERSION',
   'wind-fence-sign.case.v1',
@@ -1538,7 +1538,7 @@ assert.equal(repoDocs.windFenceSign.includes('覆寫'), false, 'wind fence sign 
 assert.equal(repoDocs.windFenceSign.includes('使用者'), false, 'wind fence sign avoids user-choice wording in report-sensitive flow');
 assert.equal(repoDocs.windFenceSign.includes('工具預設'), false, 'wind fence sign avoids tool-centric default wording');
 [
-  '<title>建築物耐風設計 — 招牌 / 燈桿組合風力 V1.0</title>',
+  '<title>建築物耐風設計 — 招牌 / 燈桿組合風力 V1.1</title>',
   'TOOL_VERSION',
   'CASE_SCHEMA_VERSION',
   'wind-sign-pole.case.v1',
@@ -1818,7 +1818,7 @@ for (const tool of tools) {
       'id="cgEccentricityY"',
       'Ri = W/n + My·xi/Σx² + Mx·yi/Σy²',
       'Rmin&lt;0',
-      'equipment-load-core.js?v=0.3.0',
+      'equipment-load-core.js?v=0.4.0',
       'id="concreteFc"',
       'id="effectiveDepth"',
       'id="steelPlateThickness"',

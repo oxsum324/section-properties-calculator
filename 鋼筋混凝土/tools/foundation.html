@@ -18,7 +18,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>基礎設計 — RC 工具箱 V3.1</title>
+<title>基礎設計 — RC 工具箱 V3.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
@@ -284,7 +284,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>基礎 Foundation 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
+  <h1>基礎 Foundation 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.2</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ <a class="back" href="foundation-deep-beam-stm.html">基礎深梁二維 STM</a> ｜ <a class="back" href="pile-cap-3d-stm.html">樁帽三維 STM</a> ｜ 獨立基腳、聯合基腳、筏式基礎、樁基／樁帽、擋土牆、耐震繫材</p>
 </header>
 
@@ -1326,13 +1326,13 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/foundation-isolated.js?v=1"></script>
-<script src="../shared/foundation-pile.js?v=1"></script>
+<script src="../shared/foundation-isolated.js?v=2"></script>
+<script src="../shared/foundation-pile.js?v=2"></script>
 <script src="../shared/retaining-base-demand.js?v=1"></script>
 <script src="../shared/pile-group-lateral.js?v=1"></script>
 <script src="../shared/pile-py-table-adapter.js?v=1"></script>
 <script src="../shared/pile-py-result-bridge.js?v=1"></script>
-<script src="../shared/pile-cap-3d-stm-bridge.js?v=2"></script>
+<script src="../shared/pile-cap-3d-stm-bridge.js?v=3"></script>
 <script src="../../結構工具箱/core/ui/report-utils.js"></script>
 <script src="../shared/report-utils.js"></script>
 <script src="../../結構工具箱/core/ui/report-docx.js"></script>
@@ -1343,10 +1343,10 @@
 <script src="../shared/joint-reaction-fixture-sanitizer-core.js?v=1"></script>
 <script src="../shared/pile-cap-load-combinations.js?v=1"></script>
 <script src="../../結構工具箱/core/ui/forces-receive.js"></script>
-<script src="../shared/devlength.js?v=2"></script>
+<script src="../shared/devlength.js?v=3"></script>
 <script src="./pile-site-presets.js?v=1"></script>
-<script src="../../結構工具箱/tools/earth/earth-pressure-core.js?v=1"></script>
-<script src="../../結構工具箱/tools/earth/earth-pressure-rc-bridge.js?v=1"></script>
+<script src="../../結構工具箱/tools/earth/earth-pressure-core.js?v=2"></script>
+<script src="../../結構工具箱/tools/earth/earth-pressure-rc-bridge.js?v=2"></script>
 <script>
   const $ = id => document.getElementById(id);
   const num = id => { const v = parseFloat($(id)?.value); return isNaN(v) ? 0 : v; };
@@ -3239,7 +3239,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       schema: FOUNDATION_PROJECT_SCHEMA,
       tool: 'rc-foundation',
       toolTitle: '基礎 Foundation 設計／檢核',
-      appVersion: 'V3.1',
+      appVersion: 'V3.2',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: currentTab,
@@ -3462,7 +3462,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
       expectedSchema: FOUNDATION_PROJECT_SCHEMA,
       expectedToolId: 'rc-foundation',
-      expectedVersion: 'V3.1',
+      expectedVersion: 'V3.2',
       sourceKey: 'fields',
       fingerprintOptions: payload => ({
         ignoredKeys: ['activeTab'],
@@ -6280,7 +6280,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     openReport({
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
       textExport:true,
-      outputSource:{ tool:'基礎 Foundation 設計／檢核', version:'V3.1' },
+      outputSource:{ tool:'基礎 Foundation 設計／檢核', version:'V3.2' },
       subtitle: `112 年混凝土結構設計規範`,
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,

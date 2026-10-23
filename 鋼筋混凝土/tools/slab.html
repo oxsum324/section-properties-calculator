@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>板設計 — RC 工具箱 V3.2</title>
+<title>板設計 — RC 工具箱 V3.3</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../shared/style.css">
@@ -56,7 +56,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>板 Slab 設計／檢核 <span data-ui="version">V3.2</span></h1>
+  <h1>板 Slab 設計／檢核 <span data-ui="version">V3.3</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 單向板 + 簡化二向板初步設計、自動配筋</p>
 </header>
 
@@ -584,14 +584,14 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/slab-evaluator.js?v=1"></script>
+<script src="../shared/slab-evaluator.js?v=2"></script>
 <script src="../../結構工具箱/core/ui/report-utils.js"></script>
 <script src="../shared/report-utils.js"></script>
 <script src="../../結構工具箱/core/ui/report-docx.js"></script>
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
-<script src="../shared/devlength.js?v=2"></script>
+<script src="../shared/devlength.js?v=3"></script>
 <script>
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id)?.value) || 0;
@@ -719,7 +719,7 @@
       schema: SLAB_PROJECT_SCHEMA,
       tool: 'rc-slab',
       toolTitle: '板 Slab 設計／檢核',
-      appVersion: 'V3.2',
+      appVersion: 'V3.3',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       loadMode,
@@ -759,7 +759,7 @@
     const sourceVersion = String(parsed?.appVersion || parsed?.tool?.pageVersion || parsed?.pageVersion || '')
       .trim()
       .replace(/^v/i, 'V');
-    const expectedVersion = sourceVersion === 'V3.1' ? 'V3.1' : 'V3.2';
+    const expectedVersion = sourceVersion === 'V3.1' ? 'V3.1' : 'V3.3';
     return window.RCReportFingerprint.validateProjectCalculationSource(parsed, {
       expectedSchema: SLAB_PROJECT_SCHEMA,
       expectedToolId: 'rc-slab',
@@ -802,7 +802,7 @@
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      const upgradeNote = upgradedFromV31 ? '｜已依 V3.2 衝剪周長公式重算，請另存 V3.2 專案檔' : '';
+      const upgradeNote = upgradedFromV31 ? '｜已依 V3.2 衝剪周長公式重算，請另存 V3.3 專案檔' : '';
       showSlabProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}${upgradeNote}`);
     }
     return { payload, applied };
@@ -2504,7 +2504,7 @@
     }
     return openReport({
       title: isDesignMode ? '板初步設計計算書' : '板初步檢核計算書',
-      outputSource:{ tool:'板 Slab 設計／檢核', version:'V3.2' },
+      outputSource:{ tool:'板 Slab 設計／檢核', version:'V3.3' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode

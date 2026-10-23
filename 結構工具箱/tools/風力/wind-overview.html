@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>建築物耐風設計 — 案件總覽 V1</title>
+<title>建築物耐風設計 — 案件總覽 V1.1</title>
 <link rel="stylesheet" href="../../assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../../core/family-theme.css">
 <link rel="stylesheet" href="../../core/style.css">
@@ -37,7 +37,7 @@
 <body data-family="wind">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <header>
-  <h1>建築物耐風設計 — 案件總覽 <span class="badge-v">V1</span></h1>
+  <h1>建築物耐風設計 — 案件總覽 <span class="badge-v">V1.1</span></h1>
   <p>輸入一次案件基本參數，自動派送至各子工具 ｜ 依 103 年版規範</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
@@ -238,7 +238,7 @@
 <script src="../../core/loads/seismic-zones.js"></script>
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/regulatory-locations.js"></script>
-<script src="../../core/loads/project-location.js" data-location-tool-id="wind-overview" data-location-tool-name="耐風設計案件總覽" data-location-tool-version="V1"></script>
+<script src="../../core/loads/project-location.js" data-location-tool-id="wind-overview" data-location-tool-name="耐風設計案件總覽" data-location-tool-version="V1.1"></script>
 <script src="wind-shared-profile.js"></script>
 <script>
 const W = window.Wind;
@@ -318,7 +318,7 @@ function loadOverview() {
       refreshV();
       const current = gatherParams();
       renderSummary(current);
-      const profile = window.WindSharedProfile.save({ ...current, toolVersion: 'V1' }, localStorage);
+      const profile = window.WindSharedProfile.save({ ...current, toolVersion: 'V1.1' }, localStorage);
       window.WindSharedProfile.decorateDispatchLinks(document, profile);
     }
   } catch (e) {
@@ -388,7 +388,7 @@ document.getElementById('btnSave').addEventListener('click', () => {
     return;
   }
   localStorage.setItem(OVERVIEW_STORAGE_KEY, JSON.stringify(p));
-  const profile = window.WindSharedProfile.save({ ...p, toolVersion: 'V1' }, localStorage);
+  const profile = window.WindSharedProfile.save({ ...p, toolVersion: 'V1.1' }, localStorage);
   const dispatched = window.WindSharedProfile.decorateDispatchLinks(document, profile);
   renderSummary(p);
   const msg = document.getElementById('saveMsg');
@@ -398,7 +398,7 @@ document.getElementById('btnSave').addEventListener('click', () => {
 
 loadOverview();
 </script>
-<script src="../project-storage.js" data-tool-id="wind-overview" data-tool-name="耐風設計案件總覽" data-tool-version="V1"></script>
+<script src="../project-storage.js" data-tool-id="wind-overview" data-tool-name="耐風設計案件總覽" data-tool-version="V1.1"></script>
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../project-meta-profile.js"></script>

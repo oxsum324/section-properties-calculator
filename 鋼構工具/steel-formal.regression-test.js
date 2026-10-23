@@ -384,7 +384,7 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, key === "connection" ? "V1.3" : "V1.0", `${key} metadata should expose its canonical steel formal version`);
+  assert.equal(metadata.version, key === "connection" ? "V1.3" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
 }
 const momentModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.beamColumnMoment;
 assert.equal(momentModuleMetadata?.state, "formal", "connection metadata should mark the scoped beam-column moment review formal");
@@ -519,9 +519,9 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
 // navFamily：共用導覽頂欄（tool-chrome.js）加在 <body> 的 data-family；連接板檢核屬連接附掛物家族。
 for (const [label, html, expectedVersion, navFamily] of [
   ["steel main", indexSource, "V1.3", "steel"],
-  ["steel plate", plateCheckSource, "V1.0", "attachments"],
-  ["steel beam", beamFormalHtmlSource, "V1.0", "steel"],
-  ["steel column", columnFormalHtmlSource, "V1.0", "steel"],
+  ["steel plate", plateCheckSource, "V1.1", "attachments"],
+  ["steel beam", beamFormalHtmlSource, "V1.1", "steel"],
+  ["steel column", columnFormalHtmlSource, "V1.1", "steel"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
   const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";
@@ -920,7 +920,7 @@ assert.match(
 assert.doesNotMatch(
   appSource,
   /readCalculationSourceFile\(file,[\s\S]{0,400}expectedVersion:\s*STEEL_TOOL_METADATA\.plate\.version/,
-  "connection import should not reject V1.3 connection-family sources using the standalone plate V1.0 precheck",
+  "connection import should not reject V1.3 connection-family sources using the standalone plate V1.1 precheck",
 );
 assert.ok(mainReportBuilderSource.includes("Gusset V1 派生幾何與面積"), "Gusset report should print its full derived-area audit trail");
 assert.ok(

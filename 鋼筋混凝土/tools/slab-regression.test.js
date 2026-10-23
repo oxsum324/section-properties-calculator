@@ -223,8 +223,8 @@ async function exerciseSlabProjectStorage(page) {
     appVersion: window.collectSlabProjectData()?.appVersion
   }));
   assert(legacyImport.projectName === '板專案存讀檔測試' && legacyImport.Lx === '620', 'slab accepts V3.1 project inputs for recalculation', JSON.stringify(legacyImport));
-  assert(legacyImport.appVersion === 'V3.2', 'slab upgrades replayed project provenance to V3.2', JSON.stringify(legacyImport));
-  assert(legacyImport.status.includes('請另存 V3.2 專案檔'), 'slab discloses V3.1 calculation migration', legacyImport.status);
+  assert(legacyImport.appVersion === 'V3.3', 'slab upgrades replayed project provenance to V3.3', JSON.stringify(legacyImport));
+  assert(legacyImport.status.includes('請另存 V3.3 專案檔'), 'slab discloses V3.1 calculation migration', legacyImport.status);
   await page.setInputFiles('#slabProjectFile', {
     name: 'rc-slab-project.json',
     mimeType: 'application/json',
@@ -312,7 +312,7 @@ async function main() {
   assert(slabHtml.includes('btnSaveSlabProject'), 'slab.html has save project button', 'local JSON export control exists');
   assert(slabHtml.includes('btnLoadSlabProject'), 'slab.html has load project button', 'local JSON import control exists');
   assert(slabHtml.includes('rc.slab.project.draft'), 'slab.html has browser draft storage key', 'browser-local draft storage exists');
-  assert(slabHtml.includes('../shared/slab-evaluator.js?v=1'), 'slab.html loads shared slab evaluator', 'formal page and independent benchmark share the production slab core');
+  assert(slabHtml.includes('../shared/slab-evaluator.js?v=2'), 'slab.html loads shared slab evaluator', 'formal page and independent benchmark share the production slab core');
   assert(slabHtml.includes('SlabEvaluator.minimumThickness({'), 'slab.html delegates thickness calculation', 'minimum thickness uses production slab core');
   assert(slabHtml.includes('SlabEvaluator.analyzeStripMoments({'), 'slab.html delegates strip actions', 'strip moments and shear demand use production slab core');
   assert(slabHtml.includes('SlabEvaluator.temperatureRatio(fyT)'), 'slab.html delegates temperature ratio', 'temperature reinforcement minimum uses production slab core');

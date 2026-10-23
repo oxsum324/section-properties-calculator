@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>單樁承載力設計器 V3.1</title>
+<title>單樁承載力設計器 V3.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
 <style>
@@ -286,7 +286,7 @@
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <div class="page" role="main">
   <section class="hero">
-    <h1>單樁承載力設計器 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
+    <h1>單樁承載力設計器 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.2</span></h1>
     <p>這是一份可獨立分享的單一 HTML。輸入單樁需求與土層資料後，工具會用 <code>Qs + Qb</code>、沉陷與構造限制，自動搜尋建議樁徑與樁深，並列出逐層摩擦力與候選方案。</p>
   </section>
 
@@ -626,7 +626,7 @@
 <script src="../../結構工具箱/core/ui/report-docx.js"></script>
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
-<script src="../shared/foundation-pile.js?v=1"></script>
+<script src="../shared/foundation-pile.js?v=2"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -818,7 +818,7 @@
       tool: {
         id: 'single-pile-designer',
         name: '單樁承載力設計器',
-        pageVersion: 'V3.1'
+        pageVersion: 'V3.2'
       },
       savedAt: new Date().toISOString(),
       state: captureCurrentState()
@@ -830,7 +830,7 @@
     return window.RCReportFingerprint.validateProjectCalculationSource(payload, {
       expectedSchema: PROJECT_SCHEMA,
       expectedToolId: 'single-pile-designer',
-      expectedVersion: 'V3.1',
+      expectedVersion: 'V3.2',
       sourceKey: 'state'
     });
   }
@@ -1693,7 +1693,7 @@ ${gainText}`;
     openReport({
       title: '單樁承載力設計計算書',
       textExport: true,
-      outputSource: { tool: '單樁承載力設計器', version: 'V3.1' },
+      outputSource: { tool: '單樁承載力設計器', version: 'V3.2' },
       subtitle: '單樁承載力、沉陷與樁身壓應力檢核',
       calculationFingerprint: projectSnapshot.calculationFingerprint,
       project: proj,

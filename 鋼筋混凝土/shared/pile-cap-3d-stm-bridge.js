@@ -14,7 +14,7 @@
   const SCHEMA = 'rc-foundation-pile-cap-3d-stm.v2';
   const SUPPORTED_SCHEMAS = new Set([LEGACY_SCHEMA, SCHEMA]);
   const SOURCE_TOOL = 'rc-foundation';
-  const SOURCE_VERSION = 'V3.1';
+  const SOURCE_VERSION = 'V3.2';
   const TRANSFER_STORAGE_KEY = 'rc.foundation.pile-cap-3d-stm.transfer.v1';
   const MAX_BYTES = 1024 * 1024;
   const EPS = 1e-9;

@@ -321,7 +321,7 @@ async function exerciseWallProjectStorage(page) {
       wallLastOk: !!window.wallLast,
     };
   }, saved);
-  assert(legacyReplay.acceptedVersion === 'V3.1' && legacyReplay.currentVersion === 'V3.2', 'wall replays verified V3.1 project under V3.2', JSON.stringify(legacyReplay));
+  assert(legacyReplay.acceptedVersion === 'V3.1' && legacyReplay.currentVersion === 'V3.3', 'wall replays verified V3.1 project under V3.3', JSON.stringify(legacyReplay));
   assert(legacyReplay.projectName === '牆專案存讀檔測試' && legacyReplay.wallLastOk, 'wall V3.1 migration preserves inputs and recalculates', JSON.stringify(legacyReplay));
 }
 
@@ -674,7 +674,7 @@ async function main() {
         caseKey: key,
         label: `${key} wall report`,
         assert,
-        expectedFragments: ['牆設計計算書', '產出工具：牆 Wall 設計／檢核', '工具版本：V3.2'],
+        expectedFragments: ['牆設計計算書', '產出工具：牆 Wall 設計／檢核', '工具版本：V3.3'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {

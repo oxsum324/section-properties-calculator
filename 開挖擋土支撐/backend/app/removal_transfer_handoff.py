@@ -789,7 +789,7 @@ def build_removal_transfer_handoff(
         "source": {
             "toolId": "excavation-support",
             "toolName": "開挖擋土支撐工具",
-            "toolVersion": "v0.1.0",
+            "toolVersion": "v0.2.0",
             "projectId": project.metadata.id or "",
             "projectName": project.metadata.name,
             "projectNo": project.metadata.project_code,

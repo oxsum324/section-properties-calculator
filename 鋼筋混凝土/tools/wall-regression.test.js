@@ -52,8 +52,8 @@ function main() {
   assert(wallHtml.includes('id="btnSaveWallProject"') && wallHtml.includes('id="btnLoadWallProject"'), 'wall.html has project file controls', 'save/load buttons present');
   assert(wallHtml.includes('id="btnSaveWallDraft"') && wallHtml.includes('id="btnLoadWallDraft"'), 'wall.html has browser draft controls', 'draft buttons present');
   assert(wallHtml.includes('rc.wall.project.draft'), 'wall.html has localStorage draft key', 'wall draft key present');
-  assert(wallHtml.includes("sourceVersion === 'V3.1' ? 'V3.1' : 'V3.2'"), 'wall.html accepts verified V3.1 projects', 'legacy projects replay under the V3.2 page');
-  assert(wallHtml.includes('已依 V3.2 重新計算，請另存 V3.2 專案檔'), 'wall.html discloses V3.1 project migration', 'legacy replay prompts a V3.2 save');
+  assert(wallHtml.includes("sourceVersion === 'V3.1' ? 'V3.1' : 'V3.3'"), 'wall.html accepts verified V3.1 projects', 'legacy projects replay under the V3.3 page');
+  assert(wallHtml.includes('已依 V3.3 重新計算，請另存 V3.3 專案檔'), 'wall.html discloses V3.1 project migration', 'legacy replay prompts a V3.3 save');
   assert(wallHtml.includes('function collectWallProjectData()'), 'wall.html can collect wall project payload', 'project collect helper exists');
   assert(wallHtml.includes('function applyWallProjectData(raw'), 'wall.html can apply wall project payload', 'project apply helper exists');
   assert(wallHtml.includes('WALL_PROJECT_EXCLUDED_IDS') && wallHtml.includes('caseJson') && wallHtml.includes('baselineReport'), 'wall project excludes case-tool textareas', 'case JSON / baseline are not project inputs');
@@ -78,14 +78,14 @@ function main() {
   assert(wallHtml.includes('id="bwSupport"'), 'wall.html has basement support selector', 'basement wall model is selectable');
   assert(wallHtml.includes('簡式不適用，P-M 仍照常檢核'), 'wall.html keeps P-M active when the simple formula is out of range', 'eccentricity no longer blocks the formal P-M check');
   assert(wallHtml.includes('../shared/pmsection.js?v=3'), 'wall.html loads the shared P-M engine', 'general wall uses the same strain-compatibility core');
-  assert(wallHtml.includes('../shared/wall-inplane-evaluator.js?v=2'), 'wall.html loads the in-plane capacity evaluator', 'formal calculation and load combinations share one evaluator');
+  assert(wallHtml.includes('../shared/wall-inplane-evaluator.js?v=3'), 'wall.html loads the in-plane capacity evaluator', 'formal calculation and load combinations share one evaluator');
   assert(wallHtml.includes('WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase)'), 'wall.html formal calculation uses the shared evaluator', 'displayed capacities and tuple ranking cannot drift apart');
   assert(wallHtml.includes('WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase'), 'wall.html formal calculation evaluates the P-M envelope', 'axial tension and eccentric compression use the formal section model');
   assert(wallHtml.includes('id="cover"') && wallHtml.includes('id="pmBoundaryRebar"') && wallHtml.includes('id="pmBoundaryCountEach"'), 'wall.html exposes actual cover and optional end reinforcement', 'P-M section assumptions are user inputs');
   assert(wallHtml.includes('id="wallPMDiagram"') && wallHtml.includes("title:'P-M 設計互制圖'"), 'wall.html renders and reports the P-M interaction diagram', 'formal report includes capacity envelope and demand point');
   assert(wallHtml.includes('const actualSpacing = Number.isFinite(Number(r.pmActualSpacing))')
     && wallHtml.includes('(Number(r.vSp) || 0)'), 'wall reinforcement diagram has a finite spacing fallback', 'transient P-M geometry gaps cannot abort the page render');
-  assert(wallHtml.includes('../shared/wall-rebar-designer.js?v=1'), 'wall.html loads the capacity-based reinforcement designer', 'design suggestions share the formal evaluators');
+  assert(wallHtml.includes('../shared/wall-rebar-designer.js?v=2'), 'wall.html loads the capacity-based reinforcement designer', 'design suggestions share the formal evaluators');
   assert(wallHtml.includes('id="wallRebarDesignCandidates"') && wallHtml.includes('applyWallRebarCandidate'), 'wall.html exposes ranked reinforcement candidates and apply action', 'a selected candidate returns to formal check mode');
   assert(wallHtml.includes("key:'pm-capacity'") && wallHtml.includes("key:'shear-capacity'"), 'wall load combinations expose capacity-based limit states', 'P-M and shear are separated');
   assert(wallHtml.includes("{ key:'M', label:'彎矩 Mu'"), 'wall load combinations include signed in-plane moment', 'complete P-M-V tuple is preserved');

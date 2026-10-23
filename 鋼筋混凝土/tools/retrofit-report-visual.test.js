@@ -118,7 +118,7 @@ async function replayRetrofitSourceSnapshot(page, kind, sourceSnapshot) {
   }), kind);
   assert.deepEqual(replayed.result, sourceSnapshot.result, `RC retrofit ${kind} form snapshot replays the same calculated results`);
   assert.equal(replayed.replayedProject.schema, 'rc-retrofit-section.project.v1', `RC retrofit ${kind} JSON replay keeps versioned schema`);
-  assert.equal(replayed.replayedProject.tool.version, 'V1.7', `RC retrofit ${kind} JSON replay keeps tool version`);
+  assert.equal(replayed.replayedProject.tool.version, 'V1.8', `RC retrofit ${kind} JSON replay keeps tool version`);
   assert.deepEqual(replayed.replayedProject.project, sourceSnapshot.projectJson.project, `RC retrofit ${kind} JSON replay restores project metadata`);
   assert.deepEqual(replayed.replayedProject.view, sourceSnapshot.projectJson.view, `RC retrofit ${kind} JSON replay restores active tab`);
   assert.deepEqual(replayed.replayedProject.inputs, sourceSnapshot.projectJson.inputs, `RC retrofit ${kind} JSON replay restores all beam and column inputs`);
@@ -187,7 +187,7 @@ async function main() {
     const downloadedProjectJson = JSON.parse(fs.readFileSync(projectJsonPath, 'utf8'));
     assert.match(projectJsonDownload.suggestedFilename(), /^rc-retrofit-section-\d{4}-\d{2}-\d{2}\.json$/, 'RC retrofit JSON download filename is traceable');
     assert.equal(downloadedProjectJson.schema, 'rc-retrofit-section.project.v1', 'RC retrofit JSON download uses versioned schema');
-    assert.equal(downloadedProjectJson.tool.version, 'V1.7', 'RC retrofit JSON download records tool version');
+    assert.equal(downloadedProjectJson.tool.version, 'V1.8', 'RC retrofit JSON download records tool version');
     assert.ok(downloadedProjectJson.inputs.beam.length > 20 && downloadedProjectJson.inputs.column.length > 20, 'RC retrofit JSON download includes complete beam and column fields');
 
     const beamSourceSnapshotBase = await captureRetrofitSourceSnapshot(page, 'beam');
@@ -251,7 +251,7 @@ async function main() {
       caseKey: 'formal',
       label: 'RC retrofit beam report',
       assert,
-      expectedFragments: ['RC 梁補強斷面計算書', '產出工具：RC 補強斷面性質計算', '工具版本：V1.7'],
+      expectedFragments: ['RC 梁補強斷面計算書', '產出工具：RC 補強斷面性質計算', '工具版本：V1.8'],
       removeAfterCheck: Boolean(process.env.PREFLIGHT_RUN_DIR),
     });
     assert.equal(errors.length, 0, `RC retrofit page/report console errors: ${errors.join(' | ')}`);
@@ -354,7 +354,7 @@ async function main() {
       caseKey: 'formal-ng',
       label: 'RC retrofit column report',
       assert,
-      expectedFragments: ['RC 柱補強斷面計算書', '產出工具：RC 補強斷面性質計算', '工具版本：V1.7'],
+      expectedFragments: ['RC 柱補強斷面計算書', '產出工具：RC 補強斷面性質計算', '工具版本：V1.8'],
       removeAfterCheck: Boolean(process.env.PREFLIGHT_RUN_DIR),
     });
     const columnSourceSnapshot = {

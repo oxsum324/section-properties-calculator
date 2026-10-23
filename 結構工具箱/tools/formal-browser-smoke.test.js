@@ -1977,7 +1977,7 @@ function windOverviewProjectStorageExpression() {
     const draftPayload = {
       schema: 'tool-project-storage.v1',
       storageVersion: '0.1.0',
-      tool: { id: 'wind-overview', name: '耐風設計案件總覽', version: 'V1' },
+      tool: { id: 'wind-overview', name: '耐風設計案件總覽', version: 'V1.1' },
       savedAt: '2026-07-03T00:10:00.000Z',
       fields: {
         projName: { type: 'text', value: '' },

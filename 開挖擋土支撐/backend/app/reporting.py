@@ -30,7 +30,7 @@ from .schemas import BasicParameters, CheckResult, ProjectState, SummaryItem
 
 
 REPORT_TOOL_NAME = "開挖擋土支撐計算書"
-REPORT_TOOL_VERSION = "v0.1.0"
+REPORT_TOOL_VERSION = "v0.2.0"
 
 
 def report_document_metadata(*, approved: bool = False, output_at: datetime | None = None) -> dict[str, str]:

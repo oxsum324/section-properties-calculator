@@ -65,7 +65,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>梁設計 — RC 工具箱 V3.1</title>
+<title>梁設計 — RC 工具箱 V3.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../shared/style.css">
@@ -203,7 +203,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot style="min-height:44px"></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.1</span></h1>
+  <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.2</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 撓曲、剪力、扭力、跨深比；含特殊抗彎矩構架耐震檢核</p>
 </header>
 
@@ -819,10 +819,10 @@
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../shared/beam-applicability.js?v=1"></script>
-<script src="../shared/beam-evaluator.js?v=1"></script>
+<script src="../shared/beam-evaluator.js?v=2"></script>
 <script src="../shared/beam-rebar-designer.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
-<script src="../shared/devlength.js?v=2"></script>
+<script src="../shared/devlength.js?v=3"></script>
 <script>
   // 各分頁要顯示的 data-topic 集合 (用於 result-item 內細項過濾)
   const TOPIC_VISIBLE = {
@@ -1103,7 +1103,7 @@
       schema: BEAM_PROJECT_SCHEMA,
       tool: 'rc-beam',
       toolTitle: '梁 Beam 設計／檢核',
-      appVersion: 'V3.1',
+      appVersion: 'V3.2',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -1143,7 +1143,7 @@
     return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
       expectedSchema: BEAM_PROJECT_SCHEMA,
       expectedToolId: 'rc-beam',
-      expectedVersion: 'V3.1',
+      expectedVersion: 'V3.2',
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
     });
@@ -3556,7 +3556,7 @@ ${layerBars.map(L => {
 
     return openReport({
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
-      outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.1' },
+      outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.2' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',

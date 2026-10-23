@@ -319,7 +319,7 @@ async function verifySectionShapeInteractions(page) {
 
 async function exerciseEntrypoints(page, base) {
   await verifyRoute(page, base, 'steel-formal/', async () => {
-    await page.waitForFunction(() => document.title === '鋼構連接板正式規範核算工具 V1.0');
+    await page.waitForFunction(() => document.title === '鋼構連接板正式規範核算工具 V1.1');
     assert.equal(decodeURIComponent(new URL(page.url()).pathname), '/鋼構工具/');
     assert.ok(await page.locator('#examplePresetSelect option').count() > 1, 'steel presets require app.js');
   });
@@ -329,7 +329,7 @@ async function exerciseEntrypoints(page, base) {
     await page.locator('a[href="tools/beam.html"]').click();
     await page.waitForLoadState('networkidle');
     assert.equal(decodeURIComponent(new URL(page.url()).pathname), '/鋼筋混凝土/tools/beam.html');
-    assert.match(await page.title(), /梁設計 — RC 工具箱 V3\.1/);
+    assert.match(await page.title(), /梁設計 — RC 工具箱 V3\.2/);
   });
 
   await verifyRoute(page, base, 'section/?pickI=1', async () => {

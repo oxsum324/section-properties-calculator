@@ -8,10 +8,10 @@
   'use strict';
 
   const CORE_NAME = 'EarthPressureCore';
-  const CORE_VERSION = '0.6.0';
+  const CORE_VERSION = '0.7.0';
   const INPUT_SCHEMA_VERSION = 'earth-pressure.input.v0.6';
   const RESULT_SCHEMA_VERSION = 'earth-pressure.result.v0.6';
-  const LOGIC_SIGNATURE = 'earth-pressure-core:v0.6:rankine-coulomb-mononobe-okabe-layered-sand-clay-seepage-passive-policy-water-stability';
+  const LOGIC_SIGNATURE = 'earth-pressure-core:v0.7:rankine-coulomb-mononobe-okabe-layered-sand-clay-seepage-passive-policy-water-stability';
 
   const DESIGN_REFERENCE_LABELS = {
     taiwanFoundation2023: '台灣《建築物基礎構造設計規範》112 年版（穩定檢核初估）',
