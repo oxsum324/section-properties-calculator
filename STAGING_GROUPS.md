@@ -888,6 +888,14 @@ git add -- "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html" "
 git add -- "石材固定/js/version-sync.js" "石材固定/js/version-sync-smoke.test.js" "石材固定/server.py" "石材固定/石材計算書產生器_規範版V2.html" "石材固定/RELEASE_CHECKLIST.md" "石材固定/CHANGELOG.md" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" "結構工具箱/tools/nav/tool-nav.manifest.json" tool-nav.manifest.js STAGING_GROUPS.md
 ```
 
+### V18-審查修正-1 錨栓同步先補標籤再鏡像
+
+依 `_tmp/派工/回報/V18-程式碼審查-20261024.md` 第 2、4 項與建議 S4：`anchor-a11y-tag.js` 改為插在最後一個 `</body>`（不分大小寫）之前，保留同行內容、BOM 與行尾；多標籤、缺 body、非標準引用以非零結束且不寫檔。`sync-anchor-deployment.ps1` 改在暫存目錄補標籤、核對引用資產與產生 manifest，全部通過才鏡像至 `anchor/`；helper 與錨栓原始碼目錄改以碼點組成之確切路徑定位（維持純 ASCII），不再掃描取第一個。契約加單元案例與 4 種腳本變異（刪 helper 呼叫、刪 `$LASTEXITCODE` 檢查、補標籤移到鏡像後、退回目錄掃描）。端對端同步後只有雜湊檔名、manifest 與 `service-worker.js` 建置戳變動，已還原。
+
+```powershell
+git add -- sync-anchor-deployment.ps1 tool-page-a11y-build.contract.test.js "結構工具箱/tools/anchor-a11y-tag.js" TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
 <!-- V18-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->

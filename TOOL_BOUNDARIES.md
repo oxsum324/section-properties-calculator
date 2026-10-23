@@ -308,7 +308,7 @@ NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋�
 <!-- V18-REGISTRATION-START -->
 ## 2026-10-23：第十八階段（V18）
 
-`結構工具箱/tools/anchor-a11y-tag.js` 為私有開發工具（不進 Pages），只在錨栓部署同步後補回 `anchor/index.html` 之共用無障礙執行期標籤，不改其他內容。
+`結構工具箱/tools/anchor-a11y-tag.js` 為私有開發工具（不進 Pages），只在錨栓部署同步時於暫存目錄補回 index 之共用無障礙執行期標籤（插在最後一個 `</body>` 前，不改其他內容），全部檢查通過後才鏡像至 `anchor/`。
 
 <!-- V18-REGISTRATION-END -->
 

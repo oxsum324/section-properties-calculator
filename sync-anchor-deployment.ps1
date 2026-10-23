@@ -32,12 +32,13 @@ function Get-FileSha256Text {
   }
 }
 
-$boltRoot = Get-ChildItem -LiteralPath $root -Directory |
-  ForEach-Object { Join-Path $_.FullName 'bolt-review-tool' } |
-  Where-Object { Test-Path -LiteralPath (Join-Path $_ 'src\App.tsx') } |
-  Select-Object -First 1
-if (-not $boltRoot) {
-  throw "Missing bolt review app under workspace root: $root"
+# The bolt review app lives at one exact path; its family directory name is
+# spelled with code points so this script stays pure ASCII, and no directory
+# scan can pick a stale copy (for example under _tmp).
+$boltFamilyDirName = -join ([char[]]@(0x87BA, 0x6813, 0x6AA2, 0x8A0E))
+$boltRoot = Join-Path (Join-Path $root $boltFamilyDirName) 'bolt-review-tool'
+if (-not (Test-Path -LiteralPath (Join-Path $boltRoot 'src\App.tsx') -PathType Leaf)) {
+  throw "Missing bolt review app: $boltRoot"
 }
 $boltRoot = (Resolve-Path -LiteralPath $boltRoot).Path
 $boltRelativeRoot = Get-RelativePathText -BasePath $root -FullPath $boltRoot
@@ -105,7 +106,6 @@ function Get-AnchorSourceFingerprint {
 
 $dist = Join-Path $boltRoot 'dist'
 $anchor = Join-Path $root 'anchor'
-$manifestPath = Join-Path $anchor 'deployment-manifest.json'
 
 if (-not (Test-Path -LiteralPath $boltRoot)) {
   throw "Missing bolt review app: $boltRoot"
@@ -113,6 +113,17 @@ if (-not (Test-Path -LiteralPath $boltRoot)) {
 if (-not (Test-Path -LiteralPath $anchor)) {
   throw "Missing anchor deployment directory: $anchor"
 }
+
+# The dist index.html lacks the shared accessibility runtime tag. The private
+# helper lives at one exact path; its toolbox directory name is spelled with
+# code points so this script stays pure ASCII, and no directory scan can pick
+# a stale copy. Locate it before building so a missing helper fails fast.
+$toolboxDirName = -join ([char[]]@(0x7D50, 0x69CB, 0x5DE5, 0x5177, 0x7BB1))
+$a11yHelper = Join-Path (Join-Path (Join-Path $root $toolboxDirName) 'tools') 'anchor-a11y-tag.js'
+if (-not (Test-Path -LiteralPath $a11yHelper -PathType Leaf)) {
+  throw "Missing anchor accessibility helper: $a11yHelper"
+}
+$a11yHelper = (Resolve-Path -LiteralPath $a11yHelper).Path
 
 Push-Location $boltRoot
 try {
@@ -144,43 +155,61 @@ if (-not $resolvedAnchor.StartsWith($resolvedRoot, [System.StringComparison]::Or
   throw "anchor path outside workspace: $resolvedAnchor"
 }
 
-$assets = Join-Path $resolvedAnchor 'assets'
-if (Test-Path -LiteralPath $assets) {
-  $resolvedAssets = (Resolve-Path -LiteralPath $assets).Path
-  if (-not $resolvedAssets.StartsWith($resolvedAnchor, [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw "assets path outside anchor directory: $resolvedAssets"
+if (-not (Test-Path -LiteralPath (Join-Path $resolvedDist 'index.html') -PathType Leaf)) {
+  throw "Missing built anchor index: $resolvedDist"
+}
+
+# Stage the complete mirror first: copy dist, restore the accessibility tag
+# (idempotent), verify referenced assets and write the manifest. anchor/ is
+# overwritten only after every fallible step succeeded, so a failure never
+# leaves it half-synced with a missing tag or a stale manifest.
+$staging = Join-Path ([System.IO.Path]::GetTempPath()) ('anchor-sync-' + [System.Guid]::NewGuid().ToString('N'))
+[System.IO.Directory]::CreateDirectory($staging) | Out-Null
+try {
+  Copy-Item -Path (Join-Path $resolvedDist '*') -Destination $staging -Recurse -Force
+  $stagedIndex = Join-Path $staging 'index.html'
+
+  node $a11yHelper $stagedIndex
+  if ($LASTEXITCODE -ne 0) {
+    throw "anchor accessibility helper failed with exit code $LASTEXITCODE; anchor/ was not modified"
   }
-  Remove-Item -LiteralPath $resolvedAssets -Recurse -Force
+
+  $index = Get-Content -LiteralPath $stagedIndex -Raw -Encoding UTF8
+  $referencedAssets = [regex]::Matches($index, '(?:\./)?assets/([^"''<>]+)') |
+    ForEach-Object { $_.Groups[1].Value } |
+    Sort-Object -Unique
+  foreach ($assetName in @($referencedAssets)) {
+    if (-not (Test-Path -LiteralPath (Join-Path (Join-Path $staging 'assets') $assetName) -PathType Leaf)) {
+      throw "Built anchor index references a missing asset: $assetName; anchor/ was not modified"
+    }
+  }
+  $manifest = [ordered]@{
+    generatedAt = (Get-Date).ToString('s')
+    basePath = './'
+    sourceFingerprint = Get-AnchorSourceFingerprint -WorkspaceRoot $resolvedRoot
+    sourceRoots = $anchorSourceRoots
+    referencedAssets = @($referencedAssets)
+  }
+  $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $staging 'deployment-manifest.json') -Encoding UTF8
+
+  $assets = Join-Path $resolvedAnchor 'assets'
+  if (Test-Path -LiteralPath $assets) {
+    $resolvedAssets = (Resolve-Path -LiteralPath $assets).Path
+    if (-not $resolvedAssets.StartsWith($resolvedAnchor, [System.StringComparison]::OrdinalIgnoreCase)) {
+      throw "assets path outside anchor directory: $resolvedAssets"
+    }
+    Remove-Item -LiteralPath $resolvedAssets -Recurse -Force
+  }
+
+  Copy-Item -Path (Join-Path $staging '*') -Destination $resolvedAnchor -Recurse -Force
+  if ((Get-FileSha256Text -Path $stagedIndex) -ne (Get-FileSha256Text -Path (Join-Path $resolvedAnchor 'index.html'))) {
+    throw 'anchor/index.html does not match the staged index after mirroring'
+  }
+} finally {
+  if (Test-Path -LiteralPath $staging) {
+    Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+  }
 }
 
-Copy-Item -Path (Join-Path $resolvedDist '*') -Destination $resolvedAnchor -Recurse -Force
-
-# The dist index.html lacks the shared accessibility runtime tag; restore it
-# after mirroring (idempotent) so a rebuild never needs a manual patch.
-$a11yHelper = Get-ChildItem -LiteralPath $resolvedRoot -Directory |
-  ForEach-Object { Join-Path $_.FullName 'tools\anchor-a11y-tag.js' } |
-  Where-Object { Test-Path -LiteralPath $_ } |
-  Select-Object -First 1
-if (-not $a11yHelper) {
-  throw "Missing anchor accessibility helper under workspace root: $resolvedRoot"
-}
-node $a11yHelper (Join-Path $resolvedAnchor 'index.html')
-if ($LASTEXITCODE -ne 0) {
-  exit $LASTEXITCODE
-}
-
-$indexPath = Join-Path $resolvedAnchor 'index.html'
-$index = Get-Content -LiteralPath $indexPath -Raw -Encoding UTF8
-$referencedAssets = [regex]::Matches($index, '(?:\./)?assets/([^"''<>]+)') |
-  ForEach-Object { $_.Groups[1].Value } |
-  Sort-Object -Unique
-$manifest = [ordered]@{
-  generatedAt = (Get-Date).ToString('s')
-  basePath = './'
-  sourceFingerprint = Get-AnchorSourceFingerprint -WorkspaceRoot $resolvedRoot
-  sourceRoots = $anchorSourceRoots
-  referencedAssets = @($referencedAssets)
-}
-
-$manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $manifestPath -Encoding UTF8
+$manifestPath = Join-Path $resolvedAnchor 'deployment-manifest.json'
 Write-Output "Anchor deployment synced: $manifestPath"
