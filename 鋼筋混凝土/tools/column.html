@@ -2696,7 +2696,15 @@
     let lapSpliceClass = lapSpliceClassRequested;
     let lapSpliceClassB = lapSpliceClass !== 'A';
     const lapDb = dbMax;
-    const lapDevOpts = { fc, fy, db: lapDb, lambda: 1.0, psit: 1.0, psie: 1.0 };
+    // 表 25.4.2.3 條件：排內根數符合 25.7.2.1（淨距 ≥ max(1.5db_eq, 4 cm) ≥ db）且有箍筋時，
+    // 以淨保護層（cover + 箍筋 db）是否 ≥ db 判定有利條件；根數不符時採其他情況
+    const columnBarsFit = (colType === 'rect' && columnLayout)
+      ? (columnLayout.topN <= nMaxB && columnLayout.botN <= nMaxB && columnLayout.leftN <= nMaxH && columnLayout.rightN <= nMaxH)
+      : nBar <= nBarMaxRect;
+    const columnDevCondition = columnBarsFit
+      ? DevLength.spacingCondition({ db: dbEq, clearSpacing: sClearCol, clearCover: cover + tieDb, minTransverse: true })
+      : 'other';
+    const lapDevOpts = { fc, fy, db: lapDb, lambda: 1.0, psit: 1.0, psie: 1.0, condition: columnDevCondition };
     const lapLdTension = window.DevLength?.ldTension ? window.DevLength.ldTension(lapDevOpts) : null;
     const lapLengthReqA = window.DevLength?.lapSplice ? window.DevLength.lapSplice({ ...lapDevOpts, classB: false }) : null;
     const lapLengthReqB = window.DevLength?.lapSplice ? window.DevLength.lapSplice({ ...lapDevOpts, classB: true }) : null;
@@ -2714,7 +2722,7 @@
     const columnDevTopType = normalizeColumnDevType(String($('columnDevTopType')?.value || 'straight'));
     const columnDevBottomType = normalizeColumnDevType(String($('columnDevBottomType')?.value || 'straight'));
     const columnDevDb = dbMax;
-    const columnDevOpts = { fc, fy, db: columnDevDb, lambda: 1.0, psit: 1.0, psie: 1.0 };
+    const columnDevOpts = { fc, fy, db: columnDevDb, lambda: 1.0, psit: 1.0, psie: 1.0, condition: columnDevCondition };
     const columnLdTension = window.DevLength?.ldTension ? window.DevLength.ldTension(columnDevOpts) : null;
     const columnLdCompression = window.DevLength?.ldCompression ? window.DevLength.ldCompression(columnDevOpts) : null;
     const columnDevReq = columnLdTension;
@@ -3801,7 +3809,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       columnDevTop, columnDevBottom, columnDevTopType, columnDevBottomType,
       columnDevTopTypeLabel: columnDevTopCheck.typeLabel, columnDevBottomTypeLabel: columnDevBottomCheck.typeLabel,
       columnDevTopText: columnDevTopCheck.text, columnDevBottomText: columnDevBottomCheck.text,
-      columnDevDb, columnLdTension, columnLdCompression, columnDevReq, okColumnDevTop, okColumnDevBottom, okColumnDevelopment,
+      columnDevDb, columnDevCondition, columnLdTension, columnLdCompression, columnDevReq, okColumnDevTop, okColumnDevBottom, okColumnDevelopment,
       columnDevelopmentHasInput, columnDevelopmentManual,
       lapSpliceLength, lapSpliceRatio, lapSpliceClassRequested, lapSpliceClass, lapDb, lapLdTension, lapLengthReqA, lapLengthReqB, lapLengthReq, okLapLength,
       lapClassAAstRatio, lapClassAAstOk, lapClassASpliceOk, okLapClassA, lapClassANote,
@@ -4642,7 +4650,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         { label:'箍筋建議間距', formula: r.seismic?'規範 18.4.5.3 — min(最小尺度/4, 主筋直徑倍率, so, 剪力/Av.min)':'規範 10.7 — min(16db_min, 48dt, 最小尺度, 剪力/Av.min)', sub: r.sSuggReason==='規範間距' ? `${r.codeTieSpacingReason}；採用 s=${r.adoptedTieSpacing.toFixed(1)} cm` : `${r.codeTieSpacingReason}；${r.sSuggReason} 上限=${r.shearSpacingLimitAuto.toFixed(1)} cm；採用 s=${r.adoptedTieSpacing.toFixed(1)} cm`, value: r.sSugg.toFixed(1), unit:'cm', ok:null }
       ]},
       { group:'握裹 / 搭接長度 (規範 25 章)', items:
-        DevLength.reportItems({ fc:r.fc, fy:r.fy, db:r.columnDevDb || r.lapDb || r.db, lambda:1.0, psit:1.0, psie:1.0 }, '主筋拉力 ℓd')
+        DevLength.reportItems({ fc:r.fc, fy:r.fy, db:r.columnDevDb || r.lapDb || r.db, lambda:1.0, psit:1.0, psie:1.0, condition:r.columnDevCondition }, '主筋拉力 ℓd')
           .concat([
             { label:'柱頂錨定型式 / 長度',
               formula: r.columnDevTopType === 'straight' ? '可用直線錨定長度 ≥ ℓd,req' : `${r.columnDevTopTypeLabel}；非直線 ℓd 自動檢核，須依配筋圖、產品資料或專案文件人工複核`,

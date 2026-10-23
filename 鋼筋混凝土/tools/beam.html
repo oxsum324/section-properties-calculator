@@ -1304,7 +1304,19 @@
     return { type, typeLabel, value, ok, manual:false, hasInput:true, text:`${label}${value.toFixed(1)} cm ${ok ? '≥' : '<'} ℓd,req ${ldReq.toFixed(1)} cm` };
   }
 
-  function calcBeamDevelopmentData({ fc, fy, botStack, topStack, h, ln, seismic }) {
+  // 表 25.4.2.3 條件：取該側最外排鋼筋之淨間距與淨保護層（保護層量至箍筋外緣，鋼筋淨保護層 = cover + 箍筋 db）
+  function beamDevCondition(stack, { bw, cover, tieDb, hasMinStir }) {
+    const outer = (stack || []).find(L => L.n > 0 && Number.isFinite(L.db));
+    if (!outer) return { condition:'other', clearSpacing:null, clearCover:null };
+    const clearCover = cover + tieDb;
+    const clearSpacing = outer.n > 1
+      ? (bw - 2 * clearCover - outer.n * outer.db) / (outer.n - 1)
+      : Infinity;
+    const condition = DevLength.spacingCondition({ db:outer.db, clearSpacing, clearCover, minTransverse:hasMinStir === true });
+    return { condition, clearSpacing, clearCover };
+  }
+
+  function calcBeamDevelopmentData({ fc, fy, botStack, topStack, h, ln, seismic, bw, cover, tieDb, hasMinStir }) {
     const topPsi = Math.max(parseFloat($('devTopPsi')?.value) || 1.3, 1.0);
     const epoxyPsi = Math.max(parseFloat($('devEpoxyPsi')?.value) || 1.0, 1.0);
     const lapClass = $('beamLapClass')?.value === 'A' ? 'A' : 'B';
@@ -1312,8 +1324,12 @@
     const rightType = normalizeBeamDevType(String($('beamDevRightType')?.value || 'straight'));
     const botDb = maxActiveDb(botStack);
     const topDb = maxActiveDb(topStack);
-    const ldBot = botDb > 0 ? DevLength.ldTension({ fc, fy, db: botDb, lambda: 1.0, psit: 1.0, psie: epoxyPsi }) : 0;
-    const ldTop = topDb > 0 ? DevLength.ldTension({ fc, fy, db: topDb, lambda: 1.0, psit: topPsi, psie: epoxyPsi }) : 0;
+    const botDev = beamDevCondition(botStack, { bw, cover, tieDb, hasMinStir });
+    const topDev = beamDevCondition(topStack, { bw, cover, tieDb, hasMinStir });
+    const ldBot = botDb > 0 ? DevLength.ldTension({ fc, fy, db: botDb, lambda: 1.0, psit: 1.0, psie: epoxyPsi, condition: botDev.condition }) : 0;
+    const ldTop = topDb > 0 ? DevLength.ldTension({ fc, fy, db: topDb, lambda: 1.0, psit: topPsi, psie: epoxyPsi, condition: topDev.condition }) : 0;
+    const kBot = DevLength.tensionCoefficient({ db: botDb, condition: botDev.condition });
+    const kTop = DevLength.tensionCoefficient({ db: topDb, condition: topDev.condition });
     const ldReq = Math.max(ldBot, ldTop);
     const lapReq = DevLength.lapSplice({ ld: ldReq, classB: lapClass !== 'A' });
     const leftAnchorage = optNum('anchorageLeft');
@@ -1340,7 +1356,7 @@
     const lapManualReview = !lapHasAnyInput || lapLength == null || (seismic && !hasLapRange);
     return {
       topPsi, epoxyPsi, lapClass, leftType, rightType, leftTypeLabel:leftCheck.typeLabel, rightTypeLabel:rightCheck.typeLabel,
-      botDb, topDb, ldBot, ldTop, ldReq, lapReq,
+      botDb, topDb, ldBot, ldTop, ldReq, lapReq, botDev, topDev, kBot, kTop,
       leftAnchorage, rightAnchorage, leftCheck, rightCheck,
       lapStart, lapEnd, lapLengthInput, lapLengthFromRange, lapLength,
       lapZoneStart, lapZoneEnd, hasLapRange,
@@ -2268,7 +2284,6 @@
     // 用於剪力與規範檢核的代表 d：自動模式取較小值，避免高估 Vc 與 Vs
     const d = $('autoD').checked ? Math.min(d_pos, d_neg) : num('dManual');
 
-    const developmentData = calcBeamDevelopmentData({ fc, fy, botStack, topStack, h, ln, seismic });
 
     // === 撓曲 (純計算模組) ===
     const b_eff = (sectionType === 'rect') ? bw : bf;
@@ -2290,6 +2305,7 @@
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
       okShearSpacing, torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, Tu_th
     } = shearData;
+    const developmentData = calcBeamDevelopmentData({ fc, fy, botStack, topStack, h, ln, seismic, bw, cover, tieDb, hasMinStir });
 
     const beamEvaluatorBase = {
       phiMnPos,
@@ -2980,8 +2996,8 @@ ${layerBars.map(L => {
       : '未輸入';
     return [
       { label:'拉力錨定長度 ℓd,req',
-        formula:"規範 25.4.2 簡化式；底層採 ψt=1.0，頂層採使用者指定 ψt，控制值取 max(ℓd,bottom, ℓd,top)",
-        sub:`底層最大 db=${d.botDb.toFixed(2)} cm → ℓd=${d.ldBot.toFixed(1)} cm；頂層最大 db=${d.topDb.toFixed(2)} cm、ψt=${d.topPsi.toFixed(2)}、ψe=${d.epoxyPsi.toFixed(2)} → ℓd=${d.ldTop.toFixed(1)} cm`,
+        formula:"規範表 25.4.2.3 簡化式 ℓd = fy·ψt·ψe/(k·λ·√fc')·db，k 依鋼筋號數與淨間距、保護層、箍筋條件；底層採 ψt=1.0，頂層採使用者指定 ψt，控制值取 max(ℓd,bottom, ℓd,top)",
+        sub:`底層最大 db=${d.botDb.toFixed(2)} cm、${DevLength.CONDITION_LABELS[d.botDev.condition]}、k=${d.kBot} → ℓd=${d.ldBot.toFixed(1)} cm；頂層最大 db=${d.topDb.toFixed(2)} cm、${DevLength.CONDITION_LABELS[d.topDev.condition]}、k=${d.kTop}、ψt=${d.topPsi.toFixed(2)}、ψe=${d.epoxyPsi.toFixed(2)} → ℓd=${d.ldTop.toFixed(1)} cm`,
         value:d.ldReq.toFixed(1), unit:'cm', ok:null },
       { label:'左端錨定型式 / 長度',
         formula:d.leftType === 'straight' ? '可用直線錨定長度 ≥ ℓd,req' : `${d.leftTypeLabel}；非直線 ℓd 自動檢核，須依配筋圖、產品資料或專案文件人工複核`,

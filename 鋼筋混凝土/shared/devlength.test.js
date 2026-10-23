@@ -40,4 +40,37 @@ const close = (got, expected, label) => assert.ok(Math.abs(got - expected) <= 1e
   assert.equal(got, 20);
 }
 
+// 拉力伸展長度 ℓd：112 年版表 25.4.2.3（原 PDF p.448），kgf/cm² 制
+//   有利條件：D19 及較小 fy·ψt·ψe/(6.6λ√fc')·db；D22 及較大 /(5.3λ√fc')
+//   其他情況：D19 及較小 /(4.4λ√fc')；D22 及較大 /(3.5λ√fc')；ψt·ψe ≤ 1.7（25.4.2.5）；ℓd ≥ 30 cm
+// 手算 3：fc'=280、fy=4200、#6 (db=1.905 cm)、ψt=ψe=1
+//   有利 4200/(6.6×16.7332)×1.905 = 72.447 cm；其他 4200/(4.4×16.7332)×1.905 = 108.670 cm
+{
+  const fav = DevLength.ldTension({ fc:280, fy:4200, db:1.905, condition:'favorable' });
+  const oth = DevLength.ldTension({ fc:280, fy:4200, db:1.905, condition:'other' });
+  assert.ok(Math.abs(fav - 72.447) < 0.001, `ℓd #6 favorable ${fav}`);
+  assert.ok(Math.abs(oth - 108.670) < 0.001, `ℓd #6 other ${oth}`);
+  assert.equal(DevLength.ldTension({ fc:280, fy:4200, db:1.905 }), oth, '未指定條件時採其他情況');
+}
+// 手算 4：fc'=280、fy=4200、#8 (db=2.54 cm)
+//   有利 4200/(5.3×16.7332)×2.54 = 120.290 cm；其他 4200/(3.5×16.7332)×2.54 = 182.153 cm
+{
+  const fav = DevLength.ldTension({ fc:280, fy:4200, db:2.54, condition:'favorable' });
+  const oth = DevLength.ldTension({ fc:280, fy:4200, db:2.54, condition:'other' });
+  assert.ok(Math.abs(fav - 120.290) < 0.001, `ℓd #8 favorable ${fav}`);
+  assert.ok(Math.abs(oth - 182.153) < 0.001, `ℓd #8 other ${oth}`);
+}
+// 手算 5：ψt·ψe = 1.3×1.5 = 1.95 → 取 1.7：#8 有利 120.290×1.7 = 204.493 cm
+{
+  const got = DevLength.ldTension({ fc:280, fy:4200, db:2.54, psit:1.3, psie:1.5, condition:'favorable' });
+  assert.ok(Math.abs(got - 204.493) < 0.001, `ℓd ψtψe cap ${got}`);
+}
+// 條件判定：保護層 < db → 其他；淨間距 ≥ 2db 且保護層 ≥ db → 有利；db ≤ 淨間距 < 2db 需最少橫向筋
+assert.equal(DevLength.spacingCondition({ db:2.54, clearSpacing:6, clearCover:2.0 }), 'other');
+assert.equal(DevLength.spacingCondition({ db:2.54, clearSpacing:5.08, clearCover:2.54 }), 'favorable');
+assert.equal(DevLength.spacingCondition({ db:2.54, clearSpacing:3.0, clearCover:5.0, minTransverse:true }), 'favorable');
+assert.equal(DevLength.spacingCondition({ db:2.54, clearSpacing:3.0, clearCover:5.0, minTransverse:false }), 'other');
+assert.equal(DevLength.spacingCondition({ db:2.54, clearSpacing:2.0, clearCover:5.0, minTransverse:true }), 'other');
+assert.equal(DevLength.spacingCondition({ db:2.54 }), 'other', '缺資料時保守取其他情況');
+
 console.log('devlength.test.js: PASS');
