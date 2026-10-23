@@ -854,6 +854,8 @@ git add -- toolbox-entrypoints.contract.test.js phase-gates.commands.json run-ph
 
 依 `_tmp/派工/小工具優化派工指示-20261023-V18.md` 於本機執行（Codex 沙箱無法啟動瀏覽器工作階段，改由本機代為執行）。
 
+委託人裁定（2026-10-23）：首頁 LCP 行動版 A／B 交替各 3 次 2,152→2,320 ms（+7.8%）予以接受，本階段指標改記 ≤ +8%。
+
 ### V18-T55a 錨栓同步保留無障礙標籤
 
 `sync-anchor-deployment.ps1` 鏡像 dist 後呼叫私有工具 `結構工具箱/tools/anchor-a11y-tag.js`，於 `anchor/index.html` 缺 `../tool-page-a11y.js` 標籤時補回（冪等）；`tool-page-a11y-build.contract.test.js` 以無標籤之 dist 樣本驗證補回恰一個、重複執行不變，並確認同步腳本於複製後呼叫。腳本維持純 ASCII。以 `-SkipVerify` 實際同步一次確認標籤補回後，`anchor/` 已還原至 HEAD。
