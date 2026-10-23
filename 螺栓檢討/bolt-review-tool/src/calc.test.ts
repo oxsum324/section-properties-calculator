@@ -1896,3 +1896,140 @@ describe('Taiwan Chapter 17 review engine', () => {
     expect(comparison[comparison.length - 1].variant.id).toBe('layout-tight')
   })
 })
+
+describe('independent closed-form checks (ACI 318-19 / 台灣 112 第 17 章，SI)', () => {
+  const castIn = defaultProducts.find((product) => product.id === 'generic-cast-m20')!
+
+  function singleAnchorProject(overrides: Partial<ProjectCase['layout']>, loads: Partial<ProjectCase['loads']>) {
+    const project = cloneProject(defaultProject)
+    project.loadCases = undefined
+    project.layout = {
+      ...project.layout,
+      anchorCountX: 1,
+      anchorCountY: 1,
+      spacingXmm: 0,
+      spacingYmm: 0,
+      crackedConcrete: true,
+      concreteStrengthMpa: 28,
+      ...overrides,
+    }
+    project.layout.concreteWidthMm = project.layout.edgeLeftMm + project.layout.edgeRightMm
+    project.layout.concreteHeightMm = project.layout.edgeBottomMm + project.layout.edgeTopMm
+    project.loads = {
+      ...project.loads,
+      tensionKn: 0,
+      shearXKn: 0,
+      shearYKn: 0,
+      momentXKnM: 0,
+      momentYKnM: 0,
+      ...loads,
+    }
+    return project
+  }
+
+  it('cast-in headed anchor with 280 <= hef <= 635 uses Nb = 3.9·√fc·hef^(5/3) (N, mm, MPa)', () => {
+    // hef = 300, f'c = 28, 單錨、四向邊距 1500 ≥ 1.5hef → A_Nc/A_Nco = 1、ψ_ed,N = 1、開裂 ψ_c,N = 1
+    // Nb = 3.9 × 5.2915 × 300^(5/3) = 277.2 kN（舊式誤用英制係數 16 → 1137 kN）
+    const project = singleAnchorProject(
+      { effectiveEmbedmentMm: 300, thicknessMm: 1500, edgeLeftMm: 1500, edgeRightMm: 1500, edgeBottomMm: 1500, edgeTopMm: 1500 },
+      { tensionKn: 50 },
+    )
+    const review = evaluateProject(project, castIn)
+    const breakout = review.results.find((r) => r.id === 'concrete-breakout-tension')!
+    const expectedNb = (3.9 * Math.sqrt(28) * 300 ** (5 / 3)) / 1000
+    expect(breakout.nominalStrengthKn).toBeCloseTo(expectedNb, 1)
+    expect(breakout.designStrengthKn).toBeCloseTo(0.7 * expectedNb, 1)
+    // 與 kc = 10 之 hef^1.5 式於 hef = 280 近似連續（3.9 為四捨五入係數，差 < 0.5%）
+    const at280 = evaluateProject(
+      singleAnchorProject(
+        { effectiveEmbedmentMm: 280, thicknessMm: 1500, edgeLeftMm: 1500, edgeRightMm: 1500, edgeBottomMm: 1500, edgeTopMm: 1500 },
+        { tensionKn: 50 },
+      ),
+      castIn,
+    ).results.find((r) => r.id === 'concrete-breakout-tension')!
+    const kc280 = (10 * Math.sqrt(28) * 280 ** 1.5) / 1000
+    expect(Math.abs(at280.nominalStrengthKn - kc280) / kc280).toBeLessThan(0.005)
+  })
+
+  it('post-installed anchors never use the cast-in hef^(5/3) branch', () => {
+    const expansion = cloneProduct(defaultProducts.find((product) => product.id === 'template-expansion-m16')!)
+    expansion.embedmentMaxMm = 400
+    const review = evaluateProject(
+      singleAnchorProject(
+        { effectiveEmbedmentMm: 300, thicknessMm: 1500, edgeLeftMm: 1500, edgeRightMm: 1500, edgeBottomMm: 1500, edgeTopMm: 1500 },
+        { tensionKn: 20 },
+      ),
+      expansion,
+    )
+    const breakout = review.results.find((r) => r.id === 'concrete-breakout-tension')!
+    expect(breakout.nominalStrengthKn).toBeCloseTo((7 * Math.sqrt(28) * 300 ** 1.5) / 1000, 1)
+  })
+
+  it('shear breakout basic strength uses √da (Vb = min[0.6(le/da)^0.2·√da·√fc·ca1^1.5, 3.7√fc·ca1^1.5])', () => {
+    // 單錨 M20、hef = 160 (le = 8da)、ca1 = 200（右側）、其他邊距 1000、ha = 1000
+    // A_Vc/A_Vco = 1、ψ_ed,V = 1、ψ_c,V = 1（開裂、無補強）
+    // 0.6×8^0.2×√20×√28×200^1.5 = 60.87 kN；3.7×√28×200^1.5 = 55.38 kN → Vb = 55.38 kN；φ = 0.70 → 38.76 kN
+    const project = singleAnchorProject(
+      { effectiveEmbedmentMm: 160, thicknessMm: 1000, edgeLeftMm: 1000, edgeRightMm: 200, edgeBottomMm: 1000, edgeTopMm: 1000 },
+      { shearXKn: 10 },
+    )
+    const review = evaluateProject(project, castIn)
+    const shear = review.results.find((r) => r.id === 'concrete-breakout-shear')!
+    const ca1 = 200
+    const vb = Math.min(
+      0.6 * 8 ** 0.2 * Math.sqrt(20) * Math.sqrt(28) * ca1 ** 1.5,
+      3.7 * Math.sqrt(28) * ca1 ** 1.5,
+    ) / 1000
+    expect(shear.designStrengthKn).toBeCloseTo(0.7 * vb, 1)
+  })
+
+  it('cast-in hooked anchors stay on the hef^1.5 branch even when 280 <= hef <= 635', () => {
+    // 17.6.2.2.3 的 hef^(5/3) 式只適用擴頭螺樁／擴頭螺栓；彎鉤錨栓 hef = 400 應取 kc = 10：
+    // Nb = 10 × √28 × 400^1.5 = 423.3 kN（若誤用 5/3 式為 448.1 kN，偏高 5.9%）
+    const hooked = cloneProduct(castIn)
+    hooked.headBearingAreaMm2 = undefined
+    hooked.hookExtensionMm = 4 * hooked.diameterMm
+    hooked.embedmentMaxMm = Math.max(hooked.embedmentMaxMm ?? 0, 400)
+    const review = evaluateProject(
+      singleAnchorProject(
+        { effectiveEmbedmentMm: 400, thicknessMm: 1500, edgeLeftMm: 1500, edgeRightMm: 1500, edgeBottomMm: 1500, edgeTopMm: 1500 },
+        { tensionKn: 50 },
+      ),
+      hooked,
+    )
+    const breakout = review.results.find((r) => r.id === 'concrete-breakout-tension')!
+    expect(breakout.nominalStrengthKn).toBeCloseTo((10 * Math.sqrt(28) * 400 ** 1.5) / 1000, 1)
+  })
+
+  it('shear le = 8da cap and √da are observable when the first expression controls (M12)', () => {
+    // 錨栓直徑須小於約 16.5 mm，第一式在 le = 8da 時才會小於第二式；M12、hef = 200 > 8da = 96、ca1 = 150：
+    // 第一式 0.6×8^0.2×√12×√28×150^1.5 = 30.63 kN < 第二式 3.7×√28×150^1.5 = 35.97 kN → φVb = 0.7 × 30.63 = 21.44 kN
+    // 若未設 le ≤ 8da（le = 200）→ 0.7 × 35.47 = 24.83 kN；若 √da 誤寫 da^0.2 → 0.7 × 14.17 = 9.92 kN
+    const m12 = cloneProduct(castIn)
+    m12.diameterMm = 12
+    const project = singleAnchorProject(
+      { effectiveEmbedmentMm: 200, thicknessMm: 1000, edgeLeftMm: 1000, edgeRightMm: 150, edgeBottomMm: 1000, edgeTopMm: 1000 },
+      { shearXKn: 5 },
+    )
+    const shear = evaluateProject(project, m12).results.find((r) => r.id === 'concrete-breakout-shear')!
+    const first = (0.6 * 8 ** 0.2 * Math.sqrt(12) * Math.sqrt(28) * 150 ** 1.5) / 1000
+    const second = (3.7 * Math.sqrt(28) * 150 ** 1.5) / 1000
+    expect(first).toBeLessThan(second)
+    expect(shear.designStrengthKn).toBeCloseTo(0.7 * first, 1)
+    expect(shear.designStrengthKn).toBeCloseTo(21.44, 1)
+  })
+
+  it('shear load-bearing length le is capped at 8da', () => {
+    // hef = 400 > 8da = 160；ca1 = 120 使第一式控制：0.6×8^0.2×√20×√28×120^1.5
+    const project = singleAnchorProject(
+      { effectiveEmbedmentMm: 400, thicknessMm: 1000, edgeLeftMm: 1000, edgeRightMm: 120, edgeBottomMm: 1000, edgeTopMm: 1000 },
+      { shearXKn: 5 },
+    )
+    const shear = evaluateProject(project, castIn).results.find((r) => r.id === 'concrete-breakout-shear')!
+    const vb = Math.min(
+      0.6 * 8 ** 0.2 * Math.sqrt(20) * Math.sqrt(28) * 120 ** 1.5,
+      3.7 * Math.sqrt(28) * 120 ** 1.5,
+    ) / 1000
+    expect(shear.designStrengthKn).toBeCloseTo(0.7 * vb, 1)
+  })
+})

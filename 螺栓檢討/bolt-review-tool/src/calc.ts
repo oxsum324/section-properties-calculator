@@ -806,10 +806,12 @@ function getTensionBreakoutBaseStrengthKn(
 ) {
   const lambda = layout.lightweightConcrete ? 0.75 : profile.constants.lambdaA
   const hef = layout.effectiveEmbedmentMm
-  if (hef >= 280 && hef <= 635) {
+  // 17.6.2.2.3：僅預埋擴頭螺樁／擴頭螺栓於 280 ≤ hef ≤ 635 mm 可採 Nb = 3.9λa√f'c·hef^(5/3)（SI：N、mm、MPa）
+  // 預埋彎鉤錨栓不適用（以承壓面積判定擴頭，與第 1398 行拉出強度的判定一致）。
+  if (product.family === 'cast_in' && Boolean(product.headBearingAreaMm2) && hef >= 280 && hef <= 635) {
     return {
       strengthKn:
-        (16 * lambda * Math.sqrt(layout.concreteStrengthMpa) * hef ** (5 / 3)) /
+        (3.9 * lambda * Math.sqrt(layout.concreteStrengthMpa) * hef ** (5 / 3)) /
         1000,
       inRange: true,
       note: '',
@@ -2648,15 +2650,18 @@ function getShearBreakoutDirectionalStrength(
   }
 
   const lambda = layout.lightweightConcrete ? 0.75 : profile.constants.lambdaA
-  const le =
-    product.evaluation.shearLoadBearingLengthMm ?? layout.effectiveEmbedmentMm
+  // 17.7.2.2.1：Vb = min[0.6(le/da)^0.2·√da·λa·√f'c·ca1^1.5, 3.7λa·√f'c·ca1^1.5]，le ≤ 8da
+  const le = Math.min(
+    product.evaluation.shearLoadBearingLengthMm ?? layout.effectiveEmbedmentMm,
+    8 * product.diameterMm,
+  )
   const baseStrengthKn =
     (Math.min(
       profile.constants.shearConstantA *
         lambda *
         (le / product.diameterMm) ** 0.2 *
         Math.sqrt(layout.concreteStrengthMpa) *
-        product.diameterMm ** 0.2 *
+        Math.sqrt(product.diameterMm) *
         edgeRow.ca1 ** 1.5,
       profile.constants.shearConstantB *
         lambda *
