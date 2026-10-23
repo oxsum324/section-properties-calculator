@@ -141,7 +141,7 @@
         <label>封閉型式</label>
         <select id="encl">
           <option value="enclosed" selected>封閉式 (GCpi = ±0.375)</option>
-          <option value="partial">部分封閉式 (GCpi = ±1.145)</option>
+          <option value="partial">部分封閉式 (GCpi = ±1.146)</option>
         </select>
       </div>
       <div class="form-group">
@@ -641,8 +641,8 @@
       <code>Table 2.4</code> 迎風 C<sub>p</sub>=+0.8；背風 C<sub>p</sub> 依 L/B；側風 C<sub>p</sub>=−0.7<br>
       <code>MWFRS</code> 牆面/一般屋面以 <code>p = qGCp - qh(GCpi)</code> 檢核正負內壓案例<br>
       <code>Table 2.5</code> 一般屋頂外風壓係數 Cp；<code>Table 2.6</code> 拱形屋頂；<code>Table 2.7</code> 雙斜式屋頂；<code>Table 2.8</code> 鋸齒屋頂<br>
-      <code>Eq 2.21</code> W<sub>Lz</sub> = 0.87·√(L/B)·W<sub>Dz</sub>　(h/√BL &lt; 3 橫風向)<br>
-      <code>Eq 2.23</code> M<sub>Tz</sub> = 0.28·B·W<sub>Dz</sub>　(h/√BL &lt; 3 扭矩)<br>
+      <code>Eq 2.21</code> W<sub>Lz</sub> = 0.87·(L/B)·W<sub>Dz</sub>　(h/√BL &lt; 3 橫風向)<br>
+      <code>Eq 2.23</code> M<sub>Tz</sub> = 0.28·(B·W<sub>Dz</sub>)*　(h/√BL &lt; 3 扭矩；* 取 X、Y 兩向較大值，適用於各向來風)<br>
       <code>C4.1</code> A<sub>D</sub> = (2πf<sub>n</sub>)²D*，A<sub>L</sub> = (2πf<sub>a</sub>)²L*，A<sub>T</sub> = (2πf<sub>t</sub>)²θ*<br>
       <code>第四章角隅式</code> Ã = √[A<sub>D</sub>² + A<sub>L</sub>² + A<sub>T</sub>²(B²/4 + L²/4) + L·A<sub>L</sub>·A<sub>T</sub>]<br>
       <code>簡化推估</code> M = ρBLH，I<sub>θ</sub> = M(B²+L²)/12，a ≈ F/M，角隅扭轉加速度 ≈ (T/I<sub>θ</sub>)·r
@@ -1212,6 +1212,7 @@ function calc(forcedStoryHeights) {
     V, terrain, I, B: L, L: B, storyH, Kzt, isFlexible, fn, beta, encl, roofSlope, roofType, windToRidge: windToRidgeY,
     archMode, archRiseRatio, sawtoothFaceCode, eaveHeight: he, fa: faY, ft: ftY
   });
+  W.applyTorsionEnvelopeEq223(r, rY, B, L);
   const occFloorUse = Math.min(Math.max(occFloor, 1), storyH.length);
   const occHeight = storyH.slice(0, occFloorUse).reduce((s, v) => s + v, 0);
   const hasLateralStep = !!(r.crossWind || r.torsion);
@@ -1241,6 +1242,7 @@ function calc(forcedStoryHeights) {
         V: Vhalf, terrain, I, B: L, L: B, storyH, Kzt, isFlexible, fn, beta, encl, roofSlope, roofType, windToRidge: windToRidgeY,
         archMode, archRiseRatio, sawtoothFaceCode, eaveHeight: he, fa: faY, ft: ftY
       });
+      W.applyTorsionEnvelopeEq223(rHalf, rHalfY, B, L);
       const totalMassKg = massDensity * B * L * r.totalH;
       accelEstimate = W.calcSimplifiedAccelEstimate({
         totalMassKg,
@@ -1548,13 +1550,13 @@ Eq 2.6: q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup><br>
   const firstStoryKz = W.calcKz(firstStory.zMid, terrain);
   html += step('③-1 代表樓層速度壓 q(z)', `
     1F 中點高度 z = <span class="val">${fmt(firstStory.zMid,2)}</span> m<br>
-    K(z) = 2.774 × (${fmt(Math.max(firstStory.zMid, t.zmin),2)}/${fmt(t.zg,1)})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(firstStoryKz,4)}</span><br>
+    K(z) = 2.774 × (${fmt(Math.max(firstStory.zMid, W.KZ_MIN_HEIGHT),2)}/${fmt(t.zg,1)})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(firstStoryKz,4)}</span><br>
     q(z) = 0.06 × ${fmt(firstStoryKz,4)} × ${fmt(Kzt,3)} × (${fmt(I,2)} × ${fmt(V,1)})<sup>2</sup> = <span class="val hl">${fmt(firstStory.qz,1)}</span> kgf/m²
   `, `逐層迎風面外壓採各層中點 q(z_mid)；1F 代表值 = ${fmt(firstStory.qz,2)} kgf/m²`);
   if (Math.abs(r.roof.roofRefH - r.totalH) > 1e-9) {
     html += step('③-2 屋面查表高度速度壓 q(h_e)', `
       屋面採用高度 h = <span class="val">${fmt(r.roof.roofRefH,2)}</span> m<br>
-      K(h<sub>e</sub>) = 2.774 × (${fmt(Math.max(r.roof.roofRefH, t.zmin),2)}/${fmt(t.zg,1)})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(r.roof.KzRoof,4)}</span><br>
+      K(h<sub>e</sub>) = 2.774 × (${fmt(Math.max(r.roof.roofRefH, W.KZ_MIN_HEIGHT),2)}/${fmt(t.zg,1)})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(r.roof.KzRoof,4)}</span><br>
       q(h<sub>e</sub>) = 0.06 × ${fmt(r.roof.KzRoof,4)} × ${fmt(Kzt,3)} × (${fmt(I,2)} × ${fmt(V,1)})<sup>2</sup> = <span class="val hl">${fmt(r.roof.qRoof,1)}</span> kgf/m²
     `, `當 θ < 10° 時，屋面查表高度改採屋簷高度 h_e。`);
   }
@@ -1574,7 +1576,7 @@ Eq 2.6: q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup><br>
       R<sub>h</sub> = <span class="val">${fmt(g.Rh,4)}</span>,
       R<sub>B</sub> = <span class="val">${fmt(g.RB,4)}</span>,
       R<sub>L</sub> = <span class="val">${fmt(g.RL,4)}</span><br>
-      R² = (1/β)·R<sub>n</sub>·R<sub>h</sub>·(0.53R<sub>B</sub>+0.47R<sub>L</sub>) = <span class="val">${fmt(g.R2,4)}</span><br>
+      R² = (1/β)·R<sub>n</sub>·R<sub>h</sub>·R<sub>B</sub>·(0.53+0.47R<sub>L</sub>) = <span class="val">${fmt(g.R2,4)}</span><br>
       g<sub>R</sub> = <span class="val">${fmt(g.gR,3)}</span><br>
       <strong>G<sub>f</sub> = <span class="val hl">${fmt(r.G,3)}</span></strong>
     `);

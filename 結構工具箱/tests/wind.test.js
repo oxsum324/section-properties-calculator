@@ -266,6 +266,7 @@ function run() {
 
   // Coefficient lookups are owned by the formal wind workflows. Keep the
   // shared table functions deterministic so each page can rely on its own Cf
+  // (Table 2.11 values per 耐風規範 103 年版原文 p.69: flat 2.0/1.8/1.6; round D√q≤1.70 1.2/1.3/1.5; >1.70 0.8/0.9/1.1).
   // confirmation path instead of a separate coefficient guide tool.
   approx(W.lookupSignCf({ atGround: true, aspectRatio: 3 }).cf, 1.2, 1e-12, 'table 2.10 ground sign lower anchor');
   approx(W.lookupSignCf({ atGround: true, aspectRatio: 40 }).cf, 2.0, 1e-12, 'table 2.10 ground sign upper anchor');
@@ -274,9 +275,9 @@ function run() {
   approx(W.lookupTowerCf({ sectionType: 'hex_oct', hOverD: 25 }).cf, 1.4, 1e-12, 'table 2.12 hex/oct upper anchor');
   approx(W.lookupTowerCf({ sectionType: 'circular_rough', hOverD: 7, dSqrtQz: 2.0 }).cf, 0.8, 1e-12, 'table 2.12 rough circular anchor');
 
-  approx(W.lookupPorousFrameCf({ solidity: 0.05, memberType: 'circular', dSqrtQz: 1.2 }).cf, 2.0, 1e-12, 'table 2.11 circular low D sqrt(qz) low solidity');
-  approx(W.lookupPorousFrameCf({ solidity: 0.35, memberType: 'circular', dSqrtQz: 2.0 }).cf, 1.5, 1e-12, 'table 2.11 circular high D sqrt(qz) medium solidity');
-  approx(W.lookupPorousFrameCf({ solidity: 0.35, memberType: 'flat', dSqrtQz: 2.0 }).cf, 1.1, 1e-12, 'table 2.11 flat member medium solidity');
+  approx(W.lookupPorousFrameCf({ solidity: 0.05, memberType: 'circular', dSqrtQz: 1.2 }).cf, 1.2, 1e-12, 'table 2.11 circular D sqrt(qz) <= 1.70, solidity < 0.1');
+  approx(W.lookupPorousFrameCf({ solidity: 0.35, memberType: 'circular', dSqrtQz: 2.0 }).cf, 1.1, 1e-12, 'table 2.11 circular D sqrt(qz) > 1.70, solidity 0.3-0.7');
+  approx(W.lookupPorousFrameCf({ solidity: 0.35, memberType: 'flat', dSqrtQz: 2.0 }).cf, 1.6, 1e-12, 'table 2.11 flat member, solidity 0.3-0.7');
 
   approx(W.lookupLatticeTowerCf({ solidity: 0.5, towerShape: 'square', memberShape: 'angle_flat', skewWind: false }).cf, 1.8, 1e-12, 'table 2.15 square lattice plateau');
   approx(W.lookupAngularPrismCf('rect_long').cf, 2.2, 1e-12, 'table 2.13 rectangular prism long face');
@@ -310,7 +311,7 @@ function run() {
   approx(tower.baseMoment, tower.body.baseMoment + tower.top.moment, 1e-9, 'tower total base moment');
 
   const porous = W.lookupPorousFrameCf({ solidity: 0.2, memberType: 'flat' });
-  approx(porous.cf, 0.9, 1e-12, 'porous frame flat-member cf');
+  approx(porous.cf, 1.8, 1e-12, 'porous frame flat-member cf (table 2.11, solidity 0.1-0.29)');
 
   const latticeCf = W.lookupLatticeTowerCf({ solidity: 0.2, towerShape: 'square', memberShape: 'circular', skewWind: true });
   approx(latticeCf.baseCf, 4.1 - 5.2 * 0.2, 1e-12, 'lattice tower base cf');

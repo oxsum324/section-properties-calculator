@@ -53,8 +53,8 @@ function calculate(input) {
     const zr = item.s + item.h / 2;
     const Kz = Wind.calcKz(zr, item.terrain);
     const qz = 0.06 * Kz * item.Kzt * item.I * item.I * item.V * item.V;
-    const aspectRatio = item.B / item.h;
     const atGround = item.type === 'fence';
+    const aspectRatio = atGround ? item.B / item.h : Math.max(item.B, item.h) / Math.min(item.B, item.h);
     const cfData = Wind.lookupSignCf({ atGround, aspectRatio });
     const manualAdoption = item.cfOverride != null;
     const cfBase = manualAdoption ? item.cfOverride : cfData.cf;
@@ -79,7 +79,7 @@ function calculate(input) {
       phi:item.phi,
       cfEff,
       zr,
-      zUse:Math.max(zr, Wind.TERRAIN[item.terrain].zmin),
+      zUse:Math.max(zr, Wind.KZ_MIN_HEIGHT),
       Kz,
       qz,
       gustHeight:item.h + item.s,

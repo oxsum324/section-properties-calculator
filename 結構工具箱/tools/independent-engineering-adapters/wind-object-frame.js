@@ -53,7 +53,7 @@ function calculate(input) {
     const gust = Wind.calcGustRigid(item.z, equivalentWidth, item.terrain);
     const force = q.qz * gust.G * cfData.cf * item.A;
     return [item.id, {
-      zUse:Math.max(item.z, Wind.TERRAIN[item.terrain].zmin),
+      zUse:Math.max(item.z, Wind.KZ_MIN_HEIGHT),
       Kz:q.Kz,
       qz:q.qz,
       equivalentWidth,

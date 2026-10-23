@@ -143,7 +143,7 @@
         <label>女兒牆體開口狀態</label>
         <select id="parapetEncl">
           <option value="enclosed" selected>封閉式 (GC<sub>pi</sub> = ±0.375)</option>
-          <option value="partial">部分封閉 (±1.145)</option>
+          <option value="partial">部分封閉 (±1.146)</option>
           <option value="open">開放式 (GC<sub>pi</sub> = 0)</option>
         </select>
         <div class="hint">此處為女兒牆體本身的開口狀態，不是整棟建築物內壓狀態。</div>
@@ -1072,8 +1072,8 @@ function calc() {
 
   html += step('② 女兒牆頂端速度壓 q<sub>p</sub>', `
     女兒牆頂端高度 z = h + h<sub>p</sub> = <span class="val">${fmt(topZ,1)}</span> m<br>
-    z<sub>use</sub> = max(z, z<sub>min</sub>) = <span class="val">${fmt(Math.max(topZ, t.zmin),1)}</span> m<br>
-    K(z) = 2.774 × (${fmt(Math.max(topZ, t.zmin),1)}/${fmt(t.zg,1)})<sup>${fmt(2 * t.alpha,2)}</sup> = <span class="val">${fmt(W.calcKz(topZ, terrain),4)}</span><br>
+    z<sub>use</sub> = max(z, 5 m) = <span class="val">${fmt(Math.max(topZ, W.KZ_MIN_HEIGHT),1)}</span> m<br>
+    K(z) = 2.774 × (${fmt(Math.max(topZ, W.KZ_MIN_HEIGHT),1)}/${fmt(t.zg,1)})<sup>${fmt(2 * t.alpha,2)}</sup> = <span class="val">${fmt(W.calcKz(topZ, terrain),4)}</span><br>
     q<sub>p</sub> = q(z) = 0.06 × ${fmt(W.calcKz(topZ, terrain),4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val hl">${fmt(r.qp,1)}</span> kgf/m²
   `, `q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)²，z = ${fmt(topZ,1)} m`);
 

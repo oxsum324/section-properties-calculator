@@ -666,9 +666,9 @@ function calc() {
   const zr = s + h / 2;
   const Kz = W.calcKz(zr, terrain);
   const qz = 0.06 * Kz * Kzt * I * I * V * V;
-  // Cf 查表 2.10 — 寬高比 B/h
-  const aspectRatio = B / h;
+  // Cf 查表 2.10 — 座地採 ν = B/h；離地架高採 M/N（較大邊 / 較小邊）
   const atGround = (type === 'fence');
+  const aspectRatio = atGround ? B / h : Math.max(B, h) / Math.min(B, h);
   const cfData = W.lookupSignCf({ atGround, aspectRatio });
   const cfBase = (isFinite(cfOv) && cfOv > 0) ? cfOv : cfData.cf;
   const cfEff = cfBase * phi;
@@ -679,21 +679,21 @@ function calc() {
   const F = qz * G * cfEff * A;
   const Vshear = F;
   const Mbase = F * zr;
-  const zUse = Math.max(zr, t.zmin);
+  const zUse = Math.max(zr, W.KZ_MIN_HEIGHT);
   const cfSource = (Number.isFinite(cfOv) && cfOv > 0) ? '專案指定值' : '規範表 2.10 判定值';
 
   // ── 適用性 ──
   const applic = [
     { label: '標的物類型', level: 'ok', message: type === 'fence' ? '圍籬牆 / 直接座地' : '獨立招牌 / 離地架高' },
-    { label: '寬高比 B/h', level: 'ok', message: `B/h = ${fmt(aspectRatio, 2)}（表 2.10 適用範圍：${atGround ? '3 ~ 40' : '6 ~ 80'}）` },
+    { label: '寬高比 B/h', level: 'ok', message: `${atGround ? 'B/h' : 'M/N'} = ${fmt(aspectRatio, 2)}（表 2.10 適用範圍：${atGround ? '3 ~ 40' : '6 ~ 80'}）` },
     { label: 'Cf 來源', level: cfOv > 0 ? 'warn' : 'ok', message: cfOv > 0 ? `採專案指定 C_f = ${fmt(cfOv, 3)}，需於計算書留存依據` : `依表 2.10 判定 C_f = ${fmt(cfData.cf, 3)}` },
     { label: 'φ 形狀修正', level: Math.abs(phi - 1) > 0.001 ? 'warn' : 'ok', message: `φ = ${fmt(phi, 2)}${Math.abs(phi - 1) > 0.001 ? '，請確認修正依據' : ''}` },
   ];
   if (aspectRatio < (atGround ? 3 : 6) || aspectRatio > (atGround ? 40 : 80)) {
     applic.push({ label: '寬高比範圍', level: 'warn', message: '超出表 2.10 範圍，採表頭/末尾值外推；建議由風洞、文獻或專案文件指定 Cf' });
   }
-  if (zr < t.zmin) {
-    applic.push({ label: '速度壓高度下限', level: 'info', message: `z_r = ${fmt(zr, 2)} m 小於地況 ${terrain} 之 z_min = ${fmt(t.zmin, 1)} m，K(z) 依 z_min 計算。` });
+  if (zr < W.KZ_MIN_HEIGHT) {
+    applic.push({ label: '速度壓高度下限', level: 'info', message: `z_r = ${fmt(zr, 2)} m 小於 ${fmt(W.KZ_MIN_HEIGHT, 1)} m，K(z) 依式 (2.7) 以 5 m 計算。` });
   }
   if (Math.abs(Kzt - 1) > 0.001) {
     applic.push({ label: '地形係數 Kzt', level: 'warn', message: `Kzt = ${fmt(Kzt, 2)}，請確認地形係數計算或專案指定依據。` });

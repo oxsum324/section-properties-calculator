@@ -819,7 +819,7 @@ function calc() {
   ]);
   drawSolidObjectDiagram(r);
   const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
-  const zUse = Math.max(zr, terrainData.zmin);
+  const zUse = Math.max(zr, W.KZ_MIN_HEIGHT);
   let html = '';
   html += step('① 表 2.10 路線判定', `
     開口率 = <span class="val">${fmt(openingRatio * 100,1)}</span>% &lt; 30%，屬實體標示物。<br>
@@ -835,7 +835,7 @@ function calc() {
   html += step('② 速度壓與陣風因子', `
     z<sub>r</sub> = z<sub>b</sub> + H<sub>o</sub>/2 = ${fmt(bottomZ,2)} + ${fmt(objectHeight,2)}/2 = <span class="val">${fmt(zr,2)}</span> m<br>
     z<sub>t</sub> = z<sub>b</sub> + H<sub>o</sub> = ${fmt(bottomZ,2)} + ${fmt(objectHeight,2)} = <span class="val">${fmt(topElevation,2)}</span> m<br>
-    z<sub>use</sub> = max(z<sub>r</sub>, z<sub>min</sub>) = max(${fmt(zr,2)}, ${fmt(terrainData.zmin,1)}) = <span class="val">${fmt(zUse,2)}</span> m<br>
+    z<sub>use</sub> = max(z<sub>r</sub>, 5 m) = max(${fmt(zr,2)}, ${fmt(W.KZ_MIN_HEIGHT,1)}) = <span class="val">${fmt(zUse,2)}</span> m<br>
     K(z) = 2.774 x (z<sub>use</sub>/z<sub>g</sub>)<sup>2α</sup> = 2.774 x (${fmt(zUse,2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(qzData.Kz,4)}</span><br>
     q(z<sub>r</sub>) = 0.06 x K(z) x K<sub>zt</sub> x [I x V]<sup>2</sup> = <span class="val hl">${fmt(qz,1)}</span> kgf/m²<br>
     ${gustDetailHtml(r)}

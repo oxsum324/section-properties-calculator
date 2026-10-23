@@ -69,6 +69,7 @@ function calculate(input) {
   if (issues.length) throw new RangeError(`invalid-wind-force-benchmark-input:${issues.join(',')}`);
   const x = Wind.calcBuildingWind(directionInput(input, Number(input.B), Number(input.L)));
   const y = Wind.calcBuildingWind(directionInput(input, Number(input.L), Number(input.B)));
+  Wind.applyTorsionEnvelopeEq223(x, y, Number(input.B), Number(input.L));
   return {
     totalH:x.totalH,
     zBar:x.gustInfo.zBar,

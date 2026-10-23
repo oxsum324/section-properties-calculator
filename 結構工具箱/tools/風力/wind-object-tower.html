@@ -810,7 +810,7 @@ function calc() {
   `, `C_f,eff = ${fmt(raw.cfData.cf,3)} × ${fmt(shapeFactor,3)} = ${fmt(r.CfEff,3)}`);
   html += step('② 速度壓與陣風反應因子 G', `
     z<sub>top</sub> = z<sub>0</sub> + h = <span class="val">${fmt(zBase + height,2)}</span> m<br>
-    K(z<sub>top</sub>) = 2.774 × (${fmt(Math.max(zBase + height, terrainData.zmin),2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(r.KzTop,4)}</span><br>
+    K(z<sub>top</sub>) = 2.774 × (${fmt(Math.max(zBase + height, W.KZ_MIN_HEIGHT),2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(r.KzTop,4)}</span><br>
     q(z<sub>top</sub>) = 0.06 × K(z<sub>top</sub>) × K<sub>zt</sub> × (I × V)<sup>2</sup> = <span class="val">${fmt(raw.qTop,1)}</span> kgf/m²<br>
     G = <span class="val">${fmt(raw.body.G,3)}</span>
   `, buildGustDetailHtml(raw.body.gustDetail, {

@@ -14,7 +14,7 @@ const requiredFormalWiring = [
   'const dSqrtQz = W.calcDiameterSqrtQz(pipeDiameter, q.qz);',
   'const cfData = W.lookupCableCf({ roughness: pipeRoughness, dSqrtQz });',
   'const shape = W.lookupAngularPrismCf(prismShape);',
-  'const rData = W.lookupAngularPrismR(h / width);',
+  'const rData = W.lookupAngularPrismR(2 * h / dMin);',
   'const totalShear = panelForce + support.shear;',
   'const totalMoment = panelMoment + support.moment;',
 ];
@@ -59,8 +59,8 @@ function calculate(input) {
     const panelZr = item.panelBottom + item.panelHeight / 2;
     const panelArea = item.panelWidth * item.panelHeight * (1 - item.openingRatio / 100);
     const panelQ = Wind.calcQz(panelZr, item.V, item.terrain, item.I, item.Kzt);
-    const panelAspect = item.panelWidth / item.panelHeight;
-    const panelAtGround = item.panelBottom <= 0;
+    const panelAtGround = item.panelBottom < 0.25 * item.panelHeight;
+    const panelAspect = panelAtGround ? item.panelWidth / item.panelHeight : Math.max(item.panelWidth, item.panelHeight) / Math.min(item.panelWidth, item.panelHeight);
     const panelCfData = Wind.lookupSignCf({ atGround:panelAtGround, aspectRatio:panelAspect });
     const panelManualCf = item.panelCfOverride != null;
     const panelCf = panelManualCf ? item.panelCfOverride : panelCfData.cf;
@@ -76,7 +76,7 @@ function calculate(input) {
     const supportGust = supportHeight > 0 ? Wind.calcGustRigid(Math.max(supportHeight, 0.1), supportWidth, item.terrain) : null;
     const segmentHeight = supportHeight > 0 ? supportHeight / supportSegments : 0;
     const angularShape = item.supportType === 'angular' ? Wind.lookupAngularPrismCf(item.prismShape) : null;
-    const angularR = item.supportType === 'angular' ? Wind.lookupAngularPrismR(supportHeight / supportWidth) : null;
+    const angularR = item.supportType === 'angular' ? Wind.lookupAngularPrismR(2 * supportHeight / (item.prismShape === 'rect_long' ? supportWidth / 2 : supportWidth)) : null;
     const rows = [];
     for (let index = 0; index < supportSegments && supportHeight > 0; index += 1) {
       const zMid = index * segmentHeight + segmentHeight / 2;

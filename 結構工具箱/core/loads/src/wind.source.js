@@ -417,29 +417,32 @@
   };
 
   // ═══════════════════════════════
-  //  用途係數 I (§2.5 表 2.4 — 103 年版)
-  //  第一類：對大眾安全有重大影響者（核能、爆裂物等）I = 1.15
-  //  第二類：醫院、消防、警察、救災等重要設施         I = 1.10
-  //  第三類：學校、商場、車站等公眾使用建築物         I = 1.10
-  //  第四類：一般建築物                              I = 1.00
-  //  第五類：附屬構造物、臨時建築                    I = 0.95
+  //  用途係數 I (§2.5 — 103 年版)
+  //  第一類：風災後須維持機能之重要建築物（政府、消防、醫院等）I = 1.1
+  //  第二類：儲存多量毒性、爆炸性等危險物品之建築物             I = 1.1
+  //  第三類：供公眾使用之建築物（學校、商場、車站等）           I = 1.1
+  //  第四類：破壞時對生命危害度小者（臨時性設施等）             I = 0.9
+  //  第五類：其他一般建築物                                    I = 1.0
+  //  註：鍵值 IV / V 沿用既有存檔語意（IV = 一般、V = 臨時），名稱改依規範類別。
   // ═══════════════════════════════
   const IMPORTANCE = {
-    I:   { name: '第一類 (極重要 — 核能 / 危險物品)', factor: 1.15 },
-    II:  { name: '第二類 (重要 — 醫院 / 消防)',        factor: 1.10 },
-    III: { name: '第三類 (公眾使用 — 學校 / 商場)',    factor: 1.10 },
-    IV:  { name: '第四類 (一般建築)',                  factor: 1.00 },
-    V:   { name: '第五類 (臨時 / 次要 / 附屬)',       factor: 0.95 },
+    I:   { name: '第一類 (風災後須維持機能 — 政府 / 消防 / 醫院)', factor: 1.10 },
+    II:  { name: '第二類 (儲存危險物品)',                          factor: 1.10 },
+    III: { name: '第三類 (公眾使用 — 學校 / 商場)',                factor: 1.10 },
+    IV:  { name: '第五類 (其他一般建築物)',                        factor: 1.00 },
+    V:   { name: '第四類 (臨時性設施 / 非居住性儲藏)',             factor: 0.90 },
   };
 
   // ═══════════════════════════════
   //  Kz — 風速壓地況係數 (Eq 2.7)
   //  K(z) = 2.774 · (z/zg)^(2α)
-  //  z < zmin → 以 zmin 計算
+  //  z ≦ 5 m → 以 5 m 計算（式 2.7；三種地況同一下限。
+  //  表 2.2 之 zmin 僅用於陣風反應因子之等效高度 z̄）
   // ═══════════════════════════════
+  const KZ_MIN_HEIGHT = 5;
   function calcKz(z, terrain) {
     const t = TERRAIN[terrain] || TERRAIN.C;
-    const zUse = Math.max(z, t.zmin);
+    const zUse = Math.max(z, KZ_MIN_HEIGHT);
     return 2.774 * Math.pow(zUse / t.zg, 2 * t.alpha);
   }
 
@@ -459,10 +462,11 @@
   //  Kzt = (1 + K1·K2·K3)²
   // ═══════════════════════════════
   // K1 查表 2.3(a)，K2 = (1-|x|/(μLh))，K3 = e^(-γz/Lh)
+  // 解說參數表：γ 山脊 3、懸崖 2.5、山丘 4；μ 上風側皆 1.5，下風側 山脊 1.5、懸崖 4、山丘 1.5
   const KZT_PARAMS = {
-    ridge: { K1_fA: 1.30, K1_fC: 1.45, mu_up: 3, mu_dn: 1.5, gamma: 1.5 },
-    cliff: { K1_fA: 0.75, K1_fC: 0.85, mu_up: 2.5, mu_dn: 1.5, gamma: 4   },
-    hill:  { K1_fA: 0.95, K1_fC: 1.05, mu_up: 4,   mu_dn: 1.5, gamma: 1.5 },
+    ridge: { K1_fA: 1.30, K1_fC: 1.45, mu_up: 1.5, mu_dn: 1.5, gamma: 3   },
+    cliff: { K1_fA: 0.75, K1_fC: 0.85, mu_up: 1.5, mu_dn: 4,   gamma: 2.5 },
+    hill:  { K1_fA: 0.95, K1_fC: 1.05, mu_up: 1.5, mu_dn: 1.5, gamma: 4   },
   };
 
   /**
@@ -613,8 +617,8 @@
     const RB = _Rj(eta_B);
     const RL = _Rj(eta_L);
 
-    // R² (Eq 2.15)
-    const R2 = (1 / beta) * Rn * Rh * (0.53 * RB + 0.47 * RL);
+    // R² (Eq 2.15)：R = √[(1/β)·Rn·Rh·RB·(0.53 + 0.47·RL)]
+    const R2 = (1 / beta) * Rn * Rh * RB * (0.53 + 0.47 * RL);
 
     // gR (Eq 2.14)
     const lnT = Math.log(3600 * Math.max(fn, 0.1));
@@ -651,7 +655,7 @@
   // ═══════════════════════════════
   const GCPI = {
     enclosed: 0.375,   // ±0.375 (=0.18×2.083 from ASCE conversion)
-    partial:  1.145,   // ±1.145 (=0.55×2.083)
+    partial:  1.146,   // ±1.146 (表 2.17；=0.55×2.083)
     open:     0.00,
   };
   // Note: 103 code Table 2.17 values are already in 10-min system
@@ -780,13 +784,13 @@
   //  橫風向風力 WLz (Eq 2.21 / 2.22)
   // ═══════════════════════════════
   /**
-   * 簡化橫風向 (h/√BL < 3): WLz = 0.87·√(L/B)·WDz
+   * 簡化橫風向 (h/√BL < 3): WLz = 0.87·(L/B)·WDz
    * @param {number} WDz 同高度順風向風力
    * @param {number} L   順風深
    * @param {number} B   迎風寬
    */
   function calcCrossWindSimple(WDz, L, B) {
-    return 0.87 * Math.sqrt(L / B) * WDz;
+    return 0.87 * (L / B) * WDz;
   }
 
   // ═══════════════════════════════
@@ -795,6 +799,33 @@
   // ═══════════════════════════════
   function calcTorsionSimple(WDz, B) {
     return 0.28 * B * WDz;
+  }
+
+  /**
+   * 式 (2.23) 之 (B·WDz)* 取各向來風之較大值，所得設計扭矩適用於各向來風。
+   * rX / rY：calcBuildingWind 對 X、Y 風向之結果；Bx / By：各風向之迎風面寬度。
+   * 僅於兩向皆為 h/√BL < 3（簡化式）時套用；直接更新 rX.torsion / rY.torsion。
+   */
+  function applyTorsionEnvelopeEq223(rX, rY, Bx, By) {
+    if (!rX || !rY || !rX.torsion || !rY.torsion) return false;
+    if (!rX.lateralMeta || !rY.lateralMeta) return false;
+    if (rX.lateralMeta.regime !== 'simple' || rY.lateralMeta.regime !== 'simple') return false;
+    if (rX.stories.length !== rY.stories.length) return false;
+    rX.stories.forEach((sx, idx) => {
+      const sy = rY.stories[idx];
+      const bwX = Bx * sx.F;
+      const bwY = By * sy.F;
+      const MT = 0.28 * Math.max(bwX, bwY);
+      const governing = bwX >= bwY ? 'X' : 'Y';
+      [rX.torsion[idx], rY.torsion[idx]].forEach(row => {
+        row.MT = MT;
+        row.method = 'Eq 2.23';
+        row.envelope = governing;
+      });
+    });
+    rX.lateralMeta.torsionEnvelope = true;
+    rY.lateralMeta.torsionEnvelope = true;
+    return true;
   }
 
   function calcPeakFactorForDuration(f) {
@@ -1332,34 +1363,38 @@
   //  因 10 分鐘平均 → 3 秒陣風轉換: 1.443² = 2.083
   //
   //  每項 = { pos: [small_A, large_A], neg: [small_A, large_A] }
-  //  A ≤ Amin=0.93m² → small_A 值
-  //  A ≥ Amax=46.5m² → large_A 值
+  //  A ≤ Amin（預設 0.93 m² = 10 ft²）→ small_A 值
+  //  A ≥ Amax（預設 46.5 m² = 500 ft²）→ large_A 值
   //  中間 → log-linear 內插
+  //  posAmin / negAmin、posAmax / negAmax：個別曲線之折點（1.86 m² = 20 ft²；9.3 m² = 100 ft²）
   // ═══════════════════════════════
   const CC_A_MIN = 0.93;   // 10 ft²
   const CC_A_MAX = 46.5;   // 500 ft²
+  const CC_A_20FT2 = 1.86;   // 20 ft²
+  const CC_A_100FT2 = 9.3;   // 100 ft²
+  const CC_K = 2.083;
 
   // h ≤ 18m: 圖 3.1(a) 外牆
   const GCP_WALL_LE18 = {
-    zone4: { pos: [+1.89, +1.46], neg: [-2.08, -1.67] },
-    zone5: { pos: [+1.89, +1.46], neg: [-2.71, -1.67] },
+    zone4: { pos: [+1.0 * CC_K, +0.7 * CC_K], neg: [-1.1 * CC_K, -0.8 * CC_K] },
+    zone5: { pos: [+1.0 * CC_K, +0.7 * CC_K], neg: [-1.4 * CC_K, -0.8 * CC_K] },
   };
-  // h ≤ 18m: 圖 3.1(b) 屋頂 θ≤7°
+  // h ≤ 18m: 圖 3.1(b) 屋頂 θ≤7°（各曲線於 9.3 m² 後為定值）
   const GCP_ROOF_LE18 = {
-    zone1: { pos: [+0.62, +0.42], neg: [-2.08, -1.46] },
-    zone2: { pos: [+0.62, +0.42], neg: [-3.75, -1.67] },
-    zone3: { pos: [+0.62, +0.42], neg: [-5.83, -2.08], negAmax: 9.3 },
+    zone1: { pos: [+0.3 * CC_K, +0.2 * CC_K], posAmax: CC_A_100FT2, neg: [-1.0 * CC_K, -0.9 * CC_K], negAmax: CC_A_100FT2 },
+    zone2: { pos: [+0.3 * CC_K, +0.2 * CC_K], posAmax: CC_A_100FT2, neg: [-1.8 * CC_K, -1.1 * CC_K], negAmax: CC_A_100FT2 },
+    zone3: { pos: [+0.3 * CC_K, +0.2 * CC_K], posAmax: CC_A_100FT2, neg: [-2.8 * CC_K, -1.1 * CC_K], negAmax: CC_A_100FT2 },
   };
-  // h > 18m: 圖 3.2 外牆
+  // h > 18m: 圖 3.2 外牆（正壓、區域 4/5 負壓於 1.86 m² 前為定值）
   const GCP_WALL_GT18 = {
-    zone4: { pos: [+1.87, +1.46], neg: [-1.88, -1.67] },
-    zone5: { pos: [+1.87, +1.46], neg: [-3.75, -1.67] },
+    zone4: { pos: [+0.9 * CC_K, +0.6 * CC_K], posAmin: CC_A_20FT2, neg: [-0.9 * CC_K, -0.7 * CC_K], negAmin: CC_A_20FT2 },
+    zone5: { pos: [+0.9 * CC_K, +0.6 * CC_K], posAmin: CC_A_20FT2, neg: [-1.8 * CC_K, -1.0 * CC_K], negAmin: CC_A_20FT2 },
   };
-  // h > 18m: 圖 3.2 屋頂 θ≤10°
+  // h > 18m: 圖 3.2 屋頂 θ≤10°（圖 3.2 未列屋面正壓；保留既有正壓供包絡）
   const GCP_ROOF_GT18 = {
-    zone1: { pos: [+0.62, +0.42], neg: [-2.08, -1.75] },
-    zone2: { pos: [+0.62, +0.42], neg: [-3.75, -2.29] },
-    zone3: { pos: [+0.62, +0.42], neg: [-5.83, -2.29], negAmax: 9.3 },
+    zone1: { pos: [+0.62, +0.42], neg: [-1.4 * CC_K, -0.9 * CC_K] },
+    zone2: { pos: [+0.62, +0.42], neg: [-2.3 * CC_K, -1.6 * CC_K] },
+    zone3: { pos: [+0.62, +0.42], neg: [-3.2 * CC_K, -2.3 * CC_K] },
   };
 
   // 向後相容的扁平表格 (取 h>18m 值)
@@ -1369,13 +1404,14 @@
   /**
    * Log-linear GCp 內插 (圖 3.1/3.2 讀值)
    * curve = [small_A_value, large_A_value]
-   * amax = 覆蓋 CC_A_MAX (部分區域曲線較早收斂)
+   * amax / amin = 覆蓋 CC_A_MAX / CC_A_MIN (部分區域曲線較早收斂或較晚開始遞減)
    */
-  function interpGCp(curve, A, amax) {
-    if (A <= CC_A_MIN) return curve[0];
+  function interpGCp(curve, A, amax, amin) {
+    const a0 = amin || CC_A_MIN;
+    if (A <= a0) return curve[0];
     const am = amax || CC_A_MAX;
     if (A >= am) return curve[1];
-    const t = Math.log10(A / CC_A_MIN) / Math.log10(am / CC_A_MIN);
+    const t = Math.log10(A / a0) / Math.log10(am / a0);
     return curve[0] + (curve[1] - curve[0]) * t;
   }
 
@@ -1393,8 +1429,8 @@
       return { pos: last[2], neg: last[3] };
     }
     return {
-      pos: interpGCp(zoneData.pos, A),
-      neg: interpGCp(zoneData.neg, A, zoneData.negAmax),
+      pos: interpGCp(zoneData.pos, A, zoneData.posAmax, zoneData.posAmin),
+      neg: interpGCp(zoneData.neg, A, zoneData.negAmax, zoneData.negAmin),
     };
   }
 
@@ -1724,18 +1760,19 @@
       points: [[1, 0.8], [7, 1.0], [25, 1.2]],
     },
   };
+  // 表 2.11：平邊構材 2.0/1.8/1.6；圓形斷面 D√q(z)≦1.70：1.2/1.3/1.5；D√q(z)＞1.70：0.8/0.9/1.1
   const POROUS_FRAME_CF_TABLE = {
-    circular_low_qd: [
+    flat_member: [
       { min: 0.00, max: 0.10, cf: 2.0 },
       { min: 0.10, max: 0.29, cf: 1.8 },
       { min: 0.30, max: 0.70, cf: 1.6 },
     ],
-    circular_high_qd: [
+    circular_low_qd: [
       { min: 0.00, max: 0.10, cf: 1.2 },
       { min: 0.10, max: 0.29, cf: 1.3 },
       { min: 0.30, max: 0.70, cf: 1.5 },
     ],
-    flat_member: [
+    circular_high_qd: [
       { min: 0.00, max: 0.10, cf: 0.8 },
       { min: 0.10, max: 0.29, cf: 0.9 },
       { min: 0.30, max: 0.70, cf: 1.1 },
@@ -2341,7 +2378,8 @@
     GCP_WALL_LE18, GCP_ROOF_LE18,
     GCP_WALL_GT18, GCP_ROOF_GT18,
     OPEN_ROOF_CPN,
-    CC_A_MIN, CC_A_MAX, interpGCp,
+    CC_A_MIN, CC_A_MAX, CC_A_20FT2, CC_A_100FT2, CC_K, interpGCp,
+    KZ_MIN_HEIGHT,
     DRIFT_LIMIT,
     ACCEL_LIMIT,
     ACCEL_LIMITS,
@@ -2372,6 +2410,7 @@
     leewardCp,
     calcCrossWindSimple,
     calcTorsionSimple,
+    applyTorsionEnvelopeEq223,
     calcCrossWindResonanceFactor,
     calcTorsionResonanceFactor,
     calcPeakFactorForDuration,

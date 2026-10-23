@@ -628,7 +628,7 @@ function calc() {
   const cfRoute = porousCfRouteLabel(cfData);
   const r = {
     mode: 'porous', cityName, V, terrain, I, Kzt, terrainData,
-    z, A, phi, D, memberType, qz: q.qz, Kz: q.Kz, zUse: Math.max(z, terrainData.zmin),
+    z, A, phi, D, memberType, qz: q.qz, Kz: q.Kz, zUse: Math.max(z, W.KZ_MIN_HEIGHT),
     dSqrtQz, cfData, cfRoute, gustInfo, G,
     force, baseShear: force, baseMoment, resultantHeight: z
   };

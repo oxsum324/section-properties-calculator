@@ -653,7 +653,9 @@ function calcSupportSegments(p) {
 
   if (supportType === 'angular') {
     const shape = W.lookupAngularPrismCf(prismShape);
-    const rData = W.lookupAngularPrismR(h / width);
+    // 表 2.13：高寬比採 2h/D，D 為最小水平尺寸（長方柱風向垂直長邊時 D = b/2）
+    const dMin = prismShape === 'rect_long' ? width / 2 : width;
+    const rData = W.lookupAngularPrismR(2 * h / dMin);
     basis.shape = shape;
     basis.rData = rData;
   }
@@ -761,8 +763,9 @@ function calc() {
   const panelZr = panelBottom + panelHeight / 2;
   const panelArea = panelWidth * panelHeight * Math.max(0, 1 - openingRatio / 100);
   const panelQ = W.calcQz(panelZr, V, terrain, I, Kzt);
-  const panelAspect = panelWidth / panelHeight;
-  const atGround = panelBottom <= 0;
+  // 表 2.10 註 (2)：底緣離地小於標示物垂直向尺寸 0.25 倍者為位於地面上；架高者以 M/N（較大邊 / 較小邊）查表
+  const atGround = panelBottom < 0.25 * panelHeight;
+  const panelAspect = atGround ? panelWidth / panelHeight : Math.max(panelWidth, panelHeight) / Math.min(panelWidth, panelHeight);
   const panelCfData = W.lookupSignCf({ atGround, aspectRatio: panelAspect });
   const panelCf = (Number.isFinite(panelCfOverride) && panelCfOverride > 0) ? panelCfOverride : panelCfData.cf;
   const panelCfSource = (Number.isFinite(panelCfOverride) && panelCfOverride > 0) ? '專案指定值' : '表 2.10 實體標示物';
@@ -947,7 +950,7 @@ function buildStepsHtml(r) {
   ` : '';
   const supportBasis = r.input.supportType === 'pipe'
     ? `支撐構件採表 2.14 繩、竿、管；表面分類為 <span class="val">${escHtml(r.support.basis.roughnessName || '')}</span>，各段建 D√q(z) 判定 C<sub>f</sub>。`
-    : `支撐構件採表 2.13 角柱體；${escHtml(r.support.basis.shape?.name || '')}，細長比 h/b = <span class="val">${fmt(r.support.basis.rData?.slenderRatio, 2)}</span>，R = <span class="val">${fmt(r.support.basis.rData?.r, 2)}</span>。`;
+    : `支撐構件採表 2.13 角柱體；${escHtml(r.support.basis.shape?.name || '')}，高寬比 2h/D = <span class="val">${fmt(r.support.basis.rData?.slenderRatio, 2)}</span>，R = <span class="val">${fmt(r.support.basis.rData?.r, 2)}</span>。`;
   return `
     <div class="step">
       <div class="step-title">① 基本風速與速度壓</div>
