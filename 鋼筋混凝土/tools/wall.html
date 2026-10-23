@@ -868,6 +868,7 @@
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
   const WALL_PROJECT_SCHEMA = 'rc-wall-project-v1';
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2']);
   const WALL_PROJECT_STORAGE_KEY = 'rc.wall.project.draft';
   const WALL_PROJECT_EXCLUDED_IDS = new Set(['wallProjectFile', 'caseJson', 'compareCaseJson', 'baselineReport']);
   const wallProjectStorage = window.RCProjectStorage.createManager({
@@ -945,7 +946,8 @@
     const sourceVersion = String(parsed?.appVersion || parsed?.tool?.pageVersion || parsed?.pageVersion || '')
       .trim()
       .replace(/^v/i, 'V');
-    const expectedVersion = sourceVersion === 'V3.1' ? 'V3.1' : 'V3.3';
+    // V3.1、V3.2 舊檔：以原版本驗證指紋後依 V3.3 重新計算，提示另存
+    const expectedVersion = LEGACY_REPLAY_VERSIONS.includes(sourceVersion) ? sourceVersion : 'V3.3';
     return window.RCReportFingerprint.validateProjectCalculationSource(parsed, {
       expectedSchema: WALL_PROJECT_SCHEMA,
       expectedToolId: 'rc-wall',
@@ -962,7 +964,7 @@
   function applyWallProjectData(raw, options = {}) {
     const payload = normalizeWallProjectPayload(raw);
     const sourceVersion = String(payload.appVersion || '').trim().replace(/^v/i, 'V');
-    const upgradedFromV31 = sourceVersion === 'V3.1';
+    const upgradedFromLegacy = LEGACY_REPLAY_VERSIONS.includes(sourceVersion);
     const previous = options.skipReplayCheck ? null : collectWallProjectData();
     setWallMode(payload.mode || 'design');
     let applied = 0;
@@ -999,7 +1001,7 @@
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      const upgradeNote = upgradedFromV31 ? '｜已依 V3.3 重新計算，請另存 V3.3 專案檔' : '';
+      const upgradeNote = upgradedFromLegacy ? `｜原為 ${sourceVersion} 專案檔，已依 V3.3 重新計算，請另存 V3.3 專案檔` : '';
       showWallProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}${upgradeNote}`);
     }
     return { payload, applied };

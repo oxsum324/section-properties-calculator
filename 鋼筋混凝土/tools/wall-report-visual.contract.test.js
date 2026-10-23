@@ -71,6 +71,7 @@ const tool = read(toolPath);
   'wall P-M axial envelope overflow fails closed in browser workflow',
   'wall replays verified V3.1 project under V3.3',
   'wall V3.1 migration preserves inputs and recalculates',
+  'wall replays verified V3.2 project under V3.3',
   'wall accepts cover and per-end concentrated reinforcement inputs',
   'wall end reinforcement enters formal P-M steel area',
   'wall page renders P-M envelope and demand point',

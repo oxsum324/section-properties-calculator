@@ -323,6 +323,18 @@ async function exerciseWallProjectStorage(page) {
   }, saved);
   assert(legacyReplay.acceptedVersion === 'V3.1' && legacyReplay.currentVersion === 'V3.3', 'wall replays verified V3.1 project under V3.3', JSON.stringify(legacyReplay));
   assert(legacyReplay.projectName === '牆專案存讀檔測試' && legacyReplay.wallLastOk, 'wall V3.1 migration preserves inputs and recalculates', JSON.stringify(legacyReplay));
+
+  const legacyV32Replay = await page.evaluate(payload => {
+    const legacy = { ...payload, appVersion: 'V3.2' };
+    const signedLegacy = window.RCReportFingerprint.withProjectCalculationFingerprint(legacy, { ignoredKeys: ['activeTab'] });
+    const replay = window.applyWallProjectData(signedLegacy, { silent: true });
+    return {
+      acceptedVersion: replay.payload.appVersion,
+      currentVersion: window.collectWallProjectData().appVersion,
+      wallLastOk: !!window.wallLast,
+    };
+  }, saved);
+  assert(legacyV32Replay.acceptedVersion === 'V3.2' && legacyV32Replay.currentVersion === 'V3.3' && legacyV32Replay.wallLastOk, 'wall replays verified V3.2 project under V3.3', JSON.stringify(legacyV32Replay));
 }
 
 async function exerciseWallCapacityLoadCombo(page) {
