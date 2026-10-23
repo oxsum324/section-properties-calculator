@@ -1,0 +1,299 @@
+{
+  "schema": "rc-slab-project-v1",
+  "tool": "rc-slab",
+  "toolTitle": "板 Slab 設計／檢核",
+  "appVersion": "V3.2",
+  "savedAt": "2026-10-23T14:03:24.011Z",
+  "mode": "check",
+  "loadMode": "combo",
+  "metadata": {
+    "projectName": "板專案存讀檔測試",
+    "projectNo": "RC-SLAB-001",
+    "designer": "QA"
+  },
+  "fields": {
+    "projName": {
+      "kind": "input",
+      "inputType": "text",
+      "value": "板專案存讀檔測試"
+    },
+    "projNo": {
+      "kind": "input",
+      "inputType": "text",
+      "value": "RC-SLAB-001"
+    },
+    "projDesigner": {
+      "kind": "input",
+      "inputType": "text",
+      "value": "QA"
+    },
+    "showSteps": {
+      "kind": "checkbox",
+      "checked": true
+    },
+    "testCaseSelect": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": ""
+    },
+    "showDetailHelp": {
+      "kind": "checkbox",
+      "checked": true
+    },
+    "showCaseTools": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "slabType": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "flat"
+    },
+    "Lx": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "620"
+    },
+    "Ly": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "690"
+    },
+    "h": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "24"
+    },
+    "cover": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "2.5"
+    },
+    "fc": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "350"
+    },
+    "fy": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "4200"
+    },
+    "fyT": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "4200"
+    },
+    "supportX": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "bothEnd"
+    },
+    "supportY": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "bothEnd"
+    },
+    "supW": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "55"
+    },
+    "alphaFm": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "1.0"
+    },
+    "panelPos": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "interior"
+    },
+    "wuManual": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "1.20"
+    },
+    "autoSelfWt": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "rigorousDL": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "dlSelf": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0.360"
+    },
+    "dlSDL": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0.15"
+    },
+    "llPreset": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "0.30"
+    },
+    "llVal": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0.30"
+    },
+    "lcSlab_wu_D": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcSlab_wu_L": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcSlab_wu_W": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "lcSlab_wu_E": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "0"
+    },
+    "wuCombo": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "1.42"
+    },
+    "layerMode": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "thick"
+    },
+    "barNoXBot": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "#5"
+    },
+    "barSpXBot": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "12"
+    },
+    "barNoYBot": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "#5"
+    },
+    "barSpYBot": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "13"
+    },
+    "barNoXTop": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "#5"
+    },
+    "barSpXTop": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "20"
+    },
+    "barNoYTop": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "#5"
+    },
+    "barSpYTop": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "20"
+    },
+    "c1": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "55"
+    },
+    "c2": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "55"
+    },
+    "colPos": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "interior"
+    },
+    "punchMode": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "prelim"
+    },
+    "swEnable": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "swBar": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "#4"
+    },
+    "swFyt": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "2800"
+    },
+    "swS": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "15"
+    },
+    "swSt": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "20"
+    },
+    "swLeg": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "2"
+    },
+    "puEnable": {
+      "kind": "checkbox",
+      "checked": false
+    },
+    "puType": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "stirrup"
+    },
+    "puBar": {
+      "kind": "select",
+      "inputType": "select-one",
+      "value": "#4"
+    },
+    "puLeg": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "8"
+    },
+    "puS": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "8"
+    },
+    "puFyt": {
+      "kind": "input",
+      "inputType": "number",
+      "value": "2800"
+    }
+  },
+  "summary": {
+    "banner": "⚠ 待確認 — 2 項需正式分析確認✓ 板厚 ｜ ✓ 撓曲 ｜ ✓ 剪力初估 ｜ ✓ 雙向衝剪 ｜ ✓ 鋼筋淨距⚠ 數值檢核通過，但仍須正式二向板 / DDM / 衝剪分布複核，不可列為最終 OK。",
+    "reviewWarningCount": 2
+  },
+  "calculationFingerprint": "CF-921FA617FFE53B9B"
+}

@@ -225,13 +225,11 @@ async function exerciseSlabProjectStorage(page) {
   assert(legacyImport.projectName === '板專案存讀檔測試' && legacyImport.Lx === '620', 'slab accepts V3.1 project inputs for recalculation', JSON.stringify(legacyImport));
   assert(legacyImport.appVersion === 'V3.3', 'slab upgrades replayed project provenance to V3.3', JSON.stringify(legacyImport));
   assert(legacyImport.status.includes('請另存 V3.3 專案檔'), 'slab discloses V3.1 calculation migration', legacyImport.status);
-  // V3.2（E1 前上線版）舊檔與 V3.1 走同一遷移分支
-  const legacyV32SlabProject = JSON.parse(JSON.stringify(saved));
-  legacyV32SlabProject.appVersion = 'V3.2';
+  // V3.2（E1 前上線版）舊檔與 V3.1 走同一遷移分支；fixture 由 a2054691 之 V3.2 頁面以上方同一組輸入另存
   await page.setInputFiles('#slabProjectFile', {
     name: 'rc-slab-project-v3.2.json',
     mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(legacyV32SlabProject), 'utf8')
+    buffer: fs.readFileSync(path.join(__dirname, 'tests', 'fixtures', 'slab-project-v3.2.json'))
   });
   await page.waitForFunction(() => document.getElementById('slabProjectStatus')?.textContent?.includes('原為 V3.2 專案檔，已依 V3.3 重新計算'));
   const legacyV32Import = await page.evaluate(() => ({

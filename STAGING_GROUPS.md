@@ -872,10 +872,10 @@ git add -- serve-local-browser-smoke.test.js STAGING_GROUPS.md
 
 ### V18-T55c RC 板、牆舊檔遷移一致化
 
-`鋼筋混凝土/tools/slab.html`、`wall.html` 以 `LEGACY_REPLAY_VERSIONS = ['V3.1', 'V3.2']` 判定舊檔：以原版本驗證計算指紋後依 V3.3 重新計算，提示「原為 V3.x 專案檔，已依 V3.3 重新計算，請另存 V3.3 專案檔」；V3.2 舊檔（E1 前上線版）原本直接以版本不符拒絕。板、牆回歸與計算書測試各增 V3.2 遷移一例；其他 RC 頁不動。
+`鋼筋混凝土/tools/slab.html`、`wall.html` 以 `LEGACY_REPLAY_VERSIONS = ['V3.1', 'V3.2']` 判定舊檔：以原版本驗證計算指紋後依 V3.3 重新計算，提示「原為 V3.x 專案檔，已依 V3.3 重新計算，請另存 V3.3 專案檔」；V3.2 舊檔（E1 前上線版）原本直接以版本不符拒絕。板、牆回歸與計算書測試各增 V3.2 遷移一例，fixture 為 a2054691（V3.2 上線版）頁面以同一組輸入另存之 `鋼筋混凝土/tools/tests/fixtures/{slab,wall}-project-v3.2.json`（保留原計算指紋）；其他 RC 頁不動。
 
 ```powershell
-git add -- "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/slab-regression.test.js" "鋼筋混凝土/tools/wall-regression.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" STAGING_GROUPS.md
+git add -- "鋼筋混凝土/tools/slab.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/slab-regression.test.js" "鋼筋混凝土/tools/wall-regression.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" "鋼筋混凝土/tools/tests/fixtures/slab-project-v3.2.json" "鋼筋混凝土/tools/tests/fixtures/wall-project-v3.2.json" STAGING_GROUPS.md
 ```
 
 ### V18-T55d 石材固定 V3.1.1

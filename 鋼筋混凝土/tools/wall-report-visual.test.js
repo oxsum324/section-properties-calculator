@@ -324,17 +324,18 @@ async function exerciseWallProjectStorage(page) {
   assert(legacyReplay.acceptedVersion === 'V3.1' && legacyReplay.currentVersion === 'V3.3', 'wall replays verified V3.1 project under V3.3', JSON.stringify(legacyReplay));
   assert(legacyReplay.projectName === '牆專案存讀檔測試' && legacyReplay.wallLastOk, 'wall V3.1 migration preserves inputs and recalculates', JSON.stringify(legacyReplay));
 
-  const legacyV32Replay = await page.evaluate(payload => {
-    const legacy = { ...payload, appVersion: 'V3.2' };
-    const signedLegacy = window.RCReportFingerprint.withProjectCalculationFingerprint(legacy, { ignoredKeys: ['activeTab'] });
-    const replay = window.applyWallProjectData(signedLegacy, { silent: true });
+  // fixture 由 a2054691（V3.2 上線版）頁面以上方同一組輸入另存，保留其原始計算指紋
+  const legacyV32Fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'tests', 'fixtures', 'wall-project-v3.2.json'), 'utf8'));
+  const legacyV32Replay = await page.evaluate(legacy => {
+    const replay = window.applyWallProjectData(legacy, { silent: true });
     return {
       acceptedVersion: replay.payload.appVersion,
       currentVersion: window.collectWallProjectData().appVersion,
+      projectName: document.getElementById('projName')?.value,
       wallLastOk: !!window.wallLast,
     };
-  }, saved);
-  assert(legacyV32Replay.acceptedVersion === 'V3.2' && legacyV32Replay.currentVersion === 'V3.3' && legacyV32Replay.wallLastOk, 'wall replays verified V3.2 project under V3.3', JSON.stringify(legacyV32Replay));
+  }, legacyV32Fixture);
+  assert(legacyV32Replay.acceptedVersion === 'V3.2' && legacyV32Replay.currentVersion === 'V3.3' && legacyV32Replay.projectName === '牆專案存讀檔測試' && legacyV32Replay.wallLastOk, 'wall replays verified V3.2 project under V3.3', JSON.stringify(legacyV32Replay));
 }
 
 async function exerciseWallCapacityLoadCombo(page) {
