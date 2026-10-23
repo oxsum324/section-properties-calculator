@@ -830,7 +830,7 @@ const windSignPoleAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independ
 assert.ok(windSignPoleAdapterSource.includes("../../core/loads/wind.js"), 'wind sign-pole adapter exercises the production wind core');
 assert.ok(windSignPoleAdapterSource.includes("../風力/wind-sign-pole.html"), 'wind sign-pole adapter guards the formal page calculation wiring');
 assert.ok(windSignPoleAdapterSource.includes('W.lookupCableCf({ roughness: pipeRoughness, dSqrtQz })'), 'wind sign-pole adapter locks the pipe Table 2.14 route');
-assert.ok(windSignPoleAdapterSource.includes('W.lookupAngularPrismR(h / width)'), 'wind sign-pole adapter locks the angular-prism Table 2.13 slenderness route');
+assert.ok(windSignPoleAdapterSource.includes('W.lookupAngularPrismR(2 * h / dMin)'), 'wind sign-pole adapter locks the angular-prism Table 2.13 slenderness route');
 assert.ok(windSignPoleAdapterSource.includes('const totalMoment = panelMoment + support.moment;'), 'wind sign-pole adapter locks the composite base-moment equation');
 assert.ok(!windSignPoleAdapterSource.includes('golden'), 'wind sign-pole adapter does not replay a golden-case fixture');
 const windCcAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-cc.js'), 'utf8');

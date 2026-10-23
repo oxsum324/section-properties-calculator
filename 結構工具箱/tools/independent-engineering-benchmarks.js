@@ -1336,7 +1336,9 @@ function rcWallStrengthOracle(input) {
     const Pn = 0.55 * item.fc * Ag * (1 - (item.k * item.lc / (32 * item.h)) ** 2);
     const phiPn = eOk && Pn > 0 ? 0.65 * Pn : 0;
     const ac = alphaC(hwlw);
-    const Vn = Ag * (ac * item.lambda * Math.sqrt(item.fc) + rhot * item.fy);
+    // 11.5.4.3：Vn = (αc·λ√fc' + ρt·fy)·Acv；11.5.4.2：任一水平斷面 Vn ≤ 2.12√fc'·Acv（Acv = h·ℓw）
+    const VnFormula = Ag * (ac * item.lambda * Math.sqrt(item.fc) + rhot * item.fy);
+    const Vn = Math.min(VnFormula, 2.12 * Math.sqrt(item.fc) * Ag);
     const phiVn = 0.75 * Vn;
     const VnLimit = 2.65 * Math.sqrt(item.fc) * Ag;
     const effectiveShearCapacity = isShearWall ? Math.min(phiVn, VnLimit) : phiVn;
@@ -1350,8 +1352,20 @@ function rcWallStrengthOracle(input) {
     const simpleEvaluated = !simpleTensionFailClosed && !simpleEccentricityFailClosed;
     const simpleOk = simpleEvaluated && Math.max(axialUtilization, shearControlUtilization) <= 1;
     const needTwoLayer = shearDemand > 0.5 * 0.75 * ac * item.lambda * Math.sqrt(item.fc) * Ag || hwlw >= 2;
-    const rholMin = isShearWall ? 0.0025 : 0.0012;
-    const rhotMin = isShearWall || needTwoLayer ? 0.0025 : 0.0020;
+    // 表 11.6.1（場鑄竹節鋼筋）：≤ D16 且 fy ≥ 4200 → ρℓ 0.0012、ρt 0.0020；其他 → 0.0015、0.0025。耐震剪力牆取 0.0025。
+    const withinD16 = db => db <= 1.588 + 1e-9;
+    const gradeOk = item.fy >= 4200;
+    let rholMin = isShearWall ? 0.0025 : (gradeOk && withinD16(item.vBarDb) ? 0.0012 : 0.0015);
+    let rhotMin = isShearWall ? 0.0025 : (gradeOk && withinD16(item.hBarDb) ? 0.0020 : 0.0025);
+    if (needTwoLayer) rhotMin = Math.max(rhotMin, 0.0025);
+    // 11.6.2：Vu ≥ 0.5φ·αc·λ√fc'·Acv 時 ρt ≥ 0.0025；ρℓ ≥ max(0.0025, 式 11.6.2)，但不必超過強度所需 ρt
+    // （所需 ρt 以 11.6.2(b) 的 0.0025 為下限，與工具採相同解讀）
+    if (shearDemand >= 0.5 * 0.75 * ac * item.lambda * Math.sqrt(item.fc) * Ag) {
+      rhotMin = Math.max(rhotMin, 0.0025);
+      const eq1162 = 0.0025 + 0.5 * (2.5 - hwlw) * (rhot - 0.0025);
+      const strengthRhot = (shearDemand / (0.75 * Ag) - ac * item.lambda * Math.sqrt(item.fc)) / item.fy;
+      rholMin = Math.max(rholMin, 0.0025, Math.min(eq1162, Math.max(0.0025, strengthRhot)));
+    }
     const spacingGeneral = Math.min(3 * item.h, 45);
     const spacingVertical = item.lw / 3;
     const spacingHorizontal = item.lw / 5;
@@ -1558,23 +1572,27 @@ function rcRetrofitSectionOracle(input) {
   function uncracked(section, materials) {
     const concreteArea = section.b * section.h;
     const concreteY = section.h / 2;
+    // [面積, 模數比, 位置, 是否占用混凝土]：內埋鋼筋取 (n−1)A；外貼 FRP／鋼板位於混凝土外取 n·A
     const additions = [
-      [section.As, materials.ns, section.h - section.d],
-      [section.Asp, materials.ns, section.h - section.dp],
-      [materials.Af, materials.nf, section.h - materials.df],
-      [materials.ApPlate, materials.nsPlate, section.h - materials.dsp],
+      [section.As, materials.ns, section.h - section.d, true],
+      [section.Asp, materials.ns, section.h - section.dp, true],
+      [materials.Af, materials.nf, section.h - materials.df, false],
+      [materials.ApPlate, materials.nsPlate, section.h - materials.dsp, false],
     ];
+    const transformedArea = (memberArea, ratio, displacesConcrete) => (memberArea > 0 && ratio > 0
+      ? (displacesConcrete ? ratio - 1 : ratio) * memberArea
+      : 0);
     let area = concreteArea;
     let firstMoment = concreteArea * concreteY;
-    for (const [memberArea, ratio, y] of additions) {
-      const transformed = memberArea > 0 && ratio > 0 ? (ratio - 1) * memberArea : 0;
+    for (const [memberArea, ratio, y, displacesConcrete] of additions) {
+      const transformed = transformedArea(memberArea, ratio, displacesConcrete);
       area += transformed;
       firstMoment += transformed * y;
     }
     const centroid = firstMoment / area;
     let inertia = section.b * section.h ** 3 / 12 + concreteArea * (concreteY - centroid) ** 2;
-    for (const [memberArea, ratio, y] of additions) {
-      const transformed = memberArea > 0 && ratio > 0 ? (ratio - 1) * memberArea : 0;
+    for (const [memberArea, ratio, y, displacesConcrete] of additions) {
+      const transformed = transformedArea(memberArea, ratio, displacesConcrete);
       inertia += transformed * (y - centroid) ** 2;
     }
     return { area, inertia };
@@ -1917,35 +1935,55 @@ function rcPileOracle(i) {
     0.27 * (2 + 4 / betaC) * i.lambda * Math.sqrt(i.fc),
     0.27 * (40 * d / bo + 2) * i.lambda * Math.sqrt(i.fc)
   );
+  // 13.4.6.5: full share when the pile centre is >= dp/2 outside the section, none when >= dp/2 inside, linear between.
+  const share = (signed) => Math.min(1, Math.max(0, (signed + i.pileD / 2) / i.pileD));
   let excludedCount = 0;
   let Vu2Tf = 0;
   reactions.forEach((reaction, index) => {
     const dx = Math.abs(xs[index]) - c1d / 2;
     const dy = Math.abs(ys[index]) - c2d / 2;
-    const distance = dx <= 0 && dy <= 0 ? 0 : Math.hypot(Math.max(dx, 0), Math.max(dy, 0));
-    if (distance < i.pileD / 2) excludedCount += 1;
-    else Vu2Tf += Math.max(reaction, 0);
+    const signed = dx <= 0 && dy <= 0 ? Math.max(dx, dy) : Math.hypot(Math.max(dx, 0), Math.max(dy, 0));
+    const f = share(signed);
+    if (f === 0) excludedCount += 1;
+    Vu2Tf += Math.max(reaction, 0) * f;
   });
 
-  const rowSpanL = (i.pileNL - 1) * i.pileSL / 100;
-  const rowSpanB = (i.pileNB - 1) * i.pileSB / 100;
-  const controlRowL = Math.max(...rowL);
-  const controlRowB = Math.max(...rowB);
-  const capMuLongTfm = controlRowL * rowSpanL / 8;
-  const capMuTransTfm = controlRowB * rowSpanB / 8;
+  // Column-face moment (13.2.7.1) and one-way shear at d from the face (13.2.7.2) carried by the full cap width.
+  const sideSums = (coords, fn) => {
+    let pos = 0;
+    let neg = 0;
+    reactions.forEach((reaction, index) => {
+      const value = Math.max(reaction, 0) * fn(Math.abs(coords[index]));
+      if (coords[index] > 0) pos += value;
+      else if (coords[index] < 0) neg += value;
+    });
+    return Math.max(pos, neg);
+  };
+  const capMuLongTfm = sideSums(xs, (r) => Math.max(0, r - i.c1 / 2)) / 100;
+  const capMuTransTfm = sideSums(ys, (r) => Math.max(0, r - i.c2 / 2)) / 100;
   const capMuTfm = Math.max(capMuLongTfm, capMuTransTfm);
-  const capVuTf = Math.max(controlRowL / 2, controlRowB / 2, ...reactions);
-  const momentKgfCm = capMuTfm * 1e5;
-  const width = 100;
-  const quadratic = i.fy * i.fy / (1.7 * i.fc * width);
-  const linear = i.fy * d;
-  const capFlexuralAs = (linear - Math.sqrt(linear * linear - 4 * quadratic * momentKgfCm / 0.9)) / (2 * quadratic);
-  const capAsReq = Math.max(0.0018 * width * i.hc, capFlexuralAs);
-  const capAsProv = Math.max(i.capSteelAreaTotal / 2, capAsReq);
-  const a = capAsProv * i.fy / (0.85 * i.fc * width);
-  const capPhiMnTfm = 0.9 * capAsProv * i.fy * (d - a / 2) / 1e5;
-  const capPhiVcTf = i.phiShear * 0.53 * i.lambda * Math.sqrt(i.fc) * width * d / 1000;
-  const capVsTf = 11.4 * 2800 * d / 10 / 1000;
+  const vuLong = sideSums(xs, (r) => share(r - (i.c1 / 2 + d)));
+  const vuTrans = sideSums(ys, (r) => share(r - (i.c2 / 2 + d)));
+  const capVuTf = Math.max(vuLong, vuTrans);
+  const asFor = (width, muTfm) => {
+    const quadratic = i.fy * i.fy / (1.7 * i.fc * width);
+    const linear = i.fy * d;
+    return (linear - Math.sqrt(linear * linear - 4 * quadratic * muTfm * 1e5 / 0.9)) / (2 * quadratic);
+  };
+  const asLong = asFor(i.capB, capMuLongTfm);
+  const asTrans = asFor(i.capL, capMuTransTfm);
+  const capFlexuralAs = Math.max(asLong, asTrans);
+  const capAsReq = Math.max(0.0018 * i.capB * i.hc, asLong, 0.0018 * i.capL * i.hc, asTrans);
+  const mnFor = (width) => {
+    const a = i.capSteelAreaTotal * i.fy / (0.85 * i.fc * width);
+    return 0.9 * i.capSteelAreaTotal * i.fy * (d - a / 2) / 1e5;
+  };
+  const phiMnLong = mnFor(i.capB);
+  const phiMnTrans = mnFor(i.capL);
+  const capPhiMnTfm = capMuLongTfm / phiMnLong >= capMuTransTfm / phiMnTrans ? phiMnLong : phiMnTrans;
+  const vcFor = (width) => i.phiShear * 0.53 * i.lambda * Math.sqrt(i.fc) * width * d / 1000;
+  const capPhiVcTf = vuLong / vcFor(i.capB) >= vuTrans / vcFor(i.capL) ? vcFor(i.capB) : vcFor(i.capL);
+  const capVsTf = 0;
 
   return {
     Qs,
@@ -2158,7 +2196,7 @@ function windForceMwfrsOracle(i) {
   const zBar = Math.max(0.6 * totalH, terrain.zmin);
   const Iz = terrain.c * (10 / zBar) ** (1 / 6);
   const Lz = terrain.ell * (zBar / 10) ** terrain.eps;
-  const calcKz = z => 2.774 * (Math.max(z, terrain.zmin) / terrain.zg) ** (2 * terrain.alpha);
+  const calcKz = z => 2.774 * (Math.max(z, 5) / terrain.zg) ** (2 * terrain.alpha);
   const calcQz = z => 0.06 * calcKz(z) * i.Kzt * i.I ** 2 * i.V ** 2;
   const KzH = calcKz(totalH);
   const qH = calcQz(totalH);
@@ -2179,21 +2217,32 @@ function windForceMwfrsOracle(i) {
     return -0.3 + (ratio - 2) / 2 * 0.1;
   };
 
+  // 式 (2.23)：(B·WDz)* 取 X、Y 兩向來風之較大值，設計扭矩適用於各向來風
+  const storyForces = (B, L) => {
+    const Q = Math.sqrt(1 / (1 + 0.63 * ((B + totalH) / Lz) ** 0.63));
+    const G = 1.927 * (1 + 1.7 * 3.4 * Iz * Q) / (1 + 1.7 * 3.4 * Iz);
+    const pl = qH * G * leewardCp(L, B);
+    return storyRows.map(row => (row.qz * G * cpWindward - pl) * row.height * B);
+  };
+  const forcesX = storyForces(i.B, i.L);
+  const forcesY = storyForces(i.L, i.B);
+  const bwEnvelope = storyRows.map((row, idx) => Math.max(i.B * forcesX[idx], i.L * forcesY[idx]));
+
   const direction = (prefix, B, L) => {
     const Q2 = 1 / (1 + 0.63 * ((B + totalH) / Lz) ** 0.63);
     const Q = Math.sqrt(Q2);
     const G = 1.927 * (1 + 1.7 * 3.4 * Iz * Q) / (1 + 1.7 * 3.4 * Iz);
     const Cpl = leewardCp(L, B);
     const pl = qH * G * Cpl;
-    const rows = storyRows.map(row => {
+    const rows = storyRows.map((row, idx) => {
       const pw = row.qz * G * cpWindward;
       const pNet = pw - pl;
       const A = row.height * B;
       const F = pNet * A;
       return {
         ...row, pw, pl, pNet, A, F,
-        WL:0.87 * Math.sqrt(L / B) * F,
-        MT:0.28 * B * F,
+        WL:0.87 * (L / B) * F,
+        MT:0.28 * bwEnvelope[idx],
         wallCasePos:row.qz * G * cpWindward - qH * gcpi,
         wallCaseNeg:row.qz * G * cpWindward + qH * gcpi
       };
@@ -2274,7 +2323,7 @@ function windObjectSolidTable210Oracle(i) {
     const baseCf = manualAdoption ? item.adoptedCf : codeCf;
     const zr = item.bottomClearance + objectHeight / 2;
     const topElevation = item.bottomClearance + objectHeight;
-    const zPressure = Math.max(zr, terrain.zmin);
+    const zPressure = Math.max(zr, 5);
     const Kz = 2.774 * (zPressure / terrain.zg) ** (2 * terrain.alpha);
     const qz = 0.06 * Kz * i.Kzt * i.I ** 2 * i.V ** 2;
     const gustHeight = Math.max(zr, 0.1);
@@ -2337,13 +2386,13 @@ function windObjectFrameThreeRouteOracle(input) {
     C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 },
   };
   const coefficient = (memberType, lowQD, phi) => {
-    if (memberType === 'flat') return phi <= 0.10 ? 0.8 : phi <= 0.29 ? 0.9 : 1.1;
-    if (lowQD) return phi <= 0.10 ? 2.0 : phi <= 0.29 ? 1.8 : 1.6;
-    return phi <= 0.10 ? 1.2 : phi <= 0.29 ? 1.3 : 1.5;
+    if (memberType === 'flat') return phi <= 0.10 ? 2.0 : phi <= 0.29 ? 1.8 : 1.6;
+    if (lowQD) return phi <= 0.10 ? 1.2 : phi <= 0.29 ? 1.3 : 1.5;
+    return phi <= 0.10 ? 0.8 : phi <= 0.29 ? 0.9 : 1.1;
   };
   return Object.fromEntries(input.cases.map(i => {
     const t = terrain[i.terrain];
-    const zUse = Math.max(i.z, t.zmin);
+    const zUse = Math.max(i.z, 5);
     const Kz = 2.774 * Math.pow(zUse / t.zg, 2 * t.alpha);
     const qz = 0.06 * Kz * i.Kzt * i.I ** 2 * i.V ** 2;
     const dSqrtQz = i.memberType === 'circular' ? i.D * Math.sqrt(qz) : 0;
@@ -2383,7 +2432,7 @@ function windLatticeTowerFourBranchOracle(input) {
     B:{ alpha:0.25, zg:400, c:0.30, ell:98, eps:0.33, zmin:9 },
     C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 },
   };
-  const kzAt = (z, t) => 2.774 * Math.pow(Math.max(z, t.zmin) / t.zg, 2 * t.alpha);
+  const kzAt = (z, t) => 2.774 * Math.pow(Math.max(z, 5) / t.zg, 2 * t.alpha);
   return Object.fromEntries(input.cases.map(i => {
     const t = terrain[i.terrain];
     let baseCf;
@@ -2465,7 +2514,7 @@ function windObjectTowerTable212Oracle(input) {
     circular_rough:[[1,0.7],[7,0.8],[25,0.9]],
     circular_very_rough:[[1,0.8],[7,1.0],[25,1.2]],
   };
-  const kzAt = (z, t) => 2.774 * Math.pow(Math.max(z, t.zmin) / t.zg, 2 * t.alpha);
+  const kzAt = (z, t) => 2.774 * Math.pow(Math.max(z, 5) / t.zg, 2 * t.alpha);
   const interpolate = (points, value) => {
     const x = Math.max(points[0][0], Math.min(value, points[points.length - 1][0]));
     let low = points[0];
@@ -2576,10 +2625,11 @@ function windFenceSignTable210Oracle(input) {
     const terrain = terrains[item.terrain];
     const atGround = item.type === 'fence';
     const zr = item.s + item.h / 2;
-    const zUse = Math.max(zr, terrain.zmin);
+    const zUse = Math.max(zr, 5);
     const Kz = 2.774 * Math.pow(zUse / terrain.zg, 2 * terrain.alpha);
     const qz = 0.06 * Kz * item.Kzt * item.I ** 2 * item.V ** 2;
-    const aspectRatio = item.B / item.h;
+    // 表 2.10：座地 ν = B/h；離地架高 M/N = 較大邊 / 較小邊
+    const aspectRatio = atGround ? item.B / item.h : Math.max(item.B, item.h) / Math.min(item.B, item.h);
     const cf = interpolate(atGround ? groundTable : elevatedTable, aspectRatio);
     const manualAdoption = item.cfOverride != null;
     const cfBase = manualAdoption ? item.cfOverride : cf.cf;
@@ -2641,7 +2691,7 @@ function windSignPoleCompositeOracle(input) {
   };
   const calcQz = (z, item) => {
     const terrain = terrains[item.terrain];
-    const zUse = Math.max(z, terrain.zmin);
+    const zUse = Math.max(z, 5);
     const Kz = 2.774 * Math.pow(zUse / terrain.zg, 2 * terrain.alpha);
     return { Kz, qz:0.06 * Kz * item.Kzt * item.I ** 2 * item.V ** 2 };
   };
@@ -2659,8 +2709,9 @@ function windSignPoleCompositeOracle(input) {
     const panelTop = item.panelBottom + item.panelHeight;
     const panelZr = item.panelBottom + item.panelHeight / 2;
     const panelArea = item.panelWidth * item.panelHeight * (1 - item.openingRatio / 100);
-    const panelAtGround = item.panelBottom <= 0;
-    const panelAspect = item.panelWidth / item.panelHeight;
+    // 表 2.10 註 (2)：底緣離地 < 0.25 倍垂直向尺寸為位於地面上；架高以 M/N 查表
+    const panelAtGround = item.panelBottom < 0.25 * item.panelHeight;
+    const panelAspect = panelAtGround ? item.panelWidth / item.panelHeight : Math.max(item.panelWidth, item.panelHeight) / Math.min(item.panelWidth, item.panelHeight);
     const panelTable = interpolate(panelAtGround ? signTables.ground : signTables.elevated, panelAspect);
     const panelCf = item.panelCfOverride == null ? panelTable.value : item.panelCfOverride;
     const panelQ = calcQz(panelZr, item);
@@ -2675,7 +2726,8 @@ function windSignPoleCompositeOracle(input) {
     const supportWidth = item.supportType === 'pipe' ? item.pipeDiameter : item.prismWidth;
     const supportG = supportHeight > 0 ? calcGust(Math.max(supportHeight, 0.1), supportWidth, item.terrain) : 0;
     const segmentHeight = supportHeight > 0 ? supportHeight / supportSegments : 0;
-    const slenderness = item.supportType === 'angular' ? supportHeight / supportWidth : 0;
+    // 表 2.13：高寬比 2h/D，D 為最小水平尺寸（長方柱風向垂直長邊時 D = b/2）
+    const slenderness = item.supportType === 'angular' ? 2 * supportHeight / (item.prismShape === 'rect_long' ? supportWidth / 2 : supportWidth) : 0;
     const R = item.supportType === 'angular' ? angularR(slenderness) : 0;
     const rows = [];
     for (let index = 0; index < supportSegments && supportHeight > 0; index += 1) {
@@ -2882,36 +2934,38 @@ function windCcThreeBranchOracle(input) {
     B:{ alpha:0.25, zg:400, zmin:9 },
     C:{ alpha:0.15, zg:300, zmin:4.5 },
   };
+  // 圖 3.1 / 3.2：(GCp) = ASCE 7-02 (GCp) x 2.083（§3.3 解說）；折點 0.93 / 1.86 / 9.3 / 46.5 m2
+  const k = 2.083;
   const tables = {
     lowWall:{
-      zone4:{ pos:[1.89, 1.46], neg:[-2.08, -1.67] },
-      zone5:{ pos:[1.89, 1.46], neg:[-2.71, -1.67] },
+      zone4:{ pos:[1.0 * k, 0.7 * k], neg:[-1.1 * k, -0.8 * k] },
+      zone5:{ pos:[1.0 * k, 0.7 * k], neg:[-1.4 * k, -0.8 * k] },
     },
     lowRoof:{
-      zone1:{ pos:[0.62, 0.42], neg:[-2.08, -1.46] },
-      zone2:{ pos:[0.62, 0.42], neg:[-3.75, -1.67] },
-      zone3:{ pos:[0.62, 0.42], neg:[-5.83, -2.08], negAmax:9.3 },
+      zone1:{ pos:[0.3 * k, 0.2 * k], posAmax:9.3, neg:[-1.0 * k, -0.9 * k], negAmax:9.3 },
+      zone2:{ pos:[0.3 * k, 0.2 * k], posAmax:9.3, neg:[-1.8 * k, -1.1 * k], negAmax:9.3 },
+      zone3:{ pos:[0.3 * k, 0.2 * k], posAmax:9.3, neg:[-2.8 * k, -1.1 * k], negAmax:9.3 },
     },
     highWall:{
-      zone4:{ pos:[1.87, 1.46], neg:[-1.88, -1.67] },
-      zone5:{ pos:[1.87, 1.46], neg:[-3.75, -1.67] },
+      zone4:{ pos:[0.9 * k, 0.6 * k], posAmin:1.86, neg:[-0.9 * k, -0.7 * k], negAmin:1.86 },
+      zone5:{ pos:[0.9 * k, 0.6 * k], posAmin:1.86, neg:[-1.8 * k, -1.0 * k], negAmin:1.86 },
     },
     highRoof:{
-      zone1:{ pos:[0.62, 0.42], neg:[-2.08, -1.75] },
-      zone2:{ pos:[0.62, 0.42], neg:[-3.75, -2.29] },
-      zone3:{ pos:[0.62, 0.42], neg:[-5.83, -2.29], negAmax:9.3 },
+      zone1:{ pos:[0.62, 0.42], neg:[-1.4 * k, -0.9 * k] },
+      zone2:{ pos:[0.62, 0.42], neg:[-2.3 * k, -1.6 * k] },
+      zone3:{ pos:[0.62, 0.42], neg:[-3.2 * k, -2.3 * k] },
     },
   };
   const q = (z, i) => {
     const t = terrain[i.terrain];
-    const zUse = Math.max(z, t.zmin);
+    const zUse = Math.max(z, 5);
     const kz = 2.774 * Math.pow(zUse / t.zg, 2 * t.alpha);
     return 0.06 * kz * i.Kzt * i.I ** 2 * i.V ** 2;
   };
-  const interpolate = (curve, area, maxArea = 46.5) => {
-    if (area <= 0.93) return curve[0];
+  const interpolate = (curve, area, maxArea = 46.5, minArea = 0.93) => {
+    if (area <= minArea) return curve[0];
     if (area >= maxArea) return curve[1];
-    const ratio = Math.log10(area / 0.93) / Math.log10(maxArea / 0.93);
+    const ratio = Math.log10(area / minArea) / Math.log10(maxArea / minArea);
     return curve[0] + (curve[1] - curve[0]) * ratio;
   };
   return Object.fromEntries(input.cases.map(i => {
@@ -2921,9 +2975,9 @@ function windCcThreeBranchOracle(input) {
     const qh = q(i.h, i);
     const qz = q(Math.max(i.z, 0), i);
     const qh0 = q(Math.max(i.zh0, 0), i);
-    const gcpPos = interpolate(curve.pos, i.A);
-    const gcpNeg = interpolate(curve.neg, i.A, curve.negAmax);
-    const gcpi = i.encl === 'partial' ? 1.145 : 0.375;
+    const gcpPos = interpolate(curve.pos, i.A, curve.posAmax, curve.posAmin);
+    const gcpNeg = interpolate(curve.neg, i.A, curve.negAmax, curve.negAmin);
+    const gcpi = i.encl === 'partial' ? 1.146 : 0.375;
     const qPos = !isLE18 && i.surface === 'wall' ? qz : qh;
     const qNeg = qh;
     const qiPos = i.encl === 'partial' ? qh0 : qh;
@@ -2947,34 +3001,36 @@ function windParapetThreeRouteOracle(input) {
     B:{ alpha:0.25, zg:400, zmin:9 },
     C:{ alpha:0.15, zg:300, zmin:4.5 },
   };
+  // 圖 3.1 / 3.2：(GCp) = ASCE 7-02 (GCp) x 2.083（§3.3 解說）；折點 0.93 / 1.86 / 9.3 / 46.5 m2
+  const k = 2.083;
   const tables = {
     lowWall:{
-      zone4:{ pos:[1.89, 1.46], neg:[-2.08, -1.67] },
-      zone5:{ pos:[1.89, 1.46], neg:[-2.71, -1.67] },
+      zone4:{ pos:[1.0 * k, 0.7 * k], neg:[-1.1 * k, -0.8 * k] },
+      zone5:{ pos:[1.0 * k, 0.7 * k], neg:[-1.4 * k, -0.8 * k] },
     },
     lowRoof:{
-      zone2:{ pos:[0.62, 0.42], neg:[-3.75, -1.67] },
-      zone3:{ pos:[0.62, 0.42], neg:[-5.83, -2.08], negAmax:9.3 },
+      zone2:{ pos:[0.3 * k, 0.2 * k], posAmax:9.3, neg:[-1.8 * k, -1.1 * k], negAmax:9.3 },
+      zone3:{ pos:[0.3 * k, 0.2 * k], posAmax:9.3, neg:[-2.8 * k, -1.1 * k], negAmax:9.3 },
     },
     highWall:{
-      zone4:{ pos:[1.87, 1.46], neg:[-1.88, -1.67] },
-      zone5:{ pos:[1.87, 1.46], neg:[-3.75, -1.67] },
+      zone4:{ pos:[0.9 * k, 0.6 * k], posAmin:1.86, neg:[-0.9 * k, -0.7 * k], negAmin:1.86 },
+      zone5:{ pos:[0.9 * k, 0.6 * k], posAmin:1.86, neg:[-1.8 * k, -1.0 * k], negAmin:1.86 },
     },
     highRoof:{
-      zone2:{ pos:[0.62, 0.42], neg:[-3.75, -2.29] },
-      zone3:{ pos:[0.62, 0.42], neg:[-5.83, -2.29], negAmax:9.3 },
+      zone2:{ pos:[0.62, 0.42], neg:[-2.3 * k, -1.6 * k] },
+      zone3:{ pos:[0.62, 0.42], neg:[-3.2 * k, -2.3 * k] },
     },
   };
   const q = (z, i) => {
     const t = terrain[i.terrain];
-    const zUse = Math.max(z, t.zmin);
+    const zUse = Math.max(z, 5);
     const kz = 2.774 * Math.pow(zUse / t.zg, 2 * t.alpha);
     return 0.06 * kz * i.Kzt * i.I ** 2 * i.V ** 2;
   };
-  const interpolate = (curve, area, maxArea = 46.5) => {
-    if (area <= 0.93) return curve[0];
+  const interpolate = (curve, area, maxArea = 46.5, minArea = 0.93) => {
+    if (area <= minArea) return curve[0];
     if (area >= maxArea) return curve[1];
-    const ratio = Math.log10(area / 0.93) / Math.log10(maxArea / 0.93);
+    const ratio = Math.log10(area / minArea) / Math.log10(maxArea / minArea);
     return curve[0] + (curve[1] - curve[0]) * ratio;
   };
   const pressure = (qp, coefficient, gcpi) => qp * (
@@ -3009,7 +3065,7 @@ function windParapetThreeRouteOracle(input) {
     const wall = tables[isLE18 ? 'lowWall' : 'highWall'];
     const roof = tables[isLE18 ? 'lowRoof' : 'highRoof'];
     const qp = q(i.h + i.hp, i);
-    const gcpi = i.GCpiOverride != null ? i.GCpiOverride : ({ enclosed:0.375, partial:1.145, open:0 })[i.encl];
+    const gcpi = i.GCpiOverride != null ? i.GCpiOverride : ({ enclosed:0.375, partial:1.146, open:0 })[i.encl];
     const definitions = [
       { key:'windward_edge', face:'windward', wallZone:'zone4', roofZone:'zone2' },
       { key:'windward_corner', face:'windward', wallZone:'zone5', roofZone:'zone3' },
@@ -3017,9 +3073,9 @@ function windParapetThreeRouteOracle(input) {
       { key:'leeward_corner', face:'leeward', wallZone:'zone5', roofZone:'zone3' },
     ];
     return definitions.map(item => {
-      const wallPos = interpolate(wall[item.wallZone].pos, i.A);
-      const wallNeg = interpolate(wall[item.wallZone].neg, i.A, wall[item.wallZone].negAmax);
-      const roofNeg = interpolate(roof[item.roofZone].neg, i.A, roof[item.roofZone].negAmax);
+      const wallPos = interpolate(wall[item.wallZone].pos, i.A, wall[item.wallZone].posAmax, wall[item.wallZone].posAmin);
+      const wallNeg = interpolate(wall[item.wallZone].neg, i.A, wall[item.wallZone].negAmax, wall[item.wallZone].negAmin);
+      const roofNeg = interpolate(roof[item.roofZone].neg, i.A, roof[item.roofZone].negAmax, roof[item.roofZone].negAmin);
       const frontGCp = item.face === 'windward' ? wallPos : wallNeg;
       const backGCp = item.face === 'windward' ? roofNeg : wallPos;
       const pFront = pressure(qp, frontGCp, gcpi);
@@ -3031,7 +3087,7 @@ function windParapetThreeRouteOracle(input) {
     const isLE18 = i.h <= 18;
     const wall = tables[isLE18 ? 'lowWall' : 'highWall'];
     const qp = q(i.h + i.hp, i);
-    const gcpi = i.GCpiOverride != null ? i.GCpiOverride : ({ enclosed:0.375, partial:1.145, open:0 })[i.encl];
+    const gcpi = i.GCpiOverride != null ? i.GCpiOverride : ({ enclosed:0.375, partial:1.146, open:0 })[i.encl];
     const definitions = [
       { key:'edge_left', zone:'zone4', left:true },
       { key:'edge_right', zone:'zone4', left:false },
@@ -3039,8 +3095,8 @@ function windParapetThreeRouteOracle(input) {
       { key:'corner_right', zone:'zone5', left:false },
     ];
     return definitions.map(item => {
-      const wallPos = interpolate(wall[item.zone].pos, i.A);
-      const wallNeg = interpolate(wall[item.zone].neg, i.A, wall[item.zone].negAmax);
+      const wallPos = interpolate(wall[item.zone].pos, i.A, wall[item.zone].posAmax, wall[item.zone].posAmin);
+      const wallNeg = interpolate(wall[item.zone].neg, i.A, wall[item.zone].negAmax, wall[item.zone].negAmin);
       const frontGCp = item.left ? wallPos : wallNeg;
       const backGCp = item.left ? wallNeg : wallPos;
       const pFront = pressure(qp, frontGCp, gcpi);
@@ -3103,7 +3159,7 @@ function windOpenRoofFourCombinationOracle(input) {
   return Object.fromEntries(input.cases.map(i => {
     const t = terrain[i.terrain];
     const hUse = i.theta <= 10 ? i.hEave : i.hAvg;
-    const zQ = Math.max(hUse, t.zmin);
+    const zQ = Math.max(hUse, 5);
     const kz = 2.774 * Math.pow(zQ / t.zg, 2 * t.alpha);
     const qh = 0.06 * kz * i.Kzt * i.I ** 2 * i.V ** 2;
     const zBar = Math.max(0.6 * hUse, t.zmin);
@@ -3184,7 +3240,8 @@ function seismicMiscOracle(input) {
   const modifiedVertical = (ratio, nearFault) => {
     const low = nearFault ? 0.20 : 0.15;
     const high = nearFault ? 0.53 : 0.40;
-    return ratio >= high ? 0.7 * ratio : ratio > low ? 0.52 * ratio + 0.18 * high : ratio;
+    const constant = nearFault ? 0.096 : 0.072; // 解說式 (C2-11a)(C2-11b) 條文常數
+    return ratio >= high ? 0.7 * ratio : ratio > low ? 0.52 * ratio + constant : ratio;
   };
   return Object.fromEntries(input.cases.map(i => {
     const FaD = interpolate(faX, faRows[i.siteClass], i.SsD);
@@ -3220,7 +3277,8 @@ function seismicMiscOracle(input) {
       Vh = i.I / denom * ratioModified * i.W;
       similarPath = 1;
       verticalSa = (i.isNearFault ? 2 / 3 : 1 / 2) * SaD;
-      verticalFu = calcFu(3, T, ToD);
+      // 解說 2.18：垂直向暫訂韌性容量 R=3.0，再依式 (2-10)/(2-11) 求 Ra 與 Fuv
+      verticalFu = calcFu(1 + (3 - 1) / (i.isTaipeiBasin ? 2 : 1.5), T, ToD);
       verticalRatioModified = modifiedVertical(verticalSa / verticalFu, i.isNearFault);
       Vv = i.I / (1.4 * i.alphaY) * verticalRatioModified * i.W;
     } else if (T < 0.06) {
@@ -3240,6 +3298,25 @@ function seismicMiscOracle(input) {
       similarPath, rigidPath, flexiblePath, verticalSa, verticalFu, verticalRatioModified
     }];
   }));
+}
+
+// Block shear tension plane for a rectangular bolt group whose shear planes follow the two outer bolt lines:
+// either the strip between the outer lines (n-1 holes) or the two edge strips outside them (two half holes).
+// A full-width tension plane is not a block path (it is the net-section rupture path plus shear).
+function blockShearTensionPathOracle(width, linesAcross, gauge, holeWidth, thickness, fy, fu, Agv, Anv) {
+  const n = Math.max(1, Math.round(linesAcross));
+  const inner = (n - 1) * gauge;
+  const paths = [];
+  if (n >= 2) paths.push({ Agt: inner * thickness, Ant: (inner - (n - 1) * holeWidth) * thickness });
+  paths.push({ Agt: (width - inner) * thickness, Ant: (width - inner - holeWidth) * thickness });
+  const rn = path => {
+    const tr = fu * path.Ant;
+    const sr = 0.6 * fu * Anv;
+    return tr >= sr ? Math.min(0.6 * fy * Agv + tr, sr + tr) : Math.min(sr + fy * path.Agt, sr + tr);
+  };
+  const usable = paths.filter(path => path.Ant > 0);
+  if (!usable.length) return paths[0];
+  return usable.slice().sort((a, b) => rn(a) - rn(b))[0];
 }
 
 function steelPlateConnectionOracle(input) {
@@ -3271,8 +3348,8 @@ function steelPlateConnectionOracle(input) {
     const automatic = {
       Agv:2 * shearLength * i.plateThickness,
       Anv:2 * (shearLength - (holeCountAlong - 0.5) * holeWidth) * i.plateThickness,
-      Agt:Ag,
-      Ant:An,
+      ...blockShearTensionPathOracle(grossWidth, holeCountAcross, transverseSpacing, holeWidth, i.plateThickness, i.plateYieldStrength, i.plateUltimateStrength,
+        2 * shearLength * i.plateThickness, 2 * (shearLength - (holeCountAlong - 0.5) * holeWidth) * i.plateThickness),
     };
     const areas = i.useManualBlockShearPath
       ? { Agv:i.manualAgv, Anv:i.manualAnv, Agt:i.manualAgt, Ant:i.manualAnt }
@@ -3378,8 +3455,7 @@ function steelFormalOracle(input) {
     const Ae = Math.min(An, 0.85 * Ag);
     const Agv = 2 * shearLength * i.plateThickness;
     const Anv = 2 * (shearLength - (i.lineCount - 0.5) * holeWidth) * i.plateThickness;
-    const Agt = Ag;
-    const Ant = An;
+    const { Agt, Ant } = blockShearTensionPathOracle(grossWidth, i.rowCount, i.pitchY, holeWidth, i.plateThickness, i.plateYieldStrength, i.plateUltimateStrength, Agv, Anv);
     const grossAvailable = available(i.plateYieldStrength * Ag / 1000, i.designMethod, 0.9, 1.67);
     const netAvailable = available(i.plateUltimateStrength * Ae / 1000, i.designMethod, 0.75, 2);
     const tensionRupture = i.plateUltimateStrength * Ant / 1000;
@@ -3467,8 +3543,7 @@ function steelFormalOracle(input) {
       const shearLength = i.tensionEndDistance + (i.tensionBoltLineCount - 1) * i.tensionPitchLongitudinal;
       const Agv = 2 * shearLength * i.memberThickness;
       const Anv = 2 * (shearLength - (i.tensionBoltLineCount - 0.5) * holeWidth) * i.memberThickness;
-      const Agt = Ag;
-      const Ant = An;
+      const { Agt, Ant } = blockShearTensionPathOracle(i.memberWidth, i.tensionBoltRowCount, i.tensionGaugeTransverse, holeWidth, i.memberThickness, i.memberYieldStrength, i.memberUltimateStrength, Agv, Anv);
       const tensionRupture = i.memberUltimateStrength * Ant / 1000;
       const shearRupture = 0.6 * i.memberUltimateStrength * Anv / 1000;
       const shearYield = 0.6 * i.memberYieldStrength * Agv / 1000;
@@ -4477,8 +4552,10 @@ function anchorCastInOracle(i) {
     const projectedArea = union * 1.5 * ca1;
     const areaRatio = projectedArea / (4.5 * ca1 ** 2);
     const edgeFactor = Math.min(1, 0.7 + 0.3 * ca2 / (1.5 * ca1));
-    const baseA = 0.6 * (i.effectiveEmbedmentMm / i.diameterMm) ** 0.2
-      * Math.sqrt(i.concreteStrengthMpa) * i.diameterMm ** 0.2 * ca1 ** 1.5 / 1000;
+    // 17.7.2.2.1：Vb = min[0.6(le/da)^0.2·√da·√f'c·ca1^1.5, 3.7√f'c·ca1^1.5]（SI），承壓長度 le ≤ 8da
+    const bearingLengthMm = Math.min(i.effectiveEmbedmentMm, 8 * i.diameterMm);
+    const baseA = 0.6 * (bearingLengthMm / i.diameterMm) ** 0.2
+      * Math.sqrt(i.diameterMm) * Math.sqrt(i.concreteStrengthMpa) * ca1 ** 1.5 / 1000;
     const baseB = 3.7 * Math.sqrt(i.concreteStrengthMpa) * ca1 ** 1.5 / 1000;
     return areaRatio * edgeFactor * Math.min(baseA, baseB) * phiConcrete;
   };
@@ -4561,7 +4638,9 @@ function rcSlabStrengthOracle(input) {
     const cf = coefficients(i.supportX);
     const positiveMoment = Number.isFinite(cf.pos) ? i.wu * spanM ** 2 / cf.pos : 0;
     const negativeMoment = Number.isFinite(cf.neg) ? i.wu * spanM ** 2 / cf.neg : 0;
-    const shearDemand = i.wu * spanM / 2;
+    // 6.5.4：端跨第一內支承面 Vu = 1.15·wu·ℓn/2；懸臂固定端 wu·ℓn；內跨與簡支 wu·ℓn/2
+    const shearCoefficient = ({ simple:1 / 2, oneEnd:1.15 / 2, bothEnd:1 / 2, cantilever:1 })[i.supportX];
+    const shearDemand = shearCoefficient * i.wu * spanM;
     const temperatureRatio = i.fyT <= 2800 ? 0.002
       : i.fyT <= 4200 ? 0.0018
         : Math.max(0.0018 * 4200 / i.fyT, 0.0014);
@@ -4621,7 +4700,9 @@ function deckingSystemOracle(input) {
     const M2 = WT * L * L / 8 + (L <= trackLength
       ? Wc * L * L / 8
       : Wc * (L * L - 4 * ((L - trackLength) / 2) ** 2) / 8);
-    const V2 = WT * L / 2 + Wc * Math.min(L, trackLength) / 2;
+    // 履帶均布段長 c 緊靠支承時端剪最大（影響線）：V = Wc·c·(1 − c/(2L))；c = L 時退化為 Wc·L/2。
+    const trackCovered = Math.min(L, trackLength);
+    const V2 = WT * L / 2 + Wc * trackCovered * (1 - trackCovered / (2 * L));
     const craneWeight = craneUsesWT2 ? WT2 : WT;
     const M3 = craneWeight * L * L / 8 + Pcrane * L / 4;
     const V3 = craneWeight * L / 2 + Pcrane;
@@ -4653,10 +4734,29 @@ function deckingSystemOracle(input) {
     const Lc = Math.min(L1, L2);
     const Lu = Math.max(L1, L2);
     const braceCode = Lt <= Lc ? 10 : (Lt <= Lu ? 20 : 30);
+    // AISC ASD 1989 F1：ksi 式以 1 ksi = 70.307 kgf/cm² 換算；Cb 保守取 1.0。
+    const ksi = 70.307;
+    const FyKsi = Fy / ksi;
     let basicFb;
-    if (braceCode === 10 && flangeCode === 1) basicFb = 0.66 * Fy;
-    else if (braceCode === 10 && flangeCode === 2) basicFb = Math.min(0.66 * Fy, Fy * (1.07 - 0.005 * flangeRatio * Math.sqrt(Fy)));
-    else basicFb = 0.6 * Fy;
+    if (braceCode === 10 && flangeCode === 1) basicFb = 0.66 * Fy; // F1-1
+    else if (braceCode === 10 && flangeCode === 2) basicFb = Math.max(0.6 * Fy, Fy * (0.79 - 0.002 * flangeRatio * Math.sqrt(FyKsi))); // F1-3
+    else if (braceCode === 30) {
+      // 受壓翼板＋1/3 受壓腹板（腹板淨高 hw/6）對弱軸之 rT
+      const hw = section.H - 2 * section.tf;
+      const areaT = section.B * section.tf + section.tw * hw / 6;
+      const inertiaT = section.tf * section.B ** 3 / 12 + (hw / 6) * section.tw ** 3 / 12;
+      const lOverRt = Lt / Math.sqrt(inertiaT / areaT);
+      const Cb = 1;
+      const lowerBound = Math.sqrt(102000 * Cb / FyKsi);
+      const upperBound = Math.sqrt(510000 * Cb / FyKsi);
+      const slendernessFb = lOverRt <= lowerBound
+        ? 0.6 * Fy
+        : (lOverRt <= upperBound
+          ? (2 / 3 - FyKsi * lOverRt ** 2 / (1530000 * Cb)) * Fy // F1-6
+          : 170000 * Cb / lOverRt ** 2 * ksi); // F1-7
+      const flangeAreaFb = 12000 * Cb * (section.B * section.tf) / (Lt * section.H) * ksi; // F1-8
+      basicFb = Math.min(0.6 * Fy, Math.max(slendernessFb, flangeAreaFb));
+    } else basicFb = 0.6 * Fy;
     return { flangeCode, webCode, braceCode, FbBasic:basicFb };
   };
   const memberResult = ({ item, global, kind }) => {

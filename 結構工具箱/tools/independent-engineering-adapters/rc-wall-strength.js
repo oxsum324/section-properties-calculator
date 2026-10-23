@@ -15,7 +15,10 @@ const requiredFormalWiring = [
   'const inplaneCapacity = WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase);',
   'const pmDemand = WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase, { P:Pu / 1000, M:MuIn });',
   'const needTwoLayer = Wall.needTwoLayer({ Vu, phi: PHI.shear, alpha_c, lambda, fc, Acv, hwlw });',
-  'const { rholMin, rhotMin } = Wall.minRho({ seismic, isShearWall, needTwoLayer, hwlw, rhot });',
+  'const highShearWall = Vu > 0.5 * PHI.shear * alpha_c * lambda * Math.sqrt(fc) * Acv;',
+  'const rhotRequiredShear = (Vu / (PHI.shear * Acv) - alpha_c * lambda * Math.sqrt(fc)) / fy;',
+  'const { rholMin, rhotMin } = Wall.minRho({ seismic, isShearWall, needTwoLayer, hwlw, rhot, fy,',
+  'dbV: REBAR_TABLE[vBar].db, dbH: REBAR_TABLE[hBar].db, highShear: highShearWall, rhotRequired: rhotRequiredShear });',
   'const triCoef = isCantilever ? (1 / 6) : 0.0641;',
   'const uniCoef = isCantilever ? (1 / 2) : (1 / 8);',
   'const Mu_bw = 1.6 * (M_tri + M_uni + M_w);',
@@ -109,7 +112,13 @@ function calculate(input) {
       Vu:VuKgf, phi:0.75, alpha_c:capacity.alpha_c, lambda:item.lambda,
       fc:item.fc, Acv:capacity.Acv, hwlw:capacity.hwlw,
     });
-    const minimums = Wall.minRho({ seismic:Boolean(item.seismic), isShearWall, needTwoLayer, hwlw:capacity.hwlw, rhot });
+    // 與正式頁相同：11.6.2 高剪力判定與所需水平筋比一併傳入（表 11.6.1 依號數與 fy 區分）
+    const highShear = VuKgf > 0.5 * 0.75 * capacity.alpha_c * item.lambda * Math.sqrt(item.fc) * capacity.Acv;
+    const rhotRequired = (VuKgf / (0.75 * capacity.Acv) - capacity.alpha_c * item.lambda * Math.sqrt(item.fc)) / item.fy;
+    const minimums = Wall.minRho({
+      seismic:Boolean(item.seismic), isShearWall, needTwoLayer, hwlw:capacity.hwlw, rhot,
+      fy:item.fy, dbV:vBar.db, dbH:hBar.db, highShear, rhotRequired,
+    });
     const spacing = Wall.spacingLimits(item.h, item.lw);
 
     let basement = { route:0, cantilever:0, simple:0, triCoef:0, uniCoef:0, pa:0, ps:0, pw:0, Mtri:0, Muni:0, Mw:0, Mu:0 };
