@@ -927,7 +927,7 @@ git add -- "鋼筋混凝土/tools/beam.html" "結構工具箱/tools/風力/wind-
 
 ```powershell
 git rm -- .github/workflows/field-survey-deploy.yml field-survey/release.mjs field-survey/release-baseline.json field-survey/tests/release-stage.cjs
-git add -- .github/workflows/pages-deploy.yml preflight-tools.ps1 STAGING_GROUPS.md TOOL_BOUNDARIES.md
+git add -- .github/workflows/pages-deploy.yml preflight-tools.ps1 STAGING_GROUPS.md TOOL_BOUNDARIES.md "結構工具箱/tools/preflight-process-ownership.contract.test.js" "結構工具箱/tools/release-environment.contract.test.js"
 git add -- "結構工具箱/tools/sync-survey-public-version.js" "結構工具箱/tools/public-status-claims.contract.test.js"
 git add -- field-survey/README.md field-survey/CHANGELOG.md "field-survey/V0.8_操作與交付.md" "結構工具箱/tools/pages-live-smoke.js" README.md
 ```

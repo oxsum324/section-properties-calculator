@@ -29,8 +29,8 @@ function staticContract(){
     assert.ok(!/Clear-(?:Preflight|Audit)RuntimeProcesses -Since/.test(source),'Old startup and retry selectors are removed');
   }
   const checks=preflight.match(/^\$checks = @\(\r?\n  \[pscustomobject\]@\{[\s\S]*?^\)/m);
-  assert.ok(checks);assert.equal(hash(checks[0].replace(/\r\n/g,'\n')),'1b00ef12ac0ad72963bf19efeb7cfed148b58d945c43eebe853e051d1119915f','Original 70 check declarations stay byte-for-byte identical');
-  assert.equal([...checks[0].matchAll(/key = "[^"]+"/g)].length,70);
+  assert.ok(checks);assert.equal(hash(checks[0].replace(/\r\n/g,'\n')),'b598858d2342b88de7d58d0cc7b211c552c7fd13ce0b785c920ae28735423aef','Formal 71 check declarations (70 original plus V19 condition-survey-upgrade) stay byte-for-byte identical');
+  assert.equal([...checks[0].matchAll(/key = "[^"]+"/g)].length,71);
   const jobs=audit.match(/^  \$jobs = @\([\s\S]*?^  \)/m);assert.ok(jobs);
   assert.equal(hash(jobs[0]),'dbedb52726fff15cc9e3ed96eeb3a5014f68374fa97d7a9edb14f570b46267e6','Original platform item/order/budgets stay byte-for-byte identical');
   assert.deepEqual([...jobs[0].matchAll(/timeoutSeconds = (\d+)/g)].map(m=>Number(m[1])),[540,1200,240]);

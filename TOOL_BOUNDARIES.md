@@ -260,7 +260,7 @@ NDT 距離／時間回讀測例的指紋 fixture 同樣只排除純衍生覆蓋�
 
 程序快照或清理紀錄寫入失敗時，最外層 finally 仍關閉自有 Job／事件 handle 並回報失敗，不得因觀測錯誤遺留程序或假報通過。
 
-正式預檢既有 70 個 record keys、次序、命令與 3 項收尾檢查，以及平台稽核項目與預算均維持不變。T51 歷史範圍保留；本包授權僅涵蓋清理包裝與對應契約。
+正式預檢既有 70 個 record keys、次序、命令與 3 項收尾檢查，以及平台稽核項目與預算均維持不變。T51 歷史範圍保留；本包授權僅涵蓋清理包裝與對應契約。2026-10-24 V19 依派工授權新增 `condition-survey-upgrade` 為第 71 項，兩支釘值契約的宣告雜湊與數量同步更新，原 70 項不變。
 
 共用機制 `結構工具箱/tools/preflight-process-ownership.ps1`、隔離測例 `結構工具箱/tools/preflight-process-ownership.fixture.ps1` 與契約 `結構工具箱/tools/preflight-process-ownership.contract.test.js` 均為私有工具，以具名清單排除於 Pages 成品之外。
 <!-- T53-REGISTRATION-END -->

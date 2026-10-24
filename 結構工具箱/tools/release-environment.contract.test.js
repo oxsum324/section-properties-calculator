@@ -16,7 +16,7 @@ const envCheckSource = fs.readFileSync(path.join(repoRoot, '石材固定', 'env_
 const stoneContractSource = fs.readFileSync(path.join(repoRoot, '石材固定', 'stone-report.contract.test.js'), 'utf8');
 const autoWordArtifactSource = fs.readFileSync(path.join(repoRoot, '石材固定', 'auto_word_artifact_test.py'), 'utf8');
 const clearFunctionBaselineSha256 = 'e4a9241cfd973ac55b1a6379a6e707e5012b83c0f49d9ec4967730a8086cdb83';
-const checksDeclarationBaselineSha256 = '1b00ef12ac0ad72963bf19efeb7cfed148b58d945c43eebe853e051d1119915f';
+const checksDeclarationBaselineSha256 = 'b598858d2342b88de7d58d0cc7b211c552c7fd13ce0b785c920ae28735423aef';
 
 function assertIncludes(source, needle, message) {
   assert.ok(source.includes(needle), `${message}: missing ${JSON.stringify(needle)}`);
@@ -435,9 +435,9 @@ function testStaticContract() {
   // The standalone ownership contract separately verifies Node/Edge survival and cleanup.
   require('./preflight-process-ownership.contract.test.js').staticContract();
   const checksDeclaration = preflightSource.match(/^\$checks = @\(\r?\n  \[pscustomobject\]@\{[\s\S]*?^\)/m);
-  assert.ok(checksDeclaration, 'locate the original formal 70-check declaration');
+  assert.ok(checksDeclaration, 'locate the formal 71-check declaration');
   assert.equal(require('node:crypto').createHash('sha256').update(checksDeclaration[0].replace(/\r\n/g, '\n')).digest('hex'), checksDeclarationBaselineSha256,
-    'the 70-check key/order/command declaration remains byte-for-byte equal to its protected execution-before node');
+    'the 71-check key/order/command declaration (70 original plus V19 condition-survey-upgrade) remains byte-for-byte equal to its protected execution-before node');
 }
 
 function runFormalPreflight(fixture, env, timeout = 300000, scenarioName = '') {
@@ -674,7 +674,7 @@ async function main() {
       ...process.env,
       STRUCTURAL_TOOLS_PYTHON: healthy.executable,
       RELEASE_ENV_CONTRACT_STONE_MODE: 'pass',
-    }, 480000, '09-successful-70-plus-3-real-loop-dispatch');
+    }, 480000, '09-successful-71-plus-3-real-loop-dispatch');
     assert.equal(succeeded.result.status, 0, succeeded.result.stderr || succeeded.result.stdout);
     assert.equal(succeeded.receipts.length, 2, 'the failed attempt remains alongside the successful private attempt receipt');
     const successfulReceipt = succeeded.receipts.map(item => item.value).find(item => item.pass === true);
@@ -682,11 +682,11 @@ async function main() {
     const expectedChecks = JSON.parse(fs.readFileSync(formalFixture.expectedPath, 'utf8'));
     const expectedPostChecks = JSON.parse(fs.readFileSync(formalFixture.expectedPostPath, 'utf8'));
     const dispatched = readJsonLines(formalFixture.dispatchPath);
-    assert.equal(expectedChecks.length, 70, 'original formal check declaration contains 70 entries');
-    assert.equal(dispatched.length, 73, 'successful full release loop dispatches 70 original checks and exactly three post-checks');
-    assert.deepEqual(dispatched.slice(0, 70).map(({ key, command }) => ({ key, command })), expectedChecks,
+    assert.equal(expectedChecks.length, 71, 'formal check declaration contains 71 entries');
+    assert.equal(dispatched.length, 74, 'successful full release loop dispatches 71 formal checks and exactly three post-checks');
+    assert.deepEqual(dispatched.slice(0, 71).map(({ key, command }) => ({ key, command })), expectedChecks,
       'each original key and command is dispatched once, in the original order and byte-for-byte command text');
-    assert.deepEqual(dispatched.slice(70).map(({ key, command }) => ({ key, command })), expectedPostChecks,
+    assert.deepEqual(dispatched.slice(71).map(({ key, command }) => ({ key, command })), expectedPostChecks,
       'all three original post-checks dispatch in order with unchanged command text');
     assert.ok(dispatched.every(record => path.resolve(record.pinnedPython) === path.resolve(healthy.executable)),
       'Assert-ReleaseEnvironmentPinned accepts the helper-selected interpreter before every formal and post check');
@@ -710,7 +710,7 @@ async function main() {
     assert.match(fixtureReceipt.processSafety, /shadows Get-Process with an empty result/);
     assert.ok(fs.existsSync(formalFixture.dispatchPath), 'fixture receipt points to a retained actual dispatch list');
 
-    console.log('release environment static, direct-helper, mutex, failure, and successful 70+3 dispatch fixtures OK');
+    console.log('release environment static, direct-helper, mutex, failure, and successful 71+3 dispatch fixtures OK');
   } finally {
     try {
       retainedEvidencePath = persistFixtureEvidence(parent, formalFixture);
