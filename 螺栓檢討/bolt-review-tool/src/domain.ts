@@ -271,6 +271,11 @@ export interface AnchorLayout {
   lightweightConcrete: boolean
   supplementaryReinforcement: boolean
   shearHairpinReinforcement: boolean
+  /**
+   * 表 17.7.2.5.1 第三列：錨栓與邊緣之間配置不小於 D13 之鋼筋（shearHairpinReinforcement），
+   * 且圍繞鋼筋之箍筋間距不大於 10 cm；開裂混凝土時 ψc,V 取 1.4。未設定視為 false。
+   */
+  shearEdgeStirrupsMax100mm?: boolean
   basePlateBearingEnabled: boolean
   basePlateLoadedAreaMm2: number
   basePlateLoadedWidthMm?: number

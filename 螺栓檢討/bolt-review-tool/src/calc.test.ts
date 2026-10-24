@@ -2033,3 +2033,155 @@ describe('independent closed-form checks (ACI 318-19 / 台灣 112 第 17 章，S
     expect(shear.designStrengthKn).toBeCloseTo(0.7 * vb, 1)
   })
 })
+
+describe('concrete shear breakout thin member / narrow section (112年版 17.7.2，SI 手算)', () => {
+  // 共同條件：預埋 M20（da = 20）、hef = 160 → le = min(hef, 8da) = 160、f'c = 28 MPa、開裂、
+  // 普通重混凝土 λa = 1、無偏心、無輔助鋼筋 → 預埋 Condition B，φ = 0.70；剪力 +X 朝右側自由邊。
+  // Vb(ca1) = min[0.6(160/20)^0.2·√20·√28·ca1^1.5, 3.7·√28·ca1^1.5] / 1000（17.7.2.2.1，N→kN）
+  const castIn = defaultProducts.find((product) => product.id === 'generic-cast-m20')!
+  const vb = (ca1: number) =>
+    Math.min(
+      0.6 * 8 ** 0.2 * Math.sqrt(20) * Math.sqrt(28) * ca1 ** 1.5,
+      3.7 * Math.sqrt(28) * ca1 ** 1.5,
+    ) / 1000
+
+  function shearProject(
+    layout: Partial<ProjectCase['layout']>,
+    countY = 1,
+    spacingY = 0,
+  ) {
+    const project = cloneProject(defaultProject)
+    project.loadCases = undefined
+    project.layout = {
+      ...project.layout,
+      anchorCountX: 1,
+      anchorCountY: countY,
+      spacingXmm: 0,
+      spacingYmm: spacingY,
+      crackedConcrete: true,
+      lightweightConcrete: false,
+      supplementaryReinforcement: false,
+      shearHairpinReinforcement: false,
+      shearEdgeStirrupsMax100mm: false,
+      anchorReinforcementEnabled: false,
+      concreteStrengthMpa: 28,
+      effectiveEmbedmentMm: 160,
+      ...layout,
+    }
+    project.layout.concreteWidthMm = project.layout.edgeLeftMm + project.layout.edgeRightMm
+    project.layout.concreteHeightMm =
+      project.layout.edgeBottomMm + project.layout.edgeTopMm + (countY - 1) * spacingY
+    project.loads = {
+      ...project.loads,
+      tensionKn: 0,
+      shearXKn: 10,
+      shearYKn: 0,
+      momentXKnM: 0,
+      momentYKnM: 0,
+      shearEccentricityXmm: 0,
+      shearEccentricityYmm: 0,
+      shearLeverArmMm: 0,
+    }
+    return project
+  }
+
+  const shearOf = (project: ProjectCase) =>
+    evaluateProject(project, castIn).results.find((r) => r.id === 'concrete-breakout-shear')!
+
+  it('ex1: ha < 1.5ca1 with large ca2 truncates A_Vc height to ha and applies ψh,V', () => {
+    // ca1 = 300、ca2 = 1000（兩側）、ha = 200。ca2,max = 1000 ≥ 1.5ca1 = 450 → 17.7.2.1.1 不縮減 ca1。
+    // A_Vc = (450 + 450) × min(450, 200) = 900 × 200 = 180,000 mm²；A_Vco = 4.5 × 300² = 405,000 mm²
+    // A_Vc/A_Vco = 0.4444；ψed,V = 1.0；ψh,V = √(450/200) = 1.5（17.7.2.6.1）；ψc,V = 1.0
+    // Vb = min(111.83, 101.73) = 101.73 kN → Vcb = 0.4444 × 1.5 × 101.73 = 67.82 kN；φVcb = 47.48 kN
+    // （修正前未截斷 ha、無 ψh,V：φVcb = 0.7 × 101.73 = 71.21 kN，偏高 1.50 倍）
+    const shear = shearOf(
+      shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 1000, edgeTopMm: 1000, thicknessMm: 200 }),
+    )
+    const nominal = (180000 / 405000) * Math.sqrt(450 / 200) * vb(300)
+    expect(shear.nominalStrengthKn).toBeCloseTo(nominal, 1)
+    expect(shear.designStrengthKn).toBeCloseTo(0.7 * nominal, 1)
+    expect(shear.designStrengthKn).toBeCloseTo(47.48, 1)
+    expect(shear.factors?.find((f) => f.symbol === 'ψ_h,V,x')?.value).toBe('1.5')
+  })
+
+  it('ex2: 112年版圖 R17.7.2.1.2 範例（SI）回歸，ca1 由 ha/1.5 控制', () => {
+    // 實際 ca1 = 300、ca2 = 125 / 180、ha = 200、垂直剪力方向 s = 230（2 支）。
+    // ca1' = max(180/1.5 = 120, 200/1.5 = 133.33, 230/3 = 76.67) = 133.33 mm（17.7.2.1.1，ca2 取最大邊距）
+    // A_Vc = (125 + 230 + 180) × min(1.5 × 133.33, 200) = 535 × 200 = 107,000 mm²
+    // A_Vco = 4.5 × 133.33² = 80,000 mm² → 1.3375（≤ n = 2）
+    // ψed,V = 0.7 + 0.3 × 125 / (1.5 × 133.33) = 0.8875。解說原文印為 0.7 + 0.3(12.5)/13.33 = 0.98，
+    // 分母漏乘 1.5，屬排印錯誤，不可作預期值。ψh,V = √(200/200) = 1.0
+    // Vb(133.33) = min(33.13, 30.14) = 30.14 kN → Vcbg = 1.3375 × 0.8875 × 30.14 = 35.78 kN；φ = 25.05 kN
+    const shear = shearOf(
+      shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 125, edgeTopMm: 180, thicknessMm: 200 }, 2, 230),
+    )
+    const ca1 = 200 / 1.5
+    const nominal = (107000 / (4.5 * ca1 ** 2)) * (0.7 + (0.3 * 125) / (1.5 * ca1)) * vb(ca1)
+    expect(shear.designStrengthKn).toBeCloseTo(0.7 * nominal, 1)
+    expect(shear.designStrengthKn).toBeCloseTo(25.05, 1)
+  })
+
+  it('ex3: ca2-limited ca1 with thinner ha still truncates height and applies ψh,V', () => {
+    // 實際 ca1 = 300、ca2 = 270 / 270、ha = 150 → 兩者皆 < 450
+    // ca1' = max(270/1.5 = 180, 150/1.5 = 100) = 180 mm
+    // A_Vc = (270 + 270) × min(270, 150) = 81,000 mm²；A_Vco = 4.5 × 180² = 145,800 mm² → 0.5556
+    // ψed,V = min(1, 0.7 + 0.3 × 270/270) = 1.0；ψh,V = √(270/150) = 1.3416
+    // Vb(180) = min(51.97, 47.28) = 47.28 kN → Vcb = 0.5556 × 1.3416 × 47.28 = 35.24 kN；φ = 24.67 kN
+    // （修正前 33.10 kN）
+    const shear = shearOf(
+      shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 270, edgeTopMm: 270, thicknessMm: 150 }),
+    )
+    const nominal = (81000 / 145800) * Math.sqrt(270 / 150) * vb(180)
+    expect(shear.designStrengthKn).toBeCloseTo(0.7 * nominal, 1)
+    expect(shear.designStrengthKn).toBeCloseTo(24.67, 1)
+  })
+
+  it('ex4: ca1 limitation uses the largest ca2 (no reduction when ca2,max ≥ 1.5ca1)', () => {
+    // ca1 = 300、ca2 = 100 / 1000、ha = 200。ca2,max = 1000 ≥ 450 → 不縮減，ca1 = 300
+    // A_Vc = (100 + 450) × min(450, 200) = 110,000 mm²；A_Vco = 405,000 mm² → 0.2716
+    // ψed,V = 0.7 + 0.3 × 100/450 = 0.7667（ca2 取較小值，17.7.2.4.1）；ψh,V = 1.5
+    // Vcb = 0.2716 × 0.7667 × 1.5 × 101.73 = 31.78 kN；φ = 22.24 kN
+    // （修正前以 ca2,min 縮減 ca1 至 133.33：13.45 kN）
+    const shear = shearOf(
+      shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 100, edgeTopMm: 1000, thicknessMm: 200 }),
+    )
+    const nominal = (110000 / 405000) * (0.7 + (0.3 * 100) / 450) * 1.5 * vb(300)
+    expect(shear.designStrengthKn).toBeCloseTo(0.7 * nominal, 1)
+    expect(shear.designStrengthKn).toBeCloseTo(22.24, 1)
+  })
+
+  it('ex5: deep member (ha ≥ 1.5ca1) is unchanged', () => {
+    // ca1 = 300、ha = 1000 ≥ 450 → A_Vc/A_Vco = 1、ψh,V = 1 → φVcb = 0.7 × 101.73 = 71.21 kN
+    const shear = shearOf(
+      shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 1000, edgeTopMm: 1000, thicknessMm: 1000 }),
+    )
+    expect(shear.designStrengthKn).toBeCloseTo(0.7 * vb(300), 1)
+    expect(shear.designStrengthKn).toBeCloseTo(71.21, 1)
+  })
+
+  it('ψc,V follows 表 17.7.2.5.1: 1.0 / 1.2 (≥ D13 edge bar) / 1.4 (plus stirrups ≤ 10 cm)', () => {
+    // 同 ex5：Vcb = ψc,V × 101.73 kN；φ = 0.70
+    // 1.2 → 0.7 × 1.2 × 101.73 = 85.46 kN；1.4 → 0.7 × 1.4 × 101.73 = 99.70 kN
+    const base = { edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 1000, edgeTopMm: 1000, thicknessMm: 1000 }
+    const edgeBar = shearOf(shearProject({ ...base, shearHairpinReinforcement: true }))
+    const withStirrups = shearOf(
+      shearProject({ ...base, shearHairpinReinforcement: true, shearEdgeStirrupsMax100mm: true }),
+    )
+    const stirrupsOnly = shearOf(shearProject({ ...base, shearEdgeStirrupsMax100mm: true }))
+    expect(edgeBar.designStrengthKn).toBeCloseTo(0.7 * 1.2 * vb(300), 1)
+    expect(withStirrups.designStrengthKn).toBeCloseTo(0.7 * 1.4 * vb(300), 1)
+    expect(withStirrups.designStrengthKn).toBeCloseTo(99.7, 1)
+    // 箍筋須圍繞 ≥ D13 邊緣鋼筋；未勾邊緣鋼筋時仍為 1.0
+    expect(stirrupsOnly.designStrengthKn).toBeCloseTo(0.7 * vb(300), 1)
+    expect(withStirrups.factors?.find((f) => f.symbol === 'ψ_c,V')?.value).toBe('1.4')
+  })
+
+  it('nominalStrengthKn holds the pre-φ value', () => {
+    // ex1：Vcb = 67.82 kN（標稱），φVcb = 0.7 × 67.82 = 47.48 kN（設計）
+    const shear = shearOf(
+      shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 1000, edgeTopMm: 1000, thicknessMm: 200 }),
+    )
+    expect(shear.nominalStrengthKn).toBeCloseTo(67.82, 1)
+    expect(shear.designStrengthKn / shear.nominalStrengthKn).toBeCloseTo(0.7, 2)
+  })
+})

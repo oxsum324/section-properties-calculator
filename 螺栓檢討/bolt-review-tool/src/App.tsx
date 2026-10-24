@@ -2635,6 +2635,19 @@ function App() {
               />
               <span>剪力 U 型補強鋼筋（需另依 17.7.2.5.1 配置細節覆核）</span>
             </label>
+            <label className="switch" data-shows="baseplate">
+              <input
+                type="checkbox"
+                checked={Boolean(project.layout.shearEdgeStirrupsMax100mm)}
+                disabled={!project.layout.shearHairpinReinforcement}
+                onChange={(event) =>
+                  patchLayout({
+                    shearEdgeStirrupsMax100mm: event.target.checked,
+                  })
+                }
+              />
+              <span>上述鋼筋另有圍繞箍筋，間距 ≤ 10 cm（表 17.7.2.5.1，開裂時 ψc,V = 1.4）</span>
+            </label>
             <label className="switch" data-shows="member">
               <input
                 type="checkbox"
