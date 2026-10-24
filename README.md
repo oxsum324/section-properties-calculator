@@ -178,7 +178,7 @@ T42 鋼構主頁 app／calculator 的私有可讀來源位於 `鋼構工具/src/
 <!-- T46-REGISTRATION-START -->
 ## 2026-10-16：T46 分組指令容量分冊
 
-新增私有附冊 [STAGING_GROUPS-ledger-04](docs/governance-current/STAGING_GROUPS-ledger-04.md)，依原順序保存分組指令；治理全文由既有 loader 還原，覆蓋掃描讀取主檔與全部 staging 附冊，判定規則及路徑集合不變。
+新增私有附冊 [STAGING_GROUPS-ledger-04](docs/governance-current/STAGING_GROUPS-ledger-04.md)，依原順序保存分組指令；治理全文由既有 loader 還原，覆蓋掃描讀取主檔與全部 staging 附冊，判定規則及路徑集合不變。2026-10-24 V20 再新增 [STAGING_GROUPS-ledger-05](docs/governance-current/STAGING_GROUPS-ledger-05.md)，收納 V18、V19 階段段落，機制同 ledger-04。
 <!-- T46-REGISTRATION-END -->
 
 <!-- T47-REGISTRATION-START -->
