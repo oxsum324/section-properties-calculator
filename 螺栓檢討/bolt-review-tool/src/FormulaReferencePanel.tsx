@@ -62,7 +62,9 @@ export function FormulaReferencePanel() {
             </code>
             <small>
               V_b = 0.6·(l_e/d_a)^0.2·√d_a·λ_a·√f'c·c_a1^1.5（≤ 3.7·λ·√f'c·c_a1^1.5）
-              <br />A_Vco = 4.5·c_a1²；多邊距時 c_a1 取 max(c_a2/1.5, h_a/1.5, s/3)
+              <br />A_Vc 高度取 min(1.5·c_a1, h_a)；A_Vco = 4.5·c_a1²
+              <br />c_a2 與 h_a 皆 &lt; 1.5·c_a1 時，c_a1 ≤ max(c_a2,max/1.5, h_a/1.5, s/3)
+              <br />ψ_h,V = √(1.5·c_a1/h_a) ≥ 1.0（h_a &lt; 1.5·c_a1，17.7.2.6.1）
             </small>
           </article>
           <article className="formula-card">

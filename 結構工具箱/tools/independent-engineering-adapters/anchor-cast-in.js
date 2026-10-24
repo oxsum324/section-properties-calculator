@@ -45,6 +45,10 @@ function validateInput(input) {
   for (const key of positive) {
     if (!Number.isFinite(Number(input?.[key])) || Number(input[key]) <= 0) issues.push(`${key}:positive-finite-required`);
   }
+  if (input?.thinMemberThicknessMm !== undefined
+    && (!Number.isFinite(Number(input.thinMemberThicknessMm)) || Number(input.thinMemberThicknessMm) <= 0)) {
+    issues.push('thinMemberThicknessMm:positive-finite-required');
+  }
   for (const key of ['shearXKn', 'shearYKn']) {
     if (!Number.isFinite(Number(input?.[key]))) issues.push(`${key}:finite-required`);
   }
@@ -115,6 +119,11 @@ function calculate(input) {
     }
   };
   const review = evaluateProject(project, product);
+  let thinMemberShear = null;
+  if (input.thinMemberThicknessMm !== undefined) {
+    const thinProject = { ...project, layout:{ ...project.layout, thicknessMm:Number(input.thinMemberThicknessMm) } };
+    thinMemberShear = findResult(evaluateProject(thinProject, product), 'concrete-breakout-shear');
+  }
   const steelTension = findResult(review, 'steel-tension');
   const tensionBreakout = findResult(review, 'concrete-breakout-tension');
   const pullout = findResult(review, 'pullout');
@@ -160,6 +169,11 @@ function calculate(input) {
     overallPass:review.summary.overallStatus === 'pass' ? 1 : 0,
     formalPass:review.summary.formalStatus === 'pass' ? 1 : 0
   };
+  if (thinMemberShear) {
+    output.thinMemberShearBreakoutNominal = thinMemberShear.nominalStrengthKn;
+    output.thinMemberShearBreakoutDesign = thinMemberShear.designStrengthKn;
+    output.thinMemberShearBreakoutDcr = thinMemberShear.dcr;
+  }
   return output;
 }
 
