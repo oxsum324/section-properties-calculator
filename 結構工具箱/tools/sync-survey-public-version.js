@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 現況鑑定紀錄改版後，將首頁卡片版本／更新日與 Pages 上線檢查標記同步到 field-survey 實際版本。
+// 現況鑑定紀錄改版後，將首頁卡片版本／更新日、Pages 上線檢查標記與 field-survey/package.json 版本同步到實際版本。
 // 用法：node 結構工具箱/tools/sync-survey-public-version.js [--date YYYY-MM-DD] [--check]
 const fs = require('fs');
 const { execFileSync } = require('child_process');
@@ -22,9 +22,11 @@ if (!version || !cacheName) throw new Error('無法由 field-survey/model.js 或
 const homePath = '結構工具箱/assets/home/src/home.source.js';
 const builderPath = path.join(__dirname, 'build-minified-runtimes.js');
 const smokePath = '結構工具箱/tools/pages-live-smoke.js';
+const packagePath = 'field-survey/package.json';
 let home = read(homePath);
 let smoke = read(smokePath);
-const before = { home, smoke };
+let packageText = read(packagePath);
+const before = { home, smoke, packageText };
 
 const cardPattern = /(title: '現況鑑定紀錄',\s*\n\s*version: ')V[^']+(')/;
 if (!cardPattern.test(home)) throw new Error('找不到首頁現況鑑定卡片');
@@ -39,11 +41,15 @@ const generatedAt = home.match(/generatedAt: '(\d{4}-\d{2}-\d{2})'/)?.[1];
 if (generatedAt && generatedAt < contentDate) home = home.replace(/(generatedAt: ')\d{4}-\d{2}-\d{2}(')/, `$1${contentDate}$2`);
 smoke = smoke.replace(/'現況鑑定紀錄 V[^']+'/, `'現況鑑定紀錄 V${version}'`);
 smoke = smoke.replace(/'condition-survey-shell-[^']+'/, `'${cacheName}'`);
+const packageVersionPattern = /("version"\s*:\s*")[^"]*(")/;
+if (!packageVersionPattern.test(packageText)) throw new Error(`${packagePath} 缺少 version 欄位`);
+packageText = packageText.replace(packageVersionPattern, `$1${version}$2`);
 
-const changed = home !== before.home || smoke !== before.smoke;
+const drifted = [[homePath, home !== before.home], [smokePath, smoke !== before.smoke], [packagePath, packageText !== before.packageText]].filter(([, differs]) => differs).map(([file]) => file);
+const changed = drifted.length > 0;
 if (checkOnly) {
   if (changed) {
-    console.error(`首頁或上線檢查標記未同步至 V${version}；請執行 node 結構工具箱/tools/sync-survey-public-version.js`);
+    console.error(`首頁、上線檢查標記或 package.json 未同步至 V${version}（${drifted.join('、')}）；請執行 node 結構工具箱/tools/sync-survey-public-version.js`);
     process.exit(1);
   }
   execFileSync(process.execPath, [builderPath, '--only=home', '--check'], { cwd: repoRoot, stdio: 'inherit', windowsHide: true });
@@ -52,5 +58,6 @@ if (checkOnly) {
   if (home !== before.home) write(homePath, home);
   execFileSync(process.execPath, [builderPath, '--only=home'], { cwd: repoRoot, stdio: 'inherit', windowsHide: true });
   if (smoke !== before.smoke) write(smokePath, smoke);
+  if (packageText !== before.packageText) write(packagePath, packageText);
   console.log(changed ? `synced survey public version to V${version} (${today})` : `already in sync (V${version})`);
 }
