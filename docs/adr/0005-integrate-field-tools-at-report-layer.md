@@ -5,7 +5,7 @@ status: accepted
 # ADR-0005：現場鑑定工具的「一條龍」整合方式
 
 **狀態：** 已採納（選項 A）
-**日期：** 提案 2026-10-23，裁定 2026-10-23
+**日期：** 提案 2026-10-23，裁定 2026-10-23；補充裁定 2026-10-24（識別頭一律選填，見附錄 A）
 **裁定人：** 歐瀚文 技師
 **起草：** Claude（Engineering 外掛 `architecture`），資料取自三個 repo 於 2026-10-23 的 HEAD
 **位置：** `docs/adr/0005-integrate-field-tools-at-report-layer.md`（私人文件，不進公開 Pages 成品；草稿曾存於 `_tmp/整合平台/`）
@@ -125,10 +125,10 @@ status: accepted
 
 | 彙整器鍵 | 意義 | 現況鑑定紀錄 | 水準測量紀錄 | 傾斜測量紀錄 |
 |---|---|---|---|---|
-| `caseNumber` | 鑑定案編號（公會案號或委託案號，選填） | 新增選填 `caseNumber`；`code` 維持案件代號，不假設等於公會案號（2026-10-24 裁定） | `number` | `header.caseNumber` |
+| `caseNumber` | 鑑定案編號（公會案號或委託案號，選填） | 待新增選填 `caseNumber`（2026-10-24 裁定，見行動項 3）；`code` 維持案件代號，不假設等於公會案號 | `number` | `header.caseNumber` |
 | `householdNo` | 戶別／住戶編號 | `units[].code` | 新增 `householdNo`（V0.7.6） | `header.householdNo` |
 | `address` | 標的物地址 | `units[].address` | 新增 `address`（V0.7.6；`approxLocation` 維持地圖搜尋用途） | `header.address` |
-| `orgName` | 鑑定單位／公會／委託人（選填） | 新增選填 `orgName`（2026-10-24 裁定） | 新增 `orgName`（V0.7.6） | `header.orgName` |
+| `orgName` | 鑑定單位／公會／委託人（選填） | 待新增選填 `orgName`（2026-10-24 裁定，見行動項 3） | 新增 `orgName`（V0.7.6） | `header.orgName` |
 | `surveyDate` | 會勘／測量日期 | `date`（案件）、`visits[].start`（各次會勘） | `date` | `header.surveyDate` |
 | `caseName` | 案件名稱（顯示用） | `name` | `name` | 無（以 `caseNumber` 為主） |
 

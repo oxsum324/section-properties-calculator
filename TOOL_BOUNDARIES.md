@@ -210,7 +210,7 @@ DOCX integration 的舊 popup 替身未提供現行 Blob／URL API，使用未�
 <!-- T46-REGISTRATION-START -->
 ## 2026-10-16：T46 治理文件現行位置規則
 
-新增私有附冊 [STAGING_GROUPS-ledger-04](docs/governance-current/STAGING_GROUPS-ledger-04.md)，用途為保存原順序的分組指令，既有 loader 回填主檔標記以還原正文；附冊不進公開成品。分組覆蓋掃描讀主檔與全部 staging 附冊原文，只改讀取範圍，路徑存在、ignored、tracked deletion 與 unclassified 判定不變。2026-10-24 V20 新增 [STAGING_GROUPS-ledger-05](docs/governance-current/STAGING_GROUPS-ledger-05.md)，以同一分段機制收納 V18、V19 階段段落，主檔餘量回到約 9 KB；附冊不進公開成品。
+新增私有附冊 [STAGING_GROUPS-ledger-04](docs/governance-current/STAGING_GROUPS-ledger-04.md)，用途為保存原順序的分組指令，既有 loader 回填主檔標記以還原正文；附冊不進公開成品。分組覆蓋掃描讀主檔與全部 staging 附冊原文，只改讀取範圍，路徑存在、ignored、tracked deletion 與 unclassified 判定不變。2026-10-24 V20 新增 [STAGING_GROUPS-ledger-05](docs/governance-current/STAGING_GROUPS-ledger-05.md)，以同一分段機制收納 V18、V19 階段段落，主檔餘量回到約 8 KB（磁碟 CRLF）；附冊不進公開成品。
 
 現行規則：新段落仍寫在主檔；主檔超過 50,000 bytes 時再依本模式移入新附冊。分組指令可依原順序移入 staging 附冊，主檔原位置以分段標記還原；此位置規則取代早期「git add 行必須留在主檔」的敘述，原敘述保留作歷程，其餘治理規則不變。各治理實體文件仍以 60,000 bytes 為上限，不調高上限。
 <!-- T46-REGISTRATION-END -->
