@@ -77,6 +77,7 @@ const PRIVATE_PATHS = [
   'field-survey/tests/browser.test.js',
   'field-survey/tests/model.test.js',
   'field-survey/README.md',
+  'field-survey/CHANGELOG.md',
   'field-survey/package.json',
   '啟動現況鑑定紀錄.bat',
   '鋼構工具/core/formal-core-manifest.json',

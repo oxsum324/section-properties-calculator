@@ -923,12 +923,13 @@ git add -- "鋼筋混凝土/tools/beam.html" "結構工具箱/tools/風力/wind-
 
 ## 2026-10-24：第十九階段（V19）現況鑑定治理
 
-依 V19 派工本機執行（Codex 沙箱禁 localhost）。T56 停用 overlay，現況鑑定只隨全站發布，升級測試入預檢；T57 package.json 版本入檢查。
+依 V19 派工本機執行（Codex 沙箱禁 localhost）。T56 停用 overlay，現況鑑定只隨全站發布，升級測試入預檢；T57 package.json 版本入檢查；T58 README 拆出 CHANGELOG。
 
 ```powershell
 git rm -- .github/workflows/field-survey-deploy.yml field-survey/release.mjs field-survey/release-baseline.json field-survey/tests/release-stage.cjs
 git add -- .github/workflows/pages-deploy.yml preflight-tools.ps1 STAGING_GROUPS.md TOOL_BOUNDARIES.md
 git add -- "結構工具箱/tools/sync-survey-public-version.js" "結構工具箱/tools/public-status-claims.contract.test.js"
+git add -- field-survey/README.md field-survey/CHANGELOG.md "field-survey/V0.8_操作與交付.md" "結構工具箱/tools/pages-live-smoke.js" README.md
 ```
 
 <!-- P2-BOOK-INDEX-START -->
