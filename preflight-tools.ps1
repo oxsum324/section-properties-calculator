@@ -1554,6 +1554,11 @@ node field-survey/tests/browser.test.js
 exit $LASTEXITCODE
 '@
 
+$conditionSurveyUpgradeCommand = @'
+node field-survey/tests/upgrade-v08.cjs
+exit $LASTEXITCODE
+'@
+
 $toolboxEntrypointsContractCommand = @'
 node --test field-survey/tests/model.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -2575,6 +2580,14 @@ $checks = @(
     command = $conditionSurveyBrowserCommand
     slow = $true
     timeoutSeconds = 480
+  },
+  [pscustomobject]@{
+    key = "condition-survey-upgrade"
+    label = "Condition survey real legacy-version upgrade validation"
+    workdir = $root
+    command = $conditionSurveyUpgradeCommand
+    slow = $true
+    timeoutSeconds = 300
   },
   [pscustomobject]@{
     key = "toolbox-entrypoints-contract"

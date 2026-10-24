@@ -181,7 +181,6 @@
 - `field-survey/detail.js`
 - `field-survey/model.js`
 - `field-survey/recorder.html`
-- `field-survey/release.mjs`
 - `field-survey/report.js`
 - `field-survey/report-ui.js`
 - `field-survey/signoff.js`
@@ -921,6 +920,15 @@ git add -- "鋼筋混凝土/tools/beam.html" "結構工具箱/tools/風力/wind-
 ```
 
 <!-- V18-REGISTRATION-END -->
+
+## 2026-10-24：第十九階段（V19）現況鑑定治理
+
+依 V19 派工本機執行（Codex 沙箱禁 localhost）。T56 停用 overlay，現況鑑定只隨全站發布，升級測試入預檢。
+
+```powershell
+git rm -- .github/workflows/field-survey-deploy.yml field-survey/release.mjs field-survey/release-baseline.json field-survey/tests/release-stage.cjs
+git add -- .github/workflows/pages-deploy.yml preflight-tools.ps1 STAGING_GROUPS.md TOOL_BOUNDARIES.md
+```
 
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
