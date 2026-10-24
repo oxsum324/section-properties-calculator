@@ -801,7 +801,7 @@ git add -- 結構工具箱/tools/tool-load-budget-baseline.json STAGING_GROUPS.m
 
 ### R2-0 頂欄占位改由樣式表保留（修正 R1）
 
-R1 的頂欄占位使用行內 `style="min-height:44px"`，使版面測試對鋼構正式頁與連接板的行內樣式上限 0 失敗（R1 未跑該測試）。新增根目錄 `tool-chrome.css` 保留 44px 並在列印隱藏，49 頁移除行內樣式、在 head 第一個樣式表前 link；找不到工具時改以 `data-tool-chrome-empty` 釋放高度。本組對同時屬於 R2-3、R2-5 的 4 頁只提交占位修正部分。
+R1 的頂欄占位使用行內 style（min-height:44px），使版面測試對鋼構正式頁與連接板的行內樣式上限 0 失敗（R1 未跑該測試）。新增根目錄 `tool-chrome.css` 保留 44px 並在列印隱藏，49 頁移除行內樣式、在 head 第一個樣式表前 link；找不到工具時改以 `data-tool-chrome-empty` 釋放高度。本組對同時屬於 R2-3、R2-5 的 4 頁只提交占位修正部分。
 
 ```powershell
 <!--P2:SG-04-111-->
@@ -914,7 +914,7 @@ git add -- "鋼筋混凝土/shared/project-replay.js" "鋼筋混凝土/tools/sla
 
 ### V18-審查修正-4 三頁首屏可用性
 
-審查第 6 項與 S1～S3：鋼索 ④ 輸出卡加 `role="status"` 狀態列（空白時高度 0），「下載 JSON」確認改寫於此；梁、Kzt 頁首加 `<noscript>` 相對首頁連結；梁子分頁靜態 `role="group"`（執行期仍升級為 tablist）；Kzt 存讀檔列移入原生 `<details>`，刪除 `:has()` 收合規則。四頁兩種寬度版面位移與列印截圖與 HEAD 相同。
+審查第 6 項與 S1～S3：鋼索 ④ 輸出卡加 role=status 狀態列（空白時高度 0），「下載 JSON」確認改寫於此；梁、Kzt 頁首加 `<noscript>` 相對首頁連結；梁子分頁靜態 role=group（執行期仍升級為 tablist）；Kzt 存讀檔列移入原生 `<details>`，刪除 `:has()` 收合規則。四頁兩種寬度版面位移與列印截圖與 HEAD 相同。
 
 ```powershell
 git add -- "鋼筋混凝土/tools/beam.html" "結構工具箱/tools/風力/wind-kzt.html" "結構工具箱/tools/cable-tension/cable-tension-frequency.html" "結構工具箱/core/tool-shell.css" "結構工具箱/tools/design/tool-shell.contract.test.js" STAGING_GROUPS.md
