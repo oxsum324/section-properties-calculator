@@ -603,7 +603,7 @@ git add -- "結構工具箱/tools/sync-survey-public-version.js" "結構工具�
 <!-- V21-REGISTRATION-START -->
 ## 2026-10-25：第二十一階段（V21）治理分冊容量
 
-依 V20 複審 ND-1 選項 a、b。STAGING 的 R1、E1、E2、E3、R2 段依分段標記移入 ledger-05，既有 ledger-04 標記留在主檔原位；TOOL_BOUNDARIES 2026-10-03 起的階段段落移入新附冊 catalog-05。兩份虛擬全文逐字不變，契約讀取範圍不變。
+兩份主檔（Git blob 計 51,056 與 56,764 bytes）都超過 T46 規則的 50,000 bytes。STAGING 的 R1、E1、E2、E3、R2 段依分段標記移入 ledger-05，既有 ledger-04 標記留在主檔原位；TOOL_BOUNDARIES 2026-10-03 起的階段段落移入新附冊 catalog-05。扣除本段後兩份虛擬全文逐字不變（以一致行尾比對），契約讀取範圍不變。
 
 ```powershell
 git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "結構工具箱/tools/governance-documents.js" docs/

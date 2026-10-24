@@ -132,7 +132,7 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 <!-- P2_INCLUDE:docs/governance-current/TOOL_BOUNDARIES-catalog-05.md -->
 ## 2026-10-25：第二十一階段（V21）治理分冊容量
 
-新增私有附冊 [TOOL_BOUNDARIES-catalog-05](docs/governance-current/TOOL_BOUNDARIES-catalog-05.md)，收納 2026-10-03 起的階段段落，以 include marker 回填原位；STAGING 的 R1、E1、E2、E3、R2 段移入 ledger-05。兩份虛擬全文逐字不變；附冊不進公開成品。之後新段落寫在本段之後，主檔超過 50,000 bytes 時再開新附冊。
+新增私有附冊 [TOOL_BOUNDARIES-catalog-05](docs/governance-current/TOOL_BOUNDARIES-catalog-05.md)，收納 2026-10-03 起的階段段落，以 include marker 回填原位；STAGING 的 R1、E1、E2、E3、R2 段移入 ledger-05。扣除本段後兩份虛擬全文逐字不變（以一致行尾比對）；附冊不進公開成品。之後新段落寫在本段之後，主檔超過 50,000 bytes 時再開新附冊。
 
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
