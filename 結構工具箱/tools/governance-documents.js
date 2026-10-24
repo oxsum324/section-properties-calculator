@@ -14,6 +14,7 @@ const GROUPS = Object.freeze({
     'docs/governance-current/TOOL_BOUNDARIES-catalog-02.md',
     'docs/governance-current/TOOL_BOUNDARIES-catalog-03.md',
     'docs/governance-current/TOOL_BOUNDARIES-catalog-04.md',
+    'docs/governance-current/TOOL_BOUNDARIES-catalog-05.md',
   ]),
   'STAGING_GROUPS.md': Object.freeze([
     'docs/governance-current/STAGING_GROUPS-ledger-01.md',
@@ -29,7 +30,7 @@ const STAGING_SEGMENTS = Object.freeze({
   'docs/governance-current/STAGING_GROUPS-ledger-02.md': Object.freeze(Array.from({ length: 6 }, (_, i) => `SG-02-${String(i + 1).padStart(3, '0')}`)),
   'docs/governance-current/STAGING_GROUPS-ledger-03.md': Object.freeze(Array.from({ length: 36 }, (_, i) => `SG-03-${String(i + 1).padStart(3, '0')}`)),
   'docs/governance-current/STAGING_GROUPS-ledger-04.md': Object.freeze(Array.from({ length: 111 }, (_, i) => `SG-04-${String(i + 1).padStart(3, '0')}`)),
-  'docs/governance-current/STAGING_GROUPS-ledger-05.md': Object.freeze(Array.from({ length: 2 }, (_, i) => `SG-05-${String(i + 1).padStart(3, '0')}`)),
+  'docs/governance-current/STAGING_GROUPS-ledger-05.md': Object.freeze(Array.from({ length: 13 }, (_, i) => `SG-05-${String(i + 1).padStart(3, '0')}`)),
 });
 
 const STAGING_MAIN_ORDER = Object.freeze([
@@ -187,12 +188,23 @@ const STAGING_MAIN_ORDER = Object.freeze([
   'SG-03-036',
   'SG-04-104',
   'SG-04-105',
+  'SG-05-003',
   'SG-04-110',
+  'SG-05-004',
+  'SG-05-005',
   'SG-04-106',
+  'SG-05-006',
   'SG-04-107',
+  'SG-05-007',
   'SG-04-108',
+  'SG-05-008',
+  'SG-05-009',
   'SG-04-109',
+  'SG-05-010',
+  'SG-05-011',
+  'SG-05-012',
   'SG-04-111',
+  'SG-05-013',
   'SG-05-001',
   'SG-05-002',
 ]);
