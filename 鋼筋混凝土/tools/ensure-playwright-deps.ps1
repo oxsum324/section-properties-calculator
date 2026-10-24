@@ -39,8 +39,26 @@ if (-not $playwrightRoot) {
     New-Item -ItemType Directory -Path $depRoot | Out-Null
   }
 
-  npm init -y --prefix $depRoot | Out-Null
-  npm install --prefix $depRoot playwright --silent
+  # npm >= 7 ignores --prefix for `npm init` and writes package.json to the
+  # current directory (often the repo root), so seed the manifest directly.
+  $depPackageJson = Join-Path $depRoot 'package.json'
+  if (-not (Test-Path -LiteralPath $depPackageJson -PathType Leaf)) {
+    [System.IO.File]::WriteAllText(
+      $depPackageJson,
+      "{`n  `"name`": `"playwright-testdeps`",`n  `"private`": true`n}`n",
+      [System.Text.UTF8Encoding]::new($false)
+    )
+  }
+
+  Push-Location -LiteralPath $depRoot
+  try {
+    npm install --prefix $depRoot playwright --silent
+    if ($LASTEXITCODE -ne 0) {
+      throw "npm install playwright failed in $depRoot with exit code $LASTEXITCODE"
+    }
+  } finally {
+    Pop-Location
+  }
   $playwrightRoot = $depRoot
 }
 
