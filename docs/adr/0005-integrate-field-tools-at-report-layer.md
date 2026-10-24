@@ -20,7 +20,7 @@ status: accepted
 |---|---|---|---|
 | 版本 | V0.30.3 | V0.7.5 | V0.4.2 |
 | 位置 | 主 repo `section-properties-calculator/field-survey/` | 獨立 repo `level-survey-recorder` | 獨立 repo `tilt-survey-recorder` |
-| 部署 | `field-survey-deploy.yml`：手動觸發、`release.mjs` 乾淨樹檢查、公開版本同步、baseline 比對 | push main 即部署 | push main 即部署 |
+| 部署 | 撰寫時為 `field-survey-deploy.yml` 單獨發布；2026-10-24 V19 起停用，改隨全站正式放行發布 | push main 即部署 | push main 即部署 |
 | 程式量 | 24 個 JS，451 KB | 217 KB | 176 KB |
 | 本機儲存 | IndexedDB | IndexedDB `level-survey-v1` | IndexedDB `tilt-survey-v1` |
 | 案件檔 | `.csurvey`：二進位容器（`CSURVEY/1` 標頭＋JSON 清冊 version 18＋原始 Blob 串接），上限 2 GB，含簽認快照指紋 | `level-survey-case.v1` JSON，媒體以 dataURL 內嵌 | `tilt-survey-case.v1` JSON（`.tiltsurvey`），媒體以 dataURL 內嵌，schema 1 |
@@ -114,7 +114,7 @@ status: accepted
 ## 行動項
 
 1. [x] 使用者裁定：採 A（2026-10-23）。
-2. [x] 共同案件識別頭欄位表與三工具對映（附錄 A；現況鑑定的 `orgName` 對映待核對）。
+2. [x] 共同案件識別頭欄位表與三工具對映（附錄 A；現況鑑定的 `orgName`、`caseNumber` 對映已於 2026-10-24 依裁定結案：皆為選填新增）。
 3. [ ] 三工具各派一條小分支加入識別頭：水準測量已納入 V0.7.6 派工 E3（2026-10-23）；傾斜測量欄位已齊全，只需確認對映；現況鑑定待排。
 4. [ ] 附件節輸出介面：於彙整器設計文件定義後，再派三工具實作。
 5. [ ] 彙整器 V0.1 規格與樣張（Claude），範圍限現況鑑定＋傾斜。
@@ -125,14 +125,15 @@ status: accepted
 
 | 彙整器鍵 | 意義 | 現況鑑定紀錄 | 水準測量紀錄 | 傾斜測量紀錄 |
 |---|---|---|---|---|
-| `caseNumber` | 鑑定案編號（公會案號） | `code`（案件代號；是否即公會案號待核對） | `number` | `header.caseNumber` |
+| `caseNumber` | 鑑定案編號（公會案號或委託案號，選填） | 新增選填 `caseNumber`；`code` 維持案件代號，不假設等於公會案號（2026-10-24 裁定） | `number` | `header.caseNumber` |
 | `householdNo` | 戶別／住戶編號 | `units[].code` | 新增 `householdNo`（V0.7.6） | `header.householdNo` |
 | `address` | 標的物地址 | `units[].address` | 新增 `address`（V0.7.6；`approxLocation` 維持地圖搜尋用途） | `header.address` |
-| `orgName` | 鑑定單位／公會 | 無，待核對是否需新增 | 新增 `orgName`（V0.7.6） | `header.orgName` |
+| `orgName` | 鑑定單位／公會／委託人（選填） | 新增選填 `orgName`（2026-10-24 裁定） | 新增 `orgName`（V0.7.6） | `header.orgName` |
 | `surveyDate` | 會勘／測量日期 | `date`（案件）、`visits[].start`（各次會勘） | `date` | `header.surveyDate` |
 | `caseName` | 案件名稱（顯示用） | `name` | `name` | 無（以 `caseNumber` 為主） |
 
 規則：
 - 全部為選填；缺值時彙整器以「未填」顯示，不阻擋彙整。
+- 2026-10-24 使用者裁定：識別頭不綁公會案號。不論由哪個公會或委託人指派，或由本公司自行作為附件表頭，各欄位都可有可無；各工具以「是否套用附件表頭」勾選加各欄位留白表達，留白欄位不列印、不入案件指紋（比照水準測量 V0.7.6 的空字串過濾）。
 - 對齊鍵為 `caseNumber`＋`householdNo`；水準測量為全棟量測時 `householdNo` 留空，彙整器視為「全案共用節」。
 - 各工具保留原有欄位名稱，不改既有 schema；彙整器端做對映。

@@ -100,7 +100,7 @@ PDF 分頁及 iframe 列印依據：[MDN Printing](https://developer.mozilla.org
 - 「名稱與繪圖設定」可切換點兩下／拖曳，以及鎖點和直角鎖定。預設吸附既有端點、房間框四角及牆線；靠近約 12 個螢幕像素才吸附，圖面以圓圈提示。
 - 直線與門窗預設鎖定水平／垂直；斜線與斜牆上的門窗須關閉直角鎖定。房間框自由指定兩個對角，手繪及文字不強制鎖點。
 - 手機畫面預設收起名稱與設定，文字欄位只在選文字工具時顯示，門扇方向只在選開門工具時顯示。
-- 舊版簡圖仍可開啟，舊定位與原圖保留。本版匯出的備份版本為 5，請用 V0.10.0 或較新版開啟；舊版會拒絕新備份。本版仍可讀舊版備份。
+- 舊版簡圖仍可開啟，舊定位與原圖保留。備份格式與可讀範圍見「目前版本與相容性」；舊版工具會拒絕新版備份。
 
 ## 保存的範圍
 
@@ -112,7 +112,7 @@ PDF 分頁及 iframe 列印依據：[MDN Printing](https://developer.mozilla.org
 
 照片不採用時填原因，原檔仍在備份裡。HEIC／HEIF 可保存；若裝置無法解碼，會提示不能預覽或圈註，仍可匯出原檔。錄音功能依瀏覽器麥克風權限與格式支援而定，沒有自動逐字稿。
 
-本版會保留既有資料並升級本機資料庫至版本 18；已開啟的舊版程式連線會關閉，請套用新版後繼續操作，避免舊版覆寫新欄位。
+更新會保留既有資料並升級本機資料庫（現行格式見「目前版本與相容性」）；已開啟的舊版程式連線會關閉，請套用新版後繼續操作，避免舊版覆寫新欄位。
 
 同一案件在兩個視窗修改時會檢查版本，拒絕覆蓋較新的案件；「另存目前副本」可保留本視窗的紀錄，再人工核對。還原也建立新案件和獨立原檔識別碼，不覆蓋原案。
 
@@ -123,8 +123,8 @@ PDF 分頁及 iframe 列印依據：[MDN Printing](https://developer.mozilla.org
 ## 驗證
 
 - 資料測試：`node --test field-survey/tests/model.test.js`（100 項）。
-- 瀏覽器流程：先備妥 `.github/pages-smoke` 的 Playwright runtime，執行 `node field-survey/tests/browser.test.js`（40 項，本機約 5 分鐘）；會自行開啟及關閉測試伺服器。Windows 使用已安裝 Chrome，其餘平台使用 Playwright Chromium。
-- 真實舊版升級：`node field-survey/tests/upgrade-v08.cjs`（以 Git 歷史中的舊版程式建立舊案後升級，本機約 2 分鐘）。
+- 瀏覽器流程：先備妥 `.github/pages-smoke` 的 Playwright runtime，執行 `node field-survey/tests/browser.test.js`（40 項，2026-10-24 本機實測 292 秒）；會自行開啟及關閉測試伺服器。Windows 使用已安裝 Chrome，其餘平台使用 Playwright Chromium。
+- 真實舊版升級：`node field-survey/tests/upgrade-v08.cjs`（以 Git 歷史中的舊版程式建立舊案後升級，2026-10-24 本機實測 99 秒）。
 - 以上三項均列入工具箱正式預檢（`toolbox-entrypoints-contract`、`condition-survey-browser`、`condition-survey-upgrade`）。
 - 證據在忽略發布的 `output/field-survey-validation/`，全部使用合成測試資料。
 - 尚未用實體 iPhone／Android 驗證相機、HEIC 解碼、主畫面安裝、鎖屏錄音及長時間大量照片。第一次使用先做一戶少量試拍、關網重開、再搬到電腦核對。

@@ -42,8 +42,11 @@ if (generatedAt && generatedAt < contentDate) home = home.replace(/(generatedAt:
 smoke = smoke.replace(/'現況鑑定紀錄 V[^']+'/, `'現況鑑定紀錄 V${version}'`);
 smoke = smoke.replace(/'condition-survey-shell-[^']+'/, `'${cacheName}'`);
 const packageVersionPattern = /("version"\s*:\s*")[^"]*(")/;
-if (!packageVersionPattern.test(packageText)) throw new Error(`${packagePath} 缺少 version 欄位`);
+const packageVersion = JSON.parse(packageText).version;
+if (packageVersion === undefined) throw new Error(`${packagePath} 缺少頂層 version 欄位`);
+if (typeof packageVersion !== 'string') throw new Error(`${packagePath} 的 version 必須是字串，目前為 ${typeof packageVersion}`);
 packageText = packageText.replace(packageVersionPattern, `$1${version}$2`);
+if (JSON.parse(packageText).version !== version) throw new Error(`${packagePath} 的頂層 version 未被正確替換；請檢查是否有其他 version 鍵排在前面`);
 
 const drifted = [[homePath, home !== before.home], [smokePath, smoke !== before.smoke], [packagePath, packageText !== before.packageText]].filter(([, differs]) => differs).map(([file]) => file);
 const changed = drifted.length > 0;

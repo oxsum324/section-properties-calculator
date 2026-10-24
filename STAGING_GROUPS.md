@@ -859,10 +859,11 @@ git add -- toolbox-entrypoints.contract.test.js phase-gates.commands.json run-ph
 <!-- V20-REGISTRATION-START -->
 ## 2026-10-24：第二十階段（V20）治理分冊與 V19 收尾
 
-依 V20 派工本機執行。T59 新增附冊 ledger-05，V18、V19 段依分段標記移入，主檔由 59,924 bytes 降到約 50.8 KB，虛擬全文逐字不變；既有附冊與契約讀取範圍不變。
+依 V20 派工本機執行。T59 新增附冊 ledger-05，V18、V19 段依分段標記移入，主檔由 59,924 bytes 降到約 50.8 KB，虛擬全文逐字不變；既有附冊與契約讀取範圍不變。T60 收尾：版本同步腳本以 JSON 解析驗證替換結果、升級測試先建證據資料夾、Pages 工作流程契約禁止 paths-ignore、現況鑑定 README 過時句與實測秒數、ADR-0005 補註停用 overlay 與識別頭選填裁定。
 
 ```powershell
 git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "結構工具箱/tools/governance-documents.js" docs/
+git add -- "結構工具箱/tools/sync-survey-public-version.js" "結構工具箱/tools/public-status-claims.contract.test.js" field-survey/tests/upgrade-v08.cjs pages-release-governance.contract.test.js field-survey/README.md docs/adr/0005-integrate-field-tools-at-report-layer.md STAGING_GROUPS.md
 ```
 <!-- V20-REGISTRATION-END -->
 
