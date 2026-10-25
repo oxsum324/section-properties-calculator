@@ -2109,8 +2109,8 @@ describe('concrete shear breakout thin member / narrow section (112年版 17.7.2
     // ca1' = max(180/1.5 = 120, 200/1.5 = 133.33, 230/3 = 76.67) = 133.33 mm（17.7.2.1.1，ca2 取最大邊距）
     // A_Vc = (125 + 230 + 180) × min(1.5 × 133.33, 200) = 535 × 200 = 107,000 mm²
     // A_Vco = 4.5 × 133.33² = 80,000 mm² → 1.3375（≤ n = 2）
-    // ψed,V = 0.7 + 0.3 × 125 / (1.5 × 133.33) = 0.8875。解說原文印為 0.7 + 0.3(12.5)/13.33 = 0.98，
-    // 分母漏乘 1.5，屬排印錯誤，不可作預期值。ψh,V = √(200/200) = 1.0
+    // ψed,V = 0.7 + 0.3 × 125 / (1.5 × 133.33) = 0.8875。解說範例印為 0.7 + 0.3(12.5)/13.33 = 0.98，
+    // 與正式算式不一致，本測試採算式（17.7.2.4.1b 得 0.8875）。ψh,V = √(200/200) = 1.0
     // Vb(133.33) = min(33.13, 30.14) = 30.14 kN → Vcbg = 1.3375 × 0.8875 × 30.14 = 35.78 kN；φ = 25.05 kN
     const shear = shearOf(
       shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 125, edgeTopMm: 180, thicknessMm: 200 }, 2, 230),
@@ -2128,6 +2128,8 @@ describe('concrete shear breakout thin member / narrow section (112年版 17.7.2
     // ψed,V = min(1, 0.7 + 0.3 × 270/270) = 1.0；ψh,V = √(270/150) = 1.3416
     // Vb(180) = min(51.97, 47.28) = 47.28 kN → Vcb = 0.5556 × 1.3416 × 47.28 = 35.24 kN；φ = 24.67 kN
     // （修正前 33.10 kN）
+    // 註：ha = 150 mm < 共用 hef = 160 mm，整體檢核會在最小厚度（17.9.4 / 埋置深度不超過構材厚度）
+    // 判定不符；本例只驗證剪破強度公式，不代表整支錨栓構材通過。
     const shear = shearOf(
       shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 270, edgeTopMm: 270, thicknessMm: 150 }),
     )
