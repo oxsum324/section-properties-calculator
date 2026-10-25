@@ -175,11 +175,11 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-10-24',
+    generatedAt: '2026-10-25',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
-      '/condition-survey': '2026-10-11',
+      '/condition-survey': '2026-10-25',
       '/beam-analysis': '2026-10-23',
       '/frame-analysis': '2026-10-23',
       '/struct-dx': '2026-08-13',
@@ -316,7 +316,7 @@
   const tools = [
     {
       title: '現況鑑定紀錄',
-      version: 'V0.30.3',
+      version: 'V0.31.0',
       href: '/condition-survey',
       aliases: ['現勘紀錄', '現況巡查'],
       categories: ['temporary'],
@@ -458,7 +458,7 @@
     },
     {
       title: 'RC 牆',
-      version: 'V3.3',
+      version: 'V3.4',
       href: '/rc-wall',
       aliases: ['RC structural wall', '牆體軸力檢核'],
       categories: ['member'],

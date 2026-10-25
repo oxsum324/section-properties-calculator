@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.30.3';
+export const VERSION = '0.31.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -437,6 +437,21 @@ function validateSignoffs(p, units, visits, meta) {
     list(s.spaces, '簽認空間', 5000); s.spaces.forEach(v => text(v, '空間名稱', 200));
     assert(/^[a-f0-9]{64}$/.test(x.recordsDigest) && /^[a-f0-9]{64}$/.test(x.snapshotHash), '簽認指紋不正確');
     if (x.sourceChanged !== undefined) assert(typeof x.sourceChanged === 'boolean', '簽認來源變動標記不正確');
+
+    if (x.signedContent !== undefined) {
+      const c = x.signedContent;
+      assert(c && c.version === 1 && c.identity && c.consent && c.observations, '簽認內容快照不正確');
+      for (const value of Object.values(c.identity)) text(value, '簽認識別', 1000);
+      assert(canonicalJSON(c.consent) === canonicalJSON(signoffConsent(x)), '已簽認內容不可覆寫，請另建修訂版');
+      assert(/^[a-f0-9]{64}$/.test(x.contentDigest), '簽認內容指紋不正確');
+      list(c.observations.records, '簽認現況快照');
+      list(c.observations.media, '簽認媒體快照');
+      for (const m of c.observations.media) assert(/^[a-f0-9]{64}$/.test(m.sha256) && p.media.some(a => a.sha256 === m.sha256), '簽認歷史原始檔遺失');
+      if (x.comparisonIdentity !== undefined) { assert(x.comparisonIdentity && typeof x.comparisonIdentity === 'object', '簽認移轉識別不正確'); for (const value of Object.values(x.comparisonIdentity)) text(value, '移轉識別', 1000); }
+    }
+    if (x.legacyTracking !== undefined) { assert(x.legacyTracking.identity && /^[a-f0-9]{64}$/.test(x.legacyTracking.observationsDigest) && typeof x.legacyTracking.changed === 'boolean', '內部簽認追溯資料不正確'); }
+    if (x.revisionOf !== undefined) assert(p.signoffs.some(y => y.id === x.revisionOf && y.id !== x.id && y.level === x.level && y.unitId === x.unitId && y.visitId === x.visitId), '簽認修訂來源不存在');
+
     list(x.signers, '簽署人', 100); unique(x.signers);
     const signerIds = new Set(x.signers.map(y => y.id));
     for (const y of x.signers) {
@@ -460,7 +475,8 @@ function validateSignoffs(p, units, visits, meta) {
       }
       if (y.status === 'paper') assert(meta.get(y.mediaId)?.kind === 'image', '紙本照片關聯遺失');
       if (y.status === 'refused') assert(y.reason.trim(), '拒簽須填原因');
-      if (['refused', 'absent'].includes(y.status)) assert(signerIds.has(y.attestedBy) && x.signers.some(w => w.id === y.attestedBy && w.group === 'surveyor' && w.status === 'signed'), '拒簽或不在場須由鑑定人員簽名見證');
+      if (x.signedContent && y.status === 'absent' && !y.voided) assert(y.reason.trim(), '不在場須填原因');
+      if (['refused', 'absent'].includes(y.status)) assert(signerIds.has(y.attestedBy) && x.signers.some(w => w.id === y.attestedBy && w.group === 'surveyor' && w.status === 'signed' && (!x.signedContent || y.voided || !w.voided)), '拒簽或不在場須由鑑定人員簽名見證');
       if (y.voided !== undefined) { text(y.voided.at, '作廢時間', 100); text(y.voided.reason, '作廢原因'); assert(y.voided.reason.trim() && Number.isFinite(Date.parse(y.voided.at)), '作廢紀錄不正確'); }
     }
   }
@@ -488,6 +504,15 @@ export function validateProject(p) {
   for (const key of ['units', 'records', 'plans', 'media']) list(p[key], key);
   const units = unique(p.units), media = unique(p.media), plans = unique(p.plans); unique(p.records);
   if (p.reportSettings !== undefined) validateReportSettings(p.reportSettings, p);
+  if (p.attachmentNumberingHistory !== undefined) {
+    list(p.attachmentNumberingHistory, '附件編號歷程', 5000);
+    for (const h of p.attachmentNumberingHistory) {
+      list(h.units, '歷程戶別'); h.units.forEach(identifier); list(h.segments, '歷程分段'); h.segments.forEach(v => text(v, '分段', 500));
+      list(h.numbers, '照片編號歷程');
+      for (const n of h.numbers) { identifier(n.unitId); identifier(n.recordId); identifier(n.mediaId); assert(typeof n.number === 'string' && /^\d{3,6}$/.test(n.number) && Number(n.number) > 0 && Number(n.number) <= 999999, '歷程照片編號不正確'); }
+      text(h.createdAt, '編號歷程時間', 100); assert(Number.isSafeInteger(h.sourceRevision) && h.sourceRevision >= 0 && /^[a-f0-9]{64}$/.test(h.digest), '編號歷程來源不正確');
+    }
+  }
   const visits = new Set();
   if (p.visits !== undefined) {
     list(p.visits, '會勘批次', 500); unique(p.visits);
@@ -649,7 +674,9 @@ export function removeRecordPhotos(p, recordId, photoIds) {
   if (selected.has(r.mainPhotoId)) delete r.mainPhotoId;
   for (const plan of p.plans) if (plan.labelLayout) plan.labelLayout = plan.labelLayout.filter(l => !(l.kind === 'photo' && l.recordId === r.id && selected.has(l.id)));
   const used = new Set([...p.records.flatMap(r => [...r.photos.map(photo => photo.mediaId), ...r.audioIds, r.detail?.mediaId]), ...p.plans.map(plan => plan.mediaId)]);
-  p.media = p.media.filter(m => !selected.has(m.id) || used.has(m.id));
+  for (const x of p.signoffs || []) for (const y of x.signers) if (y.mediaId) used.add(y.mediaId);
+  const historical = signoffMediaHashes(p);
+  p.media = p.media.filter(m => !selected.has(m.id) || used.has(m.id) || historical.has(m.sha256));
   r.updatedAt = now();
 }
 export async function sha256(blob) {
@@ -661,6 +688,105 @@ export function canonicalJSON(value) {
   if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonicalJSON(value[key])).join(',') + '}';
   return JSON.stringify(value);
 }
+
+export const SIGNOFF_CONTENT_KEYS = ['date', 'weather', 'status', 'reason', 'scope', 'statement', 'summary'];
+export const signoffConsent = x => Object.fromEntries(SIGNOFF_CONTENT_KEYS.map(key => [key, clone(x[key])]));
+export function signoffIdentity(p, x) {
+  const u = p.units.find(u => u.id === x.unitId), v = p.visits?.find(v => v.id === x.visitId);
+  return { code: p.code, name: p.name, unitCode: u?.code || '', address: u?.address || '', building: u?.building || '', floor: u?.floor || '', kind: u?.kind || 'residence', visitName: v?.name || '', visitStart: v?.start || '', visitEnd: v?.end || '' };
+}
+
+export function defaultReportPhotoIds(r) {
+  const photos = r.photos.filter(p => !p.excluded), ids = new Set();
+  for (const role of ['overview', 'close']) { const p = photos.find(x => x.role === role); if (p) ids.add(p.mediaId); }
+  if (!ids.size && photos[0]) ids.add(photos[0].mediaId);
+  if (r.mainPhotoId) ids.add(r.mainPhotoId);
+  return ids;
+}
+export function recordReportPhotos(r) {
+  const defaults = defaultReportPhotoIds(r);
+  return r.photos.filter(p => photoIncluded(p) && (p.reportInclude === true || p.reportInclude === undefined && defaults.has(p.mediaId)));
+}
+export function preserveReportSelection(r) {
+  const included = new Set(recordReportPhotos(r).map(p => p.mediaId));
+  for (const photo of r.photos) photo.reportInclude = included.has(photo.mediaId);
+  return r;
+}
+
+export function signoffObservations(p, x) {
+  const used = new Set();
+  const media = mid => { const m = p.media.find(m => m.id === mid); assert(m, '簽認原始媒體遺失'); used.add(mid); return m.sha256; };
+  const plan = pid => {
+    const source = p.plans.find(plan => plan.id === pid); assert(source, '簽認位置圖遺失');
+    const q = clone(source); delete q.id; delete q.unitId; delete q.labelLayout; q.mediaId = media(q.mediaId); return q;
+  };
+  const placement = q => q ? { ...clone(q), planId: plan(q.planId) } : q;
+  const records = p.records.filter(r => x.level === 'unit' && r.unitId === x.unitId && r.visitId === x.visitId).map(source => {
+    const r = clone(source), included = new Set(recordReportPhotos(source).map(p => p.mediaId));
+    for (const key of ['id', 'unitId', 'visitId', 'roomId', 'fieldNumber', 'createdAt', 'updatedAt', 'mainPhotoId']) delete r[key];
+    r.photos = r.photos.map(photo => {
+      const q = clone(photo); q.reportInclude = included.has(q.mediaId); q.mediaId = media(q.mediaId);
+      if (q.placement) q.placement = placement(q.placement);
+      delete q.number; return q;
+    }).sort((a, b) => canonicalJSON(a) < canonicalJSON(b) ? -1 : canonicalJSON(a) > canonicalJSON(b) ? 1 : 0);
+    r.audioIds = r.audioIds.map(media).sort();
+    if (r.detail?.mediaId) r.detail.mediaId = media(r.detail.mediaId);
+    if (r.placement) r.placement = placement(r.placement);
+    if (r.observationPin) r.observationPin = placement(r.observationPin);
+    return r;
+  }).sort((a, b) => canonicalJSON(a) < canonicalJSON(b) ? -1 : canonicalJSON(a) > canonicalJSON(b) ? 1 : 0);
+  const assets = [...new Map(p.media.filter(m => used.has(m.id)).map(m => [m.sha256, { sha256: m.sha256, kind: m.kind, type: m.type, size: m.size, name: m.name }])).values()].sort((a, b) => a.sha256.localeCompare(b.sha256));
+  return { records, media: assets };
+}
+export const signoffContent = (p, x) => JSON.parse(JSON.stringify({ version: 1, identity: signoffIdentity(p, x), consent: signoffConsent(x), observations: signoffObservations(p, x) }));
+export const signoffContentDigest = content => sha256(new TextEncoder().encode(canonicalJSON(content)));
+export async function signoffContentChanged(p, x) {
+  if (x.sourceChanged) return true;
+  if (!x.signedContent) {
+    if (x.legacyTracking) return x.legacyTracking.changed || canonicalJSON(signoffIdentity(p, x)) !== canonicalJSON(x.legacyTracking.identity) || await signoffContentDigest(signoffObservations(p, x)) !== x.legacyTracking.observationsDigest;
+    return x.level === 'unit' && x.recordsDigest !== await recordsDigest(p, x.unitId, x.visitId);
+  }
+  const content = signoffContent(p, x);
+  if (x.comparisonIdentity && canonicalJSON(content.identity) === canonicalJSON(x.comparisonIdentity)) content.identity = x.signedContent.identity;
+  return await signoffContentDigest(content) !== x.contentDigest;
+}
+
+export async function trackLegacySignoffs(p, previous) {
+  for (const x of p.signoffs || []) {
+    const old = previous?.signoffs?.find(y => y.id === x.id);
+    if (!old?.signers.length || x.signedContent || x.legacyTracking) continue;
+    x.legacyTracking = { identity: signoffIdentity(previous, old), observationsDigest: await signoffContentDigest(signoffObservations(previous, old)), changed: await signoffContentChanged(previous, old) };
+  }
+}
+
+export const signoffMediaHashes = p => new Set((p.signoffs || []).flatMap(x => x.signedContent?.observations.media.map(m => m.sha256) || []));
+export function latestSignoffVisit(p, unitId) {
+  const involved = new Map(), add = (visitId, date) => {
+    const v = p.visits?.find(v => v.id === visitId); if (!v) return;
+    const day = validDate(date) ? date : v.start;
+    if (!involved.has(visitId) || day > involved.get(visitId)) involved.set(visitId, day);
+  };
+  for (const h of p.units.find(u => u.id === unitId)?.visitHistory || []) add(h.visitId, h.date);
+  for (const r of p.records.filter(r => r.unitId === unitId)) add(r.visitId, r.observedOn);
+  for (const x of p.signoffs || []) if (x.level === 'unit' && x.unitId === unitId) add(x.visitId, x.date);
+  return [...involved.keys()].sort((a, b) => involved.get(b).localeCompare(involved.get(a)) || p.visits.findIndex(v => v.id === b) - p.visits.findIndex(v => v.id === a))[0] || p.visits?.at(-1)?.id;
+}
+export const latestUnitSignoff = (p, unitId) => (p.signoffs || []).findLast(x => x.level === 'unit' && x.unitId === unitId && x.visitId === latestSignoffVisit(p, unitId));
+export function assertSignoffHistory(previous, next) {
+  for (const old of previous?.signoffs || []) {
+    if (!old.signers.length) continue;
+    const x = next.signoffs?.find(x => x.id === old.id); assert(x, '已簽認紀錄須保留，請另建修訂版');
+    assert(canonicalJSON(signoffConsent(x)) === canonicalJSON(signoffConsent(old)), '已簽認內容不可覆寫，請另建修訂版');
+    for (const key of ['signedContent', 'contentDigest', 'comparisonIdentity', 'revisionOf', 'recordsDigest', 'sourceChanged', 'sourceRecordsDigest', 'sourceSnapshotHash', 'createdAt']) assert(canonicalJSON(x[key]) === canonicalJSON(old[key]), '已簽認快照不可覆寫，請另建修訂版');
+    if (old.legacyTracking) assert(canonicalJSON(x.legacyTracking) === canonicalJSON(old.legacyTracking), '舊簽認內部追溯資料不可覆寫');
+    for (const signer of old.signers) {
+      const current = x.signers.find(y => y.id === signer.id); assert(current, '原簽署人須保留，請以作廢記錄處理');
+      const a = clone(signer), b = clone(current); delete a.voided; delete b.voided;
+      assert(canonicalJSON(a) === canonicalJSON(b) && (!signer.voided || canonicalJSON(signer.voided) === canonicalJSON(current.voided)), '原簽章不可覆寫');
+    }
+  }
+}
+
 export async function recordsDigest(p, unitId, visitId) {
   const rows = p.records.filter(r => r.unitId === unitId && r.visitId === visitId).map(r => ({
     id: r.id, updatedAt: r.updatedAt, floor: r.floor, space: r.space, location: r.location,
@@ -674,12 +800,15 @@ export async function signoffHash(p, x) {
     status: x.status, reason: x.reason, scope: x.scope, statement: x.statement.text,
     summary: x.summary, recordsDigest: x.recordsDigest, sourceChanged: x.sourceChanged || false,
     signers: x.signers.map(y => ({ id: y.id, role: y.role, group: y.group, name: y.name, status: y.status, reason: y.reason, relation: y.relation, attestedBy: y.attestedBy || null, mediaId: y.mediaId || null, signedAt: y.signedAt, voided: y.voided || null })) };
+  if (x.signedContent) Object.assign(fields, { signedContent: x.signedContent, contentDigest: x.contentDigest, revisionOf: x.revisionOf || null, comparisonIdentity: x.comparisonIdentity || null, signers: clone(x.signers) });
   return sha256(new TextEncoder().encode(canonicalJSON(fields)));
 }
 export async function rebaseSignoffs(p, sourceProject) {
   for (const x of p.signoffs || []) {
     const source = sourceProject?.signoffs?.find(y => y.id === x.id);
-    if (source?.level === 'unit' && source.signers.some(y => !y.voided)) x.sourceChanged ||= source.recordsDigest !== await recordsDigest(sourceProject, source.unitId, source.visitId);
+    if (source?.level === 'unit' && source.signers.some(y => !y.voided)) x.sourceChanged ||= await signoffContentChanged(sourceProject, source);
+    if (x.signedContent) x.comparisonIdentity = signoffIdentity(p, x);
+    if (!x.signedContent) x.legacyTracking = { identity: signoffIdentity(p, x), observationsDigest: await signoffContentDigest(signoffObservations(p, x)), changed: !!x.sourceChanged };
     x.sourceSnapshotHash ||= x.snapshotHash;
     x.sourceRecordsDigest ||= x.recordsDigest;
     x.recordsDigest = x.level === 'unit' ? await recordsDigest(p, x.unitId, x.visitId) : await sha256(new TextEncoder().encode('visit:' + x.visitId));
@@ -703,8 +832,10 @@ export function subset(p, unitId = '') {
     const records = new Set(result.records.map(r => r.id));
     result.handoffImports = result.handoffImports.map(s => ({ ...s, units: s.units.filter(u => u.id === unitId), records: s.records.filter(r => records.has(r.id)) })).filter(s => s.units.length || s.records.length);
   }
+  if (result.attachmentNumberingHistory) result.attachmentNumberingHistory = result.attachmentNumberingHistory.map(h => ({ ...h, units: h.units.filter(uid => uid === unitId), segments: h.segments.filter(key => key === unitId || key.startsWith(unitId + '/')), numbers: h.numbers.filter(n => n.unitId === unitId) })).filter(h => h.units.length);
   const used = new Set([...result.records.flatMap(r => [...r.photos.map(x => x.mediaId), ...r.audioIds, r.detail?.mediaId].filter(Boolean)), ...result.plans.map(x => x.mediaId), ...(result.signoffs || []).flatMap(x => x.signers.map(y => y.mediaId).filter(Boolean))]);
-  result.media = result.media.filter(m => used.has(m.id));
+  const historical = signoffMediaHashes(result);
+  result.media = result.media.filter(m => used.has(m.id) || historical.has(m.sha256));
   return result;
 }
 export function restoredCopy(p) {
@@ -713,6 +844,7 @@ export function restoredCopy(p) {
   copy.media.forEach(m => { m.id = remap.get(m.id); });
   copy.plans.forEach(x => { x.mediaId = remap.get(x.mediaId); for (const l of x.labelLayout || []) if (l.kind === 'photo') l.id = remap.get(l.id); });
   copy.records.forEach(r => { r.photos.forEach(x => { x.mediaId = remap.get(x.mediaId); }); if (r.mainPhotoId) r.mainPhotoId = remap.get(r.mainPhotoId); if (r.detail?.mediaId) r.detail.mediaId = remap.get(r.detail.mediaId); r.audioIds = r.audioIds.map(x => remap.get(x)); });
+  for (const h of copy.attachmentNumberingHistory || []) for (const n of h.numbers) n.mediaId = remap.get(n.mediaId) || n.mediaId;
   for (const x of copy.signoffs || []) for (const y of x.signers) if (y.mediaId) y.mediaId = remap.get(y.mediaId);
   return { project: copy, remap };
 }

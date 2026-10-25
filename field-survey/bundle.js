@@ -1,4 +1,4 @@
-import { assert, clone, sha256, subset, validateProject, now, id, syncRooms, rebaseSignoffs, signoffHash, recordsDigest } from './model.js';
+import { signoffContentChanged, assert, clone, sha256, subset, validateProject, now, id, syncRooms, rebaseSignoffs, signoffHash } from './model.js';
 const PREFIX = 'CSURVEY/1\n', HEADER_SIZE = PREFIX.length + 11;
 const MAX_MANIFEST = 8 * 1024 * 1024, MAX_BUNDLE = 2 * 1024 * 1024 * 1024;
 const encode = value => new TextEncoder().encode(JSON.stringify(value));
@@ -17,7 +17,7 @@ export async function makeBundle(project, getBlob, unitId = '', progress = () =>
     parts.push(blob); total += blob.size; assert(total <= MAX_BUNDLE, '資料超過 2 GB，請選擇單戶分包匯出');
     progress(i + 1, payload.assets.length);
   }
-  const manifest = { kind: 'condition-survey-bundle', version: 18, createdAt: now(), payload, digest };
+  const manifest = { kind: 'condition-survey-bundle', version: 19, createdAt: now(), payload, digest };
   const bytes = encode(manifest); assert(bytes.length <= MAX_MANIFEST, '紀錄資料過大，請按戶分包');
   const header = PREFIX + String(bytes.length).padStart(10, '0') + '\n';
   return { blob: new Blob([header, bytes, ...parts], { type: 'application/octet-stream' }), manifest };
@@ -30,7 +30,7 @@ export async function readBundle(blob, progress = () => {}) {
   assert(length > 0 && length <= MAX_MANIFEST && HEADER_SIZE + length <= blob.size, '備份標頭損壞');
   let manifest;
   try { manifest = JSON.parse(await blob.slice(HEADER_SIZE, HEADER_SIZE + length).text()); } catch { throw new Error('備份資料無法讀取'); }
-  assert(manifest.kind === 'condition-survey-bundle' && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].includes(manifest.version) && manifest.payload, '不支援此備份版本，請先更新工具');
+  assert(manifest.kind === 'condition-survey-bundle' && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19].includes(manifest.version) && manifest.payload, '不支援此備份版本，請先更新工具');
   const { payload } = manifest; validateProject(payload.project);
   for (const x of payload.project.signoffs || []) assert(await signoffHash(payload.project, x) === x.snapshotHash, '簽認快照指紋不符');
   assert(typeof payload.scope === 'string' && (!payload.scope || payload.project.units.some(u => u.id === payload.scope)), '備份戶別不正確');
@@ -68,7 +68,7 @@ export async function consolidateBundles(base, sources) {
   validateProject(base);
   assert(sources.length > 0 && sources.length <= 20, '每次請選擇 1 至 20 份案件檔');
   const project = clone(base), media = [], added = [], skipped = [];
-  for (const x of project.signoffs || []) if (x.level === 'unit' && x.signers.some(y => !y.voided)) x.sourceChanged ||= x.recordsDigest !== await recordsDigest(base, x.unitId, x.visitId);
+  for (const x of project.signoffs || []) if (x.level === 'unit' && x.signers.some(y => !y.voided)) x.sourceChanged ||= await signoffContentChanged(base, x);
   const seen = new Set([...(base.handoffDigests || []), (await snapshot(base)).digest]);
   project.id = id(); project.revision = 0; project.name = base.name.slice(0, 210) + '（彙整）';
   project.createdAt = project.updatedAt = now(); project.handoffImports ||= [];
@@ -82,7 +82,7 @@ export async function consolidateBundles(base, sources) {
     const label = String(source.label || incoming.name).trim().slice(0, 80);
     assert(label, '請填寫來源名稱');
     const copy = clone(incoming), maps = {};
-    for (const x of copy.signoffs || []) if (x.level === 'unit' && x.signers.some(y => !y.voided)) x.sourceChanged ||= x.recordsDigest !== await recordsDigest(incoming, x.unitId, x.visitId);
+    for (const x of copy.signoffs || []) if (x.level === 'unit' && x.signers.some(y => !y.voided)) x.sourceChanged ||= await signoffContentChanged(incoming, x);
     const assetMap = new Map(assets.map(a => [a.id, a]));
     for (const key of ['units', 'records', 'plans', 'media', 'rooms', 'visits', 'signoffs']) maps[key] = new Map((copy[key] || []).map(item => [item.id, id()]));
     const map = (key, value) => { assert(maps[key].has(value), '案件關聯不存在'); return maps[key].get(value); };
@@ -119,6 +119,7 @@ export async function consolidateBundles(base, sources) {
     }
     for (const x of copy.signoffs || []) {
       x.id = map('signoffs', x.id); x.visitId = map('visits', x.visitId);
+      if (x.revisionOf) x.revisionOf = map('signoffs', x.revisionOf);
       if (x.unitId) x.unitId = map('units', x.unitId);
       const signerIds = new Map(x.signers.map(y => [y.id, id()]));
       for (const y of x.signers) { y.id = signerIds.get(y.id); if (y.mediaId) y.mediaId = map('media', y.mediaId); if (y.attestedBy) y.attestedBy = signerIds.get(y.attestedBy); }

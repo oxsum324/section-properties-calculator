@@ -56,7 +56,7 @@ export async function verifyV030(browser, base, out) {
     assert.equal(result.multiPages, 3); assert.equal(result.multiPNGs, 3); assert.equal(result.multiAttachmentPages, 2);
     assert(result.unnamed && result.html.includes('姓名：未另填'));
     assert(result.meta && result.attachment && result.sections.includes('signoff-sheet'));
-    assert.equal(result.backupVersion, 18); assert(result.equal);
+    assert.equal(result.backupVersion, 19); assert(result.equal);
     await page.locator('#signoffForm [name=role]').selectOption('surveyor');
     await page.locator('#signoffForm [name=name]').fill('甲技師');
     await clickSurvey(page, '#signoffForm button[type=submit]'); await signAndReturn(page);

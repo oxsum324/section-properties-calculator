@@ -1,4 +1,4 @@
-import { assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
+import { defaultReportPhotoIds, recordReportPhotos, assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
 import { markedImage, placementMarks, reportPlanImage } from './annotation.js';
 import { photoStampText } from './model.js';
 import { detailAnnotationText, detailComparison, photoContent, attachmentDescription } from './model.js';
@@ -13,17 +13,8 @@ export function textChunks(value) {
   for (const char of value) { part += char; if (char === '\n') lines++; if (part.length >= 700 || lines >= 24) { chunks.push(part); part = ''; lines = 0; } }
   if (part) chunks.push(part); return chunks;
 }
-export function defaultPhotoIds(r) {
-  const photos = r.photos.filter(p => !p.excluded), ids = new Set();
-  for (const role of ['overview', 'close']) { const p = photos.find(x => x.role === role); if (p) ids.add(p.mediaId); }
-  if (!ids.size && photos[0]) ids.add(photos[0].mediaId);
-  if (r.mainPhotoId) ids.add(r.mainPhotoId);
-  return ids;
-}
-export function reportPhotos(r) {
-  const defaults = defaultPhotoIds(r);
-  return r.photos.filter(p => photoIncluded(p) && (p.reportInclude === true || p.reportInclude === undefined && defaults.has(p.mediaId)));
-}
+export const defaultPhotoIds = defaultReportPhotoIds;
+export const reportPhotos = recordReportPhotos;
 export function moveRoom(project, roomId, direction, unitId = '') {
   const key = r => r.roomId || roomKey(r), allKeys = [...new Set(project.records.map(key))];
   const visible = [...new Set(project.records.filter(r => !unitId || r.unitId === unitId).map(key))];
@@ -67,7 +58,7 @@ export function attachmentIndex(project, { unitId = '', unitIds, start = 1, perP
   for (const group of ordered) { if (numbering === 'unit' && group.unitId !== previousUnit) number = start; previousUnit = group.unitId; for (const record of group.records) for (const photo of record.photos) { assert(number <= 999999, '照片編號超過上限'); photo.number = String(number++).padStart(3, '0'); } }
   assert(ordered.length || format === 'standard' && (includeEmpty && selectedUnits.length || includeSignoffs && selectedUnits.some(u => (project.signoffs || []).some(x => x.level === 'unit' && x.unitId === u.id))), '尚未選擇附件照片或簽認單');
   const visitIds = new Set([...ordered.flatMap(g => g.records.map(r => r.visitId)), ...selectedUnits.flatMap(u => (u.visitHistory || []).map(h => h.visitId))]);
-  return { kind: 'condition-survey-attachment', version: 3, format, toolVersion: VERSION, createdAt: now(), projectId: project.id, sourceRevision: project.revision, code: project.code, name: project.name, date: project.date, start, perPage, numbering, pageStart, pagePrefix, plansPerPage, tableRows, includeEmpty, includeSignoffs, publicByFloor, toc, visits: clone((project.visits || []).filter(v => visitIds.has(v.id))), units: clone(selectedUnits.filter(u => includeEmpty || includeSignoffs && (project.signoffs || []).some(x => x.level === 'unit' && x.unitId === u.id) || ordered.some(g => g.unitId === u.id))), groups: ordered };
+  return { kind: 'condition-survey-attachment', version: 3, format, toolVersion: VERSION, createdAt: now(), projectId: project.id, sourceRevision: project.revision, code: project.code, name: project.name, date: project.date, start, perPage, numbering, pageStart, pagePrefix, plansPerPage, tableRows, includeEmpty, includeSignoffs, publicByFloor, toc, signoffSegments: Object.fromEntries(selectedUnits.map(u => { const g = ordered.find(g => g.unitId === u.id); return [u.id, g ? segmentKey(u.id, g.floor, { publicByFloor, units: selectedUnits }) : u.id]; })), visits: clone((project.visits || []).filter(v => visitIds.has(v.id))), units: clone(selectedUnits.filter(u => includeEmpty || includeSignoffs && (project.signoffs || []).some(x => x.level === 'unit' && x.unitId === u.id) || ordered.some(g => g.unitId === u.id))), groups: ordered };
 }
 export function attachmentUnits(index, project) {
   const units = new Map();
@@ -100,6 +91,34 @@ export function observationMarks(q, label = '') {
   return marks;
 }
 const dataURL = blob => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('附件影像讀取失敗')); reader.readAsDataURL(blob); });
+
+function attachmentNumbers(index) {
+  return {
+    units: (index.units || []).map(u => u.id).sort(),
+    segments: [...(index.segmentKeys || [])].sort(),
+    numbers: index.groups.flatMap(g => g.records.flatMap(r => r.photos.map(photo => ({ unitId: g.unitId, recordId: r.recordId, mediaId: photo.mediaId, number: photo.number })))).sort((a, b) => (a.recordId + a.mediaId) < (b.recordId + b.mediaId) ? -1 : (a.recordId + a.mediaId) > (b.recordId + b.mediaId) ? 1 : 0)
+  };
+}
+function previousNumbering(project, current) {
+  return (project.attachmentNumberingHistory || []).findLast(x => JSON.stringify(x.units) === JSON.stringify(current.units) && JSON.stringify(x.segments) === JSON.stringify(current.segments));
+}
+export function attachmentNumberingChanges(project, index) {
+  const current = attachmentNumbers(index), previous = previousNumbering(project, current);
+  if (!previous) return [];
+  const key = x => JSON.stringify([x.recordId, x.mediaId]), old = new Map(previous.numbers.map(x => [key(x), x])), present = new Set(current.numbers.map(key));
+  return [
+    ...current.numbers.filter(x => old.get(key(x))?.number !== x.number).map(x => ({ ...x, previousNumber: old.get(key(x))?.number ?? null })),
+    ...previous.numbers.filter(x => !present.has(key(x))).map(x => ({ ...x, previousNumber: x.number, number: null }))
+  ];
+}
+export function rememberAttachmentNumbering(project, index, digest) {
+  const current = attachmentNumbers(index), previous = previousNumbering(project, current);
+  if (previous && JSON.stringify(previous.numbers) === JSON.stringify(current.numbers)) return false;
+  project.attachmentNumberingHistory ||= [];
+  project.attachmentNumberingHistory.push({ ...current, createdAt: index.createdAt, sourceRevision: index.sourceRevision, digest });
+  return true;
+}
+
 export async function renderAttachment(project, getBlob, options = {}, progress = () => {}) {
   const index = options.plannedIndex ? clone(options.plannedIndex) : attachmentIndex(project, options), e = escapeHTML, pages = [], includedAssets = new Map();
   assert(index.projectId === project.id && index.sourceRevision === project.revision, '案件已修改，請重新規劃分冊');
@@ -161,6 +180,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
   index.assets = [...includedAssets.values()];
   const usedPlanIds = new Set(index.groups.flatMap(g => g.records.flatMap(r => [r.pin?.planId, ...r.photos.map(p => p.placement?.planId)]).filter(Boolean)));
   index.plans = project.plans.filter(p => usedPlanIds.has(p.id)).map(clone);
+  index.numberingChanges = attachmentNumberingChanges(project, index);
   const mapping = JSON.stringify(index, null, 2), digest = await sha256(new TextEncoder().encode(mapping));
   const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="condition-survey-private" content="attachment"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>${e(index.code)} ${e(REPORT_FORMATS[index.format])}</title><style>
   *{box-sizing:border-box}body{margin:0;background:#e7ebea;color:#172f2e;font:14px/1.5 sans-serif}.sheet{width:190mm;min-height:270mm;padding:8mm;margin:8mm auto;background:white;position:relative;break-after:page;overflow-wrap:anywhere}header{border-bottom:1px solid #9badab;padding-bottom:3mm;margin-bottom:4mm}h1{font-size:20px;margin:0 0 2mm}h2{font-size:17px}p{margin:2mm 0;white-space:pre-wrap}footer{margin-top:4mm;border-top:1px solid #9badab;padding-top:2mm;font-size:12px}.description{white-space:pre-wrap;margin-bottom:4mm}figure{margin:0 0 4mm;break-inside:avoid}figure img{width:100%;height:76mm;object-fit:contain;background:#f5f6f5}.count-1 img{height:152mm}figcaption{padding:2mm;border-bottom:1px solid #ddd}.plan{width:100%;height:170mm;object-fit:contain}.archive{max-width:190mm;margin:8mm auto;padding:8mm;background:white;overflow-wrap:anywhere}.archive pre{white-space:pre-wrap;font-size:11px}@page{size:A4;margin:10mm}@media print{body{background:white}.sheet{width:100%;min-height:0;margin:0;padding:0}.archive{display:none}}@media screen and (max-width:760px){.sheet{width:100%;min-height:0;margin:12px 0;padding:16px}figure img{height:auto;max-height:76mm}.count-1 img{max-height:152mm}.plan{height:auto;max-height:170mm}}

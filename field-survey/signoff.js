@@ -1,4 +1,4 @@
-import { clone, id, now, sha256, recordsDigest, signoffHash, photoIncluded, unitIssues, latestUnitHistory, DEFAULT_SIGNING_STATEMENTS, UNIT_STATES, SIGNER_GROUPS, SIGNER_ROLES, assert } from './model.js';
+import { signoffConsent, signoffContent, signoffContentDigest, signoffContentChanged, latestSignoffVisit, latestUnitSignoff, canonicalJSON, clone, id, now, sha256, recordsDigest, signoffHash, photoIncluded, unitIssues, latestUnitHistory, DEFAULT_SIGNING_STATEMENTS, UNIT_STATES, SIGNER_GROUPS, SIGNER_ROLES, assert } from './model.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -24,8 +24,33 @@ export function proposedSignoff(p, unitId, visitId) {
     recordsDigest: '0'.repeat(64), snapshotHash: '0'.repeat(64), signers: [], createdAt: now(), updatedAt: now()
   };
 }
+
+export async function revisedSignoff(p, draft) {
+  const previous = (p.signoffs || []).find(x => x.id === draft.id);
+  if (!previous?.signers.length) {
+    if (draft.signedContent && await signoffContentChanged(p, draft)) { for (const key of ['signedContent', 'contentDigest', 'comparisonIdentity']) delete draft[key]; draft.recordsDigest = draft.snapshotHash = '0'.repeat(64); }
+    return draft;
+  }
+  if (previous.signedContent && !await signoffContentChanged(p, draft)) return draft;
+  const next = clone(draft);
+  next.id = id(); next.revisionOf = previous.id; next.signers = [];
+  next.createdAt = next.updatedAt = now();
+  for (const key of ['signedContent', 'contentDigest', 'comparisonIdentity', 'legacyTracking', 'sourceChanged', 'sourceSnapshotHash', 'sourceRecordsDigest']) delete next[key];
+  next.recordsDigest = next.snapshotHash = '0'.repeat(64);
+  if (next.level === 'unit') next.summary = proposedSignoff(p, next.unitId, next.visitId).summary;
+  return next;
+}
+export async function exportSignoff(p, unitId) {
+  const previous = latestUnitSignoff(p, unitId), visitId = latestSignoffVisit(p, unitId);
+  assert(visitId, '尚無會勘批次');
+  if (previous && !await signoffChanged(p, previous)) return previous;
+  return proposedSignoff(p, unitId, visitId);
+}
+
 export async function sealSignoff(p, x) {
   if (!x.recordsDigest || /^0+$/.test(x.recordsDigest)) x.recordsDigest = x.level === 'unit' ? await recordsDigest(p, x.unitId, x.visitId) : await sha256(new TextEncoder().encode('visit:' + x.visitId));
+  if (!x.signedContent) { x.signedContent = signoffContent(p, x); x.contentDigest = await signoffContentDigest(x.signedContent); }
+  assert(canonicalJSON(signoffConsent(x)) === canonicalJSON(x.signedContent.consent), '已簽認內容不可覆寫，請另建修訂版');
   x.snapshotHash = await signoffHash(p, x); x.updatedAt = now(); return x;
 }
 export function signoffStatus(p, unitId, visitId) {
@@ -38,14 +63,15 @@ export function signoffStatus(p, unitId, visitId) {
   return count ? `已簽 ${count} 位` : '未簽';
 }
 export async function signoffChanged(p, x) {
-  return x.level === 'unit' && x.signers.some(y => !y.voided) && (x.sourceChanged || x.recordsDigest !== await recordsDigest(p, x.unitId, x.visitId));
+  return x.level === 'unit' && x.signers.some(y => !y.voided) && await signoffContentChanged(p, x);
 }
 export function signoffFields(p, x) {
   const unit = p.units.find(u => u.id === x.unitId), visit = p.visits.find(v => v.id === x.visitId);
+  const identity = x.signedContent?.identity;
   const fields = {
-    'project.code': p.code, 'project.name': p.name, 'unit.code': unit?.code || '',
-    'unit.address': unit?.address || '', 'unit.building': unit?.building || '', 'unit.floor': unit?.floor || '',
-    'unit.kind': unit?.kind === 'public' ? '公設' : '住戶', 'visit.name': visit?.name || '',
+    'project.code': identity?.code ?? p.code, 'project.name': identity?.name ?? p.name, 'unit.code': identity?.unitCode ?? unit?.code ?? '',
+    'unit.address': identity?.address ?? unit?.address ?? '', 'unit.building': identity?.building ?? unit?.building ?? '', 'unit.floor': identity?.floor ?? unit?.floor ?? '',
+    'unit.kind': (identity?.kind ?? unit?.kind) === 'public' ? '公設' : '住戶', 'visit.name': identity?.visitName ?? visit?.name ?? '',
     'signoff.date': x.date, 'signoff.weather': x.weather, 'signoff.status': UNIT_STATES[x.status],
     'signoff.reason': x.reason, 'signoff.scope': x.scope, 'summary.records': String(x.summary.records),
     'summary.photos': String(x.summary.photos), 'summary.spaces': x.summary.spaces.join('、'),
@@ -77,7 +103,7 @@ async function signoffHTMLPage(p, x, getMedia, { blank = false, changed = false,
         let binary = ''; for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
         image = `<img src="data:${asset.blob.type};base64,${btoa(binary)}" alt="${esc(y.name)}${y.status === 'paper' ? '紙本簽章照片' : '簽名'}">`;
       }
-      const note = y.status === 'refused' ? `住戶當場表示不願簽名，由鑑定人員記載如上。原因：${y.reason}` : y.status === 'absent' ? '本次會勘住戶未在場或未能簽名，由鑑定人員記載如上。' : y.status === 'paper' ? '紙本簽章，原件照片存於案件備份。' : y.source === 'profile' ? '（預存簽名）' : '';
+      const note = y.status === 'refused' ? `住戶當場表示不願簽名，由鑑定人員記載如上。原因：${y.reason}` : y.status === 'absent' ? `本次會勘住戶未在場或未能簽名，由鑑定人員記載如上。原因：${y.reason}` : y.status === 'paper' ? '紙本簽章，原件照片存於案件備份。' : y.source === 'profile' ? '（預存簽名）' : '';
       cells.push(`<div class="signer"><div class="ink">${image}</div><div>姓名：${esc(y.name || '未另填')}　${esc(SIGNER_ROLES[y.role])}${y.relation ? '（' + esc(y.relation) + '）' : ''}</div><small>${esc([y.org, y.title, y.signedAt].filter(Boolean).join(' · '))}</small><small>${esc(note)}</small></div>`);
     }
     if (blank || !cells.length) cells.push('<div class="signer"><div class="ink"></div><div>姓名：＿＿＿＿＿＿　簽名／蓋章：＿＿＿＿＿＿</div></div>');
@@ -85,7 +111,7 @@ async function signoffHTMLPage(p, x, getMedia, { blank = false, changed = false,
   };
   const groups = await Promise.all(Object.keys(SIGNER_GROUPS).map(signerHTML));
   const visitAttendees = (p.signoffs || []).filter(v => v.level === 'visit' && v.visitId === x.visitId && v.date === x.date).flatMap(v => v.signers.filter(y => y.group === 'attendee' && !y.voided && y.status === 'signed').map(y => y.name || `${SIGNER_ROLES[y.role]}（姓名未另填）`));
-  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="condition-survey-private" content="signoff"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'"><title>${esc(p.code)} ${esc(fields['unit.code'])} 會勘簽認單</title><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif;color:#111;margin:0;background:#eee}.sheet{width:210mm;min-height:297mm;margin:auto;background:white;padding:10mm;page-break-after:always;display:flex;flex-direction:column}h1{text-align:center;font-size:18pt;margin:2mm 0 4mm}h2{font-size:11pt;margin:2mm 0 1mm}table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:1mm;text-align:left;font-size:9pt}th{width:34mm;background:#f5f5f5}.statement{border:1px solid #555;padding:2mm;margin:2mm 0;white-space:pre-wrap;font-size:9pt}.signers{display:flex;flex-wrap:wrap;gap:3mm}.signer{border:1px solid #888;width:48%;min-height:22mm;padding:1.5mm;font-size:8pt}.ink{height:12mm}.ink img{max-width:100%;max-height:100%;object-fit:contain}.signer small{display:block}footer{margin-top:auto;padding-top:2mm;font-size:8pt;color:#555}@media print{body{background:white}.sheet{margin:0;padding:0;width:auto;min-height:273mm}}</style></head><body><article class="sheet"><h1>建築物現況會勘簽認單</h1><p>案號：${esc(p.code)}　案名：${esc(p.name)}</p><table>${entries}</table><p>簽署時本戶待補 ${x.summary.pending} 項${x.summary.inaccessible ? `；無法觀察位置 ${x.summary.inaccessible} 處` : ''}。</p><div class="statement">${esc(x.statement.text)}</div>${groups.join('')}${visitAttendees.length ? `<p>當日會同人員：${esc(visitAttendees.join('、'))}；詳 ${esc(x.date)} 簽到表。</p>` : ''}${changed ? '<p>簽署後紀錄有更動，請核對案件紀錄。</p>' : ''}<footer>簽認識別短碼：${esc(fields['signoff.code'])}　｜　觸控簽名，非數位簽章　｜　第 ${page} 頁</footer></article></body></html>`;
+  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="condition-survey-private" content="signoff"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'"><title>${esc(fields['project.code'])} ${esc(fields['unit.code'])} 會勘簽認單</title><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif;color:#111;margin:0;background:#eee}.sheet{width:210mm;min-height:297mm;margin:auto;background:white;padding:10mm;page-break-after:always;display:flex;flex-direction:column}h1{text-align:center;font-size:18pt;margin:2mm 0 4mm}h2{font-size:11pt;margin:2mm 0 1mm}table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:1mm;text-align:left;font-size:9pt}th{width:34mm;background:#f5f5f5}.statement{border:1px solid #555;padding:2mm;margin:2mm 0;white-space:pre-wrap;font-size:9pt}.signers{display:flex;flex-wrap:wrap;gap:3mm}.signer{border:1px solid #888;width:48%;min-height:22mm;padding:1.5mm;font-size:8pt}.ink{height:12mm}.ink img{max-width:100%;max-height:100%;object-fit:contain}.signer small{display:block}footer{margin-top:auto;padding-top:2mm;font-size:8pt;color:#555}@media print{body{background:white}.sheet{margin:0;padding:0;width:auto;min-height:273mm}}</style></head><body><article class="sheet"><h1>建築物現況會勘簽認單</h1><p>案號：${esc(fields['project.code'])}　案名：${esc(fields['project.name'])}</p><table>${entries}</table>${!blank && !x.signers.some(y => !y.voided) ? '<p>本次尚未簽認</p>' : ''}<p>簽署時本戶待補 ${x.summary.pending} 項${x.summary.inaccessible ? `；無法觀察位置 ${x.summary.inaccessible} 處` : ''}。</p><div class="statement">${esc(x.statement.text)}</div>${groups.join('')}${visitAttendees.length ? `<p>當日會同人員：${esc(visitAttendees.join('、'))}；詳 ${esc(x.date)} 簽到表。</p>` : ''}${changed ? '<p>簽署後紀錄有更動，請核對案件紀錄。</p>' : ''}<footer>簽認識別短碼：${esc(fields['signoff.code'])}　｜　觸控簽名，非數位簽章　｜　第 ${page} 頁</footer></article></body></html>`;
 }
 export async function signoffHTML(p, x, getMedia, options = {}) {
   const active = x.signers.filter(y => !y.voided);
@@ -112,9 +138,10 @@ export async function signoffPNG(p, x, getMedia, { blank = false, changed = fals
     }
     rows.push(row); return rows;
   }
+  const f = signoffFields(p, x);
   let y = 96; font(40, true); ctx.textAlign = 'center'; ctx.fillText('建築物現況會勘簽認單', 620, y); ctx.textAlign = 'left'; y += 72;
-  font(23); for (const row of wrap(`案號：${p.code}　案名：${p.name}`, right - left)) { ctx.fillText(row, left, y); y += line; }
-  const f = signoffFields(p, x), rows = [['戶別', f['unit.code']], ['地址', f['unit.address']], ['棟別／樓層', `${f['unit.building']} ${f['unit.floor']}`], ['會勘日期／天氣', `${x.date}　${x.weather}`], ['會勘批次', f['visit.name']], ['本次狀態', f['signoff.status']], ['原因／範圍', `${x.reason} ${x.scope}`], ['紀錄摘要', `${x.summary.records} 處、${x.summary.photos} 張、待補 ${x.summary.pending} 項`], ['空間', f['summary.spaces']]];
+  font(23); for (const row of wrap(`案號：${f['project.code']}　案名：${f['project.name']}`, right - left)) { ctx.fillText(row, left, y); y += line; }
+  const rows = [['戶別', f['unit.code']], ['地址', f['unit.address']], ['棟別／樓層', `${f['unit.building']} ${f['unit.floor']}`], ['會勘日期／天氣', `${x.date}　${x.weather}`], ['會勘批次', f['visit.name']], ['本次狀態', f['signoff.status']], ['原因／範圍', `${x.reason} ${x.scope}`], ['紀錄摘要', `${x.summary.records} 處、${x.summary.photos} 張、待補 ${x.summary.pending} 項`], ['空間', f['summary.spaces']]];
   for (const [label, value] of rows) {
     const height = Math.max(50, wrap(value, 770).length * 30 + 14);
     ctx.strokeStyle = '#777'; ctx.strokeRect(left, y - 29, right - left, height); ctx.beginPath(); ctx.moveTo(340, y - 29); ctx.lineTo(340, y - 29 + height); ctx.stroke();
@@ -124,6 +151,7 @@ export async function signoffPNG(p, x, getMedia, { blank = false, changed = fals
   }
   y += 25; font(21); for (const part of wrap(x.statement.text, right - left)) { ctx.fillText(part, left, y); y += 30; }
   y += 24;
+  if (!blank && !x.signers.some(y => !y.voided)) { font(23, true); ctx.fillText('本次尚未簽認', left, y); y += 36; }
   for (const group of Object.keys(SIGNER_GROUPS)) {
     font(25, true); ctx.fillText(SIGNER_GROUPS[group], left, y); y += 16;
     const signers = x.signers.filter(s => s.group === group && !s.voided);
@@ -138,7 +166,7 @@ export async function signoffPNG(p, x, getMedia, { blank = false, changed = fals
         bitmap.close();
       }
       font(21); ctx.fillText(`姓名：${signer.name || '未另填'}　${SIGNER_ROLES[signer.role] || ''}　${signer.relation || ''}`, 520, y + 38);
-      font(17); for (const part of wrap(`${signer.signedAt || ''}　${signer.status === 'refused' ? '拒簽：' + signer.reason : signer.status === 'absent' ? '不在場' : signer.status === 'paper' ? '紙本簽章' : ''}`, 625)) ctx.fillText(part, 520, y + 73);
+      font(17); for (const part of wrap(`${signer.signedAt || ''}　${signer.status === 'refused' ? '拒簽：' + signer.reason : signer.status === 'absent' ? '不在場：' + signer.reason : signer.status === 'paper' ? '紙本簽章' : ''}`, 625)) ctx.fillText(part, 520, y + 73);
       y += 124;
     }
     y += 15;

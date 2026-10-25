@@ -5,9 +5,11 @@
 ## 目前版本與相容性
 
 - 版本以 `src/model.source.js` 的 `VERSION` 為準，頁首、工具箱首頁卡片與 `package.json` 同步；歷次改版說明見 [CHANGELOG](CHANGELOG.md)。
-- 本機資料庫與 `.csurvey` 案件檔格式 18，可讀格式 1～17。舊版工具不能讀取新版備份，接收端須先更新。
+- 本機資料庫與 `.csurvey` 案件檔格式 19，可讀格式 1～18。舊版工具不能讀取新版備份，接收端須先更新。
 - 資料庫升級會關閉舊版連線；更新前請關閉其他開著本工具的分頁或主畫面視窗，再套用新版。
 - 會勘簽認的實體手機檢核尚待完成，見 [簽認實機檢核](簽認實機檢核.md)。
+
+簽認修訂、最後一次會勘與公設分冊規則見 [V0.31 簽認修訂](V0.31_簽認修訂.md)。
 
 ## 沿用的快填與附件整理
 
@@ -122,9 +124,10 @@ PDF 分頁及 iframe 列印依據：[MDN Printing](https://developer.mozilla.org
 
 ## 驗證
 
-- 資料測試：`node --test field-survey/tests/model.test.js`（100 項）。
-- 瀏覽器流程：先備妥 `.github/pages-smoke` 的 Playwright runtime，執行 `node field-survey/tests/browser.test.js`（40 項，2026-10-24 本機實測 292 秒）；會自行開啟及關閉測試伺服器。Windows 使用已安裝 Chrome，其餘平台使用 Playwright Chromium。
+- 資料測試：`node --test field-survey/tests/model.test.js`（116 項）。
+- 瀏覽器流程：先備妥 `.github/pages-smoke` 的 Playwright runtime，執行 `node field-survey/tests/browser.test.js`（包含 V0.31 簽認修訂回歸；2026-10-24 舊版流程本機實測 292 秒）；會自行開啟及關閉測試伺服器。Windows 使用已安裝 Chrome，其餘平台使用 Playwright Chromium。
 - 真實舊版升級：`node field-survey/tests/upgrade-v08.cjs`（以 Git 歷史中的舊版程式建立舊案後升級，2026-10-24 本機實測 99 秒）。
+- 網路受限環境可執行 node field-survey/tests/run-in-memory.cjs v031 v030 v0303，檢查本機來源的表單、IndexedDB、HTML 與 PNG；此模式不驗證 Service Worker、離線快取或完整升級。
 - 以上三項均列入工具箱正式預檢（`toolbox-entrypoints-contract`、`condition-survey-browser`、`condition-survey-upgrade`）。
 - 證據在忽略發布的 `output/field-survey-validation/`，全部使用合成測試資料。
 - 尚未用實體 iPhone／Android 驗證相機、HEIC 解碼、主畫面安裝、鎖屏錄音及長時間大量照片。第一次使用先做一戶少量試拍、關網重開、再搬到電腦核對。

@@ -1,4 +1,5 @@
-import { clone, DETAIL_TEXTS, UNIT_STATES, assert, attachmentDescription, recordsDigest } from './model.js';
+import { exportSignoff, signoffChanged, signoffFields } from './signoff.js';
+import { clone, DETAIL_TEXTS, UNIT_STATES, assert, attachmentDescription } from './model.js';
 
 export const STANDARD_STYLE = `
 .standard-sheet,.standard-sheet *{box-sizing:border-box}
@@ -57,17 +58,19 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
   await document.fonts.ready;
   const label = number => `${index.pagePrefix || ''}${number}`;
   const numberNow = () => (index.pageStart || 1) + pages.length;
-  const sheet = (unit, body, type, number = numberNow()) => `<section class="sheet standard-sheet ${type}" data-unit="${e(unit.unitId)}" id="page-${number}"><header><h1>現況鑑定紀錄附件</h1><div>案號：${e(index.code)}　${e(index.name)}</div><div>戶別：${e(unit.unit)}${attachmentDescription(unit.segmentFloor) ? ' · ' + e(attachmentDescription(unit.segmentFloor)) : ''}${unit.address ? '　地址：' + e(unit.address) : ''}</div></header><div class="sheet-content">${body}</div><footer>${type === 'table-sheet' || !dateSummary(unit.records, '') ? '' : `會勘日期：${e(dateSummary(unit.records, ''))}　｜　`}第 ${e(label(number))} 頁</footer></section>`;
+  const sheet = (unit, body, type, number = numberNow()) => `<section class="sheet standard-sheet ${type}" data-unit="${e(unit.unitId)}" id="page-${number}"><header><h1>現況鑑定紀錄附件</h1><div>案號：${e(unit.signedIdentity?.code ?? index.code)}　${e(unit.signedIdentity?.name ?? index.name)}</div><div>戶別：${e(unit.unit)}${attachmentDescription(unit.segmentFloor) ? ' · ' + e(attachmentDescription(unit.segmentFloor)) : ''}${unit.address ? '　地址：' + e(unit.address) : ''}</div></header><div class="sheet-content">${body}</div><footer>${type === 'table-sheet' || !dateSummary(unit.records, '') ? '' : `會勘日期：${e(dateSummary(unit.records, ''))}　｜　`}第 ${e(label(number))} 頁</footer></section>`;
   const fits = html => { shadow.innerHTML = `<style>${STANDARD_STYLE}</style>${html}`; const content = shadow.querySelector('.sheet-content'); return content.clientHeight > 100 && content.scrollHeight <= content.clientHeight + 1; };
   const add = (unit, body, type, refs = {}) => { const number = numberNow(), html = sheet(unit, body, type, number); assert(fits(html), '附件頁面放不下，請縮短案名、地址或房間名稱後再匯出'); pages.push(html); sections.push({ page: number, label: label(number), type, unitId: unit.unitId, segmentKey: unit.segmentKey, ...refs }); };
   const tableBody = rows => `<h2>照片說明表</h2><table><colgroup><col style="width:10%"><col style="width:17%"><col style="width:25%"><col style="width:48%"></colgroup><thead><tr><th>照片編號</th><th>樓層、隔間</th><th>細部示意圖</th><th>照片內容</th></tr></thead><tbody>${rows.join('')}</tbody></table><p class="units-note">單位：裂縫寬度 mm；長度 m；面積 m²。細部示意圖未按照比例。</p>`;
   try {
     for (const unit of attachmentUnits(index, project)) {
       if (index.segmentKeys && !index.segmentKeys.includes(unit.segmentKey)) continue;
-      if (index.includeSignoffs && unit.segmentKey === unit.unitId) {
-        const x = (project.signoffs || []).filter(s => s.level === 'unit' && s.unitId === unit.unitId).at(-1);
+      if (index.includeSignoffs && unit.segmentKey === (index.signoffSegments?.[unit.unitId] ?? unit.unitId)) {
+        const x = await exportSignoff(project, unit.unitId);
         if (x) {
-          const changed = x.sourceChanged || x.recordsDigest !== await recordsDigest(project, x.unitId, x.visitId);
+          const changed = await signoffChanged(project, x), fields = signoffFields(project, x);
+          const signedUnit = { ...unit, unit: fields['unit.code'], address: fields['unit.address'], segmentFloor: '', signedIdentity: x.signedContent?.identity };
+          const floors = [...new Set((x.signedContent?.observations.records || project.records.filter(r => r.unitId === x.unitId && r.visitId === x.visitId)).map(r => r.floor).filter(Boolean))].join('、');
           const visitAttendees = (project.signoffs || []).filter(v => v.level === 'visit' && v.visitId === x.visitId && v.date === x.date)
             .flatMap(v => v.signers.filter(y => y.group === 'attendee' && y.status === 'signed' && !y.voided).map(y => y.name || '會同人員（姓名未另填）'));
           const participants = x.signers.filter(y => !y.voided);
@@ -76,9 +79,9 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
             const cards = [];
             for (const y of batch) {
               const src = y.status === 'signed' ? await encodeSignature(y.mediaId) : y.status === 'paper' ? await encodeSignature(y.mediaId, 'image') : '';
-              cards.push(`<div class="signoff-card"><div class="signoff-ink">${src ? `<img src="${src}" alt="${e(y.name || '姓名未另填')}${y.status === 'paper' ? '紙本簽章照片' : '簽名'}">` : ''}</div><div>姓名：${e(y.name || '未另填')}　${e(y.role)}　${e(y.relation || '')}</div><small>${e(y.signedAt || '')}　${y.status === 'refused' ? '拒簽：' + e(y.reason) : y.status === 'absent' ? '不在場' : y.status === 'paper' ? '紙本簽章照片' : ''}</small></div>`);
+              cards.push(`<div class="signoff-card"><div class="signoff-ink">${src ? `<img src="${src}" alt="${e(y.name || '姓名未另填')}${y.status === 'paper' ? '紙本簽章照片' : '簽名'}">` : ''}</div><div>姓名：${e(y.name || '未另填')}　${e(y.role)}　${e(y.relation || '')}</div><small>${e(y.signedAt || '')}　${y.status === 'refused' ? '拒簽：' + e(y.reason) : y.status === 'absent' ? '不在場：' + e(y.reason) : y.status === 'paper' ? '紙本簽章照片' : ''}</small></div>`);
             }
-            add(unit, `<h2>建築物現況會勘簽認單${i ? '（續）' : ''}</h2><p>會勘日期：${e(x.date)}　天氣：${e(x.weather)}　狀態：${e(UNIT_STATES[x.status] || '')}</p><p>本次範圍：${e(x.scope)}　原因：${e(x.reason)}</p><p>簽署時：${x.summary.records} 處紀錄、${x.summary.photos} 張採用照片、${x.summary.pending} 項待補。</p>${changed ? '<p class="signoff-changed">簽署後紀錄有更動，請核對案件紀錄。</p>' : ''}${i ? '' : `<p class="signoff-statement">${e(x.statement.text)}</p>${visitAttendees.length ? `<p>當日會同人員：${e(visitAttendees.join('、'))}；詳 ${e(x.date)} 簽到表。</p>` : ''}`}<div class="signoff-grid">${cards.join('') || '<p>尚無簽署人</p>'}</div><p>簽認識別短碼：${e(x.snapshotHash.slice(0, 8))}　｜　觸控簽名，非數位簽章</p>`, 'signoff-sheet', { signoffId: x.id });
+            add(signedUnit, `<h2>建築物現況會勘簽認單${i ? '（續）' : ''}</h2><p>會勘日期：${e(x.date)}　天氣：${e(x.weather)}　狀態：${e(UNIT_STATES[x.status] || '')}</p><p>涵蓋樓層：${e(floors)}　會勘範圍：${e(x.scope)}　原因：${e(x.reason)}</p><p>簽署時：${x.summary.records} 處紀錄、${x.summary.photos} 張採用照片、${x.summary.pending} 項待補。</p>${changed ? '<p class="signoff-changed">簽署後紀錄有更動，請核對案件紀錄。</p>' : ''}${i ? '' : `<p class="signoff-statement">${e(x.statement.text)}</p>${visitAttendees.length ? `<p>當日會同人員：${e(visitAttendees.join('、'))}；詳 ${e(x.date)} 簽到表。</p>` : ''}`}<div class="signoff-grid">${cards.join('') || '<p>本次尚未簽認</p>'}</div><p>簽認識別短碼：${e(x.snapshotHash.slice(0, 8))}　｜　觸控簽名，非數位簽章</p>`, 'signoff-sheet', { signoffId: x.id });
           }
         }
       }

@@ -1,5 +1,5 @@
 import { clone, id, now, sha256, SIGNER_GROUPS, SIGNER_ROLES, SIGNER_STATUSES, UNIT_STATES, assert } from './model.js';
-import { proposedSignoff, sealSignoff, signoffChanged, signoffHTML, signoffPNGs } from './signoff.js';
+import { proposedSignoff, revisedSignoff, exportSignoff, sealSignoff, signoffChanged, signoffHTML, signoffPNGs } from './signoff.js';
 import { getProfileSignature, saveProfileSignature } from './store.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -43,10 +43,7 @@ export function createSignoffController(api) {
     assert(status === 'signed' || signer.name, '拒簽、不在場或紙本紀錄請填姓名');
     assert(role !== 'proxy' || signer.relation, '代理人須填與住戶關係');
     if (status === 'refused') assert(signer.reason, '拒簽須填原因');
-    if (['refused', 'absent'].includes(status)) {
-      const witness = x.signers.find(y => y.group === 'surveyor' && y.status === 'signed' && !y.voided);
-      assert(witness, '請先由鑑定人員親簽，才能記錄拒簽或不在場'); signer.attestedBy = witness.id;
-    }
+
     return signer;
   }
   function openVoidForm(button, save) {
@@ -82,14 +79,14 @@ export function createSignoffController(api) {
     const defaultRole = unitId ? u?.kind === 'public' ? 'management' : 'resident' : 'contractor';
     openModal(unitId ? `${u.code} · 會勘簽認` : '本批次會同人員簽到', `<p>案號：${esc(p.code)}　${unitId ? `戶別：${esc(u.code)} · ${esc(u.address)}` : `批次：${esc(p.visits.find(v => v.id === visitId).name)}`}</p>
       <p class="modal-note">確認下方資料後，向下滑按「交付手機開始觸控簽名」。觸控簽名不必輸入姓名。</p>
-      ${changed ? '<p class="modal-note danger-text">簽署後紀錄有更動，請核對簽署時的範圍與目前內容。</p>' : ''}
+      ${changed ? '<p class="modal-note danger-text">內容已變更；本次將另建修訂並重新簽認，原簽認保留。</p>' : ''}
       <p class="micro">簽署時摘要：${x.summary.records} 處紀錄、${x.summary.photos} 張採用照片、${x.summary.spaces.map(esc).join('、') || '尚無空間'}；待補 ${x.summary.pending} 項。</p>
       <div class="signoff-existing">${active.map(y => `<div class="panel">${esc(y.name || '姓名未另填')} · ${esc(SIGNER_ROLES[y.role])} · ${esc(SIGNER_STATUSES[y.status])}　<small>${esc(y.signedAt)}</small><button type="button" data-void-signer="${esc(y.id)}" class="quiet">作廢</button></div>`).join('') || '<p>尚未簽認。</p>'}</div>
       <form id="signoffForm"><div class="two-col"><label>本戶會勘日期<input type="date" name="date" value="${esc(x.date)}" required></label><label>天氣<select name="weather"><option value="">未記錄</option>${['晴', '陰', '雨', '其他'].map(v => `<option value="${v}" ${x.weather === v ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
       <label>本次狀態<select name="status">${Object.entries(UNIT_STATES).map(([v, t]) => `<option value="${v}" ${x.status === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label><label>未完成／無法入內原因<textarea name="reason" rows="2">${esc(x.reason)}</textarea></label><label>本次會勘範圍<textarea name="scope" rows="2">${esc(x.scope)}</textarea></label>
       <div class="statement-preview"><strong>簽署前聲明</strong><p>${esc(x.statement.text)}</p></div><p class="micro">建議完成紀錄後再簽。若先簽，表單會列出簽署時待補項目。</p>
       <label>簽署人角色<select name="role">${Object.entries(SIGNER_ROLES).filter(([key]) => unitId || !['resident', 'proxy', 'management'].includes(key)).map(([v, t]) => `<option value="${v}" ${v === defaultRole ? 'selected' : ''}>${t}</option>`).join('')}</select></label><label><span id="signoffNameLabel">姓名（觸控簽名選填，可直接簽）</span><input name="name" maxlength="200" autocomplete="off"></label><div class="two-col"><label>單位<input name="org" maxlength="200"></label><label>職稱<input name="title" maxlength="200"></label></div><label>與住戶關係（代理人必填）<input name="relation" maxlength="200"></label>
-      <label>簽認方式<select name="signerStatus">${Object.entries(SIGNER_STATUSES).map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>${profile ? '<label class="check-label"><input name="useProfile" type="checkbox">鑑定人員使用裝置預存簽名（只適用鑑定人員，表上會註明）</label>' : ''}<label>拒簽原因<input name="signerReason" maxlength="500"></label><label>紙本簽章照片<input name="paper" type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" capture="environment"></label><p class="micro">拒簽、不在場須先由鑑定人員在本表簽名見證。紙本簽章照片只存於本機案件與匯出的案件檔。</p><button type="submit" class="primary full">交付手機開始觸控簽名</button></form>
+      <label>簽認方式<select name="signerStatus">${Object.entries(SIGNER_STATUSES).map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>${profile ? '<label class="check-label"><input name="useProfile" type="checkbox">鑑定人員使用裝置預存簽名（只適用鑑定人員，表上會註明）</label>' : ''}<label>拒簽／不在場原因<input name="signerReason" maxlength="500"></label><label>紙本簽章照片<input name="paper" type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" capture="environment"></label><p class="micro">拒簽、不在場須先由鑑定人員在本表簽名見證。紙本簽章照片只存於本機案件與匯出的案件檔。</p><button type="submit" class="primary full">交付手機開始觸控簽名</button></form>
       <div class="choice-chips"><button type="button" id="blankSignoff">空白簽認單</button>${x.signers.length ? '<button type="button" id="exportSignoff">預覽／匯出簽認單</button>' : ''}</div>`);
     const updateSignerMode = () => {
       const signed = $('#signoffForm [name=signerStatus]').value === 'signed';
@@ -99,11 +96,17 @@ export function createSignoffController(api) {
     };
     $('#signoffForm [name=signerStatus]').onchange = updateSignerMode;
     updateSignerMode();
-    $('#signoffForm').onsubmit = event => {
+    $('#signoffForm').onsubmit = async event => {
       event.preventDefault();
-      const draft = clone(x);
+      let draft = clone(x);
       try {
         const signer = snapshotForm(draft), file = $('#signoffForm [name=paper]').files[0];
+        draft = await revisedSignoff(getProject(), draft);
+        if (['refused', 'absent'].includes(signer.status)) {
+          const witness = draft.signers.find(y => y.group === 'surveyor' && y.status === 'signed' && !y.voided);
+          assert(witness, '請先由鑑定人員在本版簽名，才能記錄拒簽或不在場'); signer.attestedBy = witness.id;
+          if (signer.status === 'absent') assert(signer.reason, '請填不在場原因');
+        }
         if (signer.status === 'signed' && $('#signoffForm [name=useProfile]')?.checked) action(async () => {
           assert(signer.group === 'surveyor' && p.signingSettings?.allowProfileSignature && profile, '預存簽名只供已啟用的鑑定人員使用');
           const asset = await assetFromBlob(profile.blob, `${signer.name || SIGNER_ROLES[signer.role]}-預存簽名.png`, 'signature');
@@ -126,7 +129,9 @@ export function createSignoffController(api) {
     };
   }
   async function output(x, blank) {
-    const p = getProject(), changed = !blank && await signoffChanged(p, x);
+    const p = getProject();
+    if (!blank && x.level === 'unit') x = await exportSignoff(p, x.unitId);
+    const changed = !blank && await signoffChanged(p, x);
     const html = await signoffHTML(p, x, getMedia, { blank, changed });
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     openModal(blank ? '空白簽認單' : '簽認單預覽', '<p>請核對戶別、日期、聲明與簽名。列印時選 A4，關閉瀏覽器頁首頁尾。</p><div class="choice-chips"><button id="printSignoff" class="secondary">列印／另存 PDF</button><button id="downloadSignoff" class="primary">下載獨立 HTML</button><button id="downloadSignoffPng" class="secondary">下載 PNG</button></div><iframe id="signoffPreview" title="會勘簽認單預覽"></iframe>', () => URL.revokeObjectURL(url));
@@ -157,13 +162,13 @@ export function createSignoffController(api) {
   function selectMany() {
     const p = getProject(), units = p.units.filter(u => (p.signoffs || []).some(x => x.level === 'unit' && x.unitId === u.id && x.signers.some(y => !y.voided)));
     assert(units.length, '尚無可匯出的簽認單');
-    openModal('選擇簽認單戶別', `<p>勾選要輸出的戶別；每戶採用最近一份簽認紀錄。</p><div class="choice-chips"><button id="selectAllSignoffs">全選</button><button id="clearAllSignoffs">清除</button></div><div id="bulkSignoffUnits">${units.map(u => `<label class="check-label"><input type="checkbox" value="${esc(u.id)}" checked>${esc(u.code)} · ${esc(u.address)}</label>`).join('')}</div><button id="makeBulkSignoffs" class="primary full">製作所選簽認單</button>`);
+    openModal('選擇簽認單戶別', `<p>勾選要輸出的戶別；每戶採用最後一次會勘；尚未簽認會直接標示。</p><div class="choice-chips"><button id="selectAllSignoffs">全選</button><button id="clearAllSignoffs">清除</button></div><div id="bulkSignoffUnits">${units.map(u => `<label class="check-label"><input type="checkbox" value="${esc(u.id)}" checked>${esc(u.code)} · ${esc(u.address)}</label>`).join('')}</div><button id="makeBulkSignoffs" class="primary full">製作所選簽認單</button>`);
     $('#selectAllSignoffs').onclick = () => $('#bulkSignoffUnits').querySelectorAll('input').forEach(i => { i.checked = true; });
     $('#clearAllSignoffs').onclick = () => $('#bulkSignoffUnits').querySelectorAll('input').forEach(i => { i.checked = false; });
     $('#makeBulkSignoffs').onclick = () => action(async () => {
       const ids = [...$('#bulkSignoffUnits').querySelectorAll('input:checked')].map(i => i.value);
       assert(ids.length, '請至少勾選一戶');
-      const selected = ids.map(uid => (p.signoffs || []).filter(x => x.level === 'unit' && x.unitId === uid).at(-1));
+      const selected = await Promise.all(ids.map(uid => exportSignoff(p, uid)));
       const parser = new DOMParser(), doc = parser.parseFromString(await signoffHTML(p, selected[0], getMedia, { changed: await signoffChanged(p, selected[0]), page: 1 }), 'text/html');
       let nextPage = doc.querySelectorAll('.sheet').length + 1;
       for (let i = 1; i < selected.length; i++) {

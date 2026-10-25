@@ -1,6 +1,6 @@
 import { openLabelEditor } from './label-editor.js';
 import { clone, recordIssues, attachmentObservationText, photoContent, roomKey, photoIncluded, ROLES, assert, syncRooms, photoPlacement, recordDateInfo, reportPreferences, validateReportSettings, COMPANY_REPORT_STYLE } from './model.js';
-import { attachmentIndex, defaultPhotoIds, reportPhotos, renderAttachment, moveRoom, REPORT_FORMATS, escapeHTML as e, prepareVolumes, renderPlannedVolume, masterContentsHTML } from './report.js';
+import { rememberAttachmentNumbering, attachmentIndex, defaultPhotoIds, reportPhotos, renderAttachment, moveRoom, REPORT_FORMATS, escapeHTML as e, prepareVolumes, renderPlannedVolume, masterContentsHTML } from './report.js';
 import { detailContextHTML } from './detail.js';
 
 export function createReportController(api) {
@@ -216,7 +216,8 @@ export function createReportController(api) {
       }, anchor, mid);
     });
   };
-  function showResult(result, p, back) {
+  async function showResult(result, p, back) {
+    if (rememberAttachmentNumbering(clone(getProject()), result.index, result.digest)) await commit(next => { rememberAttachmentNumbering(next, result.index, result.digest); });
     const url = URL.createObjectURL(new Blob([result.html], { type: 'text/html;charset=utf-8' }));
     const formatName = REPORT_FORMATS[result.index.format], suffix = result.index.volume ? '-第' + result.index.volume + '冊' : settings.unitId ? '-' + (p.units.find(u => u.id === settings.unitId)?.code || '') : '';
     openModal(formatName + suffix + ' · 預覽與下載', '<p>請核對日期、選片、細圖與文字。列印選 A4、100% 比例，關閉瀏覽器頁首頁尾。</p><div class="choice-chips"><button id="printAttachment" class="secondary">列印／另存 PDF</button><button id="downloadAttachment" class="primary">下載附件 HTML</button><button id="downloadMapping" class="secondary">下載編號對照 JSON</button>' + (back ? '<button id="backToVolumes" class="secondary">返回分冊清單</button>' : '') + '</div><iframe id="attachmentPreview" title="現況照片附件預覽"></iframe>', () => URL.revokeObjectURL(url));
@@ -233,11 +234,11 @@ export function createReportController(api) {
     await saveTextEdits();
     const p = clone(getProject()), opts = options(); attachmentIndex(p, opts);
     const result = await renderAttachment(p, async mid => (await getMedia(mid))?.blob, opts, (i, n) => busyText('整理附件照片 ' + i + '／' + n));
-    showResult(result, p);
+    await showResult(result, p);
   }, '整理照片附件');
   function volumeMenu(p, plan) {
     openModal('標準附件 · 分冊清單', '<p>' + plan.volumes.length + ' 冊 · ' + plan.index.sections.length + ' 頁正文。目錄獨立計頁，各冊正文頁碼接續。</p><label>選擇冊次<select id="volumeSelect">' + plan.volumes.map(v => '<option value="' + v.number + '">第 ' + v.number + ' 冊 · ' + e(plan.index.pagePrefix + v.start) + '～' + e(plan.index.pagePrefix + (v.start + v.pageCount - 1)) + ' · ' + v.unitIds.length + ' 戶' + (v.overLimit ? '（單元超過頁數上限，完整保留）' : '') + '</option>').join('') + '</select></label><div class="choice-chips"><button id="previewVolume" class="primary">開啟本冊／下載</button><button id="downloadContents" class="secondary">下載全案分冊目錄</button><button id="downloadVolumePlan" class="secondary">下載全案編號對照</button></div><p class="micro">逐冊製作影像，減少一次處理的資料量。單冊影像過大時，可返回調整每冊頁數或公設分段。</p>');
-    $('#previewVolume').onclick = () => action(async () => { const result = await renderPlannedVolume(p, async mid => (await getMedia(mid))?.blob, plan, Number($('#volumeSelect').value), (i, n) => busyText('整理本冊照片 ' + i + '／' + n)); showResult(result, p, () => volumeMenu(p, plan)); }, '製作本冊附件');
+    $('#previewVolume').onclick = () => action(async () => { const result = await renderPlannedVolume(p, async mid => (await getMedia(mid))?.blob, plan, Number($('#volumeSelect').value), (i, n) => busyText('整理本冊照片 ' + i + '／' + n)); await showResult(result, p, () => volumeMenu(p, plan)); }, '製作本冊附件');
     $('#downloadContents').onclick = () => action(async () => download(new Blob([await masterContentsHTML(plan)], { type: 'text/html;charset=utf-8' }), p.code + '-分冊總目錄-r' + p.revision + '.html'));
     $('#downloadVolumePlan').onclick = () => download(new Blob([JSON.stringify(plan, null, 2)], { type: 'application/json' }), p.code + '-全案編號與分冊對照-r' + p.revision + '.json');
   }

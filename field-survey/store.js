@@ -1,11 +1,11 @@
-import { validateProject, now, assert } from './model.js';
+import { validateProject, now, assert, assertSignoffHistory, signoffHash, signoffContentDigest, signoffContentChanged, trackLegacySignoffs, preserveReportSelection, clone } from './model.js';
 const request = req => new Promise((resolve, reject) => { req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
 const completion = tx => new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onabort = () => reject(tx.error || new Error('儲存交易已取消')); tx.onerror = () => {}; });
 let database;
 export async function openStore() {
   if (database) return database;
   // A version upgrade prevents older windows from overwriting signature records.
-  const req = indexedDB.open('condition-survey-v1', 18);
+  const req = indexedDB.open('condition-survey-v1', 19);
   req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups', 'profile', 'templates']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   // Another window (a background tab or the home-screen app) can keep the old database open and block
   // the version upgrade; never hang silently, say what to close.
@@ -27,7 +27,21 @@ export async function saveProfileSignature(blob, strokes) {
   tx.objectStore('profile').put({ id: 'surveyor-signature', blob, strokes, updatedAt: now() }); await done;
 }
 export async function saveProject(project, expectedRevision, media = []) {
-  validateProject(project);
+  project = clone(project); validateProject(project);
+  const before = await getProject(project.id);
+  if ((before?.revision ?? 0) !== expectedRevision) { const error = new Error('另一個視窗已修改此案件。請按「另存目前副本」保留這個視窗的紀錄，再核對兩份案件。'); error.name = 'RevisionConflictError'; throw error; }
+  await trackLegacySignoffs(project, before);
+  for (const r of project.records) preserveReportSelection(r);
+  assertSignoffHistory(before, project);
+  for (const x of project.signoffs || []) {
+    assert(await signoffHash(project, x) === x.snapshotHash, '簽認快照指紋不符');
+    if (x.signedContent) assert(await signoffContentDigest(x.signedContent) === x.contentDigest, '簽認內容指紋不符');
+    const old = before?.signoffs?.find(y => y.id === x.id);
+    if (x.signers.length && (!old || x.signers.some(y => !old.signers.some(z => z.id === y.id)))) {
+      if (x.signedContent && (old || !x.sourceSnapshotHash)) assert(!await signoffContentChanged(project, x), '內容已有變更，請建立新版簽認');
+      else if (!x.signedContent) assert(!old, '舊簽認請另建新版後再追加簽署人');
+    }
+  }
   const db = await openStore(), tx = db.transaction(['projects', 'blobs'], 'readwrite'), done = completion(tx);
   const projects = tx.objectStore('projects'), blobs = tx.objectStore('blobs');
   try {
