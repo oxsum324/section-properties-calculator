@@ -139,7 +139,87 @@ near(PM.phiOf(0.0035, 0.65, 0.90), 0.65 + 0.25 * 0.5, 1e-9, 'φ 過渡區線性�
     { cRatios: ratios }
   );
   near(cv.phiPnMax, 686.2910434732414, 1e-10, '圓柱 φPn,max 對齊柱頁基準');
-  near(PM.phiMnAtPu(cv.design, 220), 70.8098831413698, 1e-10, '圓柱 φMn@Pu 對齊依 fy/Es 修正之基準');
+  // 2026-10-25 轉角取樣與自適應加密後由 70.8098831413698 更新；直接求根精算值 70.8997
+  near(PM.phiMnAtPu(cv.design, 220), 70.8948440720639, 1e-10, '圓柱 φMn@Pu 對齊依 fy/Es 修正與轉角取樣之基準');
+})();
+
+// ── 9. 取樣弦線不得高估 φMn（F1：φ 壓力控制界限與鋼筋層進入壓力塊之凸折） ──
+// 精算值不經折線：直接對 φPn(c) = Pu 求根，取各交點之最大 φMn。
+// 鋼筋層進入壓力塊時 Pn 不連續 (排擠混凝土一次扣除)；跨此階梯之 Pu 以階梯兩側直線連接，
+// 與 phiMnAtPu 之慣例一致。
+function exactPhiMnAtPu(sec, mat, Pu) {
+  const h = sec.h, Es = mat.Es || 2.04e6;
+  const beta1 = mat.beta1 == null ? PM.beta1Of(mat.fc) : mat.beta1;
+  const dt = Math.max.apply(null, sec.bars.map(function (r) { return r.y; }));
+  const Ast = sec.bars.reduce(function (s, r) { return s + r.As; }, 0);
+  const cap = mat.phiComp * mat.PnMaxFactor * (0.85 * mat.fc * (sec.b * h - Ast) + mat.fy * Ast);
+  const at = function (c) {
+    const p = PM.point(c, sec, mat);
+    const phi = PM.phiOf(PM.EPS_CU * (dt - c) / c, mat.phiComp, mat.phiTen, mat.fy / Es);
+    let P = p.Pn * phi;
+    if (p.Pn > 0 && P > cap) P = cap;
+    return { P: P / 1000, M: Math.abs(p.Mn) * phi / 1e5 };
+  };
+  const n = 40000, lo = 1e-4 * h, hi = 50 * h;
+  const grid = [];
+  for (let i = 0; i <= n; i++) grid.push(hi * Math.pow(lo / hi, i / n));
+  sec.bars.forEach(function (r) { grid.push(r.y / beta1 * (1 + 1e-9), r.y / beta1 * (1 - 1e-9)); });
+  grid.sort(function (a, b) { return b - a; });
+  let best = null, prevC = grid[0], prev = at(grid[0]);
+  for (let i = 1; i < grid.length; i++) {
+    const c = grid[i];
+    const cur = at(c);
+    if ((prev.P - Pu) * (cur.P - Pu) <= 0 && prev.P !== cur.P) {
+      let M;
+      if (prevC / c <= 1 + 3e-9) {
+        M = prev.M + (Pu - prev.P) / (cur.P - prev.P) * (cur.M - prev.M);   // 階梯兩側直線連接
+      } else {
+        // 起點恰在 Pu 上 (如 φPn,max 平台) 時，二分求平台邊界；否則求變號點
+        let a = prevC, b = c;
+        const sa = prev.P - Pu;
+        const onA = function (m) { const d = at(m).P - Pu; return sa === 0 ? d === 0 : d * sa > 0; };
+        for (let k = 0; k < 80; k++) {
+          const m = (a + b) / 2;
+          if (onA(m)) a = m; else b = m;
+        }
+        M = Math.max(at(a).M, at(b).M);
+      }
+      if (best == null || M > best) best = M;
+    }
+    prev = cur; prevC = c;
+  }
+  return best;
+}
+(function () {
+  const ratios = [];
+  for (let cR = 5; cR >= 0.05 - 1e-9; cR -= 0.05) ratios.push(Number(cR.toFixed(10)));
+  const cases = [
+    { title: '50×50 柱 φ 壓力控制界限', Pu: 170.9,
+      sec: { b: 50, h: 50, bars: [{ y: 6, As: 3 * 5.07 }, { y: 25, As: 2 * 5.07 }, { y: 44, As: 3 * 5.07 }] },
+      mat: { fc: 280, fy: 4200, Es: 2.04e6, phiComp: 0.65, phiTen: 0.90, PnMaxFactor: 0.80 } },
+    { title: '35×30 重配筋柱 鋼筋層進入壓力塊', Pu: 16.371,
+      sec: { b: 35, h: 30, bars: [{ y: 8, As: 3 * 8.143 }, { y: 8 + 14 / 3, As: 2 * 8.143 }, { y: 8 + 28 / 3, As: 2 * 8.143 }, { y: 22, As: 3 * 8.143 }] },
+      mat: { fc: 560, fy: 5600, Es: 2.04e6, phiComp: 0.65, phiTen: 0.90, PnMaxFactor: 0.80 } },
+  ];
+  cases.forEach(function (tc) {
+    const legacy = PM.curve(tc.sec, tc.mat, { cRatios: ratios, refine: false });
+    const fixed = PM.curve(tc.sec, tc.mat, { cRatios: ratios });
+    const exact = exactPhiMnAtPu(tc.sec, tc.mat, tc.Pu);
+    const before = PM.phiMnAtPu(legacy.design, tc.Pu);
+    const after = PM.phiMnAtPu(fixed.design, tc.Pu);
+    ok(before > exact * 1.005, `${tc.title}：未加密取樣重現高估`, `legacy=${before.toFixed(4)} exact=${exact.toFixed(4)}`);
+    ok(after <= exact * (1 + 1e-6) && after >= exact * 0.999, `${tc.title}：加密後不高估且貼近精算`, `fixed=${after.toFixed(4)} exact=${exact.toFixed(4)}`);
+    const pMin = fixed.design[fixed.design.length - 1].P, pMax = fixed.phiPnMax;
+    let worst = 0, worstPu = null;
+    for (let k = 0; k <= 400; k++) {
+      const Pu = pMin + (pMax - pMin) * k / 400;
+      const e = exactPhiMnAtPu(tc.sec, tc.mat, Pu);
+      const v = PM.phiMnAtPu(fixed.design, Pu);
+      if (e > 0 && v / e - 1 > worst) { worst = v / e - 1; worstPu = Pu; }
+    }
+    ok(worst <= 1e-6, `${tc.title}：全軸力範圍 401 點不高估`, `最大高估 ${(worst * 100).toExponential(2)}%${worstPu == null ? '' : ` @Pu=${worstPu.toFixed(2)}`}`);
+    ok(fixed.refined === true && legacy.refined === false && fixed.samplePoints > legacy.samplePoints, `${tc.title}：refine 旗標與加密點數`, `${legacy.samplePoints} → ${fixed.samplePoints}`);
+  });
 })();
 
 console.log(`\n${fail === 0 ? '✓ ALL PASS' : '✗ HAS FAILURES'} — ${pass} passed, ${fail} failed`);

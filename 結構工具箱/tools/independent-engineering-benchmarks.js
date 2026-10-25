@@ -12,6 +12,9 @@ const BENCHMARK_KEYS = ['id', 'route', 'title', 'productionModule', 'oracle', 'r
 const BENCHMARK_OPTIONAL_KEYS = ['families'];
 const CANDIDATE_KEYS = ['id', 'capability', 'title', 'productionModule', 'oracle', 'referenceType', 'referenceBasis', 'expectedOutcome', 'input', 'assertions'];
 const ASSERTION_KEYS = ['path', 'absTolerance'];
+// 選填：relTolerance 為相對容差；bound 為單向界限 (upper：正式值不得高於 oracle；lower：不得低於 oracle)
+const ASSERTION_OPTIONAL_KEYS = ['bound', 'relTolerance'];
+const ASSERTION_BOUNDS = new Set(['upper', 'lower']);
 const TARGET_KEYS = ['route', 'priority', 'evidenceNeeded'];
 const CANDIDATE_OUTCOMES = new Set(['strength-pass', 'strength-reject']);
 
@@ -24,6 +27,24 @@ function exactKeys(value, expected, label, issues) {
   const wanted = [...expected].sort();
   if (actual.join('\u0000') !== wanted.join('\u0000')) {
     issues.push(`${label}:keys:${actual.join(',')}`);
+  }
+}
+
+// 斷言：path、absTolerance 必填；bound、relTolerance 選填，bound 須搭配 relTolerance
+function validateAssertion(assertion, label, issues) {
+  if (!assertion || typeof assertion !== 'object' || Array.isArray(assertion)) {
+    issues.push(`${label}:object-required`);
+    return;
+  }
+  const optional = ASSERTION_OPTIONAL_KEYS.filter(key => Object.prototype.hasOwnProperty.call(assertion, key));
+  exactKeys(assertion, ASSERTION_KEYS.concat(optional), label, issues);
+  if (Object.prototype.hasOwnProperty.call(assertion, 'relTolerance')
+    && (!Number.isFinite(assertion.relTolerance) || assertion.relTolerance < 0 || assertion.relTolerance > 0.01)) {
+    issues.push(`${label}:rel-tolerance`);
+  }
+  if (Object.prototype.hasOwnProperty.call(assertion, 'bound')
+    && (!ASSERTION_BOUNDS.has(assertion.bound) || !Object.prototype.hasOwnProperty.call(assertion, 'relTolerance'))) {
+    issues.push(`${label}:bound`);
   }
 }
 
@@ -1070,6 +1091,75 @@ function rcPileCap3dStmOracle(input) {
   };
 }
 
+// 矩形牆 P-M 精算：不經取樣折線，沿中性軸深度 c 掃描後二分求根，取各交點最大值。
+// spec = { fc, fy, b (厚), h (長), beta1, bars:[{y, As}], phiPnMax (tf) }，單位 kgf、cm；φ 依本 oracle 之 εt 0.002／0.005。
+// 鋼筋層進入壓力塊時強度不連續 (排擠混凝土一次扣除)，跨此階梯之 Pu 以兩側直線連接。
+// 回傳 Pu (tf) 下 { phiMn (tf·m), MnNom (tf·m), cNom (cm) }，無交點者為 0。
+function exactRectWallPmAtPu(spec, Pu) {
+  const dt = Math.max(...spec.bars.map(bar => bar.y));
+  const state = c => {
+    const a = Math.min(spec.beta1 * c, spec.h);
+    const Cc = 0.85 * spec.fc * spec.b * a;
+    let Pn = Cc;
+    let Mn = Cc * (spec.h / 2 - a / 2);
+    for (const bar of spec.bars) {
+      const strain = 0.003 * (c - bar.y) / c;
+      const stress = Math.max(-spec.fy, Math.min(spec.fy, strain * 2.04e6));
+      const force = bar.y < a ? (stress - 0.85 * spec.fc) * bar.As : stress * bar.As;
+      Pn += force;
+      Mn += force * (spec.h / 2 - bar.y);
+    }
+    const epsT = 0.003 * (dt - c) / c;
+    const phi = epsT >= 0.005 ? 0.9 : epsT <= 0.002 ? 0.65 : 0.65 + 0.25 * (epsT - 0.002) / 0.003;
+    const phiPn = Pn > 0 ? Math.min(phi * Pn / 1000, spec.phiPnMax) : phi * Pn / 1000;
+    return { c, Pn: Pn / 1000, MnAbs: Math.abs(Mn) / 1e5, phiPn, phiMn: phi * Math.abs(Mn) / 1e5 };
+  };
+  const lo = 1e-4 * spec.h;
+  const hi = 50 * spec.h;
+  const steps = 20000;
+  const grid = [];
+  for (let k = 0; k <= steps; k += 1) grid.push(hi * Math.pow(lo / hi, k / steps));
+  for (const bar of spec.bars) grid.push(bar.y / spec.beta1 * (1 + 1e-9), bar.y / spec.beta1 * (1 - 1e-9));
+  grid.sort((x, y) => y - x);
+  const maxAlong = (axialKey, valueKey) => {
+    let best = 0;
+    let prev = state(grid[0]);
+    for (let k = 1; k < grid.length; k += 1) {
+      const cur = state(grid[k]);
+      const fa = prev[axialKey] - Pu;
+      const fb = cur[axialKey] - Pu;
+      if (fa * fb <= 0 && prev[axialKey] !== cur[axialKey]) {
+        let value;
+        if (prev.c / cur.c <= 1 + 3e-9) {
+          const t = (Pu - prev[axialKey]) / (cur[axialKey] - prev[axialKey]);
+          value = prev[valueKey] + t * (cur[valueKey] - prev[valueKey]);
+        } else {
+          // 起點恰在 Pu 上 (如 φPn,max 平台) 時，二分求平台邊界；否則求變號點
+          let a = prev.c;
+          let b = cur.c;
+          const onA = m => {
+            const d = state(m)[axialKey] - Pu;
+            return fa === 0 ? d === 0 : d * fa > 0;
+          };
+          for (let it = 0; it < 80; it += 1) {
+            const m = (a + b) / 2;
+            if (onA(m)) a = m; else b = m;
+          }
+          value = Math.max(state(a)[valueKey], state(b)[valueKey]);
+        }
+        if (value > best) best = value;
+      }
+      prev = cur;
+    }
+    return best;
+  };
+  return {
+    phiMn: maxAlong('phiPn', 'phiMn'),
+    MnNom: maxAlong('Pn', 'MnAbs'),
+    cNom: maxAlong('Pn', 'c'),
+  };
+}
+
 function rcShearWallStrengthOracle(i) {
   const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
   const bool = value => value ? 1 : 0;
@@ -1136,9 +1226,11 @@ function rcShearWallStrengthOracle(i) {
     return best == null ? 0 : best;
   }
 
-  const cAtPu = interpolate(nominal, i.Pu, 'c');
-  const phiMn = interpolate(design, i.Pu, 'M');
-  const MnNomAtPu = interpolate(nominal, i.Pu, 'M', true);
+  // P-M 強度以直接求根精算；取樣包絡 (design) 只用於軸力範圍端點
+  const exactPm = exactRectWallPmAtPu({ fc:i.fc, fy:i.fy, b:i.tw, h:i.lw, beta1, bars, phiPnMax }, i.Pu);
+  const cAtPu = exactPm.cNom;
+  const phiMn = exactPm.phiMn;
+  const MnNomAtPu = exactPm.MnNom;
   const pmPMin = Math.min(...design.map(point => point.P));
   const pmPMax = Math.max(...design.map(point => point.P));
   const pmUtil = Math.abs(i.Mu) / phiMn;
@@ -1297,15 +1389,8 @@ function rcWallStrengthOracle(input) {
     const pMin = Math.min(...design.map(point => point.P));
     const pMax = Math.max(...design.map(point => point.P));
     const moment = item.M == null ? item.P * item.e / 100 : item.M;
-    let phiMn = 0;
-    for (let index = 0; index < design.length - 1; index += 1) {
-      const A = design[index];
-      const B = design[index + 1];
-      if ((A.P - item.P) * (B.P - item.P) <= 0 && A.P !== B.P) {
-        const fraction = (item.P - A.P) / (B.P - A.P);
-        phiMn = Math.max(phiMn, A.M + fraction * (B.M - A.M));
-      }
-    }
+    // φMn 以直接求根精算；取樣包絡 (design) 只用於軸力範圍端點
+    const phiMn = exactRectWallPmAtPu({ fc:item.fc, fy:item.fy, b:item.h, h:item.lw, beta1, bars, phiPnMax }, item.P).phiMn;
     const axialOk = item.P >= pMin - 1e-9 && item.P <= pMax + 1e-9;
     const utilization = phiMn > 0 ? Math.abs(moment) / phiMn : Math.abs(moment) > 0 ? Infinity : 0;
     return {
@@ -5424,7 +5509,7 @@ function validateCatalog(catalog) {
     const assertionPaths = new Set();
     for (const [assertionIndex, assertion] of (benchmark.assertions || []).entries()) {
       const assertionLabel = `${label}.assertions[${assertionIndex}]`;
-      exactKeys(assertion, ASSERTION_KEYS, assertionLabel, issues);
+      validateAssertion(assertion, assertionLabel, issues);
       if (!assertion.path || assertionPaths.has(assertion.path)) issues.push(`${assertionLabel}:unique-path`);
       assertionPaths.add(assertion.path);
       if (!Number.isFinite(assertion.absTolerance) || assertion.absTolerance < 0) issues.push(`${assertionLabel}:abs-tolerance`);
@@ -5449,7 +5534,7 @@ function validateCatalog(catalog) {
     const assertionPaths = new Set();
     for (const [assertionIndex, assertion] of (benchmark.assertions || []).entries()) {
       const assertionLabel = `${label}.assertions[${assertionIndex}]`;
-      exactKeys(assertion, ASSERTION_KEYS, assertionLabel, issues);
+      validateAssertion(assertion, assertionLabel, issues);
       if (!assertion.path || assertionPaths.has(assertion.path)) issues.push(`${assertionLabel}:unique-path`);
       assertionPaths.add(assertion.path);
       if (!Number.isFinite(assertion.absTolerance) || assertion.absTolerance < 0) issues.push(`${assertionLabel}:abs-tolerance`);
@@ -5469,11 +5554,18 @@ function validateCatalog(catalog) {
   return issues;
 }
 
-function closeEnough(actual, expected, absTolerance) {
+// 恆等比對：|正式 − oracle| ≤ absTolerance (+ relTolerance × |oracle|)；
+// bound 為 upper 時正式值另不得高於 oracle + absTolerance，lower 時不得低於 oracle − absTolerance。
+function closeEnough(actual, expected, assertion) {
   if (actual === Infinity && expected === Infinity) return true;
   if (actual === -Infinity && expected === -Infinity) return true;
   if (!Number.isFinite(actual) || !Number.isFinite(expected)) return false;
-  return Math.abs(actual - expected) <= absTolerance;
+  const absTolerance = assertion.absTolerance;
+  const relTolerance = Number.isFinite(assertion.relTolerance) ? assertion.relTolerance : 0;
+  if (Math.abs(actual - expected) > absTolerance + relTolerance * Math.abs(expected)) return false;
+  if (assertion.bound === 'upper' && actual > expected + absTolerance) return false;
+  if (assertion.bound === 'lower' && actual < expected - absTolerance) return false;
+  return true;
 }
 
 function runBenchmarks(catalog, options = {}) {
@@ -5546,7 +5638,7 @@ function runBenchmarks(catalog, options = {}) {
       for (const assertion of benchmark.assertions) {
         const actualValue = getPath(production, assertion.path);
         const expectedValue = getPath(expected, assertion.path);
-        if (!closeEnough(actualValue, expectedValue, assertion.absTolerance)) {
+        if (!closeEnough(actualValue, expectedValue, assertion)) {
           recordIssues.push(`benchmark-value-mismatch:${assertion.path}:actual=${actualValue}:expected=${expectedValue}`);
         }
       }

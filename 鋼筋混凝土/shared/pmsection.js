@@ -118,12 +118,122 @@
     return { Pn, Mn };
   }
 
+  /* 轉角取樣與自適應加密。
+   * phiMnAtPu 在取樣點之間以直線內插 φMn；設計包絡線若在兩取樣點之間往外凸折，
+   * 弦線即落在包絡線外而高估 φMn（不保守）。凸折處為：φ 壓力控制界限 (εt = εty)、
+   * 鋼筋層進入壓力塊 (排擠混凝土一次扣除之階梯)、鋼筋降伏、壓力塊達全深，以及 φ 轉換區
+   * 之平滑內凹段。處理方式：
+   *   (1) 補入上述各轉角之 c，鋼筋層進入壓力塊處取前後兩點以保留階梯；
+   *   (2) 補入 φPn 與 φPn,max 之交點；
+   *   (3) 每段弦線在 REFINE_PROBES 各處與真實設計點比較，弦線高於曲線即對分加密；
+   *       弦線低於曲線 (保守側) 超過 REFINE_CONSERVATIVE_TOL 亦加密，使容量不致過度低估。 */
+  const REFINE_REL_TOL = 1e-7;
+  const REFINE_CONSERVATIVE_TOL = 1e-4;
+  const REFINE_MAX_DEPTH = 24;
+  const REFINE_MIXED_DEPTH = 8;
+  const REFINE_PROBES = [1 / 32, 1 / 8, 2 / 8, 3 / 8, 4 / 8, 5 / 8, 6 / 8, 7 / 8, 31 / 32];
+  const REFINE_MAX_POINTS = 6000;
+  const JUMP_EPS = 1e-9;
+
+  function uniqueDesc(values) {
+    const sorted = values.filter(function (v) { return isFinite(v) && v > 0; }).sort(function (a, b) { return b - a; });
+    const out = [];
+    for (let i = 0; i < sorted.length; i++) if (!out.length || sorted[i] !== out[out.length - 1]) out.push(sorted[i]);
+    return out;
+  }
+
+  function refineSamples(baseCs, evalAt, g) {
+    const cache = new Map();
+    const at = function (c) {
+      let r = cache.get(c);
+      if (!r) { r = evalAt(c); cache.set(c, r); }
+      return r;
+    };
+    const design = function (r) {
+      let P = r.P * r.phi;
+      if (r.P > 0 && P > g.phiPnMax) P = g.phiPnMax;
+      return { P: P, M: Math.abs(r.M) * r.phi };
+    };
+    const base = uniqueDesc(baseCs);
+    if (base.length < 2) return base.map(at);
+    const cHi = base[0], cLo = base[base.length - 1];
+    const set = base.slice();
+    const add = function (c) { if (c > cLo && c < cHi) set.push(c); };
+    add(EPS_CU * g.dt / (EPS_CU + g.epsTy));                     // φ 壓力控制界限 εt = εty
+    add(EPS_CU * g.dt / (EPS_CU + g.epsTy + 0.003));             // φ 拉力控制界限 εt = εty + 0.003
+    add(g.refDepth / g.beta1);                                   // 壓力塊達全深 a = h
+    for (let i = 0; i < g.bars.length; i++) {
+      const y = g.bars[i].y;
+      const cEnter = y / g.beta1;                                // 鋼筋層進入壓力塊 (強度不連續)
+      add(cEnter * (1 + JUMP_EPS));
+      add(cEnter * (1 - JUMP_EPS));
+      if (EPS_CU > g.epsTy) add(EPS_CU * y / (EPS_CU - g.epsTy)); // 受壓鋼筋降伏
+      add(EPS_CU * y / (EPS_CU + g.epsTy));                      // 受拉鋼筋降伏
+    }
+    let cs = uniqueDesc(set);
+
+    // φPn 與 φPn,max 交點
+    const crossings = [];
+    for (let i = 0; i < cs.length - 1; i++) {
+      const A = at(cs[i]), B = at(cs[i + 1]);
+      const fa = A.P * A.phi - g.phiPnMax, fb = B.P * B.phi - g.phiPnMax;
+      if (A.P > 0 && B.P > 0 && fa * fb < 0) {
+        let a = cs[i], b = cs[i + 1];
+        for (let k = 0; k < 60; k++) {
+          const m = (a + b) / 2;
+          const r = at(m);
+          if ((r.P * r.phi - g.phiPnMax) * fa > 0) a = m; else b = m;
+        }
+        crossings.push((a + b) / 2);
+      }
+    }
+    if (crossings.length) cs = uniqueDesc(cs.concat(crossings));
+
+    let Mmax = 0;
+    for (let i = 0; i < cs.length; i++) Mmax = Math.max(Mmax, design(at(cs[i])).M);
+    const floor = 1e-9 * Mmax;
+    // 線段內 9 點 (k/8 與兩端附近 1/32、31/32) 與弦線比較：任一點弦線高於曲線即加密；
+    // 偏差正負並存 (S 形反曲) 時不保守的小段可能落在檢查點之間，亦加密至
+    // REFINE_MIXED_DEPTH 層以壓縮其範圍。
+    const unsafe = function (ca, cb, depth) {
+      const A = design(at(ca)), B = design(at(cb));
+      if (A.P === B.P) return false;                             // φPn,max 平台
+      let above = false, below = false;
+      for (let k = 0; k < REFINE_PROBES.length; k++) {
+        const Q = design(at(ca + (cb - ca) * REFINE_PROBES[k]));
+        const t = (Q.P - A.P) / (B.P - A.P);
+        if (t < 0 || t > 1) return true;                         // 軸力摺返
+        const dev = A.M + t * (B.M - A.M) - Q.M;
+        const lim = REFINE_REL_TOL * Q.M + floor;
+        if (dev > lim) return true;
+        if (dev < -(REFINE_CONSERVATIVE_TOL * Q.M + floor)) return true;
+        if (dev > 1e-12 * Q.M) above = true; else if (dev < -lim) below = true;
+      }
+      return above && below && depth < REFINE_MIXED_DEPTH;
+    };
+    const out = [cs[0]];
+    let budget = REFINE_MAX_POINTS;
+    const split = function (ca, cb, depth) {
+      if (depth < REFINE_MAX_DEPTH && budget > 0 && ca / cb > 1 + 3 * JUMP_EPS && unsafe(ca, cb, depth)) {
+        const cm = (ca + cb) / 2;
+        budget--;
+        split(ca, cm, depth + 1);
+        split(cm, cb, depth + 1);
+      } else {
+        out.push(cb);
+      }
+    };
+    for (let i = 0; i < cs.length - 1; i++) split(cs[i], cs[i + 1], 0);
+    return out.map(at);
+  }
+
   /* 完整 P-M 互制曲線。
    *   sec = { b, h, bars:[{y, As}] }
    *   mat = { fc, fy, beta1?, Es?, phiComp?, phiTen?, PnMaxFactor? }
-   *   opt = { steps?, cMaxFactor?, cMinFactor?, cRatios? }
+   *   opt = { steps?, cMaxFactor?, cMinFactor?, cRatios?, refine? }
+   *     refine: 預設 true，於轉角補點並自適應加密 (見 refineSamples)；false 僅用原取樣點。
    * 回傳 (P 單位 tf, M 單位 tf·m)：
-   *   { nominal:[{P,M,phi}], design:[{P,M}], phiPnMax, Po, Ast, dt, Ag, beta1, phiFactorComp }
+   *   { nominal:[{P,M,phi}], design:[{P,M}], phiPnMax, Po, Ast, dt, Ag, beta1, phiFactorComp, refined, samplePoints }
    *   nominal: 標稱曲線 (Po → 純拉)；design: 已乘 φ 並套用 φPn,max 上限之設計封包。 */
   function curve(sec, matIn, opt) {
     const mat = Object.assign({}, DEFAULTS, matIn || {});
@@ -148,13 +258,18 @@
       ? opt.cRatios.slice()
       : Array.from({ length: steps }, function (_, i) { return cMax - (cMax - cMin) * i / (steps - 1); });
 
-    const nominal = [{ P: Po, M: 0, phi: mat.phiComp, c: cMax * refDepth }];  // 純軸壓端
-    for (let i = 0; i < cRatios.length; i++) {
-      const c = cRatios[i] * refDepth;
+    const evalAt = function (c) {
       const pt = point(c, sec, mat);
       const epsT = EPS_CU * (dt - c) / c;
-      nominal.push({ P: pt.Pn, M: pt.Mn, phi: phiOf(epsT, mat.phiComp, mat.phiTen, epsTy), c: c });
-    }
+      return { P: pt.Pn, M: pt.Mn, phi: phiOf(epsT, mat.phiComp, mat.phiTen, epsTy), c: c };
+    };
+    const baseCs = cRatios.map(function (r) { return r * refDepth; });
+    const refined = !(opt && opt.refine === false);
+    const samples = refined
+      ? refineSamples(baseCs, evalAt, { bars: bars, beta1: mat.beta1, refDepth: refDepth, dt: dt, epsTy: epsTy, phiPnMax: phiPnMax })
+      : baseCs.map(evalAt);
+
+    const nominal = [{ P: Po, M: 0, phi: mat.phiComp, c: cMax * refDepth }].concat(samples);  // 純軸壓端
     nominal.push({ P: -Ast * fy, M: 0, phi: mat.phiTen, c: 0 });   // 純拉端
 
     const design = nominal.map(function (p) {
@@ -177,6 +292,8 @@
       refDepth: refDepth,
       phiFactorComp: mat.phiComp,
       PnMaxFactor: mat.PnMaxFactor,
+      refined: refined,
+      samplePoints: samples.length,
     };
   }
 

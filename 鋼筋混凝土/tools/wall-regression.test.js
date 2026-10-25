@@ -52,10 +52,10 @@ function main() {
   assert(wallHtml.includes('id="btnSaveWallProject"') && wallHtml.includes('id="btnLoadWallProject"'), 'wall.html has project file controls', 'save/load buttons present');
   assert(wallHtml.includes('id="btnSaveWallDraft"') && wallHtml.includes('id="btnLoadWallDraft"'), 'wall.html has browser draft controls', 'draft buttons present');
   assert(wallHtml.includes('rc.wall.project.draft'), 'wall.html has localStorage draft key', 'wall draft key present');
-  assert(wallHtml.includes("LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2'])") && /expectedVersion: 'V3\.3',\s+legacyVersions: LEGACY_REPLAY_VERSIONS/.test(wallHtml), 'wall.html accepts verified V3.1 and V3.2 projects', 'legacy projects replay under the V3.3 page');
-  assert(wallHtml.includes('<script src="../shared/project-replay.js?v=1"></script>') && wallHtml.includes('RCProjectReplay.reconcileProjectCalculationReplay(payload, collectWallProjectData()') && wallHtml.includes('RCProjectReplay.describeProjectCalculationReplay(replay'), 'wall.html discloses V3.1 / V3.2 project migration through the shared replay comparison', 'legacy replay prompts a V3.3 save');
+  assert(wallHtml.includes("LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2', 'V3.3'])") && /expectedVersion: 'V3\.4',\s+legacyVersions: LEGACY_REPLAY_VERSIONS/.test(wallHtml), 'wall.html accepts verified V3.1 to V3.3 projects', 'legacy projects replay under the V3.4 page');
+  assert(wallHtml.includes('<script src="../shared/project-replay.js?v=1"></script>') && wallHtml.includes('RCProjectReplay.reconcileProjectCalculationReplay(payload, collectWallProjectData()') && wallHtml.includes('RCProjectReplay.describeProjectCalculationReplay(replay'), 'wall.html discloses V3.1 to V3.3 project migration through the shared replay comparison', 'legacy replay prompts a V3.4 save');
   const projectReplay = fs.readFileSync(path.join(ROOT, 'shared', 'project-replay.js'), 'utf8');
-  assert(projectReplay.includes('已依 ${o.currentVersion} 重新計算') && projectReplay.includes('請另存 ${o.currentVersion} 專案檔') && projectReplay.includes('判定由「${banner(saved)}」改為「${banner(current)}」'), 'shared project replay states the migration notice and verdict change', 'old/new verdict and V3.3 save prompt');
+  assert(projectReplay.includes('已依 ${o.currentVersion} 重新計算') && projectReplay.includes('請另存 ${o.currentVersion} 專案檔') && projectReplay.includes('判定由「${banner(saved)}」改為「${banner(current)}」'), 'shared project replay states the migration notice and verdict change', 'old/new verdict and V3.4 save prompt');
   assert(wallHtml.includes('function collectWallProjectData()'), 'wall.html can collect wall project payload', 'project collect helper exists');
   assert(wallHtml.includes('function applyWallProjectData(raw'), 'wall.html can apply wall project payload', 'project apply helper exists');
   assert(wallHtml.includes('WALL_PROJECT_EXCLUDED_IDS') && wallHtml.includes('caseJson') && wallHtml.includes('baselineReport'), 'wall project excludes case-tool textareas', 'case JSON / baseline are not project inputs');
@@ -79,7 +79,7 @@ function main() {
   assert(wallHtml.includes('function compareWallCaseJson()'), 'wall.html can compare wall case JSON', 'compare helper exists');
   assert(wallHtml.includes('id="bwSupport"'), 'wall.html has basement support selector', 'basement wall model is selectable');
   assert(wallHtml.includes('簡式不適用，P-M 仍照常檢核'), 'wall.html keeps P-M active when the simple formula is out of range', 'eccentricity no longer blocks the formal P-M check');
-  assert(wallHtml.includes('../shared/pmsection.js?v=3'), 'wall.html loads the shared P-M engine', 'general wall uses the same strain-compatibility core');
+  assert(wallHtml.includes('../shared/pmsection.js?v=4'), 'wall.html loads the shared P-M engine', 'general wall uses the same strain-compatibility core');
   assert(wallHtml.includes('../shared/wall-inplane-evaluator.js?v=3'), 'wall.html loads the in-plane capacity evaluator', 'formal calculation and load combinations share one evaluator');
   assert(wallHtml.includes('WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase)'), 'wall.html formal calculation uses the shared evaluator', 'displayed capacities and tuple ranking cannot drift apart');
   assert(wallHtml.includes('WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase'), 'wall.html formal calculation evaluates the P-M envelope', 'axial tension and eccentric compression use the formal section model');

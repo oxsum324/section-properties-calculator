@@ -167,8 +167,8 @@ const legacyWallBase = {
 };
 const legacyWall = fingerprintApi.withProjectCalculationFingerprint(legacyWallBase, migrationOptions);
 const wallValidation = {
-  expectedSchema: 'rc-wall-project-v1', expectedToolId: 'rc-wall', expectedVersion: 'V3.3',
-  legacyVersions: ['V3.1', 'V3.2'], sourceKey: 'fields', fingerprintOptions: migrationOptions,
+  expectedSchema: 'rc-wall-project-v1', expectedToolId: 'rc-wall', expectedVersion: 'V3.4',
+  legacyVersions: ['V3.1', 'V3.2', 'V3.3'], sourceKey: 'fields', fingerprintOptions: migrationOptions,
 };
 for (const appVersion of ['V3.2', '3.2', ' v3.2 ']) {
   assert.doesNotThrow(() => replayApi.validateLegacyProjectSource({ ...legacyWall, appVersion }, wallValidation), `legacy appVersion ${JSON.stringify(appVersion)} is accepted`);
@@ -176,20 +176,20 @@ for (const appVersion of ['V3.2', '3.2', ' v3.2 ']) {
 assert.doesNotThrow(() => replayApi.validateLegacyProjectSource({ ...legacyWall, appVersion: undefined, pageVersion: 'V3.2' }, wallValidation), 'pageVersion-only legacy source is accepted');
 assert.doesNotThrow(() => replayApi.validateLegacyProjectSource({ ...legacyWall, appVersion: undefined, tool: { id: 'rc-wall', pageVersion: ' v3.2 ' } }, wallValidation), 'tool.pageVersion-only legacy source is accepted');
 assert.doesNotThrow(() => replayApi.validateLegacyProjectSource(JSON.stringify({ ...legacyWall, appVersion: '3.2' }), wallValidation), 'legacy JSON text is parsed before version resolution');
-assert.throws(() => replayApi.validateLegacyProjectSource({ ...legacyWall, appVersion: 'V3.0' }, wallValidation), /工具版本不符（來源 V3\.0，目前 V3\.3）。/);
+assert.throws(() => replayApi.validateLegacyProjectSource({ ...legacyWall, appVersion: 'V3.0' }, wallValidation), /工具版本不符（來源 V3\.0，目前 V3\.4）。/);
 assert.throws(() => replayApi.validateLegacyProjectSource({ ...legacyWall, fields: { ...legacyWall.fields, vSp: { kind: 'input', inputType: 'number', value: '40' } } }, wallValidation), /來源內容與計算指紋不一致/, 'legacy integrity is still verified against the saved fingerprint');
 
-const replayAs = (payload, changes = {}) => fingerprintApi.withProjectCalculationFingerprint({ ...payload, appVersion: 'V3.3', savedAt: '2026-10-24T00:00:00.000Z', ...changes }, migrationOptions);
-const reconcileOptions = { legacyVersions: ['V3.1', 'V3.2'], sourceKey: 'fields', fingerprintOptions: migrationOptions };
+const replayAs = (payload, changes = {}) => fingerprintApi.withProjectCalculationFingerprint({ ...payload, appVersion: 'V3.4', savedAt: '2026-10-24T00:00:00.000Z', ...changes }, migrationOptions);
+const reconcileOptions = { legacyVersions: ['V3.1', 'V3.2', 'V3.3'], sourceKey: 'fields', fingerprintOptions: migrationOptions };
 
 const sameResult = replayApi.reconcileProjectCalculationReplay(legacyWall, replayAs(legacyWallBase), reconcileOptions);
 assert.strictEqual(sameResult.status, 'reproduced');
 assert.strictEqual(sameResult.legacy, true);
 assert.strictEqual(sameResult.sourceVersion, 'V3.2');
-assert.strictEqual(sameResult.currentVersion, 'V3.3');
+assert.strictEqual(sameResult.currentVersion, 'V3.4');
 const sameNotice = replayApi.describeProjectCalculationReplay(sameResult, { sourceLabel: '牆專案檔', applied: 4 });
 assert.strictEqual(sameNotice.status, 'ok');
-assert.strictEqual(sameNotice.message, `已讀取牆專案檔並重現計算：牆遷移，套用 4 個欄位｜計算指紋 ${legacyWall.calculationFingerprint}｜原為 V3.2 專案檔，已依 V3.3 重新計算，請另存 V3.3 專案檔`);
+assert.strictEqual(sameNotice.message, `已讀取牆專案檔並重現計算：牆遷移，套用 4 個欄位｜計算指紋 ${legacyWall.calculationFingerprint}｜原為 V3.2 專案檔，已依 V3.4 重新計算，請另存 V3.4 專案檔`);
 
 const flippedReplay = replayAs(legacyWallBase, { activeTab: 'geom', summary: { banner: '✗ NG — 不符合規範', reviewWarningCount: 2 } });
 const flipped = replayApi.reconcileProjectCalculationReplay(legacyWall, flippedReplay, reconcileOptions);
@@ -197,8 +197,8 @@ assert.strictEqual(flipped.status, 'recalculated', 'legacy result-only change is
 assert.deepStrictEqual([...flipped.resultChange.changedKeys], ['banner', 'reviewWarningCount']);
 const flippedNotice = replayApi.describeProjectCalculationReplay(flipped, { sourceLabel: '牆專案檔', applied: 4 });
 assert.strictEqual(flippedNotice.status, 'warn');
-assert.ok(flippedNotice.message.includes('原為 V3.2 專案檔，已依 V3.3 重新計算；判定由「⚠ 待確認 — 1 項需正式分析確認」改為「✗ NG — 不符合規範」（審查警示 1→2 項），請另存 V3.3 專案檔'), flippedNotice.message);
-assert.ok(flippedNotice.message.includes(`計算指紋 ${legacyWall.calculationFingerprint}（V3.2 存檔）→ ${flippedReplay.calculationFingerprint}（V3.3 重算）`), flippedNotice.message);
+assert.ok(flippedNotice.message.includes('原為 V3.2 專案檔，已依 V3.4 重新計算；判定由「⚠ 待確認 — 1 項需正式分析確認」改為「✗ NG — 不符合規範」（審查警示 1→2 項），請另存 V3.4 專案檔'), flippedNotice.message);
+assert.ok(flippedNotice.message.includes(`計算指紋 ${legacyWall.calculationFingerprint}（V3.2 存檔）→ ${flippedReplay.calculationFingerprint}（V3.4 重算）`), flippedNotice.message);
 assert.ok(!flippedNotice.message.includes('並重現計算'), 'recalculated notice must not claim the saved result was reproduced');
 
 const countOnly = replayApi.reconcileProjectCalculationReplay(legacyWall, replayAs(legacyWallBase, { summary: { ...legacyWallBase.summary, reviewWarningCount: 3 } }), reconcileOptions);
@@ -206,7 +206,7 @@ assert.ok(replayApi.describeProjectCalculationReplay(countOnly).message.includes
 
 const changedInput = replayAs(legacyWallBase, { fields: { ...legacyWallBase.fields, vSp: { kind: 'input', inputType: 'number', value: '40' } }, summary: { banner: '✓ OK', reviewWarningCount: 0 } });
 assert.throws(() => replayApi.reconcileProjectCalculationReplay(legacyWall, changedInput, reconcileOptions),
-  /專案 JSON 重現失敗：.*原為 V3\.2 專案檔，下列輸入無法於 V3\.3 逐欄重現，未載入：套用並重算後值不同：vSp（存檔 「44」，套用後 「40」）/);
+  /專案 JSON 重現失敗：.*原為 V3\.2 專案檔，下列輸入無法於 V3\.4 逐欄重現，未載入：套用並重算後值不同：vSp（存檔 「44」，套用後 「40」）/);
 const legacyWithRetiredField = fingerprintApi.withProjectCalculationFingerprint({ ...legacyWallBase, fields: { ...legacyWallBase.fields, retiredInput: { kind: 'input', inputType: 'number', value: '7' } } }, migrationOptions);
 assert.throws(() => replayApi.reconcileProjectCalculationReplay(legacyWithRetiredField, replayAs(legacyWallBase), reconcileOptions),
   /目前版本無此欄位：retiredInput（存檔 「7」）/);
@@ -223,7 +223,7 @@ assert.doesNotThrow(() => replayApi.reconcileProjectCalculationReplay(
 ), 'identity placeholders are normalized before field comparison');
 
 // 現行版：結果不同仍拒收（不放寬），並說明差異
-const currentWall = fingerprintApi.withProjectCalculationFingerprint({ ...legacyWallBase, appVersion: 'V3.3' }, migrationOptions);
+const currentWall = fingerprintApi.withProjectCalculationFingerprint({ ...legacyWallBase, appVersion: 'V3.4' }, migrationOptions);
 assert.throws(() => replayApi.reconcileProjectCalculationReplay(currentWall, flippedReplay, reconcileOptions),
   /^Error: 專案 JSON 重現失敗：來源 CF-[0-9A-F]{16}，重算 CF-[0-9A-F]{16}。存檔結果與重算結果不同：判定由「⚠ 待確認 — 1 項需正式分析確認」改為「✗ NG — 不符合規範」/);
 assert.throws(() => replayApi.reconcileProjectCalculationReplay(currentWall, { ...flippedReplay, calculationFingerprint: '' }, reconcileOptions), /重算 無法計算/);
@@ -235,7 +235,7 @@ const pageContracts = [
   ['beam.html', 'collectBeamProjectData', 'projectSnapshot = collectBeamProjectData()', '梁 Beam 設計／檢核', 'V3.2'],
   ['column.html', 'collectColumnProjectData', 'projectSnapshot = collectColumnProjectData()', '柱 Column 設計／檢核', 'V3.2'],
   ['slab.html', 'collectSlabProjectData', 'projectSnapshot = collectSlabProjectData()', '板 Slab 設計／檢核', 'V3.3'],
-  ['wall.html', 'collectWallProjectData', 'projectSnapshot = collectWallProjectData()', '牆 Wall 設計／檢核', 'V3.3'],
+  ['wall.html', 'collectWallProjectData', 'projectSnapshot = collectWallProjectData()', '牆 Wall 設計／檢核', 'V3.4'],
   ['shear-wall.html', 'collectShearWallProjectData', 'projectSnapshot = collectShearWallProjectData()', '剪力牆 Shear Wall 設計／檢核', 'V0.5'],
   ['foundation.html', 'collectFoundationProjectData', 'projectSnapshot = collectFoundationProjectData()', '基礎 Foundation 設計／檢核', 'V3.2'],
   ['single-pile-designer.html', 'buildProjectPayload', 'projectSnapshot = buildProjectPayload()', '單樁承載力設計器', 'V3.2'],

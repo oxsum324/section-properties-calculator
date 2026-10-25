@@ -179,7 +179,7 @@
       "route": "/rc-wall",
       "file": "鋼筋混凝土/tools/wall.html",
       "title": "RC 牆",
-      "version": "V3.3",
+      "version": "V3.4",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "rc",

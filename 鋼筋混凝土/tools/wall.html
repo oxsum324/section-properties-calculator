@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>牆設計 — RC 工具箱 V3.3</title>
+<title>牆設計 — RC 工具箱 V3.4</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
@@ -52,7 +52,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>牆 Wall 設計／檢核 <span data-ui="version">V3.3</span></h1>
+  <h1>牆 Wall 設計／檢核 <span data-ui="version">V3.4</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 承重牆／結構牆 P-M 互制、軸壓與軸拉、面內剪力、牆端配筋與特殊邊界構材</p>
 </header>
 
@@ -675,7 +675,7 @@
 <script src="../shared/devlength.js?v=3"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/wall.js?v=3"></script>
-<script src="../shared/pmsection.js?v=3"></script>
+<script src="../shared/pmsection.js?v=4"></script>
 <script src="../shared/wall-inplane-evaluator.js?v=3"></script>
 <script src="../shared/wall-rebar-designer.js?v=2"></script>
 <script>
@@ -869,7 +869,7 @@
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
   const WALL_PROJECT_SCHEMA = 'rc-wall-project-v1';
-  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2']);
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2', 'V3.3']);
   const WALL_PROJECT_STORAGE_KEY = 'rc.wall.project.draft';
   const WALL_PROJECT_EXCLUDED_IDS = new Set(['wallProjectFile', 'caseJson', 'compareCaseJson', 'baselineReport']);
   const wallProjectStorage = window.RCProjectStorage.createManager({
@@ -909,7 +909,7 @@
       schema: WALL_PROJECT_SCHEMA,
       tool: 'rc-wall',
       toolTitle: '牆 Wall 設計／檢核',
-      appVersion: 'V3.3',
+      appVersion: 'V3.4',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -946,11 +946,11 @@
   }
 
   function normalizeWallProjectPayload(raw) {
-    // V3.1、V3.2 舊檔：以原版本驗證存檔指紋後依 V3.3 重新計算；版本正規化與舊版判定見 shared/project-replay.js
+    // V3.1～V3.3 舊檔：以原版本驗證存檔指紋後依 V3.4 重新計算；版本正規化與舊版判定見 shared/project-replay.js
     return window.RCProjectReplay.validateLegacyProjectSource(raw, {
       expectedSchema: WALL_PROJECT_SCHEMA,
       expectedToolId: 'rc-wall',
-      expectedVersion: 'V3.3',
+      expectedVersion: 'V3.4',
       legacyVersions: LEGACY_REPLAY_VERSIONS,
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
@@ -989,7 +989,7 @@
     let replay = null;
     if (!options.skipReplayCheck) {
       try {
-        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.3 結果接受並揭露
+        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.4 結果接受並揭露
         replay = window.RCProjectReplay.reconcileProjectCalculationReplay(payload, collectWallProjectData(), {
           legacyVersions: LEGACY_REPLAY_VERSIONS,
           sourceKey: 'fields',
@@ -2851,7 +2851,7 @@ ${basementStepTxt}
     openReport({
       title:'牆設計計算書', subtitle:'RC Wall Design Report',
       textExport:true,
-      outputSource:{ tool:'牆 Wall 設計／檢核', version:'V3.3' },
+      outputSource:{ tool:'牆 Wall 設計／檢核', version:'V3.4' },
       project:proj,
       calculationFingerprint:projectSnapshot.calculationFingerprint,
       documentState:attachmentReadiness.documentState,
