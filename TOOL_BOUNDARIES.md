@@ -114,7 +114,9 @@ V0.30.2 簽認作廢原因改在簽認視窗內填寫，原因必填、取消不
 
 V0.30.3 現場作業可手動啟用螢幕常亮，狀態依瀏覽器實際取得的 Screen Wake Lock 顯示；切離頁面會由瀏覽器釋放，返回時再嘗試。裝置省電限制、手動鎖屏與系統強制鎖定仍以手機系統為準。資料格式維持 18。
 
-驗證入口：`field-survey/tests/model.test.js`、`field-survey/tests/browser.test.js` 與 `field-survey/tests/upgrade-v08.cjs`（正式預檢 `condition-survey-upgrade`），只用合成資料驗證，不作正式工程計算附件。
+V0.31.0 已簽內容保存獨立快照，修改標的、日期、範圍、現況文字、照片或圈註時另建修訂並重新簽認；正式附件只附本戶最後一次實際會勘的簽認；公設分段簽認集中於該公設首頁。資料庫與案件備份格式升為 19，可讀 1～18。規則見 `field-survey/V0.31_簽認修訂.md`（私有文件，不發布）。
+
+驗證入口：`field-survey/tests/model.test.js`、`field-survey/tests/browser.test.js` 與 `field-survey/tests/upgrade-v08.cjs`（正式預檢 `condition-survey-upgrade`），只用合成資料驗證，不作正式工程計算附件。V0.31 另有 `field-survey/tests/signoff-revisions.test.js`（簽認修訂資料回歸，含於 model.test）與 `field-survey/tests/v031-browser.js`（瀏覽器流程，含於 browser.test）；`field-survey/tests/run-in-memory.cjs` 供網路受限環境以本機來源檢查 DOM、IndexedDB 與畫布，不驗證 Service Worker 或離線升級，不在預檢或門檻內。
 
 發布：隨全站正式放行發布；2026-10-24 起停用單獨發布工作流程（field-survey-deploy）。`field-survey/README.md` 只保留現行操作，歷次改版說明移至 `field-survey/CHANGELOG.md`；兩者皆為不發布的私有文件。
 

@@ -610,6 +610,19 @@ git add -- README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md "結構工具箱/tools
 ```
 <!-- V21-REGISTRATION-END -->
 
+<!-- V22-REGISTRATION-START -->
+## 2026-10-25：RC P-M 包絡線 F1 修正（V3.4）與現況鑑定 V0.31.0
+
+RC：`鋼筋混凝土/shared/pmsection.js` 的 `curve` 新增 `refineSamples`，補入所有轉角 c、φPn 與 φPn,max 交點，並在弦線高於曲線處自適應對分加密，消除弦線高估（`.claude/skills/verify-rc-pm-envelope` 檢核三組組態違反 0）。副作用：凸側 φMn 貼近精算值而上升（柱黃金案例 `biaxial_rect_check` 73.116 → 73.864 tf·m，精算 73.895），`column-regression-cases.json` 期望值隨之更新；柱、牆、剪力牆頁 `pmsection.js?v=4`，牆頁 V3.4 並把 V3.3 納入舊檔重算版本；`independent-engineering-benchmarks` 斷言新增選填 `relTolerance`／`bound`，牆 P-M 基準改為直接求根精算且正式值不得高於精算值。
+
+現況鑑定：V0.31.0 簽認修訂與公設附件（已簽快照、修訂重簽、最後一次會勘簽認、公設分段簽認集中首頁；資料庫與備份格式 19），`sync-survey-public-version.js` 已同步首頁卡、`pages-live-smoke.js` 與 `package.json`。新增 `field-survey/V0.31_簽認修訂.md`、`field-survey/tests/signoff-revisions.test.js`、`field-survey/tests/v031-browser.js`、`field-survey/tests/run-in-memory.cjs`，皆由既有 `git add -- field-survey/` 涵蓋。
+
+```powershell
+git add -- "鋼筋混凝土/shared/pmsection.js" "鋼筋混凝土/shared/pmsection.test.js" "鋼筋混凝土/tools/column-regression-cases.json" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/wall-regression.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" "結構工具箱/tools/independent-engineering-benchmarks.js" "結構工具箱/tools/independent-engineering-benchmarks.catalog.json" "結構工具箱/tools/nav/tool-nav.manifest.json"
+git add -- field-survey/ "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/index.html" TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+<!-- V22-REGISTRATION-END -->
+
 <!-- P2-BOOK-INDEX-START -->
 ## 分冊索引
 
