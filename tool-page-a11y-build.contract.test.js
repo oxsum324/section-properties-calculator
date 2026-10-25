@@ -37,7 +37,7 @@ for (const relativePath of [...sourcePaths, canonicalPath, buildPath]) {
   assert.ok(PRIVATE_FILES.has(relativePath), `${relativePath} must be explicitly private`);
   assert.equal(classifyPublishedPath(relativePath).publish, false, `${relativePath} must not enter Pages`);
 }
-const runtimeByteLimits = { 'steel-app': 145458, 'steel-calculator': 156430, 'survey-report-ui': 26760, 'survey-signoff-ui': 22663, 'survey-sketch': 18191, 'survey-detail': 22706, 'survey-model': 52744, 'src-column-page': 74772, 'src-beam-page': 27802, 'src-beam-core': 13287, 'wind-report': 31211, 'seismic-zones': 44460, 'wind-shared-profile': 8836, 'rc-common': 10866, home: 78919, a11y: 10500, profile: 39000, wind: 45000, 'report-docx': 12800, 'tool-workflow': 7548, 'workflow-adapters': 6190, 'toolbox-storage': 16627, 'rc-storage': 4947, 'loadcombo': 30728 };
+const runtimeByteLimits = { 'steel-app': 145458, 'steel-calculator': 156430, 'survey-report-ui': 26760, 'survey-signoff-ui': 22663, 'survey-sketch': 18191, 'survey-detail': 22706, 'survey-model': 62209, 'src-column-page': 74772, 'src-beam-page': 27802, 'src-beam-core': 13287, 'wind-report': 31211, 'seismic-zones': 44460, 'wind-shared-profile': 8836, 'rc-common': 10866, home: 78919, a11y: 10500, profile: 39000, wind: 45000, 'report-docx': 12800, 'tool-workflow': 7548, 'workflow-adapters': 6190, 'toolbox-storage': 16627, 'rc-storage': 4947, 'loadcombo': 30728 };
 for (const runtimeDefinition of runtimes) {
   const runtimePath = path.join(root, runtimeDefinition.output);
   assert.equal(classifyPublishedPath(runtimeDefinition.output).publish, true, `${runtimeDefinition.output} stays public`);

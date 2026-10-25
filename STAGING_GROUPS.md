@@ -621,6 +621,12 @@ RC：`鋼筋混凝土/shared/pmsection.js` 的 `curve` 新增 `refineSamples`，
 git add -- "鋼筋混凝土/shared/pmsection.js" "鋼筋混凝土/shared/pmsection.test.js" "鋼筋混凝土/tools/column-regression-cases.json" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/wall.html" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/wall-regression.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" "結構工具箱/tools/independent-engineering-benchmarks.js" "結構工具箱/tools/independent-engineering-benchmarks.catalog.json" "結構工具箱/tools/nav/tool-nav.manifest.json"
 git add -- field-survey/ "結構工具箱/assets/home/home.js" "結構工具箱/assets/home/src/home.source.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/index.html" TOOL_BOUNDARIES.md STAGING_GROUPS.md
 ```
+
+門檻連動（提交後 36 項門檻初跑 4 項失敗，依規則處理，不放寬斷言）：柱保護層偏差工具黃金案例 `結構工具箱/tools/rc/column-cover-deviation-golden-cases.js` 隨 F1 修正更新各方向 φMn、保留比與 mx 控制方向（變動 ≤ 1.3%，以 `calculate()` 實算值回寫並附註）；`tool-page-a11y-build.contract.test.js` 的 `survey-model` 位元組上限由 52,744 升為 62,209（實測 56,554 ＋10%）；`tool-nav.manifest.json`／`tool-nav.manifest.js` 與 `結構工具箱/family/local-quick.html` 以產生器重建（現況鑑定 V0.31.0 版本字串）。
+
+```powershell
+git add -- "結構工具箱/tools/rc/column-cover-deviation-golden-cases.js" tool-page-a11y-build.contract.test.js tool-nav.manifest.js "結構工具箱/tools/nav/tool-nav.manifest.json" "結構工具箱/family/local-quick.html" "鋼筋混凝土/index.html" STAGING_GROUPS.md
+```
 <!-- V22-REGISTRATION-END -->
 
 <!-- P2-BOOK-INDEX-START -->

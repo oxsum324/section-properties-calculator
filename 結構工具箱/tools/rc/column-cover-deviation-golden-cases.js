@@ -30,6 +30,7 @@ const baseInput = Object.freeze({
   minimumRetentionRatio: 0.9,
 });
 
+// 2026-10-25：PMSection.curve 轉角取樣與自適應加密（F1 修正）後，各方向 φMn 與保留比依直接求根精算更新；mx 方向保留比由 mx+ 改為 mx− 控制。
 module.exports = [
   {
     id: 'four-face-center-distance-pass',
@@ -37,11 +38,11 @@ module.exports = [
     purpose: '守住四方向單軸 P-M 容量、容量保留比與一般第 21 章 φ。',
     input: { ...baseInput },
     expected: {
-      values: { minimumRetentionRatio: 0.9692493264297304, maximumMeasuredUtilization: 0.386632263621285, totalBars: 12, steelRatio: 0.020268, conversionOffsetMm: 0 },
+      values: { minimumRetentionRatio: 0.9778358133348362, maximumMeasuredUtilization: 0.38180882728151616, totalBars: 12, steelRatio: 0.020268, conversionOffsetMm: 0 },
       flags: { overallOk: true, retentionOk: true, allMeasuredDemandOk: true, allAxialOk: true },
-      criticalRetentionDirection: 'mxPositive',
+      criticalRetentionDirection: 'mxNegative',
       governingDemandDirection: 'mxPositive',
-      measuredPhiMn: { mxPositive: 72.420236577635, mxNegative: 72.88681264300287, myPositive: 58.10706929211442, myNegative: 58.253924138823045 },
+      measuredPhiMn: { mxPositive: 73.3351300423313, mxNegative: 73.07123078818282, myPositive: 58.136875909502436, myNegative: 58.27832072173649 },
     },
   },
   {
@@ -58,11 +59,11 @@ module.exports = [
       measurementBasis: '掃描紀錄 SC-02：四面混凝土面至箍筋外緣淨保護層',
     },
     expected: {
-      values: { minimumRetentionRatio: 0.9692493264297304, maximumMeasuredUtilization: 0.386632263621285, totalBars: 12, steelRatio: 0.020268, conversionOffsetMm: 22.7 },
+      values: { minimumRetentionRatio: 0.9778358133348362, maximumMeasuredUtilization: 0.38180882728151616, totalBars: 12, steelRatio: 0.020268, conversionOffsetMm: 22.7 },
       flags: { overallOk: true, retentionOk: true, allMeasuredDemandOk: true, allAxialOk: true },
-      criticalRetentionDirection: 'mxPositive',
+      criticalRetentionDirection: 'mxNegative',
       governingDemandDirection: 'mxPositive',
-      measuredPhiMn: { mxPositive: 72.420236577635, mxNegative: 72.88681264300287, myPositive: 58.10706929211442, myNegative: 58.253924138823045 },
+      measuredPhiMn: { mxPositive: 73.3351300423313, mxNegative: 73.07123078818282, myPositive: 58.136875909502436, myNegative: 58.27832072173649 },
     },
   },
   {
@@ -71,11 +72,11 @@ module.exports = [
     purpose: '守住實測斷面仍承受需求時，容量保留比未達專案門檻仍不得宣告通過。',
     input: { ...baseInput, measuredTopMm: 150, measuredBottomMm: 40, measuredLeftMm: 130, measuredRightMm: 45, minimumRetentionRatio: 0.95 },
     expected: {
-      values: { minimumRetentionRatio: 0.8515690318673346, maximumMeasuredUtilization: 0.4243686199937844, totalBars: 12, steelRatio: 0.020268, conversionOffsetMm: 0 },
+      values: { minimumRetentionRatio: 0.8492686038092357, maximumMeasuredUtilization: 0.424307550218754, totalBars: 12, steelRatio: 0.020268, conversionOffsetMm: 0 },
       flags: { overallOk: false, retentionOk: false, allMeasuredDemandOk: true, allAxialOk: true },
       criticalRetentionDirection: 'mxNegative',
       governingDemandDirection: 'mxPositive',
-      measuredPhiMn: { mxPositive: 65.98037338484195, mxNegative: 63.62741667016371, myPositive: 52.24869048213327, myNegative: 50.89592910320877 },
+      measuredPhiMn: { mxPositive: 65.9898698139226, mxNegative: 63.46372397474514, myPositive: 52.274095044750794, myNegative: 50.8197291828324 },
     },
   },
   {
@@ -84,11 +85,11 @@ module.exports = [
     purpose: '守住單軸需求利用率超過 1.0 時失敗關閉。',
     input: { ...baseInput, muXPositiveTfm: 180, muXNegativeTfm: 160, muYPositiveTfm: 120, muYNegativeTfm: 100 },
     expected: {
-      values: { minimumRetentionRatio: 0.9692493264297304, maximumMeasuredUtilization: 2.485493123279689, totalBars: 12, steelRatio: 0.020268, conversionOffsetMm: 0 },
+      values: { minimumRetentionRatio: 0.9778358133348362, maximumMeasuredUtilization: 2.4544853182383184, totalBars: 12, steelRatio: 0.020268, conversionOffsetMm: 0 },
       flags: { overallOk: false, retentionOk: true, allMeasuredDemandOk: false, allAxialOk: true },
-      criticalRetentionDirection: 'mxPositive',
+      criticalRetentionDirection: 'mxNegative',
       governingDemandDirection: 'mxPositive',
-      measuredPhiMn: { mxPositive: 72.420236577635, mxNegative: 72.88681264300287, myPositive: 58.10706929211442, myNegative: 58.253924138823045 },
+      measuredPhiMn: { mxPositive: 73.3351300423313, mxNegative: 73.07123078818282, myPositive: 58.136875909502436, myNegative: 58.27832072173649 },
     },
   },
   {
@@ -112,11 +113,11 @@ module.exports = [
       muYNegativeTfm: 12,
     },
     expected: {
-      values: { minimumRetentionRatio: 0.9930024139878594, maximumMeasuredUtilization: 0.5126092302848695, totalBars: 6, steelRatio: 0.007742, conversionOffsetMm: 0 },
+      values: { minimumRetentionRatio: 0.9929071589593633, maximumMeasuredUtilization: 0.5123092621110856, totalBars: 6, steelRatio: 0.007742, conversionOffsetMm: 0 },
       flags: { overallOk: true, retentionOk: true, allMeasuredDemandOk: true, allAxialOk: true },
       criticalRetentionDirection: 'mxNegative',
       governingDemandDirection: 'mxPositive',
-      measuredPhiMn: { mxPositive: 39.01607465961062, mxNegative: 38.78336291030403, myPositive: 31.646010929893034, myNegative: 31.42018195884466 },
+      measuredPhiMn: { mxPositive: 39.038919416731794, mxNegative: 38.80835930773384, myPositive: 31.653773339828494, myNegative: 31.437780083046807 },
     },
   },
 ];
