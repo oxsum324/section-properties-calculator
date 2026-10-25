@@ -3448,7 +3448,7 @@
       "productionModule": "independent-engineering-adapters/anchor-cast-in.js",
       "oracle": "anchor-cast-in-m20-chapter-17",
       "referenceType": "closed-form-identity",
-      "referenceBasis": "台灣《建築物混凝土結構設計規範》112 年版第 17 章之鋼材拉力與剪力、預埋錨栓混凝土拉破投影面積、擴頭拉出、自由邊混凝土剪破、撬出及拉剪互制；以 2×2 對稱配置、開裂普通重混凝土及無偏心載重逐項封閉計算；另以同配置 ha = 200 mm 之薄構材變體，獨立檢核 17.7.2.1.1 ca1 限制（ca2 取最大邊距）、A_Vc 高度取 min(1.5ca1, ha) 與 17.7.2.6.1 ψh,V；剪破變體 asymmetric-ca2（ca2 = 100／1000 mm、ha = 200 mm：ca2,max ≥ 1.5ca1 不縮減 ca1 = 300，A_Vc = 730 × 200 mm²，ψed,V = 0.7667，ψh,V = 1.5，手算 Vcbg = 42.18 kN、φVcbg = 29.52 kN）與 psi-cv-1-4（主案例幾何、開裂、≥ D13 邊緣鋼筋且圍繞箍筋間距 ≤ 10 cm：表 17.7.2.5.1 ψc,V = 1.4，A_Vc/A_Vco = 273000/304200，ψed,V = 0.9，手算 Vcbg = 92.81 kN、φVcbg = 64.97 kN）。",
+      "referenceBasis": "台灣《建築物混凝土結構設計規範》112 年版第 17 章之鋼材拉力與剪力、預埋錨栓混凝土拉破投影面積、擴頭拉出、自由邊混凝土剪破、撬出及拉剪互制；以 2×2 對稱配置、開裂普通重混凝土及無偏心載重逐項封閉計算；另以同配置 ha = 200 mm 之薄構材變體，獨立檢核 17.7.2.1.1 ca1 限制（ca2 取最大邊距）、A_Vc 高度取 min(1.5ca1, ha) 與 17.7.2.6.1 ψh,V；剪破變體 asymmetric-ca2（ca2 = 100／1000 mm、ha = 200 mm：ca2,max ≥ 1.5ca1 不縮減 ca1 = 300，A_Vc = 730 × 200 mm²，ψed,V = 0.7667，ψh,V = 1.5，手算 Vcbg = 42.18 kN、φVcbg = 29.52 kN）與 psi-cv-1-4（主案例幾何、開裂、≥ D13 邊緣鋼筋且圍繞箍筋間距 ≤ 10 cm：表 17.7.2.5.1 ψc,V = 1.4，A_Vc/A_Vco = 273000/304200，ψed,V = 0.9，手算 Vcbg = 92.81 kN、φVcbg = 64.97 kN）與 per-edge-mixed（主案例幾何、Vx = 10／Vy = 3 kN，右緣 ≥ D13 且箍筋間距 ≤ 10 cm、上緣無鋼筋：表 17.7.2.5.1 逐邊取 ψc,V,x = 1.4、ψc,V,y = 1.0；φVcbg,x = 64.97、φVcbg,y = 46.41 kN，DCR 取較弱邊合向量 10.440/46.41 = 0.225，等效 φVcbg = 46.41 kN；若誤用全域 1.4 則為 64.97 kN）。",
       "input": {
         "diameterMm": 20,
         "effectiveAreaMm2": 245,
@@ -3483,16 +3483,19 @@
             "edgeBottomMm": 100,
             "edgeTopMm": 1000,
             "shearXKn": 10,
-            "shearYKn": 0,
-            "edgeBarD13": false,
-            "edgeStirrupsMax100mm": false
+            "shearYKn": 0
           },
           {
             "id": "psi-cv-1-4",
             "shearXKn": 10,
             "shearYKn": 0,
-            "edgeBarD13": true,
-            "edgeStirrupsMax100mm": true
+            "edgeReinforcement": { "right": "d13_stirrups" }
+          },
+          {
+            "id": "per-edge-mixed",
+            "shearXKn": 10,
+            "shearYKn": 3,
+            "edgeReinforcement": { "right": "d13_stirrups", "top": "none" }
           }
         ]
       },
@@ -3541,7 +3544,10 @@
         { "path": "shearVariants.asymmetric-ca2.dcr", "absTolerance": 1e-12 },
         { "path": "shearVariants.psi-cv-1-4.nominal", "absTolerance": 1e-12 },
         { "path": "shearVariants.psi-cv-1-4.design", "absTolerance": 1e-12 },
-        { "path": "shearVariants.psi-cv-1-4.dcr", "absTolerance": 1e-12 }
+        { "path": "shearVariants.psi-cv-1-4.dcr", "absTolerance": 1e-12 },
+        { "path": "shearVariants.per-edge-mixed.nominal", "absTolerance": 1e-12 },
+        { "path": "shearVariants.per-edge-mixed.design", "absTolerance": 1e-12 },
+        { "path": "shearVariants.per-edge-mixed.dcr", "absTolerance": 1e-12 }
       ]
     },
     {

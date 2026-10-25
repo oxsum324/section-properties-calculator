@@ -20,7 +20,8 @@ import type {
   ResultDiagnostic,
   ResultFactor,
   ReviewVisualization,
-  ReviewVisualizationRectangle,
+  ShearEdgeReinforcement,
+  ShearSideView,
   VisualizationEdge,
 } from './domain'
 import { getRuleProfileById } from './ruleProfiles'
@@ -2530,20 +2531,33 @@ function getShearThicknessFactor(ca1: number, layout: AnchorLayout) {
 }
 
 /**
- * 112年版 17.7.2.5.1 與表 17.7.2.5.1：
+ * 表 17.7.2.5.1 逐自由邊條件。未設定逐邊條件時，舊版單一勾選 shearHairpinReinforcement = true
+ * 視為「配置不小於 D13 之鋼筋」（1.2），不會自動升為 1.4（第三列須逐邊明確設定）。
+ */
+export function getShearEdgeReinforcement(
+  layout: AnchorLayout,
+  edge: VisualizationEdge,
+): ShearEdgeReinforcement {
+  const perEdge = layout.shearEdgeReinforcement
+  if (perEdge) {
+    return perEdge[edge] ?? 'none'
+  }
+  return layout.shearHairpinReinforcement ? 'd13' : 'none'
+}
+
+/**
+ * 112年版 17.7.2.5.1 與表 17.7.2.5.1（受剪方向所朝之自由邊）：
  * (a) 未開裂：1.4
  * (b) 開裂：錨栓無輔助鋼筋或角隅鋼筋小於 D13 → 1.0；
  *     錨栓與邊緣之間配置不小於 D13 之鋼筋 → 1.2；
  *     錨栓與邊緣之間配置不小於 D13 之鋼筋，且圍繞鋼筋之箍筋間距不大於 10 cm → 1.4。
  */
-function getShearCrackingFactor(layout: AnchorLayout) {
+function getShearCrackingFactor(layout: AnchorLayout, edge: VisualizationEdge) {
   if (!layout.crackedConcrete) {
     return 1.4
   }
-  if (!layout.shearHairpinReinforcement) {
-    return 1
-  }
-  return layout.shearEdgeStirrupsMax100mm ? 1.4 : 1.2
+  const condition = getShearEdgeReinforcement(layout, edge)
+  return condition === 'd13_stirrups' ? 1.4 : condition === 'd13' ? 1.2 : 1
 }
 
 function getShearBreakoutEdgeLabel(
@@ -2557,72 +2571,50 @@ function getShearBreakoutEdgeLabel(
   return sign > 0 ? 'top' : 'bottom'
 }
 
-function buildShearVisualizationRectangles(
+function buildShearSideViews(
   project: ProjectCase,
   anchorPoints: AnchorPoint[],
 ) {
-  const rectangles: ReviewVisualizationRectangle[] = []
+  const shearSideViews: ShearSideView[] = []
   const edges: ReviewVisualization['edges'] = []
-
-  if (Math.abs(project.loads.shearXKn) > 0) {
-    const sign = project.loads.shearXKn >= 0 ? 1 : -1
-    const edgeRow = getEdgeRowForShear(anchorPoints, project.layout, 'x', sign)
-    if (edgeRow.ca1 >= 1) {
-      // A_Vc 示意：高度與計算一致取 min(1.5ca1, ha)（圖 R17.7.2.1b）
-      const projection = getShearProjectedHeight(edgeRow.ca1, project.layout)
-      rectangles.push(
-        ...edgeRow.intervals.map((interval, index) => ({
-          id: `shear-x-${index}`,
-          kind: 'shear_breakout_x' as const,
-          x1:
-            sign > 0
-              ? clamp(project.layout.concreteWidthMm - projection, 0, project.layout.concreteWidthMm)
-              : 0,
-          x2:
-            sign > 0
-              ? project.layout.concreteWidthMm
-              : clamp(projection, 0, project.layout.concreteWidthMm),
-          y1: interval.start,
-          y2: interval.end,
-        })),
-      )
-      edges.push({
-        edge: getShearBreakoutEdgeLabel('x', sign),
-        label: 'Vcb,x',
-      })
+  const directions: Array<['x' | 'y', number]> = [
+    ['x', project.loads.shearXKn],
+    ['y', project.loads.shearYKn],
+  ]
+  for (const [direction, shear] of directions) {
+    if (!(Math.abs(shear) > 0)) {
+      continue
     }
+    const sign = shear >= 0 ? 1 : -1
+    const edgeRow = getEdgeRowForShear(anchorPoints, project.layout, direction, sign)
+    if (edgeRow.ca1 < 1) {
+      continue
+    }
+    const edge = getShearBreakoutEdgeLabel(direction, sign)
+    // 側視（垂直自由邊之剖面）：A_Vc 高度 min(1.5ca1', ha)（17.7.2.1.1、圖 R17.7.2.1b），
+    // A_Vco = 4.5ca1'²（式 17.7.2.1.3）；數值與 getShearBreakoutDirectionalStrength 相同
+    const projectedHeightMm = getShearProjectedHeight(edgeRow.ca1, project.layout)
+    const widthMm = unionLength(edgeRow.intervals)
+    shearSideViews.push({
+      id: `shear-side-${direction}`,
+      direction,
+      edge,
+      actualCa1Mm: edgeRow.actualCa1,
+      ca1Mm: edgeRow.ca1,
+      ca1Limited: edgeRow.ca1 < edgeRow.actualCa1 - 1e-9,
+      thicknessMm: project.layout.thicknessMm,
+      embedmentMm: project.layout.effectiveEmbedmentMm,
+      fullHeightMm: 1.5 * edgeRow.ca1,
+      projectedHeightMm,
+      truncated: projectedHeightMm < 1.5 * edgeRow.ca1 - 1e-9,
+      widthMm,
+      avcMm2: widthMm * projectedHeightMm,
+      avcoMm2: 4.5 * edgeRow.ca1 * edgeRow.ca1,
+    })
+    edges.push({ edge, label: direction === 'x' ? 'Vcb,x' : 'Vcb,y' })
   }
 
-  if (Math.abs(project.loads.shearYKn) > 0) {
-    const sign = project.loads.shearYKn >= 0 ? 1 : -1
-    const edgeRow = getEdgeRowForShear(anchorPoints, project.layout, 'y', sign)
-    if (edgeRow.ca1 >= 1) {
-      // A_Vc 示意：高度與計算一致取 min(1.5ca1, ha)（圖 R17.7.2.1b）
-      const projection = getShearProjectedHeight(edgeRow.ca1, project.layout)
-      rectangles.push(
-        ...edgeRow.intervals.map((interval, index) => ({
-          id: `shear-y-${index}`,
-          kind: 'shear_breakout_y' as const,
-          x1: interval.start,
-          x2: interval.end,
-          y1:
-            sign > 0
-              ? clamp(project.layout.concreteHeightMm - projection, 0, project.layout.concreteHeightMm)
-              : 0,
-          y2:
-            sign > 0
-              ? project.layout.concreteHeightMm
-              : clamp(projection, 0, project.layout.concreteHeightMm),
-        })),
-      )
-      edges.push({
-        edge: getShearBreakoutEdgeLabel('y', sign),
-        label: 'Vcb,y',
-      })
-    }
-  }
-
-  return { rectangles, edges }
+  return { shearSideViews, edges }
 }
 
 function buildReviewVisualization(
@@ -2639,7 +2631,7 @@ function buildReviewVisualization(
     kind: 'tension_breakout' as const,
     ...rect,
   }))
-  const shearVisualization = buildShearVisualizationRectangles(project, anchorPoints)
+  const shearVisualization = buildShearSideViews(project, anchorPoints)
   const edges: ReviewVisualization['edges'] = [...shearVisualization.edges]
 
   if (
@@ -2671,8 +2663,9 @@ function buildReviewVisualization(
             ? 'compression'
             : 'neutral',
     })),
-    rectangles: [...tensionRectangles, ...shearVisualization.rectangles],
+    rectangles: tensionRectangles,
     edges,
+    shearSideViews: shearVisualization.shearSideViews,
   }
 }
 
@@ -2687,6 +2680,9 @@ interface ShearBreakoutDirectional {
   edgeFactor: number
   eccentricityFactor: number
   crackingFactor: number
+  /** 受剪方向所朝之自由邊與其表 17.7.2.5.1 條件 */
+  edge: VisualizationEdge
+  edgeCondition: ShearEdgeReinforcement
   thicknessFactor: number
   baseStrengthKn: number
 }
@@ -2741,7 +2737,8 @@ function getShearBreakoutDirectionalStrength(
   const eccentricityFactor =
     edgeRow.ca1 > 0 ? Math.min(1, 1 / (1 + (2 * shearEccentricity) / (3 * edgeRow.ca1))) : 1
   // 17.7.2.5.1 / 表 17.7.2.5.1：ψc,V
-  const crackingFactor = getShearCrackingFactor(layout)
+  const edge = getShearBreakoutEdgeLabel(direction, sign)
+  const crackingFactor = getShearCrackingFactor(layout, edge)
   // 17.7.2.6.1：ψh,V = √(1.5ca1/ha) ≥ 1.0（ha < 1.5ca1）
   const thicknessFactor = getShearThicknessFactor(edgeRow.ca1, layout)
   // 17.7.2.1：Vcb(g) = (A_Vc/A_Vco)·ψec,V·ψed,V·ψc,V·ψh,V·Vb（式 17.7.2.1a / 17.7.2.1b）
@@ -2762,9 +2759,24 @@ function getShearBreakoutDirectionalStrength(
     edgeFactor,
     eccentricityFactor,
     crackingFactor,
+    edge,
+    edgeCondition: getShearEdgeReinforcement(layout, edge),
     thicknessFactor,
     baseStrengthKn,
   }
+}
+
+const SHEAR_EDGE_LABEL: Record<VisualizationEdge, string> = {
+  left: '左緣',
+  right: '右緣',
+  bottom: '下緣',
+  top: '上緣',
+}
+
+const SHEAR_EDGE_CONDITION_LABEL: Record<ShearEdgeReinforcement, string> = {
+  none: '錨栓無輔助鋼筋或角隅鋼筋小於 D13',
+  d13: '錨栓與邊緣之間配置不小於 D13 之鋼筋',
+  d13_stirrups: '錨栓與邊緣之間配置不小於 D13 之鋼筋，且圍繞鋼筋之箍筋間距不大於 10 cm',
 }
 
 function shearBreakoutDirectionalFactors(
@@ -2775,11 +2787,17 @@ function shearBreakoutDirectionalFactors(
     return []
   }
   return [
-    factor(`c_a1,${direction}`, `採用 ca1 mm（實際 ${round(item.actualCa1, 1)} mm；17.7.2.1.1 限制）`, item.ca1),
-    factor(`A_Vc/A_Vco,${direction}`, '投影面積比（17.7.2.1.1、17.7.2.1.2）', item.areaRatio),
+    factor(`c_a1,${direction}`, `採用 ca1 mm（實際 ${round(item.actualCa1, 1)} mm；17.7.2.1.1 窄斷面限制，條號依 112 年版本文排印，ACI 318-19 17.7.2.1.2）`, item.ca1),
+    factor(`A_Vc/A_Vco,${direction}`, '投影面積比（17.7.2.1.1、17.7.2.1.2；A_Vco 為式 17.7.2.1.3）', item.areaRatio),
     factor(`ψ_ed,V,${direction}`, '邊距修正（17.7.2.4.1）', item.edgeFactor),
     factor(`ψ_ec,V,${direction}`, '偏心修正（17.7.2.3.1）', item.eccentricityFactor),
     factor(`ψ_h,V,${direction}`, '厚度修正（17.7.2.6.1）', item.thicknessFactor),
+    factor(
+      `ψ_c,V,${direction}`,
+      `裂縫 / 邊緣鋼筋修正（17.7.2.5.1、表 17.7.2.5.1；${SHEAR_EDGE_LABEL[item.edge]}）`,
+      item.crackingFactor,
+      SHEAR_EDGE_CONDITION_LABEL[item.edgeCondition],
+    ),
     factor(`V_b,${direction}`, '基本剪破強度 kN（17.7.2.2.1）', item.baseStrengthKn),
   ]
 }
@@ -2898,7 +2916,6 @@ function getConcreteShearBreakoutResult(
     factors: [
       ...shearBreakoutDirectionalFactors('x', directionalX),
       ...shearBreakoutDirectionalFactors('y', directionalY),
-      factor('ψ_c,V', '裂縫 / 剪力補強修正（17.7.2.5.1、表 17.7.2.5.1）', getShearCrackingFactor(project.layout)),
       factor('φ', '強度折減因子', phiSelection.phi, phiSelection.label),
       ...(anchorReinforcement
         ? [
@@ -2907,7 +2924,7 @@ function getConcreteShearBreakoutResult(
           ]
         : []),
     ],
-    note: `Vx / Vcb,x = ${round(dcrX, 3)}，Vy / Vcb,y = ${round(dcrY, 3)}；正交向量互制 = ${round(orthogonalDcr, 3)}，較弱自由邊合向量 = ${round(cornerVectorDcr, 3)}，採較保守者。ψ_c,V = ${getShearCrackingFactor(project.layout)}${project.layout.crackedConcrete && project.layout.shearHairpinReinforcement ? (project.layout.shearEdgeStirrupsMax100mm ? '（表 17.7.2.5.1：錨栓與邊緣之間配置不小於 D13 之鋼筋，且圍繞鋼筋之箍筋間距不大於 10 cm）' : '（表 17.7.2.5.1：錨栓與邊緣之間配置不小於 D13 之鋼筋）') : ''}，A_Vc 高度取 min(1.5ca1, ha)（17.7.2.1.1、圖 R17.7.2.1b），ψ_h,V 依 17.7.2.6.1，已納入 ψ_ec,V（e'Vx = ${round(Math.abs(project.loads.shearEccentricityXmm ?? 0), 1)} mm，e'Vy = ${round(Math.abs(project.loads.shearEccentricityYmm ?? 0), 1)} mm），φ = ${round(phiSelection.phi, 2)}（${phiSelection.label}）${anchorReinforcement ? `；混凝土路徑 = ${round(concreteDesignStrength, 2)} kN，補強鋼筋路徑 = ${round(anchorReinforcement.designStrengthKn, 2)} kN，採 max = ${round(equivalentDesignStrength, 2)} kN${useAnchorReinforcement ? '（補強鋼筋已取代混凝土剪破強度）' : ''}；${anchorReinforcement.note}` : ''}`,
+    note: `Vx / Vcb,x = ${round(dcrX, 3)}，Vy / Vcb,y = ${round(dcrY, 3)}；正交向量互制 = ${round(orthogonalDcr, 3)}，較弱自由邊合向量 = ${round(cornerVectorDcr, 3)}，採較保守者。ψ_c,V 依受剪方向所朝自由邊逐向取值（表 17.7.2.5.1）${[directionalX, directionalY].filter((item): item is ShearBreakoutDirectional => Boolean(item)).map((item) => `${SHEAR_EDGE_LABEL[item.edge]} ${round(item.crackingFactor, 2)}`).join('、').replace(/^(?=.)/, '：')}，A_Vc 高度取 min(1.5ca1, ha)（17.7.2.1.1、圖 R17.7.2.1b），ψ_h,V 依 17.7.2.6.1，已納入 ψ_ec,V（e'Vx = ${round(Math.abs(project.loads.shearEccentricityXmm ?? 0), 1)} mm，e'Vy = ${round(Math.abs(project.loads.shearEccentricityYmm ?? 0), 1)} mm），φ = ${round(phiSelection.phi, 2)}（${phiSelection.label}）${anchorReinforcement ? `；混凝土路徑 = ${round(concreteDesignStrength, 2)} kN，補強鋼筋路徑 = ${round(anchorReinforcement.designStrengthKn, 2)} kN，採 max = ${round(equivalentDesignStrength, 2)} kN${useAnchorReinforcement ? '（補強鋼筋已取代混凝土剪破強度）' : ''}；${anchorReinforcement.note}` : ''}`,
   }
 }
 

@@ -4590,8 +4590,10 @@ function anchorCastInOracle(i) {
     const baseA = 0.6 * (bearingLengthMm / i.diameterMm) ** 0.2
       * Math.sqrt(i.diameterMm) * Math.sqrt(i.concreteStrengthMpa) * ca1 ** 1.5 / 1000;
     const baseB = 3.7 * Math.sqrt(i.concreteStrengthMpa) * ca1 ** 1.5 / 1000;
-    // 表 17.7.2.5.1（開裂）：無邊緣鋼筋 1.0；≥ D13 邊緣鋼筋 1.2；另有圍繞箍筋間距 ≤ 10 cm 1.4
-    const psiCV = g.edgeBarD13 ? (g.edgeStirrupsMax100mm ? 1.4 : 1.2) : 1.0;
+    // 表 17.7.2.5.1（開裂），逐邊取受剪方向所朝之自由邊（+X → 右緣、+Y → 上緣）：
+    // 無輔助鋼筋或角隅鋼筋小於 D13 1.0；不小於 D13 之鋼筋 1.2；另有圍繞箍筋間距不大於 10 cm 1.4
+    const edgeCondition = (g.edgeReinforcement || {})[direction === 'x' ? 'right' : 'top'] || 'none';
+    const psiCV = { none:1.0, d13:1.2, d13_stirrups:1.4 }[edgeCondition];
     // 無偏心 ψec,V = 1.0
     return avcOverAvco * psiEdV * psiHV * psiCV * Math.min(baseA, baseB);
   };

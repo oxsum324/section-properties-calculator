@@ -128,8 +128,8 @@ function calculate(input) {
     for (const key of ['concreteWidthMm', 'concreteHeightMm', 'thicknessMm', 'edgeLeftMm', 'edgeRightMm', 'edgeBottomMm', 'edgeTopMm']) {
       if (variant[key] !== undefined) layout[key] = Number(variant[key]);
     }
-    layout.shearHairpinReinforcement = Boolean(variant.edgeBarD13);
-    layout.shearEdgeStirrupsMax100mm = Boolean(variant.edgeStirrupsMax100mm);
+    layout.shearHairpinReinforcement = false;
+    layout.shearEdgeReinforcement = variant.edgeReinforcement ? { ...variant.edgeReinforcement } : undefined;
     const loads = {
       ...project.loads,
       shearXKn:Number(variant.shearXKn ?? input.shearXKn),

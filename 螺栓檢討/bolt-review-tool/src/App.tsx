@@ -23,7 +23,7 @@ import {
   getDerivedBasePlateCantilevers,
 } from './basePlateGeometry'
 // getBasePlateBearingOverlay 已下放至 ./GeometrySketch
-import { assessProductCompleteness } from './calc'
+import { assessProductCompleteness, getShearEdgeReinforcement } from './calc'
 import type { ConfirmOptions } from './confirmDialog'
 // db 已下放至各 hook
 import {
@@ -43,7 +43,9 @@ import type {
   ReportSettings,
   ProjectSnapshot,
   ReviewResult,
+  ShearEdgeReinforcement,
   UnitPreferences,
+  VisualizationEdge,
 } from './domain'
 import { buildDocumentApprovalCalculationKey } from './documentApproval'
 import type {
@@ -149,6 +151,14 @@ import {
   getUnitSymbol,
   normalizeUnitPreferences,
 } from './units'
+
+const SHEAR_EDGE_KEYS: VisualizationEdge[] = ['left', 'right', 'bottom', 'top']
+const SHEAR_EDGE_TEXT: Record<VisualizationEdge, string> = {
+  left: '左緣，−Vx 朝向',
+  right: '右緣，+Vx 朝向',
+  bottom: '下緣，−Vy 朝向',
+  top: '上緣，+Vy 朝向',
+}
 
 const ProjectTemplateLibrary = lazy(() => import('./ProjectTemplateLibrary'))
 const ProductTemplateLibrary = lazy(() => import('./ProductTemplateLibrary'))
@@ -1694,7 +1704,9 @@ function App() {
               !project.layout.basePlateBearingEnabled &&
               !project.layout.basePlateBendingEnabled &&
               !project.layout.anchorReinforcementEnabled &&
-              !project.layout.shearHairpinReinforcement)
+              SHEAR_EDGE_KEYS.every(
+                (edge) => getShearEdgeReinforcement(project.layout, edge) === 'none',
+              ))
           // Tab 標示：result tab 依整體判定顯示徽章；其他 tab 只在有錯時顯示
           let badge: { tone: 'fail' | 'warn' | 'pass'; label: string } | null =
             null
@@ -2623,31 +2635,6 @@ function App() {
               />
               <span>配置補強 / 錨定鋼筋</span>
             </label>
-            <label className="switch" data-shows="baseplate">
-              <input
-                type="checkbox"
-                checked={project.layout.shearHairpinReinforcement}
-                onChange={(event) =>
-                  patchLayout({
-                    shearHairpinReinforcement: event.target.checked,
-                  })
-                }
-              />
-              <span>剪力 U 型補強鋼筋（需另依 17.7.2.5.1 配置細節覆核）</span>
-            </label>
-            <label className="switch" data-shows="baseplate">
-              <input
-                type="checkbox"
-                checked={Boolean(project.layout.shearEdgeStirrupsMax100mm)}
-                disabled={!project.layout.shearHairpinReinforcement}
-                onChange={(event) =>
-                  patchLayout({
-                    shearEdgeStirrupsMax100mm: event.target.checked,
-                  })
-                }
-              />
-              <span>上述鋼筋另有圍繞箍筋，間距 ≤ 10 cm（表 17.7.2.5.1，開裂時 ψc,V = 1.4）</span>
-            </label>
             <label className="switch" data-shows="member">
               <input
                 type="checkbox"
@@ -2688,6 +2675,43 @@ function App() {
               />
               <span>納入 17.10 耐震入口</span>
             </label>
+          </div>
+
+          <div className="field-grid" data-shows="baseplate">
+            {SHEAR_EDGE_KEYS.map((edge) => (
+              <label className="field-slot" key={edge}>
+                剪力自由邊鋼筋（{SHEAR_EDGE_TEXT[edge]}）
+                <select
+                  aria-label={`剪力自由邊鋼筋 ${SHEAR_EDGE_TEXT[edge]}`}
+                  value={getShearEdgeReinforcement(project.layout, edge)}
+                  onChange={(event) =>
+                    patchLayout({
+                      shearHairpinReinforcement: false,
+                      shearEdgeReinforcement: {
+                        ...Object.fromEntries(
+                          SHEAR_EDGE_KEYS.map((key) => [
+                            key,
+                            getShearEdgeReinforcement(project.layout, key),
+                          ]),
+                        ),
+                        [edge]: event.target.value as ShearEdgeReinforcement,
+                      },
+                    })
+                  }
+                >
+                  <option value="none">無輔助鋼筋或角隅鋼筋小於 D13（ψc,V = 1.0）</option>
+                  <option value="d13">錨栓與邊緣之間配置不小於 D13 之鋼筋（ψc,V = 1.2）</option>
+                  <option value="d13_stirrups">
+                    配置不小於 D13 之鋼筋，且圍繞鋼筋之箍筋間距不大於 10 cm（ψc,V = 1.4）
+                  </option>
+                </select>
+              </label>
+            ))}
+            <p className="helper-text">
+              依表 17.7.2.5.1（開裂混凝土）逐邊取 ψc,V，只採用受剪方向所朝之自由邊。選擇 1.2 / 1.4
+              即表示設計者確認該邊於錨栓與邊緣之間配置不小於 D13 之鋼筋；1.4 另確認圍繞鋼筋之箍筋間距不大於
+              10 cm。鋼筋配置細節（17.7.2.5.1）仍須依施工圖人工覆核。未開裂混凝土一律取 1.4。
+            </p>
           </div>
 
           <AnchorReinforcementPanel

@@ -2062,7 +2062,7 @@ describe('concrete shear breakout thin member / narrow section (112年版 17.7.2
       lightweightConcrete: false,
       supplementaryReinforcement: false,
       shearHairpinReinforcement: false,
-      shearEdgeStirrupsMax100mm: false,
+      shearEdgeReinforcement: undefined,
       anchorReinforcementEnabled: false,
       concreteStrengthMpa: 28,
       effectiveEmbedmentMm: 160,
@@ -2161,21 +2161,91 @@ describe('concrete shear breakout thin member / narrow section (112年版 17.7.2
     expect(shear.designStrengthKn).toBeCloseTo(71.21, 1)
   })
 
-  it('ψc,V follows 表 17.7.2.5.1: 1.0 / 1.2 (≥ D13 edge bar) / 1.4 (plus stirrups ≤ 10 cm)', () => {
-    // 同 ex5：Vcb = ψc,V × 101.73 kN；φ = 0.70
+  it('ψc,V follows 表 17.7.2.5.1 per free edge: 1.0 / 1.2 (≥ D13 edge bar) / 1.4 (plus stirrups ≤ 10 cm)', () => {
+    // 同 ex5（剪力 +X 朝右緣）：Vcb = ψc,V × 101.73 kN；φ = 0.70
     // 1.2 → 0.7 × 1.2 × 101.73 = 85.46 kN；1.4 → 0.7 × 1.4 × 101.73 = 99.70 kN
     const base = { edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 1000, edgeTopMm: 1000, thicknessMm: 1000 }
-    const edgeBar = shearOf(shearProject({ ...base, shearHairpinReinforcement: true }))
-    const withStirrups = shearOf(
-      shearProject({ ...base, shearHairpinReinforcement: true, shearEdgeStirrupsMax100mm: true }),
-    )
-    const stirrupsOnly = shearOf(shearProject({ ...base, shearEdgeStirrupsMax100mm: true }))
+    const edgeBar = shearOf(shearProject({ ...base, shearEdgeReinforcement: { right: 'd13' } }))
+    const withStirrups = shearOf(shearProject({ ...base, shearEdgeReinforcement: { right: 'd13_stirrups' } }))
+    // 條件設在未受剪之左緣 → 右緣仍為 1.0
+    const wrongEdge = shearOf(shearProject({ ...base, shearEdgeReinforcement: { left: 'd13_stirrups' } }))
     expect(edgeBar.designStrengthKn).toBeCloseTo(0.7 * 1.2 * vb(300), 1)
     expect(withStirrups.designStrengthKn).toBeCloseTo(0.7 * 1.4 * vb(300), 1)
     expect(withStirrups.designStrengthKn).toBeCloseTo(99.7, 1)
-    // 箍筋須圍繞 ≥ D13 邊緣鋼筋；未勾邊緣鋼筋時仍為 1.0
-    expect(stirrupsOnly.designStrengthKn).toBeCloseTo(0.7 * vb(300), 1)
-    expect(withStirrups.factors?.find((f) => f.symbol === 'ψ_c,V')?.value).toBe('1.4')
+    expect(wrongEdge.designStrengthKn).toBeCloseTo(0.7 * vb(300), 1)
+    expect(withStirrups.factors?.find((f) => f.symbol === 'ψ_c,V,x')?.value).toBe('1.4')
+  })
+
+  it('legacy single hairpin flag maps to 1.2 on every edge and never to 1.4', () => {
+    // 舊案只有 shearHairpinReinforcement = true、無逐邊設定 → 各邊視為「不小於 D13 之鋼筋」：
+    // 0.7 × 1.2 × 101.73 = 85.46 kN（與修正前全域 1.2 相同）
+    const base = { edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 1000, edgeTopMm: 1000, thicknessMm: 1000 }
+    const legacy = shearOf(shearProject({ ...base, shearHairpinReinforcement: true }))
+    expect(legacy.designStrengthKn).toBeCloseTo(85.46, 1)
+    // 一旦有逐邊設定，舊旗標被忽略
+    const overridden = shearOf(
+      shearProject({ ...base, shearHairpinReinforcement: true, shearEdgeReinforcement: { right: 'none' } }),
+    )
+    expect(overridden.designStrengthKn).toBeCloseTo(0.7 * vb(300), 1)
+  })
+
+  it('asymmetric edges: only the qualifying edge gets ψc,V = 1.4 (two-way shear)', () => {
+    // 單錨、左 1000 / 右 300 / 下 1000 / 上 300、ha = 1000（不截斷）、Vx = +10、Vy = +10 kN
+    // X 向（右緣，d13_stirrups → ψc,V = 1.4）：ca1 = 300、ca2 = min(1000, 300) = 300 < 450
+    //   A_Vc = (450 + 300) × 450 = 337,500；A_Vco = 405,000 → 0.8333；ψed,V = 0.7 + 0.3 × 300/450 = 0.9
+    //   Vcb,x = 0.8333 × 0.9 × 1.4 × 101.73 = 106.82 kN → φ = 74.77 kN
+    // Y 向（上緣，none → ψc,V = 1.0）：幾何對稱 → Vcb,y = 0.8333 × 0.9 × 1.0 × 101.73 = 76.30 kN → φ = 53.41 kN
+    // DCR：10/74.77 = 0.1337、10/53.41 = 0.1872；正交 √(0.1337² + 0.1872²) = 0.2301；
+    //   較弱邊合向量 √(10² + 10²)/53.41 = 0.2648 → 控制；等效 φVcb = 14.142/0.2648 = 53.41 kN
+    // （若誤用全域 1.4：等效 74.77 kN）
+    const project = shearProject({
+      edgeLeftMm: 1000,
+      edgeRightMm: 300,
+      edgeBottomMm: 1000,
+      edgeTopMm: 300,
+      thicknessMm: 1000,
+      shearEdgeReinforcement: { right: 'd13_stirrups', top: 'none' },
+    })
+    project.loads.shearYKn = 10
+    const shear = shearOf(project)
+    const base = (337500 / 405000) * 0.9 * vb(300)
+    const phiX = 0.7 * 1.4 * base
+    const phiY = 0.7 * 1.0 * base
+    const dcr = Math.max(Math.hypot(10 / phiX, 10 / phiY), Math.hypot(10, 10) / Math.min(phiX, phiY))
+    expect(shear.dcr).toBeCloseTo(dcr, 3)
+    expect(shear.designStrengthKn).toBeCloseTo(Math.hypot(10, 10) / dcr, 1)
+    expect(shear.designStrengthKn).toBeCloseTo(53.41, 1)
+    expect(shear.factors?.find((f) => f.symbol === 'ψ_c,V,x')?.value).toBe('1.4')
+    expect(shear.factors?.find((f) => f.symbol === 'ψ_c,V,y')?.value).toBe('1')
+  })
+
+  it('side view geometry keeps AVc out of the plan rectangles and matches the strength terms', () => {
+    // ex1：ca1 = 300、ha = 200 → h_Vc = min(450, 200) = 200、寬 900、A_Vc = 180,000、A_Vco = 405,000
+    // ex3：ca1' = 180、ha = 150 → h_Vc = min(270, 150) = 150、寬 540、A_Vc = 81,000、A_Vco = 145,800
+    const ex1 = evaluateProject(
+      shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 1000, edgeTopMm: 1000, thicknessMm: 200 }),
+      castIn,
+    )
+    expect(ex1.visualization.rectangles.every((r) => r.kind === 'tension_breakout')).toBe(true)
+    const side1 = ex1.visualization.shearSideViews[0]
+    expect(side1).toMatchObject({ direction: 'x', edge: 'right', actualCa1Mm: 300, ca1Mm: 300, ca1Limited: false })
+    expect(side1.projectedHeightMm).toBeCloseTo(200, 6)
+    expect(side1.fullHeightMm).toBeCloseTo(450, 6)
+    expect(side1.avcMm2).toBeCloseTo(180000, 3)
+    expect(side1.avcoMm2).toBeCloseTo(405000, 3)
+    expect(ex1.results.find((r) => r.id === 'concrete-breakout-shear')!.designStrengthKn).toBeCloseTo(47.48, 1)
+    const ex3 = evaluateProject(
+      shearProject({ edgeLeftMm: 1000, edgeRightMm: 300, edgeBottomMm: 270, edgeTopMm: 270, thicknessMm: 150 }),
+      castIn,
+    )
+    const side3 = ex3.visualization.shearSideViews[0]
+    expect(side3.ca1Limited).toBe(true)
+    expect(side3.ca1Mm).toBeCloseTo(180, 6)
+    expect(side3.projectedHeightMm).toBeCloseTo(150, 6)
+    expect(side3.truncated).toBe(true)
+    expect(side3.avcMm2).toBeCloseTo(81000, 3)
+    expect(side3.avcoMm2).toBeCloseTo(145800, 3)
+    expect(ex3.results.find((r) => r.id === 'concrete-breakout-shear')!.designStrengthKn).toBeCloseTo(24.67, 1)
   })
 
   it('nominalStrengthKn holds the pre-φ value', () => {
