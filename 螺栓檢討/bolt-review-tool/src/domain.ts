@@ -270,7 +270,18 @@ export interface AnchorLayout {
   crackedConcrete: boolean
   lightweightConcrete: boolean
   supplementaryReinforcement: boolean
+  /**
+   * 舊版單一勾選（全域「剪力 U 型補強鋼筋」）。僅供舊案相容：未設定 shearEdgeReinforcement 時，
+   * true 視為各自由邊皆為「配置不小於 D13 之鋼筋」（ψc,V = 1.2），不會自動升為 1.4。
+   */
   shearHairpinReinforcement: boolean
+  /**
+   * 表 17.7.2.5.1（開裂）逐自由邊條件；一旦設定，各邊以此為準並忽略舊版單一勾選。
+   * 'none'：錨栓無輔助鋼筋或角隅鋼筋小於 D13（1.0）
+   * 'd13'：錨栓與邊緣之間配置不小於 D13 之鋼筋（1.2）
+   * 'd13_stirrups'：錨栓與邊緣之間配置不小於 D13 之鋼筋，且圍繞鋼筋之箍筋間距不大於 10 cm（1.4）
+   */
+  shearEdgeReinforcement?: Partial<Record<VisualizationEdge, ShearEdgeReinforcement>>
   basePlateBearingEnabled: boolean
   basePlateLoadedAreaMm2: number
   basePlateLoadedWidthMm?: number
@@ -441,6 +452,8 @@ export interface AnchorPoint {
 
 export type VisualizationEdge = 'left' | 'right' | 'bottom' | 'top'
 
+export type ShearEdgeReinforcement = 'none' | 'd13' | 'd13_stirrups'
+
 export interface ReviewVisualizationAnchor {
   anchorId: string
   appliedTensionKn: number
@@ -450,7 +463,7 @@ export interface ReviewVisualizationAnchor {
 
 export interface ReviewVisualizationRectangle {
   id: string
-  kind: 'tension_breakout' | 'shear_breakout_x' | 'shear_breakout_y'
+  kind: 'tension_breakout'
   x1: number
   x2: number
   y1: number
@@ -462,10 +475,38 @@ export interface ReviewVisualizationEdgeHighlight {
   label: string
 }
 
+/**
+ * 混凝土剪破側視（垂直自由邊之剖面）資料；A_Vc 為構材側面投影，不畫成平面面積。
+ * 長度 mm、面積 mm²。
+ */
+export interface ShearSideView {
+  id: string
+  direction: 'x' | 'y'
+  edge: VisualizationEdge
+  /** 實際邊距 ca1（臨界錨栓列至自由邊） */
+  actualCa1Mm: number
+  /** 17.7.2.1.1 限制後之 ca1' */
+  ca1Mm: number
+  ca1Limited: boolean
+  thicknessMm: number
+  embedmentMm: number
+  /** 1.5ca1' */
+  fullHeightMm: number
+  /** A_Vc 投影高度 min(1.5ca1', ha) */
+  projectedHeightMm: number
+  truncated: boolean
+  /** A_Vc 平行邊緣之投影寬度 */
+  widthMm: number
+  avcMm2: number
+  avcoMm2: number
+}
+
 export interface ReviewVisualization {
   anchors: ReviewVisualizationAnchor[]
+  /** 平面圖矩形：僅 A_Nc（拉破）；剪破 A_Vc 改以 shearSideViews 側視表示 */
   rectangles: ReviewVisualizationRectangle[]
   edges: ReviewVisualizationEdgeHighlight[]
+  shearSideViews: ShearSideView[]
 }
 
 export interface DimensionCheck {

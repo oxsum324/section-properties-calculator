@@ -21,7 +21,11 @@ import {
   REPORT_SOURCE_TOOL,
   getCalcEngineVersionStatus,
 } from './appMeta'
-import { buildStandaloneGeometrySketchSvg } from './reportExport'
+import {
+  buildStandaloneGeometrySketchSvg,
+  buildStandaloneShearSideViewSvgs,
+} from './reportExport'
+import { SHEAR_SIDE_VIEW_SIZE } from './shearSideViewSvg'
 import type { ReportArtifactParams } from './reportExport'
 import { buildReportDocumentState } from './reportDocumentState'
 import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
@@ -390,6 +394,7 @@ function buildTimestampBlock(params: ReportArtifactParams): Table {
 function buildSummarySection(
   params: ReportArtifactParams,
   geometryPngBytes: Uint8Array | null,
+  shearSideViewPngs: Uint8Array[] = [],
 ) {
   const geometryParagraphs: Paragraph[] = []
   if (geometryPngBytes) {
@@ -412,8 +417,31 @@ function buildSummarySection(
         ],
       }),
       createParagraph(
-        '圖示：紅 = 受拉、藍 = 受壓、灰 = 中性；青 = A_Nc、橘 = A_Vc、綠 = 錨栓補強鋼筋、紫 = A1/接觸承壓區。',
+        '圖示：紅 = 受拉、藍 = 受壓、灰 = 中性；青 = A_Nc、綠 = 錨栓補強鋼筋、紫 = A1/接觸承壓區；A_Vc 見剪破側視圖。',
         { color: docxColors.muted, size: 18 },
+      ),
+    )
+  }
+  if (shearSideViewPngs.length > 0) {
+    geometryParagraphs.push(
+      createParagraph("剪力破壞側視（A_Vc = 寬 × min(1.5c'a1, h_a)，17.7.2.1.1、圖 R17.7.2.1b）", {
+        heading: HeadingLevel.HEADING_2,
+      }),
+      ...shearSideViewPngs.map(
+        (data) =>
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new ImageRun({
+                data,
+                transformation: {
+                  width: 560,
+                  height: Math.round((560 * SHEAR_SIDE_VIEW_SIZE.height) / SHEAR_SIDE_VIEW_SIZE.width),
+                },
+                type: 'png',
+              }),
+            ],
+          }),
       ),
     )
   }
@@ -603,6 +631,7 @@ function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
 export function buildReportDocument(
   params: ReportArtifactParams,
   geometryPngBytes: Uint8Array | null = null,
+  shearSideViewPngs: Uint8Array[] = [],
 ) {
   const documentState = buildReportDocumentState({
     batchReview: params.batchReview,
@@ -621,7 +650,7 @@ export function buildReportDocument(
   const isCodeCheck = isCodeCheckReport(params.reportSettings.reportMode)
 
   const portraitOpeningChildren = [
-    ...buildSummarySection(params, geometryPngBytes),
+    ...buildSummarySection(params, geometryPngBytes, shearSideViewPngs),
     ...buildSection('載重組合批次檢核', loadCaseRows, {
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
     }),
@@ -714,7 +743,16 @@ export async function serializeReportDocument(params: ReportArtifactParams) {
   } catch (error) {
     console.warn('[reportDocx] 幾何圖嵌入失敗，僅輸出表格版', error)
   }
-  const document = buildReportDocument(params, geometryPngBytes)
+  const shearSideViewPngs: Uint8Array[] = []
+  try {
+    for (const svg of buildStandaloneShearSideViewSvgs(params.review, params.unitPreferences)) {
+      const png = await svgToPngBytes(svg, SHEAR_SIDE_VIEW_SIZE.width * 1.5, SHEAR_SIDE_VIEW_SIZE.height * 1.5)
+      if (png) shearSideViewPngs.push(png)
+    }
+  } catch (error) {
+    console.warn('[reportDocx] 剪破側視圖嵌入失敗，略過', error)
+  }
+  const document = buildReportDocument(params, geometryPngBytes, shearSideViewPngs)
   // Packer.toBuffer() 會要求 JSZip 的 nodebuffer 輸出，在實際瀏覽器中會失敗。
   // Blob 同時可由瀏覽器與目前的 Node 測試環境讀回 ArrayBuffer。
   const blob = await Packer.toBlob(document)

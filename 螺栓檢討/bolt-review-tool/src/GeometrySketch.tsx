@@ -2,10 +2,12 @@ import type { ReviewResult, UnitPreferences } from './domain'
 import { getAnchorReinforcementOverlay } from './anchorReinforcementOverlay'
 import { getBasePlateBearingOverlay } from './bearingOverlay'
 import { formatNumber, formatQuantity } from './formatHelpers'
+import { buildShearSideViewSvgs } from './shearSideViewSvg'
 
 /**
- * 錨栓配置 SVG 示意：混凝土平面、邊距高亮、A_Nc / A_Vc 投影、錨栓補強鋼筋、
- * A1 承壓 / 接觸承壓區、各錨栓拉壓 / 中性狀態。
+ * 錨栓配置 SVG 示意：混凝土平面、邊距高亮、A_Nc 投影、錨栓補強鋼筋、
+ * A1 承壓 / 接觸承壓區、各錨栓拉壓 / 中性狀態；剪破 A_Vc 為側面投影，另以側視圖呈現
+ * （不在平面上把側面高度畫成面積）。
  *
  * 從 App.tsx 抽出（~223 行）；純展示，無外部 callback。
  */
@@ -40,7 +42,10 @@ export function GeometrySketch({
     review.analysisLoads,
   )
 
+  const shearSideViewSvgs = buildShearSideViewSvgs(review, units)
+
   return (
+    <>
     <svg className="geometry-sketch" viewBox={viewBox} role="img" aria-label="錨栓幾何示意">
       <rect
         x="0"
@@ -224,11 +229,20 @@ export function GeometrySketch({
         混凝土平面 / 活躍組合
       </text>
       <text x="16" y="46" className="sketch-legend">
-        紅 = 受拉，藍 = 受壓，灰 = 中性；青 = A_Nc，橘 = A_Vc，綠 = 錨栓補強鋼筋，紫 = A1 / 接觸承壓區
+        紅 = 受拉，藍 = 受壓，灰 = 中性；青 = A_Nc，綠 = 錨栓補強鋼筋，紫 = A1 / 接觸承壓區；A_Vc 見剪破側視圖
       </text>
       <text x="16" y={layout.concreteHeightMm - 14} className="sketch-meta">
         {formatQuantity(layout.concreteWidthMm, 'length', units)} × {formatQuantity(layout.concreteHeightMm, 'length', units)}
       </text>
     </svg>
+    {shearSideViewSvgs.length > 0 ? (
+      <div className="shear-side-views" aria-label="剪力破壞側視圖">
+        {shearSideViewSvgs.map((svg, index) => (
+          // 字串由 shearSideViewSvg 產生，所有文字已跳脫
+          <div key={index} className="shear-side-view" dangerouslySetInnerHTML={{ __html: svg }} />
+        ))}
+      </div>
+    ) : null}
+    </>
   )
 }

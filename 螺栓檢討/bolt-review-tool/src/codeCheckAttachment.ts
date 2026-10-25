@@ -34,7 +34,7 @@ const FORMULAS: Record<string, string> = {
     "φNsb(g) = φ·（邊距／群錨修正）·13·λa·ca1·√Abrg·√f'c",
   'steel-shear': 'φVsa = φ·0.6·Ase,V·futa·nv·ψe,V',
   'concrete-breakout-shear':
-    'φVcb(g) = φ·(AVc/AVco)·ψed,V·ψec,V·ψc,V·Vb',
+    'φVcb(g) = φ·(AVc/AVco)·ψec,V·ψed,V·ψc,V·ψh,V·Vb；AVc 高度取 min(1.5ca1, ha)',
   pryout: 'φVcp(g) = φ·kcp·min[Ncb(g), Npn/Na]',
   interaction:
     '依 17.8.1～17.8.3：0.2 例外，或 N/(φNn) + V/(φVn) ≤ 1.2（可選 5/3 次方式）',
