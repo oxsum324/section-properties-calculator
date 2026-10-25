@@ -23,8 +23,8 @@
           "id": "anchor-strength-shear-modes",
           "clause": "建築物混凝土結構設計規範第 17.7.1 / 17.7.2 / 17.7.3 節",
           "purpose": "剪力檢核需分離鋼材剪力、混凝土剪破與撬出強度，並保留 X/Y 自由邊、剪力偏心與正交合向量控制來源。",
-          "inputs": ["loads.shearXKn", "loads.shearYKn", "shearEccentricityXmm", "shearEccentricityYmm", "edge distances", "spacingXmm", "spacingYmm", "shearSleeve", "shearHairpinReinforcement"],
-          "calculation": ["Vsa", "A_Vc / A_Vco", "psi_ed,V", "psi_ec,V", "psi_c,V", "orthogonal vector DCR", "corner vector DCR", "kcp pryout", "governing shear mode"],
+          "inputs": ["loads.shearXKn", "loads.shearYKn", "shearEccentricityXmm", "shearEccentricityYmm", "edge distances", "spacingXmm", "spacingYmm", "shearSleeve", "shearEdgeReinforcement", "shearHairpinReinforcement (legacy)", "thicknessMm"],
+          "calculation": ["Vsa", "A_Vc / A_Vco", "psi_ed,V", "psi_ec,V", "psi_c,V", "psi_h,V", "orthogonal vector DCR", "corner vector DCR", "kcp pryout", "governing shear mode"],
           "report": ["鋼材剪力強度", "混凝土剪破強度", "撬出強度", "剪力自由邊", "正交向量互制", "列印報告"],
           "evidence": ["src/calc.ts", "src/calc.test.ts", "src/resultPresentation.test.ts", "src/ReportDocument.tsx", "src/validation/validation.test.ts"],
           "manualReview": ["剪力方向、自由邊判讀、U 型剪力補強、剪力榫、基板孔隙與錨栓實際受剪分配仍須依施工圖與專案力學模型人工複核。"]

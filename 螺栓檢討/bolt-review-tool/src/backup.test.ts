@@ -78,6 +78,26 @@ describe('workspace backup helpers', () => {
     await expect(parsed.files[0].blob.text()).resolves.toBe('ETA')
   })
 
+  it('round-trips per-edge ψc,V conditions through backup and replay verification', async () => {
+    const project = {
+      ...defaultProject,
+      layout: {
+        ...defaultProject.layout,
+        shearEdgeReinforcement: { right: 'd13_stirrups' as const, top: 'd13' as const },
+      },
+    }
+    const payload = await buildWorkspaceBackup(defaultProducts, [project], [])
+    const parsed = parseWorkspaceBackup(JSON.stringify(payload))
+    expect(parsed.projects[0].layout.shearEdgeReinforcement).toEqual({
+      right: 'd13_stirrups',
+      top: 'd13',
+    })
+    await expect(verifyWorkspaceBackupReplay(parsed)).resolves.toEqual({
+      verifiedProjects: 1,
+      legacyProjects: 0,
+    })
+  })
+
   it('merges imported data and remaps duplicate ids and names', async () => {
     const duplicateProject = {
       ...defaultProject,
