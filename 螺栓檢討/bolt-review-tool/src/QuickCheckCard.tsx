@@ -39,6 +39,9 @@ export function QuickCheckCard(props: {
   const psiEcN = factorValue(breakout, 'ψ_ec,N')
   const psiCN = factorValue(breakout, 'ψ_c,N')
   const phiN = factorValue(breakout, 'φ')
+  const phiNByRebar = Boolean(
+    breakout?.factors?.find((f) => f.symbol === 'φ')?.note?.includes('錨定鋼筋'),
+  )
   const nAnchors = review.anchorPoints.length || 1
   const tensionDemandKn = Math.max(0, review.analysisLoads.tensionKn)
   const perAnchorDemand = tensionDemandKn / nAnchors
@@ -107,7 +110,7 @@ export function QuickCheckCard(props: {
                 </td>
               </tr>
               <tr>
-                <td>φ (強度折減)</td>
+                <td>φ (強度折減{phiNByRebar ? '，錨定鋼筋路徑 17.5.3' : ''})</td>
                 <td>{phiN !== null ? phiN.toFixed(2) : '—'}</td>
               </tr>
             </tbody>

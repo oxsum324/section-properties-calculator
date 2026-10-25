@@ -1628,6 +1628,51 @@ describe('Taiwan Chapter 17 review engine', () => {
     expect(breakout?.note).toContain('已取代混凝土拉破強度')
   })
 
+  it('reports the φ actually used when the anchor reinforcement path governs (17.5.3: 0.75)', () => {
+    // 手算：As = 4000 mm²、fy = 420 MPa → Asfy = 4000 × 420 / 1000 = 1680 kN；φ = 0.75 → 1260 kN
+    const castIn = defaultProducts.find((product) => product.id === 'generic-cast-m20')!
+    const withRebar = (areaMm2: number) => {
+      const project = cloneProject(defaultProject)
+      project.loads.shearXKn = Math.max(project.loads.shearXKn, 10)
+      project.layout.anchorReinforcementEnabled = true
+      project.layout.anchorReinforcementAreaMm2 = areaMm2
+      project.layout.anchorReinforcementYieldMpa = 420
+      project.layout.anchorReinforcementWithinHalfCa1 = true
+      project.layout.anchorReinforcementIntersectsEachAnchor = true
+      project.layout.anchorReinforcementDevelopedForTension = true
+      project.layout.anchorReinforcementDevelopedForShear = true
+      return evaluateProject(project, castIn)
+    }
+    const concreteOnlyProject = cloneProject(defaultProject)
+    concreteOnlyProject.loads.shearXKn = Math.max(concreteOnlyProject.loads.shearXKn, 10)
+    const concreteOnly = evaluateProject(concreteOnlyProject, castIn)
+    const factorOf = (review: ReturnType<typeof evaluateProject>, id: string, symbol: string) =>
+      review.results.find((r) => r.id === id)?.factors?.find((f) => f.symbol === symbol)
+
+    for (const id of ['concrete-breakout-tension', 'concrete-breakout-shear']) {
+      const concretePhi = factorOf(concreteOnly, id, 'φ')?.value
+      expect(concretePhi).toBeDefined()
+      expect(concretePhi).not.toBe('0.75')
+
+      const governing = withRebar(4000)
+      const result = governing.results.find((r) => r.id === id)!
+      expect(result.designStrengthKn).toBeCloseTo(1260, 6)
+      expect(result.nominalStrengthKn).toBeCloseTo(1680, 6)
+      expect(result.designStrengthKn / result.nominalStrengthKn).toBeCloseTo(0.75, 6)
+      expect(factorOf(governing, id, 'φ')?.value).toBe('0.75')
+      expect(factorOf(governing, id, 'φ')?.note).toContain('17.5.3')
+      expect(factorOf(governing, id, 'φ_c')?.value).toBe(concretePhi)
+
+      // As = 100 mm² → φAsfy = 0.75 × 100 × 420 / 1000 = 31.5 kN，低於混凝土路徑 → 混凝土 φ 照舊
+      const notGoverning = withRebar(100)
+      const concreteDesign = concreteOnly.results.find((r) => r.id === id)!.designStrengthKn
+      expect(concreteDesign).toBeGreaterThan(31.5)
+      expect(factorOf(notGoverning, id, 'φ')?.value).toBe(concretePhi)
+      expect(factorOf(notGoverning, id, 'φ_c')).toBeUndefined()
+      expect(factorOf(notGoverning, id, 'φAsfy')?.value).toBe('31.5')
+    }
+  })
+
   it('notes when anchor reinforcement takes over tension breakout beyond hef range', () => {
     const project = cloneProject(defaultProject)
     project.layout.effectiveEmbedmentMm = 700
