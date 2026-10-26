@@ -8,7 +8,7 @@ function approx(actual, expected, tolerance = 1e-8) {
 }
 
 assert.equal(goldenCases.length, 5);
-assert.equal(RcColumnCoverDeviationCore.version, '0.1.0');
+assert.equal(RcColumnCoverDeviationCore.version, '0.2.0');
 
 for (const goldenCase of goldenCases) {
   assert.deepEqual(RcColumnCoverDeviationCore.validateInput(goldenCase.input), [], `${goldenCase.id} validation`);

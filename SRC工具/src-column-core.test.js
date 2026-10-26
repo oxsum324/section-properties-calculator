@@ -84,7 +84,7 @@ function manualExample8() {
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v1.0.0', 'SRC column formal core is explicitly versioned');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v1.0.1', 'SRC column formal core is explicitly versioned');
 assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v12', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'formal-release-ready', 'core declares formal release readiness');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');

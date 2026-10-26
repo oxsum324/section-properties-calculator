@@ -1,7 +1,7 @@
 {
   "schemaVersion": 17,
   "tool": "src-column",
-  "coreVersion": "src-column.core.v1.0.0",
+  "coreVersion": "src-column.core.v1.0.1",
   "regulation": {
     "title": "鋼骨鋼筋混凝土構造設計規範與解說",
     "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",

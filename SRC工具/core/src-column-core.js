@@ -40,7 +40,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog, RcBiaxial, ColumnShear, SeismicDetailing, SeismicAxial) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v1.0.0';
+  const CORE_VERSION = 'src-column.core.v1.0.1';
   const INPUT_SCHEMA = 'src-column.input.v12';
   const RELEASE_STATUS = 'formal-release-ready';
   const REGULATION_PROFILE = Object.freeze({

@@ -12,7 +12,7 @@
     throw new Error('RcColumnCoverDeviationCore requires PMSection');
   }
 
-  const CORE_VERSION = '0.1.0';
+  const CORE_VERSION = '0.2.0';
   const inputSchemaVersion = 'rc-column-cover-deviation.input.v0.1';
   const resultSchemaVersion = 'rc-column-cover-deviation.result.v0.1';
   const logicSignature = 'rc-column-cover-deviation-core:v0.1:pmsection-strain-compatibility:four-face-center-distance';
