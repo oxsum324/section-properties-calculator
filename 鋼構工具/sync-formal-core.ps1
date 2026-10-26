@@ -115,6 +115,17 @@ function Read-Manifest {
   return Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
+# Compare recorded paths within their repository root so relocated checkouts retain
+# the same identity checks without weakening source/target hash validation.
+function Get-ManifestPathKey {
+  param([string]$Path, [string]$RepositoryRoot)
+  if (-not $Path -or -not $RepositoryRoot) { return $null }
+  $prefix = $RepositoryRoot.Replace('/', '\').TrimEnd('\') + '\'
+  $normalized = $Path.Replace('/', '\')
+  if (-not $normalized.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { return $null }
+  return $normalized.Substring($prefix.Length).ToLowerInvariant()
+}
+
 function Get-ManifestDrift {
   param(
     $Manifest,
@@ -132,6 +143,8 @@ function Get-ManifestDrift {
     return $issues
   }
 
+  $recordedRoot = if ($Manifest.toolRoot) { Split-Path -Parent $Manifest.toolRoot } else { $null }
+  $currentRoot = Split-Path -Parent $root
   $manifestFiles = @($Manifest.files)
   if ($manifestFiles.Count -ne $CurrentStates.Count) {
     $issues.Add([pscustomobject]@{
@@ -154,8 +167,9 @@ function Get-ManifestDrift {
     }
 
     if (
-      $manifestEntry.source -ne $state.source -or
-      $manifestEntry.target -ne $state.target -or
+      -not $recordedRoot -or
+      (Get-ManifestPathKey $manifestEntry.source $recordedRoot) -ne (Get-ManifestPathKey $state.source $currentRoot) -or
+      (Get-ManifestPathKey $manifestEntry.target $recordedRoot) -ne (Get-ManifestPathKey $state.target $currentRoot) -or
       $manifestEntry.sourceHash -ne $state.sourceHash -or
       $manifestEntry.targetHash -ne $state.targetHash
     ) {
