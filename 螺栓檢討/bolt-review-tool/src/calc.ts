@@ -46,6 +46,8 @@ interface Rectangle {
 interface AnchorReinforcementStrength {
   nominalStrengthKn: number
   designStrengthKn: number
+  /** 錨栓錨定鋼筋強度折減因數（17.5.3：0.75） */
+  phi: number
   formal: boolean
   note: string
 }
@@ -611,6 +613,10 @@ function getProductFamilyLabel(family: AnchorFamily) {
   }
 }
 
+/** 17.5.3：錨栓錨定鋼筋之強度折減因數為 0.75 */
+const ANCHOR_REINFORCEMENT_PHI = 0.75
+const ANCHOR_REINFORCEMENT_PHI_LABEL = '錨栓錨定鋼筋路徑控制（17.5.3）'
+
 function getAnchorReinforcementStrength(
   layout: AnchorLayout,
   mode: 'tension' | 'shear',
@@ -649,11 +655,12 @@ function getAnchorReinforcementStrength(
     (layout.anchorReinforcementAreaMm2 *
       layout.anchorReinforcementYieldMpa) /
     1000
-  const designStrengthKn = 0.75 * nominalStrengthKn
+  const designStrengthKn = ANCHOR_REINFORCEMENT_PHI * nominalStrengthKn
 
   return {
     nominalStrengthKn,
     designStrengthKn,
+    phi: ANCHOR_REINFORCEMENT_PHI,
     formal,
     note: `依 17.5.2.1(d) / 17.5.2.1.1 採錨栓群周圍有效補強鋼筋總面積 As = ${round(layout.anchorReinforcementAreaMm2, 1)} mm²、fy = ${round(layout.anchorReinforcementYieldMpa, 1)} MPa、φ = 0.75${formal ? '' : `；${unmetChecks.join('、')}，結果維持初篩`}`,
   }
@@ -1298,9 +1305,17 @@ function getConcreteBreakoutTension(
       factor('ψ_ed,N', '邊距修正', edgeDistanceFactor),
       factor('ψ_ec,N', '偏心修正', eccentricityFactor),
       factor('ψ_c,N', '裂縫修正', crackingFactor, phiSelection.label),
-      factor('φ', '強度折減因子', phi, phiSelection.label),
+      factor(
+        'φ',
+        '強度折減因子（採用路徑）',
+        useAnchorReinforcement ? anchorReinforcement!.phi : phi,
+        useAnchorReinforcement ? ANCHOR_REINFORCEMENT_PHI_LABEL : phiSelection.label,
+      ),
       ...(anchorReinforcement
         ? [
+            ...(useAnchorReinforcement
+              ? [factor('φ_c', '混凝土拉破路徑強度折減因子（未採用）', phi, phiSelection.label)]
+              : []),
             factor('φAsfy', '補強鋼筋路徑設計強度', anchorReinforcement.designStrengthKn, anchorReinforcement.note),
             factor('adopt', '採用設計強度', designStrengthKn, useAnchorReinforcement ? '補強鋼筋取代混凝土拉破路徑' : '混凝土拉破路徑控制'),
           ]
@@ -2916,9 +2931,17 @@ function getConcreteShearBreakoutResult(
     factors: [
       ...shearBreakoutDirectionalFactors('x', directionalX),
       ...shearBreakoutDirectionalFactors('y', directionalY),
-      factor('φ', '強度折減因子', phiSelection.phi, phiSelection.label),
+      factor(
+        'φ',
+        '強度折減因子（採用路徑）',
+        useAnchorReinforcement ? anchorReinforcement!.phi : phiSelection.phi,
+        useAnchorReinforcement ? ANCHOR_REINFORCEMENT_PHI_LABEL : phiSelection.label,
+      ),
       ...(anchorReinforcement
         ? [
+            ...(useAnchorReinforcement
+              ? [factor('φ_c', '混凝土剪破路徑強度折減因子（未採用）', phiSelection.phi, phiSelection.label)]
+              : []),
             factor('φAsfy', '補強鋼筋路徑設計強度', anchorReinforcement.designStrengthKn, anchorReinforcement.note),
             factor('adopt', '採用設計強度', equivalentDesignStrength, useAnchorReinforcement ? '補強鋼筋取代混凝土剪破路徑' : '混凝土剪破路徑控制'),
           ]

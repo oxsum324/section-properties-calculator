@@ -5,13 +5,13 @@ import type {
   UnitPreferences,
 } from './domain'
 import { formatNumber } from './formatHelpers'
+import { buildResultsCsv } from './resultsCsv'
 import { getResultPresentationSummary } from './resultPresentation'
 import { Badge, DimensionRow } from './resultDisplay'
 import {
   formatResultFactorList,
   formatResultValue,
   sectionCitation,
-  statusLabel,
 } from './resultDisplayHelpers'
 
 export type ResultDetailFilter = 'all' | 'failing' | 'governing'
@@ -137,41 +137,10 @@ export function ResultsDetailPanel(props: {
           className="secondary-button"
           style={{ marginTop: 6 }}
           onClick={() => {
-            // 純文字 CSV：欄位以 , 分隔；含逗號或引號的欄位用引號包並 escape
-            const escape = (cell: string | number) => {
-              const text = String(cell ?? '')
-              if (/[",\n]/.test(text)) {
-                return `"${text.replaceAll('"', '""')}"`
-              }
-              return text
-            }
+            // 純文字 CSV：數值依目前單位換算，並附單位欄（與 XLSX 檢核結果表一致）
             const excludedSet = new Set(project.excludedCheckIds ?? [])
             const rows = review.results.filter((r) => !excludedSet.has(r.id))
-            const header = [
-              '檢核模式',
-              '條文',
-              '需求值',
-              '設計值',
-              '名義值',
-              'DCR',
-              '狀態',
-              '正式性',
-              '說明',
-            ]
-            const body = rows.map((r) => [
-              r.mode,
-              `${r.citation.clause} ${r.citation.title}`,
-              Number.isFinite(r.demandKn) ? r.demandKn : '',
-              Number.isFinite(r.designStrengthKn) ? r.designStrengthKn : '',
-              Number.isFinite(r.nominalStrengthKn) ? r.nominalStrengthKn : '',
-              Number.isFinite(r.dcr) ? r.dcr : '',
-              statusLabel(r.status),
-              r.formal ? '正式' : '初篩/補資料',
-              r.note ?? '',
-            ])
-            const csv = [header, ...body]
-              .map((line) => line.map(escape).join(','))
-              .join('\r\n')
+            const csv = buildResultsCsv(rows, unitPreferences)
             // BOM (U+FEFF) 讓 Excel 開啟 UTF-8 CSV 不亂碼（Excel 預設用 ANSI 解碼）
             const BOM = '﻿'
             const blob = new Blob([`${BOM}${csv}`], {

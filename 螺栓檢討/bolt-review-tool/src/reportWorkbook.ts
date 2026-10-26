@@ -7,7 +7,6 @@ import {
   getCalcEngineVersionStatus,
 } from './appMeta'
 import type {
-  CheckResult,
   ProjectAuditSource,
   ReviewStatus,
   UnitPreferences,
@@ -27,6 +26,7 @@ import {
   formatReportDocumentDateTime,
 } from './reportDocumentState'
 import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
+import { convertResultValue, getResultValueUnit } from './resultUnits'
 import { appendAnchorWorkbookSealRows } from './reportWorkbookSeal'
 import { getUnitSymbol, toDisplayValue } from './units'
 
@@ -123,50 +123,6 @@ function auditSourceLabel(source?: ProjectAuditSource) {
     default:
       return ''
   }
-}
-
-function getResultValueUnit(
-  result: CheckResult,
-  units: UnitPreferences,
-): { quantity: 'force' | 'stress' | 'length' | 'ratio'; symbol: string } {
-  if (result.presentation === 'stress') {
-    return { quantity: 'stress', symbol: getUnitSymbol('stress', units) }
-  }
-  if (result.presentation === 'length') {
-    return { quantity: 'length', symbol: getUnitSymbol('length', units) }
-  }
-  if (result.presentation === 'ratio') {
-    return { quantity: 'ratio', symbol: '—' }
-  }
-  return { quantity: 'force', symbol: getUnitSymbol('force', units) }
-}
-
-/**
- * 把 CheckResult 的內部數值（mm / kN / MPa）依使用者單位轉成顯示單位的「原始數值」。
- * 回傳 number（無法解析 finite 時回 ''），供 ExcelJS 寫入 raw cell；
- * 顯示位數靠 cell.numFmt 控制，避免依賴格式化字串供公式重算。
- */
-function convertResultValue(
-  result: CheckResult,
-  value: number,
-  units: UnitPreferences,
-): number | string {
-  if (!Number.isFinite(value)) {
-    return ''
-  }
-  const presentation = getResultValueUnit(result, units)
-  if (presentation.quantity === 'ratio') {
-    return value
-  }
-  return toDisplayValue(
-    value,
-    presentation.quantity === 'force'
-      ? 'force'
-      : presentation.quantity === 'stress'
-        ? 'stress'
-        : 'length',
-    units,
-  )
 }
 
 function convertLength(value: number, units: UnitPreferences): number | string {
