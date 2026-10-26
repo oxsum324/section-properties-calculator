@@ -198,7 +198,7 @@
       '/rc-retrofit-section': '2026-10-23',
       '/rc-column-cover-deviation': '2026-10-25',
       '/src-beam': '2026-10-23',
-      '/src-column': '2026-10-23',
+      '/src-column': '2026-10-25',
       '/steel-formal': '2026-10-23',
       '/steel-beam-formal': '2026-10-23',
       '/steel-column-formal': '2026-10-23',
@@ -258,7 +258,7 @@
     version: 1,
     routes: {
       '/toolbox-home': ['結構工具箱/assets/home/home.js', '結構工具箱/assets/home/src/home.source.js'],
-      '/condition-survey': ['field-survey/app.js', 'field-survey/model.js', 'field-survey/report.js', 'field-survey/report-ui.js', 'field-survey/store.js', 'field-survey/bundle.js', 'field-survey/annotation.js', 'field-survey/sketch.js', 'field-survey/app.css', 'field-survey/sw.js', 'field-survey/manifest.webmanifest', 'field-survey/src/report-ui.source.js', 'field-survey/signoff-ui.js', 'field-survey/src/signoff-ui.source.js', 'field-survey/src/sketch.source.js', 'field-survey/detail.js', 'field-survey/src/detail.source.js', 'field-survey/src/model.source.js'],
+      '/condition-survey': ['field-survey/signoff-content.js', 'field-survey/signoff.js', 'field-survey/report-standard.js', 'field-survey/app.js', 'field-survey/model.js', 'field-survey/report.js', 'field-survey/report-ui.js', 'field-survey/store.js', 'field-survey/bundle.js', 'field-survey/annotation.js', 'field-survey/sketch.js', 'field-survey/app.css', 'field-survey/sw.js', 'field-survey/manifest.webmanifest', 'field-survey/src/report-ui.source.js', 'field-survey/signoff-ui.js', 'field-survey/src/signoff-ui.source.js', 'field-survey/src/sketch.source.js', 'field-survey/detail.js', 'field-survey/src/detail.source.js', 'field-survey/src/model.source.js'],
       '/beam-analysis': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js', '結構工具箱/assets/hy/colors_and_type.css', '結構工具箱/assets/hy/continuous-beam-ui.css', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', 'tool-chrome.js', 'tool-chrome.css', '結構工具箱/tools/nav/tool-chrome.source.js', '結構工具箱/core/family-theme.css'],
       '/frame-analysis': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/src/project-meta-profile.source.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js', '結構工具箱/assets/hy/colors_and_type.css', '結構工具箱/assets/hy/frame-analysis-ui.css', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/tool-workflow.js', '結構工具箱/tools/tool-workflow-adapters.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', 'tool-page-a11y.js', '結構工具箱/tools/a11y/tool-page-a11y.source.js', '結構工具箱/core/ui/src/report-docx.source.js', '結構工具箱/core/ui/src/tool-workflow.source.js', '結構工具箱/tools/src/tool-workflow-adapters.source.js', '結構工具箱/core/loads/loadcombo.js', '結構工具箱/core/loads/src/loadcombo.source.js', 'tool-chrome.js', 'tool-chrome.css', '結構工具箱/tools/nav/tool-chrome.source.js', '結構工具箱/core/family-theme.css'],
       '/section': ['結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/materials/steel.js', '結構工具箱/core/ui/report.js', '結構工具箱/core/direct-print-boundary.css', '結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report-docx.js', '石材固定/vendor/package/dist/index.iife.js', '石材固定/vendor/package/LICENSE', '結構工具箱/core/ui/src/report-docx.source.js', 'tool-chrome.js', 'tool-chrome.css', '結構工具箱/tools/nav/tool-chrome.source.js'],
@@ -428,7 +428,7 @@
     },
     {
       title: 'RC 柱',
-      version: 'V3.2',
+      version: 'V3.3',
       href: '/rc-column',
       aliases: ['RC column design', '柱軸壓強度'],
       categories: ['member'],
@@ -473,7 +473,7 @@
     },
     {
       title: 'RC 剪力牆',
-      version: 'V0.5',
+      version: 'V0.6',
       href: '/rc-shear-wall',
       aliases: ['RC shear wall', '特殊邊界構材'],
       categories: ['member'],
