@@ -1,3 +1,4 @@
+import { buildShearSideViewSvgs } from './shearSideViewSvg'
 import { getAnchorReinforcementOverlay } from './anchorReinforcementOverlay'
 import {
   CURRENT_APP_BUILD_TIME,
@@ -461,7 +462,7 @@ function buildGeometrySketchSvg(review: ReviewResult, units: UnitPreferences) {
     ${edgeLabels}
     ${anchors}
     <text x="16" y="24" class="sketch-title">混凝土平面 / 活躍組合</text>
-    <text x="16" y="46" class="sketch-legend">紅 = 受拉，藍 = 受壓，灰 = 中性；青 = A_Nc，橘 = A_Vc，綠 = 錨栓補強鋼筋，紫 = A1 / 接觸承壓區</text>
+    <text x="16" y="46" class="sketch-legend">紅 = 受拉，藍 = 受壓，灰 = 中性；青 = A_Nc，綠 = 錨栓補強鋼筋，紫 = A1 / 接觸承壓區；A_Vc 見剪破側視圖</text>
     <text x="16" y="${layout.concreteHeightMm - 14}" class="sketch-meta">${escapeHtml(
       `${formatQuantity(layout.concreteWidthMm, 'length', units)} × ${formatQuantity(layout.concreteHeightMm, 'length', units)}`,
     )}</text>
@@ -479,7 +480,6 @@ const GEOMETRY_SVG_STYLE = `
   .bearing-contact-zone-uplift_x,.bearing-contact-zone-uplift_y,.bearing-contact-zone-uplift_xy { fill:rgba(129,72,191,.24); }
   .bearing-overlay-label { fill:#45315f; font-size:16px; font-weight:700; }
   .zone-tension_breakout { fill:rgba(14,165,233,.18); stroke:#0284c7; stroke-width:2; }
-  .zone-shear_breakout_x,.zone-shear_breakout_y { fill:rgba(249,115,22,.16); stroke:#ea580c; stroke-width:2; }
   .reinforcement-zone { fill:rgba(24,133,84,.08); stroke:rgba(20,108,69,.6); stroke-width:2.5; stroke-dasharray:10 8; }
   .reinforcement-line { stroke:rgba(20,108,69,.55); stroke-width:2.5; stroke-linecap:round; }
   .edge-highlight { stroke:#dc2626; stroke-width:4; stroke-dasharray:10 8; }
@@ -505,6 +505,14 @@ export function buildStandaloneGeometrySketchSvg(
     (_, attrs) =>
       `<svg${attrs} xmlns="http://www.w3.org/2000/svg"><defs><style>${GEOMETRY_SVG_STYLE}</style></defs>`,
   )
+}
+
+/** 剪破側視 SVG（自含樣式；DOCX / PNG 匯出用） */
+export function buildStandaloneShearSideViewSvgs(
+  review: ReviewResult,
+  units: UnitPreferences,
+) {
+  return buildShearSideViewSvgs(review, units)
 }
 
 export function buildStandaloneReportHtml(params: ReportArtifactParams) {
@@ -717,13 +725,14 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       .route-matrix-bar span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg, rgba(15,84,97,.88), rgba(194,109,62,.82)); }
       .geometry-wrap { overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:12px; }
       .geometry { width:100%; min-width:420px; height:auto; }
+      .shear-side-view { margin-top:12px; }
+      .shear-side-view svg { width:100%; min-width:420px; height:auto; }
       .concrete-body { fill:#edf1f6; stroke:#7f8ea3; stroke-width:3; }
       .bearing-zone { fill:rgba(123,92,168,.09); stroke:rgba(94,65,139,.42); stroke-width:2.4; stroke-dasharray:10 8; }
       .bearing-contact-zone { fill:rgba(110,77,163,.20); stroke:rgba(85,56,132,.56); stroke-width:2.8; }
       .bearing-contact-zone-uplift_x,.bearing-contact-zone-uplift_y,.bearing-contact-zone-uplift_xy { fill:rgba(129,72,191,.24); }
       .bearing-overlay-label { fill:#45315f; font-size:16px; font-weight:700; }
       .zone-tension_breakout { fill:rgba(14,165,233,.18); stroke:#0284c7; stroke-width:2; }
-      .zone-shear_breakout_x,.zone-shear_breakout_y { fill:rgba(249,115,22,.16); stroke:#ea580c; stroke-width:2; }
       .reinforcement-zone { fill:rgba(24,133,84,.08); stroke:rgba(20,108,69,.6); stroke-width:2.5; stroke-dasharray:10 8; }
       .reinforcement-line { stroke:rgba(20,108,69,.55); stroke-width:2.5; stroke-linecap:round; }
       .edge-highlight { stroke:#dc2626; stroke-width:4; stroke-dasharray:10 8; }
@@ -935,6 +944,9 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
         <div class="geometry-wrap">
           ${buildGeometrySketchSvg(review, unitPreferences)}
         </div>
+        ${buildShearSideViewSvgs(review, unitPreferences)
+          .map((svg) => `<div class="geometry-wrap shear-side-view">${svg}</div>`)
+          .join('')}
         ${
           review.project.layout.basePlateBearingEnabled
             ? `<p class="meta">基板承壓：A1 ${escapeHtml(formatQuantity(getEffectiveBasePlateLoadedArea(review), 'area', unitPreferences))} / A2 ${escapeHtml(formatQuantity(review.project.layout.basePlateSupportAreaMm2, 'area', unitPreferences))}${(review.project.layout.basePlateLoadedWidthMm ?? 0) > 0 && (review.project.layout.basePlateLoadedHeightMm ?? 0) > 0 ? ` / b1 × h1 ${escapeHtml(formatQuantity(review.project.layout.basePlateLoadedWidthMm ?? 0, 'length', unitPreferences))} × ${escapeHtml(formatQuantity(review.project.layout.basePlateLoadedHeightMm ?? 0, 'length', unitPreferences))}` : ''}${basePlatePlan.widthMm > 0 && basePlatePlan.heightMm > 0 ? ` / B × N ${escapeHtml(formatQuantity(basePlatePlan.widthMm, 'length', unitPreferences))} × ${escapeHtml(formatQuantity(basePlatePlan.heightMm, 'length', unitPreferences))}` : ''}${((review.project.layout.columnCentroidOffsetXmm ?? 0) !== 0 || (review.project.layout.columnCentroidOffsetYmm ?? 0) !== 0) ? ` / 柱偏移 ${escapeHtml(formatQuantity(review.project.layout.columnCentroidOffsetXmm ?? 0, 'length', unitPreferences))} × ${escapeHtml(formatQuantity(review.project.layout.columnCentroidOffsetYmm ?? 0, 'length', unitPreferences))}` : ''} / ${escapeHtml(basePlateSectionTypeLabel(basePlateSectionType))}${basePlateSectionType === 'custom' ? ` / Sx ${escapeHtml(formatNumber(review.project.layout.basePlateSectionModulusXmm3 ?? 0))} mm³ / Sy ${escapeHtml(formatNumber(review.project.layout.basePlateSectionModulusYmm3 ?? 0))} mm³` : ''}</p>

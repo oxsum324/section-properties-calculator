@@ -45,6 +45,13 @@ function validateInput(input) {
   for (const key of positive) {
     if (!Number.isFinite(Number(input?.[key])) || Number(input[key]) <= 0) issues.push(`${key}:positive-finite-required`);
   }
+  if (input?.thinMemberThicknessMm !== undefined
+    && (!Number.isFinite(Number(input.thinMemberThicknessMm)) || Number(input.thinMemberThicknessMm) <= 0)) {
+    issues.push('thinMemberThicknessMm:positive-finite-required');
+  }
+  for (const [index, variant] of (Array.isArray(input?.shearVariants) ? input.shearVariants : []).entries()) {
+    if (!/^[a-z0-9-]+$/.test(String(variant?.id || ''))) issues.push(`shearVariants[${index}].id:required`);
+  }
   for (const key of ['shearXKn', 'shearYKn']) {
     if (!Number.isFinite(Number(input?.[key]))) issues.push(`${key}:finite-required`);
   }
@@ -115,6 +122,31 @@ function calculate(input) {
     }
   };
   const review = evaluateProject(project, product);
+  const variantShear = {};
+  for (const variant of Array.isArray(input.shearVariants) ? input.shearVariants : []) {
+    const layout = { ...project.layout };
+    for (const key of ['concreteWidthMm', 'concreteHeightMm', 'thicknessMm', 'edgeLeftMm', 'edgeRightMm', 'edgeBottomMm', 'edgeTopMm']) {
+      if (variant[key] !== undefined) layout[key] = Number(variant[key]);
+    }
+    layout.shearHairpinReinforcement = false;
+    layout.shearEdgeReinforcement = variant.edgeReinforcement ? { ...variant.edgeReinforcement } : undefined;
+    const loads = {
+      ...project.loads,
+      shearXKn:Number(variant.shearXKn ?? input.shearXKn),
+      shearYKn:Number(variant.shearYKn ?? input.shearYKn)
+    };
+    const result = findResult(evaluateProject({ ...project, layout, loads }, product), 'concrete-breakout-shear');
+    variantShear[variant.id] = {
+      nominal:result.nominalStrengthKn,
+      design:result.designStrengthKn,
+      dcr:result.dcr
+    };
+  }
+  let thinMemberShear = null;
+  if (input.thinMemberThicknessMm !== undefined) {
+    const thinProject = { ...project, layout:{ ...project.layout, thicknessMm:Number(input.thinMemberThicknessMm) } };
+    thinMemberShear = findResult(evaluateProject(thinProject, product), 'concrete-breakout-shear');
+  }
   const steelTension = findResult(review, 'steel-tension');
   const tensionBreakout = findResult(review, 'concrete-breakout-tension');
   const pullout = findResult(review, 'pullout');
@@ -160,6 +192,12 @@ function calculate(input) {
     overallPass:review.summary.overallStatus === 'pass' ? 1 : 0,
     formalPass:review.summary.formalStatus === 'pass' ? 1 : 0
   };
+  if (Array.isArray(input.shearVariants)) output.shearVariants = variantShear;
+  if (thinMemberShear) {
+    output.thinMemberShearBreakoutNominal = thinMemberShear.nominalStrengthKn;
+    output.thinMemberShearBreakoutDesign = thinMemberShear.designStrengthKn;
+    output.thinMemberShearBreakoutDcr = thinMemberShear.dcr;
+  }
   return output;
 }
 

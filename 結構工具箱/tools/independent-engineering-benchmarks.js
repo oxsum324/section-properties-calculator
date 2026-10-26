@@ -4638,31 +4638,64 @@ function anchorCastInOracle(i) {
     }
     return merged.reduce((sum, interval) => sum + Math.max(0, interval.end - interval.start), 0);
   };
-  const directionalShearStrength = direction => {
-    const actualCa1 = direction === 'x' ? i.edgeRightMm : i.edgeTopMm;
-    const ca2 = direction === 'x'
-      ? Math.min(i.edgeBottomMm, i.edgeTopMm)
-      : Math.min(i.edgeLeftMm, i.edgeRightMm);
-    const parallelSpacing = direction === 'x' ? i.spacingYmm : i.spacingXmm;
-    const ca1 = Math.min(actualCa1, Math.max(ca2 / 1.5, i.thicknessMm / 1.5, parallelSpacing / 3));
+  // 112年版 17.7.2（SI）。每向回傳標稱 Vcb(g)（φ 前，kN）。
+  // g：幾何與鋼筋條件（預設為主案例 i）；剪力朝 +X（右緣）或 +Y（上緣）
+  const directionalShearNominal = (direction, g) => {
+    const haMm = g.thicknessMm;
+    const ca1Actual = direction === 'x' ? g.edgeRightMm : g.edgeTopMm;
+    const sideEdges = direction === 'x'
+      ? [g.edgeBottomMm, g.edgeTopMm]
+      : [g.edgeLeftMm, g.edgeRightMm];
+    const ca2Small = Math.min(...sideEdges);
+    const ca2Large = Math.max(...sideEdges);
+    const sPerp = direction === 'x' ? g.spacingYmm : g.spacingXmm;
+    // 17.7.2.1.1（本文排印；ACI 318-19 17.7.2.1.2）：ca2 與 ha 皆 < 1.5ca1 時，
+    // ca1 不大於 max(ca2,max/1.5, ha/1.5, s/3)
+    let ca1 = ca1Actual;
+    if (ca2Large < 1.5 * ca1Actual && haMm < 1.5 * ca1Actual) {
+      ca1 = Math.min(ca1Actual, Math.max(ca2Large / 1.5, haMm / 1.5, sPerp / 3));
+    }
     const centers = direction === 'x'
-      ? [i.edgeBottomMm, i.edgeBottomMm + i.spacingYmm]
-      : [i.edgeLeftMm, i.edgeLeftMm + i.spacingXmm];
-    const boundary = direction === 'x' ? i.concreteHeightMm : i.concreteWidthMm;
-    const union = mergeLength(centers.map(center => ({
+      ? [g.edgeBottomMm, g.edgeBottomMm + g.spacingYmm]
+      : [g.edgeLeftMm, g.edgeLeftMm + g.spacingXmm];
+    const boundary = direction === 'x' ? g.concreteHeightMm : g.concreteWidthMm;
+    const width = mergeLength(centers.map(center => ({
       start:Math.max(0, center - 1.5 * ca1),
       end:Math.min(boundary, center + 1.5 * ca1)
     })));
-    const projectedArea = union * 1.5 * ca1;
-    const areaRatio = projectedArea / (4.5 * ca1 ** 2);
-    const edgeFactor = Math.min(1, 0.7 + 0.3 * ca2 / (1.5 * ca1));
-    // 17.7.2.2.1：Vb = min[0.6(le/da)^0.2·√da·√f'c·ca1^1.5, 3.7√f'c·ca1^1.5]（SI），承壓長度 le ≤ 8da
+    // 17.7.2.1.1 與圖 R17.7.2.1b：投影高度 = 1.5ca1，但 ha < 1.5ca1 時取 ha
+    const depth = haMm < 1.5 * ca1 ? haMm : 1.5 * ca1;
+    const avcOverAvco = (width * depth) / (4.5 * ca1 * ca1); // 式 17.7.2.1.3：AVco = 4.5ca1²
+    // 17.7.2.4.1：ca2（取較小值）≥ 1.5ca1 → 1.0，否則 0.7 + 0.3ca2/(1.5ca1)
+    const psiEdV = ca2Small >= 1.5 * ca1 ? 1 : 0.7 + 0.3 * ca2Small / (1.5 * ca1);
+    // 17.7.2.6.1：ha < 1.5ca1 → √(1.5ca1/ha)，否則 1.0
+    const psiHV = haMm < 1.5 * ca1 ? Math.sqrt(1.5 * ca1 / haMm) : 1;
+    // 17.7.2.2.1：Vb = min[0.6(le/da)^0.2·√da·√f'c·ca1^1.5, 3.7√f'c·ca1^1.5]（SI），le ≤ 8da
     const bearingLengthMm = Math.min(i.effectiveEmbedmentMm, 8 * i.diameterMm);
     const baseA = 0.6 * (bearingLengthMm / i.diameterMm) ** 0.2
       * Math.sqrt(i.diameterMm) * Math.sqrt(i.concreteStrengthMpa) * ca1 ** 1.5 / 1000;
     const baseB = 3.7 * Math.sqrt(i.concreteStrengthMpa) * ca1 ** 1.5 / 1000;
-    return areaRatio * edgeFactor * Math.min(baseA, baseB) * phiConcrete;
+    // 表 17.7.2.5.1（開裂），逐邊取受剪方向所朝之自由邊（+X → 右緣、+Y → 上緣）：
+    // 無輔助鋼筋或角隅鋼筋小於 D13 1.0；不小於 D13 之鋼筋 1.2；另有圍繞箍筋間距不大於 10 cm 1.4
+    const edgeCondition = (g.edgeReinforcement || {})[direction === 'x' ? 'right' : 'top'] || 'none';
+    const psiCV = { none:1.0, d13:1.2, d13_stirrups:1.4 }[edgeCondition];
+    // 無偏心 ψec,V = 1.0
+    return avcOverAvco * psiEdV * psiHV * psiCV * Math.min(baseA, baseB);
   };
+  // 兩向 DCR：正交向量與較弱邊合向量取大者；回傳等效設計強度
+  // 單向受剪時只取該向比值；雙向時取正交向量與較弱邊合向量之大者
+  const shearBreakoutFor = g => {
+    const demand = Math.hypot(g.shearXKn, g.shearYKn);
+    const dX = g.shearXKn ? Math.abs(g.shearXKn) / (phiConcrete * directionalShearNominal('x', g)) : 0;
+    const dY = g.shearYKn ? Math.abs(g.shearYKn) / (phiConcrete * directionalShearNominal('y', g)) : 0;
+    let dcr = Math.max(dX, dY);
+    if (dX > 0 && dY > 0) {
+      const weaker = Math.min(Math.abs(g.shearXKn) / dX, Math.abs(g.shearYKn) / dY);
+      dcr = Math.max(Math.hypot(dX, dY), demand / weaker);
+    }
+    return { dcr, design:demand / dcr };
+  };
+  const directionalShearStrength = direction => phiConcrete * directionalShearNominal(direction, i);
   const shearStrengthX = directionalShearStrength('x');
   const shearStrengthY = directionalShearStrength('y');
   const dcrX = Math.abs(i.shearXKn) / shearStrengthX;
@@ -4673,6 +4706,26 @@ function anchorCastInOracle(i) {
   const shearBreakoutDesignRaw = shearDemandRaw / shearBreakoutDcrRaw;
 
   const roundedTensionBreakoutNominal = round(tensionBreakoutNominalRaw);
+  // 薄構材變體：同一配置僅改 ha，檢核 AVc 高度截斷與 ψh,V
+  const thinMemberShearOutputs = {};
+  if (Number.isFinite(i.thinMemberThicknessMm)) {
+    const thin = shearBreakoutFor({ ...i, thicknessMm:i.thinMemberThicknessMm });
+    thinMemberShearOutputs.thinMemberShearBreakoutNominal = round(thin.design / phiConcrete);
+    thinMemberShearOutputs.thinMemberShearBreakoutDesign = round(thin.design);
+    thinMemberShearOutputs.thinMemberShearBreakoutDcr = round(thin.dcr, 3);
+  }
+  // 剪破變體：各自指定邊距、厚度、剪力與邊緣鋼筋條件（2×2 配置、開裂、φ 不變）
+  if (Array.isArray(i.shearVariants)) {
+    thinMemberShearOutputs.shearVariants = {};
+    for (const variant of i.shearVariants) {
+      const result = shearBreakoutFor({ ...i, ...variant });
+      thinMemberShearOutputs.shearVariants[variant.id] = {
+        nominal:round(result.design / phiConcrete),
+        design:round(result.design),
+        dcr:round(result.dcr, 3)
+      };
+    }
+  }
   const roundedPulloutNominal = round(pulloutNominalRaw);
   const pryoutNominalRaw = 2 * Math.min(roundedTensionBreakoutNominal, roundedPulloutNominal);
   const pryoutDesignRaw = phiConcrete * pryoutNominalRaw;
@@ -4701,7 +4754,7 @@ function anchorCastInOracle(i) {
     steelShearDesign:round(steelShearDesignRaw),
     steelShearDemand:round(shearDemandRaw),
     steelShearDcr:round(steelShearDcrRaw, 3),
-    shearBreakoutNominal:round(shearBreakoutDesignRaw),
+    shearBreakoutNominal:round(shearBreakoutDesignRaw / phiConcrete),
     shearBreakoutDesign:round(shearBreakoutDesignRaw),
     shearBreakoutDemand:round(shearDemandRaw),
     shearBreakoutDcr,
@@ -4718,7 +4771,8 @@ function anchorCastInOracle(i) {
     governingDcr:interactionDcr,
     maxDcr:interactionDcr,
     overallPass:interactionDcr <= 1 ? 1 : 0,
-    formalPass:interactionDcr <= 1 ? 1 : 0
+    formalPass:interactionDcr <= 1 ? 1 : 0,
+    ...thinMemberShearOutputs
   };
 }
 

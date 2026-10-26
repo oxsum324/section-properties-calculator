@@ -1055,10 +1055,17 @@ textarea {
   stroke: rgba(9, 103, 117, 0.2);
 }
 
-.breakout-zone-shear_breakout_x,
-.breakout-zone-shear_breakout_y {
-  fill: rgba(194, 109, 62, 0.12);
-  stroke: rgba(194, 109, 62, 0.26);
+.shear-side-views {
+  display: grid;
+  gap: 12px;
+}
+
+.shear-side-view svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 58, 69, 0.12);
 }
 
 .reinforcement-zone {
