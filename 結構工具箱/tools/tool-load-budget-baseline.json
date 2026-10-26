@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-10-24T00:15:01.571Z",
-  "sourceCommit": "e749501037225d0924098c7d35c534bd180fb606",
+  "capturedAt": "2026-10-25T14:41:08.056Z",
+  "sourceCommit": "b269aeb21be141bd473e9254148d6dfdda6ae383",
   "routeCount": 53,
-  "totalJsBytes": 14616874,
+  "totalJsBytes": 14671203,
   "docxRuntimePath": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/package/dist/index.iife.js",
   "docxRuntimeBytes": 857630,
   "routes": [
     {
       "route": "/condition-survey",
-      "jsBytes": 449346,
+      "jsBytes": 465838,
       "sharedScripts": [
         {
           "path": "/field-survey/report.js",
-          "bytes": 22293
+          "bytes": 23977
         }
       ]
     },
@@ -96,11 +96,11 @@
     },
     {
       "route": "/section",
-      "jsBytes": 177942,
+      "jsBytes": 177436,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
-          "bytes": 48999
+          "bytes": 48493
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -118,11 +118,11 @@
     },
     {
       "route": "/composite-section",
-      "jsBytes": 215969,
+      "jsBytes": 215463,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
-          "bytes": 48999
+          "bytes": 48493
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -280,7 +280,7 @@
     },
     {
       "route": "/rc-column",
-      "jsBytes": 522904,
+      "jsBytes": 532792,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -319,12 +319,16 @@
           "bytes": 61519
         },
         {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-replay.js?v=1",
+          "bytes": 8021
+        },
+        {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
           "bytes": 4497
         },
         {
-          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=3",
-          "bytes": 10384
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=4",
+          "bytes": 16125
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/column-evaluator.js?v=2",
@@ -444,7 +448,7 @@
     },
     {
       "route": "/rc-wall",
-      "jsBytes": 279989,
+      "jsBytes": 285730,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -507,8 +511,8 @@
           "bytes": 9395
         },
         {
-          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=3",
-          "bytes": 10384
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=4",
+          "bytes": 16125
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/wall-inplane-evaluator.js?v=3",
@@ -534,7 +538,7 @@
     },
     {
       "route": "/rc-shear-wall",
-      "jsBytes": 266978,
+      "jsBytes": 280740,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/concrete.js",
@@ -573,6 +577,10 @@
           "bytes": 61519
         },
         {
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-replay.js?v=1",
+          "bytes": 8021
+        },
+        {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/project-storage.js?v=1",
           "bytes": 4497
         },
@@ -593,8 +601,8 @@
           "bytes": 3902
         },
         {
-          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=3",
-          "bytes": 10384
+          "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js?v=4",
+          "bytes": 16125
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/wall-base.js?v=3",
@@ -942,7 +950,7 @@
     },
     {
       "route": "/rc-column-cover-deviation",
-      "jsBytes": 232995,
+      "jsBytes": 238736,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -958,7 +966,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js",
-          "bytes": 10384
+          "bytes": 16125
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1010,7 +1018,7 @@
     },
     {
       "route": "/src-column",
-      "jsBytes": 397899,
+      "jsBytes": 403640,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1026,7 +1034,7 @@
         },
         {
           "path": "/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/shared/pmsection.js",
-          "bytes": 10384
+          "bytes": 16125
         },
         {
           "path": "/SRC%E5%B7%A5%E5%85%B7/core/src-column-h-section-catalog.js",
@@ -1094,11 +1102,11 @@
     },
     {
       "route": "/steel-beam-formal",
-      "jsBytes": 348601,
+      "jsBytes": 348095,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
-          "bytes": 48999
+          "bytes": 48493
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1124,11 +1132,11 @@
     },
     {
       "route": "/steel-column-formal",
-      "jsBytes": 332637,
+      "jsBytes": 332131,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
-          "bytes": 48999
+          "bytes": 48493
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1176,11 +1184,11 @@
     },
     {
       "route": "/steel-beam",
-      "jsBytes": 281193,
+      "jsBytes": 280687,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
-          "bytes": 48999
+          "bytes": 48493
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
@@ -1222,11 +1230,11 @@
     },
     {
       "route": "/steel-column",
-      "jsBytes": 281193,
+      "jsBytes": 280687,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/materials/steel.js",
-          "bytes": 48999
+          "bytes": 48493
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/utils/common.js",
