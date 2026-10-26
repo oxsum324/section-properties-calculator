@@ -222,6 +222,7 @@
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
   const COLUMN_PROJECT_SCHEMA = 'rc-column-project-v1';
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.2']);
   const COLUMN_PROJECT_STORAGE_KEY = 'rc.column.project.draft';
   const COLUMN_PROJECT_EXCLUDED_IDS = new Set(['columnProjectFile']);
   let columnReviewResolutions = [];
@@ -410,7 +411,7 @@
       schema: COLUMN_PROJECT_SCHEMA,
       tool: 'rc-column',
       toolTitle: '柱 Column 設計／檢核',
-      appVersion: 'V3.2',
+      appVersion: 'V3.3',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -448,10 +449,12 @@
   }
 
   function normalizeColumnProjectPayload(raw) {
-    const payload = window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+    // V3.2 舊檔：以原版本驗證存檔指紋後依 V3.3 重新計算；版本正規化與舊版判定見 shared/project-replay.js
+    const payload = window.RCProjectReplay.validateLegacyProjectSource(raw, {
       expectedSchema: COLUMN_PROJECT_SCHEMA,
       expectedToolId: 'rc-column',
-      expectedVersion: 'V3.2',
+      expectedVersion: 'V3.3',
+      legacyVersions: LEGACY_REPLAY_VERSIONS,
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
     });
@@ -489,22 +492,34 @@
     if (typeof calcColumn === 'function') calcColumn();
     const tab = ['geom','rebar','loads','pm','shear','summary'].includes(payload.activeTab) ? payload.activeTab : 'geom';
     applyPanel(tab);
+    let replay = null;
     if (!options.skipReplayCheck) {
       try {
-        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectColumnProjectData());
+        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.3 結果接受並揭露
+        replay = window.RCProjectReplay.reconcileProjectCalculationReplay(payload, collectColumnProjectData(), {
+          legacyVersions: LEGACY_REPLAY_VERSIONS,
+          sourceKey: 'fields',
+          fingerprintOptions: { ignoredKeys: ['activeTab'] }
+        });
       } catch (error) {
         applyColumnProjectData(previous, { silent: true, skipReplayCheck: true });
         throw error;
       }
     }
-    if (!options.silent) {
+    if (!options.silent && replay) {
+      const notice = window.RCProjectReplay.describeProjectCalculationReplay(replay, {
+        sourceLabel: options.sourceLabel || '柱專案檔',
+        applied
+      });
+      showColumnProjectStatus(notice.message, notice.status);
+    } else if (!options.silent) {
       const source = options.sourceLabel || '柱專案檔';
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
       showColumnProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
     }
-    return { payload, applied };
+    return { payload, applied, replay };
   }
 
   async function loadColumnProjectFile(file) {
@@ -4175,7 +4190,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
 
     const reportConfig = {
       title: isDesignMode ? '柱設計計算書' : '柱檢核計算書',
-      outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.2' },
+      outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.3' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Column Design Report' : 'RC Column Check Report',

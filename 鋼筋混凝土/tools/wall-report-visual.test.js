@@ -336,6 +336,12 @@ async function exerciseWallProjectStorage(page) {
   const legacyV32Replay = await replayWallLegacy(legacyV32Fixture, '牆專案檔');
   assert(legacyV32Replay.acceptedVersion === 'V3.2' && legacyV32Replay.currentVersion === 'V3.4' && legacyV32Replay.projectName === '牆專案存讀檔測試' && legacyV32Replay.wallLastOk, 'wall replays verified V3.2 project under V3.4', JSON.stringify(legacyV32Replay));
   assert(legacyV32Replay.status.includes(`計算指紋 ${legacyV32Fixture.calculationFingerprint}｜原為 V3.2 專案檔，已依 V3.4 重新計算，請另存 V3.4 專案檔`) && !legacyV32Replay.status.includes('判定由') && legacyV32Replay.statusTone === 'ok', 'wall V3.2 project with unchanged result keeps the reproduced-status text', legacyV32Replay.status);
+
+  // V3.3（RC P-M 包絡線轉角取樣修正前的現行版）存檔：以原版本驗證指紋後依 V3.4 重新計算
+  const signedV33 = await page.evaluate(payload => window.RCReportFingerprint.withProjectCalculationFingerprint({ ...payload, appVersion: 'V3.3' }, { ignoredKeys: ['activeTab'] }), saved);
+  const legacyV33Replay = await replayWallLegacy(signedV33, '牆專案檔');
+  assert(legacyV33Replay.acceptedVersion === 'V3.3' && legacyV33Replay.currentVersion === 'V3.4' && legacyV33Replay.wallLastOk, 'wall replays verified V3.3 project under V3.4', JSON.stringify(legacyV33Replay));
+  assert(legacyV33Replay.status.includes(`計算指紋 ${signedV33.calculationFingerprint}｜原為 V3.3 專案檔，已依 V3.4 重新計算，請另存 V3.4 專案檔`), 'wall V3.3 migration status asks for a V3.4 save', legacyV33Replay.status);
 }
 
 async function importWallProjectThroughFileInput(page, name, payload) {

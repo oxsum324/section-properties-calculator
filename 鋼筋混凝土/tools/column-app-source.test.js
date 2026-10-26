@@ -11,7 +11,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const COLUMN_HTML_RELATIVE = '鋼筋混凝土/tools/column.html';
 const COLUMN_APP_RELATIVE = '鋼筋混凝土/tools/column.app.js';
 const COLUMN_APP_FILE = 'column.app.js';
-const COLUMN_APP_VERSION = '1';
+const COLUMN_APP_VERSION = '2';
 const COLUMN_APP_SRC = `${COLUMN_APP_FILE}?v=${COLUMN_APP_VERSION}`;
 const COLUMN_APP_TAG = `<script src="${COLUMN_APP_SRC}"></script>`;
 

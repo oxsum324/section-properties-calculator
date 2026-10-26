@@ -74,6 +74,8 @@ const tool = read(toolPath);
   'wall replays verified V3.2 project under V3.4',
   'wall V3.1 migration status asks for a V3.4 save',
   'wall V3.2 project with unchanged result keeps the reproduced-status text',
+  'wall replays verified V3.3 project under V3.4',
+  'wall V3.3 migration status asks for a V3.4 save',
   'wall-project-v3.2-rhol-flip.json',
   'wall V3.4 recalculation flips the V3.2 verdict',
   'wall flip import reproduces every saved input field',

@@ -233,10 +233,10 @@ assert.throws(() => replayApi.reconcileProjectCalculationReplay({ ...legacyWall,
 
 const pageContracts = [
   ['beam.html', 'collectBeamProjectData', 'projectSnapshot = collectBeamProjectData()', '梁 Beam 設計／檢核', 'V3.2'],
-  ['column.html', 'collectColumnProjectData', 'projectSnapshot = collectColumnProjectData()', '柱 Column 設計／檢核', 'V3.2'],
+  ['column.html', 'collectColumnProjectData', 'projectSnapshot = collectColumnProjectData()', '柱 Column 設計／檢核', 'V3.3'],
   ['slab.html', 'collectSlabProjectData', 'projectSnapshot = collectSlabProjectData()', '板 Slab 設計／檢核', 'V3.3'],
   ['wall.html', 'collectWallProjectData', 'projectSnapshot = collectWallProjectData()', '牆 Wall 設計／檢核', 'V3.4'],
-  ['shear-wall.html', 'collectShearWallProjectData', 'projectSnapshot = collectShearWallProjectData()', '剪力牆 Shear Wall 設計／檢核', 'V0.5'],
+  ['shear-wall.html', 'collectShearWallProjectData', 'projectSnapshot = collectShearWallProjectData()', '剪力牆 Shear Wall 設計／檢核', 'V0.6'],
   ['foundation.html', 'collectFoundationProjectData', 'projectSnapshot = collectFoundationProjectData()', '基礎 Foundation 設計／檢核', 'V3.2'],
   ['single-pile-designer.html', 'buildProjectPayload', 'projectSnapshot = buildProjectPayload()', '單樁承載力設計器', 'V3.2'],
 ];
@@ -248,8 +248,8 @@ const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&
 // 頁面主程式逐字外移（column.html → column.app.js?v=N）：由共用輔助還原到原內嵌位置後檢查，斷言範圍不變。
 const { readPageSource: readRepoPageSource } = require('./column-app-source.test.js');
 const readPageSource = file => readRepoPageSource(`鋼筋混凝土/tools/${file}`);
-// 舊版專案檔「僅結果改變時接受並揭露」只由板、牆另載 project-replay.js；其他頁沿用嚴格的 assertProjectCalculationReplay
-const legacyMigrationPages = new Set(['slab.html', 'wall.html']);
+// 舊版專案檔「僅結果改變時接受並揭露」由板、牆、柱、剪力牆另載 project-replay.js；其他頁沿用嚴格的 assertProjectCalculationReplay
+const legacyMigrationPages = new Set(['slab.html', 'wall.html', 'column.html', 'shear-wall.html']);
 for (const [file, collector, snapshotCall, sourceTool, sourceVersion] of pageContracts) {
   const html = readPageSource(file);
   assert.ok(html.includes('shared/report.js?v=10'), `${file} should load the replay-verified shared report`);

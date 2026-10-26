@@ -267,6 +267,21 @@ async function main() {
       assert(sourceReplay.applied > 20, `${tc.key} project source replay applies fields`, `count=${sourceReplay.applied}`);
       assert(sourceReplay.replayedFingerprint === sourceReplay.sourceFingerprint, `${tc.key} project source replay preserves calculation fingerprint`, `${sourceReplay.sourceFingerprint} -> ${sourceReplay.replayedFingerprint}`);
       const sourceFingerprint = sourceReplay.sourceFingerprint;
+      // V0.5 舊檔：以原版本驗證指紋後依 V0.6 重新計算，提示另存
+      const legacyReplay = await page.evaluate(source => {
+        const legacy = window.RCReportFingerprint.withProjectCalculationFingerprint({ ...source, appVersion: 'V0.5' }, { ignoredKeys: ['activeTab'] });
+        const status = document.getElementById('shearWallProjectStatus');
+        if (status) status.textContent = '';
+        const result = window.applyShearWallProjectData(legacy, { sourceLabel: '剪力牆專案檔' });
+        return {
+          acceptedVersion: result.payload.appVersion,
+          currentVersion: window.collectShearWallProjectData().appVersion,
+          legacyFingerprint: legacy.calculationFingerprint,
+          status: status?.textContent || '',
+        };
+      }, sourceReplay.sourceSnapshot);
+      assert(legacyReplay.acceptedVersion === 'V0.5' && legacyReplay.currentVersion === 'V0.6', `${tc.key} replays verified V0.5 project under V0.6`, JSON.stringify(legacyReplay));
+      assert(legacyReplay.status.includes(`計算指紋 ${legacyReplay.legacyFingerprint}｜原為 V0.5 專案檔，已依 V0.6 重新計算，請另存 V0.6 專案檔`), `${tc.key} V0.5 migration status asks for a V0.6 save`, legacyReplay.status);
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${tc.key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
@@ -296,12 +311,12 @@ async function main() {
         caseKey: tc.key,
         label: `${tc.key} shear wall report`,
         assert,
-        expectedFragments: ['剪力牆設計計算書', '產出工具：剪力牆 Shear Wall 設計／檢核', '工具版本：V0.5', 'Ag/Ach', 'ccore'],
+        expectedFragments: ['剪力牆設計計算書', '產出工具：剪力牆 Shear Wall 設計／檢核', '工具版本：V0.6', 'Ag/Ach', 'ccore'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
-        include: ['RC Shear Wall', '計算書', 'V0.5', '文件狀態：內部審閱'],
+        include: ['RC Shear Wall', '計算書', 'V0.6', '文件狀態：內部審閱'],
         exclude: ['DRAFT／非正式附件'],
       });
       const artifactIntegrity = [
@@ -322,7 +337,7 @@ async function main() {
       assert(metrics.bodyText.includes('產出工具'), `${tc.key} report source tool label`, metrics.bodyText);
       assert(metrics.bodyText.includes('剪力牆 Shear Wall 設計／檢核'), `${tc.key} report source tool matches project JSON`, metrics.bodyText);
       assert(metrics.bodyText.includes('工具版本'), `${tc.key} report source version label`, metrics.bodyText);
-      assert(metrics.bodyText.includes('V0.5'), `${tc.key} report source version`, metrics.bodyText);
+      assert(metrics.bodyText.includes('V0.6'), `${tc.key} report source version`, metrics.bodyText);
       assert(metrics.calculationText.includes('0.3式') && metrics.calculationText.includes('0.09式') && metrics.calculationText.includes('控制='), `${tc.key} report exposes both Ash equations and governing equation`, metrics.calculationText);
       assert(metrics.calculationText.includes('橫向筋外緣 ccore') || metrics.calculationText.includes('ccore='), `${tc.key} report exposes Ach boundary dimension source`, metrics.calculationText);
       assert(!metrics.hasReportSummary, `${tc.key} report status summary hidden`, 'no .rep-summary');
