@@ -1,0 +1,130 @@
+name: Condition survey release check
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'field-survey/**'
+      - '.github/workflows/condition-survey-release-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: condition-survey-release-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-release-preflight:
+    name: Full release preflight
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      TESTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      TEMP: ${{ runner.temp }}
+      TMP: ${{ runner.temp }}
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.TESTED_SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare local master candidate
+        run: |
+          git switch -C master "$env:TESTED_SOURCE_SHA"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ((git status --porcelain --untracked-files=all).Length) { throw 'Candidate checkout must be clean.' }
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install Python validation dependencies
+        run: |
+          python -m pip install --disable-pip-version-check python-docx==1.2.0 lxml==6.0.3 pdf2docx==0.5.12 playwright==1.58.0 pydantic==2.12.5 openpyxl==3.1.5 pillow==12.3.0 reportlab==4.4.10 matplotlib==3.10.7 numpy==2.3.5 pymupdf==1.27.2.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m playwright install chromium
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install locked Node validation dependencies
+        run: |
+          npm ci --prefix .github/pages-smoke --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm ci --prefix 開挖擋土支撐/frontend --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm ci --prefix 螺栓檢討/bolt-review-tool --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\ensure-homepage-quality-deps.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .github/pages-smoke/node_modules/playwright/cli.js install chromium chrome msedge
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run phase gates
+        shell: powershell
+        run: |
+          node 結構工具箱/tools/formal-core-portability.test.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\run-phase-gates.ps1
+          exit $LASTEXITCODE
+
+      - name: Run full governed release preflight
+        shell: powershell
+        run: |
+          & .\preflight-tools.ps1 -Quiet -ForceSlowChecks -ForcePlatformAudit
+          exit $LASTEXITCODE
+
+      - name: Verify complete release evidence
+        run: |
+          @'
+          const fs = require('fs'), cp = require('child_process'), assert = require('assert/strict');
+          const p = JSON.parse(fs.readFileSync('output/preflight/preflight-summary.json', 'utf8').replace(/^\uFEFF/, ''));
+          assert.equal(p.sourceCommitSha, process.env.TESTED_SOURCE_SHA);
+          assert.equal(p.sourceBranch, 'master');
+          assert.equal(p.sourceDirty, false);
+          assert.equal(p.quick, false);
+          assert.equal(p.forcePlatformAudit, true);
+          assert.equal(p.forceSlowChecks, true);
+          assert.equal(p.pass, true);
+          assert.equal(p.platformAuditReused, false);
+          assert.equal(p.slowReuseCount, 0);
+          assert.equal(p.recordsCount, p.passedCount);
+          assert(p.postCheckCount > 0);
+          assert.equal(p.postCheckCount, p.postChecksPassedCount);
+          const changed = cp.execFileSync('git', ['-c', 'core.quotepath=false', 'diff', '--name-only', '-z'], {encoding:'utf8'}).split('\0').filter(Boolean).sort();
+          assert.deepEqual(changed, ['.github/public-release-decision-anchor.json', '結構工具箱/assets/status/platform-status.json', '結構工具箱/assets/status/preflight-summary.json', '結構工具箱/assets/status/report-readiness-status.json'].sort());
+          console.log(JSON.stringify({sourceCommitSha:p.sourceCommitSha, runId:p.runId, records:p.recordsCount, pass:p.pass}));
+          '@ | node
+          exit $LASTEXITCODE
+
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: condition-survey-release-evidence-${{ github.run_id }}
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            .github/public-release-decision-anchor.json
+            結構工具箱/assets/status/platform-status.json
+            結構工具箱/assets/status/preflight-summary.json
+            結構工具箱/assets/status/report-readiness-status.json
+            output/preflight/preflight-summary.json
+            output/preflight/preflight-summary.md
+            output/preflight/history/
+            output/preflight/environment-precheck/
+            output/phase-gates/
+            output/field-survey-validation/
+

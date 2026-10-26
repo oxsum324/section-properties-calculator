@@ -626,6 +626,21 @@ git add -- field-survey/ "結構工具箱/assets/home/home.js" "結構工具箱/
 
 ```powershell
 git add -- "結構工具箱/tools/rc/column-cover-deviation-golden-cases.js" tool-page-a11y-build.contract.test.js tool-nav.manifest.js "結構工具箱/tools/nav/tool-nav.manifest.json" "結構工具箱/family/local-quick.html" "鋼筋混凝土/index.html" STAGING_GROUPS.md
+git add -- "鋼構工具/sync-formal-core.ps1" "鋼構工具/core/formal-core-manifest.json" "鋼構工具/core/materials/steel.js" "結構工具箱/core/materials/steel.js" "結構工具箱/tools/formal-core-portability.test.js" .gitattributes .github/workflows/condition-survey-release-check.yml field-survey/signoff-content.js TOOL_BOUNDARIES.md
+```
+### F1 後續：柱、剪力牆、SRC 柱與保護層偏差升版
+
+依委託人 2026-10-25 裁定：柱 V3.2 → V3.3、剪力牆 V0.5 → V0.6，兩頁改載 `鋼筋混凝土/shared/project-replay.js`，以原版本驗證舊檔指紋後依新版重算，僅結果不同時接受並揭露差異（`rc-project-fingerprint.contract.test.js` 的舊版重播頁集合同步納入兩頁）；`column.app.js` 快取參數升 `?v=2`。牆頁補 V3.3 舊檔重播案例。SRC 柱核心升 `src-column.core.v1.0.1`、柱保護層偏差核心升 0.2.0，舊案例檔沿用各頁既有的版本處理。導覽清冊與 RC 家族頁由建置腳本重新產生，首頁更新日期由 `sync-home-update-dates.js` 同步（僅 `/src-column` 屬本批）。
+
+```powershell
+git add -- "鋼筋混凝土/tools/column.app.js" "鋼筋混凝土/tools/column.html" "鋼筋混凝土/tools/column-app-source.test.js" "鋼筋混凝土/tools/column-regression.test.js" "鋼筋混凝土/tools/column-report-visual.test.js" "鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js" "鋼筋混凝土/tools/shear-wall.html" "鋼筋混凝土/tools/shear-wall-regression.test.js" "鋼筋混凝土/tools/shear-wall-report-visual.test.js" "鋼筋混凝土/tools/shear-wall-report-visual.contract.test.js" "鋼筋混凝土/tools/wall-report-visual.test.js" "鋼筋混凝土/tools/wall-report-visual.contract.test.js" "鋼筋混凝土/index.html"
+git add -- "SRC工具/core/src-column-core.js" "SRC工具/src-column-core.test.js" "SRC工具/src-column-traceability.catalog.json" "SRC工具/README.md" "結構工具箱/tools/rc/column-cover-deviation-core.js" "結構工具箱/tools/rc/column-cover-deviation.html" "結構工具箱/tools/rc/column-cover-deviation-core.test.js"
+git add -- "結構工具箱/assets/home/src/home.source.js" "結構工具箱/assets/home/home.js" tool-nav.manifest.js "結構工具箱/tools/nav/tool-nav.manifest.json" README.md STAGING_GROUPS.md
+```
+載入預算基準經委託人 2026-10-25 授權，以 `node 結構工具箱/tools/tool-load-budget.browser.test.js --write-baseline` 重設：檢查模式功能失敗 0，總量 14,616,874 → 14,671,203 bytes（+54,329，`sourceCommit` b269aeb2）。共用腳本差異：`pmsection.js` 10,384 → 16,125 bytes（柱、牆、剪力牆改 `?v=4`，SRC 柱與保護層偏差同步）、柱與剪力牆新增 `project-replay.js?v=1`（8,021 bytes）、現況鑑定 V0.31.0 `field-survey/report.js` 22,293 → 23,977 bytes；另記錄 `steel.js` 依 `.gitattributes` 改為 LF 後的 48,493 bytes（原 CRLF 48,999，內容不變）。重設後檢查模式 0 失敗。
+
+```powershell
+git add -- "結構工具箱/tools/tool-load-budget-baseline.json"
 ```
 <!-- V22-REGISTRATION-END -->
 
@@ -646,3 +661,7 @@ git add -- "結構工具箱/tools/rc/column-cover-deviation-golden-cases.js" too
 - [docs/governance-current/STAGING_GROUPS-ledger-04.md](docs/governance-current/STAGING_GROUPS-ledger-04.md)：loader依本文分段標記原位置回填。
 - [docs/governance-current/STAGING_GROUPS-ledger-05.md](docs/governance-current/STAGING_GROUPS-ledger-05.md)：loader依本文分段標記原位置回填。
 <!-- P2-BOOK-INDEX-END -->
+
+V0.31.0 的 `field-survey/signoff-content.js` 為簽認快照、內容比對與歷史保留的公開執行模組，由 `model.js` 重新匯出既有介面；納入 Service Worker 及工具更新依賴。
+
+發布隔離目錄修正：`鋼構工具/sync-formal-core.ps1` 比較清單中的儲存庫相對位置並維持 SHA256 檢查；`.gitattributes` 固定八份正式核心檔為 LF，以便新 checkout 重現雜湊。`鋼構工具/core/formal-core-manifest.json` 由原同步腳本重新產生，沒有改動核心運算內容。私有測試 `結構工具箱/tools/formal-core-portability.test.js` 驗證搬移及六種竄改拒絕情境，納入候選發布 workflow。

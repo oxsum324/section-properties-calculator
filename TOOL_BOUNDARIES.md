@@ -151,3 +151,7 @@ V0.2.0 的 ＜0.3 mm／≥0.3 mm 為紀錄分類，不是安全門檻；區間�
 - [docs/governance-current/STAGING_GROUPS-ledger-02.md](docs/governance-current/STAGING_GROUPS-ledger-02.md)：loader依本文 include marker 原位置回填。
 - [docs/governance-current/STAGING_GROUPS-ledger-03.md](docs/governance-current/STAGING_GROUPS-ledger-03.md)：loader依本文 include marker 原位置回填。
 <!-- P2-BOOK-INDEX-END -->
+
+V0.31.0 的 `field-survey/signoff-content.js` 為簽認快照、內容比對與歷史保留的公開執行模組，由 `model.js` 重新匯出既有介面；納入 Service Worker 及工具更新依賴。
+
+發布隔離目錄修正：`鋼構工具/sync-formal-core.ps1` 比較清單中的儲存庫相對位置並維持 SHA256 檢查；`.gitattributes` 固定八份正式核心檔為 LF，以便新 checkout 重現雜湊。`鋼構工具/core/formal-core-manifest.json` 由原同步腳本重新產生，沒有改動核心運算內容。私有測試 `結構工具箱/tools/formal-core-portability.test.js` 驗證搬移及六種竄改拒絕情境，納入候選發布 workflow。
