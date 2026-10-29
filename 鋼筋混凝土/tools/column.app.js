@@ -622,7 +622,7 @@
   // === 規範 25.7.2.3 / 18.4.5.2 縱筋橫向支撐 ===
   // face   : 該邊邊長 (cm)
   // nSide  : 該邊位置數 (含兩端角隅；束筋仍視為一個位置)
-  // c      : 保護層 (cm)
+  // c      : 保護層 (cm，混凝土表面量至箍筋外緣)
   // tieDb  : 箍筋直徑 (cm)
   // dbEq   : 主筋等效直徑 (束筋: √n·db；單根: db)
   // isSeismic : 是否啟用 SMRF (規範 18.4.5.2)
@@ -727,10 +727,26 @@
     return PMSection.pointCircle(c, { shape: 'circle', D, bars }, { fc, fy, beta1, Es: ES });
   }
 
-  // 圓形斷面：均勻分布鋼筋於圓周（半徑 = R − cover − db/2）
-  function buildBarsCircle(D, cover, nBar, ab, db) {
+  // 設計模式整體候選逐一試算的橫向鋼筋號數（同 shared/column-transverse-designer.js DEFAULT_BARS）
+  const CANDIDATE_TRANSVERSE_BARS = Object.freeze(['#3', '#4', '#5']);
+
+  // 主筋中心至混凝土表面距離 = 保護層 + 橫向鋼筋直徑 + 主筋直徑/2
+  // 本頁「保護層 cover」一律指混凝土表面量至箍筋／螺箍筋外緣（與搭接、hx、Ach、配筋可容根數同一定義）。
+  // 依據：112 年混凝土結構設計規範第 2 章名詞定義「規定混凝土保護層」（量至鋼筋最外層表面）；20.5.1 解說：
+  // 橫向鋼筋圍繞主筋時量至箍筋、繫筋或螺箍筋之較外側邊緣（結構混凝土施工規範 5.6.1 解說同）。量測位置僅見於解說。
+  // 橫向鋼筋直徑由頁面箍筋／螺箍筋號數取得，不得省略或自設預設值。
+  function longBarCenterInset(cover, transverseDb, db) {
+    const c = Number(cover), t = Number(transverseDb), d = Number(db);
+    if (!Number.isFinite(c) || !Number.isFinite(t) || t <= 0 || !Number.isFinite(d)) {
+      throw new Error(`主筋位置需要保護層、橫向鋼筋直徑與主筋直徑（cover=${cover}, transverseDb=${transverseDb}, db=${db}）`);
+    }
+    return c + t + d / 2;
+  }
+
+  // 圓形斷面：均勻分布鋼筋於圓周（半徑 = R − cover − 橫向鋼筋 db − 主筋 db/2）
+  function buildBarsCircle(D, cover, nBar, ab, db, transverseDb) {
     const R = D / 2;
-    const r = R - cover - db / 2;
+    const r = R - longBarCenterInset(cover, transverseDb, db);
     const bars = [];
     for (let i = 0; i < nBar; i++) {
       // 角度 θ：第 0 根置於壓力面 (θ=0 → y=0)；其餘均布
@@ -825,15 +841,17 @@
   // 束筋會展開為各個獨立鋼筋；面內部往內、角隅沿對角線往內
   // 角隅與面筋可使用不同的鋼筋號數 (cornerDb/cornerAb vs faceDb/faceAb)
   // 回傳: [{x, y, kind, bundleIdx, bundleSize, ab, db}]
-  function getRebarPositions(L, bDim, hDim, cover) {
+  function getRebarPositions(L, bDim, hDim, cover, transverseDb) {
     const cornerDb = L.cornerDb || 2.54;
     const cornerAb = L.cornerAb || 5.067;
     const faceDb   = L.faceDb   || cornerDb;
     const faceAb   = L.faceAb   || cornerAb;
-    const xL = cover + Math.max(cornerDb, faceDb)/2;
-    const xR = bDim - cover - Math.max(cornerDb, faceDb)/2;
-    const yT = cover + Math.max(cornerDb, faceDb)/2;
-    const yB = hDim - cover - Math.max(cornerDb, faceDb)/2;
+    // 主筋中心 = 保護層（至箍筋外緣）+ 箍筋 db + 主筋 db/2
+    const inset = longBarCenterInset(cover, transverseDb, Math.max(cornerDb, faceDb));
+    const xL = inset;
+    const xR = bDim - inset;
+    const yT = inset;
+    const yB = hDim - inset;
     const out = [];
     const tag = (arr, ab, db) => arr.map(p => Object.assign(p, { ab, db }));
     // 4 角 (使用 cornerDb / cornerAb)
@@ -863,8 +881,8 @@
 
   // 建立矩形柱配筋分布 — 由位置 (x,y) 聚合到 y 排，供 PM 應變相容掃描使用
   // 每根使用其自身的 ab (角隅與面筋可不同)
-  function buildBars(bDim, hDim, cover, layout) {
-    const positions = getRebarPositions(layout, bDim, hDim, cover);
+  function buildBars(bDim, hDim, cover, layout, transverseDb) {
+    const positions = getRebarPositions(layout, bDim, hDim, cover, transverseDb);
     const yMap = new Map();
     positions.forEach(p => {
       const yKey = p.y.toFixed(3);
@@ -874,9 +892,9 @@
     return Array.from(yMap.values()).sort((a,b)=>a.y-b.y);
   }
 
-  function buildBiaxialBars(colType, bDim, hDim, cover, nBar, ab, db, layout) {
+  function buildBiaxialBars(colType, bDim, hDim, cover, nBar, ab, db, layout, transverseDb) {
     if (colType === 'rect' && layout) {
-      return getRebarPositions(layout, bDim, hDim, cover).map(p => ({
+      return getRebarPositions(layout, bDim, hDim, cover, transverseDb).map(p => ({
         x: p.x - bDim / 2,
         y: hDim / 2 - p.y,
         As: p.ab,
@@ -885,7 +903,7 @@
     }
     const D = bDim;
     const R = D / 2;
-    const rBar = R - cover - (db || 2.22) / 2;
+    const rBar = R - longBarCenterInset(cover, transverseDb, db || 2.22);
     const bars = [];
     for (let i = 0; i < nBar; i++) {
       const theta = (2 * Math.PI * i) / nBar;
@@ -899,14 +917,14 @@
     return bars;
   }
 
-  function buildShearDepths(colType, bDim, hDim, cover, nBar, ab, db, layout) {
+  function buildShearDepths(colType, bDim, hDim, cover, nBar, ab, db, layout, transverseDb) {
     let positions = [];
     if (colType === 'rect' && layout) {
-      positions = getRebarPositions(layout, bDim, hDim, cover).map(p => ({ x: p.x, y: p.y }));
+      positions = getRebarPositions(layout, bDim, hDim, cover, transverseDb).map(p => ({ x: p.x, y: p.y }));
     } else {
       const D = bDim;
       const R = D / 2;
-      const rBar = R - cover - (db || 2.22) / 2;
+      const rBar = R - longBarCenterInset(cover, transverseDb, db || 2.22);
       for (let i = 0; i < nBar; i++) {
         const theta = (2 * Math.PI * i) / nBar;
         positions.push({
@@ -915,8 +933,8 @@
         });
       }
     }
-    const fallbackDx = Math.max(0, (colType === 'rect' ? hDim : bDim) - cover - (db || 2.22) / 2);
-    const fallbackDy = Math.max(0, bDim - cover - (db || 2.22) / 2);
+    const fallbackDx = Math.max(0, (colType === 'rect' ? hDim : bDim) - longBarCenterInset(cover, transverseDb, db || 2.22));
+    const fallbackDy = Math.max(0, bDim - longBarCenterInset(cover, transverseDb, db || 2.22));
     if (!positions.length) {
       return { d_x: fallbackDx, d_y: fallbackDy, dTop: fallbackDx, dBottom: fallbackDx, dLeft: fallbackDy, dRight: fallbackDy, source: 'fallback' };
     }
@@ -1007,7 +1025,7 @@
     })();
     const momentInPuRange = (bDim, hDim, layout) => {
       if (!opts.auto || !opts.seismic || clearHeightM <= 0 || fyProb <= 0) return { M: 0, Pu: opts.Pu };
-      const sec = computePMSection(bDim, hDim, opts.fc, fyProb, opts.cover, opts.nBar, opts.ab, opts.beta1, opts.colType, opts.db, layout);
+      const sec = computePMSection(bDim, hDim, opts.fc, fyProb, opts.cover, opts.nBar, opts.ab, opts.beta1, opts.colType, opts.db, layout, opts.transverseDb);
       let best = { M: 0, Pu: opts.Pu };
       puSamples.forEach(pu => {
         const m = interpAt(sec.curve, pu, 'P', p => Math.abs(p.M));
@@ -1210,7 +1228,7 @@
       return { ok: true, ratio: 0, cap: Infinity, capMx: 0, capMy: 0, angleSteps: 0, pointCount: 0, fiberCount: 0 };
     }
     const isCircle = opts.colType === 'circle' || opts.colType === 'circleTied';
-    const bars = buildBiaxialBars(opts.colType, opts.b, opts.h, opts.cover, opts.nBar, opts.ab, opts.db, opts.layout);
+    const bars = buildBiaxialBars(opts.colType, opts.b, opts.h, opts.cover, opts.nBar, opts.ab, opts.db, opts.layout, opts.transverseDb);
     const fiberPack = buildConcreteFibers(isCircle ? 'circle' : 'rect', opts.b, opts.h);
     const sec = { b: opts.b, h: opts.h, isCircle, bars, fibers: fiberPack.fibers };
     const angleSteps = 32;
@@ -1275,13 +1293,13 @@
 
   // 對給定方向 (寬 bDim, 深 hDim) 計算完整 P-M 互制設計曲線
   // layout = { nFaceB, nFaceH, nPerBundle } (僅矩形需要)
-  function computePMSection(bDim, hDim, fc, fy, cover, nBar, ab, beta1, colType, db, layout) {
+  function computePMSection(bDim, hDim, fc, fy, cover, nBar, ab, beta1, colType, db, layout, transverseDb) {
     const isCirc = (colType === 'circle' || colType === 'circleTied');
     const D = isCirc ? bDim : null;
     const Ag = isCirc ? Math.PI * D * D / 4 : bDim * hDim;
     const bars = isCirc
-      ? buildBarsCircle(D, cover, nBar, ab, db || 2.22)
-      : buildBars(bDim, hDim, cover, layout);
+      ? buildBarsCircle(D, cover, nBar, ab, db || 2.22, transverseDb)
+      : buildBars(bDim, hDim, cover, layout, transverseDb);
     // Ast：圓柱用 nBar*ab；矩形由 bars 加總 (角隅與面筋可不同 ab)
     const Ast = isCirc ? (nBar * ab) : bars.reduce((s,r)=>s+r.As, 0);
     const Po = (0.85 * fc * (Ag - Ast) + fy * Ast) / 1000;
@@ -1433,6 +1451,9 @@
     const faceAb = REBAR_TABLE[faceBarNo].area;
     const faceDb = REBAR_TABLE[faceBarNo].db;
     const tieDb = REBAR_TABLE[tieNo].db;
+    // 主筋定位用橫向鋼筋直徑：螺箍柱取螺箍筋，其餘取箍筋（與 hx 計算同一來源）
+    const spiralBarForBars = $('spiralBar') ? $('spiralBar').value : tieNo;
+    const transverseDbForBars = (colType === 'circle') ? REBAR_TABLE[spiralBarForBars].db : tieDb;
     const Ag = (colType === 'circle' || colType === 'circleTied')
       ? Math.PI * b * b / 4 : b * h;
 
@@ -1569,7 +1590,7 @@
       const _MyAmp = (Muy || 0) * _dnsEst;
       const _MtotAmp = _MxAmp + _MyAmp;  // 雙向保守疊加
       if (_MtotAmp > 0) {
-        const dEffTmp = h - cover - dbMax / 2; // 最終設計建議會用實際主筋座標重算 d_x
+        const dEffTmp = h - longBarCenterInset(cover, transverseDbForBars, dbMax); // 最終設計建議會用實際主筋座標重算 d_x
         AstReqEst += 2 * (_MtotAmp * 1e5) / (0.9 * fy * 0.8 * dEffTmp);
       }
       AstReqEst = Math.max(AstReqEst, 0.01 * Ag);
@@ -1713,7 +1734,7 @@
         nBar = layoutTotalBars(columnLayout);
       }
       const layoutX = columnLayout;
-      secX = computePMSection(b, h, fc, fy, cover, nBar, ab, beta1, colType, db, layoutX);
+      secX = computePMSection(b, h, fc, fy, cover, nBar, ab, beta1, colType, db, layoutX, transverseDbForBars);
       pmCurve = secX.curve;
       pmDesign = secX.pmDesign;
       Po = secX.Po;
@@ -1724,7 +1745,7 @@
       phiMnAtPu = interpAt(pmDesign, Pu, 'P', p => p.M);
       phiPnAtMu = interpAt(pmDesign, Mc, 'M', p => p.P);
       layoutY = colType === 'rect' ? rotateLayoutForY(columnLayout) : null;
-      secY = computePMSection(h, b, fc, fy, cover, nBar, ab, beta1, colType, db, layoutY);
+      secY = computePMSection(h, b, fc, fy, cover, nBar, ab, beta1, colType, db, layoutY, transverseDbForBars);
       pmCurveY = secY.curve;
       phiMnyAtPu = interpAt(secY.pmDesign, Pu, 'P', p => p.M);
       phiPnAtMuy = interpAt(secY.pmDesign, Mcy, 'M', p => p.P);
@@ -1801,7 +1822,7 @@
       swayMode,
       deltaS,
       biaxialOptions: {
-        colType, b, h, cover, nBar, ab, db, layout:columnLayout,
+        colType, b, h, cover, nBar, ab, db, layout:columnLayout, transverseDb:transverseDbForBars,
         fc, fy, beta1, phiFactorComp, phiPnMax,
       },
     };
@@ -1814,82 +1835,107 @@
               makeLayoutSym(candidate.nSide, candidate.nSide, candidate.bundle, candidate.bundle),
               candidate.ab, candidate.db, candidate.ab, candidate.db
             ) : null;
-            const candidateX = computePMSection(b, h, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, layout);
-            const candidateY = isRectCandidate
-              ? computePMSection(h, b, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, rotateLayoutForY(layout))
-              : computePMSection(b, b, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, null);
-            const evaluation = ColumnEvaluator.evaluateDemand({
-              pmDesignX:candidateX.pmDesign,
-              pmDesignY:candidateY.pmDesign,
-              axisX:{ Pc, Cm, isShort, minEccCm:minEccX },
-              axisY:{ Pc:Pc_y, Cm, isShort, minEccCm:minEccY },
-              swayMode,
-              deltaS,
-              biaxialOptions:{
-                colType, b, h, cover, nBar:candidate.nBar, ab:candidate.ab, db:candidate.db, layout,
-                fc, fy, beta1, phiFactorComp:candidateX.phiFactorComp, phiPnMax:candidateX.phiPnMax,
-              },
-            }, { Pu, Mx:Mux, My:Muy }, { capacityAtPu:computeBiaxialSurfaceAtPu });
-            if (!(evaluation.status === 'evaluated' && evaluation.ok)) {
-              return { ok:false, utilization:evaluation.utilization };
-            }
-            const candidateDepth = buildShearDepths(colType, b, h, cover, candidate.nBar, candidate.ab, candidate.db, layout);
             const candidateOptional = id => {
               const el = $(id);
               if (!el || String(el.value || '').trim() === '') return null;
               const value = Number(el.value);
               return Number.isFinite(value) ? value : null;
             };
-            const candidateVe = buildProbableShearDemand({
-              seismic,
-              auto:$('autoVe')?.checked !== false,
-              colType, b, h, fc, fy, cover,
-              nBar:candidate.nBar, ab:candidate.ab, beta1, db:candidate.db, layout,
-              Pu, lu,
-              VuxTf:Math.abs(num('Vu')), VuyTf:Math.abs(num('Vuy')), manualVe:num('Ve'),
-              mprFactor:num('mprFactor') || 1.25,
-              PuMin:candidateOptional('mprPuMin'), PuMax:candidateOptional('mprPuMax'),
-              beamCapX:num('VeBeamCapX'), beamCapY:num('VeBeamCapY'),
-            });
-            const candidateNu = Pu * 1000;
-            const candidateLowAxial = candidateNu < Ag * fc / 20;
-            const candidateEqX = seismic ? (($('autoVe')?.checked !== false) ? Math.max(candidateVe.autoX, candidateVe.manual) : candidateVe.manual) : 0;
-            const candidateEqY = seismic ? (($('autoVe')?.checked !== false) ? Math.max(candidateVe.autoY, candidateVe.manual) : candidateVe.manual) : 0;
-            const forceVc0X = seismic && candidateLowAxial && candidateVe.designX > 0 && candidateEqX >= 0.5 * candidateVe.designX;
-            const forceVc0Y = seismic && candidateLowAxial && candidateVe.designY > 0 && candidateEqY >= 0.5 * candidateVe.designY;
-            const transverseSearch = isRectCandidate
-              ? ColumnTransverseDesigner.search({
-                  b, h, cover, Ag, fc, fy, Pu,
-                  mainDb:candidate.db, bundle:candidate.bundle, nSide:candidate.nSide,
-                  dX:candidateDepth.d_x, dY:candidateDepth.d_y,
-                  designVx:candidateVe.designX, designVy:candidateVe.designY,
+            // 主筋中心依「保護層＋橫向鋼筋 db＋主筋 db/2」定位，P-M、Mpr 與有效深度都隨橫向鋼筋號數改變；
+            // 因此逐一橫向鋼筋號數以同號數幾何重算，再只在該號數內搜尋，使預測與套用後正式重算一致。
+            // 先以各號數幾何算有效深度、Mpr 與橫向筋搜尋（較輕），再依搜尋排序逐一核 P-M（較重），取第一個通過者；
+            // 結果與「各號數全算後再排序」相同。
+            const transverseForBar = transverseNo => {
+              const tDb = REBAR_TABLE[transverseNo].db;
+              const candidateDepth = buildShearDepths(colType, b, h, cover, candidate.nBar, candidate.ab, candidate.db, layout, tDb);
+              const candidateVe = buildProbableShearDemand({
+                seismic,
+                auto:$('autoVe')?.checked !== false,
+                colType, b, h, fc, fy, cover, transverseDb:tDb,
+                nBar:candidate.nBar, ab:candidate.ab, beta1, db:candidate.db, layout,
+                Pu, lu,
+                VuxTf:Math.abs(num('Vu')), VuyTf:Math.abs(num('Vuy')), manualVe:num('Ve'),
+                mprFactor:num('mprFactor') || 1.25,
+                PuMin:candidateOptional('mprPuMin'), PuMax:candidateOptional('mprPuMax'),
+                beamCapX:num('VeBeamCapX'), beamCapY:num('VeBeamCapY'),
+              });
+              const candidateNu = Pu * 1000;
+              const candidateLowAxial = candidateNu < Ag * fc / 20;
+              const candidateEqX = seismic ? (($('autoVe')?.checked !== false) ? Math.max(candidateVe.autoX, candidateVe.manual) : candidateVe.manual) : 0;
+              const candidateEqY = seismic ? (($('autoVe')?.checked !== false) ? Math.max(candidateVe.autoY, candidateVe.manual) : candidateVe.manual) : 0;
+              const forceVc0X = seismic && candidateLowAxial && candidateVe.designX > 0 && candidateEqX >= 0.5 * candidateVe.designX;
+              const forceVc0Y = seismic && candidateLowAxial && candidateVe.designY > 0 && candidateEqY >= 0.5 * candidateVe.designY;
+              const transverseSearch = isRectCandidate
+                ? ColumnTransverseDesigner.search({
+                    b, h, cover, Ag, fc, fy, Pu,
+                    mainDb:candidate.db, bundle:candidate.bundle, nSide:candidate.nSide,
+                    dX:candidateDepth.d_x, dY:candidateDepth.d_y,
+                    designVx:candidateVe.designX, designVy:candidateVe.designY,
+                    forceVc0X, forceVc0Y,
+                    seismic, tieFy, crossTieFy, phiShear:PHI.shear,
+                    barTable:REBAR_TABLE, bars:[transverseNo], limit:1,
+                  })
+                : ColumnTransverseDesigner.searchCircular({
+                    D:b, cover, Ag, fc, fy, Pu,
+                    mainDb:candidate.db, nBar:candidate.nBar,
+                    dX:candidateDepth.d_x, dY:candidateDepth.d_y,
+                    designVx:candidateVe.designX, designVy:candidateVe.designY,
+                    forceVc0X, forceVc0Y,
+                    seismic, hoopFy:colType === 'circle' ? spiralFy : tieFy, phiShear:PHI.shear,
+                    barTable:REBAR_TABLE, bars:[transverseNo], limit:1,
+                  });
+              const transverse = transverseSearch.candidates?.[0] || null;
+              return transverse ? {
+                tDb,
+                transverse:{
+                  ...transverse,
+                  designVx:candidateVe.designX,
+                  designVy:candidateVe.designY,
                   forceVc0X, forceVc0Y,
-                  seismic, tieFy, crossTieFy, phiShear:PHI.shear,
-                  barTable:REBAR_TABLE, limit:1,
-                })
-              : ColumnTransverseDesigner.searchCircular({
-                  D:b, cover, Ag, fc, fy, Pu,
-                  mainDb:candidate.db, nBar:candidate.nBar,
-                  dX:candidateDepth.d_x, dY:candidateDepth.d_y,
-                  designVx:candidateVe.designX, designVy:candidateVe.designY,
-                  forceVc0X, forceVc0Y,
-                  seismic, hoopFy:colType === 'circle' ? spiralFy : tieFy, phiShear:PHI.shear,
-                  barTable:REBAR_TABLE, limit:1,
-                });
-            const transverse = transverseSearch.candidates?.[0] || null;
-            return {
-              ok:!!transverse,
-              utilization:transverse ? Math.max(evaluation.utilization, transverse.utilization) : Infinity,
-              pmUtilization:evaluation.utilization,
-              phiMnX:evaluation.phiMnAtPu,
-              phiMnY:evaluation.phiMnyAtPu,
-              transverse:transverse ? {
-                ...transverse,
-                designVx:candidateVe.designX,
-                designVy:candidateVe.designY,
-                forceVc0X, forceVc0Y,
-              } : null,
+                },
+              } : null;
             };
+            const pmForBar = tDb => {
+              const candidateX = computePMSection(b, h, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, layout, tDb);
+              const candidateY = isRectCandidate
+                ? computePMSection(h, b, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, rotateLayoutForY(layout), tDb)
+                : computePMSection(b, b, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, null, tDb);
+              return ColumnEvaluator.evaluateDemand({
+                pmDesignX:candidateX.pmDesign,
+                pmDesignY:candidateY.pmDesign,
+                axisX:{ Pc, Cm, isShort, minEccCm:minEccX },
+                axisY:{ Pc:Pc_y, Cm, isShort, minEccCm:minEccY },
+                swayMode,
+                deltaS,
+                biaxialOptions:{
+                  colType, b, h, cover, nBar:candidate.nBar, ab:candidate.ab, db:candidate.db, layout, transverseDb:tDb,
+                  fc, fy, beta1, phiFactorComp:candidateX.phiFactorComp, phiPnMax:candidateX.phiPnMax,
+                },
+              }, { Pu, Mx:Mux, My:Muy }, { capacityAtPu:computeBiaxialSurfaceAtPu });
+            };
+            // 號數清單與排序鍵同 shared/column-transverse-designer.js 的 DEFAULT_BARS 與 search／searchCircular 排序。
+            const compareTransverse = isRectCandidate
+              ? (a, c) => a.transverseSteel - c.transverseSteel || a.nCrossTieX + a.nCrossTieY - c.nCrossTieX - c.nCrossTieY || c.spacing - a.spacing || c.utilization - a.utilization
+              : (a, c) => a.transverseSteel - c.transverseSteel || c.spacing - a.spacing || c.utilization - a.utilization;
+            const ranked = CANDIDATE_TRANSVERSE_BARS.map(transverseForBar).filter(Boolean)
+              .sort((a, c) => compareTransverse(a.transverse, c.transverse));
+            let lastPmUtilization = Infinity;
+            for (const option of ranked) {
+              const evaluation = pmForBar(option.tDb);
+              if (!(evaluation.status === 'evaluated' && evaluation.ok)) {
+                if (Number.isFinite(evaluation.utilization)) lastPmUtilization = evaluation.utilization;
+                continue;
+              }
+              return {
+                ok:true,
+                utilization:Math.max(evaluation.utilization, option.transverse.utilization),
+                pmUtilization:evaluation.utilization,
+                phiMnX:evaluation.phiMnAtPu,
+                phiMnY:evaluation.phiMnyAtPu,
+                transverse:option.transverse,
+              };
+            }
+            return { ok:false, utilization:ranked.length ? lastPmUtilization : Infinity };
           }
       : null;
     const designSearch = !candidateEvaluator
@@ -1935,7 +1981,7 @@
       : [{ Mx: Mc, My: Mcy }];
     const biaxialSurface = biaxialScenarios
       .map(scenario => computeBiaxialSurfaceAtPu({
-        colType, b, h, cover, nBar, ab, db, layout: columnLayout,
+        colType, b, h, cover, nBar, ab, db, layout: columnLayout, transverseDb: transverseDbForBars,
         fc, fy, beta1, Pu, Mx: scenario.Mx, My: scenario.My,
         phiFactorComp, phiPnMax, phiMnAtPu, phiMnyAtPu
       }))
@@ -1991,7 +2037,7 @@
     // X/Y 有效深度由實際主筋座標推算，並取可逆彎矩下較小值作保守檢核。
     const legsX = num('legsX') || legs;
     const legsY = num('legsY') || legs;
-    const shearDepth = buildShearDepths(colType, b, h, cover, nBar, ab, db, columnLayout);
+    const shearDepth = buildShearDepths(colType, b, h, cover, nBar, ab, db, columnLayout, transverseDbForBars);
     const d_x = shearDepth.d_x;
     const d_y = shearDepth.d_y;
     const d = d_x;  // 兼容後續變數
@@ -2201,6 +2247,7 @@
       fc,
       fy,
       cover,
+      transverseDb: transverseDbForBars,
       nBar,
       ab,
       beta1,
@@ -2836,7 +2883,7 @@
         if (isCircCol || !L) {
           if (isCircCol) {
             const D = bDim, R = D/2, dbV = db || 2.22;
-            const rIn = R - cover - dbV/2;
+            const rIn = R - longBarCenterInset(cover, transverseDbForBars, dbV);
             const lines = ['第# | θ(deg) | y_自壓力面 | As'];
             for (let i = 0; i < nBar; i++) {
               const theta = (2*Math.PI*i)/nBar;
@@ -2847,7 +2894,7 @@
           }
           return '—';
         }
-        const positions = getRebarPositions(L, bDim, hDim, cover);
+        const positions = getRebarPositions(L, bDim, hDim, cover, transverseDbForBars);
         const yMap = new Map();
         positions.forEach(p => {
           const k = p.y.toFixed(3);
@@ -2972,7 +3019,7 @@ ${Math.abs(Mcy)>1e-9 ? `【4】雙向 P-Mx-My 角度掃描
       const _ctSame = (crossTieNo === tieNo && crossTieS === tieS);
       const stepsShearTxt =
 `【1】混凝土剪力 Vc (表 22.5.5.1，非預力構材簡式)
-  有效深度：由實際主筋座標推算
+  有效深度：由實際主筋座標推算（主筋中心至表面 = 保護層 ${fmt(cover,2)} + 橫向鋼筋 db ${fmt(transverseDbForBars,3)} + 主筋 db/2）
   d_x = min(上緣至下側最外主筋 ${fmt(shearDepth.dTop,2)}, 下緣至上側最外主筋 ${fmt(shearDepth.dBottom,2)}) = ${fmt(d_x,2)} cm
   d_y = min(左緣至右側最外主筋 ${fmt(shearDepth.dLeft,2)}, 右緣至左側最外主筋 ${fmt(shearDepth.dRight,2)}) = ${fmt(d_y,2)} cm
 
@@ -3129,7 +3176,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
 
     // === 儲存供計算書 ===
     window.colLast = {
-      seismic, colType, fc, fy, b, h, lu, k, cover,
+      seismic, colType, fc, fy, b, h, lu, k, cover, transverseDbForBars,
       barNo, nBar, ab, db, tieDb, Ast, Ag, rhog, beta1,
       Pu, Mux, Muy: num('Muy'), Vu_in: num('Vu'), Vuy_in: num('Vuy'),
       phiVn: phiVn/1000, phiVnY: phiVn_y/1000, Vu: Vu/1000, Vuy: Vuy/1000,
@@ -3679,7 +3726,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
           : [{ label:'b × h', value: `${r.b} × ${r.h}`, unit:'cm' }]),
         { label:'淨高 ℓu', value: r.lu, unit:'cm' },
         { label:'有效長度因數 k', value: r.k },
-        { label:'保護層', value: r.cover, unit:'cm' }
+        { label:'保護層（量至箍筋外緣）', value: r.cover, unit:'cm' },
+        { label:'主筋中心至表面', value: `${r.cover} + ${fmt(r.transverseDbForBars,3)} + 主筋 db/2`, unit:'cm' }
       ]},
       { group:'材料', items:[
         { label:"混凝土 fc'", value: r.fc, unit:'kgf/cm²' },
@@ -3979,7 +4027,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       ]},
       { group:'剪力檢核 (X / Y 向)', items:[
         { label:'有效深度 d_x / d_y',
-          formula:'由實際主筋座標推算，取可逆彎矩下較小有效深度',
+          formula:'由實際主筋座標推算（主筋中心 = 保護層 + 橫向鋼筋 db + 主筋 db/2），取可逆彎矩下較小有效深度',
           sub:`d_x = min(${r.shearDepth.dTop.toFixed(2)}, ${r.shearDepth.dBottom.toFixed(2)}) = ${r.d_x.toFixed(2)} cm；d_y = min(${r.shearDepth.dLeft.toFixed(2)}, ${r.shearDepth.dRight.toFixed(2)}) = ${r.d_y.toFixed(2)} cm`,
           value:`${r.d_x.toFixed(2)} / ${r.d_y.toFixed(2)}`, unit:'cm', ok:null },
         { label:'φVc (含軸力)',
@@ -4411,7 +4459,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
 
       // 主筋位置 (束筋已展開為個別鋼筋；面內部往內、角隅沿對角線)
       if (!geomOnly && r.columnLayout) {
-        const positions = getRebarPositions(r.columnLayout, b, h, cover);
+        const positions = getRebarPositions(r.columnLayout, b, h, cover, r.transverseDbForBars);
         positions.forEach(p => {
           const cx = x0 + p.x * scale;
           const cy = y0 + p.y * scale;
@@ -4510,7 +4558,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         ctx.beginPath(); ctx.arc(cx, cy, Rtie, 0, Math.PI*2); ctx.stroke();
         // 主筋均布
         const nBar = r.nBar;
-        const Rbar = Rtie - (r.db || 2.54)/2 * scale;
+        const Rbar = Rpx - longBarCenterInset(cover, r.transverseDbForBars, r.db || 2.54) * scale;
         const baseR = (r.db || 2.54)/2 * scale;
         ctx.fillStyle = '#1e293b';
         for (let i = 0; i < nBar; i++) {
