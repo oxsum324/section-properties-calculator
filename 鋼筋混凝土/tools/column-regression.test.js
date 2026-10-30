@@ -216,22 +216,27 @@ async function exerciseProjectStorage(page) {
   assert(imported.Pu === '321', 'column project file input import Pu', imported.Pu);
   assert(imported.status.includes('已讀取柱專案檔並重現計算') && imported.status.includes(saved.calculationFingerprint), 'column project file input status', imported.status);
 
-  // V3.2 舊檔：以原版本驗證指紋後依 V3.3 重新計算，提示另存
-  const legacyColumn = await page.evaluate(payload => window.RCReportFingerprint.withProjectCalculationFingerprint({ ...payload, appVersion: 'V3.2' }, { ignoredKeys: ['activeTab'] }), saved);
-  await page.setInputFiles('#columnProjectFile', {
-    name: 'rc-column-project-v3.2.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(legacyColumn), 'utf8')
-  });
-  await page.waitForFunction(() => document.getElementById('projectFileStatus')?.textContent?.includes('原為 V3.2 專案檔'));
-  const legacyImported = await page.evaluate(() => ({
-    projectName: document.getElementById('projName')?.value,
-    Pu: document.getElementById('Pu')?.value,
-    status: document.getElementById('projectFileStatus')?.textContent || '',
-    currentVersion: window.collectColumnProjectData().appVersion
-  }));
-  assert(legacyImported.projectName === '柱專案存讀檔測試' && legacyImported.Pu === '321' && legacyImported.currentVersion === 'V3.3', 'column replays verified V3.2 project under V3.3', JSON.stringify(legacyImported));
-  assert(legacyImported.status.includes(`計算指紋 ${legacyColumn.calculationFingerprint}｜原為 V3.2 專案檔，已依 V3.3 重新計算，請另存 V3.3 專案檔`), 'column V3.2 migration status asks for a V3.3 save', legacyImported.status);
+  // V3.2／V3.3 舊檔：以原版本驗證指紋後依 V3.4 重新計算，提示另存，並揭露主筋中心定義變更（不得靜默換值）
+  for (const legacyVersion of ['V3.2', 'V3.3']) {
+    const legacyColumn = await page.evaluate(([payload, appVersion]) => window.RCReportFingerprint.withProjectCalculationFingerprint({ ...payload, appVersion }, { ignoredKeys: ['activeTab'] }), [saved, legacyVersion]);
+    await page.evaluate(() => { document.getElementById('projectFileStatus').textContent = ''; });
+    await page.setInputFiles('#columnProjectFile', {
+      name: `rc-column-project-${legacyVersion.toLowerCase()}.json`,
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(legacyColumn), 'utf8')
+    });
+    await page.waitForFunction(version => document.getElementById('projectFileStatus')?.textContent?.includes(`原為 ${version} 專案檔`), legacyVersion);
+    const legacyImported = await page.evaluate(() => ({
+      projectName: document.getElementById('projName')?.value,
+      Pu: document.getElementById('Pu')?.value,
+      status: document.getElementById('projectFileStatus')?.textContent || '',
+      currentVersion: window.collectColumnProjectData().appVersion
+    }));
+    assert(legacyImported.projectName === '柱專案存讀檔測試' && legacyImported.Pu === '321' && legacyImported.currentVersion === 'V3.4', `column replays verified ${legacyVersion} project under V3.4`, JSON.stringify(legacyImported));
+    assert(legacyImported.status.includes(`計算指紋 ${legacyColumn.calculationFingerprint}｜原為 ${legacyVersion} 專案檔，已依 V3.4 重新計算，請另存 V3.4 專案檔`), `column ${legacyVersion} migration status asks for a V3.4 save`, legacyImported.status);
+    assert(!legacyImported.status.includes('並重現計算'), `column ${legacyVersion} migration does not claim the saved values were reproduced`, legacyImported.status);
+    assert(legacyImported.status.includes(`${legacyVersion} → V3.4：計算定義已變更（主筋中心改為量至箍筋外緣`) && legacyImported.status.includes('結果與舊版不同'), `column ${legacyVersion} migration discloses the bar-center definition change`, legacyImported.status);
+  }
 
   const draft = await page.evaluate(() => {
     const setValue = (id, value) => {

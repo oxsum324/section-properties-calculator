@@ -222,7 +222,11 @@
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
   const COLUMN_PROJECT_SCHEMA = 'rc-column-project-v1';
-  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.2']);
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.2', 'V3.3']);
+  // V3.4 起主筋中心 = 保護層（量至箍筋外緣）＋橫向鋼筋直徑＋主筋直徑/2；此前版本為保護層＋主筋直徑/2。
+  // 這些舊版檔讀入後一律揭露計算定義變更，即使摘要判定未翻轉也不得靜默換值。
+  const BAR_CENTER_DEFINITION_CHANGED_VERSIONS = Object.freeze(['V3.2', 'V3.3']);
+  const BAR_CENTER_DEFINITION_NOTICE = '計算定義已變更（主筋中心改為量至箍筋外緣：保護層＋箍筋直徑＋主筋直徑/2），P-M、剪力有效深度與 Mpr／Ve 等結果與舊版不同';
   const COLUMN_PROJECT_STORAGE_KEY = 'rc.column.project.draft';
   const COLUMN_PROJECT_EXCLUDED_IDS = new Set(['columnProjectFile']);
   let columnReviewResolutions = [];
@@ -411,7 +415,7 @@
       schema: COLUMN_PROJECT_SCHEMA,
       tool: 'rc-column',
       toolTitle: '柱 Column 設計／檢核',
-      appVersion: 'V3.3',
+      appVersion: 'V3.4',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -449,11 +453,11 @@
   }
 
   function normalizeColumnProjectPayload(raw) {
-    // V3.2 舊檔：以原版本驗證存檔指紋後依 V3.3 重新計算；版本正規化與舊版判定見 shared/project-replay.js
+    // V3.2／V3.3 舊檔：以原版本驗證存檔指紋後依 V3.4 重新計算；版本正規化與舊版判定見 shared/project-replay.js
     const payload = window.RCProjectReplay.validateLegacyProjectSource(raw, {
       expectedSchema: COLUMN_PROJECT_SCHEMA,
       expectedToolId: 'rc-column',
-      expectedVersion: 'V3.3',
+      expectedVersion: 'V3.4',
       legacyVersions: LEGACY_REPLAY_VERSIONS,
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
@@ -495,7 +499,7 @@
     let replay = null;
     if (!options.skipReplayCheck) {
       try {
-        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.3 結果接受並揭露
+        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.4 結果接受並揭露
         replay = window.RCProjectReplay.reconcileProjectCalculationReplay(payload, collectColumnProjectData(), {
           legacyVersions: LEGACY_REPLAY_VERSIONS,
           sourceKey: 'fields',
@@ -511,7 +515,13 @@
         sourceLabel: options.sourceLabel || '柱專案檔',
         applied
       });
-      showColumnProjectStatus(notice.message, notice.status);
+      if (replay.legacy && BAR_CENTER_DEFINITION_CHANGED_VERSIONS.includes(replay.sourceVersion)) {
+        // 摘要判定相同時共用文字為「並重現計算」；主筋定義已變，數值必然不同，改稱重新計算以免誤認為逐值重現
+        const lead = notice.message.replace('並重現計算：', `並依 ${replay.currentVersion} 重新計算：`);
+        showColumnProjectStatus(`${lead}｜${replay.sourceVersion} → ${replay.currentVersion}：${BAR_CENTER_DEFINITION_NOTICE}`, 'warn');
+      } else {
+        showColumnProjectStatus(notice.message, notice.status);
+      }
     } else if (!options.silent) {
       const source = options.sourceLabel || '柱專案檔';
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
@@ -4238,7 +4248,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
 
     const reportConfig = {
       title: isDesignMode ? '柱設計計算書' : '柱檢核計算書',
-      outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.3' },
+      outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.4' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Column Design Report' : 'RC Column Check Report',

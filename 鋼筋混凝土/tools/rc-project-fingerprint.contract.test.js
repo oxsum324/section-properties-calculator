@@ -233,7 +233,7 @@ assert.throws(() => replayApi.reconcileProjectCalculationReplay({ ...legacyWall,
 
 const pageContracts = [
   ['beam.html', 'collectBeamProjectData', 'projectSnapshot = collectBeamProjectData()', '梁 Beam 設計／檢核', 'V3.2'],
-  ['column.html', 'collectColumnProjectData', 'projectSnapshot = collectColumnProjectData()', '柱 Column 設計／檢核', 'V3.3'],
+  ['column.html', 'collectColumnProjectData', 'projectSnapshot = collectColumnProjectData()', '柱 Column 設計／檢核', 'V3.4'],
   ['slab.html', 'collectSlabProjectData', 'projectSnapshot = collectSlabProjectData()', '板 Slab 設計／檢核', 'V3.3'],
   ['wall.html', 'collectWallProjectData', 'projectSnapshot = collectWallProjectData()', '牆 Wall 設計／檢核', 'V3.4'],
   ['shear-wall.html', 'collectShearWallProjectData', 'projectSnapshot = collectShearWallProjectData()', '剪力牆 Shear Wall 設計／檢核', 'V0.6'],
