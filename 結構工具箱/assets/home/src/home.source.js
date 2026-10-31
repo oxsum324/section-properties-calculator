@@ -175,7 +175,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-10-29',
+    generatedAt: '2026-10-31',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -187,7 +187,7 @@
       '/composite-section': '2026-10-23',
       '/rc-beam': '2026-10-24',
       '/rc-deep-beam-stm': '2026-10-23',
-      '/rc-column': '2026-10-26',
+      '/rc-column': '2026-10-30',
       '/rc-slab': '2026-10-24',
       '/rc-wall': '2026-10-25',
       '/rc-shear-wall': '2026-10-26',
@@ -428,7 +428,7 @@
     },
     {
       title: 'RC 柱',
-      version: 'V3.3',
+      version: 'V3.4',
       href: '/rc-column',
       aliases: ['RC column design', '柱軸壓強度'],
       categories: ['member'],
