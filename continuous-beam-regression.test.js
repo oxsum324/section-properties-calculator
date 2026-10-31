@@ -835,6 +835,8 @@ function main() {
 
   runIndependentClosedFormChecks(ctx);
   runInstabilityChecks(ctx);
+  runInternalForceSnapshotCheck(ctx);
+  runDeflectionClosedFormChecks(ctx);
 
   console.log('\nAll continuous beam regression checks passed.');
 }
@@ -975,6 +977,259 @@ function runInstabilityChecks(ctx) {
   setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L: 6 }], loads: [[{ type: 'udl', w: 10 }]] });
   assert(!!ctx.solution, 'stable model solves again after instability rejection', 'solution present');
   assertNear(ctx.solution.reactions[0].Ry, 30, 1e-6, 'stable model reaction after rejection', 'R = wL/2');
+}
+
+// ===== 跨內撓度閉合解核對（v 向上為正；δ 為向下撓度，工具 ds = −δ） =====
+// 預期值全部由梁理論手推（Macaulay 雙重積分＋邊界條件），對照 Roark's Formulas for Stress and
+// Strain 表 8.1；不讀取工具輸出。容許差說明：
+//  - 取樣點逐點比對：Hermite＋固端特解在每個子元素內為精確多項式解，誤差只剩勁度矩陣求解與
+//    浮點捨入（約 1e-13 相對），故取 1e-9 × max|δ| 為絕對容許差，足以抓到任何係數錯誤（舊版 20%～100%）。
+//  - 兩等跨最大撓度：真正極值在 ξ* = (1+√33)/16 = 0.42154，圖面以 L/24 取樣，最近樣點 ξ = 10/24，
+//    取樣極值較真值低約 1.5e-4（相對），故取 3e-4 相對容許差。
+//  - 斜率以樣點五點四階單側差分估計：子元素內撓度為四次以下多項式，差分無截斷誤差，只剩捨入
+//    放大（約 1e-12/h），取 1e-6 相對容許差。
+function deflectionAtStations(ctx, spanIdx) {
+  const sp = ctx.diagrams.spans[spanIdx];
+  return sp.xs.map((xg, k) => ({ x: xg - sp.xStart, d: sp.ds[k] }));
+}
+
+function assertDeflectionClosedForm(ctx, spanIdx, deltaDown, title) {
+  const pts = deflectionAtStations(ctx, spanIdx);
+  const scale = Math.max(...pts.map(p => Math.abs(deltaDown(p.x))));
+  const tol = Math.max(1e-15, scale * 1e-9);
+  let worst = { err: -1 };
+  for (const p of pts) {
+    const err = Math.abs(p.d - (-deltaDown(p.x)));
+    if (err > worst.err) worst = { err, x: p.x, actual: p.d, expected: -deltaDown(p.x) };
+  }
+  const interior = pts.filter(p => p.x > 1e-9 && p.x < ctx.diagrams.spans[spanIdx].L - 1e-9).length;
+  assert(interior >= 20 && worst.err <= tol, title,
+    `stations=${pts.length}, worst at x=${worst.x}: actual=${worst.actual}, expected=${worst.expected}, err=${worst.err}, tol=${tol}`);
+}
+
+function oneSidedSlope(pts, x0, side) {
+  // 五點四階單側差分：v′ ≈ ±(25v0 − 48v1 + 36v2 − 16v3 + 3v4) / (12h)，對四次以下多項式為精確
+  const near = pts.filter(p => side === 'left' ? p.x <= x0 + 1e-9 : p.x >= x0 - 1e-9)
+    .sort((a, b) => side === 'left' ? b.x - a.x : a.x - b.x);
+  const [p0, p1, p2, p3, p4] = near;
+  const h = Math.abs(p1.x - p0.x);
+  assert([p1, p2, p3, p4].every((p, i) => Math.abs(Math.abs(p.x - near[i].x) - h) < 1e-9), 'slope stencil is uniform', `x=${p0.x},${p1.x},${p4.x}`);
+  const d = (25 * p0.d - 48 * p1.d + 36 * p2.d - 16 * p3.d + 3 * p4.d) / (12 * h);
+  return side === 'left' ? d : -d;
+}
+
+function runDeflectionClosedFormChecks(ctx) {
+  const E = 204000000, I = 0.00042, EI = E * I; // 85,680 kN·m²
+  const mac = (x, a, n) => (x > a ? (x - a) ** n : 0);
+
+  // 1) 簡支均佈：δ = w x (L³ − 2Lx² + x³) / 24EI，跨中 5wL⁴/384EI
+  {
+    const w = 10, L = 6;
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[{ type: 'udl', w }]] });
+    const delta = x => w * x * (L ** 3 - 2 * L * x * x + x ** 3) / (24 * EI);
+    assertDeflectionClosedForm(ctx, 0, delta, 'deflection: simply supported UDL at all stations');
+    assertNear(-Math.min(...ctx.diagrams.spans[0].ds), 5 * w * L ** 4 / (384 * EI), 5 * w * L ** 4 / (384 * EI) * 1e-9,
+      'deflection: simply supported UDL max = 5wL^4/384EI', 'midspan');
+  }
+
+  // 2) 簡支跨中集中：δ = P x (3L² − 4x²) / 48EI（x ≤ L/2，對稱），跨中 PL³/48EI
+  {
+    const P = 50, L = 6, a = 3;
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[{ type: 'point', P, a }]] });
+    const delta = x => { const s = Math.min(x, L - x); return P * s * (3 * L * L - 4 * s * s) / (48 * EI); };
+    assertDeflectionClosedForm(ctx, 0, delta, 'deflection: simply supported midspan point at all stations');
+    assertNear(-Math.min(...ctx.diagrams.spans[0].ds), P * L ** 3 / (48 * EI), P * L ** 3 / (48 * EI) * 1e-9,
+      'deflection: simply supported midspan point max = PL^3/48EI', 'midspan');
+  }
+
+  // 3) 兩等跨全跨均佈：三彎矩式 M_B = −wL²/8；跨 1 = 簡支均佈 − M_B 引起之上拱
+  //    δ(ξ) = wL⁴/48EI · (ξ − 3ξ³ + 2ξ⁴)；dδ/dξ = 0 → 8ξ³ − 9ξ² + 1 = 0 → ξ* = (1+√33)/16
+  //    δmax = 0.0054161 wL⁴/EI（跨中 wL⁴/192EI = 0.0052083 wL⁴/EI）
+  {
+    const w = 10, L = 6;
+    setupBeam(ctx, { supports: ['pin', 'roller', 'roller'], spans: [{ L }, { L }], loads: [[{ type: 'udl', w }], [{ type: 'udl', w }]] });
+    const delta1 = x => { const xi = x / L; return w * L ** 4 / (48 * EI) * (xi - 3 * xi ** 3 + 2 * xi ** 4); };
+    assertDeflectionClosedForm(ctx, 0, delta1, 'deflection: two equal spans UDL span 1 at all stations');
+    assertDeflectionClosedForm(ctx, 1, x => delta1(L - x), 'deflection: two equal spans UDL span 2 (mirror) at all stations');
+    const xiStar = (1 + Math.sqrt(33)) / 16;
+    const deltaMax = w * L ** 4 / (48 * EI) * (xiStar - 3 * xiStar ** 3 + 2 * xiStar ** 4);
+    assertNear(deltaMax * EI / (w * L ** 4), 0.0054161216, 1e-9, 'two-span max deflection coefficient (hand)', 'ξ* = (1+√33)/16');
+    const ds0 = ctx.diagrams.spans[0].ds;
+    assertNear(-Math.min(...ds0), deltaMax, deltaMax * 3e-4, 'deflection: two equal spans sampled max within L/24 sampling of exact max', `exact=${deltaMax}`);
+    assertNear(delta1(L / 2), w * L ** 4 / (192 * EI), 1e-15, 'two-span midspan coefficient 1/192 (hand)', 'ξ = 0.5');
+  }
+
+  // 4) 兩端固定均佈：δ = w x² (L − x)² / 24EI，跨中 wL⁴/384EI
+  {
+    const w = 10, L = 6;
+    setupBeam(ctx, { supports: ['fixed', 'fixed'], spans: [{ L }], loads: [[{ type: 'udl', w }]] });
+    const delta = x => w * x * x * (L - x) ** 2 / (24 * EI);
+    assertDeflectionClosedForm(ctx, 0, delta, 'deflection: fixed-fixed UDL at all stations');
+    assertNear(-Math.min(...ctx.diagrams.spans[0].ds), w * L ** 4 / (384 * EI), w * L ** 4 / (384 * EI) * 1e-9,
+      'deflection: fixed-fixed UDL max = wL^4/384EI', 'midspan');
+  }
+
+  // 5) 兩端固定集中（a 處，b = L − a）：x ≤ a 時 δ = P b² x² (3aL − 3ax − bx) / 6EIL³，x ≥ a 鏡射
+  //    跨中 PL³/192EI；載重點 P a³ b³ / 3EIL³
+  const ffPoint = (P, a, L) => x => (x <= a
+    ? P * (L - a) ** 2 * x * x * (3 * a * L - 3 * a * x - (L - a) * x) / (6 * EI * L ** 3)
+    : P * a * a * (L - x) ** 2 * (3 * (L - a) * L - 3 * (L - a) * (L - x) - a * (L - x)) / (6 * EI * L ** 3));
+  {
+    const P = 50, L = 6;
+    setupBeam(ctx, { supports: ['fixed', 'fixed'], spans: [{ L }], loads: [[{ type: 'point', P, a: 3 }]] });
+    assertDeflectionClosedForm(ctx, 0, ffPoint(P, 3, L), 'deflection: fixed-fixed midspan point at all stations');
+    assertNear(-Math.min(...ctx.diagrams.spans[0].ds), P * L ** 3 / (192 * EI), P * L ** 3 / (192 * EI) * 1e-9,
+      'deflection: fixed-fixed midspan point max = PL^3/192EI', 'midspan');
+    setupBeam(ctx, { supports: ['fixed', 'fixed'], spans: [{ L }], loads: [[{ type: 'point', P, a: 2 }]] });
+    assertDeflectionClosedForm(ctx, 0, ffPoint(P, 2, L), 'deflection: fixed-fixed off-centre point (a = L/3) at all stations');
+    assertNear(-ctx.diagrams.spans[0].ds[ctx.diagrams.spans[0].xs.findIndex(x => Math.abs(x - 2) < 1e-9)],
+      P * 8 * 64 / (3 * EI * 216), 1e-12, 'deflection: fixed-fixed point under load = Pa^3b^3/3EIL^3', 'x = a');
+    // 疊加：均佈＋偏心集中
+    setupBeam(ctx, { supports: ['fixed', 'fixed'], spans: [{ L }], loads: [[{ type: 'udl', w: 10 }, { type: 'point', P, a: 2 }]] });
+    assertDeflectionClosedForm(ctx, 0, x => 10 * x * x * (L - x) ** 2 / (24 * EI) + ffPoint(P, 2, L)(x),
+      'deflection: fixed-fixed UDL + point superposition at all stations');
+  }
+
+  // 6) 懸臂（左端固定）均佈：δ = w x² (6L² − 4Lx + x²) / 24EI，自由端 wL⁴/8EI
+  //    懸臂自由端集中：δ = P x² (3L − x) / 6EI，自由端 PL³/3EI
+  {
+    const w = 10, P = 50, L = 6;
+    setupBeam(ctx, { supports: ['fixed', 'free'], spans: [{ L }], loads: [[{ type: 'udl', w }]] });
+    assertDeflectionClosedForm(ctx, 0, x => w * x * x * (6 * L * L - 4 * L * x + x * x) / (24 * EI), 'deflection: cantilever UDL at all stations');
+    assertNear(-Math.min(...ctx.diagrams.spans[0].ds), w * L ** 4 / (8 * EI), w * L ** 4 / (8 * EI) * 1e-9, 'deflection: cantilever UDL tip = wL^4/8EI', 'x = L');
+    setupBeam(ctx, { supports: ['fixed', 'free'], spans: [{ L }], loads: [[{ type: 'point', P, a: L }]] });
+    assertDeflectionClosedForm(ctx, 0, x => P * x * x * (3 * L - x) / (6 * EI), 'deflection: cantilever tip point at all stations');
+    assertNear(-Math.min(...ctx.diagrams.spans[0].ds), P * L ** 3 / (3 * EI), P * L ** 3 / (3 * EI) * 1e-9, 'deflection: cantilever tip point = PL^3/3EI', 'x = L');
+  }
+
+  // 7) 簡支梯形 4→10 = 均佈 4 ＋ 三角形 0→6；三角形 δ = w0 x (7L⁴ − 10L²x² + 3x⁴) / 360EIL
+  {
+    const L = 6;
+    const tri = (w0) => x => w0 * x * (7 * L ** 4 - 10 * L * L * x * x + 3 * x ** 4) / (360 * EI * L);
+    const ssUdl = (w) => x => w * x * (L ** 3 - 2 * L * x * x + x ** 3) / (24 * EI);
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[{ type: 'trapezoid', w1: 0, w2: 10 }]] });
+    assertDeflectionClosedForm(ctx, 0, tri(10), 'deflection: simply supported triangle 0→10 at all stations');
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[{ type: 'trapezoid', w1: 4, w2: 10 }]] });
+    assertDeflectionClosedForm(ctx, 0, x => ssUdl(4)(x) + tri(6)(x), 'deflection: simply supported trapezoid 4→10 at all stations');
+    // 兩端固定三角形 0→w0：R_A = 3w0L/20、M_A = w0L²/30 → δ = w0 x² (L − x)² (2L + x) / 120EIL
+    setupBeam(ctx, { supports: ['fixed', 'fixed'], spans: [{ L }], loads: [[{ type: 'trapezoid', w1: 0, w2: 10 }]] });
+    assertDeflectionClosedForm(ctx, 0, x => 10 * x * x * (L - x) ** 2 * (2 * L + x) / (120 * EI * L), 'deflection: fixed-fixed triangle 0→10 at all stations');
+  }
+
+  // 8) 集中彎矩（工具慣例：x > a 時 M_sag −= M0），Macaulay：
+  //    簡支：R = M0/L，δ = [−M0 x³/6L + M0⟨x−a⟩²/2 + M0 (L/6 − b²/2L) x] / EI
+  //    兩端固定：R = 6M0ab/L³、M_A = M0 b (2a − b)/L²，δ = [M_A x²/2 − R x³/6 + M0⟨x−a⟩²/2] / EI
+  {
+    const L = 6, M0 = 20;
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[{ type: 'moment', M: M0, a: 2 }]] });
+    const b1 = L - 2;
+    assertDeflectionClosedForm(ctx, 0, x => (-M0 * x ** 3 / (6 * L) + M0 * mac(x, 2, 2) / 2 + M0 * (L / 6 - b1 * b1 / (2 * L)) * x) / EI,
+      'deflection: simply supported concentrated moment at all stations');
+    setupBeam(ctx, { supports: ['fixed', 'fixed'], spans: [{ L }], loads: [[{ type: 'moment', M: M0, a: 3 }]] });
+    const a = 3, b = 3, R = 6 * M0 * a * b / L ** 3, MA = M0 * b * (2 * a - b) / (L * L);
+    assertDeflectionClosedForm(ctx, 0, x => (MA * x * x / 2 - R * x ** 3 / 6 + M0 * mac(x, a, 2) / 2) / EI,
+      'deflection: fixed-fixed concentrated moment at all stations');
+  }
+
+  // 9) 內絞點（Gerber）：左端固定、x = 3 絞點、x = 6 滾支，全跨均佈 w = 10
+  //    右段為簡支（絞點端受絞點力），絞點力 = wb/2 = 15；左段為懸臂受均佈＋端點 15
+  //    δh = (w a⁴/8 + 15 a³/3)/EI = 236.25/EI；右段 δ = δh (1 − x′/b) + 簡支均佈
+  {
+    const w = 10, a = 3, b = 3, Hf = w * b / 2;
+    setupBeam(ctx, { supports: ['fixed', 'roller'], spans: [{ L: 6, hinges: [3] }], loads: [[{ type: 'udl', w }]] });
+    const dh = (w * a ** 4 / 8 + Hf * a ** 3 / 3) / EI;
+    assertNear(dh * EI, 236.25, 1e-12, 'hinge deflection hand value', 'δh·EI = 236.25');
+    const delta = x => (x <= a
+      ? w * x * x * (6 * a * a - 4 * a * x + x * x) / (24 * EI) + Hf * x * x * (3 * a - x) / (6 * EI)
+      : dh * (1 - (x - a) / b) + w * (x - a) * (b ** 3 - 2 * b * (x - a) ** 2 + (x - a) ** 3) / (24 * EI));
+    assertDeflectionClosedForm(ctx, 0, delta, 'deflection: Gerber beam with internal hinge at all stations');
+    const pts = deflectionAtStations(ctx, 0);
+    // 絞點處撓度連續、斜率不連續：左 v′ = −(wa³/6 + Hf a²/2)/EI，右 v′ = +(δh/b − wb³/24EI)
+    const sl = oneSidedSlope(pts, a, 'left'), sr = oneSidedSlope(pts, a, 'right');
+    const slExp = -(w * a ** 3 / 6 + Hf * a * a / 2) / EI, srExp = dh / b - w * b ** 3 / (24 * EI);
+    assertNear(sl, slExp, Math.abs(slExp) * 1e-6, 'deflection: slope left of hinge', `expected ${slExp}`);
+    assertNear(sr, srExp, Math.abs(srExp) * 1e-6, 'deflection: slope right of hinge (kink at hinge)', `expected ${srExp}`);
+  }
+
+  // 10) 兩跨、只載跨 1、跨 2 EI 加倍：三彎矩式 2M_B(L/I + L/2I) = −wL³/4I → M_B = −wL²/12
+  //     跨 1：δ = 簡支均佈 − |M_B| x (L² − x²)/6EIL；跨 2：δ_up = |M_B| x′(L − x′)(2L − x′)/(6·2EI·L)
+  //     B 點斜率兩側相同：v′_B = |M_B| L / (3·2EI) = wL³/72EI（v 向上為正）
+  {
+    const w = 10, L = 6, MB = w * L * L / 12;
+    setupBeam(ctx, { supports: ['pin', 'roller', 'roller'], spans: [{ L }, { L, eiMul: 2 }], loads: [[{ type: 'udl', w }], []] });
+    assertDeflectionClosedForm(ctx, 0, x => w * x * (L ** 3 - 2 * L * x * x + x ** 3) / (24 * EI) - MB * x * (L * L - x * x) / (6 * EI * L),
+      'deflection: two spans, span 1 loaded, span 1 at all stations');
+    assertDeflectionClosedForm(ctx, 1, x => -MB * x * (L - x) * (2 * L - x) / (6 * 2 * EI * L),
+      'deflection: two spans, span 1 loaded, unloaded span 2 (EI×2) at all stations');
+    const p0 = deflectionAtStations(ctx, 0), p1 = deflectionAtStations(ctx, 1);
+    assertNear(p0[p0.length - 1].d, p1[0].d, 1e-15, 'deflection continuous across interior support', 'v_B both sides');
+    const sl = oneSidedSlope(p0, L, 'left'), sr = oneSidedSlope(p1, 0, 'right');
+    const sExp = w * L ** 3 / (72 * EI);
+    assertNear(sl, sExp, sExp * 1e-6, 'deflection: slope at interior support from span 1', `expected wL^3/72EI = ${sExp}`);
+    assertNear(sr, sExp, sExp * 1e-6, 'deflection: slope at interior support from span 2 (continuous)', `expected wL^3/72EI = ${sExp}`);
+  }
+
+  // 11) kgf-cm 單位：L = 600 cm、w = 0.1 kgf/cm、E = 2.04e6 kgf/cm²、I = 20000 cm⁴，簡支均佈
+  {
+    const w = 0.1, L = 600, Ek = 2040000, Ik = 20000, EIk = Ek * Ik;
+    ctx.document.getElementById('unitSystem').value = 'kgf-cm';
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[{ type: 'udl', w }]], E: String(Ek), I: String(Ik) });
+    assertDeflectionClosedForm(ctx, 0, x => w * x * (L ** 3 - 2 * L * x * x + x ** 3) / (24 * EIk), 'deflection: kgf-cm simply supported UDL at all stations');
+    assertNear(-Math.min(...ctx.diagrams.spans[0].ds), 5 * w * L ** 4 / (384 * EIk), 1e-12, 'deflection: kgf-cm max = 5wL^4/384EI', '≈ 0.004136 cm');
+    ctx.document.getElementById('unitSystem').value = 'kN-m';
+  }
+}
+
+// ===== 反力／剪力／彎矩凍結快照（取自修正前原始檔，證明撓度修正不改變內力路徑） =====
+function internalForceSnapshotCases() {
+  return [
+    { supports: ['pin', 'roller'], spans: [{ L: 6 }], loads: [[{ type: 'udl', w: 10 }]] },
+    { supports: ['pin', 'roller'], spans: [{ L: 6 }], loads: [[{ type: 'point', P: 50, a: 3 }]] },
+    { supports: ['pin', 'roller', 'roller'], spans: [{ L: 6 }, { L: 6 }], loads: [[{ type: 'udl', w: 10 }], [{ type: 'udl', w: 10 }]] },
+    { supports: ['fixed', 'fixed'], spans: [{ L: 6 }], loads: [[{ type: 'udl', w: 10 }, { type: 'point', P: 50, a: 2 }]] },
+    { supports: ['fixed', 'free'], spans: [{ L: 6 }], loads: [[{ type: 'udl', w: 10 }, { type: 'point', P: 50, a: 6 }]] },
+    { supports: ['fixed', 'roller'], spans: [{ L: 6, hinges: [3] }], loads: [[{ type: 'udl', w: 10 }]] },
+    { supports: ['pin', 'roller', 'roller', 'fixed'], spans: [{ L: 5.5 }, { L: 7.25, eiMul: 0.85 }, { L: 4, eiMul: 1.7 }],
+      loads: [[{ type: 'trapezoid', w1: 5, w2: 14 }, { type: 'moment', M: 9.5, a: 4.1 }], [{ type: 'point', P: 37, a: 2.2 }, { type: 'udl', w: 6 }], [{ type: 'trapezoid', w1: 12, w2: 3 }]] },
+    { supports: ['fixed', 'roller', 'free'], spans: [{ L: 8, hinges: [5.5] }, { L: 2.5 }],
+      loads: [[{ type: 'trapezoid', w1: 2, w2: 9 }, { type: 'point', P: 20, a: 6.5 }, { type: 'moment', M: -15, a: 1.5 }], [{ type: 'point', P: 12, a: 2.5 }]] },
+  ];
+}
+
+function internalForceSnapshot(ctx) {
+  return internalForceSnapshotCases().map(spec => {
+    setupBeam(ctx, spec);
+    return {
+      reactions: (ctx.solution?.reactions || []).map(r => [r?.Ry ?? null, r?.Mr ?? null]),
+      spans: (ctx.diagrams?.spans || []).map(sp => ({ xs: sp.xs, vs: sp.vs, ms: sp.ms })),
+    };
+  });
+}
+
+// 以 /workspace/連續梁分析_改前備份_2026-10-29.html（origin/master a2c4e97e 之原始檔）產生；
+// JSON.stringify 對 double 採最短可逆表示，雜湊相同即逐位元相同。
+const ORIGINAL_INTERNAL_FORCE_SNAPSHOT_SHA256 = '47d866483789376c7ea504c435e2b7597806c798bd6e64036147a4d5d2978f1e';
+const ORIGINAL_INTERNAL_FORCE_CASE_SHA256 = [
+  '2efeedef1228fe5ba9a458ba691f7b3f543a3dd8f0b72e19264b2abe1707bbbb',
+  '61e6905b112a3bb4f4c4a29417222028e6c371efabb272bd4ebf4df23d179ebf',
+  'b503e47751be87e85cc7a78a0d4054f2d2b7a06b2166e16da53625f28c0bd18c',
+  'df3ba84a6d88f291f84cadc44fe87a8ae876939e2cc6f3f0be9727a188f0b0dc',
+  '9f161135bbad92b8f8cc0a5d775f92b87707e0b42bbb3c8f8a1e7595e20c4a40',
+  'c5af30eb43e56ab4472e5d6cdf32530af47061cf700ea8c25f0852289ba0f492',
+  '879a2ce0030d22669ea1612d2466b02133467b5439794bd19163b806d6b12853',
+  '1f116cb61a4e700e62699ea10ac0f5303f07bf22a250a8f76d8e8c33fbabb00c',
+];
+
+function runInternalForceSnapshotCheck(ctx) {
+  const snapshot = internalForceSnapshot(ctx);
+  if (process.env.CONTINUOUS_BEAM_PRINT_FORCE_SNAPSHOT === '1') {
+    console.log('FORCE_SNAPSHOT_ALL=' + stableSha256(snapshot));
+    console.log('FORCE_SNAPSHOT_CASES=' + JSON.stringify(snapshot.map(stableSha256)));
+  }
+  snapshot.forEach((item, i) => {
+    assert(stableSha256(item) === ORIGINAL_INTERNAL_FORCE_CASE_SHA256[i], `internal-force snapshot case ${i + 1} bitwise identical to original`, stableSha256(item));
+  });
+  assert(stableSha256(snapshot) === ORIGINAL_INTERNAL_FORCE_SNAPSHOT_SHA256, 'reactions / shear / moment arrays bitwise identical to original file', stableSha256(snapshot));
 }
 
 main();
