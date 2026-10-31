@@ -428,7 +428,7 @@
     },
     {
       title: 'RC 柱',
-      version: 'V3.3',
+      version: 'V3.4',
       href: '/rc-column',
       aliases: ['RC column design', '柱軸壓強度'],
       categories: ['member'],
