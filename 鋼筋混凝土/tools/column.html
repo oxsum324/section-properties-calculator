@@ -122,6 +122,8 @@
         </div>
 
         <div class="form-group"><label>保護層 (cm，量至箍筋外緣)</label><input type="number" id="cover" value="4"></div>
+        <div class="form-group" data-page-only><label for="columnBarCenterInset">主筋中心至混凝土表面（目前配筋）</label><output id="columnBarCenterInset" aria-live="polite">—</output></div>
+        <div id="columnGeometryError" role="alert" hidden data-page-only></div>
       </div>
 
       <!-- 配筋 — 主筋 (rebar only) -->
@@ -660,7 +662,7 @@
 <script src="../shared/column-transverse-designer.js?v=2"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=3"></script>
-<script src="column.app.js?v=3"></script>
+<script src="column.app.js?v=4"></script>
 <!-- ForcePicker 接收器：RC 頁面先顯示候選值，人工確認後才套用。 -->
 <script src="../../結構工具箱/core/ui/forces-receive.js"></script>
 <script>initColumnForceCandidateReview();</script>

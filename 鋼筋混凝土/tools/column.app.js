@@ -306,9 +306,9 @@
     const el = $('projectFileStatus');
     if (el) {
       el.textContent = message || '';
-      el.style.color = status === 'fail' ? 'var(--danger)' : (status === 'warn' ? 'var(--warn)' : 'var(--text-light)');
+      el.style.color = ['error', 'fail'].includes(status) ? 'var(--danger)' : (status === 'warn' ? 'var(--warn)' : 'var(--text-light)');
     }
-    if (message) showBeamColumnJointImportNotice(message, status === 'fail' ? 'fail' : 'ok');
+    if (message) showBeamColumnJointImportNotice(message, ['error', 'fail'].includes(status) ? 'fail' : 'ok');
   }
 
   function renderColumnRebarDesignCandidates(result) {
@@ -518,7 +518,7 @@
       if (replay.legacy && BAR_CENTER_DEFINITION_CHANGED_VERSIONS.includes(replay.sourceVersion)) {
         // 摘要判定相同時共用文字為「並重現計算」；主筋定義已變，數值必然不同，改稱重新計算以免誤認為逐值重現
         const lead = notice.message.replace('並重現計算：', `並依 ${replay.currentVersion} 重新計算：`);
-        showColumnProjectStatus(`${lead}｜${replay.sourceVersion} → ${replay.currentVersion}：${BAR_CENTER_DEFINITION_NOTICE}`, 'warn');
+        showColumnProjectStatus(`${lead}｜${replay.sourceVersion} → ${replay.currentVersion}：${BAR_CENTER_DEFINITION_NOTICE}`, ['error', 'fail'].includes(notice.status) ? notice.status : 'warn');
       } else {
         showColumnProjectStatus(notice.message, notice.status);
       }
@@ -751,6 +751,58 @@
       throw new Error(`主筋位置需要保護層、橫向鋼筋直徑與主筋直徑（cover=${cover}, transverseDb=${transverseDb}, db=${db}）`);
     }
     return c + t + d / 2;
+  }
+
+  // 僅檢查輸入／配置的幾何可行性，不修正尺寸、座標或任何強度公式。
+  function columnBarGeometryError(colType, b, h, cover, transverseDb, db, layout = null, nBar = 0) {
+    const dims = colType === 'rect' ? [b, h] : [b];
+    if (!dims.every(v => Number.isFinite(v) && v > 0) || !Number.isFinite(cover) || cover < 0) {
+      return '斷面尺寸須為正值，保護層須為非負值。';
+    }
+    const inset = longBarCenterInset(cover, transverseDb, db);
+    // 1e-9 cm 僅涵蓋十進位輸入相等時的浮點誤差，避免零半徑被算成極小正值。
+    if (inset >= Math.min(...dims) / 2 - 1e-9) return '主筋中心內縮量須小於斷面最小半邊／半徑，主筋無法排入。';
+    if (colType !== 'rect') {
+      const r = b / 2 - inset;
+      if (nBar > 1 && 2 * r * Math.sin(Math.PI / nBar) < db - 1e-9) return '圓周主筋互相重疊，主筋無法排入。';
+    } else if (layout) {
+      const positions = getRebarPositions(layout, b, h, cover, transverseDb);
+      for (let i = 0; i < positions.length; i++) {
+        const p = positions[i];
+        if (p.x - p.db / 2 < 0 || p.x + p.db / 2 > b || p.y - p.db / 2 < 0 || p.y + p.db / 2 > h) {
+          return '主筋超出混凝土斷面，主筋無法排入。';
+        }
+        for (let j = 0; j < i; j++) {
+          const q = positions[j];
+          // 1e-9 cm 僅排除束筋相切座標的浮點誤差，不是規範淨距容許差。
+          if (Math.hypot(p.x - q.x, p.y - q.y) < (p.db + q.db) / 2 - 1e-9) {
+            return '主筋互相重疊，主筋無法排入。';
+          }
+        }
+      }
+    }
+    return '';
+  }
+
+  function blockColumnGeometry(message) {
+    window.columnGeometryError = message;
+    window.colLast = null;
+    window.lastColumnReportConfig = null;
+    pmCurve = []; pmCurveY = [];
+    document.querySelectorAll('.result-item .value').forEach(el => { el.textContent = '—'; });
+    document.querySelectorAll('.steps-card').forEach(el => { el.style.display = 'none'; });
+    ['colSectionCanvas', 'pmCanvas', 'pmCanvasY'].forEach(id => {
+      const cv = $(id);
+      if (cv) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+    });
+    if ($('colSectionHint')) $('colSectionHint').textContent = '幾何不成立，未繪製斷面。';
+    if ($('bannerKey')) $('bannerKey').textContent = '';
+    if ($('columnRebarDesignCandidates')) $('columnRebarDesignCandidates').textContent = '';
+    updateColumnAttachmentReadiness(null);
+    const error = $('columnGeometryError');
+    if (error) { error.hidden = false; error.textContent = `幾何錯誤：${message} 已停止計算及計算書輸出。`; }
+    const banner = $('bannerStatus');
+    if (banner) { banner.className = 'banner-status fail'; banner.textContent = `幾何錯誤：${message} 已停止計算。`; }
   }
 
   // 圓形斷面：均勻分布鋼筋於圓周（半徑 = R − cover − 橫向鋼筋 db − 主筋 db/2）
@@ -1374,6 +1426,8 @@
   function calcColumn() {
     // 全域規則：先標記所有結果項為「未檢核」，下方各 setResult/setCheck 觸及時清除
     markAllResultsPending();
+    window.columnGeometryError = '';
+    if ($('columnGeometryError')) $('columnGeometryError').hidden = true;
     const seismic = $('seismicMode').checked;
     const colType = $('colType').value;
     syncColumnShapeDimensions();
@@ -1461,9 +1515,14 @@
     const faceAb = REBAR_TABLE[faceBarNo].area;
     const faceDb = REBAR_TABLE[faceBarNo].db;
     const tieDb = REBAR_TABLE[tieNo].db;
+    // 此直徑亦用於有效深度 d、Mpr 與剪力；不是只供主筋圖示定位。
     // 主筋定位用橫向鋼筋直徑：螺箍柱取螺箍筋，其餘取箍筋（與 hx 計算同一來源）
     const spiralBarForBars = $('spiralBar') ? $('spiralBar').value : tieNo;
     const transverseDbForBars = (colType === 'circle') ? REBAR_TABLE[spiralBarForBars].db : tieDb;
+    const centerDb = colType === 'rect' ? Math.max(cornerDb, faceDb) : db;
+    if ($('columnBarCenterInset')) $('columnBarCenterInset').textContent = `${fmt(longBarCenterInset(cover, transverseDbForBars, centerDb), 3)} cm`;
+    const inputGeometryError = columnBarGeometryError(colType, b, h, cover, transverseDbForBars, centerDb);
+    if (inputGeometryError) { blockColumnGeometry(inputGeometryError); return; }
     const Ag = (colType === 'circle' || colType === 'circleTied')
       ? Math.PI * b * b / 4 : b * h;
 
@@ -1743,6 +1802,8 @@
         attachBarSize(columnLayout, cornerAb, cornerDb, faceAb, faceDb);
         nBar = layoutTotalBars(columnLayout);
       }
+      const geometryError = columnBarGeometryError(colType, b, h, cover, transverseDbForBars, centerDb, columnLayout, nBar);
+      if (geometryError) { blockColumnGeometry(geometryError); return false; }
       const layoutX = columnLayout;
       secX = computePMSection(b, h, fc, fy, cover, nBar, ab, beta1, colType, db, layoutX, transverseDbForBars);
       pmCurve = secX.curve;
@@ -1759,8 +1820,9 @@
       pmCurveY = secY.curve;
       phiMnyAtPu = interpAt(secY.pmDesign, Pu, 'P', p => p.M);
       phiPnAtMuy = interpAt(secY.pmDesign, Mcy, 'M', p => p.P);
+      return true;
     };
-    buildLayoutAndPM();
+    if (!buildLayoutAndPM()) return;
     // 設計模式：若 PM NG 或排內位置過多則自動加筋/升級束筋疊代
     if (currentMode === 'design' && !manualLayout && colType === 'rect') {
       const rhogMaxLoc = seismic ? 0.06 : 0.08;
@@ -1788,7 +1850,7 @@
         // (a) 排內位置超出 → 升級束筋因子 (規範 25.6.1)
         if (sideFails() && autoBundleK < 4) {
           autoBundleK += 1;
-          buildLayoutAndPM();
+          if (!buildLayoutAndPM()) return;
           continue;
         }
         // (b) PM NG → 嘗試加筋 (+4，對稱)
@@ -1798,13 +1860,13 @@
         const nextRhog = nextAst / Ag;
         if (nextRhog <= rhogMaxLoc) {
           nBar = nextNBar;
-          buildLayoutAndPM();
+          if (!buildLayoutAndPM()) return;
           continue;
         }
         // (c) ρg 即將超限 → 升級束筋
         if (autoBundleK < 4) {
           autoBundleK += 1;
-          buildLayoutAndPM();
+          if (!buildLayoutAndPM()) return;
           continue;
         }
         break;  // 無法再加筋 — 已達實務上限
@@ -1822,6 +1884,13 @@
     if (!manualLayout && colType === 'rect') {
       const nBarEl = document.getElementById('nBar');
       if (nBarEl && Number(nBarEl.value) !== nBar) nBarEl.value = nBar;
+    }
+
+    // 沿用本頁既有每側可容位置數判斷；只阻斷排不下的輸入，不改淨距公式。
+    if (colType === 'rect' && columnLayout &&
+        (columnLayout.topN > nMaxB || columnLayout.botN > nMaxB || columnLayout.leftN > nMaxH || columnLayout.rightN > nMaxH)) {
+      blockColumnGeometry('主筋位置數超過現有淨距檢核可容位置數，主筋無法排入。');
+      return;
     }
 
     const columnEvaluatorBase = {
@@ -1857,6 +1926,7 @@
             // 結果與「各號數全算後再排序」相同。
             const transverseForBar = transverseNo => {
               const tDb = REBAR_TABLE[transverseNo].db;
+              if (columnBarGeometryError(colType, b, h, cover, tDb, candidate.db, layout, candidate.nBar)) return null;
               const candidateDepth = buildShearDepths(colType, b, h, cover, candidate.nBar, candidate.ab, candidate.db, layout, tDb);
               const candidateVe = buildProbableShearDemand({
                 seismic,
@@ -3029,7 +3099,7 @@ ${Math.abs(Mcy)>1e-9 ? `【4】雙向 P-Mx-My 角度掃描
       const _ctSame = (crossTieNo === tieNo && crossTieS === tieS);
       const stepsShearTxt =
 `【1】混凝土剪力 Vc (表 22.5.5.1，非預力構材簡式)
-  有效深度：由實際主筋座標推算（主筋中心至表面 = 保護層 ${fmt(cover,2)} + 橫向鋼筋 db ${fmt(transverseDbForBars,3)} + 主筋 db/2）
+  有效深度：由實際主筋座標推算（主筋中心至表面 = 保護層（至箍筋外緣）${fmt(cover,2)} + 橫向鋼筋 db ${fmt(transverseDbForBars,3)} + 主筋 db/2）
   d_x = min(上緣至下側最外主筋 ${fmt(shearDepth.dTop,2)}, 下緣至上側最外主筋 ${fmt(shearDepth.dBottom,2)}) = ${fmt(d_x,2)} cm
   d_y = min(左緣至右側最外主筋 ${fmt(shearDepth.dLeft,2)}, 右緣至左側最外主筋 ${fmt(shearDepth.dRight,2)}) = ${fmt(d_y,2)} cm
 
@@ -3720,6 +3790,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
   function buildColumnReport(options = {}) {
     const projectSnapshot = collectColumnProjectData();
     const r = window.colLast;
+    if (!r) { showColumnProjectStatus('幾何錯誤或尚未完成計算，無法輸出計算書。', 'fail'); return null; }
     const isDesignMode = (currentMode === 'design');
     const proj = getColumnProjectInfo();
     const attachmentReadiness = updateColumnAttachmentReadiness(r)
@@ -3736,7 +3807,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
           : [{ label:'b × h', value: `${r.b} × ${r.h}`, unit:'cm' }]),
         { label:'淨高 ℓu', value: r.lu, unit:'cm' },
         { label:'有效長度因數 k', value: r.k },
-        { label:'保護層（量至箍筋外緣）', value: r.cover, unit:'cm' },
+        { label:'保護層（至箍筋外緣）', value: r.cover, unit:'cm' },
         { label:'主筋中心至表面', value: `${r.cover} + ${fmt(r.transverseDbForBars,3)} + 主筋 db/2`, unit:'cm' }
       ]},
       { group:'材料', items:[
@@ -4037,7 +4108,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       ]},
       { group:'剪力檢核 (X / Y 向)', items:[
         { label:'有效深度 d_x / d_y',
-          formula:'由實際主筋座標推算（主筋中心 = 保護層 + 橫向鋼筋 db + 主筋 db/2），取可逆彎矩下較小有效深度',
+          formula:'由實際主筋座標推算（主筋中心 = 保護層（至箍筋外緣）+ 橫向鋼筋 db + 主筋 db/2），取可逆彎矩下較小有效深度',
           sub:`d_x = min(${r.shearDepth.dTop.toFixed(2)}, ${r.shearDepth.dBottom.toFixed(2)}) = ${r.d_x.toFixed(2)} cm；d_y = min(${r.shearDepth.dLeft.toFixed(2)}, ${r.shearDepth.dRight.toFixed(2)}) = ${r.d_y.toFixed(2)} cm`,
           value:`${r.d_x.toFixed(2)} / ${r.d_y.toFixed(2)}`, unit:'cm', ok:null },
         { label:'φVc (含軸力)',
@@ -4230,8 +4301,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       if (secURL) diagrams.push({
         title:`柱斷面 (含主筋與${r.colType==='circle' ? '螺箍筋' : (r.colType==='circleTied' ? '圓形閉合箍筋' : '箍筋')})`, dataURL: secURL,
         caption: (r.colType==='circle'||r.colType==='circleTied')
-          ? `D=${r.b} cm, ${r.nBar}-${r.barNo}, 保護層 ${r.cover} cm`
-          : `${r.b}×${r.h} cm, ${r.nBar}-${r.barNo}, 保護層 ${r.cover} cm` });
+          ? `D=${r.b} cm, ${r.nBar}-${r.barNo}, 保護層（至箍筋外緣）${r.cover} cm`
+          : `${r.b}×${r.h} cm, ${r.nBar}-${r.barNo}, 保護層（至箍筋外緣）${r.cover} cm` });
       // PM 曲線快照
       const pmCv = $('pmCanvas');
       if (pmCv && pmCv.toDataURL) diagrams.push({ title:'P-M 互制曲線 (繞 X 軸)',
@@ -4539,8 +4610,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       // cover 標註
       ctx.fillStyle = '#64748b';
       ctx.font = '10px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`保護層 ${cover}`, x0 + drawW + 6, y0 + cover*scale + 4);
+      ctx.textAlign = 'center';
+      ctx.fillText(`保護層（至箍筋外緣）${cover} cm`, W / 2, H - 14);
     } else {
       // 圓形柱
       const D = r.b, cover = r.cover;
@@ -4583,6 +4654,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       ctx.font = 'bold 12px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`D = ${D} cm`, cx, cy - Rpx - 14);
+      ctx.font = '10px sans-serif';
+      ctx.fillText(`保護層（至箍筋外緣）${cover} cm`, W / 2, H - 14);
     }
 
     // hint 文字 (報告版本不寫入 DOM)
@@ -4591,8 +4664,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     if (hint) {
       if (geomOnly) {
         hint.textContent = isCirc
-          ? `D = ${r.b} cm, 保護層 ${r.cover} cm`
-          : `${r.b} × ${r.h} cm, 保護層 ${r.cover} cm`;
+          ? `D = ${r.b} cm, 保護層（至箍筋外緣）${r.cover} cm`
+          : `${r.b} × ${r.h} cm, 保護層（至箍筋外緣）${r.cover} cm`;
       } else if (!isCirc && r.columnLayout) {
         const L = r.columnLayout;
         const totalPos = 4 + Math.max(0,L.topN-2)+Math.max(0,L.botN-2)+Math.max(0,L.leftN-2)+Math.max(0,L.rightN-2);
@@ -4600,9 +4673,9 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         const bundleNote = (layoutMaxBundle(L) > 1)
           ? `, 含束筋 (角隅 ${cb}, 內部 max ${Math.max(L.topBundle,L.botBundle,L.leftBundle,L.rightBundle)})`
           : '';
-        hint.textContent = `${r.b}×${r.h} cm, 共 ${r.nBar} 根-${r.barNo} (${totalPos} 位置${bundleNote}), 保護層 ${r.cover} cm`;
+        hint.textContent = `${r.b}×${r.h} cm, 共 ${r.nBar} 根-${r.barNo} (${totalPos} 位置${bundleNote}), 保護層（至箍筋外緣）${r.cover} cm`;
       } else {
-        hint.textContent = `D=${r.b} cm, 共 ${r.nBar} 根-${r.barNo}, 保護層 ${r.cover} cm`;
+        hint.textContent = `D=${r.b} cm, 共 ${r.nBar} 根-${r.barNo}, 保護層（至箍筋外緣）${r.cover} cm`;
       }
     }
   }
