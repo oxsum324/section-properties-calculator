@@ -750,8 +750,8 @@
   // 橫向鋼筋直徑由頁面箍筋／螺箍筋號數取得，不得省略或自設預設值。
   function longBarCenterInset(cover, transverseDb, db) {
     const c = Number(cover), t = Number(transverseDb), d = Number(db);
-    if (!Number.isFinite(c) || !Number.isFinite(t) || t <= 0 || !Number.isFinite(d)) {
-      throw new Error(`主筋位置需要保護層、橫向鋼筋直徑與主筋直徑（cover=${cover}, transverseDb=${transverseDb}, db=${db}）`);
+    if (!Number.isFinite(c) || !Number.isFinite(t) || t <= 0 || !Number.isFinite(d) || d <= 0) {
+      throw new Error(`主筋位置需要有限的保護層，橫向鋼筋直徑與主筋直徑須為有限且大於 0 的值（cover=${cover}, transverseDb=${transverseDb}, db=${db}）`);
     }
     return c + t + d / 2;
   }
@@ -990,7 +990,7 @@
     } else {
       const D = bDim;
       const R = D / 2;
-      const rBar = R - longBarCenterInset(cover, transverseDb, db || 2.22);
+      const rBar = R - longBarCenterInset(cover, transverseDb, db);
       for (let i = 0; i < nBar; i++) {
         const theta = (2 * Math.PI * i) / nBar;
         positions.push({
@@ -999,8 +999,8 @@
         });
       }
     }
-    const fallbackDx = Math.max(0, (colType === 'rect' ? hDim : bDim) - longBarCenterInset(cover, transverseDb, db || 2.22));
-    const fallbackDy = Math.max(0, bDim - longBarCenterInset(cover, transverseDb, db || 2.22));
+    const fallbackDx = Math.max(0, (colType === 'rect' ? hDim : bDim) - longBarCenterInset(cover, transverseDb, db));
+    const fallbackDy = Math.max(0, bDim - longBarCenterInset(cover, transverseDb, db));
     if (!positions.length) {
       return { d_x: fallbackDx, d_y: fallbackDy, dTop: fallbackDx, dBottom: fallbackDx, dLeft: fallbackDy, dRight: fallbackDy, source: 'fallback' };
     }
@@ -1525,8 +1525,15 @@
     const spiralBarForBars = $('spiralBar') ? $('spiralBar').value : tieNo;
     const transverseDbForBars = (colType === 'circle') ? REBAR_TABLE[spiralBarForBars].db : tieDb;
     const centerDb = colType === 'rect' ? Math.max(cornerDb, faceDb) : db;
-    if ($('columnBarCenterInset')) $('columnBarCenterInset').textContent = `${fmt(longBarCenterInset(cover, transverseDbForBars, centerDb), 3)} cm`;
-    const inputGeometryError = columnBarGeometryError(colType, b, h, cover, transverseDbForBars, centerDb);
+    let inputGeometryError;
+    try {
+      if ($('columnBarCenterInset')) $('columnBarCenterInset').textContent = `${fmt(longBarCenterInset(cover, transverseDbForBars, centerDb), 3)} cm`;
+      inputGeometryError = columnBarGeometryError(colType, b, h, cover, transverseDbForBars, centerDb);
+    } catch (error) {
+      if ($('columnBarCenterInset')) $('columnBarCenterInset').textContent = '—';
+      blockColumnGeometry(error.message || '主筋幾何資料無效。');
+      return;
+    }
     if (inputGeometryError) { blockColumnGeometry(inputGeometryError); return; }
     const Ag = (colType === 'circle' || colType === 'circleTied')
       ? Math.PI * b * b / 4 : b * h;

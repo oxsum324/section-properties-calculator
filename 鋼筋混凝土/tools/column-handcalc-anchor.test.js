@@ -98,6 +98,21 @@ if (require.main === module) {
     assert.equal(core.columnBarGeometryError('circle', 70, 70, 5, 1.27, 2.54, null, 8), '');
   });
 
+  test('main bar inset rejects non-positive, missing and non-finite db', () => {
+    for (const db of [0, -2.54, NaN, Infinity, -Infinity, undefined, null, '']) {
+      assert.throws(() => core.longBarCenterInset(4, 1.27, db), /主筋.*直徑/, `db=${db}`);
+    }
+  });
+
+  test('shear depths reject invalid db instead of silently assuming #7 in any branch', () => {
+    const layout = core.attachBarSize(core.makeLayoutSym(4, 4, 1, 1), 5.067, 2.54, 5.067, 2.54);
+    for (const [type, bars, currentLayout] of [['rect',12,layout],['circle',8,null],['circleTied',8,null],['circle',0,null]]) {
+      for (const db of [undefined, null, '', 0, -2.54, NaN, Infinity, -Infinity]) {
+        assert.throws(() => core.buildShearDepths(type, 60, 60, 4, bars, 5.067, db, currentLayout, 1.27), /主筋.*直徑/, `${type}, nBar=${bars}, db=${db}`);
+      }
+    }
+  });
+
   test('independent anchor detects omitted transverse diameter (mutation)', () => {
     const source = fs.readFileSync(path.join(__dirname, 'column.app.js'), 'utf8');
     assert.ok(source.includes('return c + t + d / 2;'));
