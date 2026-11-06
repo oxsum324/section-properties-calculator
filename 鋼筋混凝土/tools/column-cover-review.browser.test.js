@@ -70,6 +70,46 @@ async function main() {
     return page;
   }
   try {
+    // Claude P2c：正常 UI 沒有非法直徑選項，僅在隔離頁面注入材料邊界值／helper 例外。
+    const inputGuards = [
+      {key:'tie-zero',bar:'#4',db:0}, {key:'tie-nan',bar:'#4',db:NaN},
+      {key:'main-zero',bar:'#8',db:0}, {key:'main-negative',bar:'#8',db:-2.54},
+      {key:'main-nan',bar:'#8',db:NaN}, {key:'main-infinite',bar:'#8',db:Infinity},
+      {key:'main-missing',bar:'#8',db:undefined}, {key:'input-helper-throws',message:'輸入層幾何檢查例外測試'},
+    ];
+    const inputGuardRecords = [];
+    for (const tc of inputGuards) {
+      const input = await pageFor();
+      await configure(input, {mode:'check',applyPanel:false,checkboxes:{manualLayout:false},selects:{colType:'rect',barNo:'#8',faceBarNo:'#8',tieNo:'#4'},values:{b:60,h:60,cover:4,nBar:12}});
+      const before = await numericBits(input);
+      const rejected = await input.evaluate(tc => {
+        const oldDb = tc.bar ? REBAR_TABLE[tc.bar].db : null, geometry = columnBarGeometryError;
+        if (tc.bar) REBAR_TABLE[tc.bar].db = tc.db;
+        else columnBarGeometryError = () => { throw new Error(tc.message); };
+        window.__restoreInputGuard = () => { if (tc.bar) REBAR_TABLE[tc.bar].db = oldDb; columnBarGeometryError = geometry; };
+        let thrown = '', report;
+        // 產書會先重新計算；錯誤必須維持到產書及畫面斷言完成後才移除。
+        try { calcColumn(); report = buildColumnReport(); } catch (error) { thrown = error.message; }
+        return {thrown,last:window.colLast,report,cache:window.lastColumnReportConfig,error:window.columnGeometryError};
+      }, tc);
+      equal(rejected.thrown, '', `${tc.key}: input geometry exception is handled`);
+      equal(rejected.last, null, `${tc.key}: stale calculation blocked`);
+      equal(rejected.report, null, `${tc.key}: report blocked`);
+      equal(rejected.cache, null, `${tc.key}: report cache cleared`);
+      check(rejected.error.includes(tc.message || '直徑'), `${tc.key}: explicit current geometry error`);
+      check(await input.locator('#columnGeometryError').isVisible(), `${tc.key}: visible geometry error`);
+      check(await input.locator('#bannerStatus').evaluate(el => el.classList.contains('fail')), `${tc.key}: error priority is not downgraded`);
+      equal(await input.locator('#columnRebarDesignCandidates .column-design-apply').count(), 0, `${tc.key}: stale candidate buttons cleared`);
+      equal(await input.locator('#pmCanvas').evaluate(cv => [...cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data].some(x => x)), false, `${tc.key}: stale P-M canvas cleared`);
+      await input.screenshot({path:path.join(shots,`${tc.key}.png`),fullPage:true});
+      await input.evaluate(() => { window.__restoreInputGuard(); calcColumn(); });
+      equal(await numericBits(input), before, `${tc.key}: valid input recovers bit-identically`);
+      check(await input.locator('#columnGeometryError').isHidden(), `${tc.key}: stale error clears on recovery`);
+      inputGuardRecords.push({key:tc.key,error:rejected.error});
+      await input.close();
+    }
+    fs.writeFileSync(path.join(out,'input-geometry-guards.json'),JSON.stringify(inputGuardRecords,null,2));
+
     // Codex P2：真實中間試算失敗仍須列舉；失敗試算不得成為 colLast／計算書。
     const autoTrial = {
       mode:'design', applyPanel:false, checkboxes:{seismicMode:false,manualLayout:false,tieOverride:false,autoVe:false},
@@ -157,11 +197,21 @@ async function main() {
     for (const tc of fixtures) {
       const before = await pageFor(gitApp(baseline));
       const after = await pageFor();
+      await after.evaluate(() => {
+        const original = buildShearDepths;
+        window.__shearDbCalls = [];
+        buildShearDepths = (...args) => {
+          window.__shearDbCalls.push({colType:args[0],db:args[6]});
+          return original(...args);
+        };
+      });
       await configure(before, tc); await configure(after, tc);
       const a = await numericBits(before), b = await numericBits(after);
       check(Object.keys(a).length > 100, `${tc.key}: baseline produced real numeric results`);
       equal(b, a, `${tc.key}: every numeric leaf is bit-identical to master`);
-      records.push({ key:tc.key, numericLeaves:Object.keys(a).length, baselineSha256:hash(a), revisedSha256:hash(b) });
+      const dbCalls = await after.evaluate(() => window.__shearDbCalls);
+      check(dbCalls.length > 0 && dbCalls.every(c => Number.isFinite(c.db) && c.db > 0), `${tc.key}: every candidate/formal shear-depth call supplies a real positive db`);
+      records.push({ key:tc.key, numericLeaves:Object.keys(a).length, baselineSha256:hash(a), revisedSha256:hash(b), shearDepthCalls:dbCalls.length });
       await before.close(); await after.close();
     }
     fs.writeFileSync(path.join(out, 'numeric-parity.json'), JSON.stringify({ baseline, records }, null, 2));
