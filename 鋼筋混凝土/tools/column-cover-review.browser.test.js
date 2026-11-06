@@ -30,7 +30,7 @@ const server = http.createServer((req, res) => {
 });
 async function configure(page, tc) {
   await page.evaluate(tc => {
-    setColumnMode(tc.mode || 'check', { recalculate:false });
+    setColumnMode(tc.mode || 'check', { recalculate:false, applyPanel:tc.applyPanel !== false });
     for (const [id, value] of Object.entries(tc.checkboxes || {})) document.getElementById(id).checked = value;
     for (const [id, value] of Object.entries(tc.selects || {})) document.getElementById(id).value = String(value);
     syncColumnShapeDimensions(); // 先完成形狀切換的舊 h 還原，再填本案例尺寸。
@@ -70,6 +70,84 @@ async function main() {
     return page;
   }
   try {
+    // Codex P2：真實中間試算失敗仍須列舉；失敗試算不得成為 colLast／計算書。
+    const autoTrial = {
+      mode:'design', applyPanel:false, checkboxes:{seismicMode:false,manualLayout:false,tieOverride:false,autoVe:false},
+      selects:{colType:'rect',barNo:'#8',faceBarNo:'#8',tieNo:'#4'},
+      values:{b:30,h:30,cover:4,fc:280,fy:4200,Pu:150,Mux:10,Muy:0,lu:100,Vu:30,Vuy:0,Ve:0},
+    };
+    const trialRecords = [];
+    for (const kind of ['feasible-after-overlap','no-solution','trial-geometry-throws']) {
+      const trial = await pageFor();
+      await trial.evaluate(kind => {
+        const trace = window.__trialTrace = {events:[],searches:0,invalidPm:0};
+        const geometry = columnBarGeometryError, compute = computePMSection, search = ColumnRebarDesigner.search;
+        let searching = false, injected = false;
+        columnBarGeometryError = (...args) => {
+          if (!searching && args[6] && kind === 'trial-geometry-throws' && !injected) {
+            injected = true;
+            trace.events.push('trial-throw');
+            return longBarCenterInset(args[3], 0, args[5]); // 實際 helper 的例外，僅注入中間試算呼叫。
+          }
+          const error = geometry(...args);
+          if (!searching && args[6] && error) trace.events.push('trial-invalid');
+          return error;
+        };
+        computePMSection = (...args) => {
+          if (geometry(args[8],args[0],args[1],args[4],args[11],args[9],args[10],args[5])) trace.invalidPm++;
+          return compute(...args);
+        };
+        ColumnRebarDesigner.search = options => {
+          trace.searches++;
+          trace.events.push('search');
+          searching = true;
+          try { return trace.result = search(options); }
+          finally { searching = false; }
+        };
+      }, kind);
+      await configure(trial, {...autoTrial,values:{...autoTrial.values,...(kind === 'no-solution' ? {Vu:1000} : {})}});
+      const trace = await trial.evaluate(() => window.__trialTrace);
+      check(trace.events.indexOf(kind === 'trial-geometry-throws' ? 'trial-throw' : 'trial-invalid') >= 0, `${kind}: invalid intermediate trial was exercised`);
+      equal(trace.events.at(-1), 'search', `${kind}: search occurs after the rejected trial`);
+      equal(trace.searches, 1, `${kind}: independent real search runs once`);
+      equal(trace.invalidPm, 0, `${kind}: invalid layouts never reach P-M calculation`);
+      equal(await trial.evaluate(() => window.colLast), null, `${kind}: invalid trial is not a formal result`);
+      equal(await trial.evaluate(() => buildColumnReport()), null, `${kind}: invalid trial cannot generate a report`);
+      check(await trial.locator('#columnGeometryError').isVisible(), `${kind}: geometry rejection remains visible`);
+      check(await trial.locator('#bannerStatus').evaluate(el => el.classList.contains('fail')), `${kind}: trial is not marked successful`);
+      equal(await trial.locator('#pmCanvas').evaluate(cv => [...cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data].some(x => x)), false, `${kind}: stale P-M plot cleared`);
+      await trial.locator('.section-tabs [data-tab="rebar"]').click();
+      if (kind === 'no-solution') {
+        equal(trace.result.status, 'no-solution', 'unachievable shear demand: actual search reports no solution');
+        equal(trace.result.candidates, [], 'no-solution: no fabricated candidates');
+        check((await trial.locator('#columnRebarDesignCandidates').textContent()).includes('未找到可直接套用方案'), 'no-solution: clear message');
+        equal(await trial.locator('.column-design-apply').count(), 0, 'no-solution: no apply button');
+        equal(await trial.evaluate(() => applyColumnRebarCandidate(0)), false, 'no-solution: no stale candidate can be applied');
+      } else {
+        check(trace.result.candidates.length > 0, `${kind}: real evaluator found legal alternatives`);
+        const index = trace.result.candidates.findIndex(c => c.nBar === 12 && c.barNo === '#8' && c.transverse.tieNo === '#3' && c.transverse.spacing === 2.5);
+        check(index >= 0, `${kind}: Codex 12-#8 / #3@2.5 alternative exists`);
+        await trial.screenshot({path:path.join(shots,`${kind}-blocked-with-candidates.png`),fullPage:true});
+        await trial.locator(`.column-design-apply[data-candidate-index="${index}"]`).click();
+        const final = await trial.evaluate(() => {
+          const r = window.colLast;
+          return {mode:currentMode,bar:r.barNo,nBar:r.nBar,tie:r.tieNo,spacing:r.tieS,
+            geometry:columnBarGeometryError(r.colType,r.b,r.h,r.cover,r.transverseDbForBars,r.db,r.columnLayout,r.nBar),
+            checks:['okRhog','okNbar','okBarsPerSide','okLateralSupport','pmOk','okShearStrength','okShearAvMin','okShearSize'].map(key => [key,r[key]]),
+            report:!!buildColumnReport()};
+        });
+        equal([final.mode,final.nBar,final.bar,final.tie,final.spacing], ['check',12,'#8','#3',2.5], `${kind}: UI apply runs the formal check on the selected bars`);
+        equal(final.geometry, '', `${kind}: applied result passes geometry`);
+        check(final.checks.every(([,ok]) => ok === true), `${kind}: applied result passes existing structural checks: ${JSON.stringify(final.checks)}`);
+        check(final.report && await trial.locator('#columnGeometryError').isHidden(), `${kind}: report available only after valid formal recalculation`);
+        trace.final = final;
+      }
+      await trial.screenshot({path:path.join(shots,`${kind}.png`),fullPage:true});
+      trialRecords.push({kind,...trace});
+      await trial.close();
+    }
+    fs.writeFileSync(path.join(out,'auto-trial-geometry.json'),JSON.stringify(trialRecords,null,2));
+
     const records = [];
     const scenario = {mode:'design',checkboxes:{seismicMode:true,manualLayout:false,tieOverride:false,autoVe:false},selects:{colType:'rect'},values:{fc:280,fy:4200,b:60,h:60,cover:4,Pu:200,Mux:40,Muy:0,Vu:20,Vuy:20,Ve:0}};
     const selectionScenarios = [{key:'selection-control',...scenario},{key:'legacy-five-to-four',...scenario,values:{...scenario.values,fc:210,Mux:60}}];

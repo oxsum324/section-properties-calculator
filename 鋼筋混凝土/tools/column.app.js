@@ -311,6 +311,9 @@
     if (message) showBeamColumnJointImportNotice(message, ['error', 'fail'].includes(status) ? 'fail' : 'ok');
   }
 
+  // 幾何失敗的試算沒有 colLast；候選僅暫存於工作頁，套用後仍走正式檢核。
+  let columnBlockedDesignSearch = null;
+
   function renderColumnRebarDesignCandidates(result) {
     const host = $('columnRebarDesignCandidates');
     if (!host) return;
@@ -352,7 +355,7 @@
   }
 
   function applyColumnRebarCandidate(index) {
-    const candidate = window.colLast?.designSearch?.candidates?.[Number(index)];
+    const candidate = (window.colLast?.designSearch || columnBlockedDesignSearch)?.candidates?.[Number(index)];
     if (!candidate) return false;
     const candidateType = window.colLast?.colType || $('colType')?.value || 'rect';
     const circular = candidateType === 'circle' || candidateType === 'circleTied';
@@ -785,6 +788,7 @@
   }
 
   function blockColumnGeometry(message) {
+    columnBlockedDesignSearch = null;
     window.columnGeometryError = message;
     window.colLast = null;
     window.lastColumnReportConfig = null;
@@ -1426,6 +1430,7 @@
   function calcColumn() {
     // 全域規則：先標記所有結果項為「未檢核」，下方各 setResult/setCheck 觸及時清除
     markAllResultsPending();
+    columnBlockedDesignSearch = null;
     window.columnGeometryError = '';
     if ($('columnGeometryError')) $('columnGeometryError').hidden = true;
     const seismic = $('seismicMode').checked;
@@ -1792,6 +1797,8 @@
     let secX, secY, pmDesign, Po, phiFactorComp, phiPnMax;
     let phiMnAtPu, phiPnAtMu, phiMnyAtPu, phiPnAtMuy;
     let layoutY;
+    let trialGeometryError = '';
+    const canSearchDesign = currentMode === 'design' && !manualLayout && window.ColumnRebarDesigner && window.ColumnTransverseDesigner;
     const buildLayoutAndPM = () => {
       if (!manualLayout && colType === 'rect') {
         const positions = Math.max(4, Math.ceil(nBar / autoBundleK));
@@ -1802,8 +1809,12 @@
         attachBarSize(columnLayout, cornerAb, cornerDb, faceAb, faceDb);
         nBar = layoutTotalBars(columnLayout);
       }
-      const geometryError = columnBarGeometryError(colType, b, h, cover, transverseDbForBars, centerDb, columnLayout, nBar);
-      if (geometryError) { blockColumnGeometry(geometryError); return false; }
+      try {
+        trialGeometryError = columnBarGeometryError(colType, b, h, cover, transverseDbForBars, centerDb, columnLayout, nBar);
+      } catch (error) {
+        trialGeometryError = error.message || '主筋幾何資料無效。';
+      }
+      if (trialGeometryError) return false;
       const layoutX = columnLayout;
       secX = computePMSection(b, h, fc, fy, cover, nBar, ab, beta1, colType, db, layoutX, transverseDbForBars);
       pmCurve = secX.curve;
@@ -1822,9 +1833,9 @@
       phiPnAtMuy = interpAt(secY.pmDesign, Mcy, 'M', p => p.P);
       return true;
     };
-    if (!buildLayoutAndPM()) return;
+    if (!buildLayoutAndPM() && !canSearchDesign) { blockColumnGeometry(trialGeometryError); return; }
     // 設計模式：若 PM NG 或排內位置過多則自動加筋/升級束筋疊代
-    if (currentMode === 'design' && !manualLayout && colType === 'rect') {
+    if (!trialGeometryError && currentMode === 'design' && !manualLayout && colType === 'rect') {
       const rhogMaxLoc = seismic ? 0.06 : 0.08;
       const sideMaxNow = () => {
         const _dbEqK = (autoBundleK > 1) ? Math.sqrt(autoBundleK) * dbMax : dbMax;
@@ -1850,7 +1861,7 @@
         // (a) 排內位置超出 → 升級束筋因子 (規範 25.6.1)
         if (sideFails() && autoBundleK < 4) {
           autoBundleK += 1;
-          if (!buildLayoutAndPM()) return;
+          if (!buildLayoutAndPM()) break;
           continue;
         }
         // (b) PM NG → 嘗試加筋 (+4，對稱)
@@ -1860,13 +1871,13 @@
         const nextRhog = nextAst / Ag;
         if (nextRhog <= rhogMaxLoc) {
           nBar = nextNBar;
-          if (!buildLayoutAndPM()) return;
+          if (!buildLayoutAndPM()) break;
           continue;
         }
         // (c) ρg 即將超限 → 升級束筋
         if (autoBundleK < 4) {
           autoBundleK += 1;
-          if (!buildLayoutAndPM()) return;
+          if (!buildLayoutAndPM()) break;
           continue;
         }
         break;  // 無法再加筋 — 已達實務上限
@@ -1889,25 +1900,11 @@
     // 沿用本頁既有每側可容位置數判斷；只阻斷排不下的輸入，不改淨距公式。
     if (colType === 'rect' && columnLayout &&
         (columnLayout.topN > nMaxB || columnLayout.botN > nMaxB || columnLayout.leftN > nMaxH || columnLayout.rightN > nMaxH)) {
-      blockColumnGeometry('主筋位置數超過現有淨距檢核可容位置數，主筋無法排入。');
-      return;
+      trialGeometryError ||= '主筋位置數超過現有淨距檢核可容位置數，主筋無法排入。';
     }
 
-    const columnEvaluatorBase = {
-      pmDesignX: secX.pmDesign,
-      pmDesignY: secY.pmDesign,
-      axisX: { Pc, Cm, isShort, minEccCm:minEccX },
-      axisY: { Pc:Pc_y, Cm, isShort, minEccCm:minEccY },
-      swayMode,
-      deltaS,
-      biaxialOptions: {
-        colType, b, h, cover, nBar, ab, db, layout:columnLayout, transverseDb:transverseDbForBars,
-        fc, fy, beta1, phiFactorComp, phiPnMax,
-      },
-    };
-
     // 容量式候選只供 HTML 工作頁比較；正式計算書僅採用套用後的實際配筋與檢核結果。
-    const candidateEvaluator = (currentMode === 'design' && !manualLayout && window.ColumnRebarDesigner && window.ColumnTransverseDesigner)
+    const candidateEvaluator = canSearchDesign
       ? function evaluateColumnCandidate(candidate) {
             const isRectCandidate = colType === 'rect';
             const layout = isRectCandidate ? attachBarSize(
@@ -2029,6 +2026,29 @@
               D:b, cover, transverseDb:REBAR_TABLE['#5'].db, seismic, barTable:REBAR_TABLE, limit:5,
               evaluateCandidate:candidateEvaluator,
             }));
+
+    // 不對失敗試算發布容量或計算書，但仍提供獨立搜尋所得候選供使用者套用。
+    if (trialGeometryError) {
+      blockColumnGeometry(trialGeometryError);
+      if (designSearch) {
+        columnBlockedDesignSearch = designSearch;
+        renderColumnRebarDesignCandidates(designSearch);
+      }
+      return;
+    }
+
+    const columnEvaluatorBase = {
+      pmDesignX: secX.pmDesign,
+      pmDesignY: secY.pmDesign,
+      axisX: { Pc, Cm, isShort, minEccCm:minEccX },
+      axisY: { Pc:Pc_y, Cm, isShort, minEccCm:minEccY },
+      swayMode,
+      deltaS,
+      biaxialOptions: {
+        colType, b, h, cover, nBar, ab, db, layout:columnLayout, transverseDb:transverseDbForBars,
+        fc, fy, beta1, phiFactorComp, phiPnMax,
+      },
+    };
 
     // === Bresler reciprocal / load contour (使用放大後 Mc, Mcy) ===
     let breslerRatio = null, breslerMethod = null, breslerOk = null;
