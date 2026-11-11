@@ -139,7 +139,7 @@ assert.ok(pushPagesRelease.includes('pages-deployment.json?release_check=') && p
 assert.ok(pushPagesRelease.includes('commitSha') && pushPagesRelease.includes('runId') && pushPagesRelease.includes('sourceDirty'), 'Pages push wrapper binds the manifest to commit, run, and clean source provenance');
 assert.ok(pushPagesRelease.includes("Resolve-RepoToolScript -LeafName 'pages-live-smoke.js'") && pushPagesRelease.includes('Independently verifying every public artifact file'), 'Pages push wrapper independently resolves and reruns the public HTTP artifact verifier');
 assert.ok(pushPagesRelease.includes('[int]$PublicSmokeAttempts = 3') && pushPagesRelease.includes('[int]$PublicSmokeRetryDelaySeconds = 10'), 'Pages push wrapper gives workstation artifact verification a bounded transient retry policy');
-assert.ok(pushPagesRelease.includes('[int]$PublicRequestAttempts = 4') && pushPagesRelease.includes('[int]$PublicRequestRetryDelayMilliseconds = 1000'), 'Pages push wrapper gives each workstation HTTP request a bounded transient retry policy');
+assert.ok(pushPagesRelease.includes('[int]$PublicRequestAttempts = 8') && pushPagesRelease.includes('[int]$PublicRequestRetryDelayMilliseconds = 7000'), 'Pages push wrapper gives each workstation HTTP request a bounded transient retry policy');
 assert.ok(pushPagesRelease.includes('[int]$PublicRequestTimeoutMilliseconds = 15000'), 'Pages push wrapper gives each workstation HTTP request a finite timeout');
 assert.ok(pushPagesRelease.includes("$attemptsVariable = 'PAGES_HTTP_SMOKE_ATTEMPTS'") && pushPagesRelease.includes("$delayVariable = 'PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS'"), 'Pages push wrapper delegates retry eligibility to the governed HTTP smoke');
 assert.ok(pushPagesRelease.includes("$requestAttemptsVariable = 'PAGES_HTTP_REQUEST_ATTEMPTS'") && pushPagesRelease.includes("$requestDelayVariable = 'PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS'"), 'Pages push wrapper delegates per-request retry settings to the governed HTTP smoke');
@@ -162,9 +162,9 @@ assert.ok(readme.includes('pagesHttpSmokeAttemptCount') && readme.includes('publ
 assert.ok(toolBoundaries.includes('工作站再次呼叫 `pages-live-smoke.js`') && toolBoundaries.includes('全部公開檔案大小／SHA-256'), 'tool boundaries documents the independent workstation verifier');
 assert.ok(staging.includes('一般推送、既有同 SHA 部署及 `-VerifyOnly`') && staging.includes('預設最多進行 3 次') && staging.includes('非暫態錯誤立即失敗') && staging.includes('暫態重試用盡後也維持失敗'), 'staging guide keeps bounded transient retries fail-closed');
 assert.ok(staging.includes('pagesHttpSmokeAttemptCount') && staging.includes('不超過 `PublicSmokeAttempts`') && staging.includes('缺少、重複或超界'), 'staging guide requires valid actual attempt evidence');
-assert.ok(staging.includes('每一請求 15000 ms 逾時、最多 4 次') && staging.includes('PAGES_HTTP_REQUEST_ATTEMPTS') && staging.includes('run 已 `completed`'), 'staging guide documents request timeout, retry, and terminal-run failed-log boundaries');
+assert.ok(staging.includes('每一請求 15000 ms 逾時、最多 8 次') && staging.includes('PAGES_HTTP_REQUEST_ATTEMPTS') && staging.includes('run 已 `completed`'), 'staging guide documents request timeout, retry, and terminal-run failed-log boundaries');
 assert.ok(readme.includes('每個公開請求') && readme.includes('最多嘗試 4 次') && readme.includes('進入 `completed`'), 'README documents layered HTTP retries and terminal-run failed-log inspection');
-assert.ok(toolBoundaries.includes('PAGES_HTTP_REQUEST_ATTEMPTS=4') && toolBoundaries.includes('PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS=1000'), 'TOOL_BOUNDARIES governs isolated request retries');
+assert.ok(toolBoundaries.includes('PAGES_HTTP_REQUEST_ATTEMPTS=8') && toolBoundaries.includes('PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS=7000'), 'TOOL_BOUNDARIES governs isolated request retries');
 
 {
   const orderedTokens = [
@@ -893,7 +893,7 @@ assert.ok(toolBoundaries.includes('actions/cache@v5') && toolBoundaries.includes
 assert.ok(staging.includes('pages-release-governance.contract.test.js') && staging.includes('.github/workflows/pages-deploy.yml') && staging.includes('run-pages-browser-smoke.sh') && staging.includes('normalize-playwright-result.js'), 'STAGING_GROUPS keeps the Pages cache workflow, runner, normalizer, and contract together');
 assert.ok(readme.includes('normalize-playwright-result.js') && toolBoundaries.includes('normalize-playwright-result.js'), 'Pages result normalizer is documented with its governed release boundary');
 assert.ok(pagesWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesWorkflow.includes('PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages live browser smoke allows one bounded transient retry');
-assert.ok(pagesWorkflow.includes('PAGES_HTTP_REQUEST_ATTEMPTS: 4') && pagesWorkflow.includes('PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS: 1000'), 'Pages live HTTP smoke retries an isolated transient request without restarting the full inventory');
+assert.ok(pagesWorkflow.includes('PAGES_HTTP_REQUEST_ATTEMPTS: 8') && pagesWorkflow.includes('PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS: 7000'), 'Pages live HTTP smoke retries an isolated transient request without restarting the full inventory');
 assert.ok(pagesWorkflow.includes('PAGES_HTTP_REQUEST_TIMEOUT_MILLISECONDS: 15000'), 'Pages live HTTP smoke bounds each isolated request duration');
 assert.ok(pagesWorkflow.includes('PAGES_HTTP_SMOKE_ATTEMPTS: 2') && pagesWorkflow.includes('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages live HTTP smoke retains one bounded full-inventory transient retry');
 assert.ok(pagesSmoke.includes('response.status >= 500 && response.status <= 599') && pagesSmoke.includes('runWithTransientRetry'), 'Pages HTTP smoke classifies 5xx and runs through the bounded retry wrapper');
