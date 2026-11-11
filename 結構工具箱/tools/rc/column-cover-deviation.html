@@ -23,6 +23,10 @@
     .diagram-wrap{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fdfcff}.diagram-wrap svg{width:100%;height:auto;min-height:300px;display:block}.formula-list{font-size:.9rem}.formula-list code{font-family:Consolas,monospace;background:#f1f5f9;border-radius:4px;padding:2px 5px}.formula-list p{margin:8px 0}.output-actions{margin-top:12px}.output-actions select{border:1px solid #c4b5fd;border-radius:8px;padding:8px}.json-status{font-size:.84rem;color:#526168}.direct-print-note{margin:0}.source-link{color:#5b21b6;font-weight:800}
     @media(max-width:1000px){.main-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.span-4{grid-column:1/-1}}
     @media(max-width:580px){.page{padding:10px}.form-grid,.metrics{grid-template-columns:1fr}.span-2,.span-4{grid-column:auto}.hero{padding:18px}.btn{width:100%}}
+    #coverBatchDialog{box-sizing:border-box;inset:0;margin:auto;width:min(1200px,96vw);height:90vh;height:90dvh;max-height:96vh;padding:0;border:1px solid var(--line);border-radius:14px;color:var(--ink)}
+    #coverBatchDialog[open]{display:flex;flex-direction:column}#coverBatchDialog::backdrop{background:#1f1635aa}
+    .cover-batch-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line)}.cover-batch-heading h2{font-size:1.15rem;margin:0}.cover-batch-heading .btn{width:auto}
+    #coverBatchFrame{flex:1;width:100%;border:0;min-height:0}
   </style>
 </head>
 <body class="local-quick-output-page" data-family="rc">
@@ -47,6 +51,7 @@
         <div class="field"><label for="projDesigner">設計／整理人</label><input id="projDesigner" autocomplete="off"></div>
       </div>
       <div class="case-actions">
+        <button class="btn btn-secondary" id="openCoverBatch" type="button" aria-haspopup="dialog">批次檢核</button>
         <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
         <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
         <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
@@ -57,6 +62,13 @@
       </div>
     </section>
 
+    <dialog id="coverBatchDialog" aria-labelledby="coverBatchTitle">
+      <div class="cover-batch-heading">
+        <h2 id="coverBatchTitle">柱保護層偏差批次檢核</h2>
+        <form method="dialog"><button class="btn btn-secondary" autofocus>返回單筆頁</button></form>
+      </div>
+      <iframe id="coverBatchFrame" title="批次輸入與檢核結果"></iframe>
+    </dialog>
     <div class="main-layout column-cover-shell">
       <div class="stack">
         <section class="card">
@@ -151,6 +163,13 @@
   <script src="../local-quick-export.js?v=0.2.0"></script>
   <script src="../../../鋼筋混凝土/shared/pmsection.js"></script>
   <script src="column-cover-deviation-core.js?v=0.1.0"></script>
+  <script>
+    document.getElementById('openCoverBatch').onclick = function () {
+      const frame = document.getElementById('coverBatchFrame');
+      if (!frame.hasAttribute('src')) frame.src = 'column-cover-batch.html';
+      document.getElementById('coverBatchDialog').showModal();
+    };
+  </script>
   <script>
   (function () {
     'use strict';

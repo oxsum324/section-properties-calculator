@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>柱保護層偏差批次工作區</title>
+<style>
+  :root{font:16px/1.55 "Microsoft JhengHei",system-ui,sans-serif;color:#242034;background:#f7f6fb}
+  *{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:16px;display:grid;gap:14px}
+  section{background:#fff;border:1px solid #ddd6eb;border-radius:12px;padding:16px;min-width:0}
+  h2,h3,p{margin:0 0 .55em}h2{font-size:1.15rem;color:#4c1d95}h3{font-size:1rem}
+  .actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:.65em 0}
+  button{font:inherit;font-weight:650;cursor:pointer;color:#442184;background:#f0eafa;border:1px solid #d6c9e7;border-radius:7px;padding:6px 12px}
+  button.primary{background:#6334aa;border-color:#6334aa;color:white}button:disabled{background:#f1f1f3;color:#68646b;border-color:#dcd9df;cursor:default}
+  button:focus-visible,summary:focus-visible,textarea:focus-visible,.scroll:focus-visible{outline:3px solid #8759b3;outline-offset:2px}
+  textarea{width:100%;resize:vertical;padding:9px;border:1px solid #a99bb8;border-radius:5px;font:14px/1.5 Consolas,monospace}
+  .hint{font-size:.87rem;color:#574f63}.scroll{overflow:auto;max-height:27rem}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:.88rem}th,td{text-align:left;padding:6px 9px;border-bottom:1px solid #ece9f0;white-space:nowrap}thead th{position:sticky;top:0;background:#f3eff9;color:#432e5d}
+  details{margin:.6rem 0}summary{cursor:pointer;color:#51268a;font-weight:650}#notice{overflow-wrap:anywhere;font-weight:650}
+  #summary{padding:8px 12px;background:#f4f0f9;border-left:3px solid #7545a9}
+  @media(max-width:560px){main{padding:8px}section{padding:10px}.actions{gap:5px}}
+  @media print{main{display:none}body:after{content:'批次檢核為內部審閱工作區。'}}
+</style>
+</head>
+<body><main>
+<section aria-labelledby="inputTitle">
+  <h2 id="inputTitle">匯入柱資料</h2>
+  <p class="hint">每列一根柱、一個修次與一組需求。可貼 Excel 表格或選取 UTF-8 CSV／TSV 檔。各欄單位請依表頭，編號欄請在 Excel 設為文字。</p>
+  <div class="actions"><button id="header">複製空白表頭</button><label for="file">選取資料檔</label><input id="file" type="file" accept=".csv,.tsv"></div>
+  <label for="paste">Excel 資料（含表頭）</label><textarea id="paste" rows="4" spellcheck="false" wrap="off"></textarea>
+  <div class="actions"><button id="preview" class="primary">預覽對欄</button><button id="run" disabled>執行批次檢核</button></div>
+  <div id="notice" role="status" aria-live="polite">等待輸入資料。</div>
+  <details id="previewPanel" hidden><summary>檢閱表頭與原始資料</summary><div class="scroll" tabindex="0" aria-label="原始資料預覽" id="rawTable"></div></details>
+</section>
+<section id="output" aria-labelledby="resultTitle" hidden>
+  <h2 id="resultTitle">批次結果</h2>
+  <p id="summary"></p><div id="extremes"></div>
+  <p class="hint">內部審閱用。施工容許差與整體安全均為本工具未評估。</p>
+  <div class="actions"><button id="copyResults">複製結果至 Excel</button><button id="export">下載核對明細 JSON</button></div>
+  <div class="scroll" tabindex="0" aria-label="逐列檢核結果" id="resultTable"></div>
+  <details><summary>四方向與量測換算明細</summary><div class="scroll" tabindex="0" aria-label="有效列明細" id="directions"></div></details>
+  <div id="errors" hidden><h3>待補與錯列</h3><button id="copyErrors">複製待補與錯列</button><div class="scroll" tabindex="0" aria-label="待補與錯列清單" id="errorTable"></div></div>
+</section>
+<div id="manual" hidden><label for="manualText">請選取全部文字並複製</label><textarea id="manualText" readonly rows="3"></textarea></div>
+</main>
+<script src="../../../鋼筋混凝土/shared/pmsection.js"></script>
+<script src="column-cover-deviation-core.js?v=0.1.0"></script>
+<script src="column-cover-batch.js"></script>
+<script src="column-cover-batch-ui.js"></script>
+</body></html>
