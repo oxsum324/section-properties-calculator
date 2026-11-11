@@ -1,0 +1,57 @@
+name: Verify deployed P1 after Pages 503
+on:
+  push:
+    branches: [codex/p1-pages-live-recovery-20261111]
+permissions:
+  contents: read
+
+jobs:
+  verify-public-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PAGES_BASE_URL: https://oxsum324.github.io/section-properties-calculator/
+      PAGES_EXPECTED_COMMIT_SHA: 18faba695b62b37f9f5732e44e86ac840508d0a5
+      PAGES_EXPECTED_RUN_ID: '43028286093'
+      PAGES_EXPECT_CLEAN_SOURCE: '1'
+      PAGES_HTTP_REQUEST_TIMEOUT_MILLISECONDS: '15000'
+      PAGES_HTTP_SMOKE_ATTEMPTS: '2'
+      PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: '5'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.PAGES_EXPECTED_COMMIT_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install the release browser runtime
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix .github/pages-smoke
+      - name: Verify every file, route and excluded path with spaced retries
+        env:
+          PAGES_HTTP_REQUEST_ATTEMPTS: '8'
+          PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS: '7000'
+          PAGES_HTTP_SMOKE_RESULT_FILE: ${{ runner.temp }}/p1-verify/recovery.json
+        run: |
+          mkdir -p "$RUNNER_TEMP/p1-verify"
+          node "結構工具箱/tools/pages-live-smoke.js" --check-private-boundary
+      - name: Repeat with the production workflow settings
+        env:
+          PAGES_HTTP_REQUEST_ATTEMPTS: '4'
+          PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS: '1000'
+          PAGES_HTTP_SMOKE_RESULT_FILE: ${{ runner.temp }}/p1-verify/standard.json
+        run: node "結構工具箱/tools/pages-live-smoke.js" --check-private-boundary
+      - name: Verify public desktop and mobile routes
+        env:
+          PAGES_BROWSER_SMOKE_ATTEMPTS: '2'
+          PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: '5'
+          PAGES_BROWSER_SMOKE_RESULT_FILE: ${{ runner.temp }}/p1-verify/browser.json
+        run: bash "結構工具箱/tools/run-pages-browser-smoke.sh" "$PAGES_BASE_URL" "p1-live-recovery"
+      - name: Save receipts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: live-p1-receipts
+          path: ${{ runner.temp }}/p1-verify/*.json
+          retention-days: 14
