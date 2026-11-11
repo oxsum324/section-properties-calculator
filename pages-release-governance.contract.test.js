@@ -813,6 +813,9 @@ assert.ok(artifactBuilder.includes("'.github/pages-smoke/build-performance-trend
 assert.ok(pagesSmoke.includes("'.github/pages-smoke/normalize-playwright-result.js'") && artifactBuilder.includes("'.github/pages-smoke/normalize-playwright-result.js'"), 'Pages result normalizer remains private in artifact and live-boundary checks');
 assert.ok(pagesWorkflow.includes('performance-trend:') && pagesWorkflow.includes('needs:\n      - build\n      - live-smoke'), 'Pages performance trend waits for both complete current-run receipts');
 assert.equal((pagesWorkflow.match(/uses: actions\/download-artifact@v8/g) || []).length, 2, 'Pages trend downloads current build and live receipts with pinned actions');
+for (const job of ['build', 'live-smoke']) {
+  assert.ok(pagesWorkflow.includes('artifact-ids: ${{ steps.current-evidence.outputs.' + job + ' }}'), 'current trend evidence must identify the selected ' + job + ' artifact across reruns');
+}
 assert.ok(pagesWorkflow.includes("--status success") && pagesWorkflow.includes('pages-ci-evidence-build') && pagesWorkflow.includes('pages-ci-evidence-live-smoke'), 'Pages trend samples only successful runs with paired receipts');
 assert.ok(pagesWorkflow.includes('timeout-minutes: 10') && pagesWorkflow.includes('.expired == false') && pagesWorkflow.includes('historical evidence excluded'), 'Pages trend bounds collection and explicitly excludes incomplete historical evidence');
 assert.ok(pagesWorkflow.includes('sort_by(.created_at, .id) | last | .id') && pagesWorkflow.includes('historical evidence deduplicated'), 'Pages trend deterministically selects the newest receipt after workflow reruns');

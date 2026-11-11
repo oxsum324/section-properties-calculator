@@ -303,16 +303,30 @@ jobs:
         with:
           node-version: 24
 
+      - name: Resolve current evidence IDs after job reruns
+        id: current-evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" > "$RUNNER_TEMP/current-artifacts.json"
+          for job in build live-smoke; do
+            id=$(jq -er --arg name "pages-ci-evidence-$job" '[.[].artifacts[] | select(.expired == false and .name == $name)] | sort_by(.created_at, .id) | last | .id // empty' "$RUNNER_TEMP/current-artifacts.json")
+            echo "$job=$id" >> "$GITHUB_OUTPUT"
+          done
+
       - name: Download current build evidence
         uses: actions/download-artifact@v8
         with:
-          name: pages-ci-evidence-build
+          artifact-ids: ${{ steps.current-evidence.outputs.build }}
+          merge-multiple: true
           path: ${{ runner.temp }}/pages-ci-trend-input/${{ github.run_id }}
 
       - name: Download current live evidence
         uses: actions/download-artifact@v8
         with:
-          name: pages-ci-evidence-live-smoke
+          artifact-ids: ${{ steps.current-evidence.outputs.live-smoke }}
+          merge-multiple: true
           path: ${{ runner.temp }}/pages-ci-trend-input/${{ github.run_id }}
 
       - name: Download previous successful Pages evidence
