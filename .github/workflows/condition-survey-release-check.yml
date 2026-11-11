@@ -22,11 +22,14 @@ jobs:
     timeout-minutes: 120
     env:
       TESTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      TEMP: ${{ runner.temp }}
-      TMP: ${{ runner.temp }}
       PYTHONUTF8: '1'
       PYTHONIOENCODING: utf-8
     steps:
+      - name: Use the runner temporary directory for release checks
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+
       - name: Check out exact candidate
         uses: actions/checkout@v6
         with:
