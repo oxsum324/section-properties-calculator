@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "public-release-decision-anchor",
   "active": true,
-  "runId": "20261111-145850",
-  "receiptId": "PRD-6671F32FE93C49A7219711E4",
-  "receiptSha256": "b0bc209493b1eaa82d6f6661fc58253d08393e9f3d35169033669febefe7befe"
+  "runId": "20261111-194646",
+  "receiptId": "PRD-40A197468F12CAEAE5751D63",
+  "receiptSha256": "f0ee2b7cd3836207bcd12faec2cd2723e6ccd930160ee9d94481d412bdfd3629"
 }
