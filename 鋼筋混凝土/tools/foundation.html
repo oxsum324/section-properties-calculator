@@ -4860,6 +4860,10 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     const okSettlement = settlement?.ok ?? null;
     const reviewWarnings = [];
     if (soilOk && okSettlement === null) reviewWarnings.push(settlement.reason);
+    const environmentalLoads = ['pPW','pPE','pileCapMuxW','pileCapMuxE','pileCapMuyW','pileCapMuyE'];
+    const serviceCaseNote = environmentalLoads.some(id => num(id) !== 0)
+      ? '本頁只核對 D＋L 服務反力；已輸入風或地震分量，請另核對應服務組合之壓力與抗拔。' : '';
+    if (serviceCaseNote) reviewWarnings.push(serviceCaseNote);
     if (rMin < 0) reviewWarnings.push('強度工況出現上拔，樁帽需另核受拉樁反力及錨定。');
     if (pileType === 'steel-pipe') reviewWarnings.push('單樁沉陷與壓應力採實心混凝土截面，鋼管須另核截面及材料。');
 
@@ -5006,7 +5010,7 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
 n = ${pileNL} × ${pileNB} = ${nPile} 支
 Pu = 1.2×${PD} + 1.6×${PL} + 1.0×${PE} = ${Pu_tf.toFixed(2)} tf
 強度最大壓力樁 ${strengthMaxPile}；最大／最小反力 = ${rMax.toFixed(2)} / ${rMin.toFixed(2)} tf（Mx/My = ${Mx} / ${My} tf·m）
-服務 D＋L = ${service.axial.toFixed(2)} tf；Mx/My = ${service.mx.toFixed(2)} / ${service.my.toFixed(2)} tf·m
+服務 D＋L = ${service.axial.toFixed(2)} tf；Mx/My = ${service.mx.toFixed(2)} / ${service.my.toFixed(2)} tf·m${serviceCaseNote ? '\n' + serviceCaseNote : ''}
 服務最大壓力樁 ${serviceMaxPile}；Rmax = ${serviceRmax.toFixed(2)} tf  ${okR ? '≤' : '>'} Qallow,eff = ${governingQaEff.toFixed(2)} tf → ${okR ? '✓' : '✗'}
 服務 Rmin = ${serviceRmin.toFixed(2)} tf  ${okT ? '≥' : '<'} -Qt = -${pileQt} tf → ${okT ? '✓' : '✗'}
 最小樁間距 = ${minSpacing.toFixed(0)} cm  ${okSp ? '≥' : '<'} ${spacingLimit.toFixed(0)} cm → ${okSp ? '✓' : '✗'}
@@ -5087,7 +5091,7 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     reviewWarnings.forEach(note => checks.push([note, null]));
     updateBannerSimple(checks);
 
-    window.ftLast = { tab:'pile', reviewWarnings, fc, fy, lambda, c1, c2, cover, pileD, pileQa, pileQt,
+    window.ftLast = { tab:'pile', reviewWarnings, serviceCaseNote, fc, fy, lambda, c1, c2, cover, pileD, pileQa, pileQt,
       pileType, pileInstall, pileNL, pileNB, pileSL, pileSB, pileEta, pileLength, pileFS, pileSteelThickness, soilProfileText,
       PD, PL, PE, Mx, My, HX, HY,
       Bc, Lc, hc, pcCover, barNo, nBar, ab, db, As, d, nPile, QaEff,
@@ -6268,6 +6272,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         { group:'群樁', items:[
           { label:'配置 nL×nB', value:`${r.pileNL}×${r.pileNB}`, unit:`(${r.nPile} 支)` },
           { label:'服務 D＋L，P / Mx / My', value:[r.service.axial,r.service.mx,r.service.my].map(v => v.toFixed(2)).join(' / '), unit:'tf / tf·m / tf·m' },
+          ...(r.serviceCaseNote ? [{label:'待核服務工況', value:r.serviceCaseNote, unit:''}] : []),
           { label:'服務 / 強度最大壓力樁（並列時列首支）', value:r.serviceMaxPile + ' / ' + r.strengthMaxPile, unit:'' },
           { label:'服務 Rmax / Rmin', value:`${r.serviceRmax.toFixed(2)} / ${r.serviceRmin.toFixed(2)}`, unit:'tf' },
           { label:'強度 Pu / Mx / My', value:[r.Pu_tf,r.Mx,r.My].map(v => v.toFixed(2)).join(' / '), unit:'tf / tf·m / tf·m' },
