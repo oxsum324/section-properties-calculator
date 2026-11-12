@@ -715,6 +715,8 @@
   }
 
   function inputFail(message) {
+    resultState = null;
+    $("propsCard").hidden = true;
     setBeamReportValidationMessage(message);
     setInputStatus(message);
     workflow?.refresh();
@@ -1739,7 +1741,7 @@
     `).join("");
   }
 
-  function runCheck() {
+  function runCheck(replayV11 = false) {
     renderFillStatus();
     clearInputStatus();
     setBeamReportValidationMessage("");
@@ -1757,13 +1759,14 @@
     let shear;
 
     if (sectionType === "h") {
-      const mm = { n: "自訂", H: num("inH"), B: num("inB"), tw: num("inTw"), tf: num("inTf"), R: num("inR") };
+      const mm = { n: "自訂", H: num("inH"), B: num("inB"), tw: num("inTw"), tf: num("inTf"), R: $("inR").valueAsNumber };
       const selected = getGroupedSection(Steel.H_SECTIONS_MM, $("secSelect").value);
       if (selected) mm.n = selected.n;
       if (!mm.H || !mm.B || !mm.tw || !mm.tf || mm.tf * 2 >= mm.H) {
         return inputFail("請確認 H 型鋼尺寸輸入完整且合理。");
       }
-      sec = Steel.calcProps(mm);
+      sec = replayV11 === true ? Steel.calcPropsForV11Replay(mm) : Steel.calcProps(mm);
+      if (!sec) return inputFail("請確認腹板厚度及圓角 R。R 須介於 0 與 min((B−tw)/2, (H−2tf)/2) mm；無圓角請填 0。");
       sec.shape = "h";
       cls = Steel.classify(sec, Fy);
       flex = Steel.calcMn(sec, Fy, getLegacyInputValue("inLb", "memberLength"), num("inCb") || 1.0);
@@ -1924,7 +1927,7 @@
     return result;
   }
 
-  function buildBeamReportConfig(result) {
+  function buildBeamReportConfig(result, replayV11 = false) {
     const summaryState = getBeamReportSummaryState(result);
     return {
       title: "鋼梁正式規範核算計算書",
@@ -1935,6 +1938,12 @@
       inputs: [
         { group: "斷面與材料", items: [
           { label: "規格", value: getSectionInputSummaryText(result) },
+          ...(!replayV11 && result.sec.shape === "h" ? [
+            { label: "H × B × tw × tf；根部圓角 R", value: [result.sec.H,result.sec.B,result.sec.tw,result.sec.tf].map(v => formatInputValue(v * 10, 3)).join(" × ") + "；R = " + formatInputValue(result.sec.R * 10, 3), unit:"mm" },
+            { label: "Ix / Iy", value: f2(result.sec.Ix) + " / " + f2(result.sec.Iy), unit:"cm⁴" },
+            { label: "Sx / Sy", value: f2(result.sec.Sx) + " / " + f2(result.sec.Sy), unit:"cm³" },
+            { label: "Zx / Zy", value: f2(result.sec.Zx) + " / " + f2(result.sec.Zy), unit:"cm³" },
+          ] : []),
           { label: "Fy", value: formatDisplayValue(result.Fy, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress") },
           ...(result.sec.shape === "h" || result.sec.shape === "rhs" ? [
             { label: "Lb", value: formatDisplayValue(result.Lb, "memberLength", unitMode === "si" ? 3 : 1), unit: getQuantityUnit("memberLength") },
@@ -1982,9 +1991,9 @@
     return fields;
   }
 
-  function buildBeamSourcePayload(result = runCheck()) {
+  function buildBeamSourcePayload(result = runCheck(), replayV11 = false) {
     if (!result) return null;
-    const reportConfig = buildBeamReportConfig(result);
+    const reportConfig = buildBeamReportConfig(result, replayV11);
     const reportTrace = SteelFormalUI.buildReportTrace(reportConfig);
     return {
       schemaVersion: 1,
@@ -2044,7 +2053,7 @@
     };
   }
 
-  function applyBeamSourceState(source) {
+  function applyBeamSourceState(source, replayV11 = false) {
     adoptedBeamImport = source.adoptedBeamImport || null;
     setUnitMode(source.unitMode, { convertFields: false, rerun: false, persist: false });
     setMethod(source.designMethod);
@@ -2066,18 +2075,26 @@
     syncSectionTypeUI();
     syncBeamProjectMetaUi();
     persistUiPrefs();
-    resultState = runCheck();
+    resultState = runCheck(replayV11);
     return resultState;
   }
 
   function validateBeamSourcePayload(payload) {
+    const replayV11 = /^v?1\.1$/i.test(String(payload?.tool?.version || "").trim());
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: TOOL_METADATA.version,
+      expectedVersion: replayV11 ? "V1.1" : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
     if (!payload.project || typeof payload.project !== "object") throw new Error("來源 JSON 驗證失敗：缺少案件資料。");
+    const shape = payload.fields.sectionTypeSelect?.value;
+    if (!["h","shs","rhs","chs"].includes(shape)) throw new Error("來源 JSON 驗證失敗：缺少有效斷面型式。");
+    if (shape === "h" && ["inH","inB","inTw","inTf","inR"].some(id => payload.fields[id]?.value == null || String(payload.fields[id].value).trim() === "")) {
+      throw new Error("來源 JSON 驗證失敗：H 型鋼尺寸或圓角半徑缺值。");
+    }
+    const reportFingerprint = SteelFormalUI.buildReportTrace({ ...payload.report, calculationFingerprint:"" }).calculationFingerprint;
+    if (reportFingerprint !== payload.calculationFingerprint) throw new Error("內嵌報告內容與來源計算指紋不一致。");
     return payload;
   }
 
@@ -2087,7 +2104,6 @@
     try {
       const payload = validateBeamSourcePayload(await SteelFormalUI.readCalculationSourceFile(file, {
         expectedToolId: TOOL_METADATA.id,
-        expectedVersion: TOOL_METADATA.version,
       }));
       if (payload.adoptedBeamImport?.station) {
         const transfer = await import("./beam-station-transfer.js");
@@ -2095,15 +2111,22 @@
         if (!transfer.validPacket(adopted.station) || adopted.stationText !== transfer.stationText(adopted.station)
             || ![adopted.moment, adopted.shear, adopted.spanCm].every(Number.isFinite)) throw new Error("站位快照與來源紀錄不一致。");
       }
+      const replayV11 = /^v?1\.1$/i.test(String(payload.tool.version).trim());
       stateChanged = true;
-      const replayResult = applyBeamSourceState(payload);
-      const replay = replayResult ? buildBeamSourcePayload(replayResult) : null;
+      const replayResult = applyBeamSourceState(payload, replayV11);
+      const replay = replayResult ? buildBeamSourcePayload(replayResult, replayV11) : null;
       if (!replay || replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay?.calculationFingerprint || "無法計算"}）。`);
       }
       persistInputDraft();
       window.dispatchEvent(new Event("steel-beam-source-restored"));
-      setInputStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
+      if (replayV11) {
+        const updated = buildBeamSourcePayload();
+        if (!updated) throw new Error("舊案已核對，新版無法完成重算。");
+        setInputStatus(`已核對 V1.1 原始計算 ${payload.calculationFingerprint}，已依 V1.2 重算，請另存新版來源 JSON｜${updated.calculationFingerprint}`);
+      } else {
+        setInputStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
+      }
     } catch (error) {
       if (stateChanged) applyBeamSourceState(previous);
       setInputStatus(`匯入失敗，已保留原輸入｜${error?.message || "未知錯誤"}`);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>鋼梁設計與檢核 V3.1</title>
+<title>鋼梁設計與檢核 V3.2</title>
 <link rel="stylesheet" href="../../../tool-chrome.css">
 <link rel="stylesheet" href="../../assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../../core/family-theme.css">
@@ -519,7 +519,7 @@ function renderBeamEnvelope() {
 // ── 主檢核 ──
 function runCheck() {
   clearInputStatus();
-  const mm = { n:'自訂', H:num('inH'), B:num('inB'), tw:num('inTw'), tf:num('inTf'), R:num('inR') };
+  const mm = { n:'自訂', H:num('inH'), B:num('inB'), tw:num('inTw'), tf:num('inTf'), R:$('inR').valueAsNumber };
   // 嘗試取得規格名稱
   const selV = $('secSelect').value;
   if (selV) {
@@ -532,6 +532,7 @@ function runCheck() {
   if (mm.tf * 2 >= mm.H) { return inputFail('翼板厚 tf×2 不得大於或等於全高 H。'); }
 
   const sec = Steel.calcProps(mm);
+  if (!sec) return inputFail('請核對斷面淨空及根部圓角半徑 R；無圓角請明填 0。');
   const Fy  = num('inFy');
   const Lb  = num('inLb');
   const Cb  = num('inCb') || 1.0;
@@ -980,7 +981,7 @@ invalidateBeamLegacyUseConfirmation();
 syncBeamLegacyReportControl();
 renderBeamReportReadiness();
 </script>
-<script src="../project-storage.js" data-tool-id="steel-beam" data-tool-name="鋼梁設計與檢核" data-tool-version="V3.1"></script>
+<script src="../project-storage.js" data-tool-id="steel-beam" data-tool-name="鋼梁設計與檢核" data-tool-version="V3.2"></script>
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../project-meta-profile.js"></script>

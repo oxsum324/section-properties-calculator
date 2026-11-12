@@ -384,7 +384,7 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, key === "connection" ? "V1.3" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
+  assert.equal(metadata.version, key === "connection" ? "V1.3" : ["beam","column"].includes(key) ? "V1.2" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
 }
 const momentModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.beamColumnMoment;
 assert.equal(momentModuleMetadata?.state, "formal", "connection metadata should mark the scoped beam-column moment review formal");
@@ -520,8 +520,8 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
 for (const [label, html, expectedVersion, navFamily] of [
   ["steel main", indexSource, "V1.3", "steel"],
   ["steel plate", plateCheckSource, "V1.1", "attachments"],
-  ["steel beam", beamFormalHtmlSource, "V1.1", "steel"],
-  ["steel column", columnFormalHtmlSource, "V1.1", "steel"],
+  ["steel beam", beamFormalHtmlSource, "V1.2", "steel"],
+  ["steel column", columnFormalHtmlSource, "V1.2", "steel"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
   const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";
@@ -1206,7 +1206,7 @@ assert.match(
 );
 assert.match(
   beamFormalSource,
-  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*function buildBeamReportConfig\(result\)[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
+  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*function buildBeamReportConfig\(result, replayV11 = false\)[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
   "steel-beam-formal.js should normalize placeholder project metadata before syncing report meta and exporting the formal report",
 );
 assert.doesNotMatch(
@@ -1221,7 +1221,7 @@ assert.doesNotMatch(
 );
 assert.match(
   beamFormalSource,
-  /function inputFail\(message\)\s*{[\s\S]*setBeamReportValidationMessage\(message\)[\s\S]*function runCheck\(\)[\s\S]*setBeamReportValidationMessage\(""\)/s,
+  /function inputFail\(message\)\s*{[\s\S]*setBeamReportValidationMessage\(message\)[\s\S]*function runCheck\(replayV11 = false\)[\s\S]*setBeamReportValidationMessage\(""\)/s,
   "steel-beam-formal.js should route inline validation into the page-only report readiness state",
 );
 assert.match(
@@ -1254,8 +1254,8 @@ assert.match(
   /localStorage\.setItem\(UI_PREFS_KEY[\s\S]*unitMode[\s\S]*parsed\.unitMode === "legacy" \|\| parsed\.unitMode === "si"/,
   "steel-column-formal.js should persist and restore the last-used unit mode",
 );
-const beamBuildReportSource = beamFormalSource.match(/function buildBeamReportConfig\(result\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
-const columnBuildReportSource = columnFormalSource.match(/function buildColumnReportConfig\(result\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
+const beamBuildReportSource = beamFormalSource.match(/function buildBeamReportConfig\(result, replayV11 = false\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
+const columnBuildReportSource = columnFormalSource.match(/function buildColumnReportConfig\(result, replayV11 = false\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
 assert.match(
   beamBuildReportSource,
   /subtitle: `Steel Beam Formal Report \(\$\{designMethod\}\)`[\s\S]*inputs:[\s\S]*group: "斷面與材料"[\s\S]*checks:[\s\S]*summary: summaryState[\s\S]*steps: buildReportSteps\(result\)/s,
@@ -1279,7 +1279,7 @@ assert.match(
 );
 assert.match(
   beamBuildReportSource,
-  /function buildBeamSourcePayload\(result = runCheck\(\)\)[\s\S]*SteelFormalUI\.buildReportTrace\(reportConfig\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: collectBeamSourceFields\(\)[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*openReport\(buildBeamReportConfig\(result\)\)/s,
+  /function buildBeamSourcePayload\(result = runCheck\(\), replayV11 = false\)[\s\S]*SteelFormalUI\.buildReportTrace\(reportConfig\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: collectBeamSourceFields\(\)[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*openReport\(buildBeamReportConfig\(result\)\)/s,
   "steel-beam-formal.js should reuse one report configuration for the source JSON and calculation book fingerprint",
 );
 assert.match(
@@ -1289,7 +1289,7 @@ assert.match(
 );
 assert.match(
   beamFormalSource,
-  /function applyBeamSourceState\(source\)[\s\S]*convertFields: false[\s\S]*function validateBeamSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importBeamSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyBeamSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
+  /function applyBeamSourceState\(source, replayV11 = false\)[\s\S]*convertFields: false[\s\S]*function validateBeamSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importBeamSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyBeamSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
   "steel beam source import should preserve units, validate provenance, replay the calculation, and roll back on mismatch",
 );
 assert.match(
@@ -1330,7 +1330,7 @@ assert.match(
 );
 assert.match(
   columnBuildReportSource,
-  /function buildColumnSourcePayload\(result = runCheck\(\)\)[\s\S]*SteelFormalUI\.buildReportTrace\(reportConfig\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: collectColumnSourceFields\(\)[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*openReport\(buildColumnReportConfig\(result\)\)/s,
+  /function buildColumnSourcePayload\(result = runCheck\(\), replayV11 = false\)[\s\S]*SteelFormalUI\.buildReportTrace\(reportConfig\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: collectColumnSourceFields\(\)[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*openReport\(buildColumnReportConfig\(result\)\)/s,
   "steel-column-formal.js should reuse one report configuration for the source JSON and calculation book fingerprint",
 );
 assert.match(
@@ -1340,7 +1340,7 @@ assert.match(
 );
 assert.match(
   columnFormalSource,
-  /function applyColumnSourceState\(source\)[\s\S]*convertFields: false[\s\S]*function validateColumnSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importColumnSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyColumnSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
+  /function applyColumnSourceState\(source, replayV11 = false\)[\s\S]*convertFields: false[\s\S]*function validateColumnSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importColumnSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyColumnSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
   "steel column source import should preserve units, validate provenance, replay the calculation, and roll back on mismatch",
 );
 assert.match(
@@ -1365,7 +1365,7 @@ assert.match(
 );
 assert.match(
   columnFormalSource,
-  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*function buildColumnReportConfig\(result\)[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
+  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*function buildColumnReportConfig\(result, replayV11 = false\)[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
   "steel-column-formal.js should normalize placeholder project metadata before syncing report meta and exporting the formal report",
 );
 assert.doesNotMatch(
@@ -1380,7 +1380,7 @@ assert.doesNotMatch(
 );
 assert.match(
   columnFormalSource,
-  /function inputFail\(message\)\s*{[\s\S]*setColumnReportValidationMessage\(message\)[\s\S]*function runCheck\(\)[\s\S]*setColumnReportValidationMessage\(""\)/s,
+  /function inputFail\(message\)\s*{[\s\S]*setColumnReportValidationMessage\(message\)[\s\S]*function runCheck\(replayV11 = false\)[\s\S]*setColumnReportValidationMessage\(""\)/s,
   "steel-column-formal.js should route inline validation into the page-only report readiness state",
 );
 assert.match(

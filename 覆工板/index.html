@@ -800,7 +800,7 @@
 const DECKING_TOOL_METADATA = Object.freeze({
   id: 'fugongban',
   name: '覆工板系統計算工具',
-  version: 'V1.1'
+  version: 'V1.2'
 });
 document.title = `${DECKING_TOOL_METADATA.name} ${DECKING_TOOL_METADATA.version}`;
 document.getElementById('deckingToolTitle').textContent = document.title;
@@ -1670,23 +1670,34 @@ function collectFormState() {
   });
   return data;
 }
-function applyFormState(data) {
+function applyFormState(data, version) {
   Object.entries(data || {}).forEach(([id, v]) => {
     const el = document.getElementById(id);
     if (!el || el.type === 'file') return;
     if (el.type === 'checkbox') el.checked = v;
     else el.value = v;
   });
+  const affected = ['s_section', 'g4_section', 'c_section'].some(id =>
+    ['H250×250×9×14','H300×300×10×15','H350×350×12×19'].includes(document.getElementById(id).value));
+  if (version !== DECKING_TOOL_METADATA.version && affected) {
+    const approved = document.getElementById('deckingAttachmentApproved');
+    approved.checked = false;
+    delete approved.dataset.approvedAt;
+    return '原案採用的 H 型鋼性質表已更新，請核對重算結果。';
+  }
+  return '';
 }
 function saveState() {
   const data = collectFormState();
-  localStorage.setItem(LS_KEY, JSON.stringify(data));
+  localStorage.setItem(LS_KEY, JSON.stringify({ ...data, sectionTableVersion:DECKING_TOOL_METADATA.version }));
 }
 function restoreState() {
   const raw = localStorage.getItem(LS_KEY);
   if (!raw) return;
   try {
-    applyFormState(JSON.parse(raw));
+    const stored = JSON.parse(raw);
+    const notice = applyFormState(stored, stored.sectionTableVersion);
+    if (notice) setActionStatus(notice, 'info');
   } catch(e) { console.warn(e); }
 }
 function buildProjectPayload() {
@@ -1719,9 +1730,9 @@ function applyProjectPayload(payload, label = '案例檔') {
   if (!payload.state) {
     throw new Error('此檔不是可回讀的覆工板專案 JSON；請使用「存檔 JSON」產生的檔案。');
   }
-  applyFormState(payload.state);
+  const notice = applyFormState(payload.state, payload.tool?.pageVersion);
   recalcAll();
-  setActionStatus(`已讀取：${label}。`, 'ok');
+  setActionStatus(`已讀取：${label}。${notice}`, 'ok');
 }
 function saveProjectJSON() {
   const payload = buildProjectPayload();
@@ -1802,6 +1813,7 @@ function exportJSON() {
       date: document.getElementById('proj_date').value || '',
     },
     global: g,
+    sectionTableSource: H_SECTION_SOURCE,
     inputs: {
       deck:     { B: +document.getElementById('d_B').value, L: +document.getElementById('d_L').value,
                   n: +document.getElementById('d_n').value, Sx: +document.getElementById('d_Sx').value,
@@ -2005,6 +2017,7 @@ function buildReport() {
       <p><b>(4) 共構柱：</b>AISC ASD 軸壓＋雙軸彎交互式（fa/Fa > 0.15 採二次彎矩放大）；短期放大 β 與舊料折減（新料 1.0、舊料 0.9）併用。</p>
       <p><b>(5) H 型鋼貫入 PC：</b>τ = 0.03·fc'；拉拔阻力 F = τ·L·ls；壓入阻力 N = τ·L·ls + 0.35·fc'·As'。</p>
       <p><b>(6) 樁基承載：</b>Qult = qb·Ab + fs·πD·Lb（砂層 qb=7.5N, fs=N/3）；Qa = Qb/FS_b + Qs/FS_s。</p>
+      <p><b>型鋼性質來源：</b>${H_SECTION_SOURCE}</p>
       <p><b>(7) 斷面分類：</b>翼板細實 B/(2tf) vs 545/√Fy (結實)、800/√Fy (半結實)；腹板細實 H/tw vs 5370/√Fy·(1−3.74·fa/Fy)。</p>
       <p><b>(8) 側撐：</b>Lc = min(L1, L2)，其中 L1 = 640·B/√Fy、L2 = 1.4×10⁶·Af/(H·Fy)。Lt ≤ Lc → 充分側撐。</p>
     </div>

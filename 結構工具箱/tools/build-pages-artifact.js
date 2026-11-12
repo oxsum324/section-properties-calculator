@@ -33,6 +33,7 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/core/loads/src/loadcombo.source.js',
   '結構工具箱/tools/a11y/tool-page-a11y.source.js',
   '結構工具箱/tools/src/project-meta-profile.source.js',
+  '結構工具箱/core/materials/src/steel.source.js',
   '結構工具箱/core/loads/src/wind.source.js',
   '結構工具箱/tools/build-minified-runtimes.js',
   '結構工具箱/tools/build-tool-page-a11y.js',

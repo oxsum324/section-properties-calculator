@@ -234,6 +234,9 @@ def generate(json_path, out_path=None):
             ['容許撓度', f"L / {g['defl']}", ''],
         ])
 
+    if data.get('sectionTableSource'):
+        add_para(doc, f"型鋼性質來源：{data['sectionTableSource']}")
+
     add_heading(doc, '側撐假設與採用值', 2)
     bracing_rows = []
     for key, label in [('stringer', '覆工小梁'), ('girder', '覆工大梁')]:

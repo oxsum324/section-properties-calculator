@@ -66,6 +66,18 @@ for (const group of Steel.H_SECTIONS_MM) {
   }
 }
 
+// 同尺寸改變 R，直接積分四處鋼材圓角取得兩軸慣性矩及塑性模數（cm 制）。
+for (const [R, Ix, Iy, Zx, Zy] of [
+  [0, 22964.8682666667, 1734.9290666667, 1285.9520000000002, 265.984],
+  [13, 23456.6201041622, 1735.70670495946, 1312.6589930952105, 266.98553763957034],
+  [16, 23704.4256585356, 1736.38743915693, 1326.26030666312, 267.64837894695]
+]) {
+  const props = Steel.calcProps({ H:400, B:200, tw:8, tf:13, R });
+  assert.ok(Math.abs(props.Ix-Ix) < 1e-7 && Math.abs(props.Iy-Iy) < 1e-7, 'H400 fillet inertia R=' + R);
+  assert.ok(Math.abs(props.Zx-Zx) < 1e-7 && Math.abs(props.Zy-Zy) < 1e-7, 'H400 plastic moduli');
+}
+for (const R of [-1, NaN, 97]) assert.equal(Steel.calcProps({H:400,B:200,tw:8,tf:13,R}),null);
+
 // core 型鋼尺寸／R 角與 Steel.calcProps，須與已查核的官方表列值一致
 // （SRC 教材附錄表 1-1，見 SRC工具/core/src-column-h-section-catalog.js；表列取 3 位有效數字，容許 ±0.5%）
 const SrcCatalog = require('./SRC工具/core/src-column-h-section-catalog.js');
