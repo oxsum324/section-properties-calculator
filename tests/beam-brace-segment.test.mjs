@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {evaluateBrace,sealBrace,validBrace,sameBraceStation} from './beam-brace-segment.js';
+import {evaluateBrace,sealBrace,validBrace,sameBraceStation} from '../鋼構工具/beam-brace-segment.js';
 
 globalThis.StructReportUtils={sha256Text:s=>createHash('sha256').update(s).digest('hex')};
 const profile=pieces=>({offsets:[0,8],hinges:[],freeStart:false,freeEnd:false,pieces});

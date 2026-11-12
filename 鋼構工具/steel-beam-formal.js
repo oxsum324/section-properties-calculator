@@ -100,8 +100,7 @@
       const legacyValue = convertDisplayValue(parsed, config.kind, previousMode);
       const digits = nextMode === "si" ? config.siDigits : config.legacyDigits;
       const converted = convertLegacyValue(legacyValue, config.kind, nextMode);
-      field.value = (adoptedBeamImport?.station && ["inMu", "inVu", "inL"].includes(config.id)) || (adoptedBrace && config.id === "inLb")
-        ? String(converted) : formatInputValue(converted, digits);
+      setConvertedSteelInput(field, previousMode, nextMode, converted, formatInputValue(converted, digits));
     });
   }
 
@@ -2154,7 +2153,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2", "v1.2.1"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -2178,7 +2177,7 @@
       }));
       if (payload.adoptedBrace) {
         braceTools = await import("./beam-brace-segment.js");
-        if (SteelFormalUI.normalizeReportVersion(payload.tool.version) !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)
+        if (["v1.1","v1.2","v1.2.1"].includes(SteelFormalUI.normalizeReportVersion(payload.tool.version))
           || !braceTools.validBrace(payload.adoptedBrace)) throw new Error("段資料、方法或版本與來源快照不符。");
       }
       if (payload.adoptedBeamImport?.station) {
@@ -2223,6 +2222,8 @@
 
   function persistInputDraft() {
     if (draftRestoring) return;
+    clearTimeout(draftTimer);
+    draftTimer = null;
     try {
       const state = captureBeamSourceState();
       localStorage.setItem(INPUT_DRAFT_KEY, JSON.stringify({ savedAt: new Date().toISOString(), ...state }));
@@ -2238,6 +2239,8 @@
   }
 
   function clearInputDraft() {
+    clearTimeout(draftTimer);
+    draftTimer = null;
     try { localStorage.removeItem(INPUT_DRAFT_KEY); } catch { /* ignore */ }
     renderDraftControls(false);
     setInputStatus("已清除本機輸入草稿；目前畫面輸入維持不變。");
@@ -2310,6 +2313,7 @@
   }
 
   function bindEvents() {
+    window.addEventListener("pagehide", () => { if (draftTimer !== null) persistInputDraft(); });
     $("beamImportConfirm").addEventListener("change", () => {
       $("beamImportApply").disabled = !pendingBeamImport || !$("beamImportConfirm").checked;
     });
@@ -2327,10 +2331,10 @@
     $("rhsSelect").addEventListener("change", () => { onRhsSelect(); resultState = runCheck(); });
     $("chsSelect").addEventListener("change", () => { onChsSelect(); resultState = runCheck(); });
     $("matSelect").addEventListener("change", () => { onMatSelect(); resultState = runCheck(); });
-    $("beamUnitModeLegacyBtn").addEventListener("click", () => setUnitMode("legacy"));
-    $("beamUnitModeSiBtn").addEventListener("click", () => setUnitMode("si"));
-    $("btnLRFD").addEventListener("click", () => { setMethod("LRFD"); resultState = runCheck(); });
-    $("btnASD").addEventListener("click", () => { setMethod("ASD"); resultState = runCheck(); });
+    $("beamUnitModeLegacyBtn").addEventListener("click", () => { setUnitMode("legacy"); persistInputDraft(); });
+    $("beamUnitModeSiBtn").addEventListener("click", () => { setUnitMode("si"); persistInputDraft(); });
+    $("btnLRFD").addEventListener("click", () => { setMethod("LRFD"); resultState = runCheck(); persistInputDraft(); });
+    $("btnASD").addEventListener("click", () => { setMethod("ASD"); resultState = runCheck(); persistInputDraft(); });
     $("runCheckBtn").addEventListener("click", () => { resultState = runCheck(); });
     $("btnExportSourceJson").addEventListener("click", exportBeamSourceJson);
     $("btnImportSourceJson").addEventListener("click", () => $("inputImportSourceJson").click());

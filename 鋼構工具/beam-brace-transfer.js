@@ -1,4 +1,4 @@
-import { braceMethods,braceFlanges,braceUnits,braceGraphValues,evaluateBrace,braceText,sealBrace,validBrace,sameBraceStation,spanLocation } from './beam-brace-segment.js';
+import { braceMethods,braceFlanges,braceUnits,braceGraphValues,evaluateBrace,braceRows,sealBrace,validBrace,sameBraceStation,spanLocation } from './beam-brace-segment.js';
 import { saveBrace,readPackets,revisionStatus } from './beam-station-transfer.js';
 const fmt=n=>String(Number(n.toPrecision(8)));
 const options=labels=>Object.entries(labels).map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('');
@@ -104,7 +104,7 @@ export async function showBraceSender(host,model,form){
 
 export function openBraceReceiver(host,scope,api){
   host.innerHTML='<h2>未側撐段 Lb、Cb 核對</h2><label>段候選 <select style="max-width:100%"></select></label>'+
-    '<p data-incoming></p><p data-current></p><label><input type="checkbox"> 已核對正式需求與本段為相同構件及載重組合、兩端有效側撐及結實熱軋 H 型鋼強軸撓曲條件；採用本段 Lb、Cb。</label> '+
+    '<p data-current class="candidate-review__source"></p><dl data-incoming class="brace-review-data"></dl><label class="candidate-review__confirm"><input type="checkbox"> 已核對正式需求與本段為相同構件及載重組合、兩端有效側撐及結實熱軋 H 型鋼強軸撓曲條件；採用本段 Lb、Cb。</label> '+
     '<button type="button" class="btn-calc" disabled>採用本段 Lb、Cb</button><p role="status"></p>';
   const list=host.querySelector('select'),confirm=host.querySelector('input'),apply=host.querySelector('button'),status=host.querySelector('[role=status]');
   let reviewed='';
@@ -126,7 +126,12 @@ export function openBraceReceiver(host,scope,api){
     const token=JSON.stringify([p?.id,c,issue]);
     if(token!==reviewed)confirm.checked=false;
     reviewed=token;host.querySelector('[data-current]').textContent='正式輸入：Lb = '+fmt(c.lb)+' cm，Cb = '+fmt(c.cb)+'；'+c.source;
-    host.querySelector('[data-incoming]').textContent=p?braceText(p):'';
+    const facts=p?braceRows(p):[];
+    host.querySelector('[data-incoming]').replaceChildren(...facts.flatMap(fact=>{
+      const label=document.createElement('dt'),value=document.createElement('dd');
+      label.textContent=fact.label;value.textContent=fact.value+(fact.unit?' '+fact.unit:'');
+      return [label,value];
+    }));
     confirm.disabled=issue!=='有效修次';apply.disabled=confirm.disabled||!confirm.checked;status.textContent=issue;
     return p;
   }

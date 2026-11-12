@@ -86,7 +86,8 @@
       if (!Number.isFinite(parsed)) return;
       const legacyValue = convertDisplayValue(parsed, config.kind, previousMode);
       const digits = nextMode === "si" ? config.siDigits : config.legacyDigits;
-      field.value = formatInputValue(convertLegacyValue(legacyValue, config.kind, nextMode), digits);
+      const converted = convertLegacyValue(legacyValue, config.kind, nextMode);
+      setConvertedSteelInput(field, previousMode, nextMode, converted, formatInputValue(converted, digits));
     });
   }
 
@@ -1891,7 +1892,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.4"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -1947,6 +1948,8 @@
 
   function persistInputDraft() {
     if (draftRestoring) return;
+    clearTimeout(draftTimer);
+    draftTimer = null;
     try {
       const state = captureColumnSourceState();
       localStorage.setItem(INPUT_DRAFT_KEY, JSON.stringify({ savedAt: new Date().toISOString(), ...state }));
@@ -1962,6 +1965,8 @@
   }
 
   function clearInputDraft() {
+    clearTimeout(draftTimer);
+    draftTimer = null;
     try { localStorage.removeItem(INPUT_DRAFT_KEY); } catch { /* ignore */ }
     renderDraftControls(false);
     setInputStatus("已清除本機輸入草稿；目前畫面輸入維持不變。");
@@ -2014,6 +2019,7 @@
   }
 
   function bindEvents() {
+    window.addEventListener("pagehide", () => { if (draftTimer !== null) persistInputDraft(); });
     $("sectionTypeSelect").addEventListener("change", () => {
       syncSectionTypeUI();
       resultState = runCheck();
@@ -2023,10 +2029,10 @@
     $("rhsSelect").addEventListener("change", () => { onRhsSelect(); resultState = runCheck(); });
     $("chsSelect").addEventListener("change", () => { onChsSelect(); resultState = runCheck(); });
     $("matSelect").addEventListener("change", () => { onMatSelect(); resultState = runCheck(); });
-    $("columnUnitModeLegacyBtn").addEventListener("click", () => setUnitMode("legacy"));
-    $("columnUnitModeSiBtn").addEventListener("click", () => setUnitMode("si"));
-    $("btnLRFD").addEventListener("click", () => { setMethod("LRFD"); resultState = runCheck(); });
-    $("btnASD").addEventListener("click", () => { setMethod("ASD"); resultState = runCheck(); });
+    $("columnUnitModeLegacyBtn").addEventListener("click", () => { setUnitMode("legacy"); persistInputDraft(); });
+    $("columnUnitModeSiBtn").addEventListener("click", () => { setUnitMode("si"); persistInputDraft(); });
+    $("btnLRFD").addEventListener("click", () => { setMethod("LRFD"); resultState = runCheck(); persistInputDraft(); });
+    $("btnASD").addEventListener("click", () => { setMethod("ASD"); resultState = runCheck(); persistInputDraft(); });
     $("runCheckBtn").addEventListener("click", () => { resultState = runCheck(); });
     $("btnExportSourceJson").addEventListener("click", exportColumnSourceJson);
     $("btnImportSourceJson").addEventListener("click", () => $("inputImportSourceJson").click());

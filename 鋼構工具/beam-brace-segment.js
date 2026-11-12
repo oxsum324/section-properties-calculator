@@ -172,9 +172,6 @@ export function braceRows(p) {
     {label:'段資料指紋',value:p.id},
   ];
 }
-export function braceText(p) {
-  return braceRows(p).map(r=>r.label+'：'+r.value+(r.unit?' '+r.unit:'')).join('｜');
-}
 export function braceGraphValues(profile) {
   return profile.pieces.flatMap(p=>Array.from({length:17},(_,i)=>{const x=p[0]+(p[1]-p[0])*i/16;return [x,moment(p,x)];}));
 }

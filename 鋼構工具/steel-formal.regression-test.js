@@ -321,6 +321,12 @@ const sharedReportRuntime = loadWindowScript(sharedReportSource, sharedReportPat
 const localReportRuntime = loadWindowScript(localReportCoreSource, localReportCorePath);
 const memberReport = {};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, "steel-member-report.js"), "utf8"), memberReport);
+const columnDemandField = {value:"46.524"};
+const convertedPu = Number(columnDemandField.value)*9.80665;
+memberReport.setConvertedSteelInput(columnDemandField, "legacy", "si", convertedPu, convertedPu.toFixed(2));
+assert.equal(Number(columnDemandField.value), convertedPu);
+memberReport.setConvertedSteelInput(columnDemandField, "si", "legacy", convertedPu/9.80665, "46.52");
+assert.equal(columnDemandField.value, "46.524");
 const compare = memberReport.formatSteelMemberComparison;
 assert.equal(compare(43.09912, 43.12, true, "tf"), "43.10 < 43.12 tf");
 assert.equal(compare(1.0001, 1, false, "cm"), "1.0001 > 1.0000 cm");
@@ -433,7 +439,7 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, key === "column" ? "V1.4" : key === "connection" ? "V1.3" : key === "beam" ? "V1.3" : key === "plate" ? "V1.2" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
+  assert.equal(metadata.version, key === "column" ? "V1.4.1" : key === "connection" ? "V1.3" : key === "beam" ? "V1.3.1" : key === "plate" ? "V1.2" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
 }
 const momentModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.beamColumnMoment;
 assert.equal(momentModuleMetadata?.state, "formal", "connection metadata should mark the scoped beam-column moment review formal");
@@ -569,8 +575,8 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
 for (const [label, html, expectedVersion, navFamily] of [
   ["steel main", indexSource, "V1.3", "steel"],
   ["steel plate", plateCheckSource, "V1.2", "attachments"],
-  ["steel beam", beamFormalHtmlSource, "V1.3", "steel"],
-  ["steel column", columnFormalHtmlSource, "V1.4", "steel"],
+  ["steel beam", beamFormalHtmlSource, "V1.3.1", "steel"],
+  ["steel column", columnFormalHtmlSource, "V1.4.1", "steel"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
   const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";

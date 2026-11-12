@@ -113,6 +113,18 @@
   margin-top: 12px;
 }
 
+.brace-review-data {
+  display: grid;
+  grid-template-columns: minmax(8em, 12em) minmax(0, 1fr);
+  gap: .35rem .75rem;
+  margin: .65rem 0;
+}
+.brace-review-data dt { font-weight: 600; }
+.brace-review-data dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 540px) {
+  .brace-review-data { grid-template-columns: 1fr; }
+  .brace-review-data dt:not(:first-child) { margin-top: .4rem; }
+}
 .candidate-review__facts > div,
 .candidate-review__source {
   padding: 9px 10px;

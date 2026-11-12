@@ -623,7 +623,7 @@
     },
     {
       title: '鋼梁正式頁',
-      version: 'V1.3',
+      version: 'V1.3.1',
       href: '/steel-beam-formal',
       aliases: ['steel beam check', '鋼梁正式檢核'],
       categories: ['member'],
@@ -638,7 +638,7 @@
     },
     {
       title: '鋼柱正式頁',
-      version: 'V1.4',
+      version: 'V1.4.1',
       href: '/steel-column-formal',
       aliases: ['steel column check', '鋼柱正式檢核'],
       categories: ['member'],
