@@ -626,6 +626,14 @@ function pageStateExpression(tool) {
       period.value = '0';
       period.dispatchEvent(new Event('input', { bubbles: true }));
     }
+    if (${JSON.stringify(tool.key)} === 'seismic-appendage') {
+      const host = byId('hostImportance');
+      if (host.value !== '') throw new Error('新案須確認主體用途');
+      byId(calc).click();
+      if (!byId('inputStatus').textContent.includes('主體建築用途') || byId('resultPanel').style.display !== 'none') throw new Error('主體用途待補時不應產生附屬物結果');
+      host.value = 'IV';
+      host.dispatchEvent(new Event('change',{bubbles:true}));
+    }
     if (calc && byId(calc)) {
       byId(calc).click();
       await settle(2);

@@ -3015,9 +3015,10 @@ function seismicForceStaticOracle(i) {
 function seismicAppendageOracle(input) {
   return Object.fromEntries(input.cases.map(i => {
     const Rpa = i.isTaipeiBasin ? 1 + (i.Rp - 1) / 2 : 1 + (i.Rp - 1) / 1.5;
-    const CphCalc = 0.4 * i.SDS * i.Ip * (i.ap / Rpa) * (1 + 2 * i.hx / i.hn);
-    const CphMax = 1.6 * i.SDS * i.Ip;
-    const CphMin = 0.3 * i.SDS * i.Ip;
+    const Ip = i.Ip >= i.buildingI ? i.Ip : i.buildingI;
+    const CphCalc = 0.4 * i.SDS * Ip * (i.ap / Rpa) * (1 + 2 * i.hx / i.hn);
+    const CphMax = 1.6 * i.SDS * Ip;
+    const CphMin = 0.3 * i.SDS * Ip;
     const Cph = Math.min(CphMax, Math.max(CphMin, CphCalc));
     const FphCalc = CphCalc * i.Wp;
     const FphMax = CphMax * i.Wp;

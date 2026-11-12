@@ -1085,7 +1085,7 @@ assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home 
   'function buildDynamicDesignActions'
 ].forEach(needle => assertIncludes(repoDocs.seismicCore, needle, 'seismic dynamic core output'));
 [
-  '<title>附屬構造物地震力 V2.5</title>',
+  '<title>附屬構造物地震力 V2.6</title>',
   'CASE_SCHEMA_VERSION',
   'seismic-appendage.case.v1',
   '匯出案件 JSON',

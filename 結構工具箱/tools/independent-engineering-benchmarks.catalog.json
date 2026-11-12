@@ -3663,9 +3663,9 @@
       "referenceBasis": "113 年 3 月修正版耐震規範第四章式 4-1 至 4-3；以一般計算值、水平力上限及水平力下限三組封閉算例，獨立推導 Rpa、Cph、Fph 與 Fpv，並涵蓋臺北盆地韌性調整及近斷層 2/3 垂直力比例。",
       "input": {
         "cases": [
-          { "id": "calculated", "SDS": 0.6, "Wp": 12, "ap": 1, "Rp": 2.5, "Ip": 1, "hx": 9, "hn": 30, "isTaipeiBasin": false, "isNearFault": false },
-          { "id": "maximum", "SDS": 0.7, "Wp": 8, "ap": 2.5, "Rp": 1.25, "Ip": 1.5, "hx": 24, "hn": 24, "isTaipeiBasin": true, "isNearFault": true },
-          { "id": "minimum", "SDS": 0.5, "Wp": 20, "ap": 0.5, "Rp": 5, "Ip": 1, "hx": 0, "hn": 18, "isTaipeiBasin": false, "isNearFault": false }
+          { "id": "calculated", "SDS": 0.6, "Wp": 12, "ap": 1, "Rp": 2.5, "Ip": 1, "buildingI": 1.25, "hx": 9, "hn": 30, "isTaipeiBasin": false, "isNearFault": false },
+          { "id": "maximum", "SDS": 0.6, "Wp": 8, "ap": 2.5, "Rp": 1.25, "Ip": 1.5, "buildingI": 1, "hx": 24, "hn": 24, "isTaipeiBasin": true, "isNearFault": false },
+          { "id": "minimum", "SDS": 0.5, "Wp": 20, "ap": 0.5, "Rp": 5, "Ip": 1, "buildingI": 1.5, "hx": 0, "hn": 18, "isTaipeiBasin": false, "isNearFault": true }
         ]
       },
       "assertions": [

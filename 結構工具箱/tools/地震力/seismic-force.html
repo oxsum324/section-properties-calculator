@@ -480,7 +480,7 @@
           <label>構材用途係數 I<sub>p</sub></label>
           <select id="apIp">
             <option value="1.0">1.0 — 一般構材</option>
-            <option value="1.5">1.5 — 生命安全 / 危險物質</option>
+            <option value="1.5">1.5 — 震後必要機能、大賣場儲存架或危險物品等</option>
           </select>
         </div>
       </div>
@@ -493,8 +493,8 @@
         <div class="form-group">
           <label>近斷層區域</label>
           <select id="apNearFault">
-            <option value="0" selected>否 — F<sub>pv</sub>=½F<sub>ph</sub></option>
-            <option value="1">是 — F<sub>pv</sub>=⅔F<sub>ph</sub></option>
+            <option value="0" selected>依主結構工址（一般與盆地 1/2，近斷層 2/3）</option>
+            <option value="1">指定近斷層（主結構須採控制後譜值）</option>
           </select>
         </div>
       </div>
@@ -694,6 +694,7 @@ const CASE_VALUE_IDS = [
   'chkAssist', 'sys', 'Rcustom', 'aYcustom', 'impClass', 'chkXY', 'sysY', 'TdynaY',
   'chkTaipei', ...CASE_ZONE_VALUE_IDS, 'SsD', 'S1D', 'SsM', 'S1M', 'siteClass',
   'N', 'hn', 'B', 'Bh', 'wUniform', 'Tdyna', 'chkDetail',
+  'apType','apCustom','rpCustom','apWp','apIp','apHx','apNearFault',
   'rep_summary', 'rep_direction', 'rep_adopt', 'rep_spectrum', 'rep_story', 'rep_sub', 'rep_drift',
   'rep_appendage', 'rep_vertical', 'rep_misc', 'rep_steps', 'rep_inputs'
 ];
@@ -771,6 +772,8 @@ function saveStaticSummary(x, y) {
         SsDLower: x.SsD, S1DLower: x.S1D
       },
       spectrumSource: fault ? 'near-fault-zone' : x.directSite?.basinZone ? 'basin' : 'zone',
+      ...(window.SeismicZones?.ZONES?.[zoneCity]?.[zoneDist]?.[5]?.length && document.getElementById('faultDist').valueAsNumber >= 0
+        ? { faultDistanceKm: document.getElementById('faultDist').valueAsNumber } : {}),
       spectrumRevision: S.SPECTRUM_REVISION,
       ...(x.directSite?.basinZone ? { basinZone: x.directSite.basinZone, basinVillage: x.directSite.basinVillage } : {}),
       importanceKey: impKey,
@@ -929,6 +932,7 @@ function readCaseInputs() {
       designer: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projDesigner').value)
     },
     values,
+    appendageCalculated: Boolean(window._lastAppendageForceResult),
     floors: floorData.map(f => ({ label: f.label, dH: f.dH, W: f.W, disp: Number.isFinite(Number(f.disp)) ? Number(f.disp) : null }))
   };
 }
@@ -973,14 +977,20 @@ function applyCaseInputs(payload) {
   const project = payload?.project || inputBlock.project || {};
   const values = { ...(inputBlock.values || {}), ...(payload?.values || {}) };
   const importedFloors = payload?.floors || inputBlock.floors;
+  clearAppendageOutput();
+  if (!Object.hasOwn(values,'apWp')) {
+    document.getElementById('apWp').value = '';
+    document.getElementById('apHx').value = '';
+  }
   if (project.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(project.name);
   if (project.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(project.no);
   if (project.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(project.designer);
+  setInputValue('siteClass', values.siteClass);
+  applyZoneCaseValues(values);
   CASE_VALUE_IDS.forEach(id => {
     if (CASE_ZONE_VALUE_IDS.includes(id)) return;
     if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);
   });
-  applyZoneCaseValues(values);
   if (Array.isArray(importedFloors) && importedFloors.length) {
     floorData = importedFloors.map((f, i) => ({
       label: f.label || `${i + 1}F`,
@@ -991,7 +1001,7 @@ function applyCaseInputs(payload) {
     renderFloorTable();
   }
   refreshCaseDependentUi();
-  calc();
+  if (calc() && (payload?.appendageCalculated || inputBlock.appendageCalculated)) calcAppendage(true);
 }
 function exportCaseJson() {
   if (calc() === false) return;
@@ -1181,7 +1191,7 @@ document.getElementById('chkXY').addEventListener('change', function() {
         return `<b>${f}</b> (影響半徑 ${info ? info.r : '?'} km)`;
       }).join('、');
       document.getElementById('faultDist').value = '';
-      document.getElementById('apNearFault').value = '1';
+      document.getElementById('apNearFault').value = '0';
       document.getElementById('vNearFault').value = '1';
     } else {
       document.getElementById('apNearFault').value = '0';
@@ -1855,6 +1865,7 @@ function renderSeismicReportReadiness(validationMessage = '') {
 }
 
 function markSeismicReportInputsChanged() {
+  clearAppendageOutput();
   if (window._lastSeismicReport?.x) {
     window._lastSeismicReportStale = true;
   }
@@ -2105,6 +2116,7 @@ function escReport(text) {
 function buildSeismicReportTrace() {
   const state = window._lastSeismicReport || {};
   const { project: ignoredProject, ...calculation } = state;
+  if (window._lastAppendageForceResult) calculation.appendage = window._lastAppendageForceResult;
   return window.ToolReportUI.buildReportTrace({
     title: '建築物耐震設計 — 等值靜力分析 計算書',
     subtitle: '依「建築物耐震設計規範及解說」113 年版｜第二章靜力分析方法',
@@ -2339,7 +2351,7 @@ function openSeismicReport() {
       ${reportOpt('rep_story', true) ? buildOriginalBlockHtml('主要組成一：地震力分配', document.getElementById('storyTable')?.outerHTML || '' ) : ''}
       ${reportOpt('rep_sub', true) ? buildOriginalBlockHtml('主要組成二：地下水平震度', document.getElementById('subTable')?.outerHTML || '' ) : ''}
       ${(reportOpt('rep_drift', true) && document.getElementById('driftEnable') && document.getElementById('driftEnable').checked) ? buildOriginalBlockHtml('層間變位角檢核', (document.getElementById('driftTable')?.outerHTML || '') + `<div class="legend">${document.getElementById('driftNote')?.innerHTML || ''}</div>`) : ''}
-      ${reportOpt('rep_appendage', false) ? buildOriginalBlockHtml('附屬構造物地震力', document.getElementById('apResult')?.innerHTML || '') : ''}
+      ${reportOpt('rep_appendage', false) ? buildOriginalBlockHtml('附屬構造物地震力', document.getElementById('apResult')?.innerHTML || '本案尚無依目前輸入計算的附屬構造物地震力。') : ''}
       ${reportOpt('rep_vertical', false) ? buildOriginalBlockHtml('垂直地震力', document.getElementById('vResult')?.innerHTML || '') : ''}
       ${reportOpt('rep_misc', false) ? buildOriginalBlockHtml('雜項工作物地震力', document.getElementById('miscResult')?.innerHTML || '本案尚無依目前輸入計算的雜項工作物地震力。') : ''}
       ${inputsHtml}
@@ -2902,45 +2914,57 @@ document.getElementById('chkDetail').addEventListener('change', function() {
   sel.appendChild(ogC);
 })();
 
-function calcAppendage() {
-  // 需要先有主計算的 SDS
-  const sdsEl = document.getElementById('banner');
-  if (!sdsEl || sdsEl.textContent === '尚未計算') {
-    setInputStatus('請先執行主結構地震力計算，以取得 SDS 值', 'apStatus');
+function clearAppendageOutput() {
+  window._lastAppendageForceResult = null;
+  document.getElementById('apResult').replaceChildren();
+}
+function calcAppendage(parentReady = false) {
+  clearAppendageOutput();
+  if (!parentReady && calc() === false) {
+    setInputStatus('請補齊目前的主結構條件以取得 SDS 與用途係數 I。', 'apStatus');
     return false;
   }
-  // 取得 SDS from last calc
-  const lastSDS = window._lastSeismicSDS;
-  if (!lastSDS) {
-    setInputStatus('請先執行主結構地震力計算', 'apStatus');
-    return false;
-  }
+  const parent = window._lastSeismicResult;
+  const lastSDS = parent.site.SDS;
 
   const typeVal = document.getElementById('apType').value;
   let ap, Rp;
   if (typeVal === 'CUSTOM') {
     ap = parseFloat(document.getElementById('apCustom').value);
     Rp = parseFloat(document.getElementById('rpCustom').value);
-    if (!ap || !Rp) {
+    if (!(Number.isFinite(ap) && ap > 0 && Number.isFinite(Rp) && Rp > 0)) {
       setInputStatus('請填入自訂 ap 與 Rp', 'apStatus');
       return false;
     }
   } else {
     const [tbl, idx] = typeVal.split('_');
     const item = tbl === 'T1' ? S.TABLE_4_1[+idx] : S.TABLE_4_2[+idx];
+    if (!item) { setInputStatus('請選擇附屬構造物類型。', 'apStatus'); return false; }
     ap = item.ap; Rp = item.Rp;
   }
 
-  const Wp = parseFloat(document.getElementById('apWp').value) || 1.0;
-  const Ip = parseFloat(document.getElementById('apIp').value) || 1.0;
-  const hx = parseFloat(document.getElementById('apHx').value) || 0;
-  const hn = parseFloat(document.getElementById('hn').value) || 17.2;
+  const Wp = document.getElementById('apWp').valueAsNumber;
+  const componentIp = Number(document.getElementById('apIp').value);
+  const hx = document.getElementById('apHx').valueAsNumber;
+  const hn = document.getElementById('hn').valueAsNumber;
   const isTB = document.getElementById('chkTaipei').checked;
-  const isNF = document.getElementById('apNearFault').value === '1';
+  const district = window.SeismicZones?.ZONES?.[document.getElementById('zoneCity').value]?.[document.getElementById('zoneDist').value];
+  if (!isTB && district?.[5]?.length && !(document.getElementById('faultDist').valueAsNumber >= 0)) {
+    setInputStatus('請填入與斷層的距離，以確認主結構短週期譜值與垂直力比值。','apStatus');
+    return false;
+  }
+  const isNF = parent.directSite?.userDist != null || document.getElementById('apNearFault').value === '1';
+  if (!(Wp > 0 && hx >= 0 && hx <= hn && [1,1.5].includes(componentIp)) || (isTB && isNF)) {
+    setInputStatus('請確認正值重量、構材用途、固定高度（0 至 hn）及工址分類。盆地與近斷層須擇一。','apStatus');
+    return false;
+  }
 
-  const r = S.calcFph({ SDS: lastSDS, Wp, ap, Rp, Ip, hx, hn, isTaipeiBasin: isTB });
+  const r = S.calcFph({ SDS: lastSDS, Wp, ap, Rp, Ip:componentIp, buildingI:parent.I, hx, hn, isTaipeiBasin: isTB });
+  const Ip = r.Ip;
   const Fpv = S.calcFpv(r.Fph, isNF);
   const Cpv = isNF ? (2 / 3) * r.Cph : 0.5 * r.Cph;
+  const siteBasis = isTB ? '表 2-6(c) 臺北盆地' : parent.directSite?.userDist != null ? '近斷層控制震區係數，依表 2-4(a) 放大' : isNF ? '指定近斷層，採主結構所填震區係數及地盤放大' : '一般震區係數，依表 2-4(a) 放大';
+  window._lastAppendageForceResult = { ...r, Fpv, Cpv, siteBasis, buildingClass:document.getElementById('impClass').value, typeVal, isNearFault:isNF, isTaipeiBasin:isTB };
 
   const ctrlLabel = r.controlled === 'max'
     ? '受式(4-1b)上限控制'
@@ -2982,7 +3006,7 @@ function calcAppendage() {
         S<sub>DS</sub> = <span class="val">${fmt(lastSDS,4)}</span> g，
         a<sub>p</sub> = ${ap}，
         R<sub>p</sub> = ${Rp}，
-        I<sub>p</sub> = ${Ip}，
+        ${siteBasis}，構材原選值 ${componentIp}，主體 I = ${r.buildingI}，採用 I<sub>p</sub> = ${Ip}，
         W<sub>p</sub> = ${Wp} tf<br>
         h<sub>x</sub> = ${hx} m，
         h<sub>n</sub> = ${hn} m，
@@ -3422,6 +3446,7 @@ function calcMisc() {
 
 function invalidateMiscOutput(event) {
   const el = event.target;
+  if (el.closest('#appendageCard')) clearAppendageOutput();
   if (el.closest('#miscCard') || ['zoneCity','zoneDist','zoneVillage','faultDist','chkTaipei','siteClass','SsD','S1D','SsM','S1M'].includes(el.id)) {
     document.getElementById('miscResult').replaceChildren();
   }

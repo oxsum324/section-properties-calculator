@@ -1693,6 +1693,7 @@
     },
     {
       "key": "seismic-appendage",
+      "previousCaseEngine": "2.5",
       "label": "附屬構造物地震力",
       "discipline": "seismic",
       "route": "/seismic-appendage",
@@ -1755,6 +1756,7 @@
           "id": "default-unreinforced-masonry-appendage",
           "description": "預設無筋磚造內部非結構牆案例，鎖定第四章式(4-1)控制值與式(4-3)垂直力。",
           "inputs": {
+            "hostImportance": "IV",
             "SsD": "0.6",
             "S1D": "0.35",
             "SsM": "0.8",
@@ -1784,14 +1786,15 @@
           "id": "table-4-2-rooftop-boiler-near-fault",
           "description": "表 4-2 機電設備、重要度 Ip=1.5 且近斷層垂直力採 2/3 Fph 之屋頂附屬構造物案例。",
           "inputs": {
+            "hostImportance": "III",
+            "chkTaipei": false,
+            "chkNearFault": true,
             "SsD": "0.72",
             "S1D": "0.42",
             "SsM": "0.90",
             "S1M": "0.55",
             "siteClass": "3",
             "hn": "24.0",
-            "chkTaipei": true,
-            "chkNearFault": true,
             "apType": "T2_0",
             "apWp": "2.4",
             "apIp": "1.5",
@@ -1802,9 +1805,9 @@
             "printReportMode": "detail"
           },
           "expectedSelectors": {
-            "#banner": "附屬構造物 鍋爐及熱水器 Fph = 1.813 tf ｜ Fpv = 1.209 tf",
-            "#appendOverview": "構材類型鍋爐及熱水器 ap / Rp1 / 2.5 Rpa1.750 控制條件採式(4-1a)計算值",
-            "#appendResult": "水平地震力 Fph 1.813tf 水平係數 Fph / Wp 0.7554Wp 垂直地震力 Fpv 1.209tf 垂直係數 Fpv / Wp 0.5036Wp Rpa 1.750 SDS 0.7776g hx / hn 0.917 控制條件 採式(4-1a)計算值 第四章 — 鍋爐及熱水器 地震力計算 ① 工址與構材條件 SDS = 0.7776 g， ap = 1， Rp = 2.5， Ip = 1.5， Wp = 2.4 tf hx = 22 m， hn = 24 m， hx/hn = 0.917 ② 式(4-2) 容許耐震韌性容量 Rpa Rpa = 1 + (Rp − 1) / 2.0 = 1 + (2.5 − 1) / 2.0 = 1.750 ③ 式(4-1a) 附屬構造物水平地震力計算值 Fph,a = 0.4 × SDS × Ip × (ap / Rpa) × (1 + 2hx/hn) × Wp 水平計算係數 Cph,a = 0.4 × 0.7776 × 1.5 × (1 / 1.750) × (1 + 2 × 0.917) = 0.7554 Fph,a = Cph,aWp = 0.7554Wp = 0.7554 × 2.400 = 1.8129 tf ④ 式(4-1b) 上限值 Fph,max = 1.6 × SDS × Ip × Wp Cph,max = 1.6 × 0.7776 × 1.5 = 1.8662 Fph,max = Cph,maxWp = 1.8662Wp = 1.8662 × 2.400 = 4.4790 tf ⑤ 式(4-1c) 下限值 Fph,min = 0.3 × SDS × Ip × Wp Cph,min = 0.3 × 0.7776 × 1.5 = 0.3499 Fph,min = Cph,minWp = 0.3499Wp = 0.3499 × 2.400 = 0.8398 tf ⑥ 水平設計地震力採用 Fph = CphWp = 0.7554Wp = 0.7554 × 2.400 = 1.813 tf (採式(4-1a)計算值) ⑦ 式(4-3) 垂直地震力 Fpv = 2/3 × Fph 垂直係數 Cpv = 2/3 × Cph = 0.5036 Fpv = CpvWp = 0.5036Wp = 0.5036 × 2.400 = 1.209 tf"
+            "#banner": "附屬構造物 鍋爐及熱水器 Fph = 1.586 tf ｜ Fpv = 1.058 tf",
+            "#appendOverview": "構材類型鍋爐及熱水器 ap / Rp1 / 2.5 Rpa2.000 控制條件採式(4-1a)計算值",
+            "#appendResult": "水平地震力 Fph 1.586tf 水平係數 Fph / Wp 0.6610Wp 垂直地震力 Fpv 1.058tf 垂直係數 Fpv / Wp 0.4406Wp Rpa 2.000 SDS 0.7776g hx / hn 0.917 控制條件 採式(4-1a)計算值 第四章 — 鍋爐及熱水器 地震力計算 ① 工址與構材條件 近斷層控制震區係數，依表 2-4(a) 放大（SsD＝0.7200，Fa＝1.0800）。SDS = 0.7776 g， ap = 1， Rp = 2.5， 構材原選值 1.5，主體 I = 1.25，採用 Ip = 1.5， Wp = 2.4 tf hx = 22 m， hn = 24 m， hx/hn = 0.917 ② 式(4-2) 容許耐震韌性容量 Rpa Rpa = 1 + (Rp − 1) / 1.5 = 1 + (2.5 − 1) / 1.5 = 2.000 ③ 式(4-1a) 附屬構造物水平地震力計算值 Fph,a = 0.4 × SDS × Ip × (ap / Rpa) × (1 + 2hx/hn) × Wp 水平計算係數 Cph,a = 0.4 × 0.7776 × 1.5 × (1 / 2.000) × (1 + 2 × 0.917) = 0.6610 Fph,a = Cph,aWp = 0.6610Wp = 0.6610 × 2.400 = 1.5863 tf ④ 式(4-1b) 上限值 Fph,max = 1.6 × SDS × Ip × Wp Cph,max = 1.6 × 0.7776 × 1.5 = 1.8662 Fph,max = Cph,maxWp = 1.8662Wp = 1.8662 × 2.400 = 4.4790 tf ⑤ 式(4-1c) 下限值 Fph,min = 0.3 × SDS × Ip × Wp Cph,min = 0.3 × 0.7776 × 1.5 = 0.3499 Fph,min = Cph,minWp = 0.3499Wp = 0.3499 × 2.400 = 0.8398 tf ⑥ 水平設計地震力採用 Fph = CphWp = 0.6610Wp = 0.6610 × 2.400 = 1.586 tf (採式(4-1a)計算值) ⑦ 式(4-3) 垂直地震力 Fpv = 2/3 × Fph 垂直係數 Cpv = 2/3 × Cph = 0.4406 Fpv = CpvWp = 0.4406Wp = 0.4406 × 2.400 = 1.058 tf"
           },
           "expectedTextNeedles": [
             "第四章 — 鍋爐及熱水器 地震力計算",
@@ -1813,23 +1816,23 @@
           ],
           "expectedMetrics": {
             "lastAppendResult.Fph": {
-              "value": 1.8129188571428574,
+              "value": 1.5863040000000002,
               "tolerance": 1e-12
             },
             "lastAppendResult.Fpv": {
-              "value": 1.2086125714285716,
+              "value": 1.0575360000000003,
               "tolerance": 1e-12
             },
             "lastAppendResult.Cph": {
-              "value": 0.7553828571428572,
+              "value": 0.6609600000000001,
               "tolerance": 1e-12
             },
             "lastAppendResult.Cpv": {
-              "value": 0.5035885714285715,
+              "value": 0.4406400000000001,
               "tolerance": 1e-12
             },
             "lastAppendResult.Rpa": {
-              "value": 1.75,
+              "value": 2,
               "tolerance": 1e-12
             },
             "lastAppendResult.site.SDS": {

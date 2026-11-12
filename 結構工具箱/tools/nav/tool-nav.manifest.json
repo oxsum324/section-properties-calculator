@@ -582,7 +582,7 @@
       "route": "/seismic-appendage",
       "file": "結構工具箱/tools/地震力/seismic-appendage.html",
       "title": "附屬構造物地震力",
-      "version": "V2.5",
+      "version": "V2.6",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "seismic",

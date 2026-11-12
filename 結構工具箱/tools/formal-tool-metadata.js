@@ -21,7 +21,7 @@
     'wind-sign-pole': { route: '/wind-sign-pole', discipline: 'wind', version: 'V1.1', state: 'formal', governance: 'formal-tools' },
     'seismic-force': { route: '/seismic-force', discipline: 'seismic', version: 'V3', state: 'formal', governance: 'formal-tools' },
     'seismic-dynamic': { route: '/seismic-dynamic', discipline: 'seismic', version: 'V3.9', state: 'report', governance: 'formal-tools' },
-    'seismic-appendage': { route: '/seismic-appendage', discipline: 'seismic', version: 'V2.5', state: 'formal', governance: 'formal-tools' },
+    'seismic-appendage': { route: '/seismic-appendage', discipline: 'seismic', version: 'V2.6', state: 'formal', governance: 'formal-tools' },
     'seismic-misc': { route: '/seismic-misc', discipline: 'seismic', version: 'V3.5', state: 'formal', governance: 'formal-tools' },
   };
 

@@ -902,7 +902,7 @@
     },
     {
       title: '附屬構造物地震力',
-      version: 'V2.5',
+      version: 'V2.6',
       href: '/seismic-appendage',
       aliases: ['nonstructural component force', '附屬物地震力'],
       categories: ['seismic'],

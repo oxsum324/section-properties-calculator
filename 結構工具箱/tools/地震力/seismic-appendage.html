@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>附屬構造物地震力 V2.5</title>
+<title>附屬構造物地震力 V2.6</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../../tool-chrome.css">
 <link rel="stylesheet" href="../../assets/hy/colors_and_type.css">
@@ -114,7 +114,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>附屬構造物地震力 <span class="badge-v">V2.5</span></h1>
+  <h1>附屬構造物地震力 <span class="badge-v">V2.6</span></h1>
   <p>依「建築物耐震設計規範及解說」113 年版 ｜ 第四章附屬構造物 ｜ 單位：m, tf, sec</p>
   <p class="header-links">
     <a href="https://www.nlma.gov.tw/ch/legislation/law%26regusw/175" target="_blank" rel="noopener noreferrer">官方規範頁</a>
@@ -182,11 +182,16 @@
           </div>
         </div>
         <div class="hint" id="zoneHint"></div>
+        <div class="form-group" id="apVillageRow" hidden>
+          <label for="apVillage">工址里別（表 2-6）</label>
+          <select id="apVillage"><option value="">請核對里別</option></select>
+        </div>
+        <div class="form-group">
+          <label for="SsD">震區短週期設計係數 SsD (g)</label>
+          <input id="SsD" type="number" value="0.6" min="0" step="any">
+        </div>
+        <details><summary>來源摘要其餘譜值（選填）</summary>
         <div class="form-row">
-          <div class="form-group">
-            <label>S<sub>sD</sub> (g)</label>
-            <input id="SsD" type="number" value="0.6" step="0.05">
-          </div>
           <div class="form-group">
             <label>S<sub>1D</sub> (g)</label>
             <input id="S1D" type="number" value="0.35" step="0.05">
@@ -202,6 +207,7 @@
             <input id="S1M" type="number" value="0.5" step="0.05">
           </div>
         </div>
+        </details>
         <div class="form-row">
           <div class="form-group">
             <label>地盤分類</label>
@@ -218,12 +224,13 @@
         </div>
         <div class="checkbox-row">
           <input type="checkbox" id="chkTaipei">
-          <label for="chkTaipei">臺北盆地韌性調整 (R<sub>pa</sub> 依式 4-2 採 1 + (R<sub>p</sub> - 1) / 2)</label>
+          <label for="chkTaipei">臺北盆地微分區（表 2-6(c) 取 SDS＝0.60 g，Rpa 依式 4-2b）</label>
         </div>
         <div class="checkbox-row">
           <input type="checkbox" id="chkNearFault">
-          <label for="chkNearFault">近斷層工址垂直力比值採 2/3（一般 / 臺北盆地為 1/2）</label>
+          <label for="chkNearFault">近斷層工址（填距離比較後的震區係數，垂直力採 2/3）</label>
         </div>
+        <div class="hint" id="appendSiteHint" aria-live="polite"></div>
       </div>
 
       <div class="card">
@@ -254,14 +261,19 @@
             <input id="apWp" type="number" value="1.0" step="0.1">
           </div>
           <div class="form-group">
-            <label>構材用途係數 I<sub>p</sub></label>
+            <label for="apIp">構材用途原選值</label>
             <select id="apIp">
               <option value="1.0">1.0 — 一般構材</option>
-              <option value="1.5">1.5 — 生命安全 / 危險物質</option>
+              <option value="1.5">1.5 — 震後必要機能、大賣場儲存架或危險物品等</option>
             </select>
           </div>
         </div>
         <div class="form-row">
+          <div class="form-group">
+            <label for="hostImportance">主體建築用途分類</label>
+            <select id="hostImportance"><option value="">請選擇或載入主結構摘要</option></select>
+            <div class="hint">依第 4.2 節，採用 Ip 為構材原選值與主體 I 的較大值。</div>
+          </div>
           <div class="form-group">
             <label>固定高度 h<sub>x</sub> (m)</label>
             <input id="apHx" type="number" value="0" step="0.5">
@@ -318,7 +330,7 @@
   <details class="card" id="versionInfoCard">
     <summary class="fold-summary">版本與更新重點</summary>
     <div class="note" style="margin-top:12px;">
-      本頁目前版本為 <strong>V2.5</strong>，定位為第四章附屬構造物的獨立局部工具，支援獨立輸入、沿用等值靜力摘要與案件 JSON 回讀三種模式。
+      本頁目前版本為 <strong>V2.6</strong>，定位為第四章附屬構造物的獨立局部工具，支援獨立輸入、沿用等值靜力摘要與案件 JSON 回讀三種模式。
     </div>
     <div class="hint" style="margin-top:10px;">
       本版已完成：表 4-1 / 表 4-2 型式整理、式(4-1)~式(4-3) 計算、R<sub>pa</sub> 盆地調整、垂直力近斷層比值、地區回填、案件 JSON 匯入匯出、詳算式 / 簡易結果列印模式、構材類型分頁、輸入檢核與示意圖。<br>
@@ -331,7 +343,7 @@
 <script src="../../core/loads/seismic-zones.js"></script>
 <script src="../../core/loads/wind.js"></script>
 <script src="../../core/loads/regulatory-locations.js"></script>
-<script src="../../core/loads/project-location.js" data-location-tool-id="seismic-appendage" data-location-tool-name="附屬構造物地震力" data-location-tool-version="V2.5"></script>
+<script src="../../core/loads/project-location.js" data-location-tool-id="seismic-appendage" data-location-tool-name="附屬構造物地震力" data-location-tool-version="V2.6"></script>
 <script src="../../core/ui/report-utils.js"></script>
 <script src="../../core/ui/report-docx.js"></script>
 <script src="../../core/ui/report.js?v=7"></script>
@@ -340,7 +352,8 @@
 <script>
 const S = Seismic;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['seismic-appendage'].version;
-const TOOL_VERSION = '2.5';
+const TOOL_VERSION = '2.6';
+const PREVIOUS_ENGINE = '2.5';
 const CASE_SCHEMA_VERSION = 'seismic-appendage.case.v1';
 const STATIC_STORAGE_KEY = 'seismic-static-summary';
 const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
@@ -350,6 +363,8 @@ const CASE_VALUE_FIELDS = [
   'projDesigner',
   'zoneCity',
   'zoneDist',
+  'apVillage',
+  'hostImportance',
   'SsD',
   'S1D',
   'SsM',
@@ -374,6 +389,8 @@ const DEFAULT_CASE_INPUTS = {
     projDesigner: '',
     zoneCity: '',
     zoneDist: '',
+    apVillage: '',
+    hostImportance: '',
     SsD: '0.6',
     S1D: '0.35',
     SsM: '0.8',
@@ -551,6 +568,7 @@ function applyCaseInputs(source) {
   const reportMode = merged.values.printReportMode || (merged.checks.printCalcDetailSection === false ? 'simple' : 'detail');
   syncPrintReportMode(reportMode);
   syncTypeGroupFromValue(merged.values.apType || DEFAULT_CASE_INPUTS.values.apType);
+  syncAppendageSiteControls();
   updateInputChecks();
   saveProjectInfo();
 }
@@ -600,20 +618,33 @@ function importCaseJsonFile(file) {
   reader.onload = () => {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
+      const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION;
+      const historical = replayEngine === PREVIOUS_ENGINE;
+      let checkedResult;
       const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
         expectedSchema: CASE_SCHEMA_VERSION,
         expectedToolId: 'seismic-appendage',
-        expectedVersion: TOOL_VERSION,
+        expectedVersion: replayEngine,
         allowSchemaToolIdentity: true,
         capture: () => ({ project: getProjectInfo(), inputs: collectCaseInputs() }),
         apply: source => applyCaseInputs(source),
-        recalculate: () => calcAppendagePage(),
-        getFingerprint: () => buildAppendageReportTrace(lastAppendResult).calculationFingerprint,
+        recalculate: () => {
+          if (!historical) return calcAppendagePage();
+          checkedResult = calculateAppendageResult(true);
+          return true;
+        },
+        getFingerprint: () => buildAppendageReportTrace(historical ? checkedResult : lastAppendResult, replayEngine).calculationFingerprint,
         restore: previous => {
           applyCaseInputs(previous);
           calcAppendagePage();
         }
       });
+      if (historical) {
+        document.getElementById('hostImportance').value = '';
+        calcAppendagePage();
+        setCaseStatus(`已核對舊案 ${replay.calculationFingerprint} 並載入輸入。V2.5 未記錄主體用途，請補選並確認工址後重算。`, 'warn');
+        return;
+      }
       appendageReportInputsChanged = false;
       setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
       setAppendageReportValidationMessage('');
@@ -735,6 +766,32 @@ function initTypeOptions() {
   });
 }
 
+function appendageVillages() {
+  const city = document.getElementById('zoneCity').value;
+  const district = document.getElementById('zoneDist').value;
+  return window.SeismicZones?.BASIN?.[city]?.[district] || {};
+}
+function populateAppendageVillages() {
+  const villages = appendageVillages();
+  const select = document.getElementById('apVillage');
+  select.replaceChildren(new Option('請核對里別', ''));
+  for (const village of Object.keys(villages)) select.add(new Option(village, village));
+  if (villages['所有里']) select.value = '所有里';
+  else if (select.options.length > 1) select.add(new Option('依表 2-6(b) 確認為一般工址', 'general'));
+  document.getElementById('apVillageRow').hidden = select.options.length === 1;
+}
+function syncAppendageSiteControls() {
+  const basin = document.getElementById('chkTaipei');
+  const district = document.getElementById('zoneDist').value;
+  const city = document.getElementById('zoneCity').value;
+  const near = document.getElementById('chkNearFault').checked;
+  basin.disabled = Boolean(district || (city && !window.SeismicZones?.BASIN?.[city]));
+  document.getElementById('SsD').disabled = basin.checked;
+  document.getElementById('siteClass').disabled = basin.checked;
+  document.getElementById('appendSiteHint').textContent = basin.checked
+    ? '表 2-6(c) 三個盆地微分區的 SDS 皆為 0.60 g。'
+    : near ? '請填入近斷層比較後的短週期震區係數，或載入靜力摘要；本次依表 2-4(a) 乘 Fa 得 SDS。' : '依表 2-4(a) 的 Fa 乘短週期震區係數 SsD 得 SDS。';
+}
 function initZoneLookup() {
   if (typeof SeismicZones === 'undefined') return;
   const Z = SeismicZones.ZONES;
@@ -750,6 +807,10 @@ function initZoneLookup() {
   citySel.addEventListener('change', function() {
     distSel.innerHTML = '<option value="">— 選擇鄉鎮市區 —</option>';
     hintEl.textContent = '';
+    populateAppendageVillages();
+    document.getElementById('chkTaipei').checked = false;
+    document.getElementById('chkNearFault').checked = false;
+    syncAppendageSiteControls();
     if (!this.value || !Z[this.value]) return;
     Object.keys(Z[this.value]).forEach(dist => {
       const opt = document.createElement('option');
@@ -761,6 +822,10 @@ function initZoneLookup() {
   distSel.addEventListener('change', function() {
     const city = citySel.value;
     const dist = this.value;
+    populateAppendageVillages();
+    document.getElementById('chkTaipei').checked = Boolean(appendageVillages()['所有里']);
+    document.getElementById('chkNearFault').checked = false;
+    syncAppendageSiteControls();
     if (!city || !dist || !Z[city] || !Z[city][dist]) return;
     const d = Z[city][dist];
     document.getElementById('SsD').value = d[0];
@@ -768,8 +833,23 @@ function initZoneLookup() {
     document.getElementById('SsM').value = d[2];
     document.getElementById('S1M').value = d[3];
     hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
-    document.getElementById('chkTaipei').checked = city === '臺北市' || city === '新北市';
+    if (d[5]?.length && !Object.keys(appendageVillages()).length) {
+      document.getElementById('chkNearFault').checked = true;
+      document.getElementById('SsD').value = '';
+    }
+    syncAppendageSiteControls();
   });
+  document.getElementById('apVillage').addEventListener('change', event => {
+    const basin = Boolean(appendageVillages()[event.target.value]);
+    document.getElementById('chkTaipei').checked = basin;
+    if (basin) document.getElementById('chkNearFault').checked = false;
+    syncAppendageSiteControls();
+  });
+  document.getElementById('chkNearFault').addEventListener('change', event => {
+    if (event.target.checked && !document.getElementById('chkTaipei').checked) document.getElementById('SsD').value = '';
+    syncAppendageSiteControls();
+  });
+  document.getElementById('chkTaipei').addEventListener('change', syncAppendageSiteControls);
 }
 
 function loadStaticSummaryIntoPage() {
@@ -783,22 +863,34 @@ function loadStaticSummaryIntoPage() {
   if (proj.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(proj.name);
   if (proj.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(proj.no);
   if (proj.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);
-  if (proj.zoneCity != null) document.getElementById('zoneCity').value = proj.zoneCity;
+  document.getElementById('zoneCity').value = proj.zoneCity || '';
   document.getElementById('zoneCity').dispatchEvent(new Event('change'));
   if (proj.zoneDist != null) document.getElementById('zoneDist').value = proj.zoneDist;
   if (proj.zoneDist != null) document.getElementById('zoneDist').dispatchEvent(new Event('change'));
-  ['SsD', 'S1D', 'SsM', 'S1M'].forEach(id => {
-    if (isFinite(proj[id])) document.getElementById(id).value = proj[id];
-  });
-  if (proj.siteClass != null) document.getElementById('siteClass').value = proj.siteClass;
-  if (isFinite(proj.hn)) document.getElementById('hn').value = proj.hn;
+  const fields = proj.spectrumInputs || proj;
+  for (const id of ['SsD','S1D','SsM','S1M']) document.getElementById(id).value = fields[id] ?? '';
+  const village = document.getElementById('apVillage');
+  village.value = proj.basinVillage || (appendageVillages()['所有里'] ? '所有里' : '');
+  document.getElementById('chkTaipei').checked = proj.spectrumSource === 'basin' || Boolean(appendageVillages()['所有里']);
+  const listedFaults = window.SeismicZones?.ZONES?.[proj.zoneCity]?.[proj.zoneDist]?.[5];
+  const pendingFault = listedFaults?.length && !document.getElementById('chkTaipei').checked &&
+    !(Number.isFinite(proj.faultDistanceKm) && proj.faultDistanceKm >= 0) && proj.spectrumSource !== 'near-fault-zone';
+  document.getElementById('chkNearFault').checked = proj.spectrumSource === 'near-fault-zone' || Boolean(pendingFault);
+  if (pendingFault || (proj.spectrumSource === 'near-fault-zone' && !proj.spectrumInputs)) document.getElementById('SsD').value = '';
+  document.getElementById('hostImportance').value = proj.importanceKey || '';
+  syncAppendageSiteControls();
+  document.getElementById('siteClass').value = proj.siteClass ?? '';
+  document.getElementById('hn').value = proj.hn ?? '';
   box.innerHTML = `
     <strong>已讀到等值靜力分析摘要</strong><br>
-    案件：${proj.name || '—'} ｜ 工址：${proj.zone || '—'}<br>
-    已同步帶入震區參數、地盤分類與建物總高度。
+    案件：${escHtml(proj.name || '—')} ｜ 工址：${escHtml(proj.zone || '—')}<br>
+    已帶入摘要記錄的主體用途、工址與高度。缺少的分類或里別請依主案補齊。
+    ${pendingFault ? '此區列有斷層，摘要未確認距離。請先在靜力頁確認距離，或獨立核對工址及控制震區係數。' : ''}
   `;
   saveProjectInfo();
-  if (lastAppendResult) appendageReportInputsChanged = true;
+  lastAppendResult = null;
+  document.getElementById('resultPanel').style.display = 'none';
+  renderAppendageReportReadiness();
   updateInputChecks();
   return saved;
 }
@@ -807,20 +899,26 @@ function validateAppendageInputs() {
   const messages = [];
   const num = id => parseFloat(document.getElementById(id)?.value);
   const SsD = num('SsD');
-  const S1D = num('S1D');
-  const SsM = num('SsM');
-  const S1M = num('S1M');
   const hn = num('hn');
   const hx = num('apHx');
   const Wp = num('apWp');
   const Ip = parseFloat(document.getElementById('apIp')?.value);
   const typeVal = document.getElementById('apType')?.value || '';
+  const basin = document.getElementById('chkTaipei').checked;
+  const near = document.getElementById('chkNearFault').checked;
+  const villages = appendageVillages();
+  const village = document.getElementById('apVillage').value;
+  if (!S.IMPORTANCE[document.getElementById('hostImportance').value]) messages.push({ type:'error', text:'請確認主體建築用途分類，以檢核 Ip 下限。' });
+  if (![1,1.5].includes(Ip)) messages.push({ type:'error', text:'請指定構材用途原選值。' });
+  if (!typeVal) messages.push({ type:'error', text:'請選擇構材類型。' });
+  if (!basin && !['1','2','3'].includes(document.getElementById('siteClass').value)) messages.push({ type:'error', text:'請確認地盤分類，以計算 Fa。' });
+  if (Object.keys(villages).length && !village) messages.push({ type:'error', text:'此區含盆地微分區，請確認里別。' });
+  if (village && basin !== Boolean(villages[village])) messages.push({ type:'error', text:'工址里別與盆地設定不一致，請重新選定里別。' });
+  if (basin && document.getElementById('chkTaipei').disabled && !villages[village]) messages.push({ type:'error', text:'此地區未確認為表 2-6(a) 盆地微分區。' });
+  if (basin && near) messages.push({ type:'error', text:'盆地與近斷層採不同的工址公式，請依工址擇一。' });
 
   [
-    ['SsD', SsD],
-    ['S1D', S1D],
-    ['SsM', SsM],
-    ['S1M', S1M],
+    ...(basin ? [] : [['SsD', SsD]]),
     ['建物總高度 hn', hn],
     ['構材重量 Wp', Wp]
   ].forEach(([label, value]) => {
@@ -920,7 +1018,7 @@ function buildAppendageReportReadinessModel(validationMessage = lastAppendReport
       ['控制條件', lastAppendResult.ctrlLabel || '—'],
       ['設計地震力', `Fph ${fmt(lastAppendResult.Fph, 3)} / Fpv ${fmt(lastAppendResult.Fpv, 3)} tf`],
       ['計算書模式', getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式'],
-      ['用途係數 / 韌性', `Ip ${fmt(parseFloat(document.getElementById('apIp')?.value), 1)} / Rpa ${fmt(lastAppendResult.Rpa, 3)}`],
+      ['用途係數 / 韌性', `採用 Ip ${lastAppendResult.Ip} / Rpa ${fmt(lastAppendResult.Rpa, 3)}`],
       ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
     ]
   };
@@ -945,6 +1043,10 @@ function renderAppendageReportReadiness(validationMessage = lastAppendReportVali
 }
 
 function markAppendageReportInputsChanged() {
+  if (lastAppendResult && validateAppendageInputs().some(item => item.type === 'error')) {
+    lastAppendResult = null;
+    document.getElementById('resultPanel').style.display = 'none';
+  }
   if (lastAppendResult) appendageReportInputsChanged = true;
   renderAppendageReportReadiness();
 }
@@ -1043,7 +1145,7 @@ function renderAppendageDiagram(r, options = {}) {
     </div>`;
 }
 
-function calcAppendagePage() {
+function calculateAppendageResult(historical = false) {
   const SsD = parseFloat(document.getElementById('SsD').value);
   const S1D = parseFloat(document.getElementById('S1D').value);
   const SsM = parseFloat(document.getElementById('SsM').value);
@@ -1071,17 +1173,16 @@ function calcAppendagePage() {
   const isNF = document.getElementById('chkNearFault').checked;
   const note = (document.getElementById('apRemark').value || '').trim();
   const typeGroup = typeVal === 'CUSTOM' ? 'CUSTOM' : (typeVal.startsWith('T2_') ? 'T2' : 'T1');
-  const validationMessages = validateAppendageInputs();
-  renderInputChecks(validationMessages);
-  const blockingMessages = validationMessages.filter(message => message.type === 'error');
-  if (blockingMessages.length) {
-    const message = blockingMessages.map(message => message.text).join('；');
-    setInputStatus(message);
-    setAppendageReportValidationMessage(message);
-    return false;
+  const buildingClass = document.getElementById('hostImportance').value;
+  let site;
+  if (historical) site = S.calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M);
+  else if (isTB) site = { SDS: 0.6, source: '表 2-6(c) 臺北盆地' };
+  else {
+    const FaD = S.getFa(siteClass,SsD);
+    site = { SsD, FaD, SDS: FaD * SsD, source: isNF ? '近斷層控制震區係數，依表 2-4(a) 放大' : '一般震區係數，依表 2-4(a) 放大' };
   }
-  const site = S.calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M);
-  const r = S.calcFph({ SDS: site.SDS, Wp, ap, Rp, Ip, hx, hn, isTaipeiBasin: isTB });
+  const r = S.calcFph({ SDS: site.SDS, Wp, ap, Rp, Ip, hx, hn, isTaipeiBasin: isTB,
+    ...(historical ? {} : { buildingI:S.IMPORTANCE[buildingClass].factor }) });
   const Fpv = S.calcFpv(r.Fph, isNF);
   const Cpv = isNF ? (2 / 3) * r.Cph : 0.5 * r.Cph;
   const ctrlLabel = r.controlled === 'max'
@@ -1089,7 +1190,24 @@ function calcAppendagePage() {
     : r.controlled === 'min'
       ? '受式(4-1c)下限控制'
       : '採式(4-1a)計算值';
-  lastAppendResult = { ...r, Fpv, Cpv, site, ctrlLabel, typeName, typeGroup, note, isNearFault: isNF, isTaipeiBasin: isTB };
+  return { ...r, Fpv, Cpv, site, ctrlLabel, typeName, typeGroup, note, isNearFault: isNF, isTaipeiBasin: isTB,
+    ...(historical ? {} : { buildingClass, village:document.getElementById('apVillage').value }) };
+}
+function calcAppendagePage() {
+  const validationMessages = validateAppendageInputs();
+  renderInputChecks(validationMessages);
+  const errors = validationMessages.filter(message => message.type === 'error');
+  if (errors.length) {
+    const message = errors.map(item => item.text).join('；');
+    lastAppendResult = null;
+    document.getElementById('resultPanel').style.display = 'none';
+    setInputStatus(message);
+    setAppendageReportValidationMessage(message);
+    return false;
+  }
+  const r = calculateAppendageResult();
+  const { typeName, site, ctrlLabel, Fpv, Cpv, ap, Rp, Ip, Wp, hx, hn, isNearFault:isNF, isTaipeiBasin:isTB } = r;
+  lastAppendResult = r;
   document.getElementById('resultPanel').style.display = '';
   document.getElementById('banner').className = 'banner-status ok';
   document.getElementById('banner').innerHTML =
@@ -1141,10 +1259,10 @@ function calcAppendagePage() {
       <div class="step-body">
         <div class="calc-unit">
         <strong>① 工址與構材條件</strong><br>
-        S<sub>DS</sub> = <span class="val">${fmt(site.SDS,4)}</span> g，
+        ${site.source}${r.isTaipeiBasin ? '' : `（SsD＝${fmt(site.SsD,4)}，Fa＝${fmt(site.FaD,4)}）`}。S<sub>DS</sub> = <span class="val">${fmt(site.SDS,4)}</span> g，
         a<sub>p</sub> = ${ap}，
         R<sub>p</sub> = ${Rp}，
-        I<sub>p</sub> = ${Ip}，
+        構材原選值 ${r.componentIp}，主體 I = ${r.buildingI}，採用 I<sub>p</sub> = ${Ip}，
         W<sub>p</sub> = ${Wp} tf<br>
         h<sub>x</sub> = ${hx} m，
         h<sub>n</sub> = ${hn} m，
@@ -1204,12 +1322,12 @@ function calcAppendagePage() {
   return true;
 }
 
-function buildAppendageReportTrace(result) {
+function buildAppendageReportTrace(result, engine = TOOL_VERSION) {
   return window.ToolReportUI.buildReportTrace({
     title: '附屬構造物地震力計算書',
     subtitle: '依「建築物耐震設計規範及解說」113 年版｜第四章附屬構造物',
     outputSource: { tool: '附屬構造物地震力', version: PUBLIC_TOOL_VERSION },
-    snapshot: { reportMode: getPrintReportMode(), calculationEngine: TOOL_VERSION, result },
+    snapshot: { reportMode: getPrintReportMode(), calculationEngine: engine, result },
   });
 }
 function openAppendageReport() {
@@ -1220,8 +1338,9 @@ function openAppendageReport() {
   const r = lastAppendResult;
   const proj = getProjectInfo();
   const today = new Date().toLocaleDateString('zh-TW');
-  const zoneText = [document.getElementById('zoneCity').value, document.getElementById('zoneDist').value].filter(Boolean).join(' ') || '採指定震區參數';
-  const siteClassText = document.getElementById('siteClass').selectedOptions[0]?.textContent || '—';
+  const zoneText = [document.getElementById('zoneCity').value, document.getElementById('zoneDist').value,
+    r.village === 'general' ? '表 2-6(b) 一般工址' : r.village].filter(Boolean).join(' ') || '採指定工址';
+  const siteClassText = r.isTaipeiBasin ? '依盆地表值' : document.getElementById('siteClass').selectedOptions[0]?.textContent || '—';
   const includeCalcDetail = getPrintReportMode() === 'detail';
   const reportTrace = buildAppendageReportTrace(r);
   const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
@@ -1245,8 +1364,7 @@ function openAppendageReport() {
         <h3>工址與建物條件</h3>
         <table><tbody>
           <tr><th>工址地區</th><td>${escHtml(zoneText)}</td></tr>
-          <tr><th>SsD / S1D</th><td>${escHtml(document.getElementById('SsD').value)} / ${escHtml(document.getElementById('S1D').value)} g</td></tr>
-          <tr><th>SsM / S1M</th><td>${escHtml(document.getElementById('SsM').value)} / ${escHtml(document.getElementById('S1M').value)} g</td></tr>
+          <tr><th>採用 SDS 及依據</th><td>${fmt(r.SDS,4)} g，${escHtml(r.site.source)}${r.isTaipeiBasin ? '' : `，SsD＝${fmt(r.site.SsD,4)}，Fa＝${fmt(r.site.FaD,4)}`}</td></tr>
           <tr><th>地盤分類</th><td>${escHtml(siteClassText)}</td></tr>
           <tr><th>建物總高度 h_n</th><td>${fmt(r.hn,2)} m</td></tr>
           <tr><th>臺北盆地韌性調整</th><td>${r.isTaipeiBasin ? '啟用' : '未啟用'}</td></tr>
@@ -1258,7 +1376,7 @@ function openAppendageReport() {
         <table><tbody>
           <tr><th>構材類型</th><td>${escHtml(r.typeName)}</td></tr>
           <tr><th>a_p / R_p</th><td>${r.ap} / ${r.Rp}</td></tr>
-          <tr><th>I_p</th><td>${r.Ip}</td></tr>
+          <tr><th>構材用途原選值／主體 I／採用 Ip</th><td>${r.componentIp} ／ ${r.buildingI}（${escHtml(S.IMPORTANCE[r.buildingClass].name)}）／ ${r.Ip}</td></tr>
           <tr><th>構材重量 W_p</th><td>${fmt(r.Wp,3)} tf</td></tr>
           <tr><th>固定高度 h_x</th><td>${fmt(r.hx,2)} m</td></tr>
           <tr><th>案件說明</th><td>${escHtml(r.note || '—')}</td></tr>
@@ -1289,6 +1407,7 @@ function openAppendageReport() {
         <div class="detail-basis">
           <strong>規範依據與工址摘要</strong><br>
           依「建築物耐震設計規範及解說」113 年版第四章附屬構造物；工址地區：${escHtml(zoneText)}；
+          工址依據：${escHtml(r.site.source)}${r.isTaipeiBasin ? '' : `，SsD＝${fmt(r.site.SsD,4)}，Fa＝${fmt(r.site.FaD,4)}`}；SDS＝${fmt(r.SDS,4)} g。<br>
           地盤分類：${escHtml(siteClassText)}；臺北盆地韌性調整：${r.isTaipeiBasin ? '啟用' : '未啟用'}；
           近斷層垂直力比值：${r.isNearFault ? '採 2/3 Fph' : '採 1/2 Fph'}。
         </div>
@@ -1394,11 +1513,15 @@ document.getElementById('caseJsonFile').addEventListener('change', event => impo
 document.querySelectorAll('.mode-segment').forEach(button => {
   button.addEventListener('click', () => syncPrintReportMode(button.dataset.reportMode));
 });
+for (const [key,item] of Object.entries(S.IMPORTANCE)) {
+  document.getElementById('hostImportance').add(new Option(`${item.name}　I＝${item.factor}`,key));
+}
 initTypeOptions();
 initZoneLookup();
+syncAppendageSiteControls();
 syncPrintReportMode(DEFAULT_CASE_INPUTS.values.printReportMode);
 restoreProjectInfo();
-['SsD', 'S1D', 'SsM', 'S1M', 'siteClass', 'hn', 'apCustom', 'rpCustom', 'apWp', 'apIp', 'apHx', 'chkTaipei', 'chkNearFault'].forEach(function(id) {
+['SsD', 'apVillage', 'hostImportance', 'siteClass', 'hn', 'apCustom', 'rpCustom', 'apWp', 'apIp', 'apHx', 'chkTaipei', 'chkNearFault'].forEach(function(id) {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', updateInputChecks);

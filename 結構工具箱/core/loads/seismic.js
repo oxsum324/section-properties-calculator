@@ -800,29 +800,20 @@
     { name: '照明設備',                    ap: 1.0,  Rp: 1.25 },
   ];
 
-  /**
-   * 式 (4-2): 容許耐震韌性容量 Rpa
-   * @param {number} Rp — 地震反應折減係數
-   * @param {boolean} isTaipeiBasin — 是否為臺北盆地
-   */
-  function calcRpa(Rp, isTaipeiBasin) {
-    return isTaipeiBasin ? 1 + (Rp - 1) / 2.0 : 1 + (Rp - 1) / 1.5;
-  }
+  // 式 (4-2a,b) 以 Rp 代入與式 (2-10,11) 相同的分區關係。
+  const calcRpa = calcRa;
 
   /**
    * 式 (4-1): 附屬構造物水平地震力 Fph
-   * @param {object} p
-   *   SDS     — 工址短週期設計譜加速度 (g)
-   *   Wp      — 構材重量 (tf)
-   *   ap      — 共振放大係數
-   *   Rp      — 地震反應折減係數
-   *   Ip      — 構材用途係數
-   *   hx      — 構材固定高度 (m)
-   *   hn      — 建物總高度 (m)
-   *   isTaipeiBasin — 是否為臺北盆地
+   * SDS (g)、Wp (tf)、hx 與 hn (m)。提供主體 buildingI 時依 4.2 取大；
+   * 舊介面直接傳已採用的 Ip。
    */
   function calcFph(p) {
-    const { SDS, Wp, ap, Rp, Ip = 1.0, hx = 0, hn = 1, isTaipeiBasin = false } = p;
+    const { SDS, Wp, ap, Rp, Ip: componentIp = 1, buildingI, hx = 0, hn = 1, isTaipeiBasin = false } = p;
+    if (buildingI !== undefined && (![1, 1.25, 1.5].includes(buildingI) || ![1, 1.5].includes(p.Ip))) {
+      throw new RangeError('請確認主體與構材用途係數');
+    }
+    const Ip = buildingI === undefined ? componentIp : Math.max(componentIp, buildingI);
     const Rpa = calcRpa(Rp, isTaipeiBasin);
     const Cph_calc = 0.4 * SDS * Ip * (ap / Rpa) * (1 + 2 * hx / hn);
     const Cph_max = 1.6 * SDS * Ip;
@@ -833,7 +824,8 @@
     const Fph_min = Cph_min * Wp;
     const Fph = Cph * Wp;
     const controlled = Cph_calc > Cph_max ? 'max' : Cph_calc < Cph_min ? 'min' : 'calc';
-    return { Fph, Fph_calc, Fph_max, Fph_min, Cph, Cph_calc, Cph_max, Cph_min, Rpa, controlled, ap, Rp, Ip, hx, hn, SDS, Wp };
+    return { Fph, Fph_calc, Fph_max, Fph_min, Cph, Cph_calc, Cph_max, Cph_min, Rpa, controlled, ap, Rp, Ip, hx, hn, SDS, Wp,
+      ...(buildingI === undefined ? {} : { componentIp, buildingI }) };
   }
 
   /**

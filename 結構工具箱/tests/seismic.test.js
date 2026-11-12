@@ -181,6 +181,21 @@ function run() {
   approx(S.calcFpv(appendage.Fph, false) / appendage.Wp, 0.5 * appendage.Cph, 1e-9, 'appendage general vertical coefficient');
   approx(S.calcFpv(appendage.Fph, true) / appendage.Wp, (2 / 3) * appendage.Cph, 1e-9, 'appendage near-fault vertical coefficient');
 
+  const attachment = { SDS: 0.6, Wp: 10, ap: 1, Rp: 2.5, hx: 5, hn: 10, Ip: 1 };
+  for (const [ap, expected] of [[0.1, 1.8], [1, 2.4], [10, 9.6]]) {
+    for (const buildingI of [1, 1.25, 1.5]) {
+      const r = S.calcFph({ ...attachment, ap, buildingI });
+      approx(r.Fph, expected * buildingI, 1e-10, 'host minimum applies to adopted force');
+      assert.equal(r.componentIp, 1);
+      assert.equal(r.Ip, buildingI);
+    }
+  }
+  assert.equal(S.calcFph({ ...attachment, Ip: 1.5, buildingI: 1.25 }).Ip, 1.5);
+  approx(S.calcFph({ ...attachment, Ip: 1.25 }).Fph, 3, 1e-10, 'legacy adopted Ip');
+  for (const buildingI of [null, 0, NaN, 1.2]) assert.throws(() => S.calcFph({ ...attachment, buildingI }), /用途係數/);
+  assert.throws(() => S.calcFph({ ...attachment, Ip: 1.25, buildingI: 1 }), /用途係數/);
+  assert.throws(() => S.calcFph({ ...attachment, Ip: undefined, buildingI: 1 }), /用途係數/);
+
   const signIdx = S.TABLE_5_2.findIndex(item => item.name === '招牌及廣告版');
   for (const period of [undefined, null, '', -0.01, NaN, Infinity]) {
     for (const mode of ['similar', 'nonsimilar']) {

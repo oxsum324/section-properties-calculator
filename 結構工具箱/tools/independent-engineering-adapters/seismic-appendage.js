@@ -33,6 +33,8 @@ function validateInput(input) {
     if (typeof item?.isTaipeiBasin !== 'boolean' || typeof item?.isNearFault !== 'boolean') {
       issues.push(`${item?.id || 'case'}:boolean-region-flags-required`);
     }
+    if (![1,1.25,1.5].includes(item?.buildingI)) issues.push(`${item?.id || 'case'}:building-importance-required`);
+    if (item?.isTaipeiBasin && (item.isNearFault || item.SDS !== 0.6)) issues.push(`${item.id}:inconsistent-basin`);
   }
   return issues;
 }
@@ -43,7 +45,7 @@ function calculate(input) {
   return Object.fromEntries(input.cases.map(item => {
     const horizontal = Seismic.calcFph({
       SDS:Number(item.SDS), Wp:Number(item.Wp), ap:Number(item.ap), Rp:Number(item.Rp),
-      Ip:Number(item.Ip), hx:Number(item.hx), hn:Number(item.hn), isTaipeiBasin:item.isTaipeiBasin
+      Ip:Number(item.Ip), buildingI:item.buildingI, hx:Number(item.hx), hn:Number(item.hn), isTaipeiBasin:item.isTaipeiBasin
     });
     const Fpv = Seismic.calcFpv(horizontal.Fph, item.isNearFault);
     return [item.id, {
