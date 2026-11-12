@@ -761,11 +761,9 @@ async function main() {
     await exerciseFoundationProjectStorage(page);
     await exerciseEarthPressureBridge(page);
     await exercisePilePyBridge(page);
-    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
-    await wait(300);
-
     for (const tc of pack.cases) {
-      await page.evaluate(() => window.clearEarthPressureSource?.({ silent: true }));
+      // A preceding load case must not supply moments, materials or reinforcement to the next one.
+      await page.goto(TOOL_URL, { waitUntil: 'domcontentloaded' });
       await page.click(`#mainTabs button[data-tab="${tc.tab}"]`);
       if (tc.earthPressureInput) {
         await page.evaluate(input => {
