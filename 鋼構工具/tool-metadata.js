@@ -38,6 +38,6 @@
     plate: defineTool('steel-plate-formal', '連接板正式規範核算工具', 'V1.1'),
     tension: defineTool('steel-tension-formal', '拉力構件正式規範核算工具', 'V1.1'),
     beam: defineTool('steel-beam-formal', '鋼梁正式規範核算工具', 'V1.2.1'),
-    column: defineTool('steel-column-formal', '鋼柱正式規範核算工具', 'V1.3'),
+    column: defineTool('steel-column-formal', '鋼柱正式規範核算工具', 'V1.4'),
   });
 })(typeof window !== 'undefined' ? window : globalThis);

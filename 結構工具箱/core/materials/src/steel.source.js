@@ -574,8 +574,8 @@
       kc, Qs, Qa, Q, be, Fa, Cc, zone: KLr < Cc ? 'inelastic' : 'elastic' };
   }
 
-  // 附錄一第 4 款：受壓細長板件 H 型柱之軸力及雙軸彎矩互制。
-  function calcSlenderHColumnAsd(sec, Fy, pn, Lb, Cb, Pu, Mx, My, Cmx, Cmy) {
+  // 熱軋雙對稱 H 型柱；第 7、8 章及附錄一，載重通過剪力中心且翼腹板連續。
+  function calcHColumnAsd(sec, Fy, pn, Lb, Cb, Pu, Mx, My, Cmx, Cmy) {
     const local = pn.asd;
     const fyTf = Fy / 1000;
     const flangeArea = sec.B * sec.tf;
@@ -586,17 +586,37 @@
     const rT = Math.sqrt(iyT / areaT);
     const lengthRatio = Lb / rT;
     const cap = 0.6 * Fy * local.Qs;
+    const rootFy = Math.sqrt(fyTf);
+    const scaledFlange = local.cls.lambdaF * rootFy;
+    const LcFlange = 20 * sec.B / rootFy;
+    const LcSection = 1400 * flangeArea / (sec.H * fyTf);
+    const Lc = Math.min(LcFlange, LcSection);
+    // 表 4.5-1 受純撓曲熱軋翼板。非細長軸壓腹板亦滿足純撓曲的結實寬厚比。
+    const compact = local.cls.lambdaF <= 17 / rootFy;
+    const eligibleForIncrease = fyTf <= 4.55;
+    const slender = local.cls.isSlender;
     function majorStress(cb) {
+      if (!slender && Lb <= Lc && eligibleForIncrease) {
+        return compact ? {stress:0.66 * Fy, rule:'7.2-1'} : {stress:(0.79 - 0.0075 * scaledFlange) * Fy, rule:'7.2-2'};
+      }
       const scaled = fyTf * lengthRatio**2 / cb;
-      if (scaled < 7160) return cap;
+      const limitRule = slender ? '附錄一 0.60FyQs' : '0.60Fy';
+      if (scaled < 7160) return {stress:cap, rule:limitRule};
       const fromRadius = scaled <= 35800 ? (2/3 - scaled / 107600) * fyTf : 12000 * cb / lengthRatio**2;
       const fromFlange = 840 * cb * flangeArea / (Lb * sec.H);
-      return Math.min(cap, 1000 * Math.max(fromRadius, fromFlange));
+      const stress = 1000 * Math.max(fromRadius, fromFlange);
+      // 長側撐一律核 §7.2.3；與 §7.2.2(3) 重疊時亦保留側扭上限。
+      const rule = fromFlange >= fromRadius ? '7.2-8' : scaled <= 35800 ? '7.2-6' : '7.2-7';
+      return stress >= cap ? {stress:cap, rule:limitRule} : {stress, rule};
     }
     const cbUsed = Math.min(Cb, 2.3);
-    const Fbx = majorStress(cbUsed);
-    const Fby = cap;
-    const stableFbx = majorStress(1); // 有側撐構架，式 8.2-1 採 Cb＝1
+    const major = majorStress(cbUsed), stability = majorStress(1);
+    const Fbx = major.stress, stableFbx = stability.stress;
+    let Fby = cap, minorRule = slender ? '附錄一 0.60FyQs' : '7.3-2';
+    if (!slender && eligibleForIncrease) {
+      Fby = (compact ? 0.75 : 1.075 - 0.019 * scaledFlange) * Fy;
+      minorRule = compact ? '7.3-1' : '7.3-3';
+    }
     // 腹板有效帶留在兩翼板邊。以容許壓應力包絡取一致有效斷面，保留根部圓角。
     const be = local.cls.webSlender ? asdWebWidth(sec, Math.max(local.Fa * local.Qs, Fbx, Fby)) : sec.hw;
     const omitted = sec.hw - be;
@@ -615,6 +635,7 @@
     const IR2 = simplified ? 0 : fa/(0.6 * Fy * local.Q) + fbx/Fbx + fby/Fby;
     const plateGirder = Math.abs(Mx) > 0 && local.cls.lambdaW > 260 / Math.sqrt(fyTf);
     return { fa, fbx, fby, Fbx, stableFbx, Fby, Fex, Fey, cbUsed, rT, be, Sx, Sy, IR1, IR2, ratio,
+      Lc, LcFlange, LcSection, compact, majorRule:major.rule, stabilityRule:stability.rule, minorRule,
       eqUsed: simplified ? 'simplified' : 'full', plateGirder, ok: !plateGirder && Math.max(IR1, IR2) <= 1 };
   }
 
@@ -1487,7 +1508,8 @@
     calcK,
     calcPn,
     calcPnForSourceReplay,
-    calcSlenderHColumnAsd,
+    calcHColumnAsd,
+    calcSlenderHColumnAsd: calcHColumnAsd,
     calcInteraction,
     calcInteractionASD,
     calcB1,

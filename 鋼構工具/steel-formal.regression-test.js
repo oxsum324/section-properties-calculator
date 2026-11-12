@@ -207,12 +207,41 @@ assert.ok(Math.abs(appendixAxial.Pa_asd_tf - 90.2548538840) < 1e-8);
 assert.ok(Steel.calcPnForSourceReplay(appendixFlange, 2500, 42, 60).Pa_asd_tf > 92.3 && appendixAxial.Pa_asd_tf < 92.3);
 const appendixWeb = Steel.calcProps({H:300, B:180, tw:2, tf:12, R:0});
 const webColumn = Steel.calcPn(appendixWeb, 2500, 42, 60);
-const webCombined = Steel.calcSlenderHColumnAsd(appendixWeb, 2500, webColumn, 200, 1, 13000, 300000, 50000, .85, .85);
+const webCombined = Steel.calcHColumnAsd(appendixWeb, 2500, webColumn, 200, 1, 13000, 300000, 50000, .85, .85);
 assert.ok(Math.abs(webColumn.Pa_asd_tf - 55.7953776864) < 1e-8);
 assert.ok(Math.abs(webColumn.asd.Qa - 0.9339946073) < 1e-8);
 assert.ok(Math.abs(webCombined.Sx - 615.0266294013) < 1e-8);
 assert.ok(Math.abs(webCombined.IR1 - 0.7629950137) < 1e-8);
 assert.ok(Math.abs(webCombined.IR2 - 0.7728478588) < 1e-8);
+// 第七章熱軋全斷面 H 柱。Fy=2500、Sy=450.216 cm³ 時，7.3-1 容許 8.44155 tf·m。
+const ordinarySection = Steel.calcProps({H:300, B:300, tw:10, tf:15, R:13});
+const ordinaryAxial = Steel.calcPn(ordinarySection, 2500, 42, 60);
+const weakLimit = Steel.calcHColumnAsd(ordinarySection, 2500, ordinaryAxial, 300, 1, 0, 0, 933000, .85, .85);
+assert.equal(weakLimit.minorRule, "7.3-1");
+assert.ok(Math.abs(weakLimit.Fby * weakLimit.Sy / 1e5 - 8.4415530661) < 1e-8);
+assert.equal(weakLimit.ok, false);
+const longH = Steel.calcProps({H:500, B:200, tw:12, tf:12, R:0});
+const longPn = Steel.calcPn(longH, 2500, 42, 60);
+{
+  const c = Steel.calcHColumnAsd(longH, 2500, longPn, 300, 1, 25000, 800000, 100000, .85, .85);
+  assert.equal(c.majorRule, "7.2-6");
+  assert.ok(Math.abs(c.Fbx - 1447.9385828610) < 1e-8 && Math.abs(c.stableFbx - 1447.9385828610) < 1e-8);
+}
+{
+  const c = Steel.calcHColumnAsd(longH, 2500, longPn, 590, 1, 25000, 800000, 100000, .85, .85);
+  assert.equal(c.majorRule, "7.2-7");
+  assert.ok(Math.abs(c.Fbx - 823.9159871625) < 1e-8 && Math.abs(c.stableFbx - 823.9159871625) < 1e-8);
+}
+{
+  const c = Steel.calcHColumnAsd(longH, 2500, longPn, 720, 1, 25000, 800000, 100000, .85, .85);
+  assert.equal(c.majorRule, "7.2-8");
+  assert.ok(Math.abs(c.Fbx - 560.0000000000) < 1e-8 && Math.abs(c.stableFbx - 560.0000000000) < 1e-8);
+}
+{
+  const c = Steel.calcHColumnAsd(longH, 2500, longPn, 600, 1.8, 25000, 800000, 100000, .85, .85);
+  assert.equal(c.majorRule, "7.2-8");
+  assert.ok(Math.abs(c.Fbx - 1209.6000000000) < 1e-8 && Math.abs(c.stableFbx - 796.6809864757) < 1e-8);
+}
 // (2) HSS shear (AISC 360-16 G1, G4, G5): phi_v = 0.90 / Omega_v = 1.67; phi = 1.00 of G2.1(a) applies only to rolled I-shape webs.
 //     SHS 200x200x9, Fy = 3300: t = 0.93*0.9 = 0.837 cm, h = 20 - 3t = 17.489 cm, h/t = 20.89 <= 1.10*sqrt(5E/Fy) -> Cv2 = 1,
 //     Aw = 2*h*t = 29.2766 cm2, Vn = 0.6*3300*29.2766 = 57.968 tf, phiVn = 52.171 tf, Vn/Omega = 34.711 tf.
@@ -404,7 +433,7 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, ["connection","column"].includes(key) ? "V1.3" : key === "beam" ? "V1.2.1" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
+  assert.equal(metadata.version, key === "column" ? "V1.4" : key === "connection" ? "V1.3" : key === "beam" ? "V1.2.1" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
 }
 const momentModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.beamColumnMoment;
 assert.equal(momentModuleMetadata?.state, "formal", "connection metadata should mark the scoped beam-column moment review formal");
@@ -541,7 +570,7 @@ for (const [label, html, expectedVersion, navFamily] of [
   ["steel main", indexSource, "V1.3", "steel"],
   ["steel plate", plateCheckSource, "V1.1", "attachments"],
   ["steel beam", beamFormalHtmlSource, "V1.2.1", "steel"],
-  ["steel column", columnFormalHtmlSource, "V1.3", "steel"],
+  ["steel column", columnFormalHtmlSource, "V1.4", "steel"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
   const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";
@@ -1051,7 +1080,7 @@ assert.match(
 );
 assert.match(
   columnFormalSource,
-  /Steel\.calcProps\(mm\)[\s\S]*Steel\.classifyCompression\(sec, Fy\)[\s\S]*Steel\.calcPnForSourceReplay : Steel\.calcPn[\s\S]*compression\(sec, Fy, KLrX, KLrY\)[\s\S]*Steel\.calcSlenderHColumnAsd\([\s\S]*Steel\.calcMn\(sec, Fy, Lbx, Cbx\)[\s\S]*Steel\.calcMny\(sec, Fy\)[\s\S]*Steel\.calcInteractionASD\(/,
+  /Steel\.calcProps\(mm\)[\s\S]*Steel\.classifyCompression\(sec, Fy\)[\s\S]*Steel\.calcPnForSourceReplay : Steel\.calcPn[\s\S]*compression\(sec, Fy, KLrX, KLrY\)[\s\S]*Steel\.calcHColumnAsd\([\s\S]*Steel\.calcMn\(sec, Fy, Lbx, Cbx\)[\s\S]*Steel\.calcMny\(sec, Fy\)[\s\S]*Steel\.calcInteractionASD\(/,
   "steel-column-formal.js should route H-section ASD compression and interaction through the production steel core covered by the independent benchmark",
 );
 assert.match(

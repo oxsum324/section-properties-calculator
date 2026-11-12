@@ -910,7 +910,7 @@
     if (!result.interOk) {
       return {
         value: "互制檢核未通過",
-        note: `互制比 ${result.interRatioText}；請檢視 B1 放大、端彎矩係數與彎矩需求。`,
+        note: result.bending ? `互制比 ${result.interRatioText}；請核對強弱軸容許應力及第八章控制式。` : `互制比 ${result.interRatioText}；請檢視 B1 放大、端彎矩係數與彎矩需求。`,
         tone: "fail",
       };
     }
@@ -975,9 +975,28 @@
   }
 
   const f4 = value => Number(value).toFixed(4);
-  function appendixSteps(result) {
+  function hColumnAsdSteps(result) {
     const {local, bending, sec} = result;
     const {cls} = local;
+    if (!cls.isSlender) {
+      const area = f2(sec.A), fa = f2(local.Fa);
+      return [
+        {group:"1. 雙對稱熱軋 H 型鋼、全斷面與容許軸壓",
+          body:[`翼腹板連續、載重通過剪力中心；無側移、未提高容許應力。Fy = ${f2(result.Fy)} kgf/cm²。`,
+            `b/t = ${f4(cls.lambdaF)}，λp（純撓曲翼板）= ${f4(17 / Math.sqrt(result.Fy/1000))}；h/tw = ${f4(cls.lambdaW)}。`,
+            `KxLx/rx = ${f2(result.KLrX)}，KyLy/ry = ${f2(result.KLrY)}；Cc = ${f2(local.Cc)}。`,
+            `式 (${local.zone === "elastic" ? "6.3-2" : "6.3-1"})，Fa = ${fa} kgf/cm²，Pa = Fa × A = ${fa} × ${area} / 1000 = ${f2(result.designPcTf)} tf。`].join("\n")},
+        {group:"2. 第七章雙軸容許彎矩",
+          body:[`Lc = min(20bf/√Fy, 1400Af/(dFy)) = min(${f2(bending.LcFlange)}, ${f2(bending.LcSection)}) = ${f2(bending.Lc)} cm（Fy 代入 tf/cm²）。`,
+            `Lb = ${f2(result.Lbx)} cm，rT = ${f4(bending.rT)} cm，採用 Cb = ${f2(bending.cbUsed)}。`,
+            `強軸依 ${bending.majorRule}：Fbx = ${f2(bending.Fbx)} kgf/cm²，Sx = ${f4(bending.Sx)} cm³，容許彎矩 = ${f2(bending.Fbx*bending.Sx/1e5)} tf·m。`,
+            `弱軸依 ${bending.minorRule}：Fby = ${f2(bending.Fby)} kgf/cm²，Sy = ${f4(bending.Sy)} cm³，容許彎矩 = ${f2(bending.Fby*bending.Sy/1e5)} tf·m。`].join("\n")},
+        ...(result.MuxTf || result.MuyTf ? [{group:"3. 第八章軸力與彎矩互制",
+          body:[`fa / fbx / fby = ${f2(bending.fa)} / ${f2(bending.fbx)} / ${f2(bending.fby)} kgf/cm²。`,
+            ...(bending.eqUsed === "full" ? [`式 (8.2-1) 取 Cb＝1，強軸依 ${bending.stabilityRule}，Fbx = ${f2(bending.stableFbx)} kgf/cm²。`] : []),
+            ...result.interDetail].join("\n")}] : []),
+      ];
+    }
     return [
       { group: "1. 熱軋雙對稱 H 型鋼，表 4.5-1",
         body: `翼板 b/t = ${f2(cls.lambdaF)}，λr = ${f2(cls.lrf_comp)}；腹板 h/tw = ${f2(cls.lambdaW)}，λr = ${f2(cls.lrw_comp)}。\nA = ${f2(sec.A)} cm²，rx / ry = ${f2(sec.rx)} / ${f2(sec.ry)} cm。` },
@@ -996,7 +1015,7 @@
   }
 
   function buildReportSteps(result) {
-    if (result.bending) return appendixSteps(result);
+    if (result.bending) return hColumnAsdSteps(result);
     const axialFactorLine = result.isLRFD
       ? `φc = ${f2(Steel.PHI.compress)}，φPn = ${f2(Steel.PHI.compress)} × ${f2(result.pn.Pn / 1000)} = ${f2(result.designPcTf)} tf`
       : `Ωc = ${f2(Steel.OMEGA.compress)}，Pn/Ωc = ${f2(result.pn.Pn / 1000)} / ${f2(Steel.OMEGA.compress)} = ${f2(result.pn.PnOmega_tf)} tf；本頁 ASD 比較值採 Pa = ${f2(result.designPcTf)} tf`;
@@ -1052,6 +1071,11 @@
   }
 
   function buildReportSymbols(result, { includeFlow = true } = {}) {
+    if (result.bending && !result.local.cls.isSlender) return [
+      {sym:"Fa", desc:"依第 6.3 節求容許軸壓應力，以全斷面積計算容許軸力。"},
+      {sym:"Fbx / Fby", desc:"依第 7.2、7.3 節分別求強、弱軸容許撓曲應力。"},
+      {sym:"Lc", desc:"強軸短側撐條件的上限；與壓力翼板的未支撐長度 Lb 比較。"},
+    ];
     if (result.bending) return [
       {sym:"Fa", desc:"附錄一容許軸壓應力，乘全斷面積 A 得容許軸力。"},
       {sym:"Qs / Qa", desc:"未加勁翼板與加勁腹板之折減，Q = Qs × Qa。"},
@@ -1086,6 +1110,7 @@
   }
 
   function buildReportNotes(result) {
+    if (result.bending && !result.local.cls.isSlender) return ["熱軋雙對稱 H 柱採第六、七、八章傳統容許應力法。若側撐條件重疊，仍依第 7.2.3 節核對強軸容許應力。"];
     if (result.bending) return ["熱軋雙對稱 H 型鋼依容許應力設計法表 4.5-1、附錄一及第八章檢核；採無側移、未提高容許應力。"];
     const lengthDigits = unitMode === "si" ? 3 : 1;
     const lengthUnit = getQuantityUnit("memberLength");
@@ -1155,7 +1180,7 @@
       reminders.push({
         level: "fail",
         title: "互制檢核未通過",
-        body: "軸力—彎矩互制比已超過允許值，請優先檢視 B1 放大、端彎矩係數與主弱軸彎矩需求，並依第八章組合力條文調整。",
+        body: result.bending ? "請依第八章控制式核對工作軸力、雙軸彎矩、側撐間距及採用的容許應力。" : "軸力—彎矩互制比已超過允許值，請優先檢視 B1 放大、端彎矩係數與主弱軸彎矩需求，並依第八章組合力條文調整。",
       });
     }
     $("columnReminderList").innerHTML = reminders.map((item) => `
@@ -1439,7 +1464,7 @@
 
   function renderFlow(result) {
     if (result.bending) {
-      $("columnFlowBody").replaceChildren(...appendixSteps(result).map(step => {
+      $("columnFlowBody").replaceChildren(...hColumnAsdSteps(result).map(step => {
         const card = document.createElement("div");
         card.className = "step-card";
         const title = document.createElement("h4");
@@ -1595,8 +1620,9 @@
     const pn = sectionType === "h" ? compression(sec, Fy, KLrX, KLrY) : Steel.calcPnNonslender(sec, Fy, KLrX, KLrY);
     const local = !isLRFD && pn.asd ? pn.asd : null;
     if (local) clsC = local.cls;
-    const appendix = local?.cls.isSlender;
-    const bending = appendix ? Steel.calcSlenderHColumnAsd(sec, Fy, pn, Lbx, Cbx, PuTf * 1000, MuxTf * 1e5, MuyTf * 1e5, Cmx, Cmy) : null;
+    // V1.3 的非細長 H 柱來源仍須用當時的 Mn/Ωb 重現原始指紋。
+    const useHColumnAsd = local && (local.cls.isSlender || sourceVersion !== "v1.3");
+    const bending = useHColumnAsd ? Steel.calcHColumnAsd(sec, Fy, pn, Lbx, Cbx, PuTf * 1000, MuxTf * 1e5, MuyTf * 1e5, Cmx, Cmy) : null;
     if (bending?.plateGirder) return inputFail("此腹板深厚比超過 260/√Fy，強軸彎矩須另依容許應力法第 7.8 節板梁規定檢核。");
     const designPcTf = isLRFD ? pn.phiPn_tf : pn.Pa_asd_tf;
     const axialOk = designPcTf >= PuTf;
@@ -1865,7 +1891,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2", "v1.2.1"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");

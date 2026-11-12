@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>鋼柱設計與檢核 V3.4</title>
+<title>鋼柱設計與檢核 V3.5</title>
 <link rel="stylesheet" href="../../../tool-chrome.css">
 <link rel="stylesheet" href="../../assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../../core/family-theme.css">
@@ -84,7 +84,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div id="legacyDirectPrintNotice" class="legacy-direct-print-notice"><strong>此頁直接列印不提供計算附件。</strong><br>請先確認既有案件用途，再使用「鋼柱舊案延續計算記錄」產生可列印輸出；新案正式計算附件必須由鋼柱正式頁面產出。</div>
 <header>
-  <h1>鋼柱設計與檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.4</span></h1>
+  <h1>鋼柱設計與檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.5</span></h1>
   <p>LRFD (AISC 360) / ASD (傳統容許應力法) 雙模式 ｜ 台灣鋼結構設計規範</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
@@ -126,7 +126,7 @@
         <div class="form-group"><label>tf 翼板厚 (mm)</label><input type="number" id="inTf" value="15"></div>
       </div>
       <div class="form-group"><label>R 圓角 (mm)</label><input type="number" id="inR" value="13"></div>
-            <p class="hint">ASD 細長板件檢核採雙對稱熱軋 H 型鋼、無側移構架及未提高的容許應力。</p>
+            <p class="hint">ASD 檢核採雙對稱熱軋 H 型鋼、無側移構架及未提高的容許應力。</p>
     </div>
 
     <!-- 材料 & 方法 -->
@@ -604,8 +604,8 @@ function runCheck() {
   const pn = Steel.calcPn(sec, Fy, KLr_x, KLr_y);
   const local = isLRFD ? null : pn.asd;
   const clsC = local ? local.cls : Steel.classifyCompression(sec, Fy);
-  const asdInter = local?.cls.isSlender
-    ? Steel.calcSlenderHColumnAsd(sec, Fy, pn, Lbx, Cbx, Pu_tf * 1000, Mux_tf * 1e5, Muy_tf * 1e5, Cmx, Cmy) : null;
+  const asdInter = local
+    ? Steel.calcHColumnAsd(sec, Fy, pn, Lbx, Cbx, Pu_tf * 1000, Mux_tf * 1e5, Muy_tf * 1e5, Cmx, Cmy) : null;
   if (asdInter?.plateGirder) return inputFail('強軸受彎且 h/tw 超過 260/√Fy，須另依第 7.8 節檢核板梁。');
   const cTag = ok => ok
     ? '<span class="cls-tag cls-slender">細長</span>'
@@ -807,16 +807,9 @@ function runCheck() {
       </div>`;
     } else {
       // ── ASD 傳統互制 ──
-      const fa = puDemand_tf * 1000 / sec.A;
-      const fbx = asdInter?.fbx ?? (Mux_kgcm / sec.Sx);
-      const fby = asdInter?.fby ?? (Muy_kgcm / sec.Sy);
-      const Fa  = pn.Fa;
-      const Fbx = asdInter?.Fbx ?? (flexX.Mn / (Steel.OMEGA.flexure * sec.Sx));
-      const Fby = asdInter?.Fby ?? (flexY.Mn / (Steel.OMEGA.flexure * sec.Sy));
-      const Fex = 12 * PI2 * E / (23 * KLr_x * KLr_x);
-      const Fey = 12 * PI2 * E / (23 * KLr_y * KLr_y);
-
-      const ir = asdInter || Steel.calcInteractionASD(fa, Fa, fbx, Fbx, fby, Fby, Cmx, Cmy, Fex, Fey, Fy);
+      const ir = asdInter;
+      const {fa, fbx, fby, Fbx, Fby, Fex, Fey} = ir;
+      const Fa = pn.Fa;
       interOk = ir.ok;
       const maxIR = Math.max(ir.IR1, ir.IR2);
       ratio_ir = (maxIR * 100).toFixed(1);
@@ -841,8 +834,8 @@ function runCheck() {
           <h4>容許應力</h4>
           <div class="formula">Fa = ${f0(Fa)} kgf/cm²</div>
           ${asdInter ? `<div class="formula">互制採有效 Sx/Sy = ${f2(asdInter.Sx)} / ${f2(asdInter.Sy)} cm³；式 (8.2-1) 採 Cb = 1，Fbx = ${f2(asdInter.stableFbx)} kgf/cm²。</div>` : ''}
-          <div class="formula">Fbx = ${asdInter ? "附錄一容許應力" : "Mnx/(Ω×Sx)"} = ${f0(Fbx)} kgf/cm² (${flexX.ltbZone})</div>
-          ${Math.abs(Muy_tf) > 1e-9 ? `<div class="formula">Fby = ${f0(Fby)} kgf/cm²</div>` : ''}
+          <div class="formula">Fbx = ${ir.majorRule} = ${f0(Fbx)} kgf/cm²，強軸容許彎矩 ${f2(Fbx * ir.Sx / 1e5)} tf·m</div>
+          ${Math.abs(Muy_tf) > 1e-9 ? `<div class="formula">Fby（${ir.minorRule}）= ${f0(Fby)} kgf/cm²，弱軸容許彎矩 ${f2(Fby * ir.Sy / 1e5)} tf·m</div>` : ''}
           <div class="formula">F'ex = 12π²E/(23(KxLx/rx)²) = ${f0(Fex)} kgf/cm²</div>
           ${Math.abs(Muy_tf) > 1e-9 ? `<div class="formula">F'ey = ${f0(Fey)} kgf/cm²</div>` : ''}
         </div>
@@ -1021,21 +1014,14 @@ function buildColumnReport() {
         { label:'互制比 IR', formula:ir.eqUsed, sub:`Pu/φPn=${f2(ir.ratio_P)}`, value:f2(ir.IR)+' ≤ 1.0', ok:interOk },
       ];
     } else {
-      const Mux_kgcm_r = Math.abs(Mux_tf) * 1e5;
-      const Muy_kgcm_r = Math.abs(Muy_tf) * 1e5;
-      const fa = puDemand_tf * 1000 / sec.A;
-      const fbx = asdInter?.fbx ?? (Mux_kgcm_r / sec.Sx);
-      const fby = asdInter?.fby ?? (Muy_kgcm_r / sec.Sy);
-      const Fa  = pn.Fa;
-      const Fbx = asdInter?.Fbx ?? (flexX.Mn / (Steel.OMEGA.flexure * sec.Sx));
-      const Fby = asdInter?.Fby ?? (flexY.Mn / (Steel.OMEGA.flexure * sec.Sy));
-      const Fex = 12 * PI2 * E / (23 * KLr_x * KLr_x);
-      const Fey = 12 * PI2 * E / (23 * KLr_y * KLr_y);
-      const ir = asdInter || Steel.calcInteractionASD(fa, Fa, fbx, Fbx, fby, Fby, Cmx, Cmy, Fex, Fey, Fy);
+      const ir = asdInter;
+      const {fa, fbx, fby, Fbx, Fby} = ir;
+      const Fa = pn.Fa;
       interOk = ir.ok;
       const maxIR = Math.max(ir.IR1, ir.IR2);
       ratio_ir = (maxIR * 100).toFixed(1);
       interChecks = [
+        {label:'強／弱軸容許彎矩', sub:`強軸 ${ir.majorRule}；弱軸 ${ir.minorRule}；Lc = ${f2(ir.Lc)} cm`, value:f2(Fbx*ir.Sx/1e5)+' / '+f2(Fby*ir.Sy/1e5), unit:'tf·m'},
         ...(asdInter ? [{label:'互制有效 Sx / Sy', value:f2(asdInter.Sx)+' / '+f2(asdInter.Sy), unit:'cm³'},
           {label:'式 (8.2-1) 強軸容許應力', sub:'Cb＝1', value:f2(asdInter.stableFbx), unit:'kgf/cm²'}] : []),
         { label:'fa/Fa', sub:`${f1(fa)}/${f0(Fa)}`, value:f2(ir.ratio), ok:null },
@@ -1148,7 +1134,7 @@ invalidateColumnLegacyUseConfirmation();
 syncColumnLegacyReportControl();
 renderColumnReportReadiness();
 </script>
-<script src="../project-storage.js" data-tool-id="steel-column" data-tool-name="鋼柱設計與檢核" data-tool-version="V3.4"></script>
+<script src="../project-storage.js" data-tool-id="steel-column" data-tool-name="鋼柱設計與檢核" data-tool-version="V3.5"></script>
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../project-meta-profile.js"></script>

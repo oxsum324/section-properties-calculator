@@ -1034,7 +1034,7 @@
       "productionModule": "independent-engineering-adapters/steel-column-asd.js",
       "oracle": "steel-column-asd-weak-axis-interaction",
       "referenceType": "closed-form-identity",
-      "referenceBasis": "無圓角理想化雙對稱 H 型斷面幾何閉合解、E3 非細長壓桿強度與傳統 ASD 容許壓應力、F2/F6 強弱軸彎曲強度，以及 fa/Fa > 0.15 時含二次效應分母的完整雙向壓彎互制式。",
+      "referenceBasis": "無圓角理想化雙對稱 H 型斷面幾何閉合解、E3 非細長壓桿強度與傳統 ASD 容許壓應力、F2/F6 強弱軸彎曲強度，另以容許應力法式 (7.2-8) 的 0.60Fy 上限及 (7.3-1) 弱軸容許應力，獨立代入第八章兩個完整互制式。",
       "input": {
         "H": 400,
         "B": 200,

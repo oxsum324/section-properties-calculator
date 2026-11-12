@@ -35,20 +35,10 @@ function calculate(input) {
   const flexX = Steel.calcMn(sec, Fy, Number(input.Lb), Number(input.Cb));
   const flexY = Steel.calcMny(sec, Fy);
 
-  const slender = pn.asd.cls.isSlender ? Steel.calcSlenderHColumnAsd(sec, Fy, pn, Number(input.Lb), Number(input.Cb),
-    Number(input.Pu)*1000, Number(input.Mux)*1e5, Number(input.Muy)*1e5, Number(input.Cmx), Number(input.Cmy)) : null;
-  if (slender?.plateGirder) throw new RangeError('strong-axis-plate-girder-review-required');
-  const fa = Number(input.Pu) * 1000 / sec.A;
-  const fbx = Number(input.Mux) * 1e5 / (slender?.Sx ?? sec.Sx);
-  const fby = Number(input.Muy) * 1e5 / (slender?.Sy ?? sec.Sy);
-  const Fbx = slender?.Fbx ?? (flexX.Mn / (Steel.OMEGA.flexure * sec.Sx));
-  const Fby = slender?.Fby ?? (flexY.Mn / (Steel.OMEGA.flexure * sec.Sy));
-  const Fex = 12 * Math.PI ** 2 * Steel.ES / (23 * KLrX ** 2);
-  const Fey = 12 * Math.PI ** 2 * Steel.ES / (23 * KLrY ** 2);
-  const interaction = slender || Steel.calcInteractionASD(
-    fa, pn.Fa, fbx, Fbx, fby, Fby,
-    Number(input.Cmx), Number(input.Cmy), Fex, Fey, Fy
-  );
+  const interaction = Steel.calcHColumnAsd(sec, Fy, pn, Number(input.Lb), Number(input.Cb),
+    Number(input.Pu)*1000, Number(input.Mux)*1e5, Number(input.Muy)*1e5, Number(input.Cmx), Number(input.Cmy));
+  if (interaction.plateGirder) throw new RangeError('strong-axis-plate-girder-review-required');
+  const { fa, fbx, fby, Fbx, Fby, Fex, Fey } = interaction;
 
   return {
     A:sec.A, Ix:sec.Ix, Iy:sec.Iy, Sx:sec.Sx, Sy:sec.Sy,

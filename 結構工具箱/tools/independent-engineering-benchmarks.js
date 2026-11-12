@@ -2255,8 +2255,16 @@ function steelColumnAsdOracle(i) {
   const fa = i.Pu * 1000 / A;
   const fbx = i.Mux * 1e5 / Sx;
   const fby = i.Muy * 1e5 / Sy;
-  const Fbx = Mnx / (omega * Sx);
-  const Fby = Mny / (omega * Sy);
+  // 指定算例：結實熱軋翼板，Lb > Lc、Cb = 1。式 (7.2-8) 達到 0.60Fy 上限，
+  // 此上限已控制取兩式較大者的強軸結果。弱軸抵抗力依式 (7.3-1)。
+  const FyTf = i.Fy / 1000;
+  const Lc = Math.min(20*B / Math.sqrt(FyTf), 1400*(B*tf)/(H*FyTf));
+  const rectangularFlangeFb = 840 * i.Cb * (B*tf) / (i.Lb * H) * 1000;
+  if (i.Lb <= Lc || i.Cb !== 1 || rectangularFlangeFb < 0.60*i.Fy || lambdaF > 17/Math.sqrt(FyTf) || FyTf > 4.55) {
+    throw new RangeError('steel-column benchmark requires its braced compact-section formula branches');
+  }
+  const Fbx = 0.60 * i.Fy;
+  const Fby = 0.75 * i.Fy;
   const Fex = 12 * Math.PI ** 2 * E / (23 * KLrX ** 2);
   const Fey = 12 * Math.PI ** 2 * E / (23 * KLrY ** 2);
   const axialStressRatio = fa / Fa;
