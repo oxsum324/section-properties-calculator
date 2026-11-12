@@ -823,7 +823,13 @@ for (const tool of tools) {
     assertIncludes(html, 'replayCalculationCasePayload', `${tool.key} validates and replays imported case JSON`);
     assertIncludes(html, 'expectedSchema: CASE_SCHEMA_VERSION', `${tool.key} requires an exact case schema`);
     assertIncludes(html, `expectedToolId: '${tool.key}'`, `${tool.key} requires the current tool identity`);
-    assertIncludes(html, 'expectedVersion: TOOL_VERSION', `${tool.key} requires the current tool version`);
+    if (tool.previousCaseEngine) {
+      assertIncludes(html, `const PREVIOUS_ENGINE = '${tool.previousCaseEngine}'`, `${tool.key} names the verified previous engine`);
+      assertIncludes(html, 'const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION', `${tool.key} limits replay to its current or verified previous engine`);
+      assertIncludes(html, 'expectedVersion: replayEngine', `${tool.key} validates the selected case version`);
+    } else {
+      assertIncludes(html, 'expectedVersion: TOOL_VERSION', `${tool.key} requires the current tool version`);
+    }
     assertIncludes(html, 'getFingerprint:', `${tool.key} compares the recalculated fingerprint`);
     assertIncludes(html, 'restore:', `${tool.key} restores the prior inputs after a failed replay`);
     assertNoIncludes(html, '盡量依現有欄位套用', `${tool.key} no longer applies a different schema on a best-effort basis`);

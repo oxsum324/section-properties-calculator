@@ -804,7 +804,7 @@
     },
     {
       title: '中空式 / 格子式風力',
-      version: 'V3.4',
+      version: 'V3.5',
       href: '/wind-object-frame',
       aliases: ['lattice sign wind', '中空標示物風力'],
       categories: ['wind'],

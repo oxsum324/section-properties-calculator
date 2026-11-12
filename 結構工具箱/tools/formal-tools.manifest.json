@@ -130,6 +130,7 @@
   "tools": [
     {
       "key": "wind-force",
+      "previousCaseEngine": "wind-force.v1.1.0",
       "label": "矩形建物 MWFRS",
       "discipline": "wind",
       "route": "/wind-force",
@@ -871,6 +872,7 @@
     },
     {
       "key": "wind-object-frame",
+      "previousCaseEngine": "3.4",
       "label": "中空式 / 格子式風力",
       "discipline": "wind",
       "route": "/wind-object-frame",

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>建築物耐風設計 — 中空式 / 格子式風力 V3.4</title>
+<title>建築物耐風設計 — 中空式 / 格子式風力 V3.5</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../../tool-chrome.css">
 <link rel="stylesheet" href="../../assets/hy/colors_and_type.css">
@@ -65,7 +65,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>建築物耐風設計 — 中空式 / 格子式風力 <span class="badge-v">V3.4</span></h1>
+  <h1>建築物耐風設計 — 中空式 / 格子式風力 <span class="badge-v">V3.5</span></h1>
   <p>依「建築物耐風設計規範及解說」103 年版表 2.11 的 C<sub>f</sub> 路線 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
@@ -249,7 +249,7 @@
 const W = window.Wind;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['wind-object-frame'].version;
 const TOOL_VERSION = '3.5';
-const PREVIOUS_TABLE_ENGINE = '3.4';
+const PREVIOUS_ENGINE = '3.4';
 const CASE_SCHEMA_VERSION = 'wind-object-frame.case.v2';
 let lastResult = null;
 let lastStepsHtml = '';
@@ -423,7 +423,7 @@ function importCaseJsonFile(file) {
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
-      const replayEngine = payload?.tool?.version === PREVIOUS_TABLE_ENGINE ? PREVIOUS_TABLE_ENGINE : TOOL_VERSION;
+      const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION;
       const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
         expectedSchema: CASE_SCHEMA_VERSION,
         expectedToolId: 'wind-object-frame',

@@ -14,7 +14,7 @@
     'wind-parapet': { route: '/wind-parapet', discipline: 'wind', version: 'V3', state: 'formal', governance: 'formal-tools' },
     'wind-open-roof': { route: '/wind-open-roof', discipline: 'wind', version: 'V3', state: 'formal', governance: 'formal-tools' },
     'wind-object-solid': { route: '/wind-object-solid', discipline: 'wind', version: 'V4.1', state: 'formal', governance: 'formal-tools' },
-    'wind-object-frame': { route: '/wind-object-frame', discipline: 'wind', version: 'V3.4', state: 'formal', governance: 'formal-tools' },
+    'wind-object-frame': { route: '/wind-object-frame', discipline: 'wind', version: 'V3.5', state: 'formal', governance: 'formal-tools' },
     'wind-lattice-tower': { route: '/wind-lattice-tower', discipline: 'wind', version: 'V1.2', state: 'formal', governance: 'formal-tools' },
     'wind-object-tower': { route: '/wind-object-tower', discipline: 'wind', version: 'V3.3', state: 'formal', governance: 'formal-tools' },
     'wind-fence-sign': { route: '/wind-fence-sign', discipline: 'wind', version: 'V2.2', state: 'formal', governance: 'formal-tools' },

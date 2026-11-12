@@ -676,7 +676,7 @@
 const W = Wind;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['wind-force'].version;
 const TOOL_VERSION = 'wind-force.v1.2.0';
-const LEGACY_GUST_ENGINE = 'wind-force.v1.1.0';
+const PREVIOUS_ENGINE = 'wind-force.v1.1.0';
 const CASE_SCHEMA_VERSION = 'wind-force.case.v1';
 const CASE_VALUE_IDS = [
   'city', 'Vcustom', 'terrain', 'impClass', 'encl', 'roofSlope', 'roofType', 'ridgeAxis',
@@ -959,11 +959,11 @@ function importCaseJsonFile(file) {
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
-      const oldEngine = payload?.tool?.version === LEGACY_GUST_ENGINE;
+      const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION;
       const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
         expectedSchema: CASE_SCHEMA_VERSION,
         expectedToolId: 'wind-force',
-        expectedVersion: oldEngine ? LEGACY_GUST_ENGINE : TOOL_VERSION,
+        expectedVersion: replayEngine,
         capture: () => readCaseInputs(),
         apply: source => applyCaseInputs(source),
         recalculate: () => {
@@ -971,7 +971,7 @@ function importCaseJsonFile(file) {
           return true;
         },
         getFingerprint: () => {
-          if (!oldEngine) return window.WindReport.getCurrentReportTrace().calculationFingerprint;
+          if (replayEngine === TOOL_VERSION) return window.WindReport.getCurrentReportTrace().calculationFingerprint;
           // 舊版指紋只含當時可見的輸入。另以原檔的四組結果摘要核對重新計算的載重。
           const current = readExportResultSummary();
           if (['banner','comboSummary','controlTable','directionTable'].some(key => payload.result?.[key] !== current[key])) {
@@ -980,11 +980,11 @@ function importCaseJsonFile(file) {
           const omitInputIds = [];
           if (!document.getElementById('flex').checked) omitInputIds.push('fn','beta','dampingType');
           if (!document.getElementById('chkAccel').checked) omitInputIds.push('fa','ft');
-          return window.WindReport.getCurrentReportTrace({ engine: LEGACY_GUST_ENGINE, omitInputIds }).calculationFingerprint;
+          return window.WindReport.getCurrentReportTrace({ engine: replayEngine, omitInputIds }).calculationFingerprint;
         },
         restore: previous => applyCaseInputs(previous)
       });
-      setCaseStatus(oldEngine
+      setCaseStatus(replayEngine === PREVIOUS_ENGINE
         ? `舊案指紋 ${replay.calculationFingerprint} 已核對。現行引擎重算指紋 ${window.WindReport.getCurrentReportTrace().calculationFingerprint}。`
         : `已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
     } catch (err) {
