@@ -686,8 +686,7 @@ async function main() {
   assert(html.includes('id="cHDL"') && html.includes('id="cHE"'), 'combined footing has horizontal force inputs', 'HDL/HE inputs exist');
   assert(html.includes('id="cc-slide"') && html.includes('id="cr-FSslide"'), 'combined footing has sliding checks', 'combined sliding UI exists');
   assert(!html.includes('預留，尚未做抗滑檢核'), 'combined footing sliding input is not stale placeholder text', 'cMu is active');
-  assert(!html.includes('未提供 DDM 分析</span><span class="value">✓ OK'), 'mat DDM unavailable state is not shown as OK', 'DDM/EFM gap must stay warning');
-  assert(html.includes('待確認 — 本工具未提供'), 'mat DDM unavailable state has warning text', 'runtime label is待確認');
+  assert(html.includes('第 13.3.4.2 節禁止筏式基礎採直接設計法') && html.includes('依地盤與結構性質核對承壓分布及整體內力'), 'mat analysis discloses the applicable method boundary', '13.3.4.2 and 13.3.4.3');
   assert(common.includes('window.RCUI.renderAttachmentReadiness'), 'shared/common.js exposes attachment readiness renderer', 'page-only readiness helper exists');
   assert(html.includes('function updateFoundationAttachmentReadiness'), 'foundation page renders attachment readiness', 'readiness helper present');
   assert(html.includes('id="foundationAttachmentReadiness"'), 'foundation page has attachment readiness target', 'readiness target present');
@@ -889,6 +888,13 @@ async function main() {
           summaryOk: r.summaryOk,
           summaryText: r.summaryText,
           reviewWarningCount: r.reviewWarnings?.length ?? 0,
+          matViewVu1: r.activeCase?.Vu1_tf,
+          matViewVu2: r.activeCase?.Vu2_tf,
+          matEdgeMuX:r.caseDefs?.find(c => c.key === 'edge')?.MuStripX_tfm,
+          matEdgeMuY:r.caseDefs?.find(c => c.key === 'edge')?.MuStripY_tfm,
+          matEdgeVuX:r.caseDefs?.find(c => c.key === 'edge')?.Vu1x_tf,
+          matEdgeVuY:r.caseDefs?.find(c => c.key === 'edge')?.Vu1y_tf,
+          matV1Direction:r.controlV1?.v1Direction,
           mcDdmText: document.getElementById('mc-ddm')?.textContent?.replace(/\s+/g, ' ').trim(),
           mcDdmWarn: document.getElementById('mc-ddm')?.classList.contains('warn') && !document.getElementById('mc-ddm')?.classList.contains('ok'),
           banner: document.getElementById('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim()

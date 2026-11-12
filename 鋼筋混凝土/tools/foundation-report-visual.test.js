@@ -70,6 +70,7 @@ const EXPECTED = {
     minCheckGroups: 2,
     fragments: [
       '基礎設計計算書 — 筏式基礎',
+      '代表柱條帶（均布地反力）', '5.700 m', '105.59 tf·m/m', '代表柱平面圖', '禁止筏式基礎採直接設計法',
     ],
   },
   pile_default: {
@@ -392,7 +393,7 @@ async function main() {
         assert(state.readinessText.includes('待人工複核'), `${tc.key} page readiness flags review`, state.readinessText);
       }
       if (tc.tab === 'mat') {
-        assert(state.mcDdmText.includes('待確認') && state.mcDdmWarn, `${tc.key} DDM unavailable UI is warning`, state.mcDdmText);
+        assert(state.mcDdmText.includes('待確認') && state.mcDdmWarn, `${tc.key} mat-wide structural analysis remains pending`, state.mcDdmText);
       }
       const sourceReplay = await page.evaluate(() => {
         const source = window.collectFoundationProjectData();
@@ -436,7 +437,7 @@ async function main() {
         caseKey: tc.key,
         label: `${tc.key} foundation report`,
         assert,
-        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.3'],
+        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.4'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {

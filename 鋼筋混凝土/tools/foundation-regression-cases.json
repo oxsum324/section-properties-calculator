@@ -119,24 +119,31 @@
         "qu": 6.5,
         "As_per_m": 14.25,
         "AsMin_per_m": 14.399999999999999,
-        "Vu1_tf": 77.76795,
-        "phiVc1_tf": 142.42349541612302,
-        "Vu2_tf": 196.91421488375,
+        "matViewVu1": 77.76795,
+        "matViewVu2": 196.91421488375,
+        "matEdgeMuX": 4.68,
+        "matEdgeMuY": 105.5925,
+        "matEdgeVuX": 19.26795,
+        "matEdgeVuY": 97.383975,
+        "matV1Direction": "Y",
+        "Vu1_tf": 97.383975,
+        "phiVc1_tf": 71.21174770806152,
+        "Vu2_tf": 101.2285537209375,
         "phiVc2_tf": 122.64409323261822,
         "okQ": true,
         "okAs": false,
-        "okFlex": true,
-        "okV1": true,
+        "okFlex": false,
+        "okV1": false,
         "okV2": true,
-        "mcDdmText": "DDM / EFM 分析待確認 — 本工具未提供",
+        "mcDdmText": "筏版整體分析待確認 — 依地盤與結構性質核對承壓分布及整體內力",
         "mcDdmWarn": true,
-        "banner": "✗ NG — 不符合規範✓ q ≤ qa ｜ ✗ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax ｜ ✓ 各點 φMn ≥ Mu (柱帶) ｜ ✓ 各點 φVc ≥ Vu (單向) ｜ ✓ 各點 φVc ≥ Vu (衝剪)"
+        "banner": "✗ NG — 不符合規範✓ q ≤ qa ｜ ✗ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax ｜ ✗ 各點 φMn ≥ Mu (柱帶) ｜ ✗ 各點 φVc ≥ Vu (單向) ｜ ✓ 各點 φVc ≥ Vu (衝剪)"
       },
       "handCalc": [
         "單向剪力 表 22.5.5.1(c)，每米寬，λs = 1（13.2.6.2(a)），Nu = 0",
         "d = 80 − 7.5 − 1.905 = 70.595 cm；ρw = 14.25/(100 × 70.595) = 0.0020186（#6@20 實配筋）",
         "vc = 2.12 × 0.0020186^(1/3) × √280 = 2.12 × 0.126381 × 16.7332 = 4.48327 kgf/cm²；φVc = 0.75 × 4.48327 × 100 × 70.595 / 1000 = 23.737 tf/m",
-        "控制內柱 tributary 寬 6.0 m → φVc = 6 × 23.737 = 142.423 tf ≥ Vu = 77.768 tf（舊式 281.735 tf）"
+        "控制邊柱 Y 向：單側柱面淨臂 6 − 0.30 = 5.70 m。Mu = 6.5 × 5.70²/2 = 105.5925 tf·m/m；Vu = 6.5 × 3 × (5.70 − 0.70595) = 97.384 tf > φVc = 3 × 23.737 = 71.212 tf。"
       ]
     },
     {
@@ -161,15 +168,28 @@
         "summaryOk": null,
         "summaryText": "⚠ 待確認 — 2 項需正式筏基分析確認",
         "reviewWarningCount": 2,
-        "mcDdmText": "DDM / EFM 分析待確認 — 本工具未提供",
+        "mcDdmText": "筏版整體分析待確認 — 依地盤與結構性質核對承壓分布及整體內力",
         "mcDdmWarn": true,
         "banner": "⚠ 待確認 — 2 項需正式筏基分析確認✓ q ≤ qa ｜ ✓ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax ｜ ✓ 各點 φMn ≥ Mu (柱帶) ｜ ✓ 各點 φVc ≥ Vu (單向) ｜ ✓ 各點 φVc ≥ Vu (衝剪)⚠ 數值檢核通過，但筏基仍採多代表柱近似與條帶檢核，報告不列為最終 OK。",
-        "phiVc1_tf": 488.9407282571822
+        "phiVc1_tf": 244.4703641285911
       },
       "handCalc": [
         "d = 180 − 7.5 − 3.581 = 168.919 cm；ρw = 100.7/(100 × 168.919) = 0.0059614；λs = 1（13.2.6.2(a)）",
-        "φVc = 6 m × 0.75 × 2.12 × 0.0059614^(1/3) × √280 × 100 × 168.919 / 1000 = 6 × 81.490 = 488.941 tf"
+        "控制邊柱 Y 向 φVc = 3 m × 0.75 × 2.12 × 0.0059614^(1/3) × √280 × 100 × 168.919 / 1000 = 3 × 81.490 = 244.470 tf"
       ]
+    },
+    {
+      "key": "mat_rotated_edge",
+      "label": "筏基邊柱板內為 +X，兩向有效深度不同",
+      "tab": "mat",
+      "values": {
+        "mEdgeInward": "x", "mTribEdge": "420×730", "c1": 50, "c2": 80,
+        "mBarNoY": "#8", "mCaseView": "edge"
+      },
+      "expected": {
+        "tab": "mat", "matEdgeMuX": 161.533125, "matEdgeMuY": 9.3925,
+        "matEdgeVuX": 173.192565, "matEdgeVuY": 47.46898, "matV1Direction": "X"
+      }
     },
     {
       "key": "pile_default",
