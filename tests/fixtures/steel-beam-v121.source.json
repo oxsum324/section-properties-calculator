@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "kind": "formal-calculation-source",
+  "savedAt": "2026-11-12T19:22:39.104Z",
+  "project": {
+    "name": "",
+    "no": "P3-05",
+    "designer": ""
+  },
+  "tool": {
+    "id": "steel-beam-formal",
+    "name": "鋼梁正式規範核算工具",
+    "version": "v1.2.1"
+  },
+  "designMethod": "LRFD",
+  "unitMode": "legacy",
+  "fields": {
+    "beamShowFlowInReport": {
+      "value": true
+    },
+    "beamShowSymbolsInReport": {
+      "value": false
+    },
+    "beamShowNotesInReport": {
+      "value": false
+    },
+    "sectionTypeSelect": {
+      "value": "h"
+    },
+    "secSelect": {
+      "value": ""
+    },
+    "inH": {
+      "value": "400"
+    },
+    "inB": {
+      "value": "200"
+    },
+    "inTw": {
+      "value": "8"
+    },
+    "inTf": {
+      "value": "13"
+    },
+    "inR": {
+      "value": "13"
+    },
+    "shsSelect": {
+      "value": ""
+    },
+    "inShsB": {
+      "value": "300"
+    },
+    "inShsT": {
+      "value": "12"
+    },
+    "rhsSelect": {
+      "value": ""
+    },
+    "inRhsH": {
+      "value": "300"
+    },
+    "inRhsB": {
+      "value": "200"
+    },
+    "inRhsT": {
+      "value": "9.0"
+    },
+    "chsSelect": {
+      "value": ""
+    },
+    "inChsD": {
+      "value": "318.5"
+    },
+    "inChsT": {
+      "value": "9.0"
+    },
+    "matSelect": {
+      "value": "0"
+    },
+    "inFy": {
+      "value": "2500"
+    },
+    "inL": {
+      "value": "800"
+    },
+    "inLb": {
+      "value": "800"
+    },
+    "inCb": {
+      "value": "1"
+    },
+    "inMu": {
+      "value": "30"
+    },
+    "inVu": {
+      "value": "15"
+    },
+    "inLv": {
+      "value": "400"
+    },
+    "inWD": {
+      "value": "5"
+    },
+    "inWL": {
+      "value": "8"
+    },
+    "inPD": {
+      "value": "0"
+    },
+    "inPL": {
+      "value": "0"
+    },
+    "limL": {
+      "value": "360"
+    },
+    "limT": {
+      "value": "180"
+    }
+  },
+  "calculationFingerprint": "CF-F08AEE0E15EEC08A",
+  "report": {
+    "title": "鋼梁正式規範核算計算書",
+    "subtitle": "Steel Beam Formal Report (LRFD)",
+    "inputs": [
+      {
+        "group": "斷面與材料",
+        "items": [
+          {
+            "label": "規格",
+            "value": "自訂"
+          },
+          {
+            "label": "H × B × tw × tf；根部圓角 R",
+            "value": "400 × 200 × 8 × 13；R = 13",
+            "unit": "mm"
+          },
+          {
+            "label": "Ix / Iy",
+            "value": "23456.62 / 1735.71",
+            "unit": "cm⁴"
+          },
+          {
+            "label": "Sx / Sy",
+            "value": "1172.83 / 173.57",
+            "unit": "cm³"
+          },
+          {
+            "label": "Zx / Zy",
+            "value": "1312.66 / 266.99",
+            "unit": "cm³"
+          },
+          {
+            "label": "Fy",
+            "value": "2500",
+            "unit": "kgf/cm²"
+          },
+          {
+            "label": "Lb",
+            "value": "800",
+            "unit": "cm"
+          },
+          {
+            "label": "Cb",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "group": "設計需求",
+        "items": [
+          {
+            "label": "Mu",
+            "value": "30",
+            "unit": "tf·m"
+          },
+          {
+            "label": "Vu",
+            "value": "15",
+            "unit": "tf"
+          },
+          {
+            "label": "跨度 L",
+            "value": "800",
+            "unit": "cm"
+          },
+          {
+            "label": "內力來源",
+            "value": "本頁手動輸入"
+          }
+        ]
+      }
+    ],
+    "checks": [
+      {
+        "group": "撓曲強度",
+        "items": [
+          {
+            "label": "Mp",
+            "formula": "Fy × Zx",
+            "sub": "2,500 × 1312.7",
+            "value": "32.82",
+            "unit": "tf·m",
+            "note": "第七章撓曲構材塑性彎矩"
+          },
+          {
+            "label": "φMn ≥ |Mu|",
+            "formula": "φMn",
+            "sub": "φb = 0.90，14.64 < 30.00 tf·m",
+            "value": "204.9%",
+            "ok": false,
+            "note": "控制模式：側向扭轉挫屈控制（LTB）"
+          }
+        ]
+      },
+      {
+        "group": "剪力強度",
+        "items": [
+          {
+            "label": "Vn",
+            "formula": "0.6FyAwCv1",
+            "sub": "0.6 × 2,500 × 29.92 × 1.00",
+            "value": "44.88",
+            "unit": "tf",
+            "note": "第七章剪力條文"
+          },
+          {
+            "label": "φVn ≥ |Vu|",
+            "formula": "φVn",
+            "sub": "φv = 1.00，44.88 ≥ 15.00 tf",
+            "value": "33.4%",
+            "ok": true,
+            "note": "Cv1 = 1.00"
+          }
+        ]
+      },
+      {
+        "group": "撓度與使用性",
+        "items": [
+          {
+            "label": "活載重撓度",
+            "formula": "ΔL ≤ L / limit",
+            "sub": "0.89 ≤ 2.22 cm",
+            "value": "0.89 / 2.22 cm",
+            "ok": true,
+            "note": "限值：L/360"
+          },
+          {
+            "label": "總撓度",
+            "formula": "ΔT ≤ L / limit",
+            "sub": "1.45 ≤ 4.44 cm",
+            "value": "1.45 / 4.44 cm",
+            "ok": true,
+            "note": "限值：L/180"
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "ok": false,
+      "text": "鋼梁檢核：NG｜主軸彎矩超限"
+    },
+    "steps": [
+      {
+        "group": "1. 斷面性質與分類",
+        "body": "A = 83.37 cm²\nSx = 1172.8 cm³，Zx = 1312.7 cm³\nry = 4.56 cm，rts = 5.35 cm\nλf = bf/(2tf) = 7.69，塑性界限 = 10.85，非結實界限 = 28.57\nλw = hw/tw = 46.75，塑性界限 = 107.41，非結實界限 = 162.82"
+      },
+      {
+        "group": "2. 撓曲強度檢核",
+        "body": "Mp = Fy × Zx = 2,500 × 1312.7 = 32.82 tf·m\nLb = 800.0 cm，Cb = 1.00\nLp = 229.4 cm，Lr = 682.8 cm\nMn = 16.27 tf·m，控制模式 = 側向扭轉挫屈控制（LTB）\nφb = 0.90，φMn = 0.90 × 16.27 = 14.64 tf·m\nφMn = 14.64 tf·m，需求 = 30.00 tf·m"
+      },
+      {
+        "group": "3. 剪力強度檢核",
+        "body": "Aw = 29.92 cm²\nCv1 = 1.00\nVn = 0.6 × Fy × Aw × Cv1 = 0.6 × 2,500 × 29.92 × 1.00\nφv = 1.00，φVn = 1.00 × 44.88 = 44.88 tf\nφVn = 44.88 tf，需求 = 15.00 tf"
+      },
+      {
+        "group": "4. 撓度與使用性檢核",
+        "body": "ΔL = 0.89 cm，容許活載重撓度 = 2.22 cm\nΔT = 1.45 cm，容許總撓度 = 4.44 cm\n撓度限值由設計者依使用性需求輸入；如涉積水載重，應另依規範 11.3 節與附錄 4 檢核。"
+      }
+    ],
+    "calculationFingerprint": "CF-F08AEE0E15EEC08A"
+  }
+}

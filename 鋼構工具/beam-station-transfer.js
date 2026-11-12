@@ -1,4 +1,5 @@
-// 連續梁與鋼梁在同源視窗間交接。一站一鍵，重送同筆資料不會取代另一站。
+import { validBrace, sameBraceStation } from './beam-brace-segment.js';
+// 同源視窗交換站位與側撐段候選。保留既有站位鍵，並依同一分析來源核對修次。
 const prefix = 'structToolbox.beamStation.v1.';
 const units = {
   'kN-m': { m: 'kN·m', v: 'kN', l: 'm', moment: 1 / 9.80665, force: 1 / 9.80665, length: 100 },
@@ -8,7 +9,7 @@ const units = {
 const basisLabels = { factored: '已因數化', unfactored: '未因數化', unconfirmed: '未確認' };
 const sideLabels = { left: '左側', right: '右側', continuous: '連續截面' };
 const digest = value => globalThis.StructReportUtils.sha256Text(JSON.stringify(value));
-const scopeOf = p => digest([p.project, p.member]);
+export const scopeOf = p => digest([p.project, p.member]);
 const display = n => String(Number(n.toPrecision(8)));
 const cleanText = value => typeof value === 'string' && value.length <= 100 && value.trim() === value;
 
@@ -89,6 +90,19 @@ export function showSender(host, model) {
     }));
   }
   sections();
+  let panel = host.querySelector('.brace-panel');
+  if (!panel) {
+    panel = document.createElement('details'); panel.className = 'brace-panel';
+    panel.innerHTML = '<summary>選取未側撐段與 Cb 計算方法</summary><div class="brace-sender"></div>';
+    host.append(panel);
+  }
+  const setupBrace = async () => {
+    if(!panel.open)return;
+    const transfer = await import('./beam-brace-transfer.js');
+    if(model.isCurrent() && panel.open) transfer.showBraceSender(panel.lastElementChild,model,form);
+  };
+  panel.ontoggle = setupBrace;
+  if(panel.open)setupBrace();
   f.span.onchange = sections;
   form.onsubmit = e => {
     e.preventDefault();
@@ -110,21 +124,22 @@ export function showSender(host, model) {
   };
 }
 
-function readPackets(scope) {
+export function readPackets(scope) {
   const groupPrefix = prefix + scope + '.';
   const rows = [];
   for (const key of Object.keys(localStorage)) {
     if (!key.startsWith(groupPrefix)) continue;
     try {
       const p = JSON.parse(localStorage.getItem(key));
-      if (validPacket(p) && scopeOf(p) === scope && key === groupPrefix + p.id) rows.push(p);
+      if ((validPacket(p) || validBrace(p)) && scopeOf(p) === scope && key === groupPrefix + p.id) rows.push(p);
     } catch { /* 不完整的單筆紀錄不影響其他站位。 */ }
   }
   return rows.sort((a, b) => b.revision - a.revision || a.caseName.localeCompare(b.caseName)
-    || a.span - b.span || a.x - b.x || a.side.localeCompare(b.side) || a.id.localeCompare(b.id));
+    || a.kind.localeCompare(b.kind) || (a.span || 0) - (b.span || 0)
+    || (a.x ?? a.selection.start) - (b.x ?? b.selection.start) || (a.side || '').localeCompare(b.side || '') || a.id.localeCompare(b.id));
 }
 
-function revisionStatus(p, rows) {
+export function revisionStatus(p, rows) {
   const series = rows.filter(r => r.caseName === p.caseName && r.combination === p.combination);
   if (series.some(r => r.revision > p.revision)) return '舊修次';
   if (series.some(r => r.revision === p.revision && (r.fingerprint !== p.fingerprint || r.basis !== p.basis))) return '同修次來源衝突，請增加修次重送';
@@ -145,7 +160,8 @@ export function openReceiver(host, scope, api) {
   function refresh() {
     const previousId = list.value;
     const rows = readPackets(scope);
-    list.replaceChildren(...rows.map(p => new Option(`${identity(p)}｜跨 ${p.span}・${display(p.x)} ${units[p.units].l}・${sideLabels[p.side]}｜${revisionStatus(p, rows)}`, p.id)));
+    host.hidden = !!rows.length && rows.every(p=>p.kind!=='beam-station-v1');
+    list.replaceChildren(...rows.filter(p=>p.kind==='beam-station-v1').map(p => new Option(`${identity(p)}｜跨 ${p.span}・${display(p.x)} ${units[p.units].l}・${sideLabels[p.side]}｜${revisionStatus(p, rows)}`, p.id)));
     if (rows.some(p => p.id === previousId)) list.value = previousId;
     const p = rows.find(r => r.id === list.value);
     const current = api.current();
@@ -155,6 +171,7 @@ export function openReceiver(host, scope, api) {
     let message = p ? revisionStatus(p, rows) : '目前沒有此構件的站位候選。';
     if (message === '有效修次') {
       if (current.project && current.project !== p.project) message = '正式案號與候選案號不同。';
+      else if (current.brace && !sameBraceStation(p,current.brace)) message = '站位與已採用未側撐段的來源或段界不符，請先解除段採用。';
       else if (p.basis !== (current.method === 'LRFD' ? 'factored' : 'unfactored')) message = '請核對載重基準與目前設計方法 ' + current.method + '。';
     }
     const token = JSON.stringify([p?.id, current, message]);
@@ -180,4 +197,11 @@ export function openReceiver(host, scope, api) {
   document.addEventListener('change', e => { if (!host.contains(e.target)) refresh(); });
   document.addEventListener('click', e => { if (e.target.closest('#btnLRFD,#btnASD,#beamUnitModeSiBtn,#beamUnitModeLegacyBtn')) refresh(); });
   refresh();
+}
+
+export function saveBrace(p) {
+  if(!validBrace(p))throw new Error('未側撐段未通過資料核對。');
+  const scope=scopeOf(p);
+  localStorage.setItem(prefix+scope+'.'+p.id,JSON.stringify(p));
+  return scope;
 }

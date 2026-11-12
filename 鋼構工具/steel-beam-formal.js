@@ -100,7 +100,7 @@
       const legacyValue = convertDisplayValue(parsed, config.kind, previousMode);
       const digits = nextMode === "si" ? config.siDigits : config.legacyDigits;
       const converted = convertLegacyValue(legacyValue, config.kind, nextMode);
-      field.value = adoptedBeamImport?.station && ["inMu", "inVu", "inL"].includes(config.id)
+      field.value = (adoptedBeamImport?.station && ["inMu", "inVu", "inL"].includes(config.id)) || (adoptedBrace && config.id === "inLb")
         ? String(converted) : formatInputValue(converted, digits);
     });
   }
@@ -128,6 +128,7 @@
   let lastBeamReportValidationMessage = "";
   let pendingBeamImport = null;
   let adoptedBeamImport = null;
+  let adoptedBrace = null, braceTools = null;
 
   function finiteCandidate(value) {
     if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
@@ -254,7 +255,7 @@
 
   function stationCurrentInputs() {
     return { moment: getLegacyInputValue("inMu"), shear: getLegacyInputValue("inVu"), spanCm: getLegacyInputValue("inL"),
-      method: designMethod, project: getProjectMetaValue("projNo"), source: adoptedBeamImportSourceText() };
+      method: designMethod, project: getProjectMetaValue("projNo"), brace: adoptedBrace, source: adoptedBeamImportSourceText() };
   }
 
   function adoptStation(station, demand, stationText) {
@@ -268,7 +269,57 @@
     renderFillStatus();
     renderCardStatuses(null);
     setBeamReportValidationMessage("已採用站位需求，請核對其餘設計條件並重新執行檢核。");
+    window.dispatchEvent(new Event("steel-beam-source-restored"));
     persistInputDraft();
+  }
+
+  function compactBraceSection() {
+    const fy = getLegacyInputValue("inFy", "stress") / 1000;
+    const B = num("inB"), H = num("inH"), tf = num("inTf"), tw = num("inTw");
+    if (getSectionType() !== "h" || !(fy>0 && tf>0 && tw>0 && H>2*tf && B>tw)) return false;
+    const sectionClass=Steel.classify({B,tf,tw,hw:H-2*tf},fy*1000);
+    return B/(2*tf) <= 17/Math.sqrt(fy) && (H-2*tf)/tw <= 170/Math.sqrt(fy)
+      && sectionClass.flange === "compact" && sectionClass.web === "compact";
+  }
+
+  function braceCurrent() {
+    return {lb:getLegacyInputValue("inLb", "memberLength"), cb:num("inCb"), method:designMethod,
+      project:getProjectMetaValue("projNo"), shape:getSectionType(), compact:compactBraceSection(),
+      station:adoptedBeamImport?.station || null,
+      stationModified:!!adoptedBeamImport?.station && (Math.abs(getLegacyInputValue("inMu")-adoptedBeamImport.moment)>1e-6
+        || Math.abs(getLegacyInputValue("inVu")-adoptedBeamImport.shear)>1e-6 || Math.abs(getLegacyInputValue("inL")-adoptedBeamImport.spanCm)>1e-6),
+      otherSource:!!adoptedBeamImport && !adoptedBeamImport.station,
+      source:adoptedBrace ? "已採用 "+adoptedBrace.member+"／"+adoptedBrace.combination+"／R"+adoptedBrace.revision : "手動輸入"};
+  }
+
+  function updateBraceControl() {
+    $("beamBraceAdoption").hidden = !adoptedBrace;
+    $("beamBraceAdoptionText").textContent = adoptedBrace ? "已採用未側撐段 "+adoptedBrace.member+"／"+adoptedBrace.combination+"／R"+adoptedBrace.revision : "";
+  }
+
+  function adoptBrace(packet) {
+    if (!braceTools.validBrace(packet)) return;
+    const result = braceTools.evaluateBrace(packet.profile, packet.selection);
+    const length = result.length * braceTools.braceUnits[packet.units][2];
+    $("inLb").value = String(convertLegacyValue(length, "memberLength"));
+    $("inCb").value = String(result.cb);
+    if (!getProjectMetaValue("projNo")) $("projNo").value = packet.project;
+    adoptedBrace = packet;
+    updateBraceControl();
+    resultState = runCheck();
+    persistInputDraft();
+    window.dispatchEvent(new Event("steel-beam-source-restored"));
+  }
+
+  function braceIssue() {
+    if (!adoptedBrace) return "";
+    if (!braceTools || !braceTools.validBrace(adoptedBrace)) return "段來源尚未核實，請重新讀取候選或解除採用。";
+    const c=braceCurrent(), p=adoptedBrace;
+    if (!c.compact || c.method!=="LRFD") return "本段來源限 LRFD 結實熱軋 H 型鋼強軸撓曲；請核對斷面或解除採用。";
+    if ((hasStationScope && braceTools.braceScope(p)!==stationScope) || c.project!==p.project || c.stationModified || c.otherSource || !braceTools.sameBraceStation(c.station,p)) return "段來源與正式案號、組合或內力站位不一致，請重新核對。";
+    const r=braceTools.evaluateBrace(p.profile,p.selection),lb=r.length*braceTools.braceUnits[p.units][2];
+    if (Math.abs(c.lb-lb)>1e-10*Math.max(1,lb) || Math.abs(c.cb-r.cb)>1e-10) return "正式 Lb 或 Cb 已變更；請重新採用候選或解除段來源後手動設定。";
+    return "";
   }
 
   const glossaryItems = [
@@ -717,6 +768,8 @@
   function inputFail(message) {
     resultState = null;
     $("propsCard").hidden = true;
+    document.querySelectorAll(".report-paper > :not(.report-toolbar):not([hidden])").forEach(block => {block.dataset.beamInvalid="1";block.hidden=true;});
+    $("beamFlowBody").replaceChildren();
     setBeamReportValidationMessage(message);
     setInputStatus(message);
     workflow?.refresh();
@@ -1745,6 +1798,8 @@
     renderFillStatus();
     clearInputStatus();
     setBeamReportValidationMessage("");
+    const issue = braceIssue();
+    if (issue) return inputFail(issue);
     const sectionType = getSectionType();
     const Fy = getLegacyInputValue("inFy", "stress");
     const L = getLegacyInputValue("inL", "memberLength");
@@ -1896,6 +1951,7 @@
       : `
         <div class="result-item"><span class="label">${sec.shape === "shs" ? "Cv2" : "Cv1"}</span><span class="value">${f2(shear.Cv2 ?? shear.Cv1)}</span></div>
       `;
+    document.querySelectorAll("[data-beam-invalid]").forEach(block=>{delete block.dataset.beamInvalid;block.hidden=false;});
     renderProps(sec);
     $("clsResult").innerHTML = clsCards;
     $("clsCard").hidden = false;
@@ -1942,6 +1998,11 @@
       textExport: true,
       project: { name: getProjectMetaValue("projName"), no: getProjectMetaValue("projNo"), designer: getProjectMetaValue("projDesigner") },
       inputs: [
+        ...(adoptedBrace ? [{group:"未側撐段採用紀錄",items:[
+          ...braceTools.braceRows(adoptedBrace),
+          {label:"正式需求來源",value:adoptedBeamImport?.station ? "已核對同一組合、修次與分析指紋之段內站位。" : "內力採本頁手動輸入，採用時已人工核對構件與載重組合。"},
+          {label:"適用條件",value:"已因數化載重、兩端有效側撐，已核對雙對稱熱軋結實 H 型鋼之強軸撓曲。"}
+        ]}] : []),
         { group: "斷面與材料", items: [
           { label: "規格", value: getSectionInputSummaryText(result) },
           ...(!replayV11 && result.sec.shape === "h" ? [
@@ -2015,6 +2076,7 @@
       unitMode,
       fields: collectBeamSourceFields(),
       ...(adoptedBeamImport ? { adoptedBeamImport } : {}),
+      ...(adoptedBrace ? { adoptedBrace } : {}),
       calculationFingerprint: reportTrace.calculationFingerprint,
       report: {
         title: reportConfig.title,
@@ -2056,11 +2118,14 @@
       unitMode,
       fields: collectBeamSourceFields(),
       adoptedBeamImport,
+      adoptedBrace,
     };
   }
 
   function applyBeamSourceState(source, replayV11 = false) {
     adoptedBeamImport = source.adoptedBeamImport || null;
+    adoptedBrace = source.adoptedBrace || null;
+    updateBraceControl();
     setUnitMode(source.unitMode, { convertFields: false, rerun: false, persist: false });
     setMethod(source.designMethod);
     $("projName").value = source.project?.name || "";
@@ -2089,7 +2154,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -2111,6 +2176,11 @@
       const payload = validateBeamSourcePayload(await SteelFormalUI.readCalculationSourceFile(file, {
         expectedToolId: TOOL_METADATA.id,
       }));
+      if (payload.adoptedBrace) {
+        braceTools = await import("./beam-brace-segment.js");
+        if (SteelFormalUI.normalizeReportVersion(payload.tool.version) !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)
+          || !braceTools.validBrace(payload.adoptedBrace)) throw new Error("段資料、方法或版本與來源快照不符。");
+      }
       if (payload.adoptedBeamImport?.station) {
         const transfer = await import("./beam-station-transfer.js");
         const adopted = payload.adoptedBeamImport;
@@ -2218,6 +2288,13 @@
     draftRestoring = true;
     try {
       applyBeamSourceState(draft);
+      if (adoptedBrace && !braceTools) {
+        const restoring = adoptedBrace;
+        import("./beam-brace-segment.js").then(module => {
+          braceTools = module;
+          if(adoptedBrace === restoring) resultState = runCheck();
+        }).catch(() => inputFail("無法讀取段來源檢查，請重新開啟或解除採用。"));
+      }
       const savedAt = new Date(draft.savedAt);
       const stamp = Number.isFinite(savedAt.getTime())
         ? savedAt.toLocaleString("zh-TW", { hour12: false })
@@ -2351,7 +2428,14 @@
     applyInputAccordionPreset(currentInputPreset);
     applyReportAccordionPreset(resultState, currentReportPreset);
   }
+  $("releaseBeamBrace").onclick = () => {
+    adoptedBrace = null; $("inCb").value = "1"; updateBraceControl();
+    resultState=runCheck(); persistInputDraft(); window.dispatchEvent(new Event("steel-beam-source-restored"));
+  };
   if (hasStationScope) {
+    Promise.all([import("./beam-brace-segment.js"),import("./beam-brace-transfer.js")]).then(([engine,ui])=>{
+      braceTools=engine; ui.openBraceReceiver($("braceReview"),stationScope,{current:braceCurrent,adopt:adoptBrace});
+    }).catch(e=>{ $("braceReview").hidden=false; $("braceReview").textContent="無法開啟段核對。"+e.message; });
     import("./beam-station-transfer.js").then(transfer => transfer.openReceiver($("stationReview"), stationScope, {
       current: stationCurrentInputs, adopt: adoptStation,
     })).catch(error => {

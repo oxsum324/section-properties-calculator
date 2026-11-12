@@ -124,6 +124,18 @@
     .save-bar .btn { padding: 6px 10px; }
     .modal-box { padding: 18px 14px; }
   }
+  .brace-panel {margin-top:1rem;padding:.75rem 1rem;border:1px solid #bdced8;border-radius:.45rem}
+  .brace-panel summary {font-weight:700;cursor:pointer}
+  .brace-sender {display:grid;gap:.7rem;min-width:0;padding:.6rem 0}
+  .brace-sender p {margin:0;line-height:1.6;overflow-wrap:anywhere}
+  .brace-sender label {display:flex;gap:.35rem;align-items:center;flex-wrap:wrap}
+  .brace-sender label[hidden],.brace-sender a[hidden] {display:none}
+  .brace-sender input,.brace-sender select {font:inherit;padding:.3rem;border:1px solid #9aafbd;border-radius:.25rem;max-width:100%}
+  .brace-sender input {width:9em}
+  .brace-sender button,.brace-sender a {justify-self:start}
+  .brace-sender [data-values] {padding:.6rem .75rem;background:#eff5f7;border-left:3px solid #216d79}
+  .brace-sender .brace-actions {display:flex;gap:.5rem;flex-wrap:wrap}
+  @media(max-width:640px){.brace-panel{padding:.6rem}.brace-sender .form-row{display:grid;grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="結構工具箱/core/family-theme.css">
 <link rel="stylesheet" href="結構工具箱/assets/hy/continuous-beam-ui.css">
@@ -320,7 +332,7 @@
         </div>
       </div>
       <details id="stationTransfer" hidden ontoggle="if (this.open) openStationTransfer()">
-        <summary>傳送同一站位的彎矩與剪力至鋼梁</summary>
+        <summary>傳送同站彎矩、剪力或未側撐段 Cb 至鋼梁</summary>
         <div id="stationTransferBody"></div>
       </details>
       <h3>支承反力</h3>
@@ -1862,6 +1874,12 @@ async function openStationTransfer() {
     transfer.showSender(host, {
       spans: solved.spans, units: solved.sourceUnits, project: getProjectFieldValue('projNo'),
       fingerprint: StructReportUtils.sha256Text(solved.sourceModelJson),
+      engine: CONTINUOUS_BEAM_CALCULATION_ENGINE,
+      buildProfile: async () => {
+        const {makeMomentProfile} = await import('./鋼構工具/beam-brace-segment.js');
+        if(diagrams !== solved || !solution) throw new Error('來源已變更，請重新分析。');
+        return makeMomentProfile(JSON.parse(solved.sourceModelJson)[1],solution.topo.elems,clipLoadToRange,evalSectionState);
+      },
       isCurrent: () => diagrams === solved && _currentMatType() === 'steel',
       route: DESIGN_ROUTES.steel.beam.url.split('?')[0],
     });
