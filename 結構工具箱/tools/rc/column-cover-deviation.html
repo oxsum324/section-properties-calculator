@@ -27,6 +27,7 @@
     #coverBatchDialog[open]{display:flex;flex-direction:column}#coverBatchDialog::backdrop{background:#1f1635aa}
     .cover-batch-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line)}.cover-batch-heading h2{font-size:1.15rem;margin:0}.cover-batch-heading .btn{width:auto}
     #coverBatchFrame{flex:1;width:100%;border:0;min-height:0}
+    .batch-excel-help{padding:6px 18px;font-size:.9rem}.batch-excel-help summary{cursor:pointer}.batch-excel-help p{margin:4px 0}
   </style>
 </head>
 <body class="local-quick-output-page" data-family="rc">
@@ -67,6 +68,11 @@
         <h2 id="coverBatchTitle">柱保護層偏差批次檢核</h2>
         <form method="dialog"><button class="btn btn-secondary" autofocus>返回單筆頁</button></form>
       </div>
+      <details class="batch-excel-help"><summary>如何使用實案試辦 Excel</summary>
+        <p>從「試辦填寫」複製 A1 到 AH 欄最後一筆，連同表頭貼入下方。每批使用同一樓層的 20～50 列去識別化資料。</p>
+        <p>首輪結果貼到「首輪結果」A4。遇到「待補」，請在「缺值修正」登錄原始空格和依據，回「試辦填寫」補值後整批重跑。缺少量測依據時保留空格。</p>
+        <p>最後一次結果貼到「末輪結果」A4。每一筆已算列都要回單筆頁核對，並在「工時紀錄」填寫實際起訖時間。</p>
+      </details>
       <iframe id="coverBatchFrame" title="批次輸入與檢核結果"></iframe>
     </dialog>
     <div class="main-layout column-cover-shell">
