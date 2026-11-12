@@ -1041,6 +1041,26 @@ async function waitForDownloadedArtifact(filePath, timeoutMs = 10000) {
   throw new Error(`timed out waiting for downloaded artifact: ${filePath}`);
 }
 
+function waitForReportDownload(client, frameId, fileName) {
+  return new Promise((resolve, reject) => {
+    let guid;
+    const unsubscribe = client.on(({ method, params }) => {
+      if (method === 'Browser.downloadWillBegin' && params.frameId === frameId && params.suggestedFilename === fileName) {
+        guid = params.guid;
+      }
+      if (!guid || method !== 'Browser.downloadProgress' || params.guid !== guid || params.state === 'inProgress') return;
+      clearTimeout(timer);
+      unsubscribe();
+      if (params.state === 'completed') resolve();
+      else reject(new Error('Report download ' + params.state + ': ' + fileName));
+    });
+    const timer = setTimeout(() => {
+      unsubscribe();
+      reject(new Error('No completed report download for ' + fileName + ' (guid=' + (guid || 'none') + ')'));
+    }, POPUP_READY_TIMEOUT_MS);
+  });
+}
+
 async function verifyGovernedTextExport(client, tool, html) {
   const outputDir = path.resolve(textExportOutputDir);
   fs.mkdirSync(outputDir, { recursive: true });
@@ -1053,14 +1073,14 @@ async function verifyGovernedTextExport(client, tool, html) {
     const sessionId = attached.sessionId;
     await client.send('Page.enable', {}, sessionId);
     await client.send('Runtime.enable', {}, sessionId);
-    await client.send('Browser.setDownloadBehavior', {
+    const hasDownloadEvents = await client.send('Browser.setDownloadBehavior', {
       behavior: 'allow',
       downloadPath: outputDir,
       eventsEnabled: true,
-    }).catch(() => client.send('Page.setDownloadBehavior', {
-      behavior: 'allow',
-      downloadPath: outputDir,
-    }, sessionId));
+    }).then(() => true, async () => {
+      await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: outputDir }, sessionId);
+      return false;
+    });
     const frameTree = await client.send('Page.getFrameTree', {}, sessionId);
     await client.send('Page.setDocumentContent', {
       frameId: frameTree.frameTree.frame.id,
@@ -1106,10 +1126,14 @@ async function verifyGovernedTextExport(client, tool, html) {
     const filePath = path.resolve(outputDir, prepared.fileName);
     assert.equal(path.dirname(filePath), outputDir, `${tool.key} TXT path remains inside evidence directory`);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    await client.send('Runtime.evaluate', {
-      expression: `document.getElementById('repDownloadCurrentText').click()`,
-      returnByValue: true,
-    }, sessionId);
+    await Promise.all([
+      hasDownloadEvents && waitForReportDownload(client, frameTree.frameTree.frame.id, prepared.fileName),
+      client.send('Runtime.evaluate', {
+        expression: `document.getElementById('repDownloadCurrentText').click()`,
+        userGesture: true,
+        returnByValue: true,
+      }, sessionId),
+    ]);
     await waitForDownloadedArtifact(filePath);
     const buffer = fs.readFileSync(filePath);
     const decoded = buffer.toString('utf8');
