@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="assets/hy/colors_and_type.css?v=20261004">
 <link rel="stylesheet" href="assets/home/home.css?v=20261023">
 <script src="assets/home/home.js?v=20261023" defer></script>
+<script src="assets/status/publication-status.js" defer></script>
 </head>
 <body class="home-page status-page">
   <header class="home-header home-header--compact">
@@ -41,6 +42,17 @@
       </div>
       <div class="status-grid">
         <div class="status-grid__col">
+          <section class="status-card" aria-labelledby="publicationTitle">
+            <strong id="publicationTitle">主線與公開站版本</strong>
+            <div id="publicationState" role="status" aria-live="polite" aria-atomic="true">
+              <span class="status-card__badge neutral">查詢中</span><p>比對 GitHub 主線與公開站部署清單。</p>
+            </div>
+            <div class="status-actions">
+              <button id="refreshPublicationStatus" type="button">重新核對</button>
+              <a id="publicationCompare" hidden>比對兩個提交</a>
+              <a href="https://github.com/oxsum324/section-properties-calculator/actions/workflows/pages-deploy.yml">查看部署紀錄</a>
+            </div>
+          </section>
           <div id="platformStatus" class="status-card" data-status-card role="status" aria-live="polite" aria-atomic="true">
             <span class="status-card__badge neutral">讀取中</span>
             <strong>平台巡檢</strong>
