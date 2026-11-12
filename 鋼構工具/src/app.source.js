@@ -2254,7 +2254,7 @@
       `${fromEnd ? "e2" : "e1"} ${formatNumber(endDistance,1)} mm`, false);
 
     return `
-      <svg class="plate-sketch${inline ? " plate-sketch--print" : ""}" viewBox="0 0 ${toX(plateWidth) + (horizontal ? 62 : 145)} ${toY(plateLength) + 92}" xmlns="http://www.w3.org/2000/svg" aria-label="連接板幾何示意">
+      <svg class="plate-sketch plate-path-diagram${inline ? " plate-sketch--print" : ""}" viewBox="0 0 ${toX(plateWidth) + (horizontal ? 62 : 145)} ${toY(plateLength) + 92}" xmlns="http://www.w3.org/2000/svg" aria-label="連接板幾何示意">
         <defs>
           <marker id="plateArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
             <path d="M0,0 L8,4 L0,8 z" fill="#0e7490"></path>
@@ -3395,7 +3395,7 @@ th{background:#eef2f6}
 .card-placeholder{padding:14px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b}
 .plate-sketch{width:100%;height:auto;min-height:220px}.sketch-plate,.sketch-member{fill:rgba(14,116,144,.08);stroke:#0e7490;stroke-width:2}.sketch-hole{fill:#fff;stroke:#1e293b;stroke-width:1.5}.sketch-net{fill:none;stroke:#c0392b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8 6}.sketch-block{fill:rgba(217,119,6,.12);stroke:#d97706;stroke-width:2.5}.sketch-arrow{stroke:#0e7490;stroke-width:2.5}.sketch-label{fill:#0f172a;font-size:12px;font-weight:700}.sketch-note{fill:#475569;font-size:11px}.sketch-weld{stroke:#b45309;stroke-width:5;stroke-linecap:round}.sketch-weld--transverse{stroke:#c2410c}.sketch-dim{stroke:#64748b;stroke-width:1.4}.sketch-dim-label{fill:#475569;font-size:10px;font-weight:700}
 ul{margin:0;padding-left:20px}
-@media print{.block h3,.input-context-header{break-after:avoid-page;page-break-after:avoid}.block,.report-sketch-block,.report-ending,tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}`,
+@media print{.report-sketch-block .plate-path-diagram{display:block;width:100%;min-height:0;max-height:155mm}.sketch-caption{margin:6px 0 0}.block h3,.input-context-header{break-after:avoid-page;page-break-after:avoid}.block,.report-sketch-block,.report-ending,tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}`,
       bodyHtml: `<div class="rep-meta rep-steel-meta">
   <div><b>設計法</b> ${escReport(mapValue("designMethod", result.state.designMethod))}</div>
   <div><b>規範基準</b> ${escReport(getCodeBasisText(result.state))}</div>
