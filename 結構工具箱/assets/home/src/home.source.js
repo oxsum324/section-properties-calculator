@@ -226,7 +226,7 @@
       '/stone-fixing': '2026-10-23',
       '/foundation-local': '2026-10-23',
       '/equipment-load': '2026-10-23',
-      '/earth-pressure': '2026-10-23',
+      '/earth-pressure': '2026-11-12',
       '/floor-slab-westergaard': '2026-10-23',
       '/concrete-strength-ndt': '2026-10-23',
       '/cable-tension-frequency': '2026-10-24',

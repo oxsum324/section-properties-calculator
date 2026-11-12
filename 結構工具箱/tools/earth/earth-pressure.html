@@ -703,12 +703,34 @@
     $('layeredInputs').style.display = layeredOn ? '' : 'none';
   }
 
+  function waterStressBasis(r) {
+    if (r.waterModel === 'none') return '本次設計水位選擇不計地下水壓。';
+    if (!(r.waterDepth > 0)) return '水位位於牆底；計算水壓合力為零。';
+    const water = `靜水壓合力 γw·hw²/2 = ${fmt(r.waterForce)} tf/m`;
+    return r.useLayered
+      ? `分層 Rankine 依 σ′v = σv − u 計土壓，另加${water}。`
+      : `單層以輸入 γ = ${fmt(r.gammaSoil)} tf/m³ 計全高土壓，地下水位以下沿用同一 γ，另加${water}。若採 Rankine 主動有效應力模型，可在分層模式輸入一層並核對水位與單位重。`;
+  }
+
+  function pressureCoefficientText(r) {
+    if (r.useLayered) return r.layered.byLayer.map((layer,i) => `第 ${i+1} 層 Ka = ${fmt(layer.Ka,4)}`).join('、');
+    if (r.coulombValid) return `Coulomb Ka = ${fmt(r.effectiveSoilCoef,4)}，水平分量乘 cos(δ+θ) = ${fmt(r.horizontalFactor,4)}`;
+    return `${r.modeLabel} = ${fmt(r.K,4)}`;
+  }
+
+  function lateralForceEquations(r) {
+    if (r.useLayered) return `逐層積分 max(0, Ka·σ′v − 2c√Ka)，合力 ${fmt(r.soilForce)} tf/m。均佈超載已計入 σ′v。`;
+    const k = r.coulombValid ? 'Ka·cos(δ+θ)' : (r.mode==='atRest' ? 'K0' : 'Ka');
+    return `土壓 = ½·${k}·γ·H² = ${fmt(r.soilForce)} tf/m；超載 = ${k}·q·H = ${fmt(r.surchargeForce)} tf/m。`;
+  }
+
   function renderModelSummary(r) {
     const result = r || Core.calculate(gatherInputs());
     const passiveText = `${result.passiveModeLabel}；Rp 採用值 = ${fmt(result.effectivePassive)} tf/m`;
     $('modelSummary').innerHTML = `
-      <strong>模型摘要：</strong>${escapeHtml(result.wallTypeLabel)}；${escapeHtml(result.wallConditionLabel)}，${escapeHtml(result.modeLabel)}。<br>
-      ${escapeHtml(result.backfillModelLabel)}；${escapeHtml(result.waterModelLabel)}；${escapeHtml(passiveText)}。
+      <strong>模型摘要：</strong>${escapeHtml(result.wallTypeLabel)}；${escapeHtml(result.wallConditionLabel)}，${escapeHtml(result.theoryLabel)}。<br>
+      ${escapeHtml(result.backfillModelLabel)}；${escapeHtml(result.waterModelLabel)}；${escapeHtml(passiveText)}。<br>
+      ${escapeHtml(waterStressBasis(result))}
     `;
   }
 
@@ -718,7 +740,7 @@
     banner.textContent = r.overallOk ? '土壓局部穩定檢核通過' : '土壓或穩定條件需修正 / 詳算';
     const items = [
       ['牆型', r.wallTypeLabel, true],
-      ['K', `${r.mode === 'atRest' ? 'K0' : 'Ka'} = ${fmt(r.K, 3)}`, true],
+      ['K', pressureCoefficientText(r), true],
       ['模型', r.wallCondition === 'manual' ? '手動指定' : (r.mode === 'atRest' ? '受約束' : '可位移'), true],
       ['側向合力', `${fmt(r.totalForce)} tf/m`, true],
       ['抗滑 FS', `${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}`, r.slideOk],
@@ -754,7 +776,7 @@
 
   function renderMetrics(r) {
     const metrics = [
-      ['土壓係數', `${r.mode === 'atRest' ? 'K0' : 'Ka'} = ${fmt(r.K, 3)}`, `Ka=${fmt(r.Ka, 3)}；K0=${fmt(r.K0, 3)}`, true],
+      ['土壓係數', pressureCoefficientText(r), r.theoryLabel, true],
       ['側向合力', `${fmt(r.totalForce)} tf/m`, `作用高度 ${fmt(r.resultantHeight)} m`, true],
       ['傾覆力矩', `${fmt(r.overturningMoment)} tf·m/m`, 'about toe / base', r.overOk],
       ['抗滑 FS', fmt(r.fsSlide, 2), `R=μV+Rp採用=${fmt(r.slideResistance)} tf/m`, r.slideOk],
@@ -930,7 +952,7 @@
     } else if (r.waterModel === 'none') {
       checks.push(['地下水壓提示', true, '本次不納入地下水壓；須確認排水條件或設計水位。']);
     }
-    if (r.useCoulomb) {
+    if (r.useCoulomb && !r.useLayered) {
       checks.push(['Coulomb 土壓', r.coulombValid, r.coulombValid
         ? `Ka(Coulomb)=${fmt(r.effectiveSoilCoef, 4)}；δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°；水平分量係數 cos(δ+θ)=${fmt(r.horizontalFactor, 3)}`
         : (r.theoryNote || 'Coulomb 主動解不成立，已暫退回 Rankine')]);
@@ -959,19 +981,19 @@
       ['合計', fmt(r.totalForce), fmt(r.overturningMoment)]
     ].map(row => `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td></tr>`).join('');
     $('stepBody').innerHTML = `
-      <div class="step-title">1. 模型與 Rankine 土壓係數</div>
+      <div class="step-title">1. 模型與土壓係數</div>
       <div>
         <code>${escapeHtml(r.wallConditionLabel)}；${escapeHtml(r.selectedModeReason)}</code><br>
         <code>${escapeHtml(r.backfillModelLabel)}；${escapeHtml(r.waterModelLabel)}</code><br>
-        <code>Ka = (1 - sinφ) / (1 + sinφ) = ${fmt(r.Ka, 4)}</code><br>
-        <code>K0 = 1 - sinφ = ${fmt(r.K0, 4)}</code><br>
-        <code>本次採用 ${escapeHtml(r.modeLabel)} = ${fmt(r.K, 4)}</code>
-        ${r.useCoulomb ? `<br><code>Coulomb Ka = cos²(φ−θ) / [cos²θ·cos(δ+θ)·(1+√(sin(φ+δ)·sin(φ−β)/(cos(δ+θ)·cos(θ−β))))²] = ${fmt(r.effectiveSoilCoef, 4)}</code><br><code>（δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°；水平分量 ×cos(δ+θ)=${fmt(r.horizontalFactor, 4)}）</code>${r.coulombValid ? '' : `<br><code style="color:#b91c1c;">${escapeHtml(r.theoryNote)}</code>`}` : ''}
+        ${r.useLayered ? '<code>各層 Ka 依該層 φ 計算。</code><br>' : (r.coulombValid
+          ? '<code>Coulomb Ka = cos²(φ−θ)/[cos²θ·cos(δ+θ)·(1+√(sin(φ+δ)·sin(φ−β)/(cos(δ+θ)·cos(θ−β))))²]</code><br>'
+          : `<code>Ka = (1 - sinφ) / (1 + sinφ) = ${fmt(r.Ka, 4)}；K0 = 1 - sinφ = ${fmt(r.K0, 4)}</code><br>`)}
+        <code>本次採用 ${escapeHtml(pressureCoefficientText(r))}</code>
+        ${r.useCoulomb && !r.useLayered && !r.coulombValid ? `<br><code>${escapeHtml(r.theoryNote)}</code>` : ''}
       </div>
       <div class="step-title">2. 側向力與傾覆力矩</div>
       <div>
-        <code>Pa = 1/2 · K · γ · H² = ${fmt(r.soilForce)} tf/m</code><br>
-        <code>Pq = K · q · H = ${fmt(r.surchargeForce)} tf/m</code><br>
+        <code>${escapeHtml(lateralForceEquations(r))}</code><br>
         <code>Pw = 1/2 · γw · hw² = ${fmt(r.waterForce)} tf/m</code>
         <table class="force-table"><thead><tr><th>來源</th><th>P (tf/m)</th><th>M (tf·m/m)</th></tr></thead><tbody>${rows}</tbody></table>
       </div>
@@ -1185,9 +1207,9 @@
       ['計算方式', r.useLayered ? `分層土 Rankine 主動土壓（${r.layered.layerCount} 層砂 / 黏土，有效應力）` : (r.useCoulomb ? (r.coulombValid ? `Coulomb 主動土壓（δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°）` : 'Coulomb 解不成立，已退回 Rankine') : 'Rankine 水平背填土壓初估')],
       ['牆體位移條件', r.wallConditionLabel],
       ['背填與牆背假設', r.backfillModelLabel],
-      ['土壓模式', r.modeLabel],
-      ['土壓係數', `${r.mode === 'atRest' ? 'K0' : 'Ka'} = ${fmt(r.K, 4)}`],
-      ['地下水處理', `${r.waterModelLabel}；hw = ${fmt(r.waterDepth)} m`],
+      ['土壓模式', r.theoryLabel],
+      ['土壓係數', pressureCoefficientText(r)],
+      ['地下水處理', `${r.waterModelLabel}；hw = ${fmt(r.waterDepth)} m。 ${waterStressBasis(r)}`],
       ['被動抵抗採用', `${r.passiveModeLabel}；Rp採用 = ${fmt(r.effectivePassive)} tf/m`],
       ['安全係數需求', `抗滑 FS ${fmt(r.fsSlideReq, 2)}；抗傾覆 FS ${fmt(r.fsOverReq, 2)}`],
       ['產製時間', nowText()],
@@ -1195,23 +1217,23 @@
     const inputRows = [
       ['擋土牆型式', r.wallTypeLabel],
       ['H / γ / φ', `${fmt(r.H)} m / ${fmt(r.gammaSoil)} tf/m³ / ${fmt(r.phiDeg, 1)}°`],
-      ['土壓模式', r.modeLabel],
+      ['土壓模式', r.theoryLabel],
       ['q / hw / γw', `${fmt(r.surcharge)} tf/m² / ${fmt(r.waterDepth)} m / ${fmt(r.gammaWater)} tf/m³`],
       ['B / V / qa', `${fmt(r.baseB)} m / ${fmt(r.verticalLoad)} tf/m / ${fmt(r.qa)} tf/m²`],
       ['μ / Rp 原始 / Rp 採用', `${fmt(r.mu)} / ${fmt(r.passive)} tf/m / ${fmt(r.effectivePassive)} tf/m`]
     ];
-    if (r.useCoulomb) inputRows.push(['Coulomb δ / β / θ', `${fmt(r.deltaDeg, 0)}° / ${fmt(r.betaDeg, 0)}° / ${fmt(r.thetaDeg, 0)}°`]);
+    if (r.useCoulomb && !r.useLayered) inputRows.push(['Coulomb δ / β / θ', `${fmt(r.deltaDeg, 0)}° / ${fmt(r.betaDeg, 0)}° / ${fmt(r.thetaDeg, 0)}°`]);
     if (r.seismicEnable) inputRows.push(['地震 kh / kv', `${fmt(r.kh, 3)} / ${fmt(r.kv, 3)}`]);
     const resultRows = [
       ['綜合結論', r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'],
       ['牆型控制項', r.wallTypeOutput.primaryResult],
-      ['K / Ptotal', `${fmt(r.K, 4)} / ${fmt(r.totalForce)} tf/m`],
+      ['K / Ptotal', `${pressureCoefficientText(r)} / ${fmt(r.totalForce)} tf/m`],
       ['Mo / 作用高度', `${fmt(r.overturningMoment)} tf·m/m / ${fmt(r.resultantHeight)} m`],
       ['抗滑 FS', `${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}`],
       ['抗傾覆 FS', `${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}`],
       ['qmax / qmin', `${fmt(r.qmax)} / ${fmt(r.qmin)} tf/m²`]
     ];
-    if (r.useCoulomb && r.coulombValid) {
+    if (!r.useLayered && r.coulombValid) {
       resultRows.push(['Coulomb Ka', `${fmt(r.effectiveSoilCoef, 4)}（水平分量 ×cos(δ+θ)=${fmt(r.horizontalFactor, 3)}）`]);
     }
     if (r.useLayered && r.layered) {
@@ -1257,12 +1279,12 @@
     const detailedBodyHtml = `
 <h2>計算示意圖</h2><div class="report-diagram">${diagramHtml}</div>
 <h2>計算內容</h2>
-<h3>1. 擋土牆型式與土壓係數（${r.useCoulomb ? 'Coulomb' : 'Rankine'}）</h3>
+<h3>1. 擋土牆型式與土壓係數（${r.useLayered ? '分層 Rankine' : (r.coulombValid ? 'Coulomb' : 'Rankine')}）</h3>
 <p>擋土牆型式：${escapeHtml(r.wallTypeLabel)}；${escapeHtml(r.wallConditionLabel)}；${escapeHtml(r.selectedModeReason)}。${escapeHtml(r.backfillModelLabel)}；${escapeHtml(r.waterModelLabel)}。</p>
-<p><code>Ka = (1−sinφ)/(1+sinφ) = ${fmt(r.Ka, 4)}；K0 = 1−sinφ = ${fmt(r.K0, 4)}；採用 ${escapeHtml(r.modeLabel)} = ${fmt(r.K, 4)}</code></p>
-${r.useCoulomb ? `<p><code>Coulomb Ka = cos²(φ−θ)/[cos²θ·cos(δ+θ)·(1+√(sin(φ+δ)·sin(φ−β)/(cos(δ+θ)·cos(θ−β))))²] = ${fmt(r.effectiveSoilCoef, 4)}</code><br><code>（δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°；側向採水平分量 ×cos(δ+θ)=${fmt(r.horizontalFactor, 4)}）</code>${r.coulombValid ? '' : `<br><code style="color:#b91c1c;">${escapeHtml(r.theoryNote)}</code>`}</p>` : ''}
+<p><code>本次採用 ${escapeHtml(pressureCoefficientText(r))}</code></p>
+${r.useLayered ? '' : (r.coulombValid ? `<p><code>Coulomb Ka = cos²(φ−θ)/[cos²θ·cos(δ+θ)·(1+√(sin(φ+δ)·sin(φ−β)/(cos(δ+θ)·cos(θ−β))))²]，δ=${fmt(r.deltaDeg,0)}°、β=${fmt(r.betaDeg,0)}°、θ=${fmt(r.thetaDeg,0)}°。</code></p>` : `<p><code>Ka = (1−sinφ)/(1+sinφ) = ${fmt(r.Ka,4)}；K0 = 1−sinφ = ${fmt(r.K0,4)}</code> ${escapeHtml(r.theoryNote)}</p>`)}
 <h3>2. 側向力與傾覆力矩</h3>
-<p><code>Pa = ½·K·γ·H² = ${fmt(r.soilForce)}；Pq = K·q·H = ${fmt(r.surchargeForce)}；Pw = ½·γw·hw² = ${fmt(r.waterForce)} tf/m</code></p>
+<p><code>${escapeHtml(lateralForceEquations(r))}</code><br>${escapeHtml(waterStressBasis(r))}</p>
 <table><thead><tr><th>來源</th><th>P (tf/m)</th><th>M (tf·m/m)</th></tr></thead><tbody>${forceRows}</tbody></table>
 <h3>3. 簡化穩定（每公尺牆長）</h3>
 <p><code>Rp採用 = ${fmt(r.passive)} × ${fmt(r.passiveFactor, 2)} = ${fmt(r.effectivePassive)} tf/m（${escapeHtml(r.passiveModeLabel)}）</code></p>
