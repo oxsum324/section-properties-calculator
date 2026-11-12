@@ -43,7 +43,7 @@ const PAGES = [
     ],
     firstEngineeringInput: 'seismicMode',
     collapsedIds: ['btnSaveBeamProject', 'btnLoadBeamProject', 'btnSaveBeamDraft', 'btnLoadBeamDraft', 'beamProjectFile', 'beamProjectStatus'],
-    ids: `simpleDeflLoad sustainedDeflLabel sustainedDeflPercent MaNeg MaPos MuNeg MuPos Pu Tu TuWrap Ve VeWrap Vu anchorageLeft anchorageRight autoD autoMa bannerKey bannerStatus barShMin
+    ids: `beamResults flangeMode flangeProjectionGroup flangeLeft flangeSpacingGroup flangeSwLeftGroup flangeSwLeft flangeSwRight flangeStatus simpleDeflLoad sustainedDeflLabel sustainedDeflPercent MaNeg MaPos MuNeg MuPos Pu Tu TuWrap Ve VeWrap Vu anchorageLeft anchorageRight autoD autoMa bannerKey bannerStatus barShMin
       beamAttachmentReadiness beamAttachmentReadinessCard beamDevLeftType beamDevRightType beamForceCandidateApply beamForceCandidateCard
       beamForceCandidateConfirm beamForceCandidateDiscard beamForceCandidateList beamForceCandidateSummary beamJointCard beamJointMprFactor
       beamJointSendStatus beamJointTarget beamLapClass beamLapEnd beamLapLength beamLapStart beamPreset beamProjectFile beamProjectStatus
@@ -64,7 +64,7 @@ const PAGES = [
       stepsTorsion stepsTorsionBody stepsVerbosity stepsVerbosityWrap stirS stirrup support tab-defl tab-flex tab-shear tab-torsion
       tl-fields topBar1N topBar1No topBar2N topBar2No topBar3N topBar3No topLayerCount topRebarStack torsionAl torsionAtPerS
       torsionDesignStatus warningCard warningList xiTime`,
-    controls: `projName projNo projDesigner beamProjectFile seismicMode sectionType bf hf support fc fy bw h ln deepLoadDistance fyt
+    controls: `projName projNo projDesigner beamProjectFile seismicMode sectionType bf hf flangeMode flangeLeft flangeSwLeft flangeSwRight support fc fy bw h ln deepLoadDistance fyt
       enableTorsion enableDefl showSteps stepsVerbosity beamPreset cover autoD dManual layerSv barShMin devTopPsi devEpoxyPsi
       beamDevLeftType beamDevRightType anchorageLeft anchorageRight beamLapStart beamLapEnd beamLapLength beamLapClass botBar1No
       botBar1N botBar2No botBar2N botBar3No botBar3N topBar1No topBar1N topBar2No topBar2N topBar3No topBar3N skinNo nSkin stirrup legs
