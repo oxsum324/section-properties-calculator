@@ -1324,11 +1324,17 @@
     zone4: { pos: [+0.9 * CC_K, +0.6 * CC_K], posAmin: CC_A_20FT2, neg: [-0.9 * CC_K, -0.7 * CC_K], negAmin: CC_A_20FT2 },
     zone5: { pos: [+0.9 * CC_K, +0.6 * CC_K], posAmin: CC_A_20FT2, neg: [-1.8 * CC_K, -1.0 * CC_K], negAmin: CC_A_20FT2 },
   };
-  // h > 18m: 圖 3.2 屋頂 θ≤10°（圖 3.2 未列屋面正壓；保留既有正壓供包絡）
+  // h > 18m: 圖 3.2 的屋面區域 1～3 僅有負外壓曲線。
   const GCP_ROOF_GT18 = {
-    zone1: { pos: [+0.62, +0.42], neg: [-1.4 * CC_K, -0.9 * CC_K] },
-    zone2: { pos: [+0.62, +0.42], neg: [-2.3 * CC_K, -1.6 * CC_K] },
-    zone3: { pos: [+0.62, +0.42], neg: [-3.2 * CC_K, -2.3 * CC_K] },
+    zone1: { neg: [-1.4 * CC_K, -0.9 * CC_K] },
+    zone2: { neg: [-2.3 * CC_K, -1.6 * CC_K] },
+    zone3: { neg: [-3.2 * CC_K, -2.3 * CC_K] },
+  };
+  // 圖 3.1(c)、(d) 印刷頁 79–80：1、10 m² 折點的圖讀值，取至 0.01。
+  // 原圖的 GCp 已按國內風速制度表示。
+  const slopeCurves = {
+    '3.1(c)': { pos: [1, 0.63], zone1: [-1.80, -1.67], zone2: [-3.50, -2.50], zone3: [-5.50, -4.20] },
+    '3.1(d)': { pos: [1.87, 1.67], zone1: [-2.08, -1.67], zone2: [-2.50, -2.08], zone3: [-2.50, -2.08] },
   };
 
   // 向後相容的扁平表格 (取 h>18m 值)
@@ -1363,7 +1369,7 @@
       return { pos: last[2], neg: last[3] };
     }
     return {
-      pos: interpGCp(zoneData.pos, A, zoneData.posAmax, zoneData.posAmin),
+      pos: zoneData.pos ? interpGCp(zoneData.pos, A, zoneData.posAmax, zoneData.posAmin) : null,
       neg: interpGCp(zoneData.neg, A, zoneData.negAmax, zoneData.negAmin),
     };
   }
@@ -1373,10 +1379,10 @@
    * h ≤ 18m: p = q(h)·[(GCp) − (GCpi)]    (Eq 3.1)
    * h > 18m: p = q·(GCp) − qi·(GCpi)       (Eq 3.2)
    *   迎風面牆正壓採 q(z)，背風/側牆與屋頂採 q(h)
-   * 本函式僅適用封閉式/部分封閉式建築物之牆與低坡度屋面
+   * 封閉式/部分封閉式建築物之牆與屋面。舊呼叫省略 roofSlope 時沿用低坡度路徑。
    */
   function calcCC(p) {
-    const { V, terrain, I, Kzt = 1.0, h, z, zh0, zone, surface, A, encl = 'enclosed' } = p;
+    const { V, terrain, I, Kzt = 1.0, h, z, zh0, zone, surface, A, encl = 'enclosed', roofSlope = 0, roofPositive } = p;
     if (encl === 'open') {
       throw new Error('Open buildings must use Chapter 3.4 net pressure coefficients (Cpn).');
     }
@@ -1387,20 +1393,33 @@
     const qh0 = calcQz(zh0Use, V, terrain, I, Kzt).qz;
     // 依 h 選擇 GCp 表
     const isLE18 = (h <= 18);
-    const wallTbl = isLE18 ? GCP_WALL_LE18 : GCP_WALL_GT18;
-    const roofTbl = isLE18 ? GCP_ROOF_LE18 : GCP_ROOF_GT18;
-    const tbl = (surface === 'roof' ? roofTbl : wallTbl);
-    const zoneData = tbl[zone];
+    if (![h, A].every(n => Number.isFinite(n) && n > 0)) throw new RangeError('請輸入有效之 h / A');
+    const roof = surface === 'roof';
+    if (roof && !(Number.isFinite(roofSlope) && roofSlope >= 0 && roofSlope <= 45)) throw new RangeError('圖 3.1、3.2 的屋面坡度須為 0° 至 45°。');
+    let figure = isLE18 ? (roof ? '3.1(b)' : '3.1(a)') : '3.2';
+    if (roof && roofSlope > (isLE18 ? 7 : 10)) figure = roofSlope <= 27 ? '3.1(c)' : '3.1(d)';
+    const curves = slopeCurves[figure];
+    const table = roof ? (isLE18 ? GCP_ROOF_LE18 : GCP_ROOF_GT18) : (isLE18 ? GCP_WALL_LE18 : GCP_WALL_GT18);
+    const zoneData = table[zone];
     if (!zoneData) throw new Error('Unknown zone: ' + zone);
-    const GCp = lookupGCp(zoneData, A);
+    if (curves && (A < 0.5 || A > 100)) throw new RangeError('圖 3.1(c)、(d) 橫軸為 0.5 至 100 m²，請核對有效面積及設計方法。');
+    const GCp = curves ? { pos: interpGCp(curves.pos, A, 10, 1), neg: interpGCp(curves[zone], A, 10, 1) } : lookupGCp(zoneData, A);
+    if (GCp.pos === null && roofPositive) {
+      if (!(Number.isFinite(roofPositive.value) && roofPositive.value >= 0 && typeof roofPositive.basis === 'string' && roofPositive.basis.trim())) {
+        throw new RangeError('請確認專案正外壓係數及其依據。');
+      }
+      GCp.pos = roofPositive.value;
+    }
     const GCpi = GCPI[encl] ?? GCPI.enclosed;
     const qPos = (!isLE18 && surface === 'wall') ? qz : qh;
     const qNeg = qh;
     const qiNeg = qh;
-    const qiPos = encl === 'partial' ? qh0 : qh;
-    const p_pos = qPos * GCp.pos + qiNeg * GCpi;
+    const qiPos = !isLE18 && encl === 'partial' ? qh0 : qh;
+    const p_pos = GCp.pos === null ? null : qPos * GCp.pos + qiNeg * GCpi;
     const p_neg = qNeg * GCp.neg - qiPos * GCpi;
-    return { qh, qz, qh0, qPos, qNeg, qiPos, qiNeg, zUse, zh0Use, GCp, GCpi, p_pos, p_neg, isLE18 };
+    const areaBreaks = sign => curves ? [1, 10] : [zoneData[sign + 'Amin'] || CC_A_MIN, zoneData[sign + 'Amax'] || CC_A_MAX];
+    return { qh, qz, qh0, qPos, qNeg, qiPos, qiNeg, zUse, zh0Use, GCp, GCpi, p_pos, p_neg, isLE18, figure,
+      posAreas: curves || zoneData.pos ? areaBreaks('pos') : null, negAreas: areaBreaks('neg') };
   }
 
   /**

@@ -276,6 +276,7 @@
       "label": "區域風壓 C&C",
       "discipline": "wind",
       "route": "/wind-cc",
+      "previousCaseEngine": "wind-cc.v1.1.0",
       "html": "tools/風力/wind-cc.html",
       "titleNeedle": "區域風壓",
       "familyNeedle": "建築物耐風設計",
@@ -363,7 +364,7 @@
           },
           "expectedTextNeedles": [
             "部分封閉 → h ≤ 18m → 使用 圖 3.1",
-            "圖 3.1 屋面區域示意",
+            "圖 3.1(b) 屋面區域示意",
             "區域 3 — 屋面角隅",
             "p− = q(h)·GCp,neg − q(h)·GCpi"
           ]

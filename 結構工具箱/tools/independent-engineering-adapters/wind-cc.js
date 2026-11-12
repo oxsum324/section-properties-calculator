@@ -6,7 +6,7 @@ const productionCorePath = path.resolve(__dirname, '../../core/loads/wind.js');
 const formalPagePath = path.resolve(__dirname, '../風力/wind-cc.html');
 const productionSource = fs.readFileSync(productionCorePath, 'utf8');
 const formalPageSource = fs.readFileSync(formalPagePath, 'utf8');
-const formalCall = 'Wind.calcCC({ V, terrain, I, Kzt, h, z, zh0, zone: zKey, surface, A, encl })';
+const formalCall = 'Wind.calcCC({ V, terrain, I, Kzt, h, z, zh0, zone: zKey, surface, A, encl, roofSlope, roofPositive })';
 if (!formalPageSource.includes(formalCall)) {
   throw new Error('wind-cc-formal-page-wiring-drift');
 }
@@ -17,7 +17,7 @@ vm.runInContext(productionSource, context, { filename:productionCorePath });
 const Wind = context.window.Wind;
 
 function validateInput(input) {
-  if (!Array.isArray(input?.cases) || input.cases.length !== 3) return ['cases:three-control-branches-required'];
+  if (!Array.isArray(input?.cases) || input.cases.length !== 5) return ['cases:five-control-branches-required'];
   const issues = [];
   const ids = new Set();
   for (const item of input.cases) {

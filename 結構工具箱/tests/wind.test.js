@@ -114,6 +114,32 @@ function run() {
   approx(mwfrsParapet.p, mwfrsParapet.qp * 1.8, 1e-9, 'mwfrs parapet pressure');
 
   const openExact = W.lookupOpenRoofCpn('monoslope', 'unblocked', 7.5, 'zone3', 1.0, 12);
+  const roofCc = { V: 37.5, terrain: 'C', I: 1, Kzt: 1, h: 18, z: 18, zh0: 6, zone: 'zone3', surface: 'roof', A: 1, encl: 'partial' };
+  for (const [h, roofSlope, figure] of [
+    [18,0,'3.1(b)'], [18,7,'3.1(b)'], [18,7.001,'3.1(c)'], [18,27,'3.1(c)'], [18,27.001,'3.1(d)'], [18,45,'3.1(d)'],
+    [18.001,7.001,'3.2'], [24,10,'3.2'], [24,10.001,'3.1(c)'], [24,27,'3.1(c)'], [24,27.001,'3.1(d)'], [24,45,'3.1(d)'],
+  ]) {
+    const result = W.calcCC({ ...roofCc, h, roofSlope });
+    assert.equal(result.figure, figure);
+    assert.equal(result.qiPos, h <= 18 ? result.qh : result.qh0);
+    if (figure === '3.2') assert.equal(result.p_pos, null);
+  }
+  for (const roofSlope of [NaN, null, -0.01, 45.001]) assert.throws(() => W.calcCC({ ...roofCc, roofSlope }), /坡度/);
+  for (const A of [0.499, 100.001]) assert.throws(() => W.calcCC({ ...roofCc, A, roofSlope: 15 }), /有效面積/);
+  for (const [roofSlope, positives, negatives] of [
+    [15, [1,.63], [-5.5,-4.2]], [30, [1.87,1.67], [-2.5,-2.08]],
+  ]) {
+    for (const [A,f] of [[.5,0],[1,0],[Math.sqrt(10),.5],[10,1],[100,1]]) {
+      const r = W.calcCC({ ...roofCc, h: 24, A, roofSlope });
+      approx(r.GCp.pos, positives[0]*(1-f)+positives[1]*f, 1e-12, 'sloped roof positive coefficient');
+      approx(r.GCp.neg, negatives[0]*(1-f)+negatives[1]*f, 1e-12, 'sloped roof negative coefficient');
+    }
+  }
+  const highRoof = { ...roofCc, h: 24, roofSlope: 5 };
+  assert.equal(W.calcCC(highRoof).GCp.pos, null);
+  const zeroProject = W.calcCC({ ...highRoof, roofPositive: { value: 0, basis: '試驗對照' } });
+  approx(zeroProject.p_pos, zeroProject.qh * zeroProject.GCpi, 1e-10, 'explicit zero external pressure still includes internal pressure');
+  assert.throws(() => W.calcCC({ ...highRoof, roofPositive: { value: 0.4, basis: '  ' } }), /依據/);
   approx(openExact.pos, 3.2, 1e-9, 'open roof exact pos');
   approx(openExact.neg, -4.2, 1e-9, 'open roof exact neg');
 

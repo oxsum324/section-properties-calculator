@@ -748,7 +748,7 @@
     },
     {
       title: '區域風壓 C&C',
-      version: 'V3',
+      version: 'V3.1',
       href: '/wind-cc',
       aliases: ['Components and Cladding', 'C&C／局部風壓'],
       categories: ['wind'],

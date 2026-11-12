@@ -3058,9 +3058,9 @@ function windCcThreeBranchOracle(input) {
       zone5:{ pos:[0.9 * k, 0.6 * k], posAmin:1.86, neg:[-1.8 * k, -1.0 * k], negAmin:1.86 },
     },
     highRoof:{
-      zone1:{ pos:[0.62, 0.42], neg:[-1.4 * k, -0.9 * k] },
-      zone2:{ pos:[0.62, 0.42], neg:[-2.3 * k, -1.6 * k] },
-      zone3:{ pos:[0.62, 0.42], neg:[-3.2 * k, -2.3 * k] },
+      zone1:{ neg:[-1.4 * k, -0.9 * k] },
+      zone2:{ neg:[-2.3 * k, -1.6 * k] },
+      zone3:{ neg:[-3.2 * k, -2.3 * k] },
     },
   };
   const q = (z, i) => {
@@ -3078,16 +3078,22 @@ function windCcThreeBranchOracle(input) {
   return Object.fromEntries(input.cases.map(i => {
     const isLE18 = i.h <= 18;
     const tableKey = `${isLE18 ? 'low' : 'high'}${i.surface === 'roof' ? 'Roof' : 'Wall'}`;
-    const curve = tables[tableKey][i.zone];
+    let curve = tables[tableKey][i.zone];
+    if (i.surface === 'roof' && i.roofSlope > (isLE18 ? 7 : 10)) {
+      const rows = i.roofSlope <= 27
+        ? [[1,.63],[-1.8,-1.67],[-3.5,-2.5],[-5.5,-4.2]]
+        : [[1.87,1.67],[-2.08,-1.67],[-2.5,-2.08],[-2.5,-2.08]];
+      curve = { pos:rows[0], neg:rows[Number(i.zone.slice(-1))], posAmin:1, posAmax:10, negAmin:1, negAmax:10 };
+    }
     const qh = q(i.h, i);
     const qz = q(Math.max(i.z, 0), i);
     const qh0 = q(Math.max(i.zh0, 0), i);
-    const gcpPos = interpolate(curve.pos, i.A, curve.posAmax, curve.posAmin);
+    const gcpPos = i.roofPositive?.value ?? interpolate(curve.pos, i.A, curve.posAmax, curve.posAmin);
     const gcpNeg = interpolate(curve.neg, i.A, curve.negAmax, curve.negAmin);
     const gcpi = i.encl === 'partial' ? 1.146 : 0.375;
     const qPos = !isLE18 && i.surface === 'wall' ? qz : qh;
     const qNeg = qh;
-    const qiPos = i.encl === 'partial' ? qh0 : qh;
+    const qiPos = !isLE18 && i.encl === 'partial' ? qh0 : qh;
     const qiNeg = qh;
     return [i.id, {
       qh, qz, qh0, qPos, qNeg, qiPos, qiNeg,

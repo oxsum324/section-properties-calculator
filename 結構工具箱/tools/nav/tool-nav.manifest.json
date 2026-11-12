@@ -439,7 +439,7 @@
       "route": "/wind-cc",
       "file": "結構工具箱/tools/風力/wind-cc.html",
       "title": "區域風壓 C&C",
-      "version": "V3",
+      "version": "V3.1",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "wind",

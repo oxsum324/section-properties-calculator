@@ -836,7 +836,7 @@ assert.ok(!windSignPoleAdapterSource.includes('golden'), 'wind sign-pole adapter
 const windCcAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-cc.js'), 'utf8');
 assert.ok(windCcAdapterSource.includes("../../core/loads/wind.js"), 'wind C&C adapter exercises the production wind core');
 assert.ok(windCcAdapterSource.includes("../風力/wind-cc.html"), 'wind C&C adapter guards the formal page calculation wiring');
-assert.ok(windCcAdapterSource.includes('Wind.calcCC({ V, terrain, I, Kzt, h, z, zh0, zone: zKey, surface, A, encl })'), 'wind C&C adapter locks the formal page to the shared calculation core');
+assert.ok(windCcAdapterSource.includes('Wind.calcCC({ V, terrain, I, Kzt, h, z, zh0, zone: zKey, surface, A, encl, roofSlope, roofPositive })'), 'wind C&C adapter locks the formal page to the shared calculation core');
 assert.ok(!windCcAdapterSource.includes('golden'), 'wind C&C adapter does not replay a golden-case fixture');
 const windParapetAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-parapet.js'), 'utf8');
 assert.ok(windParapetAdapterSource.includes("../../core/loads/wind.js"), 'wind parapet adapter exercises the production wind core');

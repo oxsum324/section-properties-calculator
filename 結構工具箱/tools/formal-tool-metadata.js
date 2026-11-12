@@ -10,7 +10,7 @@
     'wind-kzt': { route: '/wind-kzt', discipline: 'wind', version: 'V1.1', state: 'reference' },
     'wind-special': { route: '/wind-special', discipline: 'wind', version: 'V3', state: 'reference' },
     'wind-force': { route: '/wind-force', discipline: 'wind', version: 'V3', state: 'formal', governance: 'formal-tools' },
-    'wind-cc': { route: '/wind-cc', discipline: 'wind', version: 'V3', state: 'formal', governance: 'formal-tools' },
+    'wind-cc': { route: '/wind-cc', discipline: 'wind', version: 'V3.1', state: 'formal', governance: 'formal-tools' },
     'wind-parapet': { route: '/wind-parapet', discipline: 'wind', version: 'V3', state: 'formal', governance: 'formal-tools' },
     'wind-open-roof': { route: '/wind-open-roof', discipline: 'wind', version: 'V3.1', state: 'formal', governance: 'formal-tools' },
     'wind-object-solid': { route: '/wind-object-solid', discipline: 'wind', version: 'V4.1', state: 'formal', governance: 'formal-tools' },
