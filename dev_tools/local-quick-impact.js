@@ -82,7 +82,19 @@ function validCache(entry, key, scripts) {
       r?.script === scripts[i] && r.exit === 0 && r.error === null && typeof r.stdout === 'string');
 }
 
-function compare(pilot, full) {
+function declaredChecks(source) {
+  const start = source.indexOf('$checks = @(\n  [pscustomobject]@{');
+  const end = source.indexOf('\nif ($Quick)', start);
+  if (start < 0 || end < 0) throw new Error('無法辨認該提交的全量預檢清單');
+  const declaration = source.slice(start, end);
+  const records = [...declaration.matchAll(/^\s*key\s*=\s*"([-\w]+)"\s*$/gm)].map(match => match[1]);
+  const post = [...source.matchAll(/Invoke-PreflightCheck -Key "([-\w]+-final)"/g)].map(match => match[1]);
+  if (records.length !== declaration.split('[pscustomobject]@{').length - 1 ||
+    !records.includes('independent-engineering-benchmarks') || !post.length) throw new Error('預檢清單缺少可核對的項目');
+  return { records, post };
+}
+
+function compare(pilot, full, expected) {
   const reasons = [];
   if (pilot.clean !== true || !/^[0-9a-f]{40}$/.test(pilot.sha) || pilot.sha !== full.sourceCommitSha || full.sourceDirty !== false) reasons.push('兩份紀錄須為同一乾淨提交');
   const pilotSteps = [...(pilot.records || []), ...(pilot.navigation || [])];
@@ -91,6 +103,8 @@ function compare(pilot, full) {
     pilot.navigation?.length !== 3 || pilotSteps.some(r => r.exit !== 0 || r.error !== null)) reasons.push('局部檢查未全部通過');
   const records = Array.isArray(full.records) ? full.records : [];
   const post = Array.isArray(full.postChecks) ? full.postChecks : [];
+  const matches = (actual, keys) => actual.length === keys.length && keys.every(key => actual.some(record => record.key === key));
+  if (!matches(records, expected.records) || !matches(post, expected.post)) reasons.push('紀錄與該提交宣告的全量或後段檢查名單不符');
   if (full.quick !== false || full.ci !== false || !records.length || records.length !== full.recordsCount ||
     new Set(records.map(r => r.key)).size !== records.length || full.passedCount !== records.length ||
     full.pass !== true || full.failureCount !== 0 || records.some(r => r.pass !== true) ||
@@ -98,7 +112,7 @@ function compare(pilot, full) {
     post.some(r => r.pass !== true)) reasons.push('全量或後段檢查未全部通過');
   const familyRecords = ['local-quick-tools-static', 'local-quick-tools-runner'].map(key =>
     records.find(record => record.key === key));
-  if (familyRecords.some(r => !r || r.pass !== true || r.exitCode !== 0 || r.reused === true)) reasons.push('家族全量檢查缺少本次執行的成功紀錄');
+  if (familyRecords.some(r => !r || r.pass !== true || r.exitCode !== 0 || r.reused !== false)) reasons.push('家族全量檢查缺少本次執行的成功紀錄');
   return { sameHeadFullPass: reasons.length === 0, reasons, fullCount: records.length, failedKeys: full.failedKeys,
     postCheckFailures: full.postCheckFailures,
     fullSeconds: full.totalSeconds, slowReuseKeys: full.slowReuseKeys, platformAuditReused: full.platformAuditReused,
@@ -111,7 +125,10 @@ function main() {
     fresh: { type: 'boolean' }, compare: { type: 'string' }, pilot: { type: 'string' } } });
   if (values.compare || values.pilot) {
     if (!values.compare || !values.pilot || values.base || values.run || values.fresh) throw new Error('請同時指定 --compare 全量紀錄 --pilot 局部紀錄');
-    const report = compare(readJson(values.pilot), readJson(values.compare));
+    const pilot = readJson(values.pilot);
+    if (!/^[0-9a-f]{40}$/.test(pilot.sha)) throw new Error('局部紀錄缺少有效的提交編號');
+    const expected = declaredChecks(git('show', pilot.sha + ':preflight-tools.ps1').replace(/\r\n/g, '\n'));
+    const report = compare(pilot, readJson(values.compare), expected);
     console.log(JSON.stringify(report, null, 2));
     if (!report.sameHeadFullPass) process.exitCode = 1;
     return;
@@ -158,7 +175,7 @@ function main() {
   if (!pass) process.exitCode = 1;
 }
 
-module.exports = { classify, inventory, compare, validCache };
+module.exports = { classify, inventory, compare, declaredChecks, validCache };
 if (require.main === module) {
   try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

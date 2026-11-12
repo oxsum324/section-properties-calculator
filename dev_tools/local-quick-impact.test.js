@@ -1,7 +1,9 @@
 'use strict';
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { inventory, classify, compare, validCache } = require('./local-quick-impact');
+const fs = require('node:fs');
+const path = require('node:path');
+const { inventory, classify, compare, declaredChecks, validCache } = require('./local-quick-impact');
 
 const registry = inventory();
 const [tool, second] = registry.routes;
@@ -29,15 +31,19 @@ const sha = 'a'.repeat(40);
 const pilot = { sha, clean: true, pass: true, plan: { routes: [tool.route] },
   records: [...records, { script: '結構工具箱/tools/sync-home-update-dates.js', args: ['--check', '--dates-only'], exit: 0, error: null }],
   navigation: Array.from({ length: 3 }, () => ({ exit: 0, error: null })) };
+const expected = declaredChecks(fs.readFileSync(path.join(__dirname, '../preflight-tools.ps1'), 'utf8').replace(/\r\n/g, '\n'));
 const full = { sourceCommitSha: sha, sourceDirty: false, quick: false, ci: false, pass: true, failureCount: 0,
-  recordsCount: 2, passedCount: 2, postCheckCount: 1, postChecksPassedCount: 1, postChecks: [{ pass: true }],
-  records: ['local-quick-tools-static', 'local-quick-tools-runner'].map(key => ({ key, pass: true, reused: false, exitCode: 0 })) };
-assert.ok(compare(pilot, full).sameHeadFullPass);
+  recordsCount: expected.records.length, passedCount: expected.records.length, postCheckCount: expected.post.length,
+  postChecksPassedCount: expected.post.length, postChecks: expected.post.map(key => ({ key, pass: true })),
+  records: expected.records.map(key => ({ key, pass: true, reused: false, exitCode: 0 })) };
+assert.ok(compare(pilot, full, expected).sameHeadFullPass);
+const withoutIndependent = full.records.filter(r => r.key !== 'independent-engineering-benchmarks');
 for (const change of [{ quick: true }, { sourceDirty: true }, { sourceCommitSha: 'b'.repeat(40) },
   { records: [] }, { postChecks: [] }, { postChecks: [{ pass: false }] }, { failureCount: 1 },
-  { records: [full.records[0], { ...full.records[1], reused: true }] }]) {
-  assert.equal(compare(pilot, { ...full, ...change }).sameHeadFullPass, false);
+  { records: withoutIndependent, recordsCount: withoutIndependent.length, passedCount: withoutIndependent.length },
+  { records: full.records.map(r => r.key === 'local-quick-tools-runner' ? { ...r, reused: true } : r) }]) {
+  assert.equal(compare(pilot, { ...full, ...change }, expected).sameHeadFullPass, false);
 }
-assert.equal(compare({ ...pilot, clean: false }, full).sameHeadFullPass, false);
-assert.equal(compare({ ...pilot, records: [] }, full).sameHeadFullPass, false);
+assert.equal(compare({ ...pilot, clean: false }, full, expected).sameHeadFullPass, false);
+assert.equal(compare({ ...pilot, records: [] }, full, expected).sameHeadFullPass, false);
 console.log('局部快算影響範圍、快取完整性、全量比對測試通過');
