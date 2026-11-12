@@ -231,7 +231,7 @@
       '/concrete-strength-ndt': '2026-10-23',
       '/cable-tension-frequency': '2026-10-24',
       '/decking': '2026-11-12',
-      '/excavation-support': '2026-10-23'
+      '/excavation-support': '2026-11-12'
     }
   };
 
