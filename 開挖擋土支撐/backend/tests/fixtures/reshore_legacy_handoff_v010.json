@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 4,
+  "kind": "excavation-removal-transfer-handoff",
+  "generatedAt": "2026-08-11T08:00:00Z",
+  "source": {
+    "toolId": "excavation-support",
+    "toolName": "開挖擋土支撐工具",
+    "toolVersion": "v0.1.0",
+    "projectId": "reshore-capacity-test",
+    "projectName": "回撐軸壓容量測試案",
+    "projectNo": "",
+    "calculationFingerprint": "CF-0A4833F738FC12CF"
+  },
+  "transfers": [
+    {
+      "sourceMember": {
+        "collection": "top_supports",
+        "memberType": "support",
+        "side": "top",
+        "rowIndex": 0,
+        "moduleName": "上層水平支撐",
+        "levelLabel": "1",
+        "sectionName": "RH350X350X12X19"
+      },
+      "lifecycle": {
+        "installationStage": {
+          "index": 1,
+          "label": "第一道支撐安裝"
+        },
+        "controlStage": {
+          "index": 2,
+          "label": "第二階開挖"
+        },
+        "removalStage": {
+          "index": 3,
+          "label": "第一道支撐拆除"
+        },
+        "constructionStep": "第二階開挖完成",
+        "mappingBasis": "施工順序圖 CS-02"
+      },
+      "sourceDemand": {
+        "unit": "tf",
+        "analysisControlAxialForceTf": 76.0,
+        "memberDesignAxialForceTf": 106.0,
+        "receiverTransferDemandTf": 106.0,
+        "allocationSharePercent": 100.0,
+        "analysisCases": [
+          {
+            "stageIndex": 2,
+            "stageLabel": "第二階開挖",
+            "axialForceTf": 76.0
+          }
+        ],
+        "basis": "承接設計需求取來源構件設計軸力；承接構造之實際分配、偏心及載重組合仍待接收端驗證。"
+      },
+      "receiver": {
+        "mode": "reshore",
+        "modeLabel": "移轉至重撐／回撐",
+        "target": "B2F R1 重撐群",
+        "direction": "沿原支撐軸線傳至 B2F",
+        "dispositionBasis": "拆撐順序圖 CS-04",
+        "receiverIdentityRequired": false
+      },
+      "sourceCheck": {
+        "status": "OK",
+        "formulaId": "support_interaction",
+        "utilizationRatio": 0.516,
+        "controllingCondition": "軸力與撓曲交互作用比"
+      },
+      "verification": {
+        "status": "pending",
+        "required": true,
+        "autoVerified": false,
+        "acceptedReceiptKind": "receiver-capacity-verification-receipt"
+      },
+      "transferId": "ERT-BC7BF41C1F8CF233EA1F"
+    }
+  ],
+  "verificationSummary": {
+    "status": "pending",
+    "required": 1,
+    "verified": 0,
+    "receiptKind": "receiver-capacity-verification-receipt"
+  },
+  "receiptContract": {
+    "schemaVersion": 5,
+    "kind": "receiver-capacity-verification-receipt",
+    "fingerprintAlgorithm": "RVR-SHA256-canonical-json-first-20-uppercase",
+    "coverage": "all-ERT-transfers-required",
+    "capacityCheck": "adopted-demand-divided-by-verified-capacity",
+    "capacityEvidence": "per-ERT-document-metadata-and-sha256",
+    "verificationScope": "per-ERT-structured-model-combination-load-path-eccentricity-and-limit-states",
+    "supplementalEvidence": "per-ERT-five-check-status-basis-and-document-sha256",
+    "verifierIdentityAuthentication": "manual-review-or-ed25519-trust-registry"
+  },
+  "boundary": {
+    "requiresReceiverVerification": true,
+    "autoApplied": false,
+    "autoVerified": false,
+    "scope": "本檔交接拆撐來源構件、生命週期、控制軸力、承接設計需求及人工採用的承接對象與傳力方向；不代表樓版、重撐、永久結構或其他承接構造已完成容量、方向正確性、分配、偏心或載重組合檢核。"
+  },
+  "handoffFingerprint": "ERH-E86718EB66AF7C0D6A6D"
+}

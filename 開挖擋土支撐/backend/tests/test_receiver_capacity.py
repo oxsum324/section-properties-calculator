@@ -345,8 +345,9 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
         values.update(overrides)
         return ReshoreMemberCapacityInput(**values)
 
-    def calculate(self, **overrides):
-        handoff = self.prepared_handoff()
+    def calculate(self, *, handoff=None, **overrides):
+        if handoff is None:
+            handoff = self.prepared_handoff()
         return calculate_reshore_member_capacity(
             handoff,
             handoff["transfers"][0]["transferId"],
@@ -1310,8 +1311,13 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
     def test_legacy_benchmarks_preserve_exact_fingerprints_sha256_and_key_sets(self) -> None:
         from backend.app.receiver_capacity import _canonical_json
 
+        # Replay the original synthetic v0.1.0 handoff produced by prepared_handoff()
+        # at 74d35c07. New producer versions have their own source fingerprint.
+        fixture = self.INDEPENDENT_BENCHMARK_PATH.with_name("reshore_legacy_handoff_v010.json")
+        handoff = json.loads(fixture.read_text(encoding="utf-8"))
+        self.assertEqual(handoff["handoffFingerprint"], "ERH-E86718EB66AF7C0D6A6D")
         bx001_bench = json.loads(self.INDEPENDENT_BENCHMARK_PATH.read_text(encoding="utf-8"))
-        bx001_resp = self.calculate(**bx001_bench["calculationInput"])
+        bx001_resp = self.calculate(handoff=handoff, **bx001_bench["calculationInput"])
         bx001_full_sha = hashlib.sha256(_canonical_json(bx001_resp).encode("utf-8")).hexdigest()
         self.assertEqual(bx001_resp["calculation"]["calculationFingerprint"], "RSC-FB0D6F25D373EF239B59")
         self.assertEqual(bx001_resp["evidence"]["fileSha256"], "64244463f5274d74ca1e03b9d3ef7b424da28368fe7b164b35fcf01f781b36ac")
@@ -1320,7 +1326,7 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
         self.assertNotIn("kernFullContactEndBearingConfirmed", bx001_resp["calculation"]["input"])
 
         bx002_bench = json.loads(self.INDEPENDENT_822_BENCHMARK_PATH.read_text(encoding="utf-8"))
-        bx002_resp = self.calculate(**bx002_bench["calculationInput"])
+        bx002_resp = self.calculate(handoff=handoff, **bx002_bench["calculationInput"])
         bx002_full_sha = hashlib.sha256(_canonical_json(bx002_resp).encode("utf-8")).hexdigest()
         self.assertEqual(bx002_resp["calculation"]["calculationFingerprint"], "RSC-2A5E0D757C3A86CD1D64")
         self.assertEqual(bx002_resp["evidence"]["fileSha256"], "69cdbd808089bcb355c332f0c9658431e3e8afbfd20d4b88795d826ac192f995")
@@ -1328,7 +1334,7 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
         self.assertNotIn("endBearingTransferInterval", bx002_resp["calculation"]["results"])
 
         rsb001_bench = json.loads(self.INDEPENDENT_END_BEARING_BENCHMARK_PATH.read_text(encoding="utf-8"))
-        rsb001_resp = self.calculate(**{**self.valid_end_bearing_overrides(), **rsb001_bench["calculationInput"]})
+        rsb001_resp = self.calculate(handoff=handoff, **{**self.valid_end_bearing_overrides(), **rsb001_bench["calculationInput"]})
         rsb001_full_sha = hashlib.sha256(_canonical_json(rsb001_resp).encode("utf-8")).hexdigest()
         self.assertEqual(rsb001_resp["calculation"]["calculationFingerprint"], "RSC-6CFAD66EF6FDD24871A4")
         self.assertEqual(rsb001_resp["evidence"]["fileSha256"], "bcec503f39c237fac5d9c3cb441a83591325888e472a3d58258120093e0ca0bd")

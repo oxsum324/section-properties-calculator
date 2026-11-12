@@ -15,6 +15,7 @@ $outputDir = Join-Path $root "output\preflight"
 $historyDir = Join-Path $outputDir "history"
 $slowStatusDir = Join-Path $outputDir "slow-check-status"
 $slowStatusMaxAgeHours = 24
+$checkExitFooter = 'if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE }; exit 1 }'
 $isReleaseMode = (-not $Quick) -and [bool]$ForcePlatformAudit -and [bool]$ForceSlowChecks
 $releaseLockScript = Join-Path $root "結構工具箱\tools\release-preflight-lock.ps1"
 $releaseMutex = $null
@@ -284,7 +285,7 @@ function Invoke-PreflightCheck {
     ('$env:PREFLIGHT_CHECK_KEY = "' + $Key.Replace('"', '`"') + '"')
     ('$env:PREFLIGHT_RELEASE = "' + $releaseEvidenceRequired + '"')
   ) -join [Environment]::NewLine
-  Set-Content -Path $scriptPath -Value ($scriptEncodingBootstrap + [Environment]::NewLine + $Command) -Encoding Unicode
+  Set-Content -Path $scriptPath -Value ($scriptEncodingBootstrap + [Environment]::NewLine + $Command + [Environment]::NewLine + $checkExitFooter) -Encoding Unicode
   $startedAt = Get-Date
   if ($isReleaseMode) { Assert-ReleaseEnvironmentPinned -State $releaseEnvironmentState }
   $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -435,6 +436,7 @@ function Get-CacheDefinitionHash {
   param([object]$Cache)
 
   $definition = [ordered]@{
+    exitPolicy = $checkExitFooter
     roots = @($Cache.roots | ForEach-Object { [string]$_ })
     extensions = @($Cache.extensions | ForEach-Object { ([string]$_).ToLowerInvariant() })
     excludePatterns = @($Cache.excludePatterns | ForEach-Object { [string]$_ })

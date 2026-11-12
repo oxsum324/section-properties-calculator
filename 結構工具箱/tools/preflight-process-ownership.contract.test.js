@@ -38,12 +38,28 @@ function staticContract(){
   assert.equal(post.length,3);assert.equal(hash(post.join('\n')),'d863670787a1f2c5913e75eef959c830ac3452f068f50205a77d2cb31053bcb8','All three original post-check invocation literals stay identical');
   for(const bad of [helper.replace('limits.Basic.Flags = 0x00002000','limits.Basic.Flags = 0'),helper.replace('TerminateJobObject(handle,1)','CloseEverything()'),helper.replace('$job.Assign($process)','$job.AssignNothing()'),helper.replaceAll('IsProcessInJob','TrustPidOnly')])assert.throws(()=>assertOwnershipMechanism(bad),'A weakened mechanism must fail before real processes are created');
 }
+function verifyNativeExitCode(native, destination) {
+  const footer = preflight.match(/^\$checkExitFooter = '([^']+)'/m)?.[1];
+  assert.ok(footer && preflight.includes('$Command + [Environment]::NewLine + $checkExitFooter'));
+  assert.ok(preflight.includes('exitPolicy = $checkExitFooter'), 'Slow receipts include the exit policy');
+  for (const [name, command, expected] of [
+    ['failure', 'cmd.exe /d /c exit 37', 37],
+    ['success', 'cmd.exe /d /c exit 0', 0],
+    ['recovered', 'cmd.exe /d /c exit 37\r\nWrite-Output recovered', 0],
+  ]) {
+    const file = path.join(destination, 'native-' + name + '.ps1');
+    fs.writeFileSync(file, command + '\r\n' + footer + '\r\n');
+    const run = cp.spawnSync(native, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', file], { windowsHide: true });
+    assert.equal(run.status, expected, 'Generated preflight native exit condition: ' + name);
+  }
+}
 function main(){
   staticContract();
   if(process.platform!=='win32')throw new Error('Real Windows ownership fixture is required; this test cannot silently skip.');
   const relative=path.join('output','preflight','process-ownership-fixtures',new Date().toISOString().replace(/[-:.TZ]/g,'')+'-'+process.pid);
   const destination=path.join(root,relative);fs.mkdirSync(destination,{recursive:true});
   const native=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
+  verifyNativeExitCode(native, destination);
   const result=cp.spawnSync(native,['-NoProfile','-ExecutionPolicy','Bypass','-File',path.join(root,fixturePath),'-WorkspaceRoot',root,'-FixtureRoot',destination],{cwd:root,env:process.env,encoding:'utf8',windowsHide:true,maxBuffer:8*1024*1024,timeout:180000});
   fs.writeFileSync(path.join(destination,'stdout.log'),result.stdout||'');fs.writeFileSync(path.join(destination,'stderr.log'),result.stderr||'');
   fs.writeFileSync(path.join(destination,'process-result.json'),JSON.stringify({exitCode:result.status,signal:result.signal,error:result.error?.code||null},null,2));
