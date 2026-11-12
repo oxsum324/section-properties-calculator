@@ -641,6 +641,7 @@ function importCaseJsonFile(file) {
       });
       if (historical) {
         document.getElementById('hostImportance').value = '';
+        if (document.getElementById('chkNearFault').checked) document.getElementById('SsD').value = '';
         calcAppendagePage();
         setCaseStatus(`已核對舊案 ${replay.calculationFingerprint} 並載入輸入。V2.5 未記錄主體用途，請補選並確認工址後重算。`, 'warn');
         return;
@@ -860,9 +861,9 @@ function loadStaticSummaryIntoPage() {
     return null;
   }
   const proj = saved.project;
-  if (proj.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(proj.name);
-  if (proj.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(proj.no);
-  if (proj.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);
+  document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(proj.name);
+  document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(proj.no);
+  document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);
   document.getElementById('zoneCity').value = proj.zoneCity || '';
   document.getElementById('zoneCity').dispatchEvent(new Event('change'));
   if (proj.zoneDist != null) document.getElementById('zoneDist').value = proj.zoneDist;
