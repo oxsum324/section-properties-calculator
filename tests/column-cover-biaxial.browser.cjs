@@ -13,7 +13,7 @@ async function run(){
       server.once('error',reject);server.once('exit',c=>reject(Error('serve-local '+c)));});
     browser=await chromium.launch({channel:'msedge',headless:true});
     const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];
-    page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+    page.on('pageerror',e=>errors.push(e.message));
     await page.goto(url);
     assert.equal(await page.locator('#coverBiaxialFrame').getAttribute('src'),null);
     const p1=await page.locator('#bannerStatus').innerText();
@@ -26,7 +26,10 @@ async function run(){
     };
     await f('seed').click();assert.match(await f('designBars').inputValue(),/圖說推定/);
     for(const key of ['observedBars','pTf','mxTfm','myTfm','demandBasis'])assert.equal(await f(key).inputValue(),'');
-    await f('example').click();await runCase();
+    const imported=await f('designBars').inputValue();
+    await f('example').click();await f('replaceDialog').getByRole('button',{name:'保留目前資料'}).click();
+    assert.equal(await f('designBars').inputValue(),imported);assert.equal(await f('observedBars').inputValue(),'');
+    await f('example').click();await f('replaceDialog').getByRole('button',{name:'取代資料'}).click();await runCase();
     const original=await snapshot('設計軸力30度.json');
     const ref=require('./fixtures/column-cover-biaxial.json').cases.find(c=>c.mode==='design'&&c.angle===30&&c.pTf===60);
     assert.ok(Math.abs(original.result.observed.capacityTfm-ref.observed.capacityTfm)<.0002);
@@ -40,6 +43,7 @@ async function run(){
     await f('observedBars').fill('');await runCase();assert.match(await f('status').innerText(),/待補/);
     assert.equal(await f('save').isDisabled(),true);assert.equal(await f('results').isVisible(),false);
     await f('load').setInputFiles({name:'restore.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({...original,result:{observed:{ok:false}}}))});
+    await f('replaceDialog').getByRole('button',{name:'取代資料'}).click();
     await f('results').waitFor();const restored=await snapshot('讀回重算.json');assert.deepEqual(restored.result,original.result);
     await page.setViewportSize({width:390,height:844});
     const mobile=await f('results').evaluate(el=>({scroll:el.ownerDocument.documentElement.scrollWidth,view:el.ownerDocument.documentElement.clientWidth}));

@@ -336,10 +336,6 @@
     SrcColumnBiaxialError,
     beta1Of,
     phiOf,
-    prepareNominalSection(section, materials) {
-      const model = normalizeSection(section, materials);
-      return { limits: axialLimits(model), point: (cCm, thetaRad) => nominalPointFromModel(cCm, thetaRad, model) };
-    },
     nominalPoint: (cCm, thetaRad, section, materials) => nominalPointFromModel(cCm, thetaRad, normalizeSection(section, materials)),
     checkDemand,
   });

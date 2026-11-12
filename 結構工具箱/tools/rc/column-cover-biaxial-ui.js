@@ -21,6 +21,16 @@
     invalidate(message);
   }
   const hasInputs = () => keys.some(k=>k!=='mode' && byId(k).value.trim());
+  async function allowReplacement(question) {
+    if(!hasInputs())return true;
+    const dialog=byId('replaceDialog');
+    if(dialog.open)return false;
+    byId('replaceQuestion').textContent=question;
+    dialog.returnValue='';
+    const closed=new Promise(resolve=>dialog.addEventListener('close',()=>resolve(dialog.returnValue==='replace'),{once:true}));
+    dialog.showModal();
+    return closed;
+  }
   function row(container,values) {
     const tr=container.insertRow();
     for (const s of values) tr.insertCell().textContent=s;
@@ -111,13 +121,13 @@
       const raw=JSON.parse(await file.text());
       if(raw.schema!==core.version || !raw.input)throw Error('無法辨識逐筋雙軸紀錄版本。');
       const r=core.calculate(raw.input);
-      if(hasInputs() && !confirm('以讀入的雙軸紀錄取代目前資料？'))return;
+      if(!await allowReplacement('以讀入的雙軸紀錄取代目前資料？'))return;
       replace({...raw.input,...r.input},'');display(r);byId('status').textContent='已讀回原始輸入，並依目前引擎重新計算。';
     }catch(e){byId('status').textContent='讀取失敗，保留原資料。'+e.message;}
     finally{event.target.value='';}
   };
-  byId('example').onclick=()=>{
-    if(hasInputs() && !confirm('以合成對照例取代目前資料？'))return;
+  byId('example').onclick=async()=>{
+    if(!await allowReplacement('以合成對照例取代目前資料？'))return;
     const ids=['T1','T2','T3','L1','R1','B1','B2','B3'];
     const table=(coords,source)=>[core.header.join('\t'),...coords.map(([x,y],i)=>[ids[i],x,y,5.067,'合成',source].join('\t'))].join('\n');
     replace({caseId:'合成柱 C01／R1',materialBasis:'合成矩形繫筋柱',demandBasis:'合成組合 U1，30° 方向',mode:'design',
@@ -127,10 +137,10 @@
   };
   try {byId('seed').hidden=window===window.parent || typeof window.parent.getCoverBiaxialDesign!=='function';}
   catch {byId('seed').hidden=true;}
-  byId('seed').onclick=()=>{
+  byId('seed').onclick=async()=>{
     try {
       const data=window.parent.getCoverBiaxialDesign();
-      if(hasInputs() && !confirm('以主頁的設計配筋開新比較？請重新填寫現況座標與同組內力。'))return;
+      if(!await allowReplacement('以主頁設計配筋開新比較？取代後須重新填寫現況座標與同組內力。'))return;
       replace({...data,mode:'design'},'已帶入設計。請逐筋填寫現況位置及同組有號 P、Mx、My。');
     }catch(e){byId('status').textContent=e.message;}
   };

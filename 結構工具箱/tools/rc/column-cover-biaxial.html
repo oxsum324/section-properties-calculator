@@ -6,6 +6,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f7f6fa;color:#272330;font:16px/1.55 "Microsoft JhengHei",system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:16px}
 section{background:white;border:1px solid #ded8e8;border-radius:10px;margin-bottom:12px;padding:16px}h1,h2,h3{line-height:1.35;margin:0 0 10px;color:#49306b}h1{font-size:1.4rem}h2{font-size:1.12rem}h3{font-size:1rem}p{margin:.45rem 0}button,input,select,textarea{font:inherit}input,textarea,select{border:1px solid #9b90aa;border-radius:5px;padding:6px;max-width:100%;background:white;color:inherit}input:not([type=file]),textarea,select{width:100%}textarea{font:14px/1.55 Consolas,monospace;min-width:0;resize:vertical}label{display:block;font-weight:650}button{padding:7px 12px;border:1px solid #bba9d0;border-radius:7px;background:#f2ecf8;color:#392052;cursor:pointer}button.primary{background:#563278;color:#fff;border-color:#563278}button:disabled{opacity:.55;cursor:default}:focus-visible{outline:3px solid #9469ba;outline-offset:2px}
+dialog{border:1px solid #c8b8d5;border-radius:9px;max-width:min(26rem,92%)}dialog::backdrop{background:#25203066}
 .grid,.pair{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.pair{grid-template-columns:1fr 1fr}.wide{grid-column:span 2}.field{min-width:0}.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:.65rem 0}.note{color:#554c60;font-size:.9rem}.scroll{overflow-x:auto}th,td{padding:.38rem .6rem;border-bottom:1px solid #e4e0e8;text-align:left;vertical-align:top}th{background:#f7f3fb}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}#status{color:#522d72;font-weight:700}#summary{font-size:1.08rem;font-weight:bold}#plot{display:block;width:min(100%,580px);height:auto}#results{scroll-margin-top:8px}.caution{color:#713402;background:#fff5e6;padding:8px 10px}
 @media(max-width:720px){main{padding:6px}.grid{grid-template-columns:1fr 1fr}.pair{grid-template-columns:1fr}section{padding:11px}.wide{grid-column:1/-1}th,td{padding:.32rem}.scroll{font-size:.92rem}}
 @media screen and (max-width:720px){.position-table{min-width:42rem}.scroll:focus-visible{outline:2px solid #765398}}
@@ -43,6 +44,9 @@ section{background:white;border:1px solid #ded8e8;border-radius:10px;margin-bott
 <div class="scroll" tabindex="0" aria-label="逐筋座標與位移，可左右捲動"><table class="position-table"><thead><tr><th>筋號</th><th>設計 x／y (mm)；As (cm²)</th><th>現況 x／y (mm)；As (cm²)</th><th>Δx／Δy (mm)</th><th>定位方式與來源</th></tr></thead><tbody id="positions"></tbody></table></div></div>
 <p>施工容許差待依契約、量測誤差與施工紀錄另核。二階效應、圍束細部、剪力及整體結構安全另行評估。</p>
 <p class="note">矩形等值壓力塊、平面應變、離散彈塑性鋼筋，Es＝2.04×10⁶ kgf/cm²。繫筋柱採一般 φ，設計軸壓上限 0.80×0.65×Po。兩組配置分別以同一軸力、同一有號彎矩方向求解。<a href="https://www.nlma.gov.tw/uploads/files/011d9249cac7d6c5547786aa348e352a.pdf" target="_blank" rel="noopener">建築物混凝土結構設計規範 112 年版，第 21、22 章</a></p>
-</section></main>
+</section>
+<dialog id="replaceDialog" aria-labelledby="replaceQuestion"><form method="dialog">
+<p id="replaceQuestion"></p><div class="actions"><button value="keep" autofocus>保留目前資料</button><button value="replace" class="primary">取代資料</button></div>
+</form></dialog></main>
 <script src="../../../SRC工具/core/src-column-rc-biaxial.js"></script><script src="column-cover-biaxial.js"></script><script src="column-cover-biaxial-ui.js"></script>
 </body></html>

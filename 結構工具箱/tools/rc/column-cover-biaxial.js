@@ -81,9 +81,9 @@
     checkGeometry(bars,input.widthMm,input.depthMm,label);
     const section = {widthCm:input.widthMm/10,depthCm:input.depthMm/10,
       bars:bars.map(bar=>({xCm:bar.xMm/10,yCm:bar.yMm/10,areaCm2:bar.areaCm2}))};
-    const engine = rc.prepareNominalSection(section,{fcKgfCm2:input.fc,fyKgfCm2:input.fy,esKgfCm2:2040000});
+    const materials = {fcKgfCm2:input.fc,fyKgfCm2:input.fy,esKgfCm2:2040000};
     const design = input.mode==='design';
-    const {nominalPoTf,phiPnMaxTf,pureTensionTf} = engine.limits;
+    const {nominalPoTf,phiPnMaxTf,pureTensionTf} = rc.checkDemand(section,materials,{puTf:0,muxTfM:0,muyTfM:0});
     const pMax = design ? phiPnMaxTf : nominalPoTf, pMin = design ? pureTensionTf : pureTensionTf/.9;
     const limits = {nominalPoTf,phiPnMaxTf,pMinTf:pMin,pMaxTf:pMax};
     const base = {limits,point:null,capacityTfm:null,utilization:null,ok:null};
@@ -103,7 +103,7 @@
     function evaluate(logC,theta) {
       const c = Math.exp(logC);
       // SRC takes right-face compression as positive My; the cover page takes left.
-      const str = engine.point(c,-theta);
+      const str = rc.nominalPoint(c,-theta,section,materials);
       const phi = str.phi, pn = str.nominalPKgf/1000;
       const mnx = str.nominalMxKgfCm/1e5, mny = -str.nominalMyKgfCm/1e5;
       const scale = design ? phi : 1, mx=scale*mnx, my=scale*mny;
