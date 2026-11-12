@@ -433,12 +433,11 @@
     };
   }
 
-  // 簡支、等 EI、向下使用載重。均布及跨中集中載重皆在跨中達最大撓度。
-  function calcDeflection(sec, wD_kgcm, wL_kgcm, L_cm, pointDead_tf = 0, pointLive_tf = 0) {
+  // ── 撓度 (簡支均佈) ──
+  function calcDeflection(sec, wD_kgcm, wL_kgcm, L_cm) {
     const EI = ES * sec.Ix;
-    const cmPerTf = 1000 * L_cm**3 / (48 * EI);
-    const deltaD = 5*wD_kgcm*L_cm**4 / (384*EI) + pointDead_tf * cmPerTf;
-    const deltaL = 5*wL_kgcm*L_cm**4 / (384*EI) + pointLive_tf * cmPerTf;
+    const deltaD = 5*wD_kgcm*L_cm**4 / (384*EI);
+    const deltaL = 5*wL_kgcm*L_cm**4 / (384*EI);
     const deltaT = deltaD + deltaL;
     return { deltaD, deltaL, deltaT, EI, ratioL: L_cm/deltaL, ratioT: L_cm/deltaT };
   }

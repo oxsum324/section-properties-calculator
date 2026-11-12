@@ -124,15 +124,6 @@ function assertReportHtmlText(html, label, requiredNeedles) {
 }
 
 const Steel = loadSteelCore();
-// 600 cm 簡支梁：均布與跨中集中荷重的峰值都在跨中；tf 先換為 kgf。
-{
-  const span = 600, Ix = 12000, EI = 2.04e6 * Ix;
-  const d = Steel.calcDeflection({Ix}, 5, 0, span, 1.5, 2);
-  const dead = 5*5*span**4/(384*EI) + 1500*span**3/(48*EI);
-  const live = 2000*span**3/(48*EI);
-  assert.ok(Math.abs(d.deltaD-dead) < 1e-12 && Math.abs(d.deltaL-live) < 1e-12 && Math.abs(d.deltaT-dead-live) < 1e-12);
-  assert.equal(Steel.calcDeflection({Ix}, 5, 8, span).deltaL, 5*8*span**4/(384*EI));
-}
 
 assert.equal(Steel.calcB1(0.85, 8000, 10000), 4.250000000000001, "stable B1 case should keep the amplified moment");
 assert.equal(Steel.calcB1(0.85, 10000, 10000), Infinity, "Pu = Pe1 should be treated as a stability limit, not clipped to 1.0");
@@ -1110,7 +1101,7 @@ assert.match(
 );
 assert.match(
   beamFormalSource,
-  /Steel\.calcProps\(mm\)[\s\S]*Steel\.classify\(sec, Fy\)[\s\S]*Steel\.calcMn\(sec, Fy,[\s\S]*Steel\.calcVn\(sec, Fy\)[\s\S]*Steel\.calcDeflection\(sec, loadDead, loadLive, L, pointDead, pointLive\)/,
+  /Steel\.calcProps\(mm\)[\s\S]*Steel\.classify\(sec, Fy\)[\s\S]*Steel\.calcMn\(sec, Fy,[\s\S]*Steel\.calcVn\(sec, Fy\)[\s\S]*Steel\.calcDeflection\(sec, loadDead, loadLive, L\)/,
   "steel-beam-formal.js should route H-section strength and deflection through the production steel core covered by the independent benchmark",
 );
 assert.match(

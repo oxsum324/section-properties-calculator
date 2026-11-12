@@ -1799,7 +1799,16 @@
         ["inWD","inWL","inPD","inPL"].some(id => $(id).validity?.badInput)) {
       return inputFail("服務性檢核請填向下載重的非負數值。");
     }
-    const deflection = Steel.calcDeflection(sec, loadDead, loadLive, L, pointDead, pointLive);
+    const deflection = Steel.calcDeflection(sec, loadDead, loadLive, L);
+    if (pointDead || pointLive) {
+      // 簡支對稱載重的兩個峰值均在跨中；核心的 EI 單位為 kgf·cm²，集中力輸入為 tf。
+      const cmPerTf = 1000 * L**3 / (48 * deflection.EI);
+      deflection.deltaD += pointDead * cmPerTf;
+      deflection.deltaL += pointLive * cmPerTf;
+      deflection.deltaT = deflection.deltaD + deflection.deltaL;
+      deflection.ratioL = L / deflection.deltaL;
+      deflection.ratioT = L / deflection.deltaT;
+    }
     const limitLive = parseInt($("limL").value, 10);
     const limitTotal = parseInt($("limT").value, 10);
     const allowLive = L / limitLive;
