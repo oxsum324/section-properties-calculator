@@ -12,6 +12,7 @@ const family = require('../結構工具箱/tools/local-quick-tools.manifest.json
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'output', 'g1-impact');
 const toolbox = '結構工具箱/';
+const homeDates = toolbox + 'tools/sync-home-update-dates.js';
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 const gitPaths = (...args) => git(...args).split('\0').filter(Boolean);
@@ -85,8 +86,9 @@ function compare(pilot, full) {
   const reasons = [];
   if (pilot.clean !== true || !/^[0-9a-f]{40}$/.test(pilot.sha) || pilot.sha !== full.sourceCommitSha || full.sourceDirty !== false) reasons.push('兩份紀錄須為同一乾淨提交');
   const pilotSteps = [...(pilot.records || []), ...(pilot.navigation || [])];
-  if (pilot.pass !== true || !Array.isArray(pilot.plan?.routes) || pilot.records?.length !== pilot.plan?.routes.length ||
-    pilot.navigation?.length !== 2 || pilotSteps.some(r => r.exit !== 0 || r.error !== null)) reasons.push('局部檢查未全部通過');
+  if (pilot.pass !== true || !Array.isArray(pilot.plan?.routes) || pilot.records?.length !== pilot.plan?.routes.length + 1 ||
+    !pilot.records.some(r => r.script === homeDates && r.args?.includes('--check')) ||
+    pilot.navigation?.length !== 3 || pilotSteps.some(r => r.exit !== 0 || r.error !== null)) reasons.push('局部檢查未全部通過');
   const records = Array.isArray(full.records) ? full.records : [];
   const post = Array.isArray(full.postChecks) ? full.postChecks : [];
   if (full.quick !== false || full.ci !== false || !records.length || records.length !== full.recordsCount ||
@@ -127,24 +129,27 @@ function main() {
     return;
   }
   const scripts = registry.routes.filter(item => plan.routes.includes(item.route)).map(item => item.test);
+  scripts.push(homeDates);
   const runtime = { node: process.version, exec: process.execPath, arch: process.arch, os: os.release(),
     platform: process.platform, options: process.env.NODE_OPTIONS || '', nodePath: process.env.NODE_PATH || '' };
   const key = hash(JSON.stringify({ sha, scripts, runtime }));
   const cacheFile = path.join(out, 'cache', key + '.json');
+  const cacheable = beforeClean && git('rev-parse', '--is-shallow-repository').trim() === 'false';
   let cached;
-  if (beforeClean && scripts.length && !values.fresh) {
+  if (cacheable && !values.fresh) {
     try { cached = readJson(cacheFile); } catch (error) {
       if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error;
     }
   }
   const hit = validCache(cached, key, scripts);
-  const records = hit ? cached.records : scripts.map(script => runTest(script));
+  const records = hit ? cached.records : scripts.map(script => runTest(script, script === homeDates ? ['--check', '--dates-only'] : []));
   const navigation = ['build-tool-nav-manifest', 'build-family-pages'].map(name =>
     runTest(toolbox + 'tools/nav/' + name + '.js', ['--check']));
+  navigation.push(runTest(toolbox + 'tools/build-minified-runtimes.js', ['--only=home', '--check']));
   const sameHead = head() === sha;
   const afterClean = clean();
   const pass = sameHead && beforeClean === afterClean && [...records, ...navigation].every(r => r.exit === 0 && !r.error);
-  if (!hit && beforeClean && afterClean && pass && scripts.length) writeJson(cacheFile, { key, records, digest: hash(JSON.stringify(records)) });
+  if (!hit && cacheable && afterClean && pass) writeJson(cacheFile, { key, records, digest: hash(JSON.stringify(records)) });
   const result = { sha, base, clean: beforeClean && afterClean, pass, plan, runtime, cacheHit: hit, key,
     records, navigation, seconds: (performance.now() - started) / 1000 };
   const receipt = path.join(out, 'runs', crypto.randomUUID() + '.json');

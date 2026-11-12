@@ -13,6 +13,8 @@ const toolboxRoot = path.join(repoRoot, '結構工具箱');
 const homePath = path.join(toolboxRoot, 'assets', 'home', 'src', 'home.source.js');
 const builderPath = path.join(__dirname, 'build-minified-runtimes.js');
 const checkOnly = process.argv.includes('--check');
+const datesOnly = process.argv.includes('--dates-only');
+if (datesOnly && !checkOnly) throw new Error('--dates-only 只能搭配 --check');
 const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
 
 function extractConstLiteral(source, name) {
@@ -57,10 +59,16 @@ const routeFileMap = evaluate(extractConstLiteral(source, 'routeFileMap'));
 
 const changes = [];
 const dates = {};
+// 同一共用依存常見於多條路由；在本次查核中只查一次該檔的最後提交日。
+const commitDates = new Map();
+function lastCommitDate(file) {
+  if (!commitDates.has(file)) commitDates.set(file, git(['log', '-1', '--format=%cs', '--', file]));
+  return commitDates.get(file);
+}
 for (const [route, current] of Object.entries(updates.routes)) {
   const files = [resolveHomeFileHref(route, routeFileMap), ...((dependencies.routes || {})[route] || [])];
   const dirty = git(['status', '--porcelain', '--untracked-files=all', '--', ...files]) !== '';
-  const committed = files.map(file => git(['log', '-1', '--format=%cs', '--', file])).filter(Boolean).sort().at(-1);
+  const committed = files.map(lastCommitDate).filter(Boolean).sort().at(-1);
   const expected = dirty ? today : (committed || current);
   dates[route] = expected;
   if (expected !== current) changes.push(`${route}: ${current} -> ${expected}`);
@@ -73,8 +81,11 @@ if (checkOnly) {
     console.error(`首頁更新日未同步（${changes.length} 項）：\n  ${changes.join('\n  ')}\n請執行 node 結構工具箱/tools/sync-home-update-dates.js`);
     process.exit(1);
   }
-  execFileSync(process.execPath, [builderPath, '--only=home', '--check'], { cwd: repoRoot, stdio: 'inherit', windowsHide: true });
-  console.log('home update dates and generated runtime in sync');
+  if (datesOnly) console.log('home update dates in sync');
+  else {
+    execFileSync(process.execPath, [builderPath, '--only=home', '--check'], { cwd: repoRoot, stdio: 'inherit', windowsHide: true });
+    console.log('home update dates and generated runtime in sync');
+  }
 } else {
   const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   for (const [route, date] of Object.entries(dates)) {

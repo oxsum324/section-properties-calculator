@@ -196,7 +196,7 @@
       '/rc-pile-cap-3d-stm': '2026-10-23',
       '/rc-pile': '2026-10-23',
       '/rc-retrofit-section': '2026-10-23',
-      '/rc-column-cover-deviation': '2026-11-11',
+      '/rc-column-cover-deviation': '2026-11-12',
       '/src-beam': '2026-10-23',
       '/src-column': '2026-10-26',
       '/steel-formal': '2026-10-23',

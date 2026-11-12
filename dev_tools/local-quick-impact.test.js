@@ -27,7 +27,8 @@ for (const copy of [{ ...cache, key: 'old' }, { ...cache, records: [] },
 }
 const sha = 'a'.repeat(40);
 const pilot = { sha, clean: true, pass: true, plan: { routes: [tool.route] },
-  records, navigation: [{ exit: 0, error: null }, { exit: 0, error: null }] };
+  records: [...records, { script: '結構工具箱/tools/sync-home-update-dates.js', args: ['--check', '--dates-only'], exit: 0, error: null }],
+  navigation: Array.from({ length: 3 }, () => ({ exit: 0, error: null })) };
 const full = { sourceCommitSha: sha, sourceDirty: false, quick: false, ci: false, pass: true, failureCount: 0,
   recordsCount: 2, passedCount: 2, postCheckCount: 1, postChecksPassedCount: 1, postChecks: [{ pass: true }],
   records: ['local-quick-tools-static', 'local-quick-tools-runner'].map(key => ({ key, pass: true, reused: false, exitCode: 0 })) };
