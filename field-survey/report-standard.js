@@ -6,6 +6,11 @@ export function attachmentHeaderHtml(index, escape) {
   return values.length ? '<div>'+values.map(escape).join('　')+'</div>' : '';
 }
 
+export function quickReportHeader(index, group, title, escape) {
+  const location = [group.unit, attachmentDescription(group.floor), attachmentDescription(group.room), group.address].filter(Boolean).join(' · ');
+  return `<header><h1>${escape(title)}</h1><div>${escape(index.code)} · ${escape(index.name)}</div>${attachmentHeaderHtml(index,escape)}<div>${escape(location)}</div></header>`;
+}
+
 export const STANDARD_STYLE = `
 .standard-sheet,.standard-sheet *{box-sizing:border-box}
 .standard-sheet.sheet{width:190mm;height:276mm;min-height:276mm;padding:0;margin:8mm auto;display:flex;flex-direction:column;background:#fff;color:#222;font:14px/1.5 Arial,"Microsoft JhengHei",sans-serif;overflow-wrap:anywhere;break-after:page}

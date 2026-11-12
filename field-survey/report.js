@@ -1,9 +1,9 @@
-import { defaultReportPhotoIds, recordReportPhotos, assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
+import { defaultReportPhotoIds, recordReportPhotos, assert, clone, now, VERSION, observationText, photoPlacement, roomKey, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
 import { markedImage, placementMarks, reportPlanImage } from './annotation.js';
 import { photoStampText } from './model.js';
-import { detailAnnotationText, detailComparison, photoContent, attachmentDescription } from './model.js';
+import { detailAnnotationText, detailComparison, photoContent } from './model.js';
 import { detailImage } from './detail.js';
-import { attachmentHeaderHtml, STANDARD_STYLE, standardPages, segmentKey, dateSummary, splitVolumes, contentsPages } from './report-standard.js';
+import { quickReportHeader, STANDARD_STYLE, standardPages, segmentKey, dateSummary, splitVolumes, contentsPages } from './report-standard.js';
 
 export const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const REPORT_FORMATS = { standard: '標準鑑定附件', quick: '現場快速預覽' };
@@ -148,7 +148,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
     includedAssets.set(mediaId, { id: mediaId, name: meta.name, sha256: meta.sha256 });
     return dataURL(blob);
   };
-  const page = (group, body, type = '') => `<section class="sheet ${type}"><header><h1>${e(REPORT_FORMATS[index.format])}</h1><div>${e(index.code)} · ${e(index.name)}</div>${attachmentHeaderHtml(index,e)}<div>${e([group.unit, attachmentDescription(group.floor), attachmentDescription(group.room), group.address].filter(Boolean).join(' · '))}</div></header>${body}<footer>${dateSummary(group.records, '') ? `會勘日期：${e(dateSummary(group.records, ''))}　｜　` : ''}第 ${e((index.pagePrefix || '') + ((index.pageStart || 1) + pageNumber++))} 頁</footer></section>`;
+  const page = (group, body, type = '') => `<section class="sheet ${type}">${quickReportHeader(index,group,REPORT_FORMATS[index.format],e)}${body}<footer>${dateSummary(group.records, '') ? `會勘日期：${e(dateSummary(group.records, ''))}　｜　` : ''}第 ${e((index.pagePrefix || '') + ((index.pageStart || 1) + pageNumber++))} 頁</footer></section>`;
   if (index.format === 'standard') pages.push(...await standardPages({ index, project, encodeImage, encodeDetail, encodeSignature, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }));
   else for (const group of index.groups) {
     const planIds = new Set(group.records.flatMap(r => [r.pin?.planId, ...r.photos.map(p => p.placement?.planId)]).filter(Boolean));
