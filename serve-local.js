@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const http = require('http');
-const net = require('net');
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -192,15 +191,11 @@ function serve(req, res, rewriteMap, redirectMap) {
 function getPort() {
   const positionalPort = process.argv.slice(2).find(arg => /^\d+$/.test(arg));
   const requested = Number(process.env.PORT || positionalPort);
-  if (Number.isFinite(requested) && requested > 0) return Promise.resolve(requested);
-  return new Promise((resolve, reject) => {
-    const probe = net.createServer();
-    probe.once('error', reject);
-    probe.listen(0, '127.0.0.1', () => {
-      const port = probe.address().port;
-      probe.close(() => resolve(port));
-    });
-  });
+  if (!process.env.PORT && !positionalPort) return 0;
+  if (!Number.isInteger(requested) || requested < 0 || requested > 65535) {
+    throw new Error('Port must be an integer from 0 to 65535.');
+  }
+  return requested;
 }
 
 function getLaunchRoute() {
@@ -230,12 +225,18 @@ function openBrowser(url) {
 async function main() {
   const config = loadVercelConfig();
   const { rewriteMap, redirectMap } = buildRouteMaps(config);
-  const port = await getPort();
+  const port = getPort();
   const launchRoute = getLaunchRoute();
   const server = http.createServer((req, res) => serve(req, res, rewriteMap, redirectMap));
 
+  server.once('error', error => {
+    console.error(error.code === 'EADDRINUSE'
+      ? `[serve-local] 埠 ${port} 已在使用。若已開啟本工具，請回到原視窗；另選埠時，兩個工具須由同一個本機網址開啟。`
+      : `[serve-local] ${error.message}`);
+    process.exitCode = 1;
+  });
   server.listen(port, '127.0.0.1', () => {
-    const url = `http://127.0.0.1:${port}${launchRoute}`;
+    const url = `http://127.0.0.1:${server.address().port}${launchRoute}`;
     console.log(`[serve-local] serving ${repoRoot}`);
     console.log(`[serve-local] vercel.json rewrites: ${rewriteMap.size}, redirects: ${redirectMap.size}`);
     console.log(`[serve-local] listening on ${url}`);

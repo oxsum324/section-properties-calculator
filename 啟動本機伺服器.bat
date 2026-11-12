@@ -8,4 +8,9 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-node "%~dp0serve-local.js" %*
+rem Keep the same browser origin across launches. An explicit port or PORT still takes precedence.
+node "%~dp0serve-local.js" %* 47153
+if errorlevel 1 (
+  pause
+  exit /b 1
+)
