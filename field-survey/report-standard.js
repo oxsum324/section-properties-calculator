@@ -1,6 +1,11 @@
 import { exportSignoff, signoffChanged, signoffFields } from './signoff.js';
 import { clone, DETAIL_TEXTS, UNIT_STATES, assert, attachmentDescription } from './model.js';
 
+export function attachmentHeaderHtml(index, escape) {
+  const values = [index.caseNumber && '附件案號：'+index.caseNumber, index.orgName && '鑑定單位／委託人：'+index.orgName].filter(Boolean);
+  return values.length ? '<div>'+values.map(escape).join('　')+'</div>' : '';
+}
+
 export const STANDARD_STYLE = `
 .standard-sheet,.standard-sheet *{box-sizing:border-box}
 .standard-sheet.sheet{width:190mm;height:276mm;min-height:276mm;padding:0;margin:8mm auto;display:flex;flex-direction:column;background:#fff;color:#222;font:14px/1.5 Arial,"Microsoft JhengHei",sans-serif;overflow-wrap:anywhere;break-after:page}
@@ -58,7 +63,7 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
   await document.fonts.ready;
   const label = number => `${index.pagePrefix || ''}${number}`;
   const numberNow = () => (index.pageStart || 1) + pages.length;
-  const sheet = (unit, body, type, number = numberNow()) => `<section class="sheet standard-sheet ${type}" data-unit="${e(unit.unitId)}" id="page-${number}"><header><h1>現況鑑定紀錄附件</h1><div>案號：${e(unit.signedIdentity?.code ?? index.code)}　${e(unit.signedIdentity?.name ?? index.name)}</div><div>戶別：${e(unit.unit)}${attachmentDescription(unit.segmentFloor) ? ' · ' + e(attachmentDescription(unit.segmentFloor)) : ''}${unit.address ? '　地址：' + e(unit.address) : ''}</div></header><div class="sheet-content">${body}</div><footer>${type === 'table-sheet' || !dateSummary(unit.records, '') ? '' : `會勘日期：${e(dateSummary(unit.records, ''))}　｜　`}第 ${e(label(number))} 頁</footer></section>`;
+  const sheet = (unit, body, type, number = numberNow()) => `<section class="sheet standard-sheet ${type}" data-unit="${e(unit.unitId)}" id="page-${number}"><header><h1>現況鑑定紀錄附件</h1><div>案號：${e(unit.signedIdentity?.code ?? index.code)}　${e(unit.signedIdentity?.name ?? index.name)}</div>${unit.signedIdentity ? '' : attachmentHeaderHtml(index,e)}<div>戶別：${e(unit.unit)}${attachmentDescription(unit.segmentFloor) ? ' · ' + e(attachmentDescription(unit.segmentFloor)) : ''}${unit.address ? '　地址：' + e(unit.address) : ''}</div></header><div class="sheet-content">${body}</div><footer>${type === 'table-sheet' || !dateSummary(unit.records, '') ? '' : `會勘日期：${e(dateSummary(unit.records, ''))}　｜　`}第 ${e(label(number))} 頁</footer></section>`;
   const fits = html => { shadow.innerHTML = `<style>${STANDARD_STYLE}</style>${html}`; const content = shadow.querySelector('.sheet-content'); return content.clientHeight > 100 && content.scrollHeight <= content.clientHeight + 1; };
   const add = (unit, body, type, refs = {}) => { const number = numberNow(), html = sheet(unit, body, type, number); assert(fits(html), '附件頁面放不下，請縮短案名、地址或房間名稱後再匯出'); pages.push(html); sections.push({ page: number, label: label(number), type, unitId: unit.unitId, segmentKey: unit.segmentKey, ...refs }); };
   const tableBody = rows => `<h2>照片說明表</h2><table><colgroup><col style="width:10%"><col style="width:17%"><col style="width:25%"><col style="width:48%"></colgroup><thead><tr><th>照片編號</th><th>樓層、隔間</th><th>細部示意圖</th><th>照片內容</th></tr></thead><tbody>${rows.join('')}</tbody></table><p class="units-note">單位：裂縫寬度 mm；長度 m；面積 m²。細部示意圖未按照比例。</p>`;
@@ -154,7 +159,7 @@ export function contentEntries(index, project) {
 }
 export function contentsPages(index, entries, e, title = '全案分冊目錄', fits = null) {
   const pages = []; let rows = [];
-  const page = rows => `<section class="sheet standard-sheet toc-sheet"><header><h1>${e(title)}</h1><div>案號：${e(index.code)}　${e(index.name)}</div></header><div class="sheet-content"><table class="toc-table"><colgroup><col style="width:23%"><col style="width:45%"><col style="width:12%"><col style="width:20%"></colgroup><thead><tr><th>戶別／範圍</th><th>地址</th><th>冊次</th><th>附件頁次</th></tr></thead><tbody>${rows.join('')}</tbody></table></div><footer>目錄 ${pages.length + 1}　｜　${e(index.createdAt.slice(0, 10))}</footer></section>`;
+  const page = rows => `<section class="sheet standard-sheet toc-sheet"><header><h1>${e(title)}</h1><div>案號：${e(index.code)}　${e(index.name)}</div>${attachmentHeaderHtml(index,e)}</header><div class="sheet-content"><table class="toc-table"><colgroup><col style="width:23%"><col style="width:45%"><col style="width:12%"><col style="width:20%"></colgroup><thead><tr><th>戶別／範圍</th><th>地址</th><th>冊次</th><th>附件頁次</th></tr></thead><tbody>${rows.join('')}</tbody></table></div><footer>目錄 ${pages.length + 1}　｜　${e(index.createdAt.slice(0, 10))}</footer></section>`;
   for (const entry of entries) {
     const row = `<tr><td>${e(entry.unit)}${attachmentDescription(entry.floor) ? '\n' + e(attachmentDescription(entry.floor)) : ''}</td><td>${e(entry.address)}</td><td>${entry.volume || index.volume || 1}</td><td>${e((index.pagePrefix || '') + entry.start)}${entry.end !== entry.start ? '～' + e((index.pagePrefix || '') + entry.end) : ''}</td></tr>`;
     if (rows.length && (rows.length >= 20 || fits && !fits(page([...rows, row])))) { pages.push(page(rows)); rows = []; }

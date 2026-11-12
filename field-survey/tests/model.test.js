@@ -23,6 +23,23 @@ import { dateSummary } from '../report-standard.js';
 import { reportPreferences, validateReportSettings, COMPANY_REPORT_STYLE } from '../model.js';
 import { canonicalJSON, recordsDigest, signoffHash, rebaseSignoffs } from '../model.js';
 import { proposedSignoff, sealSignoff, signoffChanged, signoffFields } from '../signoff.js';
+import { setAttachmentHeader } from '../model.js';
+import { attachmentHeaderHtml } from '../report-standard.js';
+
+test('optional attachment header survives export while absent fields preserve the former case fingerprint', async () => {
+  const {p,blobs}=await fixture(), baseline=await snapshot(p);
+  setAttachmentHeader(p,true,' ','');
+  assert.equal((await snapshot(p)).digest,baseline.digest);
+  setAttachmentHeader(p,true,' FORM-7 ','單位 & Co');
+  const restored=await readBundle((await makeBundle(p,id=>blobs.get(id))).blob);
+  assert.equal(restored.project.code,'DEMO');
+  assert.equal(restored.project.caseNumber,'FORM-7');
+  const index=attachmentIndex(restored.project);
+  assert.match(attachmentHeaderHtml(index,s=>s.replaceAll('&','&amp;')),/FORM-7.*單位 &amp; Co/);
+  setAttachmentHeader(p,false,'FORM-7','單位 & Co');
+  assert.equal(attachmentHeaderHtml(attachmentIndex(p),String),'');
+  assert.equal((await snapshot(p)).digest,baseline.digest);
+});
 
 test('signoff canonical digest follows recorded content and selected photos, not object key order', async () => {
   assert.equal(canonicalJSON({ b: 1, a: { z: 2, x: 3 } }), canonicalJSON({ a: { x: 3, z: 2 }, b: 1 }));

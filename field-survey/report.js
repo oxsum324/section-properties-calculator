@@ -3,7 +3,7 @@ import { markedImage, placementMarks, reportPlanImage } from './annotation.js';
 import { photoStampText } from './model.js';
 import { detailAnnotationText, detailComparison, photoContent, attachmentDescription } from './model.js';
 import { detailImage } from './detail.js';
-import { STANDARD_STYLE, standardPages, segmentKey, dateSummary, splitVolumes, contentsPages } from './report-standard.js';
+import { attachmentHeaderHtml, STANDARD_STYLE, standardPages, segmentKey, dateSummary, splitVolumes, contentsPages } from './report-standard.js';
 
 export const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const REPORT_FORMATS = { standard: '標準鑑定附件', quick: '現場快速預覽' };
@@ -58,7 +58,7 @@ export function attachmentIndex(project, { unitId = '', unitIds, start = 1, perP
   for (const group of ordered) { if (numbering === 'unit' && group.unitId !== previousUnit) number = start; previousUnit = group.unitId; for (const record of group.records) for (const photo of record.photos) { assert(number <= 999999, '照片編號超過上限'); photo.number = String(number++).padStart(3, '0'); } }
   assert(ordered.length || format === 'standard' && (includeEmpty && selectedUnits.length || includeSignoffs && selectedUnits.some(u => (project.signoffs || []).some(x => x.level === 'unit' && x.unitId === u.id))), '尚未選擇附件照片或簽認單');
   const visitIds = new Set([...ordered.flatMap(g => g.records.map(r => r.visitId)), ...selectedUnits.flatMap(u => (u.visitHistory || []).map(h => h.visitId))]);
-  return { kind: 'condition-survey-attachment', version: 3, format, toolVersion: VERSION, createdAt: now(), projectId: project.id, sourceRevision: project.revision, code: project.code, name: project.name, date: project.date, start, perPage, numbering, pageStart, pagePrefix, plansPerPage, tableRows, includeEmpty, includeSignoffs, publicByFloor, toc, signoffSegments: Object.fromEntries(selectedUnits.map(u => { const g = ordered.find(g => g.unitId === u.id); return [u.id, g ? segmentKey(u.id, g.floor, { publicByFloor, units: selectedUnits }) : u.id]; })), visits: clone((project.visits || []).filter(v => visitIds.has(v.id))), units: clone(selectedUnits.filter(u => includeEmpty || includeSignoffs && (project.signoffs || []).some(x => x.level === 'unit' && x.unitId === u.id) || ordered.some(g => g.unitId === u.id))), groups: ordered };
+  return { kind: 'condition-survey-attachment', version: 3, format, toolVersion: VERSION, createdAt: now(), projectId: project.id, sourceRevision: project.revision, code: project.code, name: project.name, ...(project.caseNumber ? {caseNumber:project.caseNumber} : {}), ...(project.orgName ? {orgName:project.orgName} : {}), date: project.date, start, perPage, numbering, pageStart, pagePrefix, plansPerPage, tableRows, includeEmpty, includeSignoffs, publicByFloor, toc, signoffSegments: Object.fromEntries(selectedUnits.map(u => { const g = ordered.find(g => g.unitId === u.id); return [u.id, g ? segmentKey(u.id, g.floor, { publicByFloor, units: selectedUnits }) : u.id]; })), visits: clone((project.visits || []).filter(v => visitIds.has(v.id))), units: clone(selectedUnits.filter(u => includeEmpty || includeSignoffs && (project.signoffs || []).some(x => x.level === 'unit' && x.unitId === u.id) || ordered.some(g => g.unitId === u.id))), groups: ordered };
 }
 export function attachmentUnits(index, project) {
   const units = new Map();
@@ -148,7 +148,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
     includedAssets.set(mediaId, { id: mediaId, name: meta.name, sha256: meta.sha256 });
     return dataURL(blob);
   };
-  const page = (group, body, type = '') => `<section class="sheet ${type}"><header><h1>${e(REPORT_FORMATS[index.format])}</h1><div>${e(index.code)} · ${e(index.name)}</div><div>${e([group.unit, attachmentDescription(group.floor), attachmentDescription(group.room), group.address].filter(Boolean).join(' · '))}</div></header>${body}<footer>${dateSummary(group.records, '') ? `會勘日期：${e(dateSummary(group.records, ''))}　｜　` : ''}第 ${e((index.pagePrefix || '') + ((index.pageStart || 1) + pageNumber++))} 頁</footer></section>`;
+  const page = (group, body, type = '') => `<section class="sheet ${type}"><header><h1>${e(REPORT_FORMATS[index.format])}</h1><div>${e(index.code)} · ${e(index.name)}</div>${attachmentHeaderHtml(index,e)}<div>${e([group.unit, attachmentDescription(group.floor), attachmentDescription(group.room), group.address].filter(Boolean).join(' · '))}</div></header>${body}<footer>${dateSummary(group.records, '') ? `會勘日期：${e(dateSummary(group.records, ''))}　｜　` : ''}第 ${e((index.pagePrefix || '') + ((index.pageStart || 1) + pageNumber++))} 頁</footer></section>`;
   if (index.format === 'standard') pages.push(...await standardPages({ index, project, encodeImage, encodeDetail, encodeSignature, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }));
   else for (const group of index.groups) {
     const planIds = new Set(group.records.flatMap(r => [r.pin?.planId, ...r.photos.map(p => p.placement?.planId)]).filter(Boolean));

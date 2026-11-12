@@ -222,12 +222,38 @@ function openBrowser(url) {
   }
 }
 
+// 舊水準草稿依附 127.0.0.1:4187 與原有 PWA scope；只替換該 scope 的資產來源。
+function levelSurveyHandler() {
+  const dir = path.resolve(process.env.LEVEL_SURVEY_DIR || path.join(repoRoot, '_tmp/水準測量工具/level-survey-recorder'));
+  if (!fs.existsSync(path.join(dir, 'sw.js'))) throw new Error('找不到水準測量獨立工具，請以 LEVEL_SURVEY_DIR 指定工作目錄。');
+  const worker = fs.readFileSync(path.join(dir,'sw.js'),'utf8');
+  const literal = /\bconst\s+APP_FILES\s*=\s*\[([^\]]*)\]/.exec(worker);
+  if (!literal) throw new Error('無法讀取水準工具的離線資產清單。');
+  const names = new Set(['sw.js','test-cases/demo-case.json']);
+  for (const [,file] of literal[1].matchAll(/['"]\.\/([^'"]*)['"]/g)) {
+    if (file && file.split('/').every(part => /^[\w.-]+$/.test(part) && !part.startsWith('.'))) names.add(file);
+  }
+  if (!names.has('index.html') || !names.has('app.js')) throw new Error('水準工具離線清單缺少頁面或應用程式。');
+  return (req,res) => {
+    const prefix='/level-survey/';
+    const url=new URL(req.url||'/', 'http://127.0.0.1');
+    const file=url.pathname.startsWith(prefix) ? (safeDecode(url.pathname.slice(prefix.length)) || 'index.html') : '';
+    if (!names.has(file)) { res.writeHead(404);res.end();return; }
+    const fullPath=path.join(dir,file);
+    fs.readFile(fullPath,(error,data)=>{
+      if(error) { res.writeHead(404);res.end();return; }
+      res.writeHead(200,{'Content-Type':contentType(fullPath),'Cache-Control':'no-cache'});res.end(data);
+    });
+  };
+}
+
 async function main() {
   const config = loadVercelConfig();
   const { rewriteMap, redirectMap } = buildRouteMaps(config);
   const port = getPort();
   const launchRoute = getLaunchRoute();
-  const server = http.createServer((req, res) => serve(req, res, rewriteMap, redirectMap));
+  const levelLaunch = process.argv.includes('--level-survey') || new URL(launchRoute,'http://127.0.0.1').pathname === '/level-survey/index.html';
+  const server = http.createServer(levelLaunch ? levelSurveyHandler() : (req, res) => serve(req, res, rewriteMap, redirectMap));
 
   server.once('error', error => {
     console.error(error.code === 'EADDRINUSE'

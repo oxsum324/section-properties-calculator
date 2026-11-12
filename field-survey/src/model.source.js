@@ -225,6 +225,15 @@ export function tileTotal(t) {
   return t.crack ? t.crackCount ?? null : t.broken ? t.brokenCount ?? null : null;
 }
 export const emptySketch = () => ({ version: 1, width: 1200, height: 900, strokes: [] });
+export function setAttachmentHeader(project, enabled, caseNumber = '', orgName = '') {
+  const fields = { caseNumber: caseNumber.trim(), orgName: orgName.trim() };
+  assert(fields.caseNumber.length <= 100 && fields.orgName.length <= 180, '附件表頭長度超過上限');
+  for (const [key,value] of Object.entries(fields)) {
+    if (enabled && value) project[key] = value;
+    else delete project[key];
+  }
+}
+
 export function newProject(code, name, date) {
   const p = { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, visits: [{ id: id(), name: '第 1 次會勘', start: date, end: date }], units: [], records: [], plans: [], media: [] };
   p.reportSettings = reportPreferences(p); p.signingSettings = defaultSigningSettings(); p.signoffs = []; return p;
@@ -487,6 +496,8 @@ export function validateProject(p) {
   assert(p && typeof p === 'object', '缺案件資料'); identifier(p.id);
   for (const key of ['code', 'name', 'date', 'createdAt', 'updatedAt']) text(p[key], key, 250);
   assert(p.code.trim() && p.name.trim(), '案號及名稱不可空白');
+  if (p.caseNumber !== undefined) text(p.caseNumber, '附件案號', 100);
+  if (p.orgName !== undefined) text(p.orgName, '附件單位', 180);
   assert(validDate(p.date), '會勘日期格式不正確');
   assert(Number.isSafeInteger(p.revision) && p.revision >= 0, '案件版本不正確');
   if (p.handoffDigests !== undefined) { list(p.handoffDigests, '交接檔指紋', 10000); assert(p.handoffDigests.every(d => typeof d === 'string' && /^[a-f0-9]{64}$/.test(d)), '交接檔指紋不正確'); }

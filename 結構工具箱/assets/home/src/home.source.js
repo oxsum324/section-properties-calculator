@@ -179,7 +179,7 @@
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
-      '/condition-survey': '2026-10-26',
+      '/condition-survey': '2026-11-12',
       '/beam-analysis': '2026-11-12',
       '/frame-analysis': '2026-11-12',
       '/struct-dx': '2026-08-13',

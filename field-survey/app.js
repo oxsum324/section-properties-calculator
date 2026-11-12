@@ -1,3 +1,4 @@
+import { setAttachmentHeader } from './model.js';
 import { planTemplateCopy, VERSION, removeRecordPhotos, BUILDING_TYPES, floorConfig, buildingType, floorOptions, spaceOptions, sortedUnits, apartmentUnits, validDate, MARK_TONES, CAPTURE_SOURCES, localDateOf, defaultStamp, photoStampText, applyPhotoDate, exifDate, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, widthLabel, areaAmountText, widthChoices, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, rebaseSignoffs, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
 import { makeBundle, readBundle, makeReceipt, checkReceipt, consolidateBundles } from './bundle.js';
@@ -523,11 +524,17 @@ async function renderBackup() {
 }
 
 const CASE_TYPE_HELP = { townhouse: '每個門牌一戶，一戶跨樓層；現場以樓層快選鍵填樓層。', apartment: '一層一戶：建立時依地上層數自動建立各樓層戶別與一個公設單元，紀錄自動帶入樓層。', tower: '每層多戶、可多棟：填棟別會為每棟建立一個公設單元；戶別可用名冊匯入並帶固定樓層。', other: '不預設戶別結構，樓層與空間仍提供快選。' };
+function attachmentFields(p) {
+  const selected = Boolean(p?.caseNumber || p?.orgName);
+  return `<fieldset><legend>附件表頭</legend><label class="check-label"><input name="useAttachmentHeader" type="checkbox" ${selected?'checked':''}>套用附件表頭</label><div class="two-col"><label>附件案號（選填）<input name="attachmentCaseNumber" maxlength="100" value="${esc(p?.caseNumber || '')}"></label><label>鑑定單位或委託人（選填）<input name="attachmentOrgName" maxlength="180" value="${esc(p?.orgName || '')}"></label></div></fieldset>`;
+}
 function caseFormFields(p) {
   const config = floorConfig(p);
-  return `<label>案件型態<select name="type">${opts(BUILDING_TYPES)}</select></label><p id="caseTypeHelp" class="micro"></p><div class="two-col"><label>地上層數<input name="above" type="number" min="1" max="99" step="1" inputmode="numeric" required value="${config.above}"></label><label>地下層數<input name="below" type="number" min="0" max="9" step="1" inputmode="numeric" required value="${config.below}"></label></div><label class="check-label"><input name="mezzanine" type="checkbox" ${config.mezzanine ? 'checked' : ''}>有夾層（MF）</label><label class="check-label"><input name="photoStamp" type="checkbox" ${p?.photoStamp === false ? '' : 'checked'}>照片壓年月日戳記（只壓在附件與副本，原圖不變）</label>`;
+  return `${attachmentFields(p)}<label>案件型態<select name="type">${opts(BUILDING_TYPES)}</select></label><p id="caseTypeHelp" class="micro"></p><div class="two-col"><label>地上層數<input name="above" type="number" min="1" max="99" step="1" inputmode="numeric" required value="${config.above}"></label><label>地下層數<input name="below" type="number" min="0" max="9" step="1" inputmode="numeric" required value="${config.below}"></label></div><label class="check-label"><input name="mezzanine" type="checkbox" ${config.mezzanine ? 'checked' : ''}>有夾層（MF）</label><label class="check-label"><input name="photoStamp" type="checkbox" ${p?.photoStamp === false ? '' : 'checked'}>照片壓年月日戳記（只壓在附件與副本，原圖不變）</label>`;
 }
 function bindCaseTypeHelp(form) {
+  const toggleHeader = () => { for (const name of ['attachmentCaseNumber', 'attachmentOrgName']) form.elements[name].disabled = !form.elements.useAttachmentHeader.checked; };
+  form.elements.useAttachmentHeader.addEventListener('change', toggleHeader); toggleHeader();
   const update = () => { const type = form.querySelector('[name=type]').value; form.querySelector('#caseTypeHelp').textContent = CASE_TYPE_HELP[type]; const b = form.querySelector('#buildingsField'); if (b) b.hidden = type !== 'tower'; };
   form.querySelector('[name=type]').onchange = update; update();
 }
@@ -535,7 +542,7 @@ function readCaseForm(form) {
   const data = new FormData(form), above = Number(data.get('above')), below = Number(data.get('below'));
   assert(Number.isSafeInteger(above) && above >= 1 && above <= 99 && Number.isSafeInteger(below) && below >= 0 && below <= 9, '層數須為整數：地上 1～99、地下 0～9');
   assert(Object.hasOwn(BUILDING_TYPES, data.get('type')), '請選擇案件型態');
-  return { code: data.get('code').trim(), name: data.get('name').trim(), date: data.get('date'), type: data.get('type'), config: { above, below, mezzanine: data.has('mezzanine') }, photoStamp: data.has('photoStamp'), buildings: [...new Set(String(data.get('buildings') || '').split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean))] };
+  return { headerEnabled: data.has('useAttachmentHeader'), attachmentCase: String(data.get('attachmentCaseNumber') || ''), attachmentOrg: String(data.get('attachmentOrgName') || ''), code: data.get('code').trim(), name: data.get('name').trim(), date: data.get('date'), type: data.get('type'), config: { above, below, mezzanine: data.has('mezzanine') }, photoStamp: data.has('photoStamp'), buildings: [...new Set(String(data.get('buildings') || '').split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean))] };
 }
 function caseDialog() {
   requireNoRecording();
@@ -543,6 +550,7 @@ function caseDialog() {
   bindCaseTypeHelp($('#caseForm'));
   $('#caseForm').onsubmit = e => { e.preventDefault(); action(async () => {
     const form = readCaseForm(e.target), created = newProject(form.code, form.name, form.date);
+    setAttachmentHeader(created, form.headerEnabled, form.attachmentCase, form.attachmentOrg);
     created.buildingType = form.type; created.floorConfig = form.config; created.photoStamp = form.photoStamp;
     if (form.type === 'apartment') created.units.push(...apartmentUnits(form.config));
     if (form.type === 'tower') for (const b of form.buildings) created.units.push({ ...newUnit(`${b}公設`), building: b, kind: 'public' });
@@ -555,7 +563,7 @@ function caseSettingsDialog() {
   $('#caseForm [name=type]').value = buildingType(project); bindCaseTypeHelp($('#caseForm'));
   $('#caseForm').onsubmit = e => { e.preventDefault(); action(async () => {
     const form = readCaseForm(e.target); assert(form.code && form.name && validDate(form.date), '案號、名稱或日期不正確');
-    await commit(next => { next.code = form.code; next.name = form.name; next.date = form.date; next.buildingType = form.type; next.floorConfig = form.config; next.photoStamp = form.photoStamp; });
+    await commit(next => { setAttachmentHeader(next, form.headerEnabled, form.attachmentCase, form.attachmentOrg); next.code = form.code; next.name = form.name; next.date = form.date; next.buildingType = form.type; next.floorConfig = form.config; next.photoStamp = form.photoStamp; });
     closeModal(true); await render(); toast('案件設定已保存');
   }); };
 }
