@@ -289,17 +289,29 @@ function stableSectionHash(value, seed) {
   return hash.toString(16).toUpperCase().padStart(8, '0');
 }
 
-function sectionCalculationFingerprint() {
+function sectionCalculationFingerprint(engine = SECTION_CALCULATION_ENGINE) {
   const source = collectSectionInputs();
   const payload = {
-    calculationEngine: SECTION_CALCULATION_ENGINE,
+    calculationEngine: engine,
     tab: currentTab,
     inputs: source.inputs,
     custom: source.custom,
     selectedResults: getCheckedResults().map(([label]) => String(label)),
     results: lastResults.map(([label, value, unit]) => [String(label), Number(value), String(unit || '')]),
   };
+  return sectionPayloadFingerprint(payload);
+}
+
+function sectionPayloadFingerprint(payload) {
   return `CF-${stableSectionHash(payload, 2166136261)}${stableSectionHash(payload, 2246822507)}`;
+}
+
+function previousSectionEngine(data) {
+  return data.calculationEngine === 'section-properties.inline.v2.2.0';
+}
+
+function revisedSectionGeometry(section) {
+  return section.tab === 'geo' && ['oblong','sym-trapezoid','general','parabola','half-parabola'].includes(section.inputs['geo-type']);
 }
 
 function validateSectionProjectData(data) {
@@ -321,6 +333,14 @@ function validateSectionProjectData(data) {
   }
   const fingerprint = data.calculation?.fingerprint;
   if (!/^CF-[0-9A-F]{16}$/.test(String(fingerprint || ''))) throw new Error('案例缺少有效計算指紋');
+  if (previousSectionEngine(data)) {
+    const records = data.calculation.results;
+    if (!Array.isArray(records) || !records.length || !Array.isArray(section.selectedResults) || !Array.isArray(section.custom)
+        || !records.every(r => r && typeof r.label === 'string' && Number.isFinite(r.value) && typeof r.unit === 'string')) throw new Error('舊版案例缺少來源結果。');
+    const original = { calculationEngine:data.calculationEngine, tab:section.tab, inputs:section.inputs, custom:section.custom,
+      selectedResults:section.selectedResults, results:records.map(r => [r.label,r.value,r.unit]) };
+    if (sectionPayloadFingerprint(original) !== fingerprint) throw new Error('舊版案例來源指紋不符。');
+  }
   return data;
 }
 
@@ -349,10 +369,15 @@ function applySectionProjectDataUnchecked(checked, verifyFingerprint = true) {
   }
   calcFns[section.tab]?.();
   const selected = new Set(Array.isArray(section.selectedResults) ? section.selectedResults : []);
-  if (selected.size) document.querySelectorAll('.res-cb').forEach((cb, index) => { cb.checked = selected.has(String(lastResults[index]?.[0] || '')); });
+  if (Array.isArray(section.selectedResults)) document.querySelectorAll('.res-cb').forEach((cb, index) => { cb.checked = selected.has(String(lastResults[index]?.[0] || '')); });
   const sourceFingerprint = checked.calculation?.fingerprint || '';
   const replayFingerprint = sectionCalculationFingerprint();
-  if (verifyFingerprint && replayFingerprint !== sourceFingerprint) throw new Error(`重算指紋不符（來源 ${sourceFingerprint}；目前 ${replayFingerprint}）`);
+  if (verifyFingerprint) {
+    if (!lastResults.length) throw new Error('尺寸資料無法得到有效的斷面性質。');
+    const previous = previousSectionEngine(checked);
+    const compare = previous ? sectionCalculationFingerprint(checked.calculationEngine) : replayFingerprint;
+    if (!(previous && revisedSectionGeometry(section)) && compare !== sourceFingerprint) throw new Error(`重算指紋不符（來源 ${sourceFingerprint}；目前 ${compare}）`);
+  }
   return replayFingerprint;
 }
 
@@ -386,7 +411,11 @@ async function loadSectionProjectFile(event) {
   try {
     const data = validateSectionProjectData(JSON.parse(await file.text()));
     const fingerprint = applySectionProjectData(data);
-    setStatus(`案例已載入並重算；計算指紋 ${fingerprint}`, 'ok');
+    if (previousSectionEngine(data) && revisedSectionGeometry(data.section)) {
+      setStatus(`已核對舊版來源 ${data.calculation.fingerprint}，並依新版幾何重新計算。請核對尺寸、外緣及報表勾選項目後另存。新指紋 ${fingerprint}`, 'warn');
+    } else {
+      setStatus(`案例已載入並重算；計算指紋 ${fingerprint}`, 'ok');
+    }
   } catch (error) {
     setStatus(`載入失敗：${error.message || error}`, 'error');
   } finally {
@@ -399,9 +428,10 @@ function collectReportInputRows() {
     const control = group.querySelector('input, select');
     if (!control) return null;
     const label = group.querySelector('label')?.textContent?.trim() || control.id || '輸入值';
-    const value = control.tagName === 'SELECT'
+    let value = control.tagName === 'SELECT'
       ? (control.options[control.selectedIndex]?.text || control.value)
       : control.value;
+    if (!value && ['g-cTop','g-cBottom'].includes(control.id)) value = '未提供，該側斷面模數待補';
     return { label, value };
   }).filter(Boolean);
 }
@@ -657,7 +687,7 @@ const geoShapes = [
   {id:'parabola', name:'26. 拋物線'},
   {id:'half-parabola', name:'27. 半拋物線'},
   {id:'square-hole', name:'28. 方形含圓孔'},
-  {id:'oblong', name:'29. 跑道形 (長圓)'},
+  {id:'oblong', name:'29. 跑道形／圓角矩形'},
   {id:'cross', name:'30. 十字形'},
   {id:'sym-trapezoid', name:'31. 對稱梯形 (寬翼)'},
   {id:'general', name:'32. 一般組合 (平行軸定理)'},
@@ -704,13 +734,14 @@ function buildGeoInputs() {
     'parabola': `${inp('g-b','b - 半寬 (mm)',150,'calcGeo()')}${inp('g-h','h - 高度 (mm)',300,'calcGeo()')}`,
     'half-parabola': `${inp('g-b','b - 寬度 (mm)',150,'calcGeo()')}${inp('g-h','h - 高度 (mm)',300,'calcGeo()')}`,
     'square-hole': `${inp('g-a','a - 方形邊長 (mm)',300,'calcGeo()')}${inp('g-d','d - 圓孔直徑 (mm)',100,'calcGeo()')}`,
-    'oblong': `${inp('g-b','b - 直邊寬度 (mm)',50,'calcGeo()')}${inp('g-h','h - 總高 (mm)',300,'calcGeo()')}${inp('g-d','d - 圓端直徑 (mm)',100,'calcGeo()')}`,
+    'oblong': `<p class="hint">外寬為 2b + d，四角半徑為 d/2。直立長圓取 b = 0。</p>${inp('g-b','b - 頂部水平直邊的半長 (mm)',0,'calcGeo()')}${inp('g-h','h - 總高 (mm)',300,'calcGeo()')}${inp('g-d','d - 兩倍圓角半徑 (mm)',100,'calcGeo()')}`,
     'cross': `${inp('g-B','B - 水平總寬 (mm)',300,'calcGeo()')}${inp('g-H','H - 垂直總高 (mm)',300,'calcGeo()')}${inp('g-b','b - 垂直板寬 (mm)',100,'calcGeo()')}${inp('g-h','h - 水平板高 (mm)',100,'calcGeo()')}`,
     'sym-trapezoid': `${inp('g-b','b - 下底寬 (mm)',400,'calcGeo()')}${inp('g-b1','b₁ - 上底寬 (mm)',200,'calcGeo()')}${inp('g-h','h - 高 (mm)',300,'calcGeo()')}`,
-    'general': `<p class="hint">使用平行軸定理: I = I₀ + A×d²<br>輸入各子斷面的 A, I₀, d (形心到合成軸距離)</p>
+    'general': `<p class="hint">d 為子斷面形心距同一水平參考軸的有號距離，向上為正。指定合成形心至實際外緣的距離後，才計算該側的斷面模數。</p>
       ${inp('g-A1','A₁ (mm²)',6000,'calcGeo()')}${inp('g-I1','I₀₁ (mm⁴)',40000,'calcGeo()')}${inp('g-d1','d₁ (mm)',240,'calcGeo()')}
       ${inp('g-A2','A₂ (mm²)',3360,'calcGeo()')}${inp('g-I2','I₀₂ (mm⁴)',6585600,'calcGeo()')}${inp('g-d2','d₂ (mm)',0,'calcGeo()')}
-      ${inp('g-A3','A₃ (mm², 0=不用)',6000,'calcGeo()')}${inp('g-I3','I₀₃ (mm⁴)',40000,'calcGeo()')}${inp('g-d3','d₃ (mm)',-240,'calcGeo()')}`,
+      ${inp('g-A3','A₃ (mm², 0=不用)',6000,'calcGeo()')}${inp('g-I3','I₀₃ (mm⁴)',40000,'calcGeo()')}${inp('g-d3','d₃ (mm)',-240,'calcGeo()')}
+      ${inp('g-cTop','形心至頂緣 c 頂 (mm，選填)', '', 'calcGeo()')}${inp('g-cBottom','形心至底緣 c 底 (mm，選填)', '', 'calcGeo()')}`,
   };
   d.innerHTML = map[t] || '';
   calcGeo();
@@ -889,6 +920,17 @@ function calcCChannel() {
 }
 
 // ==================== GEO CALC ====================
+function invalidGeometry(message) {
+  showResults([]);
+  drawSection(() => {}, '尺寸待補');
+  setStatus(message, 'warn');
+}
+
+function geometryNumber(id) {
+  const raw = document.getElementById('g-' + id)?.value.trim();
+  return raw ? Number(raw) : NaN;
+}
+
 function calcGeo() {
   const el = document.getElementById('geo-type');
   if (!el) return;
@@ -957,14 +999,16 @@ function calcGeo() {
     const A=b*h/2, I=b*h**3/12, S=b*h**2/6;
     results=[['A',A,'cm²'],['I (底邊軸)',I,'cm⁴'],['S (底邊軸)',S,'cm³'],['r',h/Math.sqrt(6),'cm'],['e (底到頂)',h,'cm']];
     drawGeoTriangle(g('b'),g('h'),'edge');
-  } else if (t==='trapezoid-c') {
-    const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return;
+  } else if (t==='trapezoid-c' || t==='sym-trapezoid') {
+    const b=geometryNumber('b')/10, b1=geometryNumber('b1')/10, h=geometryNumber('h')/10;
+    if (!(b>=0 && b1>=0 && b+b1>0 && h>0)) return invalidGeometry('請填上下底與高度；底寬可有一端為零。');
     const A=h*(b+b1)/2;
     const e=h*(b+2*b1)/(3*(b1+b)); // from bottom (b = 下底)
     const e1=h*(b1+2*b)/(3*(b1+b)); // from top
     const I=h**3*(b**2+4*b*b1+b1**2)/(36*(b+b1));
     const S=I/Math.max(e,e1);
     results=[['A',A,'cm²'],['I (形心軸)',I,'cm⁴'],['S',S,'cm³'],['r',Math.sqrt(I/A),'cm'],['e (形心距下底)',e,'cm'],['e₁ (形心距上底)',e1,'cm']];
+    if (t==='sym-trapezoid') results.push(['S (底緣)',I/e,'cm³'],['S (頂緣)',I/e1,'cm³']);
     drawGeoTrapezoid(g('b'),g('b1'),g('h'),'center');
   } else if (t==='trapezoid-e') {
     const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return;
@@ -1080,17 +1124,19 @@ function calcGeo() {
     drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('R')*2),(H-40)/g('R')),sr=g('R')*sc,cx=W/2,cy=H/2;const a=alpha;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,sr,PI/2-a,PI/2+a);ctx.closePath();ctx.fill();ctx.stroke();});
 
   } else if (t==='parabola') {
-    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const b=g('b')/10,h=g('h')/10;
+    if (!(b>0 && h>0)) return invalidGeometry('拋物線半寬及高度須大於零。');
     const A=4*b*h/3, e=2*h/5, e1=3*h/5; // 頂點在上，形心距底 2h/5
     const I=16*b*h**3/175;
-    results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['S',0.1524*b*h**2,'cm³'],['S₁',0.2286*b*h**2,'cm³'],['r',0.263*h,'cm']];
+    results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['S (頂緣)',I/e1,'cm³'],['S₁ (底緣)',I/e,'cm³'],['r',Math.sqrt(I/A),'cm']];
     drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('b')*2),(H-40)/g('h')),sw=g('b')*sc,sh=g('h')*sc,cx=W/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-sw,bot);for(let i=-1;i<=1;i+=0.02){const x=i*sw,y=bot-sh*(1-i*i);}ctx.moveTo(cx-sw,bot);for(let i=0;i<=40;i++){const tt=i/40,xx=-1+2*tt;ctx.lineTo(cx+xx*sw,bot-sh*(1-xx*xx));}ctx.lineTo(cx+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();dimText(ctx,`2b=${g('b')*2}`,cx,bot+16);dimText(ctx,`h=${g('h')}`,cx-sw-22,H/2);});
 
   } else if (t==='half-parabola') {
-    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const b=g('b')/10,h=g('h')/10;
+    if (!(b>0 && h>0)) return invalidGeometry('半拋物線寬度及高度須大於零。');
     const A=2*b*h/3, e=2*h/5, e1=3*h/5; // 頂點在上，形心距底 2h/5
     const I=8*b*h**3/175;
-    results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['r',0.263*h,'cm']];
+    results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['S (頂緣)',I/e1,'cm³'],['S₁ (底緣)',I/e,'cm³'],['r',Math.sqrt(I/A),'cm']];
     drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('b'),(H-40)/g('h')),sw=g('b')*sc,sh=g('h')*sc,ox=W/2-sw/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,bot);for(let i=0;i<=40;i++){const tt=i/40;ctx.lineTo(ox+tt*sw,bot-sh*(1-tt*tt));}ctx.lineTo(ox+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();});
 
   } else if (t==='square-hole') {
@@ -1101,11 +1147,24 @@ function calcGeo() {
     drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('a'),(H-40)/g('a')),ss=g('a')*sc,sd=g('d')*sc,cx=W/2,cy=H/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(cx-ss/2,cy-ss/2,ss,ss);ctx.strokeRect(cx-ss/2,cy-ss/2,ss,ss);ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sd/2,0,PI*2);ctx.fill();ctx.stroke();drawAxes(ctx,cx,cy,ss/2+10);});
 
   } else if (t==='oblong') {
-    const b=g('b')/10,h=g('h')/10,d=g('d')/10; if(!b||!h||!d) return;
-    const A=2*b*(h-d)+PI*d**2/4;
-    const I=(3*PI/16*d**4+b*(h**3-d**3)+b**3*(h-d))/12;
-    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',I/(h/2),'cm³'],['r',Math.sqrt(I/A),'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('b')*2+g('d')),(H-40)/g('h')),cx=W/2,cy=H/2,sw=g('b')*sc,sh=g('h')*sc,sd=g('d')/2*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-sw,cy-sh/2+sd);ctx.arc(cx-sw,cy-sh/2+sd,sd,PI,PI*1.5);ctx.lineTo(cx+sw,cy-sh/2);ctx.arc(cx+sw,cy-sh/2+sd,sd,PI*1.5,0);ctx.lineTo(cx+sw+sd,cy+sh/2-sd);ctx.arc(cx+sw,cy+sh/2-sd,sd,0,PI/2);ctx.lineTo(cx-sw,cy+sh/2);ctx.arc(cx-sw,cy+sh/2-sd,sd,PI/2,PI);ctx.closePath();ctx.fill();ctx.stroke();drawAxes(ctx,cx,cy,sh/2+10);});
+    const b=geometryNumber('b')/10, h=geometryNumber('h')/10, d=geometryNumber('d')/10;
+    const width=2*b+d, radius=d/2;
+    if (!(b>=0 && d>=0 && h>0 && h>=d && width>0)) return invalidGeometry('請填 b ≥ 0、0 ≤ d ≤ h，且外寬及總高須大於零。');
+    // 外矩形扣除四個角隅。每角是 r×r 方形減去四分之一圓。
+    const offset=(h-d)/2;
+    const cornerArea=radius**2*(1-PI/4);
+    const cornerI=cornerArea*offset**2 + offset*radius**3/3 + radius**4*(1/3-PI/16);
+    const A=width*h-4*cornerArea, I=width*h**3/12-4*cornerI;
+    results=[['外寬',width,'cm'],['A',A,'cm²'],['I (水平形心軸)',I,'cm⁴'],['S',I/(h/2),'cm³'],['r',Math.sqrt(I/A),'cm']];
+    drawSection((ctx,W,H)=>{
+      const scale=Math.min((W-80)/width,(H-58)/h), cx=W/2, cy=H/2;
+      const w=width*scale, ht=h*scale, r=radius*scale;
+      ctx.fillStyle='#dbeafe'; ctx.strokeStyle='#2563eb'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.roundRect(cx-w/2,cy-ht/2,w,ht,r); ctx.fill(); ctx.stroke();
+      drawAxes(ctx,cx,cy,Math.min(w,ht)/2+8);
+      dimText(ctx,`2b+d=${fmt(width*10)} mm`,cx,cy+ht/2+16);
+      dimText(ctx,`h=${fmt(h*10)}`,cx-w/2-19,cy);
+    },'四角等半徑斷面，外寬 2b+d、高 h、圓角半徑 d/2');
 
   } else if (t==='cross') {
     const B=g('B')/10,H2=g('H')/10,b=g('b')/10,h=g('h')/10; if(!B||!H2||!b||!h) return;
@@ -1116,27 +1175,30 @@ function calcGeo() {
     results=[['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(H2/2),'cm³'],['Sy',Iy/(B/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']];
     drawSection((ctx,W,Hc)=>{const sc=Math.min((W-60)/g('B'),(Hc-40)/g('H')),sB=g('B')*sc,sH=g('H')*sc,sb=g('b')*sc,sh=g('h')*sc,cx=W/2,cy=Hc/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(cx-sb/2,cy-sH/2,sb,sH);ctx.strokeRect(cx-sb/2,cy-sH/2,sb,sH);ctx.fillRect(cx-sB/2,cy-sh/2,sB,sh);ctx.strokeRect(cx-sB/2,cy-sh/2,sB,sh);drawAxes(ctx,cx,cy,Math.max(sB,sH)/2+10);});
 
-  } else if (t==='sym-trapezoid') {
-    const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return;
-    const A=h*(2*b+b1)/2;
-    const e=(3*b+2*b1)*h/(3*(2*b+b1));
-    const e_top=h-e;
-    const I=(6*b**2+6*b*b1+b1**2)*h**3/(36*(2*b+b1));
-    results=[['A',A,'cm²'],['e (形心距下底)',e,'cm'],['e₁ (形心距上底)',e_top,'cm'],['I',I,'cm⁴'],['S_bot',I/e,'cm³'],['S_top',I/e_top,'cm³'],['r',Math.sqrt(I/A),'cm']];
-    drawGeoTrapezoid(g('b'),g('b1'),g('h'),'center');
-
   } else if (t==='general') {
     const parts=[];
     for(let i=1;i<=3;i++){
-      const Amm2=g('A'+i),I0mm4=g('I'+i),dmm=g('d'+i);
-      if(Amm2)parts.push({index:i,A:Amm2/100,I:I0mm4/10000,d:dmm/10,Amm2,I0mm4,dmm});
+      const Amm2=geometryNumber('A'+i);
+      if (Amm2===0) continue;
+      const I0mm4=geometryNumber('I'+i), dmm=geometryNumber('d'+i);
+      if (!(Amm2>0 && I0mm4>=0 && Number.isFinite(dmm))) return invalidGeometry(`請補齊第 ${i} 組面積、形心慣性矩與有號位置。未使用組請將面積填 0。`);
+      parts.push({index:i,A:Amm2/100,I:I0mm4/10000,d:dmm/10,Amm2,I0mm4,dmm});
     }
-    if(!parts.length) return;
+    if(!parts.length) return invalidGeometry('至少須有一個有效子斷面。');
     const A=parts.reduce((s,p)=>s+p.A,0);
-    const I=parts.reduce((s,p)=>s+p.I+p.A*p.d**2,0);
-    results=[['A (合計)',A,'cm²'],['I (合計)',I,'cm⁴'],['S',I/Math.max(...parts.map(p=>Math.abs(p.d)+5)),'cm³'],['r',Math.sqrt(I/A),'cm']];
+    const center=parts.reduce((s,p)=>s+p.A*p.d,0)/A;
+    const I=parts.reduce((s,p)=>s+p.I+p.A*(p.d-center)**2,0);
+    results=[['A (合計)',A,'cm²'],['形心距參考軸',center,'cm'],['I (形心軸)',I,'cm⁴'],['I (參考軸)',I+A*center**2,'cm⁴'],['r',Math.sqrt(I/A),'cm']];
+    for (const [field,sign,edge] of [['cTop',1,'頂緣'],['cBottom',-1,'底緣']]) {
+      const input=document.getElementById('g-'+field);
+      if (!input?.value.trim() && !input?.validity?.badInput) continue;
+      const c=geometryNumber(field)/10;
+      if (!(c>0) || parts.some(p=>sign*(p.d-center)>c+1e-12)) return invalidGeometry(`${edge}距離須為正，並涵蓋各子斷面形心。`);
+      results.push([`S (${edge})`,I/c,'cm³']);
+    }
     drawGeoGeneral(parts);
   }
+  if (results.some(([,value])=>!Number.isFinite(value))) return invalidGeometry('尺寸超過可計算範圍，請核對單位及輸入。');
   if(results.length) showResults(results);
 }
 
@@ -1205,7 +1267,7 @@ function drawGeoTriangle(bmm,hmm,mode) {
 }
 function drawGeoTrapezoid(b,b1,h,mode) {
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/b,(H-40)/h),sw=b*sc,sw1=b1*sc,sh=h*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    const sc=Math.min((W-60)/Math.max(b,b1),(H-40)/h),sw=b*sc,sw1=b1*sc,sh=h*sc,ox=(W-sw)/2,oy=(H-sh)/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(ox+(sw-sw1)/2,oy);ctx.lineTo(ox+(sw+sw1)/2,oy);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();
     dimText(ctx,`b=${b}`,ox+sw/2,oy+sh+16);dimText(ctx,`b₁=${b1}`,ox+sw/2,oy-8);dimText(ctx,`h=${h}`,ox-20,oy+sh/2);
@@ -1271,7 +1333,7 @@ function drawGeoGeneral(parts) {
     ctx.fillStyle='#b91c1c';
     ctx.font='11px "Microsoft JhengHei","Segoe UI",sans-serif';
     ctx.textAlign='right';
-    ctx.fillText('合成軸',W-27,axisY-7);
+    ctx.fillText('輸入參考軸',W-27,axisY-7);
 
     parts.forEach((part,index)=>{
       const x=xPositions[index],y=axisY-part.dmm*distanceScale;
@@ -1309,7 +1371,7 @@ function drawGeoGeneral(parts) {
     ctx.fillStyle='#64748b';
     ctx.font='10px "Microsoft JhengHei","Segoe UI",sans-serif';
     ctx.textAlign='center';
-    ctx.fillText('僅表示各子斷面形心相對合成軸的位置；不代表實際外形',W/2,H-10);
+    ctx.fillText('各子斷面形心相對輸入參考軸的位置；不代表實際外形',W/2,H-10);
   },'平行軸定理一般組合斷面計算模型，非實際比例');
 }
 

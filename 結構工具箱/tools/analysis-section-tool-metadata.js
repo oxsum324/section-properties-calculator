@@ -25,7 +25,7 @@
       route: '/section',
       discipline: 'section',
       version: 'V2.1',
-      calculationEngine: 'section-properties.inline.v2.2.0',
+      calculationEngine: 'section-properties.inline.v2.3.0',
       state: 'reference',
       governance: 'section-tools',
     }),

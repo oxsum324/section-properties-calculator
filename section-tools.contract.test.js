@@ -588,7 +588,7 @@ const sectionDrawSource = functionSource(sectionPickerHtml, 'drawSection');
 const sectionGeneralDiagramSource = functionSource(sectionPickerHtml, 'drawGeoGeneral');
 assert(sectionCalcGeoSource.includes('drawGeoGeneral(parts)'), 'general parallel-axis section renders its calculation model', 'drawGeoGeneral(parts)');
 assert(sectionDrawSource.includes("setAttribute('aria-label', accessibleLabel)"), 'section diagrams expose an accessible label', 'canvas aria-label');
-for (const needle of ['平行軸定理計算模型（非實際比例）', 'I = Σ(I₀ᵢ + Aᵢdᵢ²)', '合成軸', '不代表實際外形']) {
+for (const needle of ['平行軸定理計算模型（非實際比例）', 'I = Σ(I₀ᵢ + Aᵢdᵢ²)', '輸入參考軸', '不代表實際外形']) {
   assert(sectionGeneralDiagramSource.includes(needle), 'general parallel-axis diagram discloses its conceptual boundary', needle);
 }
 const sectionPdfSource = functionSource(sectionPickerHtml, 'exportPDF');
@@ -962,7 +962,7 @@ function createSectionCalcContext(html, functionNames) {
     PI: Math.PI, Math, console,
     document: { getElementById(id) { return Object.prototype.hasOwnProperty.call(inputs, id) ? { value: String(inputs[id]) } : null; } },
     showResults(items) { lastResults = items; },
-    drawSection() {}, dimText() {}, drawAxes() {},
+    drawSection() {}, dimText() {}, drawAxes() {}, setStatus() {},
   };
   ['drawGeoRect', 'drawGeoRotRect', 'drawGeoDiamond', 'drawGeoHollowRect', 'drawGeoCircle', 'drawGeoSemicircle', 'drawGeoTriangle',
     'drawGeoTrapezoid', 'drawGeoPolygon', 'drawGeoHollowDiamond', 'drawGeoTee', 'drawGeoGeneral'].forEach(name => { context[name] = () => {}; });
@@ -981,7 +981,7 @@ function createSectionCalcContext(html, functionNames) {
 
 {
   const sectionCalc = createSectionCalcContext(read('index.html'),
-    ['val', 'calcHBeam', 'calcCChannel', 'calcGeo']);
+    ['val', 'geometryNumber', 'invalidGeometry', 'calcHBeam', 'calcCChannel', 'calcGeo']);
 
   // H 型鋼圓角：以含真實圓弧的多邊形積分為獨立基準（JIS H400×200×8×13 r16 表列 A=84.12、Ix=23700、Iy=1740）
   for (const [H, B, tw, tf, R] of [[400, 200, 8, 13, 16], [588, 300, 12, 20, 28]]) {
@@ -1045,6 +1045,50 @@ function createSectionCalcContext(html, functionNames) {
     const result = sectionCalc.run('calcGeo', { 'geo-type': shape, 'g-b': 150, 'g-h': 300 });
     assertRelNear(result['e (形心距底)'], 2 * 30 / 5, 1e-12, `${shape} centroid from base = 2h/5`);
     assertRelNear(result['e₁ (形心距頂)'], 3 * 30 / 5, 1e-12, `${shape} centroid from vertex = 3h/5`);
+    const pts = [];
+    for (let i=0; i<=2000; i++) {
+      const x=(shape==='parabola' ? -1+i/1000 : i/2000);
+      pts.push([15*x,30*(1-x*x)]);
+    }
+    pts.push([15,0],[shape==='parabola' ? -15 : 0,0]);
+    const section=polygonSectionProperties(pts.reverse());
+    assertRelNear(result['S (頂緣)'],section.Ix/(30-section.cy),2e-6,`${shape} top fibre from boundary integral`);
+    assertRelNear(result['S₁ (底緣)'],section.Ix/section.cy,2e-6,`${shape} bottom fibre from boundary integral`);
+  }
+  for (const [base, top] of [[40,20],[20,40],[30,30],[0,25],[30,0]]) {
+    const poly=polygonSectionProperties([[-base/2,0],[base/2,0],[top/2,30],[-top/2,30]]);
+    const result=sectionCalc.run('calcGeo',{'geo-type':'sym-trapezoid','g-b':base*10,'g-b1':top*10,'g-h':300});
+    assertRelNear(result.A,poly.A,1e-12,'symmetric trapezoid area');
+    assertRelNear(result['S (頂緣)'],poly.Ix/(30-poly.cy),1e-12,'symmetric trapezoid top modulus');
+    assertRelNear(result['S (底緣)'],poly.Ix/poly.cy,1e-12,'symmetric trapezoid bottom modulus');
+  }
+  for (const [b,h,d] of [[5,30,10],[0,30,10],[0,10,10],[5,10,0],[10,5,5]]) {
+    const r=d/2, points=[];
+    for (let corner=0; corner<4; corner++) {
+      const cx=[b,-b,-b,b][corner], cy=[1,1,-1,-1][corner]*(h/2-r);
+      for (let j=0; j<=500; j++) {
+        const a=(corner+j/500)*Math.PI/2;
+        points.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);
+      }
+    }
+    const poly=polygonSectionProperties(points);
+    const result=sectionCalc.run('calcGeo',{'geo-type':'oblong','g-b':10*b,'g-h':10*h,'g-d':10*d});
+    assertRelNear(result.A,poly.A,6e-6,'rounded section area from boundary polygon');
+    assertRelNear(result['I (水平形心軸)'],poly.Ix,6e-6,'rounded section inertia from boundary polygon');
+  }
+  {
+    const input={'geo-type':'general','g-A1':1000,'g-I1':10000,'g-d1':5,'g-A2':2000,'g-I2':10000,'g-d2':65,'g-A3':0};
+    const raw=sectionCalc.run('calcGeo',input);
+    assert(!Object.keys(raw).some(k=>k.startsWith('S')), 'general modulus is omitted without measured outer fibres','empty distances');
+    // A=10,20 cm² at offsets −4,+2 cm from the centroid; each I₀=1 cm⁴.
+    assertRelNear(raw['I (形心軸)'],242,1e-12,'general section computes centroidal inertia at an arbitrary datum');
+    const shifted=sectionCalc.run('calcGeo',{...input,'g-d1':105,'g-d2':165,'g-cTop':30,'g-cBottom':50});
+    assertRelNear(shifted['S (頂緣)'],242/3,1e-12,'general modulus uses specified top fibre and is invariant to datum');
+    assertRelNear(shifted['S (底緣)'],242/5,1e-12,'general modulus uses independent bottom fibre');
+    const invalid=sectionCalc.run('calcGeo',{...input,'g-cTop':15});
+    assert(!Object.keys(invalid).length,'outer fibre inside a component centroid clears the calculation','no result');
+    const partial=sectionCalc.run('calcGeo',{...input,'g-cTop':30});
+    assert(partial['S (頂緣)']>0 && !('S (底緣)' in partial),'only known extreme fibre produces a modulus','top only');
   }
 }
 
