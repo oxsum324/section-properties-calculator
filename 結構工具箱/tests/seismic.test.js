@@ -18,6 +18,43 @@ vm.runInContext(seismicZonesCode, context);
 const S = context.window.Seismic;
 const Z = context.window.SeismicZones;
 
+// 表 2-6(c)、式 (3-2)、表 3-3，並在各分段用原表的顯式公式比對。
+for (const [zone, T0] of [[1,1.60],[2,1.30],[3,1.05]]) {
+  const site = S.resolveSpectrumSite('basin', null, null, null, null, null, zone);
+  approx(site.basinT0, T0);
+  approx(site.SDS, 0.6);
+  approx(site.SMS, 0.8);
+  for (const [BS,B1] of [[1,1],[1.2,1.1]]) {
+    const corner = T0 * BS / B1;
+    for (const [T,expected] of [[0,0.24],[0.1*corner,0.6*(0.4+(1/BS-0.4)/2)],
+      [0.2*corner,0.6/BS],[corner,0.6/BS],[2*corner,T0*0.6/(B1*2*corner)],
+      [2.5*corner,0.24/BS],[3*corner,0.24/BS]]) {
+      approx(S.calcResponseSpectrumSa(T,site.SDS,site.SD1,BS,B1), expected, 1e-12);
+    }
+    const spec = S.buildCodeResponseSpectrum({ siteInputMode:'basin', site, lowerSite:site, T1:2*corner, I:1, R:6,
+      Ra:S.calcRa(6,true), alphaY:1, damping:5, BS, B1, Tx:1, Ty:2 });
+    approx(spec.basis.ToD,corner);
+    approx(spec.basis.Fu,3.5);
+    approx(spec.summary.t1.lowerAccel, spec.basis.SaD_T1/3.5, 1e-12);
+  }
+}
+for (const invalid of ['',0,4,'length']) assert.throws(() => S.resolveSpectrumSite('basin', 1, 0, 0, 0, 0, invalid), /微分區/);
+for (const districts of Object.values(Z.BASIN)) {
+  for (const villages of Object.values(districts)) {
+    for (const [zone,T0] of Object.values(villages)) {
+      approx(S.resolveSpectrumSite('basin',null,null,null,null,null,zone).basinT0,T0);
+    }
+  }
+}
+
+// T1 均位於平台段，Fu=1。下限譜 0.55 穿越式 (2-2) 的轉折，不能以主譜 1.0 先算係數再乘。
+{
+  const site = S.resolveSpectrumSite('direct',2,1,1,1.2,1.2);
+  const lowerSite = S.resolveSpectrumSite('direct',2,0.55,0.55,1.2,1.2);
+  const spec = S.buildCodeResponseSpectrum({site,lowerSite,T1:0.5,I:1,R:1,Ra:1,alphaY:1,damping:5,BS:1,B1:1,Tx:0.5,Ty:0.5});
+  approx(spec.summary.t1.lowerAccel, (0.52*0.55+0.144)/4.2, 1e-12);
+}
+
 function approx(actual, expected, tol = 1e-6, msg = '') {
   assert.ok(Math.abs(actual - expected) <= tol, `${msg} expected ${expected}, got ${actual}`);
 }

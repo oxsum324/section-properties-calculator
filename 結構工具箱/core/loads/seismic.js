@@ -199,10 +199,7 @@
    * Ref: 規範 式 (2-10)
    */
   function calcRa(R, isTaipeiBasin) {
-    if (isTaipeiBasin) {
-      return 1 + (R - 1) / 2.0;  // 式 (2-11) 臺北盆地
-    }
-    return 1 + (R - 1) / 1.5;    // 式 (2-10) 一般/近斷層
+    return 1 + (R - 1) / (isTaipeiBasin ? 2 : 1.5); // 式 (2-11)、(2-10)
   }
 
   /**
@@ -373,7 +370,13 @@
     return Math.ceil(value * 2) / 2;
   }
 
-  function resolveSpectrumSite(mode, siteClass, SsD, S1D, SsM, S1M) {
+  function resolveSpectrumSite(mode, siteClass, SsD, S1D, SsM, S1M, basinZone) {
+    if (mode === 'basin') {
+      if (![1,2,3,'1','2','3'].includes(basinZone)) throw new RangeError('請指定表 2-6(c) 的臺北盆地微分區。');
+      const basinT0 = [0, 1.60, 1.30, 1.05][Number(basinZone)];
+      return { mode, modeLabel: '臺北盆地表 2-6(c) 微分區 ' + basinZone, basinZone: Number(basinZone), basinT0,
+        SDS: 0.6, SD1: +(0.6 * basinT0).toFixed(3), SMS: 0.8, SM1: +(0.8 * basinT0).toFixed(3) };
+    }
     if (mode === 'direct') {
       return {
         FaD: 1,
@@ -445,12 +448,15 @@
     const ToM = (p.site.SM1 * p.BS) / (p.site.SMS * p.B1);
     const SaD_T1 = calcResponseSpectrumSa(p.T1, p.site.SDS, p.site.SD1, p.BS, p.B1);
     const SaM_T1 = calcResponseSpectrumSa(p.T1, p.site.SMS, p.site.SM1, p.BS, p.B1);
-    const Fu = calcFu(p.Ra, p.T1, ToD);
+    const Ra = p.site.mode === 'basin' ? calcRa(p.R, true) : p.Ra ?? calcRa(p.R, false);
+    const Fu = calcFu(Ra, p.T1, ToD);
     const FuM = calcFuM(p.R, p.T1, ToM);
     const SaFuM = calcSaFuM(SaD_T1 / Fu);
     const SaMFuMM = calcSaFuM(SaM_T1 / FuM);
     const designFactor = p.I / (1.4 * p.alphaY * SaD_T1) * SaFuM;
-    const lowerFactor = p.I * Fu / (4.2 * p.alphaY * SaD_T1) * SaFuM;
+    const SaLowerT1 = calcResponseSpectrumSa(p.T1, p.lowerSite.SDS, p.lowerSite.SD1, p.BS, p.B1);
+    const divisor = p.site.mode === 'basin' ? 3.5 : 4.2;
+    const lowerFactor = p.I * Fu / (divisor * p.alphaY * SaLowerT1) * calcSaFuM(SaLowerT1 / Fu);
     const mceFactor = p.I / (1.4 * p.alphaY * SaM_T1) * SaMFuMM;
     const ranges = resolveResponseSpectrumRanges(p, ToD, ToLower, ToM);
 
@@ -486,9 +492,10 @@
       params: {
         siteInputMode: p.siteInputMode,
         siteModeLabel: p.site.modeLabel,
+        ...(p.site.mode === 'basin' ? { basinZone: p.site.basinZone, basinT0: p.site.basinT0 } : {}),
         I: p.I,
         R: p.R,
-        Ra: p.Ra,
+        Ra,
         alphaY: p.alphaY,
         T1: p.T1,
         damping: p.damping,
@@ -521,17 +528,19 @@
 
   function calcDynamicStaticReference(p) {
     const sys = SYSTEMS[p.systemKey] || SYSTEMS.OTHER;
-    const site = resolveSpectrumSite(p.siteInputMode, p.siteClass, p.SsD, p.S1D, p.SsM, p.S1M);
+    const site = resolveSpectrumSite(p.siteInputMode, p.siteClass, p.SsD, p.S1D, p.SsM, p.S1M, p.basinZone);
+    const basin = site.mode === 'basin' || p.isTaipeiBasin === true;
     const to = calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
     const Tcode = calcPeriod(p.systemKey, p.hn);
     const Tdesign = calcTdesign(Tcode, p.Tdyna, p.CU || 1.4);
-    const Ra = calcRa(sys.R, p.isTaipeiBasin || false);
+    const Ra = calcRa(sys.R, basin);
     const Fu = calcFu(Ra, Tdesign, to.ToD);
     const FuM = calcFuM(sys.R, Tdesign, to.ToM);
     const SaD = calcSa(Tdesign, site.SDS, site.SD1);
     const SaM = calcSa(Tdesign, site.SMS, site.SM1);
     const vd = calcVD(p.I || 1, sys.alphaY, SaD, Fu, p.W);
-    const vs = calcVstar(p.I || 1, sys.alphaY, Fu, SaD, p.W, p.isTaipeiBasin || false);
+    const lower = p.lowerSite || site;
+    const vs = calcVstar(p.I || 1, sys.alphaY, Fu, calcSa(Tdesign, lower.SDS, lower.SD1), p.W, basin);
     const vm = calcVM(p.I || 1, sys.alphaY, SaM, FuM, p.W);
     const Vdesign = Math.max(vd.VD, vs.Vstar, vm.VM);
     let controlledBy = 'VD';
@@ -1077,6 +1086,7 @@
 
   // ── 匯出 ──
   global.Seismic = {
+    SPECTRUM_REVISION: 2,
     VERSION,
     SOURCE,
     SYSTEMS,

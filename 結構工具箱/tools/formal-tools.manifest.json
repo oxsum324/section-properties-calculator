@@ -2245,34 +2245,34 @@
             "#modelCheckPanel": "有效質量和X=88.0%，Y=91.0%，Rz=86.0%，模態數=18 待確認 振態疊加方法採用 SRSS；週期相近時宜確認 CQC，週期不甚相近可採 SRSS。 已確認 扭轉偶然偏心確認模型或載重組合是否已納入案件要求之偶然偏心。 已納入 樓層剪力縮放確認樓層剪力、構件內力與設計輸出是否已依總橫力調整後採用。 已確認 地震輸入方向不規則建築物宜確認多角度輸入或方向組合是否符合案件設定。 待確認 模型檢核說明：第二案例：直接輸入譜與90%底剪調整。"
           },
           "expectedTextNeedles": [
-            "動力分析摘要已整理 X 向動力 / 調整要求 = 1.12 ｜ Y 向動力 / 調整要求 = 0.77",
+            "動力分析摘要已整理 X 向動力 / 調整要求 = 0.80 ｜ Y 向動力 / 調整要求 = 0.57",
             "第 3.3 節調整比例90%",
             "設計譜值來源直接採用輸入譜值",
             "中小度下限控制比例34%"
           ],
           "expectedMetrics": {
             "lastDynamicResult.result.x.ratio": {
-              "value": 1.1229166666666668,
+              "value": 0.7985185185185185,
               "tolerance": 1e-12
             },
             "lastDynamicResult.result.designActions.0.minimumShear": {
-              "value": 280,
+              "value": 350.64935064935065,
               "tolerance": 1e-9
             },
             "lastDynamicResult.result.designActions.0.requiredScale": {
-              "value": 1,
+              "value": 1.2523191094619666,
               "tolerance": 1e-12
             },
             "lastDynamicResult.result.y.ratio": {
-              "value": 0.7734999999999999,
+              "value": 0.572962962962963,
               "tolerance": 1e-12
             },
             "lastDynamicResult.result.x.staticRef": {
-              "value": 249.35064935064935,
+              "value": 350.64935064935065,
               "tolerance": 1e-9
             },
             "lastDynamicResult.result.y.staticRef": {
-              "value": 336.13445378151266,
+              "value": 453.781512605042,
               "tolerance": 1e-9
             },
             "lastDynamicResult.result.site.SDS": {

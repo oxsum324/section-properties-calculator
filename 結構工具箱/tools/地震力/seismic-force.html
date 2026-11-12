@@ -771,6 +771,8 @@ function saveStaticSummary(x, y) {
         SsDLower: x.SsD, S1DLower: x.S1D
       },
       spectrumSource: fault ? 'near-fault-zone' : x.directSite?.basinZone ? 'basin' : 'zone',
+      spectrumRevision: S.SPECTRUM_REVISION,
+      ...(x.directSite?.basinZone ? { basinZone: x.directSite.basinZone, basinVillage: x.directSite.basinVillage } : {}),
       importanceKey: impKey,
       importanceFactor: x.I,
       hn: isFinite(hn) ? hn : null,
@@ -820,13 +822,17 @@ function renderDynamicCompareCard() {
     return;
   }
   const rows = [];
-  const staticName = staticSummary.project?.name || '';
-  const dynamicName = dynamicSummary.project?.name || '';
-  const sameProject = !staticName || !dynamicName || staticName === dynamicName;
+  const source = staticSummary.project || {};
+  const peer = dynamicSummary.project || {};
+  const link = peer.inputSnapshot?.staticReference;
+  const identified = Boolean(source.no || source.name);
+  const sameProject = ['no','name'].every(key => (source[key] || '') === (peer[key] || ''));
   ['x', 'y'].forEach(dir => {
-    if (!staticSummary[dir] || !dynamicSummary[dir]) return;
+    if (!sameProject || !staticSummary[dir] || !dynamicSummary[dir]) return;
     const s = staticSummary[dir];
     const d = dynamicSummary[dir];
+    if (!identified && (!link?.[dir] || !link.savedAt || link.savedAt !== staticSummary.savedAt)) return;
+    if (!Number.isFinite(d.staticFull) || Math.abs(d.staticFull - s.Vdesign) > 1e-8) return;
     const ratio = s.Vdesign > 0 ? d.baseShear / s.Vdesign : null;
     rows.push(`
       <div class="k">
@@ -840,7 +846,7 @@ function renderDynamicCompareCard() {
     <div class="compare-note">
       靜力摘要更新時間：${escReport(new Date(staticSummary.savedAt).toLocaleString('zh-TW'))}<br>
       動力摘要更新時間：${escReport(new Date(dynamicSummary.savedAt).toLocaleString('zh-TW'))}<br>
-      ${sameProject ? '案件名稱一致，可直接作為同案比對參考。' : `注意：靜力頁案件「${escReport(staticName || '—')}」與動力頁案件「${escReport(dynamicName || '—')}」不一致，請先確認是否為同一專案。`}
+      ${rows.length ? '上列方向的案件與採用靜力值已核對。' : '兩份摘要的案件或靜力採用值尚無法配對。請在動力頁載入本案的靜力摘要並重算。'}
     </div>
     <div class="compare-actions">
       <a class="btn-secondary" href="seismic-dynamic.html">打開動力分析摘要頁</a>
@@ -995,6 +1001,7 @@ function exportCaseJson() {
     tool: { id: 'seismic-force', name: '等值靜力分析', version: TOOL_VERSION },
     generatedAt: new Date().toISOString(),
     calculationFingerprint: reportTrace.calculationFingerprint,
+    spectrumRevision: S.SPECTRUM_REVISION,
     ...readCaseInputs(),
     result: readExportResultSummary()
   };
@@ -1148,6 +1155,8 @@ document.getElementById('chkXY').addEventListener('change', function() {
 
   // 鄉鎮切換 → 自動填入參數 + 檢查盆地 + 近斷層
   distSel.addEventListener('change', function() {
+    window._basinSelection = null;
+    clearNearFaultOverride();
     villSel.innerHTML = '<option value="">全區</option>';
     basinRow.style.display = 'none';
     faultRow.style.display = 'none';
@@ -1190,12 +1199,14 @@ document.getElementById('chkXY').addEventListener('change', function() {
         o.value = v; o.textContent = `${v}　(${zoneName}, T0=${info[1]})`;
         villSel.appendChild(o);
       });
-      basinHint.textContent = '此區屬臺北盆地微分區，可細查至里；選定後將依表 2-6(c) 與表 2-7 套用盆地反應譜';
+      basinHint.textContent = '依表 2-6(a) 核對工址里別，選定後依表 2-6(c) 與表 2-7 採用盆地反應譜。';
       document.getElementById('chkTaipei').checked = true;
-    } else {
-      if (city !== '臺北市' && city !== '新北市') {
-        document.getElementById('chkTaipei').checked = false;
+      if (villages['所有里']) {
+        villSel.value = '所有里';
+        villSel.dispatchEvent(new Event('change'));
       }
+    } else {
+      document.getElementById('chkTaipei').checked = false;
     }
   });
 
@@ -1520,7 +1531,10 @@ function calcFullSeismicUI(p) {
   const SaM = S.calcSa(Tdesign, site.SMS, site.SM1);
   const W = p.floors.reduce((s, f) => s + f.W, 0);
   const vd = S.calcVD(I, alphaY, SaD, Fu, W);
-  const vs = S.calcVstar(I, alphaY, Fu, SaD, W, isTB);
+  const lowerSite = p.directSite.userDist != null
+    ? S.calcSiteCoeff(p.siteClass, p.SsD, p.S1D, p.SsM, p.S1M) : site;
+  const vsSaD = S.calcSa(Tdesign, lowerSite.SDS, lowerSite.SD1);
+  const vs = S.calcVstar(I, alphaY, Fu, vsSaD, W, isTB);
   const vm = S.calcVM(I, alphaY, SaM, FuM, W);
   const Vdesign = Math.max(vd.VD, vs.Vstar, vm.VM);
   let controlledBy = 'VD';
@@ -1545,6 +1559,7 @@ function calcFullSeismicUI(p) {
     Ft: dist.Ft,
     dist,
     siteSource: 'direct',
+    ...(p.directSite.userDist != null ? { vsSaD } : {}),
     directSite: p.directSite
   };
 }
@@ -2107,7 +2122,7 @@ function reportMetaHtml(project, reportTrace) {
       <div><b>製表日期</b>${escReport(new Date().toLocaleDateString('zh-TW'))}</div>
       <div class="rep-source-tool"><b>產出工具</b>${escReport(reportTrace.sourceTrace.tool || '—')}</div>
       <div><b>工具版本</b>${escReport(reportTrace.sourceTrace.version || '—')}</div>
-      <div><b>計算引擎</b>${escReport(TOOL_VERSION)}</div>
+      <div><b>計算引擎</b>${escReport(TOOL_VERSION)}（工址譜修次 ${S.SPECTRUM_REVISION}）</div>
       <div><b>輸出時間</b>${escReport(reportTrace.generatedAt)}</div>
       <div><b>計算指紋</b>${escReport(reportTrace.calculationFingerprint)}</div>
     </div>
@@ -2460,6 +2475,13 @@ function calc() {
   const floors = floorData.map(f => ({ W: f.W, dH: f.dH, label: f.label }));
   const directSite = getNearFaultOverride() || (isTB ? getBasinDirectSite() : null);
   const basinSelection = window._basinSelection;
+  if (isTB && (!basinSelection || getNearFaultOverride())) {
+    const message = '已指定臺北盆地，請核對工址並選定表 2-6(a) 的里別；一般或近斷層工址請取消盆地設定。';
+    setInputStatus(message);
+    renderSeismicReportReadiness(message);
+    document.getElementById('resultPanel').style.display = 'none';
+    return false;
+  }
   const applicabilityNotes = buildApplicabilityNotes(hn, storyCount, isTB, basinSelection);
 
   // X/Y 分離
@@ -2652,11 +2674,12 @@ F<sub>vM</sub>：S<sub>1M</sub>=${r.S1M} → 查表內插得 <b>${fmt(site.FvM,3
   // Step 9: V*
   const vs_denom = isTB ? 3.5 : 4.2;
   const vs_coeff_val = Ifactor * r.Fu / (vs_denom * r.alphaY);
-  html += step('⑨ V* — 避免中小度地震降伏 (式 2-13a)', `
+  html += step(`⑨ V* — 避免中小度地震降伏 (式 2-13${isTB ? 'b' : 'a'})`, `
+    ${r.vsSaD != null ? '表 2-1 基準譜（不計近斷層增強），S<sub>aD</sub> = ' + fmt(r.vsSaD,4) + ' g。<br>' : ''}
     V* = [I·F<sub>u</sub>/(${isTB ? '3.5' : '4.2'}·α<sub>y</sub>)] × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> × W<br>
     &emsp;= [${Ifactor}×${fmt(r.Fu,2)}/(${isTB ? '3.5' : '4.2'}×${r.alphaY})] × ${fmt(r.Vs_ratio_m,4)} × ${fmt(r.W,0)}<br>
     &emsp;= <span class="val hl">${fmt(r.Vstar,2)}</span> tf　( = ${fmt(r.Vs_coeff*100,2)}% W )
-  `, `式(2-13a): V* = [I·F<sub>u</sub> / (${vs_denom}·α<sub>y</sub>)] × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> × W<br>
+  `, `${r.vsSaD != null ? '近斷層 V* 採表 2-1 基準譜，SaD = ' + fmt(r.vsSaD,4) + ' g。<br>' : ''}式(2-13${isTB ? 'b' : 'a'}): V* = [I·F<sub>u</sub> / (${vs_denom}·α<sub>y</sub>)] × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> × W<br>
 = [${Ifactor} × ${fmt(r.Fu,4)} / (${vs_denom} × ${r.alphaY})] × ${fmt(r.Vs_ratio_m,4)} × ${fmt(r.W,2)}<br>
 = ${fmt(vs_coeff_val,4)} × ${fmt(r.Vs_ratio_m,4)} × ${fmt(r.W,2)}<br>
 = <b>${fmt(r.Vstar,2)}</b> tf`);

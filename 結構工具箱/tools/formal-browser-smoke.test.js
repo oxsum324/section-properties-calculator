@@ -644,9 +644,11 @@ function pageStateExpression(tool) {
     setProjectField('projName', '未填');
     setProjectField('projNo', 'FORMAL-VERIFY-001');
     setProjectField('projDesigner', 'Codex QA');
+    if (${JSON.stringify(tool.key)} === 'seismic-dynamic' && byId('resultPanel').style.display === 'none') byId(calc).click();
     await settle(1);
     const placeholderProjectMetaReadinessText = readPageOnlyReadinessText();
     setProjectField('projName', '正式工具驗證案');
+    if (${JSON.stringify(tool.key)} === 'seismic-dynamic' && byId('resultPanel').style.display === 'none') byId(calc).click();
     await settle(1);
     const reportModeControls = ${JSON.stringify(tool.reportModeControls || null)};
     const chooseReportMode = async mode => {
@@ -1893,6 +1895,7 @@ function seismicDynamicProjectRestoreExpression() {
         name: '',
         no: '',
         designer: '',
+        spectrumSource: 'zone',
         zone: '測試工址',
         zoneCity: byId('zoneCity')?.value || '',
         zoneDist: byId('zoneDist')?.value || '',
@@ -1927,9 +1930,18 @@ function seismicDynamicProjectRestoreExpression() {
       staticImportStatus: (byId('staticImportStatus')?.textContent || '').replace(/\\s+/g, ' ').trim()
     };
 
+    calcDynamic();
+    const staticA = lastDynamicResult.result.x.staticFull;
+    const replacement = getStorageJson(STATIC_STORAGE_KEY);
+    replacement.project.no = 'OTHER-CASE';
+    replacement.x.Vdesign = 2 * staticA;
+    setStorageJson(STATIC_STORAGE_KEY, replacement);
+    calcDynamic();
+    const sameSource = lastDynamicResult.x.staticImported?.Vdesign === staticA;
     setProjectMeta({ name: '正式工具驗證案', no: 'FORMAL-VERIFY-001', designer: 'Codex QA' });
     await settle(1);
     const dynamicCalculated = calcDynamic();
+    const changedCaseDetached = lastDynamicResult.x.staticImported == null && lastDynamicResult.y.staticImported == null;
     const savedDynamic = getStorageJson(DYNAMIC_STORAGE_KEY);
     if (savedDynamic?.project) {
       savedDynamic.project = Object.assign({}, savedDynamic.project, {
@@ -1960,6 +1972,8 @@ function seismicDynamicProjectRestoreExpression() {
     return {
       dynamicCalculated,
       dynamicRestored,
+      sameSource,
+      changedCaseDetached,
       afterStatic,
       afterDynamic
     };
@@ -2662,6 +2676,8 @@ function getApprovedReportPdfDocumentStateNeedles(state) {
 function assertSeismicDynamicProjectRestoreState(state, label) {
   assert.equal(state.dynamicCalculated, true, `${label} seismic-dynamic recalculates before restore test`);
   assert.equal(state.dynamicRestored, true, `${label} seismic-dynamic restores saved summary`);
+  assert.equal(state.sameSource, true, `${label} another tab cannot replace the loaded static case`);
+  assert.equal(state.changedCaseDetached, true, `${label} edited case uses its own static reference`);
   assert.equal(state.afterStatic.name, '', `${label} seismic-dynamic static restore clears project name`);
   assert.equal(state.afterStatic.no, '', `${label} seismic-dynamic static restore clears project number`);
   assert.equal(state.afterStatic.designer, '', `${label} seismic-dynamic static restore clears designer`);

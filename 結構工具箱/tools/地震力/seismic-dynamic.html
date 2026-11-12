@@ -195,8 +195,14 @@
           <select id="siteInputMode" aria-describedby="spectrumInputHint">
             <option value="zone" selected>震區係數經 Fa / Fv 放大</option>
             <option value="direct">直接採用輸入譜值（工址譜值已確定）</option>
+            <option value="basin">臺北盆地微分區（表 2-6(c)）</option>
           </select>
           <div class="hint" id="spectrumInputHint"></div>
+          <div id="basinZoneGroup" hidden>
+            <div id="basinVillageGroup" hidden><label for="basinVillage">工址里別（表 2-6(a)）</label><select id="basinVillage"></select></div>
+            <label for="basinZone">工址微分區</label>
+            <select id="basinZone"><option value="">依里別確認後選擇</option><option value="1">臺北一區，1.60 秒</option><option value="2">臺北二區，1.30 秒</option><option value="3">臺北三區，1.05 秒</option></select>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -327,8 +333,9 @@
             <label>R / Ra</label>
             <div class="compact-pair">
               <input id="codeR" type="number" value="2" step="0.1" min="1">
-              <input id="codeRa" type="number" value="1.6667" step="0.0001" min="1">
+              <input id="codeRa" type="number" step="any" min="1" aria-label="容許韌性容量 Ra" placeholder="依 R 與工址計算">
             </div>
+            <div class="hint">Ra 留白依 R 與工址計算。一般工址的既有模型值可輸入至小數第 4 位核對。</div>
           </div>
           <div class="form-group">
             <label>α<sub>y</sub></label>
@@ -578,6 +585,7 @@ const CASE_SCHEMA_VERSION = 'seismic-dynamic.case.v1';
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['seismic-dynamic'].version;
 const TOOL_VERSION = '3.9';
 let lastDynamicResult = null;
+let loadedStaticReference = null;
 let dynamicSpectrumChart = null;
 let dynamicSpectrumChartGeneration = 0;
 let dynamicSpectrumChartDrawnGeneration = 0;
@@ -587,11 +595,11 @@ let dynamicReportInputsChanged = false;
 const CASE_VALUE_FIELDS = [
   'projName', 'projNo', 'projDesigner',
   'zoneCity', 'zoneDist',
-  'SsD', 'S1D', 'SsM', 'S1M', 'siteInputMode', 'SsDLower', 'S1DLower',
+  'SsD', 'S1D', 'SsM', 'S1M', 'siteInputMode', 'basinZone', 'basinVillage', 'SsDLower', 'S1DLower',
   'siteClass', 'impClass', 'sysX', 'sysY', 'hn', 'W',
   'software', 'remark', 'Tx', 'Ty', 'VxDyn', 'VyDyn', 'VxAdopted', 'VyAdopted',
   'codeT1', 'codeDamping', 'codeR', 'codeRa', 'codeAlphaY', 'codeBS', 'codeB1',
-  'baseShearFloorRatio',
+  'baseShearFloorRatio', 'reportMode',
   'spectrumExportTarget', 'spectrumExportName', 'spectrumPlotRangeMode', 'spectrumPlotTmaxCustom', 'spectrumExportTmax',
   'modelModeCount', 'modalCombination', 'massParticipationX', 'massParticipationY', 'massParticipationRz', 'modelCheckNote'
 ];
@@ -845,7 +853,14 @@ function renderDynamicReportReadiness(validationMessage = lastDynamicReportValid
 }
 
 function markDynamicReportInputsChanged() {
-  if (lastDynamicResult?.result) dynamicReportInputsChanged = true;
+  if (lastDynamicResult?.result) {
+    dynamicReportInputsChanged = true;
+    const current = getProjectInfo();
+    const prior = lastDynamicResult.result.project || {};
+    if ((lastDynamicResult.x.staticImported || lastDynamicResult.y.staticImported) && (current.no !== prior.no || current.name !== prior.name)) {
+      document.getElementById('resultPanel').style.display = 'none';
+    }
+  }
   renderDynamicReportReadiness();
 }
 
@@ -914,7 +929,7 @@ function collectCaseInputs() {
     if (!el) return;
     checks[id] = Boolean(el.checked);
   });
-  return { values, checks };
+  return { values, checks, staticReference: selectedStaticReference() };
 }
 
 function applyCaseInputs(source) {
@@ -938,6 +953,7 @@ function applyCaseInputs(source) {
     distSel.dispatchEvent(new Event('change'));
   }
   for (const id of spectrumIds) document.getElementById(id).value = values[id] ?? '';
+  document.getElementById('basinZone').value = values.basinZone ?? '';
   document.getElementById('siteInputMode').value = values.siteInputMode ?? '';
   CASE_VALUE_FIELDS.forEach(id => {
     if (id === 'zoneCity' || id === 'zoneDist') return;
@@ -950,12 +966,22 @@ function applyCaseInputs(source) {
     if (!el || checks[id] == null) return;
     el.checked = Boolean(checks[id]);
   });
+  populateBasinVillages(values.basinVillage);
   resetSpectrumEditor();
+  if (Object.hasOwn(inputs,'staticReference')) loadedStaticReference = inputs.staticReference;
+  else {
+    // 早期案件未隨檔保存靜力摘要。只嘗試已載入且案件、條件與保存剪力皆吻合的方向，之後仍須通過原檔指紋。
+    const compatible = selectedStaticReference();
+    for (const dir of ['x','y']) {
+      if (compatible && compatible[dir]?.Vdesign !== payload.result?.[dir]?.staticFull) delete compatible[dir];
+    }
+    loadedStaticReference = compatible?.x || compatible?.y ? compatible : null;
+  }
   saveProjectInfo();
 }
 
 function buildCasePayload() {
-  if (!lastDynamicResult) {
+  if (!lastDynamicResult || dynamicReportInputsChanged) {
     if (calcDynamic() === false) return null;
   }
   const result = lastDynamicResult?.result
@@ -966,6 +992,7 @@ function buildCasePayload() {
     : null;
   return {
     schemaVersion: CASE_SCHEMA_VERSION,
+    spectrumRevision: S.SPECTRUM_REVISION,
     tool: { id: 'seismic-dynamic', name: '反應譜動力分析摘要', version: TOOL_VERSION },
     toolVersion: TOOL_VERSION,
     exportedAt: new Date().toISOString(),
@@ -1014,13 +1041,20 @@ function importCaseJsonFile(file) {
         allowSchemaToolIdentity: true,
         capture: () => ({ project: getProjectInfo(), inputs: collectCaseInputs() }),
         apply: source => applyCaseInputs(source),
-        recalculate: () => calcDynamic(),
-        getFingerprint: () => buildDynamicReportTrace(lastDynamicResult).calculationFingerprint,
+        recalculate: () => calcDynamic(false),
+        getFingerprint: () => {
+          const trace = buildDynamicReportTrace(lastDynamicResult).calculationFingerprint;
+          if (trace === payload.calculationFingerprint || payload.inputs?.values?.reportMode != null) return trace;
+          const mode = document.getElementById('reportMode');
+          mode.value = mode.value === 'summary' ? 'detailed' : 'summary';
+          return buildDynamicReportTrace(lastDynamicResult).calculationFingerprint;
+        },
         restore: previous => {
           applyCaseInputs(previous);
-          calcDynamic();
+          calcDynamic(false);
         }
       });
+      saveDynamicResult(lastDynamicResult.result);
       document.getElementById('staticImportStatus').textContent =
         `已匯入案件 JSON：${file.name}，並重現計算；計算指紋 ${replay.calculationFingerprint}。`;
     } catch (err) {
@@ -1103,7 +1137,8 @@ function num(id) {
 
 const spectrumIds = ['SsD','S1D','SsM','S1M','SsDLower','S1DLower'];
 const spectrumModes = {
-  zone: { labels: ['SsD','S1D','SsM','S1M','SsD0 / S1D0'], hint: '填表 2-1 或表 2-3-1～4 的震區係數。依地盤類別套用表 2-4 的 Fa、Fv，得到工址譜值。' },
+  zone: { labels: ['SsD','S1D','SsM','S1M','SsD0 / S1D0'], hint: '一般工址填表 2-1 震區係數。近斷層請依距離內插，逐項取控制值後填入，下限譜另填表 2-1。地盤放大採表 2-4 的 Fa、Fv。' },
+  basin: { labels: ['SDS','SDS × T0D','SMS','SMS × T0M','下限採同一微分區'], hint: '依表 2-6(a) 核對里別，按表 2-6(c) 取轉角週期。動力譜依表 3-3，容許韌性依式 (2-11)，中小度下限分母取 3.5。' },
   direct: { labels: ['SDS','SD1','SMS','SM1','SDS0 / SD10'], hint: '填已含工址效應的設計及最大考量譜值，本頁直接採用。表 2-3 的近斷層距離查值仍屬震區係數，請選上一種來源。' }
 };
 const modeDrafts = new Map();
@@ -1111,16 +1146,60 @@ let activeSpectrumMode = 'zone';
 function readSpectrumFields() {
   return Object.fromEntries(spectrumIds.map(id => [id, document.getElementById(id).value]));
 }
+function districtVillages() {
+  const city = document.getElementById('zoneCity').value;
+  const district = document.getElementById('zoneDist').value;
+  return window.SeismicZones?.BASIN?.[city]?.[district] || {};
+}
+function populateBasinVillages(preferred) {
+  const villages = Object.keys(districtVillages());
+  const select = document.getElementById('basinVillage');
+  select.replaceChildren(new Option('依工址選擇里別', ''));
+  for (const name of villages) select.add(new Option(name, name));
+  select.value = villages.includes(preferred) ? preferred : villages.includes('所有里') ? '所有里' : '';
+}
 function showSpectrumLabels() {
   activeSpectrumMode = document.getElementById('siteInputMode').value;
+  const basin = activeSpectrumMode === 'basin';
+  const city = document.getElementById('zoneCity').value;
+  const district = document.getElementById('zoneDist').value;
+  const located = Boolean(district || (city && !window.SeismicZones?.BASIN?.[city]));
+  const zoneField = document.getElementById('basinZone');
+  if (basin && located) zoneField.value = districtVillages()[document.getElementById('basinVillage').value]?.[0] || '';
+  const zone = zoneField.value;
+  zoneField.disabled = basin && located;
+  document.getElementById('basinVillageGroup').hidden = !basin || !district || !Object.keys(districtVillages()).length;
+  document.getElementById('basinZoneGroup').hidden = !basin;
+  document.getElementById('siteClass').disabled = basin;
+  for (const id of spectrumIds) document.getElementById(id).readOnly = basin;
+  if (basin) {
+    const site = zone ? S.resolveSpectrumSite('basin', null, null, null, null, null, zone) : {};
+    const values = [site.SDS,site.SD1,site.SMS,site.SM1,site.SDS,site.SD1];
+    spectrumIds.forEach((id, index) => { document.getElementById(id).value = values[index] ?? ''; });
+  }
+  document.getElementById('SsDLower').parentElement.parentElement.hidden = basin;
+  updateRaHint();
   const { labels, hint } = spectrumModes[activeSpectrumMode] || { labels: spectrumModes.zone.labels, hint: '請先選擇設計譜值來源。' };
   labels.forEach((label, index) => {
     const prefix = index < 4 ? '' : '中小度下限譜 ';
-    document.querySelector('label[for="' + spectrumIds[index] + '"]').textContent = prefix + label + ' (g)';
+    const unit = basin && (index === 1 || index === 3) ? 'g·sec' : 'g';
+    document.querySelector('label[for="' + spectrumIds[index] + '"]').textContent = prefix + label + ' (' + unit + ')';
   });
-  document.getElementById('spectrumInputHint').textContent = hint;
-  if (activeSpectrumMode === 'direct') document.getElementById('zoneHint').textContent = '';
+  document.getElementById('spectrumInputHint').textContent = basin && located && !Object.keys(districtVillages()).length
+    ? '目前選擇的地區未列於本頁盆地微分區清冊。請核對縣市、鄉鎮與表 2-6(a)、(b) 的適用區域。' : hint;
+  if (activeSpectrumMode !== 'zone') document.getElementById('zoneHint').textContent = '';
 }
+function updateRaHint() {
+  const field = document.getElementById('codeRa');
+  field.readOnly = activeSpectrumMode === 'basin';
+  const R = num('codeR');
+  const ra = R >= 1 ? S.calcRa(R, field.readOnly) : null;
+  field.placeholder = ra == null ? '請先填 R' : '自動 ' + fmt(ra, 4);
+  if (field.readOnly) field.value = '';
+}
+document.getElementById('codeR').addEventListener('input', updateRaHint);
+document.getElementById('basinZone').addEventListener('change', showSpectrumLabels);
+document.getElementById('basinVillage').addEventListener('change', showSpectrumLabels);
 function resetSpectrumEditor() {
   modeDrafts.clear();
   showSpectrumLabels();
@@ -1128,8 +1207,9 @@ function resetSpectrumEditor() {
 document.getElementById('siteInputMode').addEventListener('change', () => {
   const next = document.getElementById('siteInputMode').value;
   if (next === activeSpectrumMode) return;
-  modeDrafts.set(activeSpectrumMode, readSpectrumFields());
+  modeDrafts.set(activeSpectrumMode, { ...readSpectrumFields(), codeRa: document.getElementById('codeRa').value });
   for (const id of spectrumIds) document.getElementById(id).value = modeDrafts.get(next)?.[id] ?? '';
+  if (activeSpectrumMode === 'basin') document.getElementById('codeRa').value = modeDrafts.get(next)?.codeRa ?? '';
   showSpectrumLabels();
 });
 
@@ -1140,13 +1220,25 @@ function readCodeSpectrumInputs(base) {
   };
   const lowerSsD = lowerValue('SsDLower', base.SsD);
   const lowerS1D = lowerValue('S1DLower', base.S1D);
+  const mode = document.getElementById('siteInputMode').value;
+  const zone = document.getElementById('basinZone').value;
+  const raInput = document.getElementById('codeRa');
+  const R = num('codeR');
+  const codeRa = S.calcRa(R, mode === 'basin');
+  const mismatch = raInput.value !== '' && (num('codeRa') < 1 || num('codeRa').toFixed(4) !== codeRa.toFixed(4));
+  if (!(R >= 1) || (mode !== 'basin' && mismatch)) {
+    const message = '請核對 R 與 Ra。R 須至少為 1，Ra 可留白依工址公式計算。';
+    setInputStatus(message);
+    setDynamicReportValidationMessage(message);
+    return null;
+  }
   const p = {
     siteInputMode: document.getElementById('siteInputMode').value,
     I: base.I,
-    site: resolveSpectrumSite(document.getElementById('siteInputMode').value, base.siteClass, base.SsD, base.S1D, base.SsM, base.S1M),
-    lowerSite: resolveSpectrumSite(document.getElementById('siteInputMode').value, base.siteClass, lowerSsD, lowerS1D, base.SsM, base.S1M),
-    R: num('codeR'),
-    Ra: num('codeRa'),
+    site: resolveSpectrumSite(mode, base.siteClass, base.SsD, base.S1D, base.SsM, base.S1M, zone),
+    lowerSite: resolveSpectrumSite(mode, base.siteClass, lowerSsD, lowerS1D, base.SsM, base.S1M, zone),
+    R,
+    Ra: mode === 'basin' || (raInput.value === '' && !raInput.validity.badInput) ? codeRa : num('codeRa'),
     alphaY: num('codeAlphaY'),
     T1: num('codeT1'),
     damping: num('codeDamping'),
@@ -1201,6 +1293,9 @@ function initZoneLookup() {
   citySel.addEventListener('change', function() {
     distSel.innerHTML = '<option value="">— 選擇鄉鎮市區 —</option>';
     hintEl.textContent = '';
+    populateBasinVillages();
+    document.getElementById('basinZone').value = '';
+    showSpectrumLabels();
     if (!this.value || !Z[this.value]) return;
     Object.keys(Z[this.value]).forEach(dist => {
       const opt = document.createElement('option');
@@ -1210,6 +1305,10 @@ function initZoneLookup() {
     });
   });
   distSel.addEventListener('change', function() {
+    populateBasinVillages();
+    document.getElementById('basinZone').value = '';
+    showSpectrumLabels();
+    if (activeSpectrumMode === 'basin') return;
     const city = citySel.value;
     const dist = this.value;
     if (!city || !dist || !Z[city] || !Z[city][dist]) return;
@@ -1245,7 +1344,7 @@ function dynamicModelCheckOutputLabel() {
   return includeModelCheck ? '詳算式列印含模型檢核表' : '頁面保留，計算書不輸出';
 }
 
-function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tdyna, siteInputMode) {
+function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tdyna, siteInputMode, lowerSite) {
   return S.calcDynamicStaticReference({
     systemKey,
     hn,
@@ -1257,7 +1356,7 @@ function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, If
     S1M,
     I: Ifactor,
     Tdyna,
-    siteInputMode
+    siteInputMode, lowerSite, basinZone: document.getElementById('basinZone').value
   });
 }
 
@@ -1515,10 +1614,35 @@ function renderCodeSpectrumPanel(spectrum) {
   `;
 }
 
+function staticReferenceKey(direction) {
+  const fields = ['projNo','projName','zoneCity','zoneDist','siteInputMode','siteClass','impClass','hn','W', ...spectrumIds, 'sys' + direction, 'T' + direction.toLowerCase()];
+  if (document.getElementById('siteInputMode').value === 'basin') fields.push('basinZone','basinVillage');
+  return JSON.stringify(fields.map(id => {
+    const el = document.getElementById(id);
+    return el.type === 'number' && el.value !== '' ? el.valueAsNumber : el.value.trim();
+  }));
+}
+
+function selectedStaticReference(calculated) {
+  if (!loadedStaticReference) return null;
+  const selected = { savedAt: loadedStaticReference.savedAt, verifyLegacy: loadedStaticReference.verifyLegacy === true };
+  for (const direction of ['X', 'Y']) {
+    const key = direction.toLowerCase();
+    const record = loadedStaticReference[key];
+    if (selected.verifyLegacy && calculated && Math.abs(record?.Vdesign - calculated[key].Vdesign) > 1e-8) continue;
+    if (Number.isFinite(record?.Vdesign) && record.Vdesign > 0 && loadedStaticReference[key + 'Key'] === staticReferenceKey(direction)) {
+      selected[key] = record;
+      selected[key + 'Key'] = loadedStaticReference[key + 'Key'];
+    }
+  }
+  return selected.x || selected.y ? selected : null;
+}
+
 function loadStaticSummaryIntoPage() {
   const saved = getStorageJson(STATIC_STORAGE_KEY);
   const box = document.getElementById('staticImportStatus');
   if (!saved?.x) {
+    loadedStaticReference = null;
     box.innerHTML = '尚未讀到等值靜力頁摘要；可直接手動填入工址與動力分析結果。';
     return null;
   }
@@ -1537,6 +1661,9 @@ function loadStaticSummaryIntoPage() {
   const fields = proj.spectrumSource === 'basin' ? {} : proj.spectrumInputs || proj;
   for (const id of spectrumIds) document.getElementById(id).value = fields[id] ?? '';
   document.getElementById('siteInputMode').value = proj.siteInputMode === 'direct' ? 'direct' : 'zone';
+  if (proj.spectrumSource === 'basin') document.getElementById('siteInputMode').value = 'basin';
+  document.getElementById('basinZone').value = proj.basinZone || '';
+  populateBasinVillages(proj.basinVillage);
   resetSpectrumEditor();
   if (proj.siteClass != null) document.getElementById('siteClass').value = proj.siteClass;
   if (proj.importanceKey != null) document.getElementById('impClass').value = proj.importanceKey;
@@ -1548,20 +1675,24 @@ function loadStaticSummaryIntoPage() {
   if (isFinite(saved.y?.Tdesign)) document.getElementById('Ty').value = saved.y.Tdesign;
   box.innerHTML = `
     <strong>已讀到等值靜力分析摘要</strong><br>
-    案件：${proj.name || '—'} ｜ 工址：${proj.zone || '—'}<br>
+    案件：${escapeHtml(proj.name || '—')} ｜ 工址：${escapeHtml(proj.zone || '—')}<br>
     X 向靜力 Vdesign = ${fmt(saved.x.Vdesign, 2)} tf${saved.y ? ` ｜ Y 向 = ${fmt(saved.y.Vdesign, 2)} tf` : ''}<br>
     靜力摘要時間：${saved.savedAt ? new Date(saved.savedAt).toLocaleString('zh-TW') : '—'}<br>
     已同步帶入工址、系統、用途與建物量體條件。
-    ${proj.spectrumSource === 'basin' ? '靜力摘要採臺北盆地微分區。四個譜值保留空白，盆地反應譜及總橫力下限請依專案另核。' : proj.spectrumSource === 'near-fault-zone' ? '四個震區係數含近斷層比較控制，依地盤分類換算工址值。下限譜另採原震區值。' : !proj.spectrumInputs ? '舊摘要未記錄完整譜值來源，請核對原靜力計算書的近斷層或盆地條件。' : ''}
+    ${proj.spectrumSource === 'basin' ? (proj.basinZone ? '靜力摘要採臺北盆地微分區 ' + escapeHtml(proj.basinZone) + '，' + escapeHtml(proj.basinVillage || '') + '。' : '舊摘要缺微分區代號，請依里別補選。') : proj.spectrumSource === 'near-fault-zone' ? '四個震區係數含近斷層比較控制，依地盤分類換算工址值。下限譜另採原震區值。' : !proj.spectrumInputs ? '舊摘要未記錄完整譜值來源，請核對原靜力計算書的近斷層或盆地條件。' : ''}
   `;
   if (lastDynamicResult?.result) {
     dynamicReportInputsChanged = true;
   }
   renderDynamicReportReadiness();
+  loadedStaticReference = {
+    savedAt: saved.savedAt, x: saved.x, y: saved.y, xKey: staticReferenceKey('X'), yKey: staticReferenceKey('Y'),
+    verifyLegacy: proj.spectrumSource !== 'zone' && proj.spectrumRevision !== S.SPECTRUM_REVISION
+  };
   return saved;
 }
 
-function calcDynamic() {
+function calcDynamic(persist = true, drawChart = true) {
   const impKey = document.getElementById('impClass').value;
   const Ifactor = S.IMPORTANCE[impKey]?.factor || 1;
   const hn = parseFloat(document.getElementById('hn').value);
@@ -1572,8 +1703,8 @@ function calcDynamic() {
   const SsM = parseFloat(document.getElementById('SsM').value);
   const S1M = parseFloat(document.getElementById('S1M').value);
   const siteInputMode = document.getElementById('siteInputMode').value;
-  if (!spectrumModes[siteInputMode]) {
-    const message = '請先選擇設計譜值來源。';
+  if (!spectrumModes[siteInputMode] || (siteInputMode === 'basin' && !document.getElementById('basinZone').value)) {
+    const message = siteInputMode === 'basin' ? '請依里別指定臺北盆地微分區。' : '請先選擇設計譜值來源。';
     setInputStatus(message);
     setDynamicReportValidationMessage(message);
     return false;
@@ -1601,9 +1732,9 @@ function calcDynamic() {
   const responseSpectrumInputs = readCodeSpectrumInputs({ I: Ifactor, siteClass, SsD, S1D, SsM, S1M, Tx, Ty });
   if (!responseSpectrumInputs) return false;
   const responseSpectrum = buildCodeResponseSpectrum(responseSpectrumInputs);
-  const imported = getStorageJson(STATIC_STORAGE_KEY);
-  const staticX = calcStaticReference(sysX, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tx, siteInputMode);
-  const staticY = calcStaticReference(sysY, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Ty, siteInputMode);
+  const staticX = calcStaticReference(sysX, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tx, siteInputMode, responseSpectrumInputs.lowerSite);
+  const staticY = calcStaticReference(sysY, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Ty, siteInputMode, responseSpectrumInputs.lowerSite);
+  const imported = selectedStaticReference({ x:staticX, y:staticY });
   const x = buildDirectionResult('X', VxDyn, VxAdopted, staticX, imported?.x || null, baseShearFloorRatio, baseShearFloorLabel);
   const y = buildDirectionResult('Y', VyDyn, VyAdopted, staticY, imported?.y || null, baseShearFloorRatio, baseShearFloorLabel);
   const notes = [];
@@ -1625,6 +1756,7 @@ function calcDynamic() {
       software,
       remark,
       source: 'dynamic',
+      spectrumRevision: S.SPECTRUM_REVISION,
       siteInputMode,
       spectrumInputs: readSpectrumFields(),
       SsDLower: num('SsDLower'),
@@ -1656,12 +1788,18 @@ function calcDynamic() {
   };
   refreshDesignActionNotes(result);
   lastDynamicResult = { result, x, y, imported };
-  setStorageJson(DYNAMIC_STORAGE_KEY, result);
-  renderDynamicResult();
+  if (persist !== false) saveDynamicResult(result);
+  renderDynamicResult(drawChart);
   dynamicReportInputsChanged = false;
   clearInputStatus();
   setDynamicReportValidationMessage('');
   return true;
+}
+
+function saveDynamicResult(result) {
+  setStorageJson(DYNAMIC_STORAGE_KEY, {
+    ...result, project: { ...result.project, inputSnapshot: collectCaseInputs() }
+  });
 }
 
 function refreshDesignActionNotes(result) {
@@ -1675,9 +1813,10 @@ function refreshDesignActionNotes(result) {
   }));
 }
 
-function restoreDynamicSummary() {
-  const saved = getStorageJson(DYNAMIC_STORAGE_KEY);
+function restoreDynamicSummary(saved = getStorageJson(DYNAMIC_STORAGE_KEY)) {
   if (!saved?.x || !saved?.y) return;
+  loadedStaticReference = null;
+  if (saved.project?.inputSnapshot) applyCaseInputs(saved.project.inputSnapshot);
   refreshDesignActionNotes(saved);
   if (saved.project?.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.name);
   if (saved.project?.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.no);
@@ -1716,7 +1855,7 @@ function restoreDynamicSummary() {
     if (isFinite(p.T1)) document.getElementById('codeT1').value = p.T1;
     if (isFinite(p.damping)) document.getElementById('codeDamping').value = p.damping;
     if (isFinite(p.R)) document.getElementById('codeR').value = p.R;
-    if (isFinite(p.Ra)) document.getElementById('codeRa').value = p.Ra;
+    if (!saved.project?.inputSnapshot && isFinite(p.Ra)) document.getElementById('codeRa').value = p.Ra;
     if (isFinite(p.alphaY)) document.getElementById('codeAlphaY').value = p.alphaY;
     if (isFinite(p.BS)) document.getElementById('codeBS').value = p.BS;
     if (isFinite(p.B1)) document.getElementById('codeB1').value = p.B1;
@@ -1741,6 +1880,7 @@ function restoreDynamicSummary() {
   if (isFinite(saved.y.baseShear)) document.getElementById('VyDyn').value = saved.y.baseShear;
   if (isFinite(saved.x.adoptedShear)) document.getElementById('VxAdopted').value = saved.x.adoptedShear;
   if (isFinite(saved.y.adoptedShear)) document.getElementById('VyAdopted').value = saved.y.adoptedShear;
+  if (saved.project?.inputSnapshot) return calcDynamic(false, false);
   lastDynamicResult = {
     result: saved,
     x: {
@@ -1755,16 +1895,19 @@ function restoreDynamicSummary() {
       adoptedStaticText: '沿用上次摘要',
       adoptedStatic: saved.y.staticRef
     },
-    imported: getStorageJson(STATIC_STORAGE_KEY)
+    imported: null
   };
   renderDynamicResult(false);
-  dynamicReportInputsChanged = false;
+  dynamicReportInputsChanged = true;
+  document.getElementById('staticImportStatus').textContent = '已顯示歷史動力摘要。該版未保存完整輸入與靜力來源，產報前請核對後重算。';
   clearInputStatus();
   setDynamicReportValidationMessage('');
   return true;
 }
 
 function spectrumSourceNote(result) {
+  const params = result.responseSpectrum?.params;
+  if (params?.siteInputMode === 'basin') return `${params.siteModeLabel}，表 2-6(c) 轉角週期 ${fmt(params.basinT0,2)} 秒。表 3-3 阻尼修正後 T0 = ${fmt(result.responseSpectrum.basis.ToD,4)} 秒。式 (2-11) Ra＝${fmt(params.Ra,4)}，中小度下限分母採 3.5αy。`;
   const input = result.project?.spectrumInputs;
   if (!input) return '歷史摘要的輸入依據請回查原案件。';
   if (result.project.siteInputMode === 'direct') return '四項輸入均為工址譜值，直接採用。';
@@ -1798,9 +1941,10 @@ function renderDynamicResult(drawSpectrum = true) {
   `;
   document.getElementById('designActionPanel').innerHTML = renderDesignActionCards(result.designActions);
   const site = result.site || {};
+  const basin = result.responseSpectrum?.params?.siteInputMode === 'basin';
   document.getElementById('spectrumRefGrid').innerHTML = `
-    <div class="mini-card"><span class="label">SDS / SD1</span><span class="value">${fmt(site.SDS,3)} / ${fmt(site.SD1,3)} g</span></div>
-    <div class="mini-card"><span class="label">SMS / SM1</span><span class="value">${fmt(site.SMS,3)} / ${fmt(site.SM1,3)} g</span></div>
+    <div class="mini-card"><span class="label">${basin ? '短週期 SDS' : 'SDS / SD1'}</span><span class="value">${fmt(site.SDS,3)}${basin ? '' : ' / ' + fmt(site.SD1,3)} g</span></div>
+    <div class="mini-card"><span class="label">${basin ? '短週期 SMS' : 'SMS / SM1'}</span><span class="value">${fmt(site.SMS,3)}${basin ? '' : ' / ' + fmt(site.SM1,3)} g</span></div>
     <div class="mini-card"><span class="label">ToD / ToM</span><span class="value">${fmt(site.ToD,3)} / ${fmt(site.ToM,3)} sec</span></div>
     <div class="mini-card"><span class="label">SaD(Tx) / SaD(Ty)</span><span class="value">${fmt(site.SaDx,3)} / ${fmt(site.SaDy,3)} g</span></div>
     <div class="mini-card"><span class="label">設計譜值來源</span><span class="value">${site.modeLabel || '震區係數經 Fa / Fv 放大'}</span></div>
@@ -1949,7 +2093,7 @@ function openDynamicReport() {
         <div><b>製表日期</b>${esc(today)}</div>
         <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool || '—')}</div>
         <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version || '—')}</div>
-        <div><b>計算引擎</b>${esc(TOOL_VERSION)}</div>
+        <div><b>計算引擎</b>${esc(TOOL_VERSION)}（工址譜修次 ${S.SPECTRUM_REVISION}）</div>
         <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
         <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
       </div>
@@ -1979,8 +2123,11 @@ function openDynamicReport() {
         <h3>工址與設計譜參考</h3>
         <table>
           <tbody>
-            <tr><th class="label">SDS / SD1</th><td>${esc(fmt(result.site?.SDS,3))} / ${esc(fmt(result.site?.SD1,3))} g</td></tr>
-            <tr><th class="label">SMS / SM1</th><td>${esc(fmt(result.site?.SMS,3))} / ${esc(fmt(result.site?.SM1,3))} g</td></tr>
+            ${codeSpectrum?.params?.siteInputMode === 'basin'
+              ? `<tr><th class="label">短週期 SDS / SMS</th><td>${fmt(result.site.SDS,3)} / ${fmt(result.site.SMS,3)} g</td></tr>`
+              : `<tr><th class="label">SDS / SD1</th><td>${fmt(result.site?.SDS,3)} / ${fmt(result.site?.SD1,3)} g</td></tr><tr><th class="label">SMS / SM1</th><td>${fmt(result.site?.SMS,3)} / ${fmt(result.site?.SM1,3)} g</td></tr>`}
+            <tr><th class="label">靜力比較值來源</th><td>${[x,y].map((direction,index) =>
+              (index === 0 ? 'X' : 'Y') + ' 向：' + (direction.staticImported ? '載入之同案等值靜力摘要' : '依本次工址、重量、系統及該向週期計算')).join('<br>')}</td></tr>
             <tr><th class="label">ToD / ToM</th><td>${esc(fmt(result.site?.ToD,3))} / ${esc(fmt(result.site?.ToM,3))} sec</td></tr>
             <tr><th class="label">SaD(Tx) / SaD(Ty)</th><td>${esc(fmt(result.site?.SaDx,3))} / ${esc(fmt(result.site?.SaDy,3))} g</td></tr>
             <tr><th class="label">設計譜值來源</th><td>${esc(result.site?.modeLabel || '震區係數經 Fa / Fv 放大')}</td></tr>
@@ -1994,7 +2141,7 @@ function openDynamicReport() {
         <table style="margin-bottom:8px;">
           <tbody>
             <tr><th class="label">T1 / ξ</th><td>${esc(fmt(codeSpectrum?.params?.T1,3))} sec / ${esc(fmt(codeSpectrum?.params?.damping,1))}%</td><th class="label">R / Ra / αy</th><td>${esc(fmt(codeSpectrum?.params?.R,2))} / ${esc(fmt(codeSpectrum?.params?.Ra,4))} / ${esc(fmt(codeSpectrum?.params?.alphaY,2))}</td></tr>
-            <tr><th class="label">Fu / FuM</th><td>${esc(fmt(codeSpectrum?.basis?.Fu,4))} / ${esc(fmt(codeSpectrum?.basis?.FuM,4))}</td><th class="label">中小度下限 SDS / SD1</th><td>${esc(fmt(codeSpectrum?.site?.lowerSDS,3))} / ${esc(fmt(codeSpectrum?.site?.lowerSD1,3))} g</td></tr>
+            <tr><th class="label">Fu / FuM</th><td>${fmt(codeSpectrum?.basis?.Fu,4)} / ${fmt(codeSpectrum?.basis?.FuM,4)}</td>${codeSpectrum?.params?.siteInputMode === 'basin' ? '<th class="label">中小度下限</th><td>同一微分區，分母 3.5αy</td>' : `<th class="label">中小度下限 SDS / SD1</th><td>${fmt(codeSpectrum?.site?.lowerSDS,3)} / ${fmt(codeSpectrum?.site?.lowerSD1,3)} g</td>`}</tr>
             <tr><th class="label">採用設計輸入譜峰值</th><td>${esc(fmt(codeSummary.adoptedPeak?.designAccel,4))} g @ T=${esc(fmt(codeSummary.adoptedPeak?.T,3))}</td><th class="label">最大考量地震輸入譜峰值</th><td>${esc(fmt(codeSummary.mcePeak?.mceAccel,4))} g @ T=${esc(fmt(codeSummary.mcePeak?.T,3))}</td></tr>
           </tbody>
         </table>
@@ -2084,6 +2231,7 @@ function exportResponseSpectrumJson() {
     spectrumName: name,
     unit: 'g',
     basis: '規範第 3.2 節反應譜資料；週期單位 sec，加速度為 g。',
+    ...(result.responseSpectrum.params.siteInputMode === 'basin' ? { basinConvention: 'SD1 及 SM1 儲存表 3-3 的長週期分子 SDS × T0D 與 SMS × T0M（g·sec）。' } : {}),
     project: syncProjectMeta(result.project),
     params: result.responseSpectrum.params,
     site: result.responseSpectrum.site,
@@ -2183,6 +2331,13 @@ restoreProjectInfo();
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('input', saveProjectInfo);
+  if (id !== 'projDesigner') {
+    const checkCase = () => {
+      if (lastDynamicResult?.x.staticImported || lastDynamicResult?.y.staticImported) markDynamicReportInputsChanged();
+    };
+    el.addEventListener('input', checkCase);
+    el.addEventListener('change', checkCase);
+  }
   el.addEventListener('input', function() { renderDynamicReportReadiness(); });
   el.addEventListener('change', function() { renderDynamicReportReadiness(); });
 });
@@ -2212,8 +2367,16 @@ CASE_CHECK_FIELDS.forEach(function(id) {
   el.addEventListener('input', function() { renderDynamicReportReadiness(); });
   el.addEventListener('change', function() { renderDynamicReportReadiness(); });
 });
-loadStaticSummaryIntoPage();
-restoreDynamicSummary();
+const savedOnOpen = getStorageJson(DYNAMIC_STORAGE_KEY);
+if (savedOnOpen?.x && savedOnOpen?.y) {
+  restoreDynamicSummary(savedOnOpen);
+} else {
+  const saved = getStorageJson(STATIC_STORAGE_KEY);
+  const current = getProjectInfo();
+  const conflict = ['no','name'].some(key => current[key] && current[key] !== saved?.project?.[key]);
+  if (saved && conflict) document.getElementById('staticImportStatus').textContent = '瀏覽器內有另一案的靜力摘要。若要切換案件，請按「載入等值靜力摘要」。';
+  else loadStaticSummaryIntoPage();
+}
 renderDynamicReportReadiness();
 </script>
 <script src="../../../tool-nav.manifest.js" defer></script>
