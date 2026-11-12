@@ -419,6 +419,7 @@
       "label": "開放式建築屋面風壓",
       "discipline": "wind",
       "route": "/wind-open-roof",
+      "previousCaseEngine": "wind-open-roof.v1.1.0",
       "html": "tools/風力/wind-open-roof.html",
       "titleNeedle": "開放式建築屋面風壓",
       "familyNeedle": "建築物耐風設計",

@@ -140,6 +140,21 @@ function run() {
   approx(openCalc.p_pos, openCalc.qh * openCalc.G * openCalc.Cpn.pos, 1e-9, 'open roof positive pressure');
   approx(openCalc.p_neg, openCalc.qh * openCalc.G * openCalc.Cpn.neg, 1e-9, 'open roof negative pressure');
 
+  const roofInput = { V: 37.5, terrain: 'C', I: 1, h: 6, B: 10, L: 12, theta: 45, A: 2, zone: 'zone3' };
+  for (const roofType of ['monoslope', 'gable']) {
+    const calculate = changes => W.calcOpenRoofCC({ ...roofInput, roofType, ...changes });
+    for (const theta of [null, undefined, NaN, -0.001, 45.001, 60]) assert.throws(() => calculate({ theta }), /坡度/);
+    for (const h of [2.999, 12.001]) assert.throws(() => calculate({ h }), /h\/L/);
+    for (const h of [3, 12]) for (const theta of [0, 45]) assert.equal(calculate({ h, theta }).thetaUse, theta);
+    assert.throws(() => calculate({ A: 1 }), /a²/);
+    assert.throws(() => calculate({ B: 12, A: 1.44 }), /a²/);
+    assert.throws(() => calculate({ blockage: 'boundary' }), /50%/);
+    for (const [A, areaBand] of [[0.999999, 'small'], [1.000001, 'medium'], [4, 'medium'], [4.000001, 'large']]) {
+      assert.equal(calculate({ A }).areaBand, areaBand);
+    }
+    assert.throws(() => calculate({ Kzt: 0 }), /正值/);
+  }
+
   const mwfrs = W.calcBuildingWind({
     V: 42.5, terrain: 'C', I: 1.0, B: 20, L: 30, storyH: [3.5, 3.5, 3.5], Kzt: 1.0,
     encl: 'enclosed', roofSlope: 0, roofType: 'flat', windToRidge: 'perpendicular', eaveHeight: 9

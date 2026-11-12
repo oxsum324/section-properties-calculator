@@ -67,8 +67,8 @@ const inlineValidationCases = {
     expectedMessage: '請輸入有效之 h / A'
   },
   'wind-open-roof': {
-    inputs: { h: '0' },
-    expectedMessage: '請輸入有效之 h / h_e / B / L / A'
+    inputs: { theta: '12', h: '0' },
+    expectedMessage: '請填入大於零的平均屋頂高度。'
   },
   'wind-parapet': {
     inputs: { h: '0' },

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>建築物耐風設計 — 開放式建築屋面風壓 V3</title>
+<title>建築物耐風設計 — 開放式建築屋面風壓 V3.1</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../../tool-chrome.css">
 <link rel="stylesheet" href="../../assets/hy/colors_and_type.css">
@@ -47,7 +47,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>建築物耐風設計 — 開放式建築屋面風壓 <span class="badge-v">V3</span></h1>
+  <h1>建築物耐風設計 — 開放式建築屋面風壓 <span class="badge-v">V3.1</span></h1>
   <p>依「建築物耐風設計規範及解說」103 年版 第三章式 (3.4)、圖 3.3 ｜ 單位：kgf/m²</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
@@ -134,7 +134,8 @@
       <label>屋頂下阻擋</label>
       <select id="blockage">
         <option value="unblocked" selected>屋頂下無阻擋 (&lt;50%)</option>
-        <option value="blocked">屋頂下有阻擋 (≥50%)</option>
+        <option value="blocked">屋頂下有阻擋 (&gt;50%)</option>
+        <option value="boundary">阻塞比為 50% 或尚待確認</option>
       </select>
     </div>
     <div class="form-row">
@@ -150,7 +151,7 @@
     <div class="form-row">
       <div class="form-group">
         <label>屋面坡度 θ (°)</label>
-        <input id="theta" type="number" value="7.5" step="0.5">
+        <input id="theta" type="number" value="7.5" min="0" max="45" step="any">
       </div>
       <div class="form-group">
         <div class="hint" style="margin-top:28px;">本頁會同時計算區域 1 / 2 / 3，並自動整理控制值。</div>
@@ -255,25 +256,14 @@
         <rect x="18" y="18" width="524" height="264" rx="12" fill="#fff" stroke="#e2e8f0"/>
         <g data-diagram-role="open-roof-plan">
           <text x="174" y="48" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">屋面平面分區</text>
-          <rect x="62" y="70" width="224" height="126" rx="6" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
-          <rect x="62" y="70" width="42" height="126" fill="#fecaca" opacity="0.9"/>
-          <rect x="244" y="70" width="42" height="126" fill="#fecaca" opacity="0.9"/>
-          <rect x="104" y="70" width="140" height="32" fill="#fed7aa" opacity="0.75"/>
-          <rect x="104" y="164" width="140" height="32" fill="#fed7aa" opacity="0.75"/>
-          <rect x="104" y="102" width="140" height="62" fill="#dbeafe" stroke="#60a5fa"/>
-          <text x="174" y="137" text-anchor="middle" font-size="13" font-weight="800" fill="#1e3a8a">1</text>
-          <text x="174" y="94" text-anchor="middle" font-size="12" fill="#9a3412">2</text>
-          <text x="84" y="137" text-anchor="middle" font-size="12" fill="#991b1b">3</text>
+          <g id="roofZones"></g>
           <line x1="36" y1="133" x2="62" y2="133" stroke="#0f766e" stroke-width="3" marker-end="url(#openRoofArrow)"/>
         </g>
         <g data-diagram-role="open-roof-slope">
           <text x="414" y="48" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">剖面與坡度</text>
-          <polyline points="330,176 412,100 498,176" fill="none" stroke="#334155" stroke-width="3"/>
+          <polyline id="roofProfile" fill="none" stroke="#334155" stroke-width="3"/>
           <line x1="330" y1="176" x2="498" y2="176" stroke="#94a3b8" stroke-width="2"/>
-          <path d="M 380 176 A 52 52 0 0 1 418 140" fill="none" stroke="#0f766e" stroke-width="2"/>
-          <text x="402" y="158" font-size="12" fill="#0f766e">θ</text>
-          <line x1="370" y1="218" x2="370" y2="176" stroke="#64748b" stroke-width="1.4"/>
-          <text x="382" y="201" font-size="12" fill="#475569">h</text>
+          <text id="roofProfileLabel" x="414" y="207" text-anchor="middle" font-size="12" fill="#0f766e"></text>
           <text x="414" y="238" text-anchor="middle" font-size="11" fill="#64748b">圖 3.3 依屋頂型式、坡度與區域取 Cpn</text>
         </g>
       </svg>
@@ -352,7 +342,8 @@
 <script>
 const W = Wind;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['wind-open-roof'].version;
-const TOOL_VERSION = 'wind-open-roof.v1.1.0';
+const TOOL_VERSION = 'wind-open-roof.v1.2.0';
+const PREVIOUS_ENGINE = 'wind-open-roof.v1.1.0';
 const CASE_SCHEMA_VERSION = 'wind-open-roof.case.v1';
 const CASE_VALUE_IDS = [
   'city', 'terrain', 'impClass', 'h', 'he', 'Kzt', 'roofType', 'blockage',
@@ -361,9 +352,8 @@ const CASE_VALUE_IDS = [
 ];
 let lastOpenRoofReportState = null;
 let lastOpenRoofReportValidationMessage = '';
-let openRoofReportInputsChanged = false;
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
-function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function val(id) { return document.getElementById(id).valueAsNumber; }
 function setR(id, v, d) {
   const el = document.querySelector('#' + id + ' .value');
   if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
@@ -385,7 +375,16 @@ function setInputStatus(message) {
   if (!el) return;
   el.textContent = message || '';
   lastOpenRoofReportValidationMessage = message || '';
-  if (message) lastOpenRoofReportState = null;
+  if (message) {
+    lastOpenRoofReportState = null;
+    document.getElementById('applicStatus').textContent = message;
+    document.getElementById('applicStatus').className = 'banner-status warn';
+    for (const id of ['applicList','designAdoptNote','zoneSummaryNote','steps','reduceSummary']) document.getElementById(id).replaceChildren();
+    document.querySelectorAll('#designAdoptTable tbody, #zoneSummaryTable tbody').forEach(body => body.replaceChildren());
+    document.querySelectorAll('.results-grid .value').forEach(span => { span.textContent = '—'; });
+    document.getElementById('reduceResultCard').style.display = 'none';
+    document.getElementById('openRoofDiagram').closest('.card').style.display = 'none';
+  }
   renderOpenRoofReportReadiness(lastOpenRoofReportValidationMessage);
 }
 function clearInputStatus() {
@@ -396,12 +395,9 @@ function openRoofReportModeLabel() {
 }
 function openRoofAreaBandLabel(band) {
   if (band === 'small') return 'A < a²';
-  if (band === 'medium') return 'a² ≤ A ≤ 4a²';
+  if (band === 'medium') return 'a² < A ≤ 4a²';
   if (band === 'large') return 'A > 4a²';
   return band || '—';
-}
-function openRoofInputChangedLabel() {
-  return openRoofReportInputsChanged ? '目前輸入已變更；請重算後再整理附件，列印計算書時也會重新計算。' : '';
 }
 function buildOpenRoofReportReadinessModel(validationMessage = lastOpenRoofReportValidationMessage) {
   const blockedItems = [];
@@ -424,13 +420,6 @@ function buildOpenRoofReportReadinessModel(validationMessage = lastOpenRoofRepor
   }
 
   const r = lastOpenRoofReportState;
-  const staleMessage = openRoofInputChangedLabel();
-  if (staleMessage) {
-    reviewItems.push({ label: '輸入已變更', value: staleMessage });
-  }
-  if (r.applicabilityLevel === 'fail') {
-    reviewItems.push({ label: '規範適用性', value: `θ = ${fmt(r.theta, 1)}°、h/L = ${fmt(r.hOverL, 3)}；圖 3.3 註 1 條件應於附件採用前人工確認。` });
-  }
   if (r.theta <= 10) {
     reviewItems.push({ label: '高度採用', value: `θ ≤ 10°，本頁採屋簷高度 h_e = ${fmt(r.hUse, 2)} m；請確認圖說高度定義。` });
   }
@@ -438,7 +427,7 @@ function buildOpenRoofReportReadinessModel(validationMessage = lastOpenRoofRepor
     reviewItems.push({ label: '角度內插', value: `θ = ${fmt(r.theta, 1)}°，Cpn 由 ${fmt(r.thetaLow, 1)}° ~ ${fmt(r.thetaHigh, 1)}° 線性內插。` });
   }
   if (r.blockage === 'blocked') {
-    reviewItems.push({ label: '屋頂下阻擋', value: '採有阻擋路線，請確認阻擋面積達 50% 以上且與送審圖說一致。' });
+    reviewItems.push({ label: '屋頂下阻擋', value: '請確認圖說所示屋頂下阻塞比高於 50%。' });
   }
   if (r.roofType === 'gable') {
     reviewItems.push({ label: '雙斜屋頂', value: '採圖 3.3(b) 雙斜屋頂路線，請確認風向、屋脊與區域分配。' });
@@ -473,9 +462,7 @@ function renderOpenRoofReportReadiness(validationMessage = lastOpenRoofReportVal
   });
 }
 function markOpenRoofReportInputsChanged() {
-  if (!lastOpenRoofReportState) return;
-  openRoofReportInputsChanged = true;
-  renderOpenRoofReportReadiness();
+  setInputStatus('輸入已變更，請重新計算屋面風壓。');
 }
 function readInputValue(id) {
   const el = document.getElementById(id);
@@ -565,14 +552,21 @@ const caseDraftController = window.ToolProjectStorage.createCaseDraftController(
   storageKey: CASE_BROWSER_DRAFT_KEY,
   buildPayload: () => ({
     schema: CASE_SCHEMA_VERSION,
-    tool: { id: location.pathname.split('/').pop().replace(/\.html$/i, '') },
+    tool: { id: location.pathname.split('/').pop().replace(/\.html$/i, ''), version: TOOL_VERSION },
     generatedAt: new Date().toISOString(),
     ...readCaseInputs(),
     result: typeof readExportResultSummary === 'function'
       ? readExportResultSummary()
       : (typeof lastResult !== 'undefined' ? lastResult : null)
   }),
-  applyPayload: payload => applyCaseInputs(payload.inputs || payload),
+  applyPayload: payload => {
+    const inputs = payload.inputs || payload;
+    if (payload.tool?.version !== TOOL_VERSION && inputs.values?.blockage === 'blocked') {
+      applyCaseInputs({ ...inputs, values: { ...inputs.values, blockage: 'boundary' } });
+    } else {
+      applyCaseInputs(inputs);
+    }
+  },
   refresh: () => calc(),
   setStatus: (message, tone) => setCaseStatus(message, tone === 'warn' ? 'warn' : '')
 });
@@ -589,17 +583,40 @@ function importCaseJsonFile(file) {
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
+      const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION;
+      const oldBlocked = replayEngine === PREVIOUS_ENGINE && (payload.values || payload.inputs?.values)?.blockage === 'blocked';
       const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
         expectedSchema: CASE_SCHEMA_VERSION,
         expectedToolId: 'wind-open-roof',
-        expectedVersion: TOOL_VERSION,
+        expectedVersion: replayEngine,
         capture: () => readCaseInputs(),
         apply: source => applyCaseInputs(source),
         recalculate: () => calc(),
-        getFingerprint: () => window.WindReport.getCurrentReportTrace().calculationFingerprint,
+        getFingerprint: () => {
+          if (replayEngine === TOOL_VERSION) return window.WindReport.getCurrentReportTrace().calculationFingerprint;
+          // 舊指紋包含頁首版號與選單顯示文字；只在同步重算指紋時還原這兩段文字。
+          const badge = document.querySelector('header .badge-v');
+          const option = document.getElementById('blockage').selectedOptions[0];
+          const currentVersion = badge.textContent;
+          const currentLabel = option.text;
+          try {
+            badge.textContent = 'V3';
+            if (oldBlocked) option.text = '屋頂下有阻擋 (≥50%)';
+            return window.WindReport.getCurrentReportTrace({ engine: replayEngine }).calculationFingerprint;
+          } finally {
+            badge.textContent = currentVersion;
+            option.text = currentLabel;
+          }
+        },
         restore: previous => applyCaseInputs(previous)
       });
-      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
+      if (oldBlocked) {
+        document.getElementById('blockage').value = 'boundary';
+        setInputStatus('舊案記為阻塞比 ≥50%，請依原案確認是否高於 50%。');
+        setCaseStatus(`已核對舊案 ${replay.calculationFingerprint}，請補確認阻塞比後重新計算。`, true);
+      } else {
+        setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
+      }
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, true);
     } finally {
@@ -650,14 +667,37 @@ function step(t, b, d) {
   return h;
 }
 
+function drawOpenRoof(roofType, theta) {
+  const gable = roofType === 'gable';
+  const split = gable && theta >= 10;
+  const panelWidth = split ? 112 : 224;
+  const panels = split ? [62, 174] : [62];
+  document.getElementById('roofZones').innerHTML = panels.map(x => `
+    <rect x="${x}" y="70" width="${panelWidth}" height="126" fill="#fecaca" stroke="#334155"/>
+    <rect x="${x+14}" y="84" width="${panelWidth-28}" height="98" fill="#fed7aa" stroke="#9a3412"/>
+    <rect x="${x+28}" y="98" width="${panelWidth-56}" height="70" fill="#dbeafe" stroke="#1e3a8a"/>
+    <g text-anchor="middle" font-size="12" font-weight="700" fill="#1e293b">
+      <text x="${x+panelWidth/2}" y="138">1</text><text x="${x+21}" y="138">2</text><text x="${x+7}" y="138">3</text>
+    </g>`).join('');
+  const run = gable ? 84 : 168;
+  const rise = Math.min(108, run * Math.tan(theta * Math.PI / 180));
+  // 將兩軸等比例縮短，使 45° 的單斜屋頂仍能放入圖框。
+  const width = theta > 0 ? rise / Math.tan(theta * Math.PI / 180) : run;
+  const left = 414 - (gable ? width : width / 2);
+  const right = 828 - left;
+  document.getElementById('roofProfile').setAttribute('points', gable
+    ? `${left},176 414,${176-rise} ${right},176` : `${left},${176-rise} ${right},176`);
+  document.getElementById('roofProfileLabel').textContent = `${gable ? '雙斜' : '單斜'}　θ＝${theta}°　${theta <= 10 ? '採屋簷高度' : '採平均屋頂高'}`;
+}
+
 function calc() {
-  const V = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
+  const V = W.CITY_QUICK[document.getElementById('city').value];
   const terrain = document.getElementById('terrain').value;
-  const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
-  const t = W.TERRAIN[terrain] || W.TERRAIN.C;
+  const I = W.IMPORTANCE[document.getElementById('impClass').value]?.factor;
+  const t = W.TERRAIN[terrain];
   const hAvg = val('h');
   const hEave = val('he');
-  const Kzt = val('Kzt') || 1.0;
+  const Kzt = val('Kzt');
   const B = val('B');
   const L = val('L');
   const theta = val('theta');
@@ -671,15 +711,26 @@ function calc() {
   const reduceBasis = document.getElementById('reduceBasis').value.trim();
   const hUse = theta <= 10 ? hEave : hAvg;
   const sourceFigure = roofType === 'monoslope' ? '圖 3.3(a) p.82' : '圖 3.3(b) p.83';
-  if (hAvg <= 0 || hEave <= 0 || B <= 0 || L <= 0 || A <= 0) { setInputStatus('請輸入有效之 h / h_e / B / L / A'); return false; }
+  if (!t || !V || !I) { setInputStatus('請選擇風速地區、地況與用途分類。'); return false; }
+  if (Number.isFinite(theta) && !(hUse > 0)) {
+    setInputStatus(theta <= 10 ? '請填入大於零的屋簷高度。' : '請填入大於零的平均屋頂高度。');
+    return false;
+  }
   if (enableReduce && (!isFinite(reducePos) || !isFinite(reduceNeg) || reducePos <= 0 || reduceNeg <= 0)) { setInputStatus('啟用修正時，請輸入有效之修正係數'); return false; }
   if (enableReduce && !reduceBasis) { setInputStatus('啟用修正時，請填寫依據說明'); return false; }
   const hOverL = hUse / L;
-  const zoneResults = ['zone1', 'zone2', 'zone3'].map(zone => ({
-    key: zone,
-    label: `區域 ${zone.replace('zone', '')}`,
-    data: W.calcOpenRoofCC({ V, terrain, I, h: hUse, B, L, Kzt, theta, A, zone, roofType, blockage })
-  }));
+  let zoneResults;
+  try {
+    zoneResults = ['zone1', 'zone2', 'zone3'].map(zone => ({
+      key: zone,
+      label: `區域 ${zone.replace('zone', '')}`,
+      data: W.calcOpenRoofCC({ V, terrain, I, h: hUse, B, L, Kzt, theta, A, zone, roofType, blockage })
+    }));
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
+    setInputStatus(error.message);
+    return false;
+  }
   const maxPos = zoneResults.reduce((best, item) => item.data.p_pos > best.data.p_pos ? item : best, zoneResults[0]);
   const maxNeg = zoneResults.reduce((best, item) => item.data.p_neg < best.data.p_neg ? item : best, zoneResults[0]);
   const maxAbs = zoneResults.reduce((best, item) => {
@@ -762,7 +813,7 @@ function calc() {
     setR('r-red-neg', redNeg, 1);
     setR('r-red-abs', redAbs, 1);
     document.getElementById('reduceSummary').innerHTML = `
-      <strong>依據說明：</strong>${reduceBasis}<br>
+      <strong>依據說明：</strong><span class="roof-reduction-basis"></span><br>
       <strong>處理方式：</strong>控制正壓採 λ<sub>+</sub>；控制負壓採 λ<sub>−</sub>，並於本頁採用表續列折減後風壓。
     `;
   } else {
@@ -814,10 +865,12 @@ function calc() {
       λ<sub>+</sub> = <span class="val">${fmt(reducePos,3)}</span>，λ<sub>−</sub> = <span class="val">${fmt(reduceNeg,3)}</span><br>
       折減後 p<sub>+</sub> = <span class="val hl">${fmt(signedReduce(r.p_pos, reducePos, reduceNeg),1)}</span> kgf/m²<br>
       折減後 p<sub>−</sub> = <span class="val hl">${fmt(signedReduce(r.p_neg, reducePos, reduceNeg),1)}</span> kgf/m²<br>
-      依據說明：${reduceBasis}
+      依據說明：<span class="roof-reduction-basis"></span>
     `);
   }
   document.getElementById('steps').innerHTML = html;
+  document.querySelectorAll('.roof-reduction-basis').forEach(span => { span.textContent = reduceBasis; });
+  drawOpenRoof(roofType, theta);
   const rank = { ok: 0, warn: 1, fail: 2 };
   const applicabilityLevel = applicabilityItems.reduce((worst, item) => rank[item.level] > rank[worst] ? item.level : worst, 'ok');
   const reducedAbs = enableReduce
@@ -860,7 +913,7 @@ function calc() {
     reduceNeg,
     reducedAbs
   };
-  openRoofReportInputsChanged = false;
+  document.getElementById('openRoofDiagram').closest('.card').style.display = '';
   clearInputStatus();
   return true;
 }

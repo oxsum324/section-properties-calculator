@@ -665,120 +665,46 @@
   //  key: roofType -> blockage -> theta -> areaBand -> zone -> [pos, neg]
   //  areaBand: small = A < a², medium = a² < A <= 4a², large = A > 4a²
   // ═══════════════════════════════
-  function uniformRoofZones(positive, negative) {
-    return { zone3: [positive, negative], zone2: [positive, negative], zone1: [positive, negative] };
+  // 圖 3.3(a)、(b) 各角度皆以三組正負值組成三列。
+  // 中面積的區域 3 與區域 2 同值，大面積各區與區域 1 同值。
+  function openRoofAngleRows(zone3, zone2, zone1) {
+    return {
+      small: { zone3, zone2, zone1 },
+      medium: { zone3: [...zone2], zone2: [...zone2], zone1: [...zone1] },
+      large: { zone3: [...zone1], zone2: [...zone1], zone1: [...zone1] },
+    };
   }
   const OPEN_ROOF_CPN = {
     monoslope: {
       unblocked: {
-        0: {
-          small:  { zone3: [2.4, -3.3], zone2: [1.8, -1.7], zone1: [1.2, -1.1] },
-          medium: { zone3: [1.8, -1.7], zone2: [1.8, -1.7], zone1: [1.2, -1.1] },
-          large:  uniformRoofZones(1.2, -1.1),
-        },
-        7.5: {
-          small:  { zone3: [3.2, -4.2], zone2: [2.4, -2.1], zone1: [1.6, -1.4] },
-          medium: { zone3: [2.4, -2.1], zone2: [2.4, -2.1], zone1: [1.6, -1.4] },
-          large:  uniformRoofZones(1.6, -1.4),
-        },
-        15: {
-          small:  { zone3: [3.6, -3.8], zone2: [2.7, -2.9], zone1: [1.8, -1.9] },
-          medium: { zone3: [2.7, -2.9], zone2: [2.7, -2.9], zone1: [1.8, -1.9] },
-          large:  uniformRoofZones(1.8, -1.9),
-        },
-        30: {
-          small:  { zone3: [5.2, -5.0], zone2: [3.9, -3.8], zone1: [2.6, -2.5] },
-          medium: { zone3: [3.9, -3.8], zone2: [3.9, -3.8], zone1: [2.6, -2.5] },
-          large:  uniformRoofZones(2.6, -2.5),
-        },
-        45: {
-          small:  { zone3: [5.2, -4.6], zone2: [3.9, -3.5], zone1: [2.6, -2.3] },
-          medium: { zone3: [3.9, -3.5], zone2: [3.9, -3.5], zone1: [2.6, -2.3] },
-          large:  uniformRoofZones(2.6, -2.3),
-        },
+        0: openRoofAngleRows([2.4, -3.3], [1.8, -1.7], [1.2, -1.1]),
+        7.5: openRoofAngleRows([3.2, -4.2], [2.4, -2.1], [1.6, -1.4]),
+        15: openRoofAngleRows([3.6, -3.8], [2.7, -2.9], [1.8, -1.9]),
+        30: openRoofAngleRows([5.2, -5.0], [3.9, -3.8], [2.6, -2.5]),
+        45: openRoofAngleRows([5.2, -4.6], [3.9, -3.5], [2.6, -2.3]),
       },
       blocked: {
-        0: {
-          small:  { zone3: [1.0, -3.6], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          medium: { zone3: [0.8, -1.8], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          large:  uniformRoofZones(0.5, -1.2),
-        },
-        7.5: {
-          small:  { zone3: [1.6, -5.1], zone2: [1.2, -2.6], zone1: [0.8, -1.7] },
-          medium: { zone3: [1.2, -2.6], zone2: [1.2, -2.6], zone1: [0.8, -1.7] },
-          large:  uniformRoofZones(0.8, -1.7),
-        },
-        15: {
-          small:  { zone3: [2.4, -4.2], zone2: [1.8, -3.2], zone1: [1.2, -2.1] },
-          medium: { zone3: [1.8, -3.2], zone2: [1.8, -3.2], zone1: [1.2, -2.1] },
-          large:  uniformRoofZones(1.2, -2.1),
-        },
-        30: {
-          small:  { zone3: [3.2, -4.6], zone2: [2.4, -3.5], zone1: [1.6, -2.3] },
-          medium: { zone3: [2.4, -3.5], zone2: [2.4, -3.5], zone1: [1.6, -2.3] },
-          large:  uniformRoofZones(1.6, -2.3),
-        },
-        45: {
-          small:  { zone3: [4.2, -3.8], zone2: [3.2, -2.9], zone1: [2.1, -1.9] },
-          medium: { zone3: [3.2, -2.9], zone2: [3.2, -2.9], zone1: [2.1, -1.9] },
-          large:  uniformRoofZones(2.1, -1.9),
-        },
+        0: openRoofAngleRows([1.0, -3.6], [0.8, -1.8], [0.5, -1.2]),
+        7.5: openRoofAngleRows([1.6, -5.1], [1.2, -2.6], [0.8, -1.7]),
+        15: openRoofAngleRows([2.4, -4.2], [1.8, -3.2], [1.2, -2.1]),
+        30: openRoofAngleRows([3.2, -4.6], [2.4, -3.5], [1.6, -2.3]),
+        45: openRoofAngleRows([4.2, -3.8], [3.2, -2.9], [2.1, -1.9]),
       },
     },
     gable: {
       unblocked: {
-        0: {
-          small:  { zone3: [2.4, -3.3], zone2: [1.8, -1.7], zone1: [1.2, -1.1] },
-          medium: { zone3: [1.8, -1.7], zone2: [1.8, -1.7], zone1: [1.2, -1.1] },
-          large:  uniformRoofZones(1.2, -1.1),
-        },
-        7.5: {
-          small:  { zone3: [2.2, -3.6], zone2: [1.7, -1.8], zone1: [1.1, -1.2] },
-          medium: { zone3: [1.7, -1.8], zone2: [1.7, -1.8], zone1: [1.1, -1.2] },
-          large:  uniformRoofZones(1.1, -1.2),
-        },
-        15: {
-          small:  { zone3: [2.2, -2.2], zone2: [1.7, -1.7], zone1: [1.1, -1.1] },
-          medium: { zone3: [1.7, -1.7], zone2: [1.7, -1.7], zone1: [1.1, -1.1] },
-          large:  uniformRoofZones(1.1, -1.1),
-        },
-        30: {
-          small:  { zone3: [2.6, -1.8], zone2: [2.0, -1.4], zone1: [1.3, -0.9] },
-          medium: { zone3: [2.0, -1.4], zone2: [2.0, -1.4], zone1: [1.3, -0.9] },
-          large:  uniformRoofZones(1.3, -0.9),
-        },
-        45: {
-          small:  { zone3: [2.2, -1.6], zone2: [1.7, -1.2], zone1: [1.1, -0.8] },
-          medium: { zone3: [1.7, -1.2], zone2: [1.7, -1.2], zone1: [1.1, -0.8] },
-          large:  uniformRoofZones(1.1, -0.8),
-        },
+        0: openRoofAngleRows([2.4, -3.3], [1.8, -1.7], [1.2, -1.1]),
+        7.5: openRoofAngleRows([2.2, -3.6], [1.7, -1.8], [1.1, -1.2]),
+        15: openRoofAngleRows([2.2, -2.2], [1.7, -1.7], [1.1, -1.1]),
+        30: openRoofAngleRows([2.6, -1.8], [2.0, -1.4], [1.3, -0.9]),
+        45: openRoofAngleRows([2.2, -1.6], [1.7, -1.2], [1.1, -0.8]),
       },
       blocked: {
-        0: {
-          small:  { zone3: [1.0, -3.6], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          medium: { zone3: [0.8, -1.8], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          large:  uniformRoofZones(0.5, -1.2),
-        },
-        7.5: {
-          small:  { zone3: [1.0, -5.1], zone2: [0.8, -2.6], zone1: [0.5, -1.7] },
-          medium: { zone3: [0.8, -2.6], zone2: [0.8, -2.6], zone1: [0.5, -1.7] },
-          large:  uniformRoofZones(0.5, -1.7),
-        },
-        15: {
-          small:  { zone3: [1.0, -3.2], zone2: [0.8, -2.4], zone1: [0.5, -1.6] },
-          medium: { zone3: [0.8, -2.4], zone2: [0.8, -2.4], zone1: [0.5, -1.6] },
-          large:  uniformRoofZones(0.5, -1.6),
-        },
-        30: {
-          small:  { zone3: [1.0, -2.4], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          medium: { zone3: [0.8, -1.8], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          large:  uniformRoofZones(0.5, -1.2),
-        },
-        45: {
-          small:  { zone3: [1.0, -2.4], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          medium: { zone3: [0.8, -1.8], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          large:  uniformRoofZones(0.5, -1.2),
-        },
+        0: openRoofAngleRows([1.0, -3.6], [0.8, -1.8], [0.5, -1.2]),
+        7.5: openRoofAngleRows([1.0, -5.1], [0.8, -2.6], [0.5, -1.7]),
+        15: openRoofAngleRows([1.0, -3.2], [0.8, -2.4], [0.5, -1.6]),
+        30: openRoofAngleRows([1.0, -2.4], [0.8, -1.8], [0.5, -1.2]),
+        45: openRoofAngleRows([1.0, -2.4], [0.8, -1.8], [0.5, -1.2]),
       },
     },
   };
@@ -1636,20 +1562,26 @@
   }
 
   function _openRoofAreaBand(A, a) {
-    if (A < a * a) return 'small';
-    if (A <= 4 * a * a) return 'medium';
+    const unitArea = a * a;
+    // 十進位尺寸相乘會有浮點尾差，例如 1.2² 與輸入的 1.44。
+    const tolerance = 4 * Number.EPSILON * unitArea;
+    if (Math.abs(A - unitArea) <= tolerance) throw new RangeError('A＝a²，圖 3.3 未指定分列，請依專案資料核定。');
+    if (A < unitArea) return 'small';
+    if (A <= 4 * (unitArea + tolerance)) return 'medium';
     return 'large';
   }
 
   function lookupOpenRoofCpn(roofType, blockage, theta, zone, A, minWidth) {
+    if (!Number.isFinite(theta) || theta < 0 || theta > 45) throw new RangeError('圖 3.3 的坡度 θ 須為 0° 至 45°。');
+    if (![A, minWidth].every(n => Number.isFinite(n) && n > 0)) throw new RangeError('請確認有效受風面積及屋面尺寸大於零。');
     const roofData = OPEN_ROOF_CPN[roofType];
-    if (!roofData) throw new Error('Unknown open roof type: ' + roofType);
+    if (!roofData) throw new RangeError('請選擇圖 3.3 的單斜或雙斜屋頂。');
     const blockData = roofData[blockage];
-    if (!blockData) throw new Error('Unknown blockage condition: ' + blockage);
+    if (!blockData) throw new RangeError('請確認阻塞比；圖 3.3 註 2 未指定恰為 50% 的分類。');
     const a = Math.max(0.1 * minWidth, 0.9);
     const band = _openRoofAreaBand(A, a);
     const angles = Object.keys(blockData).map(Number).sort((m, n) => m - n);
-    const thetaUse = Math.max(angles[0], Math.min(theta, angles[angles.length - 1]));
+    const thetaUse = theta;
     let low = angles[0], high = angles[angles.length - 1];
     for (let i = 0; i < angles.length; i++) {
       if (thetaUse === angles[i]) { low = high = angles[i]; break; }
@@ -1678,6 +1610,8 @@
       roofType = 'monoslope',
       blockage = 'unblocked',
     } = p;
+    if (![h, B, L, V, I, Kzt].every(n => Number.isFinite(n) && n > 0)) throw new RangeError('高度、平面尺寸、風速及風壓參數須為正值。');
+    if (h < L / 4 || h > L) throw new RangeError('圖 3.3 註 1 要求 0.25 ≤ h/L ≤ 1。');
     const qh = calcQz(h, V, terrain, I, Kzt).qz;
     const G = calcGustRigid(h, B, terrain).G;
     const minWidth = Math.min(B, L);

@@ -776,7 +776,7 @@
     },
     {
       title: '開放式建築屋面風壓',
-      version: 'V3',
+      version: 'V3.1',
       href: '/wind-open-roof',
       aliases: ['open roof wind pressure', '開放式屋頂係數'],
       categories: ['wind'],

@@ -465,7 +465,7 @@
       "route": "/wind-open-roof",
       "file": "結構工具箱/tools/風力/wind-open-roof.html",
       "title": "開放式建築屋面風壓",
-      "version": "V3",
+      "version": "V3.1",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "wind",

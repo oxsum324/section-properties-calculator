@@ -3254,7 +3254,8 @@ function windOpenRoofFourCombinationOracle(input) {
   };
   const angleBounds = theta => {
     const angles = [0, 7.5, 15, 30, 45];
-    const thetaUse = Math.max(angles[0], Math.min(theta, angles[angles.length - 1]));
+    if (!Number.isFinite(theta) || theta < 0 || theta > 45) throw new RangeError('outside Fig. 3.3 angle table');
+    const thetaUse = theta;
     const exact = angles.find(angle => angle === thetaUse);
     if (exact !== undefined) return { thetaUse, low:exact, high:exact };
     const high = angles.find(angle => angle > thetaUse);
@@ -3266,6 +3267,7 @@ function windOpenRoofFourCombinationOracle(input) {
   return Object.fromEntries(input.cases.map(i => {
     const t = terrain[i.terrain];
     const hUse = i.theta <= 10 ? i.hEave : i.hAvg;
+    if (!(hUse / i.L >= 0.25 && hUse / i.L <= 1)) throw new RangeError('outside Fig. 3.3 aspect ratio');
     const zQ = Math.max(hUse, 5);
     const kz = 2.774 * Math.pow(zQ / t.zg, 2 * t.alpha);
     const qh = 0.06 * kz * i.Kzt * i.I ** 2 * i.V ** 2;
@@ -3277,6 +3279,7 @@ function windOpenRoofFourCombinationOracle(input) {
     const G = 1.927 * (1 + 1.7 * 3.4 * Iz * Q) / (1 + 1.7 * 3.4 * Iz);
     const minWidth = Math.min(i.B, i.L);
     const a = Math.max(0.1 * minWidth, 0.9);
+    if (Math.abs(i.A / a ** 2 - 1) <= 4 * Number.EPSILON) throw new RangeError('Fig. 3.3 area boundary not assigned');
     const band = i.A < a ** 2 ? 'small' : i.A <= 4 * a ** 2 ? 'medium' : 'large';
     const { thetaUse, low, high } = angleBounds(i.theta);
     const table = coefficientTables[i.roofType][i.blockage];
