@@ -4,8 +4,11 @@ const vm = require('vm');
 
 const productionPagePath = path.resolve(__dirname, '../../../鋼架/平面剛架分析.html');
 const productionPageSource = fs.readFileSync(productionPagePath, 'utf8');
+const curvePath = path.resolve(__dirname, '../beam-element-deflection.js');
+const curveScript = new vm.Script(fs.readFileSync(curvePath, 'utf8'), { filename: curvePath });
 
 const requiredProductionWiring = [
+  '<script src="../結構工具箱/tools/beam-element-deflection.js">',
   'function analyze(loadFactorOverride = null)',
   'const EI = m.E * m.I * 1e-4;',
   'const df = freeDofs.length ? solveLinear(Kff, Ff) : [];',
@@ -106,6 +109,7 @@ function calculate(input) {
   };
   const context = { state, document, Math, Map, Set };
   vm.createContext(context);
+  curveScript.runInContext(context);
   vm.runInContext(`${extractedSolverSource}\nthis.__productionAnalyze = analyze;`, context, {
     filename: productionPagePath,
   });
