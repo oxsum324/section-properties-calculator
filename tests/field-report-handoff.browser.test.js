@@ -40,6 +40,26 @@ async function main(){
     await form.locator('[name=useAttachmentHeader]').uncheck();
     await form.locator('[type=submit]').click();
     await waitForStorage(field,async()=>{const m=await import('./store.js');return (await m.allProjects()).some(p=>p.code==='LOCAL-QA' && !('caseNumber' in p) && !('orgName' in p));});
+    const printed=await field.evaluate(async()=>{
+      const m=await import('./model.js'), report=await import('./report.js');
+      const p=m.newProject('NATIVE','表頭列印合成案','2026-10-08'),u=m.newUnit('A01');
+      const r=m.newRecord(u.id,'1F','客廳'),id=m.id();
+      const blob=await new Promise(resolve=>document.createElement('canvas').toBlob(resolve));
+      p.units.push(u);r.visitId=p.visits[0].id;p.records.push(r);
+      p.media.push({id,kind:'image',name:'test.png',type:blob.type,size:blob.size,sha256:await m.sha256(blob),importedAt:m.now()});
+      r.photos.push({mediaId:id,role:'overview',marks:[],caption:'合成',excluded:false,excludedReason:''});m.syncRooms(p);
+      const checks=[];
+      for(const enabled of [true,false]){
+        m.setAttachmentHeader(p,enabled,'FORM-7','A & B');
+        for(const format of ['standard','quick']){
+          const {html}=await report.renderAttachment(p,()=>blob,{format});
+          const text=new DOMParser().parseFromString(html,'text/html').querySelector('header').textContent;
+          checks.push([enabled,text.includes('附件案號：FORM-7'),text.includes('鑑定單位／委託人：A & B')]);
+        }
+      }
+      return checks;
+    });
+    assert.deepEqual(printed,[[true,true,true],[true,true,true],[false,false,false],[false,false,false]]);
     await field.close();
     // 在獨立瀏覽器環境先以舊頁建立 IndexedDB 草稿，換伺服器仍使用同一 origin 與 scope。
     const legacy=await context.newPage();await legacy.goto(base+'/level-survey/index.html');
