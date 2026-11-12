@@ -285,8 +285,9 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>週期 T (sec)</label>
-            <input id="miscT" type="number" value="0" step="0.01" min="0" placeholder="0 = 剛性">
+            <label for="miscT">基本振動週期 T (sec)</label>
+            <input id="miscT" type="number" step="any" min="0" placeholder="填入分析週期" aria-describedby="miscPeriodHint">
+            <div class="hint" id="miscPeriodHint">依第 5.2 節第 4 款，以結構力學方法決定週期。若模型明確採剛性理想化，可填 0。</div>
           </div>
           <div class="form-group">
             <label>案件說明</label>
@@ -403,7 +404,7 @@ const DEFAULT_CASE_INPUTS = {
     miscAY: 1.0,
     miscW: 10,
     miscH: 5,
-    miscT: 0,
+    miscT: '',
     miscRemark: '',
     chkNearFaultMisc: false
   }
@@ -653,7 +654,8 @@ function applyCaseInputs(data) {
   const typeEl = document.getElementById('miscType');
   typeEl.value = Array.from(typeEl.options).some(option => option.value === miscType) ? miscType : '0';
   document.getElementById('miscCustomRow').style.display = typeEl.value === '-1' ? '' : 'none';
-  ['miscR', 'miscAY', 'miscW', 'miscH', 'miscT', 'miscRemark'].forEach(id => setInputValue(id, values[id]));
+  ['miscR', 'miscAY', 'miscW', 'miscH', 'miscRemark'].forEach(id => setInputValue(id, values[id]));
+  setInputValue('miscT', values.miscT ?? '');
   setInputChecked('chkNearFaultMisc', values.chkNearFaultMisc);
   saveProjectInfo();
   updateInputChecks();
@@ -670,6 +672,7 @@ function exportCaseJson() {
       version: TOOL_VERSION
     },
     generatedAt: new Date().toISOString(),
+    periodInputVersion: 2,
     calculationFingerprint: reportTrace.calculationFingerprint,
     ...readCaseInputs(),
     result: lastMiscResult || null
@@ -730,7 +733,8 @@ function importCaseJsonFile(file) {
         }
       });
       miscReportInputsChanged = false;
-      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
+      const note = payload.periodInputVersion !== 2 && lastMiscResult.T === 0 ? '舊版週期欄預填 0，請依原分析紀錄確認剛性假設。' : '';
+      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。${note}`);
       setMiscReportValidationMessage('');
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
@@ -866,7 +870,7 @@ function validateMiscInputs() {
   ].forEach(([label, value]) => {
     if (!(isFinite(value) && value > 0)) messages.push({ type: 'error', text: `${label} 必須為大於 0 的數值。` });
   });
-  if (!(isFinite(T) && T >= 0)) messages.push({ type: 'error', text: '週期 T 必須為 0 或正值；若視為剛性可填 0。' });
+  if (!(isFinite(T) && T >= 0)) messages.push({ type: 'error', text: '請填入工作物的基本振動週期 T（秒）。僅在模型明確採剛性理想化時填 0。' });
   if (!(isFinite(R) && R > 0)) messages.push({ type: 'error', text: 'R 必須為大於 0 的數值。' });
   if (!(isFinite(alphaY) && alphaY > 0)) messages.push({ type: 'error', text: 'αy 必須為大於 0 的數值。' });
   if (typeIdx === -1) {
@@ -878,7 +882,7 @@ function validateMiscInputs() {
     messages.push({ type: 'info', text: '5.4 非相似於建築結構且 T < 0.06 sec 時，將採式(5-1)剛性簡化公式。' });
   }
   if (mode === 'similar' && isFinite(T) && T === 0) {
-    messages.push({ type: 'info', text: '5.3 相似於建築結構若未輸入週期，將以 T = 0 剛性條件計算；請確認是否符合案件模型。' });
+    messages.push({ type: 'info', text: '本案輸入 T = 0，依剛性理想化計算。請核對原分析模型與週期依據。' });
   }
   return messages;
 }
@@ -980,6 +984,11 @@ function renderMiscReportReadiness(validationMessage = lastMiscReportValidationM
 }
 
 function markMiscReportInputsChanged() {
+  const period = document.getElementById('miscT').valueAsNumber;
+  if (!Number.isFinite(period) || period < 0) {
+    lastMiscResult = null;
+    document.getElementById('resultPanel').style.display = 'none';
+  }
   if (lastMiscResult) miscReportInputsChanged = true;
   renderMiscReportReadiness();
 }
@@ -1070,7 +1079,7 @@ function renderMiscDiagram(r, options = {}) {
           <path d="M${panelX + 16} 128h88" stroke="#ccfbf1" stroke-width="1"/>
           <text x="${panelX + 16}" y="149" fill="#64748b" font-size="12">${escHtml(r.formulaUsed)}</text>
         </g>
-        <text x="42" y="302" fill="#475569" font-size="12">${escHtml(modeLabel)} ｜ T = ${fmt(r.T, 3)} sec ｜ R / αy = ${escHtml(`${r.R} / ${r.alphaY}`)}</text>
+        <text x="42" y="302" fill="#475569" font-size="12">${escHtml(modeLabel)} ｜ T = ${S.formatMiscPeriod(r.T)} sec ｜ R / αy = ${escHtml(`${r.R} / ${r.alphaY}`)}</text>
       </svg>
     </div>`;
 }
@@ -1087,7 +1096,7 @@ function calcMiscPage() {
   const isTB = document.getElementById('chkTaipei').checked;
   const W = parseFloat(document.getElementById('miscW').value) || 0;
   const hn = parseFloat(document.getElementById('miscH').value) || 0;
-  const T_user = parseFloat(document.getElementById('miscT').value) || 0;
+  const T_user = document.getElementById('miscT').valueAsNumber;
   const I = parseFloat(document.getElementById('miscI').value) || 1.0;
   const isNearFault = document.getElementById('chkNearFaultMisc').checked;
   const preset = typeIdx >= 0 ? table[typeIdx] : null;
@@ -1098,6 +1107,8 @@ function calcMiscPage() {
   renderInputChecks(validationMessages);
   const blockingMessages = validationMessages.filter(message => message.type === 'error');
   if (blockingMessages.length) {
+    lastMiscResult = null;
+    document.getElementById('resultPanel').style.display = 'none';
     const message = blockingMessages.map(message => message.text).join('；');
     setInputStatus(message);
     setMiscReportValidationMessage(message);
@@ -1201,7 +1212,7 @@ function calcMiscPage() {
         T<sub>oM</sub> = ${fmt(r.ToM,4)} sec<br><br>
 
         <strong>② 週期與韌性</strong><br>
-        T = <span class="val">${r.T > 0 ? fmt(r.T,3) + ' sec' : '0 (剛性)'}</span>，
+        T = <span class="val">${r.T > 0 ? S.formatMiscPeriod(r.T) + ' sec' : '0 (剛性)'}</span>，
         R = ${r.R}，
         R<sub>a</sub> = <span class="val">${fmt(r.Ra,2)}</span><br>
         F<sub>u</sub> = <span class="val">${fmt(r.Fu,4)}</span>，
@@ -1225,13 +1236,13 @@ function calcMiscPage() {
         ` : `
         <strong>③ 5.4 非相似於建築結構：最小設計水平總橫力</strong><br>
         ${r.T < 0.06 ? `
-        T = ${fmt(r.T,3)} sec &lt; 0.06 sec，採式(5-1)。<br>
+        T = ${S.formatMiscPeriod(r.T)} sec &lt; 0.06 sec，採式(5-1)。<br>
         <span class="note" style="font-size:0.88em;color:#64748b;">解說：式(5-1) 係假設 S<sub>aD</sub>/F<sub>u</sub> = 0.4·S<sub>DS</sub> 之剛性結構簡化式，本身即為下限型公式，無需再套用上下限。</span><br>
         水平係數 C<sub>h</sub> = S<sub>DS</sub> × I / (3 α<sub>y</sub>) = ${fmt(r.site.SDS,4)} × ${r.I} / (3 × ${r.alphaY}) = <span class="val">${fmtCoeff(r.VhCoeff)}</span><br>
         V<sub>h</sub> = C<sub>h</sub>W = ${fmtCoeff(r.VhCoeff)}W = ${fmtCoeff(r.VhCoeff)} × ${fmt(r.W,1)}<br>
         <strong>採用 V<sub>h</sub> = <span class="val hl">${fmt(r.Vh,2)}</span> tf　(${r.controlledBy})</strong><br>
         ` : `
-        T = ${fmt(r.T,3)} sec ≥ 0.06 sec，採式(5-2)。<br>
+        T = ${S.formatMiscPeriod(r.T)} sec ≥ 0.06 sec，採式(5-2)。<br>
         S<sub>aD</sub>/F<sub>u</sub> = ${fmt(r.SaD,4)} / ${fmt(r.Fu,4)} = ${fmt(r.ratio,4)}<br>
         (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> = <span class="val">${fmt(r.ratio_m,4)}</span><br>
         水平係數 C<sub>h</sub> = [${r.I}/(1.2×${r.alphaY})] × ${fmt(r.ratio_m,4)} = <span class="val">${fmtCoeff(r.VhCoeff)}</span><br>
@@ -1321,7 +1332,7 @@ function openMiscReport() {
           <tr><th>工作物類型</th><td>${esc(r.typeName)}</td></tr>
           <tr><th>重量 W</th><td>${esc(fmt(r.W, 2))} tf</td></tr>
           <tr><th>高度 h</th><td>${esc(fmt(r.hn, 2))} m</td></tr>
-          <tr><th>週期 T</th><td>${esc(fmt(r.T, 3))} sec</td></tr>
+          <tr><th>週期 T</th><td>${esc(S.formatMiscPeriod(r.T))} sec${r.T === 0 ? '（剛性理想化）' : ''}</td></tr>
           <tr><th>R / αy</th><td>${esc(`${r.R} / ${r.alphaY}`)}</td></tr>
           <tr><th>表列高度上限</th><td>${esc(r.hLimit)}</td></tr>
           <tr><th>案件說明</th><td>${esc(note || '—')}</td></tr>

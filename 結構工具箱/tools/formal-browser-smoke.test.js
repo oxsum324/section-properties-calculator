@@ -616,6 +616,16 @@ function pageStateExpression(tool) {
     const reportId = ${JSON.stringify(tool.reportButton || null)};
     const reportSelector = ${JSON.stringify(tool.reportButtonSelector || null)};
     const exportId = ${JSON.stringify(tool.exportButton || null)};
+    if (${JSON.stringify(tool.key)} === 'seismic-misc') {
+      const period = byId('miscT');
+      if (period.value !== '') throw new Error('新案不可預填工作物週期');
+      byId(calc).click();
+      if (!byId('inputStatus').textContent.includes('基本振動週期') || byId('resultPanel').style.display !== 'none') {
+        throw new Error('工作物缺週期應停止計算');
+      }
+      period.value = '0';
+      period.dispatchEvent(new Event('input', { bubbles: true }));
+    }
     if (calc && byId(calc)) {
       byId(calc).click();
       await settle(2);

@@ -3360,7 +3360,8 @@ function seismicMiscOracle(input) {
     const SM1 = FvM * i.S1M;
     const ToD = SD1 / SDS;
     const ToM = SM1 / SMS;
-    const T = i.T_user > 0 ? i.T_user : 0;
+    const T = i.T_user;
+    if (!Number.isFinite(T) || T < 0) throw new RangeError('seismic-misc requires an explicit nonnegative period');
     const Ra = 1 + (i.R - 1) / (i.isTaipeiBasin ? 2 : 1.5);
     const Fu = calcFu(Ra, T, ToD);
     const FuM = T >= ToM ? i.R : calcFu(i.R, T, ToM);

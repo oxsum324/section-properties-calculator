@@ -1913,7 +1913,7 @@
       "goldenCases": [
         {
           "id": "default-similar-misc-storage-rack",
-          "description": "預設 5.3 鋼造儲物架案例，鎖定式(2-3)水平力與 2.18 節垂直力。",
+          "description": "5.3 鋼造儲物架明填 T＝0 的剛性理想化案例，鎖定式(2-3)水平力與 2.18 節垂直力。",
           "inputs": {
             "printReportMode": "detail",
             "zoneCity": "",
@@ -2193,11 +2193,11 @@
           "inputs": {
             "zoneCity": "",
             "zoneDist": "",
+            "siteInputMode": "direct",
             "SsD": "0.55",
             "S1D": "0.32",
             "SsM": "0.80",
             "S1M": "0.50",
-            "siteInputMode": "direct",
             "SsDLower": "0.70",
             "S1DLower": "0.45",
             "siteClass": "3",

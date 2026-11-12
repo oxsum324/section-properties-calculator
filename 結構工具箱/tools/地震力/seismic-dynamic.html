@@ -190,39 +190,40 @@
           </div>
         </div>
         <div class="hint" id="zoneHint" style="margin-bottom:10px;"></div>
+        <div class="form-group">
+          <label for="siteInputMode">設計譜值來源</label>
+          <select id="siteInputMode" aria-describedby="spectrumInputHint">
+            <option value="zone" selected>震區係數經 Fa / Fv 放大</option>
+            <option value="direct">直接採用輸入譜值（工址譜值已確定）</option>
+          </select>
+          <div class="hint" id="spectrumInputHint"></div>
+        </div>
         <div class="form-row">
           <div class="form-group">
-            <label>SsD (g)</label>
-            <input id="SsD" type="number" value="0.6" step="0.05">
+            <label for="SsD">SsD (g)</label>
+            <input id="SsD" type="number" value="0.6" step="any" min="0">
           </div>
           <div class="form-group">
-            <label>S1D (g)</label>
-            <input id="S1D" type="number" value="0.35" step="0.05">
+            <label for="S1D">S1D (g)</label>
+            <input id="S1D" type="number" value="0.35" step="any" min="0">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>SsM (g)</label>
-            <input id="SsM" type="number" value="0.8" step="0.05">
+            <label for="SsM">SsM (g)</label>
+            <input id="SsM" type="number" value="0.8" step="any" min="0">
           </div>
           <div class="form-group">
-            <label>S1M (g)</label>
-            <input id="S1M" type="number" value="0.5" step="0.05">
+            <label for="S1M">S1M (g)</label>
+            <input id="S1M" type="number" value="0.5" step="any" min="0">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>設計譜值來源</label>
-            <select id="siteInputMode">
-              <option value="zone" selected>震區係數經 Fa / Fv 放大</option>
-              <option value="direct">直接採用輸入譜值（近斷層控制譜 / 外部查表值）</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>中小度下限譜 SsD0 / S1D0 (g)</label>
+            <label for="SsDLower">中小度下限譜 SsD0 / S1D0 (g)</label>
             <div class="compact-pair">
-              <input id="SsDLower" type="number" value="0.6" step="0.05" min="0" title="中小度地震與下限用短週期係數，未特別調整時可同 SsD">
-              <input id="S1DLower" type="number" value="0.35" step="0.05" min="0" title="中小度地震與下限用一秒週期係數，未特別調整時可同 S1D">
+              <input id="SsDLower" type="number" value="0.6" step="any" min="0" aria-label="下限譜短週期係數" placeholder="留白沿用本模式短週期值">
+              <input id="S1DLower" type="number" value="0.35" step="any" min="0" aria-label="下限譜一秒週期係數" placeholder="留白沿用本模式一秒週期值">
             </div>
           </div>
         </div>
@@ -868,8 +869,7 @@ function csvEscape(value) {
 }
 
 function ensureDynamicResult() {
-  calcDynamic();
-  return lastDynamicResult?.result || null;
+  return calcDynamic() ? lastDynamicResult.result : null;
 }
 
 function syncProjectMeta(project) {
@@ -892,6 +892,10 @@ function clearInputStatus() {
 
 function setDynamicReportValidationMessage(message = '') {
   lastDynamicReportValidationMessage = message || '';
+  if (message) {
+    lastDynamicResult = null;
+    document.getElementById('resultPanel').style.display = 'none';
+  }
   renderDynamicReportReadiness(lastDynamicReportValidationMessage);
 }
 
@@ -933,6 +937,8 @@ function applyCaseInputs(source) {
     distSel.value = values.zoneDist;
     distSel.dispatchEvent(new Event('change'));
   }
+  for (const id of spectrumIds) document.getElementById(id).value = values[id] ?? '';
+  document.getElementById('siteInputMode').value = values.siteInputMode ?? '';
   CASE_VALUE_FIELDS.forEach(id => {
     if (id === 'zoneCity' || id === 'zoneDist') return;
     const el = document.getElementById(id);
@@ -944,6 +950,7 @@ function applyCaseInputs(source) {
     if (!el || checks[id] == null) return;
     el.checked = Boolean(checks[id]);
   });
+  resetSpectrumEditor();
   saveProjectInfo();
 }
 
@@ -1094,14 +1101,50 @@ function num(id) {
   return parseFloat(document.getElementById(id)?.value);
 }
 
+const spectrumIds = ['SsD','S1D','SsM','S1M','SsDLower','S1DLower'];
+const spectrumModes = {
+  zone: { labels: ['SsD','S1D','SsM','S1M','SsD0 / S1D0'], hint: '填表 2-1 或表 2-3-1～4 的震區係數。依地盤類別套用表 2-4 的 Fa、Fv，得到工址譜值。' },
+  direct: { labels: ['SDS','SD1','SMS','SM1','SDS0 / SD10'], hint: '填已含工址效應的設計及最大考量譜值，本頁直接採用。表 2-3 的近斷層距離查值仍屬震區係數，請選上一種來源。' }
+};
+const modeDrafts = new Map();
+let activeSpectrumMode = 'zone';
+function readSpectrumFields() {
+  return Object.fromEntries(spectrumIds.map(id => [id, document.getElementById(id).value]));
+}
+function showSpectrumLabels() {
+  activeSpectrumMode = document.getElementById('siteInputMode').value;
+  const { labels, hint } = spectrumModes[activeSpectrumMode] || { labels: spectrumModes.zone.labels, hint: '請先選擇設計譜值來源。' };
+  labels.forEach((label, index) => {
+    const prefix = index < 4 ? '' : '中小度下限譜 ';
+    document.querySelector('label[for="' + spectrumIds[index] + '"]').textContent = prefix + label + ' (g)';
+  });
+  document.getElementById('spectrumInputHint').textContent = hint;
+  if (activeSpectrumMode === 'direct') document.getElementById('zoneHint').textContent = '';
+}
+function resetSpectrumEditor() {
+  modeDrafts.clear();
+  showSpectrumLabels();
+}
+document.getElementById('siteInputMode').addEventListener('change', () => {
+  const next = document.getElementById('siteInputMode').value;
+  if (next === activeSpectrumMode) return;
+  modeDrafts.set(activeSpectrumMode, readSpectrumFields());
+  for (const id of spectrumIds) document.getElementById(id).value = modeDrafts.get(next)?.[id] ?? '';
+  showSpectrumLabels();
+});
+
 function readCodeSpectrumInputs(base) {
-  const lowerSsD = num('SsDLower');
-  const lowerS1D = num('S1DLower');
+  const lowerValue = (id, fallback) => {
+    const el = document.getElementById(id);
+    return el.value === '' && !el.validity.badInput ? fallback : el.valueAsNumber;
+  };
+  const lowerSsD = lowerValue('SsDLower', base.SsD);
+  const lowerS1D = lowerValue('S1DLower', base.S1D);
   const p = {
     siteInputMode: document.getElementById('siteInputMode').value,
     I: base.I,
     site: resolveSpectrumSite(document.getElementById('siteInputMode').value, base.siteClass, base.SsD, base.S1D, base.SsM, base.S1M),
-    lowerSite: resolveSpectrumSite(document.getElementById('siteInputMode').value, base.siteClass, lowerSsD || base.SsD, lowerS1D || base.S1D, base.SsM, base.S1M),
+    lowerSite: resolveSpectrumSite(document.getElementById('siteInputMode').value, base.siteClass, lowerSsD, lowerS1D, base.SsM, base.S1M),
     R: num('codeR'),
     Ra: num('codeRa'),
     alphaY: num('codeAlphaY'),
@@ -1178,7 +1221,8 @@ function initZoneLookup() {
     document.getElementById('SsDLower').value = d[0];
     document.getElementById('S1DLower').value = d[1];
     document.getElementById('siteInputMode').value = 'zone';
-    hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
+    resetSpectrumEditor();
+    hintEl.innerHTML = `<b>${city} ${dist} 鄉鎮查表參考值</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
   });
 }
 
@@ -1490,13 +1534,10 @@ function loadStaticSummaryIntoPage() {
     document.getElementById('zoneDist').value = proj.zoneDist;
     document.getElementById('zoneDist').dispatchEvent(new Event('change'));
   }
-  if (isFinite(proj.SsD)) document.getElementById('SsD').value = proj.SsD;
-  if (isFinite(proj.S1D)) document.getElementById('S1D').value = proj.S1D;
-  if (isFinite(proj.SsM)) document.getElementById('SsM').value = proj.SsM;
-  if (isFinite(proj.S1M)) document.getElementById('S1M').value = proj.S1M;
-  if (proj.siteInputMode != null) document.getElementById('siteInputMode').value = proj.siteInputMode;
-  if (isFinite(proj.SsDLower)) document.getElementById('SsDLower').value = proj.SsDLower;
-  if (isFinite(proj.S1DLower)) document.getElementById('S1DLower').value = proj.S1DLower;
+  const fields = proj.spectrumSource === 'basin' ? {} : proj.spectrumInputs || proj;
+  for (const id of spectrumIds) document.getElementById(id).value = fields[id] ?? '';
+  document.getElementById('siteInputMode').value = proj.siteInputMode === 'direct' ? 'direct' : 'zone';
+  resetSpectrumEditor();
   if (proj.siteClass != null) document.getElementById('siteClass').value = proj.siteClass;
   if (proj.importanceKey != null) document.getElementById('impClass').value = proj.importanceKey;
   if (isFinite(proj.hn)) document.getElementById('hn').value = proj.hn;
@@ -1511,6 +1552,7 @@ function loadStaticSummaryIntoPage() {
     X 向靜力 Vdesign = ${fmt(saved.x.Vdesign, 2)} tf${saved.y ? ` ｜ Y 向 = ${fmt(saved.y.Vdesign, 2)} tf` : ''}<br>
     靜力摘要時間：${saved.savedAt ? new Date(saved.savedAt).toLocaleString('zh-TW') : '—'}<br>
     已同步帶入工址、系統、用途與建物量體條件。
+    ${proj.spectrumSource === 'basin' ? '靜力摘要採臺北盆地微分區。四個譜值保留空白，盆地反應譜及總橫力下限請依專案另核。' : proj.spectrumSource === 'near-fault-zone' ? '四個震區係數含近斷層比較控制，依地盤分類換算工址值。下限譜另採原震區值。' : !proj.spectrumInputs ? '舊摘要未記錄完整譜值來源，請核對原靜力計算書的近斷層或盆地條件。' : ''}
   `;
   if (lastDynamicResult?.result) {
     dynamicReportInputsChanged = true;
@@ -1530,6 +1572,12 @@ function calcDynamic() {
   const SsM = parseFloat(document.getElementById('SsM').value);
   const S1M = parseFloat(document.getElementById('S1M').value);
   const siteInputMode = document.getElementById('siteInputMode').value;
+  if (!spectrumModes[siteInputMode]) {
+    const message = '請先選擇設計譜值來源。';
+    setInputStatus(message);
+    setDynamicReportValidationMessage(message);
+    return false;
+  }
   const Tx = parseFloat(document.getElementById('Tx').value);
   const Ty = parseFloat(document.getElementById('Ty').value);
   const VxDyn = parseFloat(document.getElementById('VxDyn').value);
@@ -1578,6 +1626,7 @@ function calcDynamic() {
       remark,
       source: 'dynamic',
       siteInputMode,
+      spectrumInputs: readSpectrumFields(),
       SsDLower: num('SsDLower'),
       S1DLower: num('S1DLower'),
       baseShearFloorRatio,
@@ -1636,9 +1685,26 @@ function restoreDynamicSummary() {
   if (saved.project?.software != null) document.getElementById('software').value = saved.project.software;
   if (saved.project?.remark != null) document.getElementById('remark').value = saved.project.remark;
   if (saved.project?.siteInputMode != null) document.getElementById('siteInputMode').value = saved.project.siteInputMode;
+  if (saved.project?.spectrumInputs) {
+    for (const id of spectrumIds) document.getElementById(id).value = saved.project.spectrumInputs[id] ?? '';
+  } else if (saved.project?.siteInputMode === 'direct') {
+    ['SDS','SD1','SMS','SM1'].forEach((key, i) => {
+      document.getElementById(spectrumIds[i]).value = saved.site?.[key] ?? '';
+    });
+  } else if (saved.site) {
+    const original = spectrumIds.slice(0, 4).map(num);
+    const site = S.calcSiteCoeff(saved.site.siteClass || 2, ...original);
+    if (!['SDS','SD1','SMS','SM1'].every(key => Math.abs(site[key] - saved.site[key]) < 1e-10)) {
+      for (const id of spectrumIds.slice(0, 4)) document.getElementById(id).value = '';
+    }
+  }
+  if (saved.site?.siteClass != null) document.getElementById('siteClass').value = saved.site.siteClass;
+  resetSpectrumEditor();
   if (isFinite(saved.project?.baseShearFloorRatio)) document.getElementById('baseShearFloorRatio').value = saved.project.baseShearFloorRatio;
-  if (isFinite(saved.project?.SsDLower)) document.getElementById('SsDLower').value = saved.project.SsDLower;
-  if (isFinite(saved.project?.S1DLower)) document.getElementById('S1DLower').value = saved.project.S1DLower;
+  if (!saved.project?.spectrumInputs) {
+    document.getElementById('SsDLower').value = saved.project?.SsDLower ?? '';
+    document.getElementById('S1DLower').value = saved.project?.S1DLower ?? '';
+  }
   const savedRange = saved.project?.spectrumRange || saved.responseSpectrum?.ranges || null;
   if (savedRange) {
     if (savedRange.plotMode != null) document.getElementById('spectrumPlotRangeMode').value = savedRange.plotMode;
@@ -1698,6 +1764,15 @@ function restoreDynamicSummary() {
   return true;
 }
 
+function spectrumSourceNote(result) {
+  const input = result.project?.spectrumInputs;
+  if (!input) return '歷史摘要的輸入依據請回查原案件。';
+  if (result.project.siteInputMode === 'direct') return '四項輸入均為工址譜值，直接採用。';
+  const raw = spectrumIds.slice(0, 4).map(id => Number(input[id]));
+  const site = S.calcSiteCoeff(result.site.siteClass, ...raw);
+  return `震區 SsD、S1D、SsM、S1M = ${raw.join('、')} g。設計地震 Fa / Fv = ${fmt(site.FaD,3)} / ${fmt(site.FvD,3)}，最大考量 Fa / Fv = ${fmt(site.FaM,3)} / ${fmt(site.FvM,3)}。`;
+}
+
 function renderDynamicResult(drawSpectrum = true) {
   if (!lastDynamicResult) return;
   const { result, x, y } = lastDynamicResult;
@@ -1729,6 +1804,7 @@ function renderDynamicResult(drawSpectrum = true) {
     <div class="mini-card"><span class="label">ToD / ToM</span><span class="value">${fmt(site.ToD,3)} / ${fmt(site.ToM,3)} sec</span></div>
     <div class="mini-card"><span class="label">SaD(Tx) / SaD(Ty)</span><span class="value">${fmt(site.SaDx,3)} / ${fmt(site.SaDy,3)} g</span></div>
     <div class="mini-card"><span class="label">設計譜值來源</span><span class="value">${site.modeLabel || '震區係數經 Fa / Fv 放大'}</span></div>
+    <div class="mini-card"><span class="label">輸入與放大係數</span><span>${escapeHtml(spectrumSourceNote(result))}</span></div>
   `;
   document.getElementById('codeSpectrumPanel').innerHTML = renderCodeSpectrumPanel(result.responseSpectrum);
   document.getElementById('compareTableWrap').innerHTML = `
@@ -1908,6 +1984,7 @@ function openDynamicReport() {
             <tr><th class="label">ToD / ToM</th><td>${esc(fmt(result.site?.ToD,3))} / ${esc(fmt(result.site?.ToM,3))} sec</td></tr>
             <tr><th class="label">SaD(Tx) / SaD(Ty)</th><td>${esc(fmt(result.site?.SaDx,3))} / ${esc(fmt(result.site?.SaDy,3))} g</td></tr>
             <tr><th class="label">設計譜值來源</th><td>${esc(result.site?.modeLabel || '震區係數經 Fa / Fv 放大')}</td></tr>
+            <tr><th class="label">輸入與放大係數</th><td>${esc(spectrumSourceNote(result))}</td></tr>
           </tbody>
         </table>
       </section>
@@ -2100,6 +2177,7 @@ document.getElementById('btnLoadCaseDraft').addEventListener('click', loadCaseDr
 document.getElementById('caseJsonFile').addEventListener('change', event => importCaseJsonFile(event.target.files?.[0]));
 initSelects();
 initZoneLookup();
+resetSpectrumEditor();
 restoreProjectInfo();
 ['projName', 'projNo', 'projDesigner'].forEach(function(id) {
   const el = document.getElementById(id);

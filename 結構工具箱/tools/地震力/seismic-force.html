@@ -572,7 +572,8 @@
       <div class="form-row">
         <div class="form-group">
           <label>週期 T (sec)</label>
-          <input id="miscT" type="number" value="0" step="0.01" min="0" placeholder="0 = 剛性">
+          <input id="miscT" type="number" step="any" min="0" placeholder="填入分析週期" aria-label="工作物基本振動週期（秒）">
+          <div class="hint">依第 5.2 節第 4 款決定週期。僅在模型明確採剛性理想化時填 0。</div>
           <div class="hint">0 = 假設剛性 (T≈0, 直接取 S<sub>DS</sub>)</div>
         </div>
         <div class="form-group">
@@ -752,6 +753,7 @@ function saveStaticSummary(x, y) {
   const impKey = document.getElementById('impClass')?.value || '';
   const hn = parseFloat(document.getElementById('hn')?.value);
   const staticWeight = x.W;
+  const fault = x.directSite?.userDist != null ? x.directSite : null;
   const payload = {
     savedAt: new Date().toISOString(),
     project: {
@@ -763,6 +765,12 @@ function saveStaticSummary(x, y) {
       S1D: parseFloat(document.getElementById('S1D')?.value),
       SsM: parseFloat(document.getElementById('SsM')?.value),
       S1M: parseFloat(document.getElementById('S1M')?.value),
+      spectrumInputs: {
+        SsD: fault?.nfSsD ?? x.SsD, S1D: fault?.nfS1D ?? x.S1D,
+        SsM: fault?.nfSsM ?? x.SsM, S1M: fault?.nfS1M ?? x.S1M,
+        SsDLower: x.SsD, S1DLower: x.S1D
+      },
+      spectrumSource: fault ? 'near-fault-zone' : x.directSite?.basinZone ? 'basin' : 'zone',
       importanceKey: impKey,
       importanceFactor: x.I,
       hn: isFinite(hn) ? hn : null,
@@ -1559,7 +1567,8 @@ function calcMiscSeismicUI(p) {
   const isTB = p.isTaipeiBasin || false;
   const site = { FaD: null, FvD: null, FaM: null, FvM: null, ...p.directSite };
   const to = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
-  const T = (p.T_user && p.T_user > 0) ? p.T_user : 0;
+  const T = p.T_user;
+  if (!Number.isFinite(T) || T < 0) throw new RangeError('請輸入雜項工作物基本振動週期 T。');
   const Ra = S.calcRa(R, isTB);
   const Fu = S.calcFu(Ra, T, to.ToD);
   const FuM = S.calcFuM(R, T, to.ToM);
@@ -2317,7 +2326,7 @@ function openSeismicReport() {
       ${(reportOpt('rep_drift', true) && document.getElementById('driftEnable') && document.getElementById('driftEnable').checked) ? buildOriginalBlockHtml('層間變位角檢核', (document.getElementById('driftTable')?.outerHTML || '') + `<div class="legend">${document.getElementById('driftNote')?.innerHTML || ''}</div>`) : ''}
       ${reportOpt('rep_appendage', false) ? buildOriginalBlockHtml('附屬構造物地震力', document.getElementById('apResult')?.innerHTML || '') : ''}
       ${reportOpt('rep_vertical', false) ? buildOriginalBlockHtml('垂直地震力', document.getElementById('vResult')?.innerHTML || '') : ''}
-      ${reportOpt('rep_misc', false) ? buildOriginalBlockHtml('雜項工作物地震力', document.getElementById('miscResult')?.innerHTML || '') : ''}
+      ${reportOpt('rep_misc', false) ? buildOriginalBlockHtml('雜項工作物地震力', document.getElementById('miscResult')?.innerHTML || '本案尚無依目前輸入計算的雜項工作物地震力。') : ''}
       ${inputsHtml}
       ${stepsHtml}
       <div class="rep-footer">
@@ -3136,7 +3145,8 @@ function rebuildMiscTypeOptions() {
 function calcMiscSeismicFull(p) {
   const site = p.directSite || S.calcSiteCoeff(p.siteClass, p.SsD, p.S1D, p.SsM, p.S1M);
   const { ToD, ToM } = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
-  const T = p.T_user > 0 ? p.T_user : 0;
+  const T = p.T_user;
+  if (!Number.isFinite(T) || T < 0) throw new RangeError('請輸入雜項工作物基本振動週期 T。');
   const Ra = S.calcRa(p.R, p.isTaipeiBasin);
   const Fu = S.calcFu(Ra, T, ToD);
   const FuM = S.calcFuM(p.R, T, ToM);
@@ -3240,6 +3250,7 @@ function calcMiscSeismicFull(p) {
 }
 
 function calcMisc() {
+  document.getElementById('miscResult').replaceChildren();
   const mode = document.getElementById('miscChapterMode').value;
   const table = currentMiscTypeTable();
   const typeIdx = parseInt(document.getElementById('miscType').value, 10);
@@ -3257,13 +3268,17 @@ function calcMisc() {
 
   const W  = parseFloat(document.getElementById('miscW').value) || 0;
   const hn = parseFloat(document.getElementById('miscH').value) || 1;
-  const T_user = parseFloat(document.getElementById('miscT').value) || 0;
+  const T_user = document.getElementById('miscT').valueAsNumber;
   const I  = parseFloat(document.getElementById('miscI').value) || 1.0;
   const isNearFault = document.getElementById('chkNearFaultMisc').checked;
   const preset = typeIdx >= 0 ? table[typeIdx] : null;
   const R_custom  = typeIdx === -1 ? parseFloat(document.getElementById('miscR').value) || 1.5 : preset.R;
   const aY_custom = typeIdx === -1 ? parseFloat(document.getElementById('miscAY').value) || 1.0 : preset.alphaY;
 
+  if (!Number.isFinite(T_user) || T_user < 0) {
+    setInputStatus('請填入工作物的基本振動週期 T（秒）。僅在模型明確採剛性理想化時填 0。', 'miscStatus');
+    return false;
+  }
   if (!isFinite(W) || W <= 0 || !isFinite(hn) || hn <= 0) {
     setInputStatus('請輸入有效的工作物重量與高度', 'miscStatus');
     return false;
@@ -3332,7 +3347,7 @@ function calcMisc() {
         T<sub>oM</sub> = ${fmt(r.ToM,4)} sec<br><br>
 
         <strong>② 週期與韌性</strong><br>
-        T = <span class="val">${r.T > 0 ? fmt(r.T,3) + ' sec' : '0 (剛性)'}</span>，
+        T = <span class="val">${r.T > 0 ? S.formatMiscPeriod(r.T) + ' sec' : '0 (剛性)'}</span>，
         R = ${r.R}，
         R<sub>a</sub> = <span class="val">${fmt(r.Ra,2)}</span><br>
         F<sub>u</sub> = <span class="val">${fmt(r.Fu,4)}</span>，
@@ -3357,12 +3372,12 @@ function calcMisc() {
         ` : `
         <strong>③ 5.4 非相似於建築結構：最小設計水平總橫力</strong><br>
         ${r.T < 0.06 ? `
-        T = ${fmt(r.T,3)} sec &lt; 0.06 sec，採式(5-1)。<br>
+        T = ${S.formatMiscPeriod(r.T)} sec &lt; 0.06 sec，採式(5-1)。<br>
         水平係數 C<sub>h</sub> = S<sub>DS</sub> × I / (3 α<sub>y</sub>) = ${fmt(r.site.SDS,4)} × ${r.I} / (3 × ${r.alphaY}) = <span class="val">${fmtCoeff(r.VhCoeff)}</span><br>
         V<sub>h</sub> = C<sub>h</sub>W = ${fmtCoeff(r.VhCoeff)}W = ${fmtCoeff(r.VhCoeff)} × ${fmt(r.W,1)}<br>
         &emsp;= <span class="val hl">${fmt(r.Vh,2)}</span> tf<br>
         ` : `
-        T = ${fmt(r.T,3)} sec ≥ 0.06 sec，採式(5-2)。<br>
+        T = ${S.formatMiscPeriod(r.T)} sec ≥ 0.06 sec，採式(5-2)。<br>
         S<sub>aD</sub>/F<sub>u</sub> = ${fmt(r.SaD,4)} / ${fmt(r.Fu,4)} = ${fmt(r.ratio,4)}<br>
         (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> = <span class="val">${fmt(r.ratio_m,4)}</span><br>
         水平係數 C<sub>h</sub> = [${r.I}/(1.2×${r.alphaY})] × ${fmt(r.ratio_m,4)} = <span class="val">${fmtCoeff(r.VhCoeff)}</span><br>
@@ -3380,6 +3395,15 @@ function calcMisc() {
   clearInputStatus('miscStatus');
   return true;
 }
+
+function invalidateMiscOutput(event) {
+  const el = event.target;
+  if (el.closest('#miscCard') || ['zoneCity','zoneDist','zoneVillage','faultDist','chkTaipei','siteClass','SsD','S1D','SsM','S1M'].includes(el.id)) {
+    document.getElementById('miscResult').replaceChildren();
+  }
+}
+document.addEventListener('input', invalidateMiscOutput);
+document.addEventListener('change', invalidateMiscOutput);
 
 (function initPageScopeCard() {
   const card = document.getElementById('pageScopeCard');

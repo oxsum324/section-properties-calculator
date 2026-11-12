@@ -145,6 +145,13 @@ function run() {
   approx(S.calcFpv(appendage.Fph, true) / appendage.Wp, (2 / 3) * appendage.Cph, 1e-9, 'appendage near-fault vertical coefficient');
 
   const signIdx = S.TABLE_5_2.findIndex(item => item.name === '招牌及廣告版');
+  for (const period of [undefined, null, '', -0.01, NaN, Infinity]) {
+    for (const mode of ['similar', 'nonsimilar']) {
+      assert.throws(() => S.calcMiscSeismic({ mode, T_user: period }), /週期/);
+    }
+  }
+  assert.equal(S.formatMiscPeriod(0.05999), '0.05999');
+  assert.equal(S.formatMiscPeriod(0.06), '0.060');
   const signRigid = S.calcMiscSeismic({
     mode: 'nonsimilar',
     typeIdx: signIdx,

@@ -979,8 +979,8 @@
     const site = calcSiteCoeff(p.siteClass || 2, p.SsD, p.S1D, p.SsM, p.S1M);
     const { ToD, ToM } = calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
 
-    // 週期: 使用者輸入或假設剛性 (T=0)
-    const T = (p.T_user && p.T_user > 0) ? p.T_user : 0;
+    const T = p.T_user;
+    if (!Number.isFinite(T) || T < 0) throw new RangeError('請輸入雜項工作物基本振動週期 T。');
 
     // Ra, Fu
     const Ra  = calcRa(R, isTB);
@@ -1127,6 +1127,10 @@
     // 第五章 — 雜項工作物
     TABLE_5_1,
     TABLE_5_2,
+    formatMiscPeriod(T) {
+      const rounded = T.toFixed(3);
+      return Number(rounded) === T ? rounded : String(T);
+    },
     calcMiscSeismic,
     // 向後相容
     calcStaticSeismic,

@@ -27,7 +27,7 @@ function validateInput(input) {
       if (!Number.isFinite(Number(item?.[key])) || Number(item[key]) <= 0) issues.push(`${item?.id || 'case'}.${key}:positive-finite-required`);
     }
     if (![1, 2, 3].includes(Number(item?.siteClass))) issues.push(`${item?.id || 'case'}.siteClass:1-2-3-required`);
-    if (!Number.isFinite(Number(item?.T_user)) || Number(item.T_user) < 0) issues.push(`${item?.id || 'case'}.T_user:nonnegative-required`);
+    if (!Number.isFinite(item?.T_user) || item.T_user < 0) issues.push(`${item?.id || 'case'}.T_user:nonnegative-required`);
     if (typeof item?.isTaipeiBasin !== 'boolean' || typeof item?.isNearFault !== 'boolean') issues.push(`${item?.id || 'case'}:boolean-region-flags-required`);
   }
   return issues;

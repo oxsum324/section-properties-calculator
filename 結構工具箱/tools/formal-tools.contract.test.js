@@ -569,7 +569,7 @@ assertIncludes(windReportSource, 'global.ToolReportUI.getCalculationBookInputGro
   ['tools/地震力/seismic-dynamic.html', "if (proj.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);"],
   ['tools/地震力/seismic-dynamic.html', "if (proj.zoneCity != null) {"],
   ['tools/地震力/seismic-dynamic.html', "if (proj.zoneDist != null) {"],
-  ['tools/地震力/seismic-dynamic.html', "if (proj.siteInputMode != null) document.getElementById('siteInputMode').value = proj.siteInputMode;"],
+  ['tools/地震力/seismic-dynamic.html', "document.getElementById('siteInputMode').value = proj.siteInputMode === 'direct' ? 'direct' : 'zone';"],
   ['tools/地震力/seismic-dynamic.html', "if (proj.siteClass != null) document.getElementById('siteClass').value = proj.siteClass;"],
   ['tools/地震力/seismic-dynamic.html', "if (proj.importanceKey != null) document.getElementById('impClass').value = proj.importanceKey;"],
   ['tools/地震力/seismic-dynamic.html', "if (saved.x?.systemKey != null) document.getElementById('sysX').value = saved.x.systemKey;"],
