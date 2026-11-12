@@ -319,6 +319,10 @@
           <span id="designBtns"></span>
         </div>
       </div>
+      <details id="stationTransfer" hidden ontoggle="if (this.open) openStationTransfer()">
+        <summary>傳送同一站位的彎矩與剪力至鋼梁</summary>
+        <div id="stationTransferBody"></div>
+      </details>
       <h3>支承反力</h3>
       <div id="reactionTable"></div>
       <h3>各跨極值</h3>
@@ -1845,6 +1849,8 @@ function runAnalysis() {
   }
 
   diagrams = computeDiagrams(model, solution);
+  diagrams.sourceUnits = getUnitKey();
+  diagrams.sourceModelJson = JSON.stringify([CONTINUOUS_BEAM_CALCULATION_ENGINE, model, getEI(), diagrams.sourceUnits]);
   const u = getUnit();
 
   drawSchematic();
@@ -1880,7 +1886,7 @@ const DESIGN_ROUTES = {
     beam: { url: '鋼筋混凝土/tools/beam.html?import=1', label: '→ RC 梁設計', color: '#0f766e', target: 'beam' },
   },
   steel: {
-    beam: { url: '鋼構工具/steel-beam-formal.html?import=1', label: '→ 鋼梁正式檢核', color: '#2563eb', target: 'steel-beam' },
+    beam: { url: '鋼構工具/steel-beam-formal.html?import=1', label: '全梁包絡 → 鋼梁正式檢核', color: '#2563eb', target: 'steel-beam' },
   },
 };
 
@@ -1897,6 +1903,11 @@ function renderDesignBtns() {
   const wrap = document.getElementById('designBtns');
   if (!wrap) return;
   const mat = _currentMatType();
+  const stationPanel = document.getElementById('stationTransfer');
+  if (stationPanel) {
+    stationPanel.hidden = !diagrams || mat !== 'steel';
+    if (!stationPanel.hidden && stationPanel.open) openStationTransfer();
+  }
   const routes = DESIGN_ROUTES[mat];
   if (!routes) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = Object.entries(routes).map(([, r]) => {
@@ -1907,7 +1918,24 @@ function renderDesignBtns() {
   }).join(' ');
 }
 
-// 計算當前分析結果之主控內力 (tf, tf·m, cm)
+async function openStationTransfer() {
+  const solved = diagrams;
+  const host = document.getElementById('stationTransferBody');
+  try {
+    const transfer = await import('./鋼構工具/beam-station-transfer.js');
+    if (!solved || solved !== diagrams || _currentMatType() !== 'steel') return;
+    transfer.showSender(host, {
+      spans: solved.spans, units: solved.sourceUnits, project: getProjectFieldValue('projNo'),
+      fingerprint: StructReportUtils.sha256Text(solved.sourceModelJson),
+      isCurrent: () => diagrams === solved && _currentMatType() === 'steel',
+      route: DESIGN_ROUTES.steel.beam.url.split('?')[0],
+    });
+  } catch (error) {
+    host.textContent = '站位交接無法開啟。請由本機啟動器或網站開啟頁面。' + error.message;
+  }
+}
+
+// 各極值分別取自全梁，不賦予共同站位。
 function _envelopeForDesign() {
   if (!diagrams) return null;
   let MposMax = 0, MnegMax = 0, VabsMax = 0, LmaxSpan = 0;
@@ -1963,7 +1991,7 @@ function dispatchDesign(target) {
   const forces = { M: env.Mpos, MNeg: env.Mneg, V: env.V };
   const transferMeta = {
     source: '連續梁分析',
-    caseName: '主控組合 (梁)',
+    caseName: '全梁包絡（正負彎矩、剪力及最大跨長分別取值）',
     factored: false,
     loadBasis: 'unconfirmed',
   };

@@ -10,7 +10,9 @@
   const TOOL_METADATA = window.SteelToolMetadata?.beam;
   if (!TOOL_METADATA) throw new Error("Steel beam tool metadata is not loaded.");
   const UI_PREFS_KEY = "steel-beam-formal-ui-v3";
-  const INPUT_DRAFT_KEY = "steel-beam-formal-input-draft-v1";
+  const stationScope = new URLSearchParams(window.location.search).get("stations");
+  const hasStationScope = /^[a-f0-9]{64}$/.test(stationScope || "");
+  const INPUT_DRAFT_KEY = "steel-beam-formal-input-draft-v1" + (hasStationScope ? "." + stationScope : "");
   const PENDING_FORCE_STORAGE_KEY = "structToolbox.pendingForces";
   const TF_TO_KN = 9.80665;
   const KGFCM2_TO_MPA = 0.0980665;
@@ -97,7 +99,9 @@
       if (!Number.isFinite(parsed)) return;
       const legacyValue = convertDisplayValue(parsed, config.kind, previousMode);
       const digits = nextMode === "si" ? config.siDigits : config.legacyDigits;
-      field.value = formatInputValue(convertLegacyValue(legacyValue, config.kind, nextMode), digits);
+      const converted = convertLegacyValue(legacyValue, config.kind, nextMode);
+      field.value = adoptedBeamImport?.station && ["inMu", "inVu", "inL"].includes(config.id)
+        ? String(converted) : formatInputValue(converted, digits);
     });
   }
 
@@ -126,6 +130,7 @@
   let adoptedBeamImport = null;
 
   function finiteCandidate(value) {
+    if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   }
@@ -161,11 +166,15 @@
       || Math.abs(currentShear - adoptedBeamImport.shear) > 1e-6
       || Math.abs(currentSpan - adoptedBeamImport.spanCm) > 1e-6;
     const adjustment = changed ? "；套用後經人工調整" : "；人工確認採用";
+    if (adoptedBeamImport.station) {
+      const methodNote = designMethod === adoptedBeamImport.method ? "" : "；設計方法已變更，載重基準須重新核對";
+      return adoptedBeamImport.stationText + adjustment + methodNote;
+    }
     return `${adoptedBeamImport.source}｜${adoptedBeamImport.caseName}｜${adoptedBeamImport.momentLabel}${adjustment}；載重基準：已人工確認`;
   }
 
   function clearPendingBeamImport({ hide = true } = {}) {
-    localStorage.removeItem(PENDING_FORCE_STORAGE_KEY);
+    if (pendingBeamImport && localStorage.getItem(PENDING_FORCE_STORAGE_KEY) === pendingBeamImport.raw) localStorage.removeItem(PENDING_FORCE_STORAGE_KEY);
     pendingBeamImport = null;
     if ($("beamImportConfirm")) $("beamImportConfirm").checked = false;
     if ($("beamImportApply")) $("beamImportApply").disabled = true;
@@ -182,6 +191,7 @@
     if (mPos === null || mNeg === null || shear === null || spanCm === null || spanCm <= 0) return false;
     pendingBeamImport = {
       payload,
+      raw: localStorage.getItem(PENDING_FORCE_STORAGE_KEY),
       mPos,
       mNeg,
       shear: Math.abs(shear),
@@ -226,9 +236,9 @@
     adoptedBeamImport = {
       source: meta.source || "連續梁分析",
       caseName: meta.caseName || "主控組合",
-      moment,
-      shear: pendingBeamImport.shear,
-      spanCm: pendingBeamImport.spanCm,
+      moment: getLegacyInputValue("inMu"),
+      shear: getLegacyInputValue("inVu"),
+      spanCm: getLegacyInputValue("inL"),
       momentLabel: candidateMomentLabel(momentChoice),
       loadBasis: meta.loadBasis || "unconfirmed",
     };
@@ -239,6 +249,26 @@
     renderCardStatuses(null);
     resultState = null;
     setBeamReportValidationMessage("候選值已套用，請確認其餘設計條件並重新執行檢核。");
+    persistInputDraft();
+  }
+
+  function stationCurrentInputs() {
+    return { moment: getLegacyInputValue("inMu"), shear: getLegacyInputValue("inVu"), spanCm: getLegacyInputValue("inL"),
+      method: designMethod, project: getProjectMetaValue("projNo"), source: adoptedBeamImportSourceText() };
+  }
+
+  function adoptStation(station, demand, stationText) {
+    $("inMu").value = String(convertLegacyValue(demand.moment, "moment"));
+    $("inVu").value = String(convertLegacyValue(demand.shear, "force"));
+    $("inL").value = String(convertLegacyValue(demand.spanCm, "memberLength"));
+    if (!getProjectMetaValue("projNo")) $("projNo").value = station.project;
+    adoptedBeamImport = { station, stationText, method: designMethod, moment: getLegacyInputValue("inMu"),
+      shear: getLegacyInputValue("inVu"), spanCm: getLegacyInputValue("inL") };
+    resultState = null;
+    renderFillStatus();
+    renderCardStatuses(null);
+    setBeamReportValidationMessage("已採用站位需求，請核對其餘設計條件並重新執行檢核。");
+    persistInputDraft();
   }
 
   const glossaryItems = [
@@ -1480,7 +1510,7 @@
       ${pairRow("單位系統", getFormalUnitSummaryText())}
       ${pairRow("跨度 / 穩定參數", spanAndStability)}
       ${pairRow("設計需求", `${designMethod === "LRFD" ? "Mu" : "Ma"} = ${formatDisplayValue(result.demandMoment, "moment", 2)} ${getQuantityUnit("moment")}，${designMethod === "LRFD" ? "Vu" : "Va"} = ${formatDisplayValue(result.demandShear, "force", 2)} ${getQuantityUnit("force")}`)}
-      ${pairRow("內力來源", result.adoptedInputSource)}
+      ${pairRow("內力來源", SteelFormalUI.escapeHtml(result.adoptedInputSource))}
       ${pairRow("使用載重", `wD = ${formatDisplayValue(getLegacyInputValue("inWD"), "lineLoad", unitMode === "si" ? 3 : 2)} ${getQuantityUnit("lineLoad")}，wL = ${formatDisplayValue(getLegacyInputValue("inWL"), "lineLoad", unitMode === "si" ? 3 : 2)} ${getQuantityUnit("lineLoad")}`)}
       ${result.pointDead || result.pointLive ? pairRow("跨中集中載重", `PD = ${formatDisplayValue(result.pointDead, "force", 4)}，PL = ${formatDisplayValue(result.pointLive, "force", 4)} ${getQuantityUnit("force")}`) : ""}
       ${pairRow("撓度限值", `活載重 L/${$("limL").value}，總撓度 L/${$("limT").value}`)}
@@ -1969,6 +1999,7 @@
       designMethod,
       unitMode,
       fields: collectBeamSourceFields(),
+      ...(adoptedBeamImport ? { adoptedBeamImport } : {}),
       calculationFingerprint: reportTrace.calculationFingerprint,
       report: {
         title: reportConfig.title,
@@ -2009,10 +2040,12 @@
       designMethod,
       unitMode,
       fields: collectBeamSourceFields(),
+      adoptedBeamImport,
     };
   }
 
   function applyBeamSourceState(source) {
+    adoptedBeamImport = source.adoptedBeamImport || null;
     setUnitMode(source.unitMode, { convertFields: false, rerun: false, persist: false });
     setMethod(source.designMethod);
     $("projName").value = source.project?.name || "";
@@ -2056,12 +2089,20 @@
         expectedToolId: TOOL_METADATA.id,
         expectedVersion: TOOL_METADATA.version,
       }));
+      if (payload.adoptedBeamImport?.station) {
+        const transfer = await import("./beam-station-transfer.js");
+        const adopted = payload.adoptedBeamImport;
+        if (!transfer.validPacket(adopted.station) || adopted.stationText !== transfer.stationText(adopted.station)
+            || ![adopted.moment, adopted.shear, adopted.spanCm].every(Number.isFinite)) throw new Error("站位快照與來源紀錄不一致。");
+      }
       stateChanged = true;
       const replayResult = applyBeamSourceState(payload);
       const replay = replayResult ? buildBeamSourcePayload(replayResult) : null;
       if (!replay || replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay?.calculationFingerprint || "無法計算"}）。`);
       }
+      persistInputDraft();
+      window.dispatchEvent(new Event("steel-beam-source-restored"));
       setInputStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
     } catch (error) {
       if (stateChanged) applyBeamSourceState(previous);
@@ -2135,7 +2176,7 @@
 
   function restoreInputDraft() {
     // 連續梁候選值待確認時，正式輸入必須維持原狀直到使用者明確套用；此時不還原草稿。
-    if (hasPendingBeamImportCandidate()) return false;
+    if (!hasStationScope && hasPendingBeamImportCandidate()) return false;
     let draft = null;
     try {
       const raw = localStorage.getItem(INPUT_DRAFT_KEY);
@@ -2280,6 +2321,14 @@
   if (restoreInputDraft()) {
     applyInputAccordionPreset(currentInputPreset);
     applyReportAccordionPreset(resultState, currentReportPreset);
+  }
+  if (hasStationScope) {
+    import("./beam-station-transfer.js").then(transfer => transfer.openReceiver($("stationReview"), stationScope, {
+      current: stationCurrentInputs, adopt: adoptStation,
+    })).catch(error => {
+      $("stationReview").hidden = false;
+      $("stationReview").textContent = "站位候選讀取失敗。" + error.message;
+    });
   }
 
   workflow = window.HYToolWorkflow.install({

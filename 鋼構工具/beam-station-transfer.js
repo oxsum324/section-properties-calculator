@@ -1,0 +1,183 @@
+// 連續梁與鋼梁在同源視窗間交接。一站一鍵，重送同筆資料不會取代另一站。
+const prefix = 'structToolbox.beamStation.v1.';
+const units = {
+  'kN-m': { m: 'kN·m', v: 'kN', l: 'm', moment: 1 / 9.80665, force: 1 / 9.80665, length: 100 },
+  'tf-m': { m: 'tf·m', v: 'tf', l: 'm', moment: 1, force: 1, length: 100 },
+  'kgf-cm': { m: 'kgf·cm', v: 'kgf', l: 'cm', moment: 1 / 100000, force: 1 / 1000, length: 1 },
+};
+const basisLabels = { factored: '已因數化', unfactored: '未因數化', unconfirmed: '未確認' };
+const sideLabels = { left: '左側', right: '右側', continuous: '連續截面' };
+const digest = value => globalThis.StructReportUtils.sha256Text(JSON.stringify(value));
+const scopeOf = p => digest([p.project, p.member]);
+const display = n => String(Number(n.toPrecision(8)));
+const cleanText = value => typeof value === 'string' && value.length <= 100 && value.trim() === value;
+
+function packetId(p) {
+  return digest([p.project, p.member, p.revision, p.caseName, p.combination, p.basis, p.fingerprint,
+    p.units, p.span, p.x, p.side, p.length, p.moment, p.shear]);
+}
+
+export function validPacket(p) {
+  return Boolean(p && typeof p === 'object' && p.kind === 'beam-station-v1' && !('P' in p)
+    && [p.project, p.member, p.caseName, p.combination].every(cleanText)
+    && p.project && p.member && p.caseName && /^[a-f0-9]{64}$/i.test(p.fingerprint)
+    && Object.hasOwn(units, p.units) && Object.hasOwn(basisLabels, p.basis) && Object.hasOwn(sideLabels, p.side)
+    && Number.isSafeInteger(p.revision) && p.revision > 0 && Number.isSafeInteger(p.span) && p.span > 0
+    && [p.x, p.length, p.moment, p.shear].every(Number.isFinite) && p.length > 0 && p.x >= 0 && p.x <= p.length
+    && p.id === packetId(p));
+}
+
+function designValues(p) {
+  const u = units[p.units];
+  return { moment: Math.abs(p.moment) * u.moment, shear: Math.abs(p.shear) * u.force, spanCm: p.length * u.length };
+}
+
+function identity(p) {
+  return [p.project, p.member, p.caseName, p.combination, 'R' + p.revision].filter(Boolean).join(' ／ ');
+}
+
+export function stationText(p) {
+  const u = units[p.units];
+  return `${identity(p)}｜第 ${p.span} 跨 x = ${display(p.x)} ${u.l}（${sideLabels[p.side]}）｜M = ${display(p.moment)} ${u.m}、V = ${display(p.shear)} ${u.v}｜${basisLabels[p.basis]}｜來源指紋 ${p.fingerprint}`;
+}
+
+function station(span, index) {
+  const x = span.xs[index];
+  const adjacent = j => Math.abs(span.xs[j] - x) < 1e-9;
+  const side = adjacent(index + 1) ? 'left' : adjacent(index - 1) ? 'right'
+    : index === 0 ? 'right' : index === span.xs.length - 1 ? 'left' : 'continuous';
+  return { x: Math.min(span.L, Math.max(0, x - span.xStart)), side, length: span.L,
+    moment: span.ms[index], shear: span.vs[index] };
+}
+
+export function showSender(host, model) {
+  if (!host.querySelector('form')) {
+    host.innerHTML = `<form>
+      <div class="form-group form-row3"><label>案號 <input name="project" maxlength="100" required></label>
+      <label>構件編號 <input name="member" maxlength="100" required></label>
+      <label>修次 <input name="revision" type="number" min="1" step="1" value="1" required></label></div>
+      <div class="form-group form-row3"><label>載重案例 <input name="caseName" maxlength="100" required></label>
+      <label>實際組合識別（選填） <input name="combination" maxlength="100"></label>
+      <label>載重基準 <select name="basis"><option value="unconfirmed">未確認</option><option value="factored">已因數化</option><option value="unfactored">未因數化</option></select></label></div>
+      <div class="form-group form-row"><label>跨別 <select name="span"></select></label>
+      <label>距跨左端站位 <select name="section"></select></label></div>
+      <button type="submit" class="btn btn-sm">送出站位候選</button>
+      <a target="_blank" rel="noopener" hidden>開啟此構件的鋼梁核對視窗</a>
+      <p role="status"></p></form>`;
+  }
+  const form = host.querySelector('form');
+  const f = form.elements;
+  const status = form.querySelector('[role=status]');
+  const link = form.querySelector('a');
+  if (form.dataset.project !== model.project) {
+    form.reset();
+    f.project.value = model.project;
+    form.dataset.project = model.project;
+  }
+  function resetReceipt() { link.hidden = true; status.textContent = ''; }
+  form.oninput = resetReceipt;
+  resetReceipt();
+  const oldSpan = f.span.selectedIndex;
+  f.span.replaceChildren(...model.spans.map((_, i) => new Option('第 ' + (i + 1) + ' 跨', i)));
+  f.span.selectedIndex = oldSpan >= 0 && oldSpan < model.spans.length ? oldSpan : 0;
+  function sections() {
+    const sp = model.spans[f.span.selectedIndex];
+    const u = units[model.units];
+    f.section.replaceChildren(...sp.xs.map((_, i) => {
+      const s = station(sp, i);
+      return new Option(`${display(s.x)} ${u.l}・${sideLabels[s.side]}　M ${display(s.moment)} ${u.m}　V ${display(s.shear)} ${u.v}`, i);
+    }));
+  }
+  sections();
+  f.span.onchange = sections;
+  form.onsubmit = e => {
+    e.preventDefault();
+    resetReceipt();
+    if (!model.isCurrent()) { status.textContent = '來源輸入已變動，請重新分析。'; return; }
+    const spanIndex = f.span.selectedIndex;
+    const p = { kind: 'beam-station-v1', project: f.project.value.trim(), member: f.member.value.trim(),
+      caseName: f.caseName.value.trim(), combination: f.combination.value.trim(), revision: Number(f.revision.value),
+      basis: f.basis.value, units: model.units, fingerprint: model.fingerprint, span: spanIndex + 1,
+      ...station(model.spans[spanIndex], f.section.selectedIndex) };
+    p.id = packetId(p);
+    if (!validPacket(p)) { status.textContent = '請確認案號、構件、修次、案例與站位數值。'; return; }
+    const scope = scopeOf(p);
+    try { localStorage.setItem(prefix + scope + '.' + p.id, JSON.stringify(p)); }
+    catch { status.textContent = '瀏覽器無法儲存候選。請確認同源儲存空間或容量。'; return; }
+    link.href = model.route + '?stations=' + scope;
+    link.hidden = false;
+    status.textContent = '已送出 ' + identity(p) + '。已開啟的核對視窗會同步收到。';
+  };
+}
+
+function readPackets(scope) {
+  const groupPrefix = prefix + scope + '.';
+  const rows = [];
+  for (const key of Object.keys(localStorage)) {
+    if (!key.startsWith(groupPrefix)) continue;
+    try {
+      const p = JSON.parse(localStorage.getItem(key));
+      if (validPacket(p) && scopeOf(p) === scope && key === groupPrefix + p.id) rows.push(p);
+    } catch { /* 不完整的單筆紀錄不影響其他站位。 */ }
+  }
+  return rows.sort((a, b) => b.revision - a.revision || a.caseName.localeCompare(b.caseName)
+    || a.span - b.span || a.x - b.x || a.side.localeCompare(b.side) || a.id.localeCompare(b.id));
+}
+
+function revisionStatus(p, rows) {
+  const series = rows.filter(r => r.caseName === p.caseName && r.combination === p.combination);
+  if (series.some(r => r.revision > p.revision)) return '舊修次';
+  if (series.some(r => r.revision === p.revision && (r.fingerprint !== p.fingerprint || r.basis !== p.basis))) return '同修次來源衝突，請增加修次重送';
+  return '有效修次';
+}
+
+export function openReceiver(host, scope, api) {
+  host.hidden = false;
+  host.innerHTML = `<h2>同站內力核對</h2>
+    <label class="form-group">案號、構件與站位候選 <select id="stationCandidate" style="max-width:100%"></select></label>
+    <p id="stationIncoming" class="candidate-review__source"></p><p id="stationCurrent" class="candidate-review__source"></p>
+    <label class="candidate-review__confirm"><input type="checkbox" id="stationConfirm"> 我已核對案號、構件、載重基準及同站內力，採用此列的需求絕對值與跨長。</label>
+    <button type="button" class="btn-calc" id="stationApply" disabled>套用此站位</button><p role="status" id="stationStatus"></p>`;
+  const el = id => host.querySelector('#' + id);
+  const list = el('stationCandidate'), confirm = el('stationConfirm'), apply = el('stationApply');
+  const status = el('stationStatus');
+  let reviewed = '';
+  function refresh() {
+    const previousId = list.value;
+    const rows = readPackets(scope);
+    list.replaceChildren(...rows.map(p => new Option(`${identity(p)}｜跨 ${p.span}・${display(p.x)} ${units[p.units].l}・${sideLabels[p.side]}｜${revisionStatus(p, rows)}`, p.id)));
+    if (rows.some(p => p.id === previousId)) list.value = previousId;
+    const p = rows.find(r => r.id === list.value);
+    const current = api.current();
+    const demandText = v => `|M| ${display(v.moment)} tf·m，|V| ${display(v.shear)} tf，L ${display(v.spanCm)} cm`;
+    el('stationCurrent').textContent = '正式輸入　' + demandText(current) + '｜' + current.source;
+    el('stationIncoming').textContent = p ? '候選　' + stationText(p) + '｜' + demandText(designValues(p)) + '｜P 未提供' : '';
+    let message = p ? revisionStatus(p, rows) : '目前沒有此構件的站位候選。';
+    if (message === '有效修次') {
+      if (current.project && current.project !== p.project) message = '正式案號與候選案號不同。';
+      else if (p.basis !== (current.method === 'LRFD' ? 'factored' : 'unfactored')) message = '請核對載重基準與目前設計方法 ' + current.method + '。';
+    }
+    const token = JSON.stringify([p?.id, current, message]);
+    if (reviewed !== token) confirm.checked = false;
+    reviewed = token;
+    confirm.disabled = message !== '有效修次';
+    apply.disabled = confirm.disabled || !confirm.checked;
+    status.textContent = message;
+    return p;
+  }
+  list.onchange = refresh;
+  confirm.onchange = refresh;
+  apply.onclick = () => {
+    const p = refresh();
+    if (!p || apply.disabled) return;
+    api.adopt(p, designValues(p), stationText(p));
+    confirm.checked = false;
+    refresh();
+    status.textContent = '已套用此站位。請核對其餘設計條件並重新執行檢核。';
+  };
+  window.addEventListener('storage', e => { if (!e.key || e.key.startsWith(prefix + scope + '.')) refresh(); });
+  window.addEventListener('steel-beam-source-restored', refresh);
+  document.addEventListener('change', e => { if (!host.contains(e.target)) refresh(); });
+  document.addEventListener('click', e => { if (e.target.closest('#btnLRFD,#btnASD,#beamUnitModeSiBtn,#beamUnitModeLegacyBtn')) refresh(); });
+  refresh();
+}
