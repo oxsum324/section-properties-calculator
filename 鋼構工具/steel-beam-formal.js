@@ -1927,7 +1927,13 @@
     return result;
   }
 
-  function buildBeamReportConfig(result, replayV11 = false) {
+  function buildBeamReportConfig(result, sourceVersion = "") {
+    const replayV11 = sourceVersion === "v1.1";
+    const previousFormat = replayV11 || sourceVersion === "v1.2";
+    function comparison(left, right, minimum, kind) {
+      if (previousFormat) return `${f2(left)} ${minimum ? "≥" : "≤"} ${f2(right)}`;
+      return formatSteelMemberComparison(left, right, minimum, getQuantityUnit(kind), convertLegacyValue(1, kind, unitMode));
+    }
     const summaryState = getBeamReportSummaryState(result);
     return {
       title: "鋼梁正式規範核算計算書",
@@ -1962,17 +1968,17 @@
         checks: [
           { group: "撓曲強度", items: [
             { label: "Mp", formula: "Fy × Zx", sub: `${f0(result.Fy)} × ${f1(result.sec.Zx)}`, value: formatDisplayValue(result.flex.Mp / 1e5, "moment", 2), unit: getQuantityUnit("moment"), note: "第七章撓曲構材塑性彎矩" },
-            { label: designMethod === "LRFD" ? "φMn ≥ |Mu|" : "Mn/Ω ≥ |Ma|", formula: designMethod === "LRFD" ? "φMn" : "Mn / Ω", sub: result.isLRFD ? `φb = ${f2(Steel.PHI.flexure)}，${f2(result.flex.phiMn_tfm)} ≥ ${f2(result.demandMoment)}` : `Ωb = ${f2(Steel.OMEGA.flexure)}，${f2(result.flex.MnOmega_tfm)} ≥ ${f2(result.demandMoment)}`, value: `${result.ratioFlex}%`, ok: result.flexOk, note: `控制模式：${getBeamGoverningDisplay(result.flex.governing)}` },
+            { label: designMethod === "LRFD" ? "φMn ≥ |Mu|" : "Mn/Ω ≥ |Ma|", formula: designMethod === "LRFD" ? "φMn" : "Mn / Ω", sub: result.isLRFD ? `φb = ${f2(Steel.PHI.flexure)}，${comparison(result.flex.phiMn_tfm, result.demandMoment, true, "moment")}` : `Ωb = ${f2(Steel.OMEGA.flexure)}，${comparison(result.flex.MnOmega_tfm, result.demandMoment, true, "moment")}`, value: `${result.ratioFlex}%`, ok: result.flexOk, note: `控制模式：${getBeamGoverningDisplay(result.flex.governing)}` },
           ]},
           { group: "剪力強度", items: [
             result.sec.shape === "chs"
               ? { label: "Vn", formula: "FcrAg/2", sub: `${f0(result.shear.Fcr)} × ${f2(result.sec.A)} / 2`, value: formatDisplayValue(result.shear.Vn / 1000, "force", 2), unit: getQuantityUnit("force"), note: `第七章圓形 HSS 剪力條文｜Lv = ${formatDisplayValue(result.Lv, "memberLength", unitMode === "si" ? 3 : 1)} ${getQuantityUnit("memberLength")}` }
               : { label: "Vn", formula: `0.6FyAw${result.sec.shape === "shs" ? "Cv2" : "Cv1"}`, sub: `0.6 × ${f0(result.Fy)} × ${f2(result.sec.Aw)} × ${f2(result.shear.Cv2 ?? result.shear.Cv1)}`, value: formatDisplayValue(result.shear.Vn / 1000, "force", 2), unit: getQuantityUnit("force"), note: "第七章剪力條文" },
-            { label: designMethod === "LRFD" ? "φVn ≥ |Vu|" : "Vn/Ω ≥ |Va|", formula: designMethod === "LRFD" ? "φVn" : "Vn / Ω", sub: result.isLRFD ? `φv = ${f2(result.shear.phiV)}，${f2(result.shear.phiVn_tf)} ≥ ${f2(result.demandShear)}` : `Ωv = ${f2(result.shear.omgV)}，${f2(result.shear.VnOmega_tf)} ≥ ${f2(result.demandShear)}`, value: `${result.ratioShear}%`, ok: result.shearOk, note: result.sec.shape === "chs" ? `Fcr = ${formatDisplayValue(result.shear.Fcr, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}` : `${result.sec.shape === "shs" ? "Cv2" : "Cv1"} = ${f2(result.shear.Cv2 ?? result.shear.Cv1)}` },
+            { label: designMethod === "LRFD" ? "φVn ≥ |Vu|" : "Vn/Ω ≥ |Va|", formula: designMethod === "LRFD" ? "φVn" : "Vn / Ω", sub: result.isLRFD ? `φv = ${f2(result.shear.phiV)}，${comparison(result.shear.phiVn_tf, result.demandShear, true, "force")}` : `Ωv = ${f2(result.shear.omgV)}，${comparison(result.shear.VnOmega_tf, result.demandShear, true, "force")}`, value: `${result.ratioShear}%`, ok: result.shearOk, note: result.sec.shape === "chs" ? `Fcr = ${formatDisplayValue(result.shear.Fcr, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}` : `${result.sec.shape === "shs" ? "Cv2" : "Cv1"} = ${f2(result.shear.Cv2 ?? result.shear.Cv1)}` },
           ]},
           { group: "撓度與使用性", items: [
-          { label: "活載重撓度", formula: "ΔL ≤ L / limit", sub: `${f2(result.deflection.deltaL)} ≤ ${f2(result.allowLive)}`, value: result.deflStatus === "skipped" ? "未檢核" : `${formatDisplayValue(result.deflection.deltaL, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(result.allowLive, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}`, ok: result.deflStatus === "skipped" ? null : result.deflection.deltaL <= result.allowLive, note: `限值：L/${$("limL").value}` },
-          { label: "總撓度", formula: "ΔT ≤ L / limit", sub: `${f2(result.deflection.deltaT)} ≤ ${f2(result.allowTotal)}`, value: result.deflStatus === "skipped" ? "未檢核" : `${formatDisplayValue(result.deflection.deltaT, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(result.allowTotal, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}`, ok: result.deflStatus === "skipped" ? null : result.deflection.deltaT <= result.allowTotal, note: `限值：L/${$("limT").value}` },
+          { label: "活載重撓度", formula: "ΔL ≤ L / limit", sub: !previousFormat && result.deflStatus === "skipped" ? "未輸入服務載重" : comparison(result.deflection.deltaL, result.allowLive, false, "deflection"), value: result.deflStatus === "skipped" ? "未檢核" : `${formatDisplayValue(result.deflection.deltaL, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(result.allowLive, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}`, ok: result.deflStatus === "skipped" ? null : result.deflection.deltaL <= result.allowLive, note: `限值：L/${$("limL").value}` },
+          { label: "總撓度", formula: "ΔT ≤ L / limit", sub: !previousFormat && result.deflStatus === "skipped" ? "未輸入服務載重" : comparison(result.deflection.deltaT, result.allowTotal, false, "deflection"), value: result.deflStatus === "skipped" ? "未檢核" : `${formatDisplayValue(result.deflection.deltaT, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(result.allowTotal, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}`, ok: result.deflStatus === "skipped" ? null : result.deflection.deltaT <= result.allowTotal, note: `限值：L/${$("limT").value}` },
         ]},
       ],
       summary: summaryState,
@@ -1991,9 +1997,9 @@
     return fields;
   }
 
-  function buildBeamSourcePayload(result = runCheck(), replayV11 = false) {
+  function buildBeamSourcePayload(result = runCheck(), sourceVersion = "") {
     if (!result) return null;
-    const reportConfig = buildBeamReportConfig(result, replayV11);
+    const reportConfig = buildBeamReportConfig(result, sourceVersion);
     const reportTrace = SteelFormalUI.buildReportTrace(reportConfig);
     return {
       schemaVersion: 1,
@@ -2080,10 +2086,10 @@
   }
 
   function validateBeamSourcePayload(payload) {
-    const replayV11 = /^v?1\.1$/i.test(String(payload?.tool?.version || "").trim());
+    const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: replayV11 ? "V1.1" : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -2111,19 +2117,19 @@
         if (!transfer.validPacket(adopted.station) || adopted.stationText !== transfer.stationText(adopted.station)
             || ![adopted.moment, adopted.shear, adopted.spanCm].every(Number.isFinite)) throw new Error("站位快照與來源紀錄不一致。");
       }
-      const replayV11 = /^v?1\.1$/i.test(String(payload.tool.version).trim());
+      const sourceVersion = SteelFormalUI.normalizeReportVersion(payload.tool.version);
       stateChanged = true;
-      const replayResult = applyBeamSourceState(payload, replayV11);
-      const replay = replayResult ? buildBeamSourcePayload(replayResult, replayV11) : null;
+      const replayResult = applyBeamSourceState(payload, sourceVersion === "v1.1");
+      const replay = replayResult ? buildBeamSourcePayload(replayResult, sourceVersion) : null;
       if (!replay || replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay?.calculationFingerprint || "無法計算"}）。`);
       }
       persistInputDraft();
       window.dispatchEvent(new Event("steel-beam-source-restored"));
-      if (replayV11) {
+      if (sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) {
         const updated = buildBeamSourcePayload();
         if (!updated) throw new Error("舊案已核對，新版無法完成重算。");
-        setInputStatus(`已核對 V1.1 原始計算 ${payload.calculationFingerprint}，已依 V1.2 重算，請另存新版來源 JSON｜${updated.calculationFingerprint}`);
+        setInputStatus(`已核對 ${sourceVersion.toUpperCase()} 原始計算 ${payload.calculationFingerprint}，已依 ${TOOL_METADATA.version} 重算，請另存新版來源 JSON｜${updated.calculationFingerprint}`);
       } else {
         setInputStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
       }

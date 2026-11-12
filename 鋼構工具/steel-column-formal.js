@@ -1634,7 +1634,13 @@
     return result;
   }
 
-  function buildColumnReportConfig(result, replayV11 = false) {
+  function buildColumnReportConfig(result, sourceVersion = "") {
+    const replayV11 = sourceVersion === "v1.1";
+    const previousFormat = replayV11 || sourceVersion === "v1.2";
+    function comparison(left, right, minimum, kind) {
+      if (previousFormat) return `${f2(left)} ${minimum ? "≥" : "≤"} ${f2(right)}`;
+      return formatSteelMemberComparison(left, right, minimum, getQuantityUnit(kind), convertLegacyValue(1, kind, unitMode));
+    }
     const summaryState = getColumnReportSummaryState(result);
     return {
       title: "鋼柱正式規範核算計算書",
@@ -1677,7 +1683,7 @@
             { group: "軸壓強度", items: [
               { label: "Fe", formula: "π²E/(KL/r)²", sub: `π² × ${f0(result.E)} / ${f1(result.KLrMax)}² = ${f0(result.pn.Fe)}`, value: formatDisplayValue(result.pn.Fe, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress"), note: `第六章受壓構材｜控制 ${getColumnAxisDisplay(result.ctrlAxis)}` },
               { label: "Fcr", formula: result.pn.zone === "inelastic" ? "0.658^(Fy/Fe)Fy" : "0.877Fe", value: formatDisplayValue(result.pn.Fcr, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress"), note: `挫屈區段：${getColumnZoneLabel(result.pn.zone)}` },
-              { label: designMethod === "LRFD" ? "φPn ≥ |Pu|" : "Pa ≥ |Pa|", formula: designMethod === "LRFD" ? "φcPn" : "容許軸壓", sub: result.isLRFD ? `φc = ${f2(Steel.PHI.compress)}，${f2(result.designPcTf)} ≥ ${f2(result.PuTf)} ｜ KxLx/rx = ${f1(result.KLrX)}，KyLy/ry = ${f1(result.KLrY)}` : `Ωc = ${f2(Steel.OMEGA.compress)}，Pa = ${f2(result.designPcTf)} ≥ ${f2(result.PuTf)} ｜ KxLx/rx = ${f1(result.KLrX)}，KyLy/ry = ${f1(result.KLrY)}`, value: `${result.ratioAx}%`, ok: result.axialOk, note: `控制 KL/r = ${f1(result.KLrMax)}` },
+              { label: designMethod === "LRFD" ? "φPn ≥ |Pu|" : "Pa ≥ |Pa|", formula: designMethod === "LRFD" ? "φcPn" : "容許軸壓", sub: result.isLRFD ? `φc = ${f2(Steel.PHI.compress)}，${comparison(result.designPcTf, result.PuTf, true, "force")} ｜ KxLx/rx = ${f1(result.KLrX)}，KyLy/ry = ${f1(result.KLrY)}` : `${previousFormat ? `Ωc = ${f2(Steel.OMEGA.compress)}，Pa` : "Pa = Fa × A"} = ${comparison(result.designPcTf, result.PuTf, true, "force")} ｜ KxLx/rx = ${f1(result.KLrX)}，KyLy/ry = ${f1(result.KLrY)}`, value: `${result.ratioAx}%`, ok: result.axialOk, note: `控制 KL/r = ${f1(result.KLrMax)}` },
             ]},
           { group: "互制檢核", items: [{ label: "互制狀態", formula: "第八章組合力互制式", sub: `${result.isLRFD ? `φb = ${f2(Steel.PHI.flexure)}` : `Ωb = ${f2(Steel.OMEGA.flexure)}`} ｜ ${result.interDetail.join(" ｜ ")}`, value: result.interRatioText, ok: result.interOk, note: `控制軸向：${getColumnAxisDisplay(result.ctrlAxis)}` }] },
       ],
@@ -1697,9 +1703,9 @@
     return fields;
   }
 
-  function buildColumnSourcePayload(result = runCheck(), replayV11 = false) {
+  function buildColumnSourcePayload(result = runCheck(), sourceVersion = "") {
     if (!result) return null;
-    const reportConfig = buildColumnReportConfig(result, replayV11);
+    const reportConfig = buildColumnReportConfig(result, sourceVersion);
     const reportTrace = SteelFormalUI.buildReportTrace(reportConfig);
     return {
       schemaVersion: 1,
@@ -1780,10 +1786,10 @@
   }
 
   function validateColumnSourcePayload(payload) {
-    const replayV11 = /^v?1\.1$/i.test(String(payload?.tool?.version || "").trim());
+    const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: replayV11 ? "V1.1" : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -1805,17 +1811,17 @@
       const payload = validateColumnSourcePayload(await SteelFormalUI.readCalculationSourceFile(file, {
         expectedToolId: TOOL_METADATA.id,
       }));
-      const replayV11 = /^v?1\.1$/i.test(String(payload.tool.version).trim());
+      const sourceVersion = SteelFormalUI.normalizeReportVersion(payload.tool.version);
       stateChanged = true;
-      const replayResult = applyColumnSourceState(payload, replayV11);
-      const replay = replayResult ? buildColumnSourcePayload(replayResult, replayV11) : null;
+      const replayResult = applyColumnSourceState(payload, sourceVersion === "v1.1");
+      const replay = replayResult ? buildColumnSourcePayload(replayResult, sourceVersion) : null;
       if (!replay || replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay?.calculationFingerprint || "無法計算"}）。`);
       }
-      if (replayV11) {
+      if (sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) {
         const updated = buildColumnSourcePayload();
         if (!updated) throw new Error("舊案已核對，新版無法完成重算。");
-        setInputStatus(`已核對 V1.1 原始計算 ${payload.calculationFingerprint}，已依 V1.2 重算，請另存新版來源 JSON｜${updated.calculationFingerprint}`);
+        setInputStatus(`已核對 ${sourceVersion.toUpperCase()} 原始計算 ${payload.calculationFingerprint}，已依 ${TOOL_METADATA.version} 重算，請另存新版來源 JSON｜${updated.calculationFingerprint}`);
       } else {
         setInputStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
       }
