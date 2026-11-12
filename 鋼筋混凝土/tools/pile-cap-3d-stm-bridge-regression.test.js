@@ -50,9 +50,11 @@ async function main() {
     const context = await browser.newContext({ viewport:{ width:1440, height:1100 } });
     const loadComponentPackage = LoadCombo.createComponentPackage({
       generatedAt:'2026-08-26T01:02:03.000Z',
-      source:{ tool:'analysis-export', label:'橋接分析模型 A', version:'2026.1', analysisId:'ANA-PC3D-001', caseSet:'ULS 基本工況' },
+      source:{ tool:'平面剛架分析', label:'橋接分析模型 A', version:'2026.1', analysisId:'ANA-PC3D-001', caseSet:'ULS 基本工況' },
+      signConvention:{ V:'foundation-action-along-frame-global-x' },
       forces:{
         P:{ D:300, L:50, W:0, E:0 },
+        V:{ D:0, L:0, W:2, E:-3 },
         Mx:{ D:0, L:0, W:100, E:0 },
         My:{ D:0, L:0, W:0, E:100 },
       },
@@ -88,6 +90,7 @@ async function main() {
     };
     await foundation.waitForFunction(() => !document.querySelector('#btnAdoptPileCapLoadComponents').hidden);
     assert.match(await foundation.locator('#pileCapLoadComponentCandidate').innerText(), /橋接分析模型 A.*ANA-PC3D-001.*Pu \(tf\).*W 100\.00.*E 100\.00/s);
+    assert.match(await foundation.locator('#pileCapLoadComponentCandidate').innerText(), /水平作用力 H=−Rx.*W=2、E=-3/);
     await foundation.click('#btnAdoptPileCapLoadComponents');
     await foundation.waitForFunction(() => window.inspectPileCapLoadComponentSource?.().valid === true);
     assert.equal(await foundation.inputValue('#pileCap3DSTMCaseMode'), 'auto-lrfd');
@@ -113,6 +116,7 @@ async function main() {
     assert.equal(sourcePayload.model.loadCombinationSource.inputForces.Mux.W, 100);
     assert.equal(sourcePayload.model.loadCombinationSource.inputForces.Muy.E, 100);
     assert.equal(sourcePayload.model.loadCombinationSource.inputSource.source.analysisId, 'ANA-PC3D-001');
+    assert.match(sourcePayload.model.loadCombinationSource.inputSource.source.caseSet, /剛架 \+X，tf.*W=2、E=-3/);
     assert.equal(sourcePayload.model.loadCombinationSource.inputSource.transport.kind, 'force-picker');
     assert.match(sourcePayload.model.loadCombinationSource.inputSource.transport.contentSha256, /^[0-9a-f]{64}$/);
     assert.deepEqual(sourcePayload.model.reactions.map(item => item.reactionTf), [105,105,105,105]);
@@ -196,6 +200,7 @@ async function main() {
       '基本分量匯入來源',
       '橋接分析模型 A',
       'ANA-PC3D-001',
+      '抗滑及側向設計另核',
       '基本載重分量',
       '1.4D',
       '1.2D + 1.0L + 1.0W',
@@ -242,6 +247,16 @@ async function main() {
     await fileImport.click('#btnClearPileCapLoadComponentSource');
     assert.equal(await fileImport.evaluate(() => window.inspectPileCapLoadComponentSource().exists), false);
     assert.equal(await fileImport.inputValue('#pPD'), '300', 'clearing provenance preserves adopted numeric fields');
+    const oldPackage=structuredClone(loadComponentPackage);
+    delete oldPackage.forces.V;
+    delete oldPackage.signConvention.V;
+    const readCandidate = packet => fileImport.evaluate(value => window.loadPileCapLoadComponentJsonFile(new File([JSON.stringify(value)],'frame.json')), packet);
+    await readCandidate(oldPackage);
+    assert.match(await fileImport.locator('#pileCapLoadComponentCandidate').innerText(), /來源缺少有方向的水平作用力/);
+    const incomplete=structuredClone(loadComponentPackage);
+    incomplete.forces.V.E=null;
+    assert.equal(await readCandidate(incomplete), null);
+    assert.match(await fileImport.locator('#pileCapLoadComponentSourceStatus').innerText(), /須附完整有號/);
 
     const jointReactionCsv = [
       'TABLE:  "Joint Reactions"',

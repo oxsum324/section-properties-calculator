@@ -239,7 +239,7 @@
           <div><label for="foundationTransferCaseW">W 風力</label><select id="foundationTransferCaseW" onchange="updateFoundationTransferCase('W',this.value)"></select></div>
           <div><label for="foundationTransferCaseE">E 地震力</label><select id="foundationTransferCaseE" onchange="updateFoundationTransferCase('E',this.value)"></select></div>
         </div>
-        <div class="hint">逐一以因子 1.0 重算選定的基本案例，不從已因數化組合反推。P 採節點向上支承反力為壓力正；基礎作用矩 = −構架支承反力矩 Mz × 座標方向倍率，另一方向為 0。勾選「含自重」時，D 必須對應第一個載重案例。</div>
+        <div class="hint">逐一以因子 1.0 重算選定案例。P 採向上支承反力為壓力正，基礎作用矩 = −Mz × 座標方向倍率。水平作用力 H = −Rx，沿剛架全域 +X 為正。樁帽三維 STM 採用 P、Mx、My；H 留作抗滑及側向設計核對。勾選「含自重」時，D 必須對應第一個載重案例。</div>
         <div class="flex-row" data-ui-part="foundation-actions">
           <button class="btn btn-ghost btn-sm" onclick="previewFoundationLoadComponents()">預覽分量</button>
           <button class="btn btn-accent btn-sm" onclick="downloadFoundationLoadComponents()">下載分析 JSON</button>
@@ -822,6 +822,7 @@ function buildFoundationLoadComponentPackage() {
   const nodeIndex = state.nodes.findIndex(item => item.id === node.id);
   const forces = {
     P: { D:0, L:0, W:0, E:0 },
+    V: { D:0, L:0, W:0, E:0 },
     Mx: { D:0, L:0, W:0, E:0 },
     My: { D:0, L:0, W:0, E:0 },
   };
@@ -838,12 +839,13 @@ function buildFoundationLoadComponentPackage() {
     if (!solution.solverDiagnostics?.passed || !solution.equilibrium?.ok) {
       throw new Error(`${loadKey} 基本載重案例未通過求解診斷或分量式平衡檢核，不得傳送基礎反力。`);
     }
-    if (![solution.reactions[nodeIndex * 3 + 1], solution.reactions[nodeIndex * 3 + 2]].every(Number.isFinite)) {
+    if (![0,1,2].every(offset => Number.isFinite(solution.reactions[nodeIndex * 3 + offset]))) {
       throw new Error(`${loadKey} 基本載重案例的支承反力不是有限數值，不得傳送。`);
     }
     const supportRy = clean(solution.reactions[nodeIndex * 3 + 1]);
     const supportMz = clean(solution.reactions[nodeIndex * 3 + 2]);
     forces.P[loadKey] = supportRy;
+    forces.V[loadKey] = clean(-solution.reactions[nodeIndex * 3]);
     forces[settings.momentAxis][loadKey] = clean(-supportMz * settings.momentSign);
   });
   const project = getFrameProjectInfo();
@@ -860,6 +862,7 @@ function buildFoundationLoadComponentPackage() {
       analysisId: `frame:${projectToken}:N${node.id}`,
       caseSet: `${mappedCases}；基礎作用矩=-Mz×${settings.momentSign}`,
     },
+    signConvention:{ V:'foundation-action-along-frame-global-x' },
     forces,
   });
 }
@@ -875,6 +878,7 @@ function formatFoundationLoadComponentPackage(packageData) {
     `P (tf，壓+)：${row('P')}`,
     `Mx (tf·m)：${row('Mx')}`,
     `My (tf·m)：${row('My')}`,
+    `H = −Rx (tf，剛架 +X)：${row('V')}。抗滑及側向設計另核。`,
     '接收端仍須按「採用候選分量」才會寫入樁帽正式欄位。',
   ].join('\n');
 }

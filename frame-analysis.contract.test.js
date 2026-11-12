@@ -2276,6 +2276,9 @@ assertNear(foundationComponentPackage.forces.P.D, 10, 1e-8, 'rigid frame maps D 
 assertNear(foundationComponentPackage.forces.P.L, 5, 1e-8, 'rigid frame maps L vertical support reaction to compression-positive P');
 assertNear(foundationComponentPackage.forces.My.W, -12, 1e-8, 'rigid frame maps W support Mz to foundation action My');
 assertNear(foundationComponentPackage.forces.My.E, 18, 1e-8, 'rigid frame maps E support Mz to foundation action My');
+assertNear(foundationComponentPackage.forces.V.W, 2, 1e-8, 'frame wind +2 tf results in foundation action +2 tf');
+assertNear(foundationComponentPackage.forces.V.E, -3, 1e-8, 'frame earthquake -3 tf preserves horizontal force sign');
+assert(foundationComponentPackage.signConvention.V === 'foundation-action-along-frame-global-x', 'frame horizontal action declares its reference axis', foundationComponentPackage.signConvention.V);
 assertNear(foundationComponentPackage.forces.Mx.W, 0, 1e-12, 'rigid frame leaves orthogonal foundation moment at zero');
 assert(foundationComponentPackage.source.analysisId === 'frame:PC-001:N1', 'rigid frame component package preserves project and support identity', foundationComponentPackage.source.analysisId);
 const savedFoundationTransfer = foundationTransferRuntime.context.collectProjectData().foundationTransfer;

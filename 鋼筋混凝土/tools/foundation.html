@@ -2310,6 +2310,12 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   function normalizePileCapLoadComponentPackage(raw) {
     if (!window.LoadCombo?.normalizeComponentPackage) throw new Error('缺少共用基本載重分量驗證核心。');
     const normalized = window.LoadCombo.normalizeComponentPackage(raw);
+    if (normalized.signConvention.V === 'foundation-action-along-frame-global-x') {
+      const original = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!['D','L','W','E'].every(key => typeof original.forces?.V?.[key] === 'number' && Number.isFinite(original.forces.V[key]))) {
+        throw new Error('剛架水平作用力 H 須附完整有號 D／L／W／E 分量。');
+      }
+    }
     ['P', 'Mx', 'My'].forEach(forceKey => {
       if (!normalized.forces[forceKey]) throw new Error(`樁帽自動組合需要 ${forceKey} 的 D／L／W／E 基本分量。`);
     });
@@ -2323,6 +2329,14 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       Mux:{ ...normalized.forces.Mx },
       Muy:{ ...normalized.forces.My },
     };
+  }
+
+  function pileCapHorizontalActionText(pkg) {
+    if (pkg.signConvention.V === 'foundation-action-along-frame-global-x' && pkg.forces.V) {
+      const values=['D','L','W','E'].map(key => key + '=' + pkg.forces.V[key]).join('、');
+      return `水平作用力 H=−Rx（剛架 +X，tf）${values}；抗滑及側向設計另核。`;
+    }
+    return pkg.source.tool === '平面剛架分析' ? '來源缺少有方向的水平作用力，抗滑及側向設計待核。' : '';
   }
 
   function pileCapLoadComponentFieldMap() {
@@ -2402,7 +2416,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const record = state.record;
     const source = record.package.source;
     showPileCapLoadComponentSourceStatus(
-      `已採用 ${source.label}｜${source.tool}${source.version ? ` ${source.version}` : ''}｜工況集 ${source.caseSet || '—'}｜${record.transport.label}｜SHA-256 ${record.transport.contentSha256.slice(0, 16)}…`,
+      [`已採用 ${source.label}｜${source.tool}${source.version ? ` ${source.version}` : ''}｜工況集 ${source.caseSet || '—'}｜${record.transport.label}｜SHA-256 ${record.transport.contentSha256.slice(0, 16)}…`, pileCapHorizontalActionText(record.package)].filter(Boolean).join('｜'),
       'pass'
     );
     return state;
@@ -2418,8 +2432,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       `Pu (tf)：${row('Pu')}`,
       `Mux (tf·m)：${row('Mux')}`,
       `Muy (tf·m)：${row('Muy')}`,
+      pileCapHorizontalActionText(candidate.package),
       `傳遞：${candidate.transport.label}｜SHA-256 ${candidate.transport.contentSha256}`,
-    ].join('\n');
+    ].filter(Boolean).join('\n');
   }
 
   function setPileCapLoadComponentCandidate(packageData, transport) {
@@ -2865,7 +2880,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     return {
       schemaVersion:record.package.schemaVersion,
       generatedAt:record.package.generatedAt,
-      source:{ ...record.package.source },
+      source:record.package.signConvention.V === 'foundation-action-along-frame-global-x'
+        ? { ...record.package.source, caseSet:[record.package.source.caseSet, pileCapHorizontalActionText(record.package)].filter(Boolean).join('｜') }
+        : { ...record.package.source },
       signConvention:{
         P:record.package.signConvention.P,
         Mx:record.package.signConvention.Mx,
