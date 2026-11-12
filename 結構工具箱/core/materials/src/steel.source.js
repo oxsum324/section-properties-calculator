@@ -522,13 +522,117 @@
     return Math.sqrt((1.6*GA*GB + 4*(GA+GB) + 7.5) / (GA + GB + 7.5));
   }
 
+  // 台灣鋼結構容許應力設計法，第 4.5、6.3 節及附錄一；尺寸 cm，應力 kgf/cm²。
+  function asdWebWidth(sec, stress) {
+    const rootStress = Math.sqrt(stress / 1000);
+    const plateRatio = sec.hw / sec.tw * rootStress;
+    // 式 A-1-8 只在板件進入有效寬度折減段後使用；低應力時保留全寬。
+    const fullWidthLimit = (67 + Math.sqrt(67**2 - 4 * 67 * 11.8)) / 2;
+    if (plateRatio <= fullWidthLimit) return sec.hw;
+    return 67 * sec.tw / rootStress * (1 - 11.8 / plateRatio);
+  }
+
+  function asdAxialStress(KLr, QFy) {
+    const Cc = Math.sqrt(2 * PI**2 * ES / QFy);
+    const r = KLr / Cc;
+    if (r >= 1) return 12 * PI**2 * ES / (23 * KLr**2);
+    return (1 - r*r/2) * QFy / (5/3 + 3*r/8 - r*r*r/8);
+  }
+
+  function hColumnAsd(sec, Fy, KLr) {
+    const fyTf = Fy / 1000;
+    const lambdaF = sec.B / (2 * sec.tf);
+    const lambdaW = sec.hw / sec.tw;
+    const lrf_comp = 25 / Math.sqrt(fyTf); // 表 4.5-1，熱軋對稱 I 形軸壓柱
+    const lrw_comp = 68 / Math.sqrt(fyTf);
+    const flangeSlender = lambdaF > lrf_comp;
+    const webSlender = lambdaW > lrw_comp;
+    const kc = lambdaW > 70 ? 4.05 / lambdaW**0.46 : 1;
+    const scaledFlange = lambdaF * Math.sqrt(fyTf / kc);
+    let Qs = 1;
+    if (flangeSlender) {
+      Qs = scaledFlange >= 52 ? 1840 / scaledFlange**2 : Math.min(1, 1.293 - 0.01165 * scaledFlange);
+    }
+    // 式 A-1-8、10、11 聯立。Fa 隨 Qa 非遞減，有效寬度隨採用應力非遞增。
+    const qaAt = qa => 1 - (sec.hw - asdWebWidth(sec, asdAxialStress(KLr, Qs * qa * Fy) * Qs)) * sec.tw / sec.A;
+    let Qa = 1;
+    if (webSlender && qaAt(1) < 1) {
+      let lo = 1 - sec.hw * sec.tw / sec.A;
+      let hi = 1;
+      for (let i = 0; i < 50; i++) {
+        const mid = (lo + hi) / 2;
+        if (qaAt(mid) >= mid) lo = mid;
+        else hi = mid;
+      }
+      Qa = (lo + hi) / 2;
+    }
+    const Q = Qs * Qa;
+    const Fa = asdAxialStress(KLr, Q * Fy);
+    const Cc = Math.sqrt(2 * PI**2 * ES / (Q * Fy));
+    const be = webSlender ? asdWebWidth(sec, Fa * Qs) : sec.hw;
+    return { cls: {lambdaF, lambdaW, lrf_comp, lrw_comp, flangeSlender, webSlender, isSlender: flangeSlender || webSlender},
+      kc, Qs, Qa, Q, be, Fa, Cc, zone: KLr < Cc ? 'inelastic' : 'elastic' };
+  }
+
+  // 附錄一第 4 款：受壓細長板件 H 型柱之軸力及雙軸彎矩互制。
+  function calcSlenderHColumnAsd(sec, Fy, pn, Lb, Cb, Pu, Mx, My, Cmx, Cmy) {
+    const local = pn.asd;
+    const fyTf = Fy / 1000;
+    const flangeArea = sec.B * sec.tf;
+    const flangeIy = sec.tf * sec.B**3 / 12;
+    // 標稱壓力翼板 + 1/3 受壓半腹板。翼板外剩餘面積及 Iy 含根部圓角。
+    const areaT = flangeArea + (sec.A - 2 * flangeArea) / 6;
+    const iyT = flangeIy + (sec.Iy - 2 * flangeIy) / 6;
+    const rT = Math.sqrt(iyT / areaT);
+    const lengthRatio = Lb / rT;
+    const cap = 0.6 * Fy * local.Qs;
+    function majorStress(cb) {
+      const scaled = fyTf * lengthRatio**2 / cb;
+      if (scaled < 7160) return cap;
+      const fromRadius = scaled <= 35800 ? (2/3 - scaled / 107600) * fyTf : 12000 * cb / lengthRatio**2;
+      const fromFlange = 840 * cb * flangeArea / (Lb * sec.H);
+      return Math.min(cap, 1000 * Math.max(fromRadius, fromFlange));
+    }
+    const cbUsed = Math.min(Cb, 2.3);
+    const Fbx = majorStress(cbUsed);
+    const Fby = cap;
+    const stableFbx = majorStress(1); // 有側撐構架，式 8.2-1 採 Cb＝1
+    // 腹板有效帶留在兩翼板邊。以容許壓應力包絡取一致有效斷面，保留根部圓角。
+    const be = local.cls.webSlender ? asdWebWidth(sec, Math.max(local.Fa * local.Qs, Fbx, Fby)) : sec.hw;
+    const omitted = sec.hw - be;
+    const Sx = (sec.Ix - sec.tw * omitted**3 / 12) / (sec.H / 2);
+    const Sy = (sec.Iy - omitted * sec.tw**3 / 12) / (sec.B / 2);
+    const fa = Math.abs(Pu) / sec.A, fbx = Math.abs(Mx) / Sx, fby = Math.abs(My) / Sy;
+    const Fex = 12 * PI**2 * ES / (23 * pn.KLr_x**2), Fey = 12 * PI**2 * ES / (23 * pn.KLr_y**2);
+    const ratio = fa / local.Fa;
+    const simplified = ratio <= 0.15;
+    function amplified(fb, Fb, Fe, Cm) {
+      if (fb === 0) return 0;
+      return fa >= Fe ? Infinity : Cm * fb / (Fb * (1 - fa / Fe));
+    }
+    const IR1 = simplified ? ratio + fbx/Fbx + fby/Fby
+      : ratio + amplified(fbx, stableFbx, Fex, Cmx) + amplified(fby, Fby, Fey, Cmy);
+    const IR2 = simplified ? 0 : fa/(0.6 * Fy * local.Q) + fbx/Fbx + fby/Fby;
+    const plateGirder = Math.abs(Mx) > 0 && local.cls.lambdaW > 260 / Math.sqrt(fyTf);
+    return { fa, fbx, fby, Fbx, stableFbx, Fby, Fex, Fey, cbUsed, rT, be, Sx, Sy, IR1, IR2, ratio,
+      eqUsed: simplified ? 'simplified' : 'full', plateGirder, ok: !plateGirder && Math.max(IR1, IR2) <= 1 };
+  }
+
   // ── 軸壓強度 (AISC E3 + E7 + ASD 傳統) ──
   function calcPn(sec, Fy, KLr_x, KLr_y) {
+    return hCompression(sec, Fy, KLr_x, KLr_y, false);
+  }
+
+  function calcPnForSourceReplay(sec, Fy, KLr_x, KLr_y) {
+    return hCompression(sec, Fy, KLr_x, KLr_y, true);
+  }
+
+  function hCompression(sec, Fy, KLr_x, KLr_y, replay) {
     const E = ES;
     const KLr = Math.max(KLr_x, KLr_y);
     const axis = KLr_x >= KLr_y ? 'x' : 'y';
     const Fe = PI * PI * E / (KLr * KLr);
-    const Cc = Math.sqrt(2 * PI * PI * E / Fy);
+
 
     // Q (slender element reduction)
     const qr = _calcQ(sec, Fy);
@@ -546,20 +650,14 @@
     }
     const Pn = Fcr * sec.A;
 
-    // ASD 傳統 Fa (AISC 9th Ed / 台灣鋼構容許應力法)
-    let Fa;
-    if (KLr < Cc) {
-      const r = KLr / Cc;
-      const FS = 5/3 + 3*r/8 - r*r*r/8;
-      Fa = (1 - r*r/2) * Fy / FS;
-    } else {
-      Fa = 12 * PI * PI * E / (23 * KLr * KLr);
-    }
+    const asd = replay ? null : hColumnAsd(sec, Fy, KLr);
+    const Cc = asd ? asd.Cc : Math.sqrt(2 * PI * PI * E / Fy);
+    const Fa = asd ? asd.Fa : asdAxialStress(KLr, Fy);
     const Pa_asd = Fa * sec.A;
 
     return {
       KLr, KLr_x, KLr_y, axis, Fe, Fcr, Pn, zone, limit, Cc, Q, qr,
-      Fa, Pa_asd,
+      asd, Fa, Pa_asd,
       // LRFD
       phiPn:      PHI.compress * Pn,
       phiPn_tf:   PHI.compress * Pn / 1000,
@@ -1388,6 +1486,8 @@
     calcCb,
     calcK,
     calcPn,
+    calcPnForSourceReplay,
+    calcSlenderHColumnAsd,
     calcInteraction,
     calcInteractionASD,
     calcB1,

@@ -88,7 +88,7 @@ const steelDirectPrintPages = [
   { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.3' },
   { key: 'steel-plate-formal', url: '/plate-check.html', pageTitle: '鋼構連接板正式規範核算工具 V1.1' },
   { key: 'steel-beam-formal', url: '/steel-beam-formal.html', pageTitle: '鋼梁正式規範核算工具 V1.2.1' },
-  { key: 'steel-column-formal', url: '/steel-column-formal.html', pageTitle: '鋼柱正式規範核算工具 V1.2.1' },
+  { key: 'steel-column-formal', url: '/steel-column-formal.html', pageTitle: '鋼柱正式規範核算工具 V1.3' },
 ];
 
 const FORMAL_PROJECT_META = {

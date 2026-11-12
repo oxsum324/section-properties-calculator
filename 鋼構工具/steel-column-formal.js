@@ -568,6 +568,11 @@
   function inputFail(message) {
     resultState = null;
     $("propsCard").hidden = true;
+    document.querySelectorAll(".report-paper > :not(.report-toolbar):not([hidden])").forEach(block => {
+      block.dataset.columnInvalid = "1";
+      block.hidden = true;
+    });
+    $("columnFlowBody").replaceChildren();
     setColumnReportValidationMessage(message);
     setInputStatus(message);
     workflow?.refresh();
@@ -948,8 +953,8 @@
       },
       {
         label: "軸壓區段",
-        value: getColumnZoneLabel(result.pn.zone),
-        note: `Fcr = ${formatDisplayValue(result.pn.Fcr, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}`,
+        value: getColumnZoneLabel(result.local?.zone || result.pn.zone),
+        note: `${result.local ? "Fa" : "Fcr"} = ${formatDisplayValue(result.local?.Fa ?? result.pn.Fcr, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}`,
         tone: "neutral",
       },
       {
@@ -969,7 +974,29 @@
     ];
   }
 
+  const f4 = value => Number(value).toFixed(4);
+  function appendixSteps(result) {
+    const {local, bending, sec} = result;
+    const {cls} = local;
+    return [
+      { group: "1. 熱軋雙對稱 H 型鋼，表 4.5-1",
+        body: `翼板 b/t = ${f2(cls.lambdaF)}，λr = ${f2(cls.lrf_comp)}；腹板 h/tw = ${f2(cls.lambdaW)}，λr = ${f2(cls.lrw_comp)}。\nA = ${f2(sec.A)} cm²，rx / ry = ${f2(sec.rx)} / ${f2(sec.ry)} cm。` },
+      { group: "2. 附錄一有效寬度與容許軸壓",
+        body: [`kc = ${f4(local.kc)}，Qs = ${f4(local.Qs)}，Qa = ${f4(local.Qa)}，Q = Qs × Qa = ${f4(local.Q)}`,
+          `軸壓腹板 be = ${f4(local.be)} cm，依 Fa × Qs 求有效寬度；有效面積 = ${f4(local.Qa * sec.A)} cm²。`,
+          `KxLx/rx = ${f2(result.KLrX)}，KyLy/ry = ${f2(result.KLrY)}；Cc′ = √(2π²E/(QFy)) = ${f2(local.Cc)}。`,
+          `${local.zone === "elastic" ? "式 (A-1-13)" : "式 (A-1-11)"}，Fa = ${f2(local.Fa)} kgf/cm²；Pa = Fa × A = ${f2(result.designPcTf)} tf。`].join("\n") },
+      ...(result.MuxTf || result.MuyTf ? [{ group: "3. 容許撓曲與第八章互制",
+        body: [`腹板按最大容許壓應力取有效寬，be = ${f4(bending.be)} cm；Sx / Sy（有效）= ${f4(bending.Sx)} / ${f4(bending.Sy)} cm³。`,
+          `無側移、無短期應力提高。§7.2.3 與 0.60FyQs 控制強軸，弱軸上限 0.60FyQs；rT = ${f4(bending.rT)} cm，Cb = ${f2(bending.cbUsed)}。`,
+          `Fbx / Fby = ${f2(bending.Fbx)} / ${f2(bending.Fby)} kgf/cm²；式 (8.2-1) 採 Cb＝1，Fbx = ${f2(bending.stableFbx)} kgf/cm²。`,
+          `fa / fbx / fby = ${f2(bending.fa)} / ${f2(bending.fbx)} / ${f2(bending.fby)} kgf/cm²。`,
+          ...result.interDetail].join("\n") }] : []),
+    ];
+  }
+
   function buildReportSteps(result) {
+    if (result.bending) return appendixSteps(result);
     const axialFactorLine = result.isLRFD
       ? `φc = ${f2(Steel.PHI.compress)}，φPn = ${f2(Steel.PHI.compress)} × ${f2(result.pn.Pn / 1000)} = ${f2(result.designPcTf)} tf`
       : `Ωc = ${f2(Steel.OMEGA.compress)}，Pn/Ωc = ${f2(result.pn.Pn / 1000)} / ${f2(Steel.OMEGA.compress)} = ${f2(result.pn.PnOmega_tf)} tf；本頁 ASD 比較值採 Pa = ${f2(result.designPcTf)} tf`;
@@ -1025,6 +1052,11 @@
   }
 
   function buildReportSymbols(result, { includeFlow = true } = {}) {
+    if (result.bending) return [
+      {sym:"Fa", desc:"附錄一容許軸壓應力，乘全斷面積 A 得容許軸力。"},
+      {sym:"Qs / Qa", desc:"未加勁翼板與加勁腹板之折減，Q = Qs × Qa。"},
+      {sym:"be", desc:"腹板有效寬度。計算互制時取容許應力包絡下的有效斷面。"},
+    ];
     const used = new Set([
       "KL/r",
       "Kx / Ky",
@@ -1038,7 +1070,7 @@
       "Mux / Muy",
       result.isLRFD ? "φMnx / φMny" : "φb / Ωb",
     ]);
-    if (result.pn.Q < 1) {
+    if ((result.local?.Q ?? result.pn.Q) < 1) {
       ["Q", "Qs / Qa"].forEach((item) => used.add(item));
     }
     if (includeFlow) {
@@ -1054,6 +1086,7 @@
   }
 
   function buildReportNotes(result) {
+    if (result.bending) return ["熱軋雙對稱 H 型鋼依容許應力設計法表 4.5-1、附錄一及第八章檢核；採無側移、未提高容許應力。"];
     const lengthDigits = unitMode === "si" ? 3 : 1;
     const lengthUnit = getQuantityUnit("memberLength");
     return [
@@ -1405,6 +1438,23 @@
   }
 
   function renderFlow(result) {
+    if (result.bending) {
+      $("columnFlowBody").replaceChildren(...appendixSteps(result).map(step => {
+        const card = document.createElement("div");
+        card.className = "step-card";
+        const title = document.createElement("h4");
+        title.textContent = step.group;
+        card.append(title);
+        for (const line of step.body.split("\n")) {
+          const item = document.createElement("div");
+          item.className = "formula";
+          item.textContent = line;
+          card.append(item);
+        }
+        return card;
+      }));
+      return;
+    }
       const axialFactorLine = result.isLRFD
         ? `<div class="formula">φc = ${f2(Steel.PHI.compress)}，φPn = ${f2(Steel.PHI.compress)} × ${f2(result.pn.Pn / 1000)} = ${f2(result.designPcTf)} tf</div>`
         : `<div class="formula">Ωc = ${f2(Steel.OMEGA.compress)}，Pn / Ωc = ${f2(result.pn.Pn / 1000)} / ${f2(Steel.OMEGA.compress)} = ${f2(result.pn.PnOmega_tf)} tf；本頁 ASD 比較值採 Pa = ${f2(result.designPcTf)} tf</div>`;
@@ -1453,7 +1503,7 @@
     `;
   }
 
-  function runCheck(replayV11 = false) {
+  function runCheck(sourceVersion = "") {
     renderFillStatus();
     clearInputStatus();
     setColumnReportValidationMessage("");
@@ -1469,7 +1519,7 @@
       if (!mm.H || !mm.B || !mm.tw || !mm.tf || mm.tf * 2 >= mm.H) {
         return inputFail("請確認 H 型鋼尺寸輸入完整且合理。");
       }
-      sec = replayV11 === true ? Steel.calcPropsForV11Replay(mm) : Steel.calcProps(mm);
+      sec = sourceVersion === "v1.1" ? Steel.calcPropsForV11Replay(mm) : Steel.calcProps(mm);
       if (!sec) return inputFail("請確認腹板厚度及圓角 R。R 須介於 0 與 min((B−tw)/2, (H−2tf)/2) mm；無圓角請填 0。");
       sec.shape = "h";
       clsC = Steel.classifyCompression(sec, Fy);
@@ -1533,8 +1583,21 @@
     const Cmy = num("inCmy") || 0.85;
     const isLRFD = designMethod === "LRFD";
 
-      const E = Steel.ES;
-      const pn = sectionType === "h" ? Steel.calcPn(sec, Fy, KLrX, KLrY) : Steel.calcPnNonslender(sec, Fy, KLrX, KLrY);
+    const E = Steel.ES;
+    const archived = ["v1.1", "v1.2", "v1.2.1"].includes(sourceVersion);
+    if (!archived) {
+      const positive = ["inFy", "inKx", "inKy", "inLx", "inLy", ...(usesLtbInput ? ["inLbx", "inCbx"] : []), ...(!isLRFD && (MuxTf || MuyTf) ? ["inCmx", "inCmy"] : [])];
+      if (positive.some(id => !Number.isFinite($(id).valueAsNumber) || $(id).valueAsNumber <= 0)) {
+        return inputFail("材料強度、有效長度係數及未支撐長度須為正值，啟用的 Cb、Cm 亦須為正值。");
+      }
+    }
+    const compression = archived ? Steel.calcPnForSourceReplay : Steel.calcPn;
+    const pn = sectionType === "h" ? compression(sec, Fy, KLrX, KLrY) : Steel.calcPnNonslender(sec, Fy, KLrX, KLrY);
+    const local = !isLRFD && pn.asd ? pn.asd : null;
+    if (local) clsC = local.cls;
+    const appendix = local?.cls.isSlender;
+    const bending = appendix ? Steel.calcSlenderHColumnAsd(sec, Fy, pn, Lbx, Cbx, PuTf * 1000, MuxTf * 1e5, MuyTf * 1e5, Cmx, Cmy) : null;
+    if (bending?.plateGirder) return inputFail("此腹板深厚比超過 260/√Fy，強軸彎矩須另依容許應力法第 7.8 節板梁規定檢核。");
     const designPcTf = isLRFD ? pn.phiPn_tf : pn.Pa_asd_tf;
     const axialOk = designPcTf >= PuTf;
     const ratioAx = designPcTf > 0 ? f1(PuTf / designPcTf * 100) : "∞";
@@ -1567,6 +1630,14 @@
         interRatioText = `${f2(ir.IR)} (${f1(ir.IR * 100)}%)`;
         if (sectionType !== "h") interDetail.push(getClosedShapeInteractionNote(sectionType));
         interDetail.push(`B1x = ${f2(B1x)}`, `B1y = ${f2(B1y)}`, `IR = ${f2(ir.IR)} ${ir.ok ? "≤" : ">"} 1.0`, `方程式：${ir.eqUsed}`);
+      } else if (bending) {
+        interOk = bending.ok;
+        const maxIR = Math.max(bending.IR1, bending.IR2);
+        interRatioText = f2(maxIR) + " (" + f1(maxIR * 100) + "%)";
+        interDetail.push("fa/Fa = " + f4(bending.ratio),
+          (bending.eqUsed === "simplified" ? "式 (8.2-3) = " : "式 (8.2-1) = ") + f4(bending.IR1));
+        if (!Number.isFinite(bending.IR1)) interDetail.push("作用壓應力已達受彎方向 F′e，式 (8.2-1) 放大分母不為正。");
+        if (bending.eqUsed === "full") interDetail.push("式 (8.2-2) = " + f4(bending.IR2));
       } else {
         const PI2 = Math.PI * Math.PI;
         const fa = PuKgf / sec.A;
@@ -1602,7 +1673,11 @@
         <div class="result-item ${clsC.isSlender ? "fail" : "ok"}"><span class="label">壁厚分類</span><span class="value">${clsC.isSlender ? "細長" : "非細長"}</span></div>
         <div class="result-item"><span class="label">${sectionType === "shs" ? "Bflat / t" : "D / t"}</span><span class="value">${f2(clsC.lambdaF)}</span></div>
       `;
-    const result = { sectionType, sec, clsC, pn, E, Fy, Kx, Ky, Lx, Ly, KLrX, KLrY, KLrMax, ctrlAxis, PuTf, MuxTf, MuyTf, Lbx, Cbx, isLRFD, designPcTf, axialOk, interOk, ratioAx, interRatioText, flexX, flexY, interDetail };
+    const result = { sectionType, sec, clsC, pn, local, bending, E, Fy, Kx, Ky, Lx, Ly, KLrX, KLrY, KLrMax, ctrlAxis, PuTf, MuxTf, MuyTf, Lbx, Cbx, isLRFD, designPcTf, axialOk, interOk, ratioAx, interRatioText, flexX, flexY, interDetail };
+    document.querySelectorAll("[data-column-invalid]").forEach(block => {
+      delete block.dataset.columnInvalid;
+      block.hidden = false;
+    });
     renderProps(sec);
     $("clsResult").innerHTML = classificationCards;
     $("clsCard").hidden = false;
@@ -1615,8 +1690,8 @@
     $("axialResult").innerHTML = `
       <div class="result-item ${axialOk ? "ok" : "fail"}"><span class="label">${isLRFD ? "φPn" : "Pa"} vs |${isLRFD ? "Pu" : "Pa"}|</span><span class="value">${formatDisplayValue(designPcTf, "force", 2)} / ${formatDisplayValue(PuTf, "force", 2)} ${getQuantityUnit("force")}</span></div>
       <div class="result-item"><span class="label">Fe</span><span class="value">${formatDisplayValue(pn.Fe, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}</span></div>
-      <div class="result-item"><span class="label">Fcr</span><span class="value">${formatDisplayValue(pn.Fcr, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}</span></div>
-      ${pn.Q < 1 ? `<div class="result-item warn"><span class="label">Q</span><span class="value">${f2(pn.Q)}</span></div>` : ""}
+      <div class="result-item"><span class="label">${local ? "Fa" : "Fcr"}</span><span class="value">${formatDisplayValue(local?.Fa ?? pn.Fcr, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}</span></div>
+      ${(local?.Q ?? pn.Q) < 1 ? `<div class="result-item warn"><span class="label">Q</span><span class="value">${f4(local?.Q ?? pn.Q)}</span></div>` : ""}
     `;
     $("axialCard").hidden = false;
     $("interResult").innerHTML = `
@@ -1682,10 +1757,11 @@
           checks: [
             { group: "軸壓強度", items: [
               { label: "Fe", formula: "π²E/(KL/r)²", sub: `π² × ${f0(result.E)} / ${f1(result.KLrMax)}² = ${f0(result.pn.Fe)}`, value: formatDisplayValue(result.pn.Fe, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress"), note: `第六章受壓構材｜控制 ${getColumnAxisDisplay(result.ctrlAxis)}` },
-              { label: "Fcr", formula: result.pn.zone === "inelastic" ? "0.658^(Fy/Fe)Fy" : "0.877Fe", value: formatDisplayValue(result.pn.Fcr, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress"), note: `挫屈區段：${getColumnZoneLabel(result.pn.zone)}` },
+              result.local ? { label: "Fa", formula: result.local.cls.isSlender ? "附錄一 Q＝Qs × Qa" : "第 6.3 節", sub: `Q = ${f4(result.local.Q)}，Cc′ = ${f2(result.local.Cc)}`, value: formatDisplayValue(result.local.Fa, "stress", 2), unit: getQuantityUnit("stress") }
+                : { label: "Fcr", formula: result.pn.zone === "inelastic" ? "0.658^(Fy/Fe)Fy" : "0.877Fe", value: formatDisplayValue(result.pn.Fcr, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress"), note: `挫屈區段：${getColumnZoneLabel(result.pn.zone)}` },
               { label: designMethod === "LRFD" ? "φPn ≥ |Pu|" : "Pa ≥ |Pa|", formula: designMethod === "LRFD" ? "φcPn" : "容許軸壓", sub: result.isLRFD ? `φc = ${f2(Steel.PHI.compress)}，${comparison(result.designPcTf, result.PuTf, true, "force")} ｜ KxLx/rx = ${f1(result.KLrX)}，KyLy/ry = ${f1(result.KLrY)}` : `${previousFormat ? `Ωc = ${f2(Steel.OMEGA.compress)}，Pa` : "Pa = Fa × A"} = ${comparison(result.designPcTf, result.PuTf, true, "force")} ｜ KxLx/rx = ${f1(result.KLrX)}，KyLy/ry = ${f1(result.KLrY)}`, value: `${result.ratioAx}%`, ok: result.axialOk, note: `控制 KL/r = ${f1(result.KLrMax)}` },
             ]},
-          { group: "互制檢核", items: [{ label: "互制狀態", formula: "第八章組合力互制式", sub: `${result.isLRFD ? `φb = ${f2(Steel.PHI.flexure)}` : `Ωb = ${f2(Steel.OMEGA.flexure)}`} ｜ ${result.interDetail.join(" ｜ ")}`, value: result.interRatioText, ok: result.interOk, note: `控制軸向：${getColumnAxisDisplay(result.ctrlAxis)}` }] },
+          { group: "互制檢核", items: [{ label: "互制狀態", formula: "第八章組合力互制式", sub: result.bending ? result.interDetail.join(" ｜ ") : `${result.isLRFD ? `φb = ${f2(Steel.PHI.flexure)}` : `Ωb = ${f2(Steel.OMEGA.flexure)}`} ｜ ${result.interDetail.join(" ｜ ")}`, value: result.interRatioText, ok: result.local && !result.MuxTf && !result.MuyTf ? null : result.interOk, note: `控制軸向：${getColumnAxisDisplay(result.ctrlAxis)}` }] },
       ],
       summary: summaryState,
       steps: buildReportSteps(result),
@@ -1763,7 +1839,7 @@
     };
   }
 
-  function applyColumnSourceState(source, replayV11 = false) {
+  function applyColumnSourceState(source, sourceVersion = "") {
     setUnitMode(source.unitMode, { convertFields: false, rerun: false, persist: false });
     setMethod(source.designMethod);
     $("projName").value = source.project?.name || "";
@@ -1781,7 +1857,7 @@
     syncSectionTypeUI();
     syncColumnProjectMetaUi();
     persistUiPrefs();
-    resultState = runCheck(replayV11);
+    resultState = runCheck(sourceVersion);
     return resultState;
   }
 
@@ -1789,7 +1865,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -1813,7 +1889,7 @@
       }));
       const sourceVersion = SteelFormalUI.normalizeReportVersion(payload.tool.version);
       stateChanged = true;
-      const replayResult = applyColumnSourceState(payload, sourceVersion === "v1.1");
+      const replayResult = applyColumnSourceState(payload, sourceVersion);
       const replay = replayResult ? buildColumnSourcePayload(replayResult, sourceVersion) : null;
       if (!replay || replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay?.calculationFingerprint || "無法計算"}）。`);

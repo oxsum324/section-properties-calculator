@@ -638,7 +638,7 @@
     },
     {
       title: '鋼柱正式頁',
-      version: 'V1.2.1',
+      version: 'V1.3',
       href: '/steel-column-formal',
       aliases: ['steel column check', '鋼柱正式檢核'],
       categories: ['member'],

@@ -200,6 +200,19 @@ assert.ok(slenderFlangePn.Pn <= 3300 * slenderFlangeH.A * (1 + 1e-12), "slender 
 // Catalog *H338x351x13x13, SM520 Fy = 3600: b/t = 13.5 just above 0.56*sqrt(E/Fy) = 13.331 -> Qs = 0.99531 (not 1.046).
 const catalogSlenderPn = Steel.calcPn(Steel.calcProps({ n: "*H338x351x13x13", H: 338, B: 351, tw: 13, tf: 13, R: 13 }), 3600, 0.001, 0.001);
 assert.ok(Math.abs(catalogSlenderPn.qr.Qs - (1.415 - 0.74 * 13.5 * Math.sqrt(3600 / 2.04e6))) < 1e-9, "catalog section just past the flange limit keeps Qs continuous below 1");
+// 台灣容許應力設計法附錄一。翼板臨界案用獨立截面積與式 A-1-3、11 核對。
+const appendixFlange = Steel.calcProps({H:300, B:300, tw:10, tf:8, R:13});
+const appendixAxial = Steel.calcPn(appendixFlange, 2500, 42, 60);
+assert.ok(Math.abs(appendixAxial.Pa_asd_tf - 90.2548538840) < 1e-8);
+assert.ok(Steel.calcPnForSourceReplay(appendixFlange, 2500, 42, 60).Pa_asd_tf > 92.3 && appendixAxial.Pa_asd_tf < 92.3);
+const appendixWeb = Steel.calcProps({H:300, B:180, tw:2, tf:12, R:0});
+const webColumn = Steel.calcPn(appendixWeb, 2500, 42, 60);
+const webCombined = Steel.calcSlenderHColumnAsd(appendixWeb, 2500, webColumn, 200, 1, 13000, 300000, 50000, .85, .85);
+assert.ok(Math.abs(webColumn.Pa_asd_tf - 55.7953776864) < 1e-8);
+assert.ok(Math.abs(webColumn.asd.Qa - 0.9339946073) < 1e-8);
+assert.ok(Math.abs(webCombined.Sx - 615.0266294013) < 1e-8);
+assert.ok(Math.abs(webCombined.IR1 - 0.7629950137) < 1e-8);
+assert.ok(Math.abs(webCombined.IR2 - 0.7728478588) < 1e-8);
 // (2) HSS shear (AISC 360-16 G1, G4, G5): phi_v = 0.90 / Omega_v = 1.67; phi = 1.00 of G2.1(a) applies only to rolled I-shape webs.
 //     SHS 200x200x9, Fy = 3300: t = 0.93*0.9 = 0.837 cm, h = 20 - 3t = 17.489 cm, h/t = 20.89 <= 1.10*sqrt(5E/Fy) -> Cv2 = 1,
 //     Aw = 2*h*t = 29.2766 cm2, Vn = 0.6*3300*29.2766 = 57.968 tf, phiVn = 52.171 tf, Vn/Omega = 34.711 tf.
@@ -391,7 +404,7 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, key === "connection" ? "V1.3" : ["beam","column"].includes(key) ? "V1.2.1" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
+  assert.equal(metadata.version, ["connection","column"].includes(key) ? "V1.3" : key === "beam" ? "V1.2.1" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
 }
 const momentModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.beamColumnMoment;
 assert.equal(momentModuleMetadata?.state, "formal", "connection metadata should mark the scoped beam-column moment review formal");
@@ -528,7 +541,7 @@ for (const [label, html, expectedVersion, navFamily] of [
   ["steel main", indexSource, "V1.3", "steel"],
   ["steel plate", plateCheckSource, "V1.1", "attachments"],
   ["steel beam", beamFormalHtmlSource, "V1.2.1", "steel"],
-  ["steel column", columnFormalHtmlSource, "V1.2.1", "steel"],
+  ["steel column", columnFormalHtmlSource, "V1.3", "steel"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
   const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";
@@ -1038,7 +1051,7 @@ assert.match(
 );
 assert.match(
   columnFormalSource,
-  /Steel\.calcProps\(mm\)[\s\S]*Steel\.classifyCompression\(sec, Fy\)[\s\S]*Steel\.calcPn\(sec, Fy, KLrX, KLrY\)[\s\S]*Steel\.calcMn\(sec, Fy, Lbx, Cbx\)[\s\S]*Steel\.calcMny\(sec, Fy\)[\s\S]*Steel\.calcInteractionASD\(/,
+  /Steel\.calcProps\(mm\)[\s\S]*Steel\.classifyCompression\(sec, Fy\)[\s\S]*Steel\.calcPnForSourceReplay : Steel\.calcPn[\s\S]*compression\(sec, Fy, KLrX, KLrY\)[\s\S]*Steel\.calcSlenderHColumnAsd\([\s\S]*Steel\.calcMn\(sec, Fy, Lbx, Cbx\)[\s\S]*Steel\.calcMny\(sec, Fy\)[\s\S]*Steel\.calcInteractionASD\(/,
   "steel-column-formal.js should route H-section ASD compression and interaction through the production steel core covered by the independent benchmark",
 );
 assert.match(
@@ -1347,7 +1360,7 @@ assert.match(
 );
 assert.match(
   columnFormalSource,
-  /function applyColumnSourceState\(source, replayV11 = false\)[\s\S]*convertFields: false[\s\S]*function validateColumnSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importColumnSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyColumnSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
+  /function applyColumnSourceState\(source, sourceVersion = ""\)[\s\S]*convertFields: false[\s\S]*function validateColumnSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importColumnSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyColumnSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
   "steel column source import should preserve units, validate provenance, replay the calculation, and roll back on mismatch",
 );
 assert.match(
@@ -1387,7 +1400,7 @@ assert.doesNotMatch(
 );
 assert.match(
   columnFormalSource,
-  /function inputFail\(message\)\s*{[\s\S]*setColumnReportValidationMessage\(message\)[\s\S]*function runCheck\(replayV11 = false\)[\s\S]*setColumnReportValidationMessage\(""\)/s,
+  /function inputFail\(message\)\s*{[\s\S]*setColumnReportValidationMessage\(message\)[\s\S]*function runCheck\(sourceVersion = ""\)[\s\S]*setColumnReportValidationMessage\(""\)/s,
   "steel-column-formal.js should route inline validation into the page-only report readiness state",
 );
 assert.match(
@@ -1407,7 +1420,7 @@ assert.match(
 );
 assert.match(
   columnFormalSource,
-  /value: getColumnControlSummary\(result\)[\s\S]*value: getColumnZoneLabel\(result\.pn\.zone\)[\s\S]*note: `第六章受壓構材｜控制 \$\{getColumnAxisDisplay\(result\.ctrlAxis\)\}`/s,
+  /value: getColumnControlSummary\(result\)[\s\S]*value: getColumnZoneLabel\(result\.local\?\.zone \|\| result\.pn\.zone\)[\s\S]*note: `第六章受壓構材｜控制 \$\{getColumnAxisDisplay\(result\.ctrlAxis\)\}`/s,
   "steel-column-formal.js should use localized control-axis and buckling-zone labels in the on-page review and calculation checks",
 );
 assert.match(
