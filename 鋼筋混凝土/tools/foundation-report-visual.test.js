@@ -88,7 +88,7 @@ const EXPECTED = {
       'Wo ≤ 容許沉陷',
       '樁身壓應力',
       '樁帽 φMn ≥ Mu',
-      'Qall ≥ 服務需求',
+      'Qall ≥ 選樁需求',
       '逐層承載力表',
     ],
   },
@@ -436,7 +436,7 @@ async function main() {
         caseKey: tc.key,
         label: `${tc.key} foundation report`,
         assert,
-        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.2'],
+        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.3'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {

@@ -14,6 +14,38 @@ near(capacity.Qs, 54.97787143782138, 1e-10, 'uniform clay shaft capacity');
 near(capacity.Qb, 8.835729338221293, 1e-10, 'uniform clay tip capacity');
 near(capacity.Qall, 25.525440310417068, 1e-10, 'uniform clay allowable capacity');
 
+// 四支樁的壓力與兩向彎矩應分別平衡；調整服務工況不改變強度工況。
+const service = FoundationPile.groupReactions({pileNL:2, pileNB:2, pileSL:250, pileSB:250, axial:240, mx:40, my:-20});
+assert.deepEqual(service.reactions, [56,72,48,64]);
+near(service.reactions.reduce((n,r,i) => n + r*service.ys[i]/100, 0), 40, 1e-12, 'service Mx equilibrium');
+near(service.reactions.reduce((n,r,i) => n + r*service.xs[i]/100, 0), -20, 1e-12, 'service My equilibrium');
+assert.throws(() => FoundationPile.groupReactions({pileNL:1,pileNB:2,pileSL:250,pileSB:250,axial:80,mx:0,my:1}), /無法/);
+
+const working = {serviceLoad:60, toePercent:25, Qb:50, Qs:100, pileLength:22, pileD_m:0.4,
+  pileArea_m2:Math.PI*0.4**2/4, fc:280, mode:'auto', qbUlt:400, allowable:2};
+const settle = overrides => FoundationPile.workingSettlement({...working, ...overrides});
+const parts = toe => {
+  const shaft = 60 - toe;
+  return [(toe + 0.67*shaft)*22*100/(working.pileArea_m2*150000*Math.sqrt(280)),
+    0.09*toe*100/(0.4*400), (0.93+0.16*Math.sqrt(22/0.4))*0.09*shaft*100/(22*400)];
+};
+const w60 = settle({});
+[w60.Ws_cm,w60.Wpp_cm,w60.Wps_cm].forEach((v,i) => near(v,parts(15)[i],1e-12,'working-load component'));
+near(settle({serviceLoad:120}).Wo_cm,2*w60.Wo_cm,1e-12,'constant proportion doubles settlement');
+const envelope = settle({toePercent:null});
+near(envelope.minWo_cm,parts(0).reduce((a,b)=>a+b),1e-12,'all shaft lower end');
+near(envelope.Wo_cm,parts(50).reduce((a,b)=>a+b),1e-12,'toe capacity upper end');
+assert.strictEqual(envelope.ok,null);
+assert.strictEqual(settle({toePercent:null,allowable:4}).ok,true);
+assert.strictEqual(settle({toePercent:null,allowable:0.01}).ok,false);
+assert.strictEqual(settle({serviceLoad:0}).Wo_cm,0);
+assert.strictEqual(settle({serviceLoad:null}).Wo_cm,null);
+assert.strictEqual(settle({serviceLoad:151,toePercent:null}).Wo_cm,null);
+assert.strictEqual(settle({toePercent:100}).Wo_cm,null);
+assert.strictEqual(settle({toePercent:0}).toe,0);
+assert.strictEqual(settle({toePercent:100,serviceLoad:40}).shaft,0);
+assert.strictEqual(settle({qbUlt:0}).Wo_cm,null);
+
 const group = FoundationPile.calculateGroupAndCap({
   fc:280, fy:4200, phiShear:0.75, lambda:1,
   c1:60, c2:60, pileD:50, pileNL:2, pileNB:2, pileSL:250, pileSB:250,

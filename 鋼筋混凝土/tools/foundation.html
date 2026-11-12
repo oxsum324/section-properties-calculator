@@ -18,7 +18,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>基礎設計 — RC 工具箱 V3.2</title>
+<title>基礎設計 — RC 工具箱 V3.3</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../shared/style.css">
@@ -285,7 +285,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>基礎 Foundation 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.2</span></h1>
+  <h1>基礎 Foundation 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.3</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ <a class="back" href="foundation-deep-beam-stm.html">基礎深梁二維 STM</a> ｜ <a class="back" href="pile-cap-3d-stm.html">樁帽三維 STM</a> ｜ 獨立基腳、聯合基腳、筏式基礎、樁基／樁帽、擋土牆、耐震繫材</p>
 </header>
 
@@ -586,25 +586,26 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>鋼管壁厚 t (mm)</label><input type="number" id="pileSteelThickness" value="12" step="1"></div>
-          <div class="form-group"><label>設計單樁服務需求 (tf，0=自動)</label><input type="number" id="pileTargetAllow" value="0" step="1"></div>
+          <div class="form-group"><label>最低單樁 Qall 目標 (tf，0=依服務反力)</label><input type="number" id="pileTargetAllow" value="0" step="1"></div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label>沉陷係數模式</label>
             <select id="pileSettlementMode">
-              <option value="auto" selected>自動依公式推估</option>
+              <option value="auto" selected>試算假設 ξ＝0.67、Cp＝0.09</option>
               <option value="manual">手動指定 Cp / Cs / ξ</option>
             </select>
           </div>
           <div class="form-group"><label>容許沉陷 Sa (cm)</label><input type="number" id="pileSettlementAllow" value="2.5" step="0.1"></div>
         </div>
         <div class="form-row">
+          <div class="form-group"><label for="pileToePercent">服務載重端承比例（%，留白取可行範圍）</label><input id="pileToePercent" type="number" min="0" max="100" step="any" placeholder="依載重試驗或專案分析"></div>
           <div class="form-group"><label>ξ</label><input type="number" id="pileXi" value="0.67" step="0.01"></div>
           <div class="form-group"><label>Cp</label><input type="number" id="pileCp" value="0.09" step="0.01"></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Cs</label><input type="number" id="pileCs" value="0.30" step="0.01"></div>
-          <div class="form-group"><label>qo 覆土支承參考值 (tf/m²，0=自動)</label><input type="number" id="pileQo" value="0" step="1"></div>
+          <div class="form-group"><label>q₀ 樁端極限支承壓力 (tf/m²，0=自動)</label><input type="number" id="pileQo" value="0" step="1"></div>
         </div>
         <div class="page-only-case-tools">
           <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">場址/地址範例</h3>
@@ -681,6 +682,7 @@
           <div class="form-group"><label>目前頁面 Mx 因數化彎矩 (tf·m)</label><input type="number" id="pMx" value="0"></div>
           <div class="form-group"><label>目前頁面 My 因數化彎矩 (tf·m)</label><input type="number" id="pMy" value="0"></div>
         </div>
+        <p class="hint">長期服務反力採 D＋L。請在下方「服務 D＋L」展開欄填兩向基本彎矩；上方因數化彎矩供樁帽強度檢核。</p>
         <div class="retain-source-box" id="pileCap3DSTMBridgeBox">
           <strong>樁帽三維 STM 結果銜接</strong>
           <div class="retain-source-actions">
@@ -695,8 +697,8 @@
             </select>
           </div>
           <details id="pileCap3DSTMComponentPanel" style="margin-top:10px;">
-            <summary style="cursor:pointer; font-weight:700; color:#1e3a5f;">自動組合的彎矩分量與預覽</summary>
-            <p class="hint">Pu 分量直接採用上方 D、L、W、E 垂直載重；下列彎矩須填未乘載重係數的基本分量。正負方向由 W／E 的 ± 組合自動展開。</p>
+            <summary style="cursor:pointer; font-weight:700; color:#1e3a5f;">服務 D＋L 與自動強度組合的彎矩分量</summary>
+            <p class="hint">服務反力採 D＋L 的軸力與兩向彎矩；無彎矩請明填 0。Pu 分量直接採用上方 D、L、W、E 垂直載重；下列彎矩須填未乘載重係數的基本分量。正負方向由 W／E 的 ± 組合自動展開。</p>
             <div class="retain-source-box" id="pileCapLoadComponentSourceBox" style="margin:10px 0;">
               <strong>基本載重分量來源</strong>
               <div class="retain-source-actions">
@@ -1152,8 +1154,8 @@
         <h2>強度結果 — 樁基／樁帽</h2>
         <div class="results-grid">
           <div class="result-item rc-pending" id="pr-pileN"><span class="label">總樁數 n</span><span><span class="value">—</span><span class="unit">支</span></span></div>
-          <div class="result-item rc-pending" id="pr-Rmax"><span class="label">Rmax (壓)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
-          <div class="result-item rc-pending" id="pr-Rmin"><span class="label">Rmin (拉)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item rc-pending" id="pr-Rmax"><span class="label">服務 Rmax</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item rc-pending" id="pr-Rmin"><span class="label">服務 Rmin</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
           <div class="result-item rc-pending" id="pr-QaEff"><span class="label">Qallow,eff</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
           <div class="result-item rc-pending" id="pr-Qs"><span class="label">Qs 樁周摩擦</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
           <div class="result-item rc-pending" id="pr-Qb"><span class="label">Qb 樁端支承</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
@@ -1162,7 +1164,7 @@
           <div class="result-item rc-pending" id="pr-spacing"><span class="label">最小樁間距 / 規範下限</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="pr-tipStress"><span class="label">樁端 qb,ult</span><span><span class="value">—</span><span class="unit">tf/m²</span></span></div>
           <div class="result-item rc-pending" id="pr-tipLayer"><span class="label">端承控制土層</span><span class="value">—</span></div>
-          <div class="result-item rc-pending" id="pr-settlement"><span class="label">沉陷 Wo</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item rc-pending" id="pr-settlement"><span class="label">服務沉陷 Wo（上界或指定值）</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
           <div class="result-item rc-pending" id="pr-Ws"><span class="label">Ws 樁身壓縮</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
           <div class="result-item rc-pending" id="pr-Wpp"><span class="label">Wpp 樁端沉陷</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
           <div class="result-item rc-pending" id="pr-Wps"><span class="label">Wps 周摩擦沉陷</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
@@ -1184,7 +1186,7 @@
         <h2>規範檢核 — 樁基／樁帽</h2>
         <div class="results-grid">
           <div class="result-item rc-pending" id="pc-R"><span class="label">Rmax ≤ Qallow,eff</span><span class="value">—</span></div>
-          <div class="result-item rc-pending" id="pc-T"><span class="label">|Rmin| ≤ Qt</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="pc-T"><span class="label">max(0,−Rmin) ≤ Qt</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="pc-sp"><span class="label">樁距 ≥ 規範下限</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="pc-dMin"><span class="label">d ≥ 30 cm</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="pc-v2"><span class="label">φVc ≥ Vu (衝剪)</span><span class="value">—</span></div>
@@ -1547,34 +1549,39 @@
     }
     return { tz, qw, py, tult, z50, w50, pult, kpy };
   }
-  function calcPileSettlement({ Qb, Qs, pileLength, pileArea_m2, pileD_m, fc, qoAllow = null, mode = 'auto', xiInput = null, CpInput = null, CsInput = null, qoInput = null }) {
-    const xi = mode === 'manual' ? safePositive(xiInput, 0.67) : 0.67;
-    const Cp = mode === 'manual' ? safePositive(CpInput, 0.09) : 0.09;
-    const Ep = 15000 * Math.sqrt(Math.max(fc, 1)) * 10;
-    const qoBase = mode === 'manual' ? safePositive(qoInput, qoAllow || (Qb / Math.max(pileArea_m2, 1e-6))) : (qoAllow || (Qb / Math.max(pileArea_m2, 1e-6)));
-    const qo = Math.max(1, qoBase);
-    const B = Math.max(pileD_m, 1e-6);
-    const D = Math.max(pileLength, 1e-6);
-    const Cs = mode === 'manual' ? safePositive(CsInput, (0.93 + 0.16 * Math.sqrt(D / B)) * Cp) : (0.93 + 0.16 * Math.sqrt(D / B)) * Cp;
-    const Ws_m = ((Qb + xi * Qs) * pileLength) / Math.max(pileArea_m2 * Ep, 1e-6);
-    const Wpp_m = (Cp * Qb) / Math.max(B * qo, 1e-6);
-    const Wps_m = (Cs * Qs) / Math.max(D * qo, 1e-6);
-    const Wo_m = Ws_m + Wpp_m + Wps_m;
-    return { Ws_cm: Ws_m * 100, Wpp_cm: Wpp_m * 100, Wps_cm: Wps_m * 100, Wo_cm: Wo_m * 100, xi, Cp, Cs, qo, Ep, mode };
+  function pileServiceCase() {
+    const ids = ['pPD','pPL','pileCapMuxD','pileCapMuxL','pileCapMuyD','pileCapMuyL'];
+    const [dead, live, mxD, mxL, myD, myL] = ids.map(id => $(id).valueAsNumber);
+    const axial = dead + live, mx = mxD + mxL, my = myD + myL;
+    const result = FoundationPile.groupReactions({
+      pileNL:num('pileNL'), pileNB:num('pileNB'), pileSL:num('pileSL'), pileSB:num('pileSB'), axial, mx, my
+    });
+    if (!(num('pileEta') > 0 && num('pileEta') <= 1)) throw new RangeError('群樁效率須大於 0 且不超過 1');
+    const serviceLoad = Math.max(0, result.rMax);
+    const target = $('pileTargetAllow').valueAsNumber;
+    if (!(target >= 0)) throw new RangeError('選樁目標須為非負數；依反力選樁請填 0');
+    const designDemand = Math.max(serviceLoad / num('pileEta'), target);
+    return { ...result, axial, mx, my, serviceLoad, designDemand };
   }
+
+  function controllingPile(group, reaction) {
+    const i = group.reactions.indexOf(reaction);
+    return 'P' + (i+1) + ' (x=' + group.xs[i] + ', y=' + group.ys[i] + ' cm)';
+  }
+
   function buildPileDepthComparison({ layers, pileInstall, pileD, safetyFactor, startDepth, endDepth, step, pileType, serviceDemand, settlementOptions = {}, fc = 280 }) {
     const rows = [];
     for (let depth = startDepth; depth <= endDepth + 1e-9; depth += step) {
       const skin = integratePileSkinFriction(layers, depth, pileD / 100, pileInstall);
       const tip = calcTipResistance(layers, depth, pileD / 100, pileInstall);
-      const settlement = calcPileSettlement({
+      const settlement = FoundationPile.workingSettlement({
         Qb: tip.Qb,
         Qs: skin.Qs,
         pileLength: depth,
         pileArea_m2: Math.PI * Math.pow(pileD / 100, 2) / 4,
         pileD_m: pileD / 100,
         fc,
-        qoAllow: tip.qbUlt > 0 ? tip.qbUlt : null,
+        qbUlt: tip.qbUlt,
         ...settlementOptions
       });
       rows.push({
@@ -1584,7 +1591,7 @@
         Qall: (skin.Qs + tip.Qb) / Math.max(safetyFactor, 1),
         qbUlt: tip.qbUlt,
         capApplied: tip.capApplied,
-        settlement: settlement.Wo_cm,
+        settlement: settlement.Wo_cm, settlementRange:FoundationPile.settlementRange(settlement),
         pass: (skin.Qs + tip.Qb) / Math.max(safetyFactor, 1) >= serviceDemand
       });
     }
@@ -1706,9 +1713,10 @@
     const pileCp = num('pileCp');
     const pileCs = num('pileCs');
     const pileQo = num('pileQo');
-    const nPile = Math.max(1, Math.round(num('pileNL')) * Math.round(num('pileNB')));
-    const targetAllow = num('pileTargetAllow');
-    const serviceDemand = targetAllow > 0 ? targetAllow : (num('pPD') + num('pPL')) / nPile;
+    let service;
+    try { service = pileServiceCase(); }
+    catch (error) { return { ok:false, error:error.message, layers:parsed.layers.length }; }
+    const serviceDemand = service.designDemand;
     const recommendation = recommendPileConfiguration({
       pileType,
       pileInstall,
@@ -1721,15 +1729,17 @@
     const pileLength = recommendation?.depth || preset.pileLength;
     const skin = integratePileSkinFriction(parsed.layers, pileLength, pileD, pileInstall);
     const tip = calcTipResistance(parsed.layers, pileLength, pileD, pileInstall);
-    const settlement = calcPileSettlement({
+    const settlement = FoundationPile.workingSettlement({
       Qb: tip.Qb,
       Qs: skin.Qs,
       pileLength,
       pileArea_m2: Math.PI * pileD * pileD / 4,
       pileD_m: pileD,
       fc,
-      qoAllow: tip.qbUlt > 0 ? tip.qbUlt : null,
+      qbUlt: tip.qbUlt,
       mode: pileSettlementMode,
+      allowable:num('pileSettlementAllow'), serviceLoad:service.serviceLoad,
+      toePercent:$('pileToePercent').value === '' ? null : $('pileToePercent').valueAsNumber,
       xiInput: pileXi,
       CpInput: pileCp,
       CsInput: pileCs,
@@ -1780,8 +1790,8 @@
           <td>${(result.recommendation?.depth ?? borehole.pileLength).toFixed(1)} m</td>
           <td>${controlLayer}</td>
           <td>${result.Qall.toFixed(2)}</td>
-          <td>${result.settlement.Wo_cm.toFixed(2)}</td>
-          <td>${result.soilSummary}</td>`;
+          <td>${FoundationPile.settlementRange(result.settlement)}</td>
+          <td>${result.recommendation?.exceededRange ? '搜尋範圍承載不足；' : ''}${result.soilSummary}</td>`;
       }
       tbody.appendChild(tr);
     });
@@ -1794,7 +1804,8 @@
     const conservativeDia = Math.max(...valid.map(item => item.result.recommendation?.dia ?? item.borehole.pileD));
     const conservativeDepth = Math.max(...valid.map(item => item.result.recommendation?.depth ?? item.borehole.pileLength));
     const lowestQallItem = valid.reduce((a, b) => b.result.Qall < a.result.Qall ? b : a);
-    const largestSettlementItem = valid.reduce((a, b) => b.result.settlement.Wo_cm > a.result.settlement.Wo_cm ? b : a);
+    const withSettlement = valid.filter(item => Number.isFinite(item.result.settlement.Wo_cm));
+    const largestSettlementItem = withSettlement.length ? withSettlement.reduce((a, b) => b.result.settlement.Wo_cm > a.result.settlement.Wo_cm ? b : a) : null;
     const longestDepthItem = valid.reduce((a, b) => (b.result.recommendation?.depth ?? b.borehole.pileLength) > (a.result.recommendation?.depth ?? a.borehole.pileLength) ? b : a);
     const controlByDemand = valid.reduce((a, b) => {
       const aRatio = a.result.serviceDemand / Math.max(a.result.Qall, 1e-6);
@@ -1803,14 +1814,14 @@
     });
     summary.textContent =
 `場址總結：${site.name}
-保守建議樁徑：${conservativeDia} cm
-保守建議樁深：${conservativeDepth.toFixed(1)} m
+各孔試算樁徑最大值：${conservativeDia} cm
+各孔試算樁深最大值：${conservativeDepth.toFixed(1)} m
 最不利承載力鑽孔：${lowestQallItem.borehole.name}（Qall = ${lowestQallItem.result.Qall.toFixed(2)} tf）
-最大沉陷鑽孔：${largestSettlementItem.borehole.name}（Wo = ${largestSettlementItem.result.settlement.Wo_cm.toFixed(2)} cm）
+已算鑽孔最大沉陷上界：${largestSettlementItem ? largestSettlementItem.borehole.name + '（Wo = ' + FoundationPile.settlementRange(largestSettlementItem.result.settlement) + ' cm）' : '待確認'}；其餘待核 ${valid.length - withSettlement.length} 孔
 最深建議鑽孔：${longestDepthItem.borehole.name}（L = ${(longestDepthItem.result.recommendation?.depth ?? longestDepthItem.borehole.pileLength).toFixed(1)} m）
 承載需求最接近控制：${controlByDemand.borehole.name}（Demand/Qall = ${(controlByDemand.result.serviceDemand / Math.max(controlByDemand.result.Qall, 1e-6)).toFixed(3)}）
 建議控制層：${lowestQallItem.result.tip.tipLayer ? `${lowestQallItem.result.tip.tipLayer.type} @ ${lowestQallItem.result.tip.tipLayer.from.toFixed(1)}-${lowestQallItem.result.tip.tipLayer.to.toFixed(1)} m` : '—'}
-判讀建議：初步設計可先採 ${conservativeDia} cm、${conservativeDepth.toFixed(1)} m 作為場址保守值，再依實際柱位與控制鑽孔細化。`;
+各孔依選樁目標各自篩選。表內各孔沉陷對應該孔所列樁徑與深度；場址統一樁型須以同一尺寸逐孔重算。`;
   }
   function populatePileSiteGroups() {
     const siteSelect = $('pileSiteGroup');
@@ -3258,7 +3269,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       schema: FOUNDATION_PROJECT_SCHEMA,
       tool: 'rc-foundation',
       toolTitle: '基礎 Foundation 設計／檢核',
-      appVersion: 'V3.2',
+      appVersion: 'V3.3',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: currentTab,
@@ -3328,7 +3339,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const panel = $('pileCap3DSTMComponentPanel');
     const preview = $('pileCap3DSTMComboPreview');
     const auto = pileCap3DSTMCaseMode() === 'auto-lrfd';
-    if (panel) panel.open = auto;
+    if (panel && auto) panel.open = true;
     if (!preview) return null;
     if (!auto) {
       preview.textContent = '目前採手動模式；主案例沿用頁面結果，並可於下方補充其他因數化組合。';
@@ -3478,10 +3489,11 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   }
 
   function normalizeFoundationProjectPayload(raw) {
-    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+    const source = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return window.RCReportFingerprint.validateProjectCalculationSource(source, {
       expectedSchema: FOUNDATION_PROJECT_SCHEMA,
       expectedToolId: 'rc-foundation',
-      expectedVersion: 'V3.2',
+      expectedVersion: normalizeProjectToolVersion(source?.appVersion) === 'V3.2' ? 'V3.2' : 'V3.3',
       sourceKey: 'fields',
       fingerprintOptions: payload => ({
         ignoredKeys: ['activeTab'],
@@ -3497,6 +3509,8 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   function applyFoundationProjectData(raw, options = {}) {
     const payload = normalizeFoundationProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectFoundationProjectData();
+    const legacy = normalizeProjectToolVersion(payload.appVersion) === 'V3.2';
+    $('pileToePercent').value = '';
     setFoundationMode(payload.mode, { recalculate: false });
     let applied = 0;
     Object.entries(payload.fields).forEach(([id, saved]) => {
@@ -3518,7 +3532,16 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     applyPanel(tab);
     if (!options.skipReplayCheck) {
       try {
-        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectFoundationProjectData());
+        let replay = collectFoundationProjectData();
+        if (legacy) {
+          delete replay.fields.pileToePercent;
+          if (payload.activeTab === 'pile') replay.summary = payload.summary;
+          replay.appVersion = payload.appVersion;
+          replay = window.RCReportFingerprint.withProjectCalculationFingerprint(replay, {
+            ignoredKeys:['activeTab'], calculationContext:{foundationTab:replay.activeTab}
+          });
+        }
+        window.RCReportFingerprint.assertProjectCalculationReplay(payload, replay);
       } catch (error) {
         applyFoundationProjectData(previous, { silent: true, skipReplayCheck: true });
         throw error;
@@ -3529,7 +3552,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showFoundationProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
+      showFoundationProjectStatus(legacy && tab === 'pile' ? `已核對舊版輸入，樁反力與沉陷已依 V3.3 重算。` : `已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
     }
     return { payload, applied };
   }
@@ -3724,7 +3747,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       const banner = $('bannerStatus');
       if (banner) {
         banner.className = 'banner-status fail';
-        banner.textContent = '✗ 輸入不完整或超出適用範圍，未完成計算（請檢查厚度、尺寸、材料強度等欄位）';
+        banner.textContent = tab === 'pile' ? '樁基計算待確認：' + error.message : '✗ 輸入不完整或超出適用範圍，未完成計算（請檢查厚度、尺寸、材料強度等欄位）';
       }
       console.warn('foundation calculation rejected', error);
     }
@@ -4638,7 +4661,6 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     const pileLength = num('pileLength');
     const pileFS = safePositive(num('pileFS'), 2.5);
     const pileSteelThickness = num('pileSteelThickness');
-    const pileTargetAllowInput = num('pileTargetAllow');
     const soilProfileText = $('pileSoilProfile')?.value || '';
     const soilSa = num('soilSa') || 2.5;
     const pileSettlementMode = $('pileSettlementMode')?.value || 'auto';
@@ -4679,8 +4701,12 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
 
     // Pu (因數化)
     const Pu_tf = 1.2 * PD + 1.6 * PL + 1.0 * PE;
-    const serviceDemandPerPile = pileTargetAllowInput > 0 ? pileTargetAllowInput : (PD + PL) / nPile;
-    const QaDemandEff = serviceDemandPerPile / Math.max(pileEta, 1e-6);
+    const service = pileServiceCase();
+    if (!($('pileSettlementAllow').valueAsNumber > 0 && $('fc').valueAsNumber > 0)) throw new RangeError('容許沉陷與混凝土強度須為正值');
+    const serviceDemandPerPile = service.serviceLoad;
+    const QaDemandEff = service.designDemand;
+    const serviceRmax = service.rMax, serviceRmin = service.rMin;
+    if (!['pMx','pMy','pPE'].every(id => Number.isFinite($(id).valueAsNumber))) throw new RangeError('請填因數化彎矩與地震垂直分量；無作用請填 0');
 
     const pileSystem = FoundationPile.calculateGroupAndCap({
       fc, fy, phiShear: PHI.shear, lambda,
@@ -4703,6 +4729,8 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
       lambdaS: capLambdaS, vc: vcPunch, vcA: vcPunchA, vcB: vcPunchB, vcC: vcPunchC,
       okCapFlex, okCapFlexStrength, okCapAsMin, okCapShear
     } = pileSystem;
+    const serviceMaxPile = controllingPile(service, serviceRmax);
+    const strengthMaxPile = controllingPile(pileSystem, rMax);
     const lateralGroup = window.PileGroupLateral.evaluate({
       pileNL,
       pileNB,
@@ -4761,20 +4789,21 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
       soilCapacity = { skin, tip };
       pileCurves = buildWinklerCurves({ Qs, Qb, qbUlt, pileD_m, pileLength, layers: soilProfile.layers });
       settlementOptions = {
-        mode: pileSettlementMode,
+        mode: pileSettlementMode, serviceLoad:serviceDemandPerPile, allowable:pileSettlementAllow,
+        toePercent:$('pileToePercent').value === '' ? null : $('pileToePercent').valueAsNumber,
         xiInput: pileXi,
         CpInput: pileCp,
         CsInput: pileCs,
         qoInput: pileQo
       };
-      settlement = calcPileSettlement({
+      settlement = FoundationPile.workingSettlement({
         Qb,
         Qs,
         pileLength,
         pileArea_m2: Math.PI * pileD_m * pileD_m / 4,
         pileD_m,
         fc,
-        qoAllow: qbUlt > 0 ? qbUlt : null,
+        qbUlt,
         ...settlementOptions
       });
       depthComparison = buildPileDepthComparison({
@@ -4786,7 +4815,7 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
         endDepth: Math.max(soilProfile.layers[soilProfile.layers.length - 1].to, pileLength),
         step: 5,
         pileType,
-        serviceDemand: serviceDemandPerPile,
+        serviceDemand: QaDemandEff,
         settlementOptions,
         fc
       });
@@ -4796,8 +4825,8 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     }
     const QaEffSoil = soilOk ? Qall * pileEta : QaEff;
     const governingQaEff = soilOk ? Math.min(QaEff, QaEffSoil) : QaEff;
-    const okR = rMax <= governingQaEff;
-    const okT = rMin >= -pileQt;
+    const okR = serviceRmax <= governingQaEff;
+    const okT = serviceRmin >= -pileQt;
     const spacingLimit = pileType === 'cast-in-place' ? Math.max(2.5 * pileD, pileD + 100) : 2.5 * pileD;
     const okSp = minSpacing >= spacingLimit;
     const okDMin = d >= 30;
@@ -4819,25 +4848,29 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
       ? recommendPileConfiguration({
           pileType,
           pileInstall,
-          serviceDemand: serviceDemandPerPile,
+          serviceDemand: QaDemandEff,
           existingDiameterCm: pileD,
           safetyFactor: pileFS,
           layers: soilProfile.layers
         })
       : null;
-    const pileStressKgCm2 = (Pu_tf * 1.5 * 1000) / Math.max(Ag_pile, 1e-6);
+    const pileStressKgCm2 = (Math.max(0, rMax) * 1000) / Math.max(Ag_pile, 1e-6);
     const pileStressAllow = 0.7 * 0.85 * 0.85 * fc;
     const okPileStress = pileStressKgCm2 <= pileStressAllow;
-    const okSettlement = soilOk ? settlement.Wo_cm <= pileSettlementAllow : null;
+    const okSettlement = settlement?.ok ?? null;
+    const reviewWarnings = [];
+    if (soilOk && okSettlement === null) reviewWarnings.push(settlement.reason);
+    if (rMin < 0) reviewWarnings.push('強度工況出現上拔，樁帽需另核受拉樁反力及錨定。');
+    if (pileType === 'steel-pipe') reviewWarnings.push('單樁沉陷與壓應力採實心混凝土截面，鋼管須另核截面及材料。');
 
     setResult('pr-pileN', nPile, '支', 0);
-    setResult('pr-Rmax', rMax, 'tf', 2, isFinite(rMax) ? (okR ? 'ok' : 'fail') : null);
-    setResult('pr-Rmin', rMin, 'tf', 2, isFinite(rMin) ? (okT ? 'ok' : 'fail') : null);
+    setResult('pr-Rmax', serviceRmax, 'tf', 2, isFinite(rMax) ? (okR ? 'ok' : 'fail') : null);
+    setResult('pr-Rmin', serviceRmin, 'tf', 2, isFinite(rMin) ? (okT ? 'ok' : 'fail') : null);
     setResult('pr-QaEff', governingQaEff, 'tf', 2);
     setResult('pr-Qs', Qs, 'tf', 2, soilOk ? 'ok' : 'warn');
     setResult('pr-Qb', Qb, 'tf', 2, soilOk ? (capApplied ? 'warn' : 'ok') : 'warn');
     setResult('pr-Qult', Qult, 'tf', 2, soilOk ? 'ok' : 'warn');
-    setResult('pr-Qall', Qall, 'tf', 2, soilOk ? (Qall >= serviceDemandPerPile ? 'ok' : 'fail') : 'warn');
+    setResult('pr-Qall', Qall, 'tf', 2, soilOk ? (Qall >= QaDemandEff ? 'ok' : 'fail') : 'warn');
     {
       const el = $('pr-spacing');
       if (el) {
@@ -4857,13 +4890,17 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
         el.classList.add(soilOk ? 'ok' : 'fail');
       }
     }
-    setResult('pr-recDepth', recommendation?.depth ?? null, 'm', 1, recommendation ? 'ok' : 'warn');
+    setResult('pr-recDepth', recommendation?.depth ?? null, 'm', 1, recommendation && !recommendation.exceededRange ? 'ok' : 'warn');
     {
       const el = $('pr-recDia');
       if (el) {
         el.classList.remove('rc-pending');
+        el.classList.remove('ok','warn','fail');
         if (!recommendation) {
           el.querySelector('.value').textContent = '土層資料不足';
+          el.classList.add('fail');
+        } else if (recommendation.exceededRange) {
+          el.querySelector('.value').textContent = '搜尋範圍承載不足';
           el.classList.add('fail');
         } else if (recommendation.structural.type === 'cast-in-place') {
           el.querySelector('.value').textContent = `D=${recommendation.dia} cm；${recommendation.structural.mainBarCount}-${recommendation.structural.mainBarNo}`;
@@ -4876,9 +4913,9 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     }
     setResult('pr-d', d, 'cm', 1, okDMin ? 'ok' : 'fail');
     setResult('pr-settlement', settlement?.Wo_cm ?? null, 'cm', 2, okSettlement === null ? 'warn' : (okSettlement ? 'ok' : 'fail'));
-    setResult('pr-Ws', settlement?.Ws_cm ?? null, 'cm', 2, soilOk ? 'ok' : 'warn');
-    setResult('pr-Wpp', settlement?.Wpp_cm ?? null, 'cm', 2, soilOk ? 'ok' : 'warn');
-    setResult('pr-Wps', settlement?.Wps_cm ?? null, 'cm', 2, soilOk ? 'ok' : 'warn');
+    setResult('pr-Ws', settlement?.Ws_cm ?? null, 'cm', 2, Number.isFinite(settlement?.Wo_cm) ? 'ok' : 'warn');
+    setResult('pr-Wpp', settlement?.Wpp_cm ?? null, 'cm', 2, Number.isFinite(settlement?.Wo_cm) ? 'ok' : 'warn');
+    setResult('pr-Wps', settlement?.Wps_cm ?? null, 'cm', 2, Number.isFinite(settlement?.Wo_cm) ? 'ok' : 'warn');
     setResult('pr-Vu2', Vu2_tf, 'tf', 2);
     setResult('pr-phiVc2', phiVc2/1000, 'tf', 2);
     setResult('pr-pileStress', pileStressKgCm2, 'kgf/cm²', 2, okPileStress ? 'ok' : 'fail');
@@ -4918,8 +4955,8 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
       }
     }
 
-    setCheck('pc-R', okR, `${rMax.toFixed(2)} / ${governingQaEff.toFixed(2)}`);
-    setCheck('pc-T', okT, `${rMin.toFixed(2)} / -${pileQt.toFixed(2)}`);
+    setCheck('pc-R', okR, `${serviceRmax.toFixed(2)} / ${governingQaEff.toFixed(2)}`);
+    setCheck('pc-T', okT, `${Math.max(0,-serviceRmin).toFixed(2)} / ${pileQt.toFixed(2)}`);
     setCheck('pc-sp', okSp, `${minSpacing.toFixed(0)} / ${spacingLimit.toFixed(0)}`);
     setCheck('pc-dMin', okDMin, `d=${d.toFixed(1)} cm ${okDMin ? '≥' : '<'} 30`);
     setCheck('pc-v2', okV2, `${(phiVc2/1000).toFixed(2)} / ${Vu2_tf.toFixed(2)}`);
@@ -4927,7 +4964,7 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
       prestressed ? `Rmax=${rMax.toFixed(2)} ${okPrestress?'≤':'>'} 0.4Ag·fc'=${puLimit.toFixed(2)} tf` : '非預力樁');
     setCheck('pc-soil', soilOk, soilOk ? `共 ${soilProfile.layers.length} 層` : soilErrors.join('；'));
     setCheck('pc-cap', soilOk ? true : null, capText);
-    setCheck('pc-settlement', okSettlement, settlement ? `${settlement.Wo_cm.toFixed(2)} / ${pileSettlementAllow.toFixed(2)} cm` : '土層資料不足');
+    setCheck('pc-settlement', okSettlement, settlement ? FoundationPile.settlementBasis(settlement) + '；Sa ' + pileSettlementAllow.toFixed(2) + ' cm' : '土層資料不足');
     setCheck('pc-pileStress', okPileStress, `${pileStressKgCm2.toFixed(2)} / ${pileStressAllow.toFixed(2)} kgf/cm²`);
     setCheck('pc-capFlex', okCapFlexStrength, `${capPhiMn_tfm.toFixed(2)} / ${capMu_tfm.toFixed(2)} tf·m`);
     setCheck('pc-capAsMin', okCapAsMin, !Number.isFinite(capAsMin)
@@ -4968,8 +5005,10 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
 `<span class="h">▸ 樁群反力</span>
 n = ${pileNL} × ${pileNB} = ${nPile} 支
 Pu = 1.2×${PD} + 1.6×${PL} + 1.0×${PE} = ${Pu_tf.toFixed(2)} tf
-Rmax = ${rMax.toFixed(2)} tf  ${okR ? '≤' : '>'} Qallow,eff = ${governingQaEff.toFixed(2)} tf → ${okR ? '✓' : '✗'}
-Rmin = ${rMin.toFixed(2)} tf  ${okT ? '≥' : '<'} -Qt = -${pileQt} tf → ${okT ? '✓' : '✗'}
+強度最大壓力樁 ${strengthMaxPile}；最大／最小反力 = ${rMax.toFixed(2)} / ${rMin.toFixed(2)} tf（Mx/My = ${Mx} / ${My} tf·m）
+服務 D＋L = ${service.axial.toFixed(2)} tf；Mx/My = ${service.mx.toFixed(2)} / ${service.my.toFixed(2)} tf·m
+服務最大壓力樁 ${serviceMaxPile}；Rmax = ${serviceRmax.toFixed(2)} tf  ${okR ? '≤' : '>'} Qallow,eff = ${governingQaEff.toFixed(2)} tf → ${okR ? '✓' : '✗'}
+服務 Rmin = ${serviceRmin.toFixed(2)} tf  ${okT ? '≥' : '<'} -Qt = -${pileQt} tf → ${okT ? '✓' : '✗'}
 最小樁間距 = ${minSpacing.toFixed(0)} cm  ${okSp ? '≥' : '<'} ${spacingLimit.toFixed(0)} cm → ${okSp ? '✓' : '✗'}
 ${lateralRequired ? `
 <span class="h">▸ 群樁側向荷重分配（FHWA-HIF-18-031 表 7-1）</span>
@@ -4989,16 +5028,17 @@ ${soilOk ? `樁型式 = ${pileType === 'cast-in-place' ? '場鑄混凝土樁' : 
 樁深 = ${pileLength.toFixed(1)} m；臨界深度 = min(Lp,20D) = ${criticalDepth.toFixed(2)} m；σ'v,crit = ${sigmaCrit.toFixed(2)} tf/m²
 Qs = ${Qs.toFixed(2)} tf；Qb = ${Qb.toFixed(2)} tf；Qult = ${Qult.toFixed(2)} tf；Qall = Qult/${pileFS.toFixed(2)} = ${Qall.toFixed(2)} tf
 端承控制層 = ${tipLayerLabel}；qb,ult = ${qbUlt.toFixed(1)} tf/m²${capApplied ? `（已套用上限 ${soilCapacity.tip.capValue} tf/m²）` : ''}
-服務需求 / 單樁 = ${serviceDemandPerPile.toFixed(2)} tf；建議 = D ${recommendation?.dia ?? pileD} cm、L ${recommendation?.depth?.toFixed(1) ?? pileLength.toFixed(1)} m
+最大服務壓力 = ${serviceDemandPerPile.toFixed(2)} tf；選樁 Qall 需求（含群樁效率）= ${QaDemandEff.toFixed(2)} tf；依承載篩選 = D ${recommendation?.dia ?? pileD} cm、L ${recommendation?.depth?.toFixed(1) ?? pileLength.toFixed(1)} m
 樁深比較（每 5m）:
-${depthComparison.map(row => `L=${row.depth.toFixed(1)} m → Qall=${row.Qall.toFixed(2)} tf, Wo=${row.settlement.toFixed(2)} cm${row.capApplied ? ', cap' : ''}${row.pass ? ' ✓' : ''}`).join('\n')}` : `土層資料錯誤：${soilErrors.join('；')}`}
+${depthComparison.map(row => `L=${row.depth.toFixed(1)} m → Qall=${row.Qall.toFixed(2)} tf, Wo=${row.settlementRange} cm${row.capApplied ? ', cap' : ''}${row.pass ? ' ✓' : ''}`).join('\n')}` : `土層資料錯誤：${soilErrors.join('；')}`}
 
-<span class="h">▸ 沉陷（參考 PDF 分項法）</span>
-${settlement ? `模式 = ${settlement.mode === 'manual' ? '手動係數' : '自動係數'}；ξ = ${settlement.xi.toFixed(3)}；Cp = ${settlement.Cp.toFixed(3)}；Cs = ${settlement.Cs.toFixed(3)}；qo = ${settlement.qo.toFixed(2)} tf/m²
+<span class="h">▸ 單樁瞬時沉陷（基礎規範解說 5.5.1）</span>\n群樁整體沉陷另依 5.5.2 檢核。ξ、Cp 應依樁周摩擦分佈、樁端土層與施工法確認。
+${FoundationPile.settlementBasis(settlement)}
+${Number.isFinite(settlement?.Wo_cm) ? `模式 = ${settlement.mode === 'manual' ? '手動係數' : '自動係數'}；ξ = ${settlement.xi.toFixed(3)}；Cp = ${settlement.Cp.toFixed(3)}；Cs = ${settlement.Cs.toFixed(3)}；qo = ${settlement.qo.toFixed(2)} tf/m²
 Ws = (Qb + ξQs)L/(AEp) = ${settlement.Ws_cm.toFixed(2)} cm
 Wpp = Cp·Qb/(B·qo) = ${settlement.Wpp_cm.toFixed(2)} cm
 Wps = Cs·Qs/(D·qo) = ${settlement.Wps_cm.toFixed(2)} cm
-Wo = Ws + Wpp + Wps = ${settlement.Wo_cm.toFixed(2)} cm ${okSettlement ? '≤' : '>'} Sa=${pileSettlementAllow.toFixed(2)} cm → ${okSettlement ? '✓' : '✗'}` : '土層資料不足，無法估算沉陷'}
+Wo = Ws + Wpp + Wps = ${settlement.Wo_cm.toFixed(2)} cm ；Sa=${pileSettlementAllow.toFixed(2)} cm → ${okSettlement === null ? '待確認' : okSettlement ? '✓' : '✗'}` : ''}
 
 <span class="h">▸ 樁帽衝剪 (含排除規則)</span>
 d = hc − cover − db = ${hc} − ${pcCover} − ${db.toFixed(2)} = ${d.toFixed(2)} cm ${okDMin ? '≥' : '<'} 30 cm → ${okDMin ? '✓' : '✗'}
@@ -5011,7 +5051,7 @@ Vu (內插後) = ${Vu2_tf.toFixed(2)} tf; φVc = ${(phiVc2/1000).toFixed(2)} tf 
 ${prestressed ? `\n<span class="h">▸ 預力樁上限</span>\nAg_pile = π×(${pileD}/2)² = ${Ag_pile.toFixed(0)} cm²\nPu ≤ 0.4×Ag×fc' = 0.4×${Ag_pile.toFixed(0)}×${fc}/1000 = ${puLimit.toFixed(2)} tf\nRmax = ${rMax.toFixed(2)} tf → ${okPrestress ? '✓' : '✗'}` : ''}
 ${pileType === 'cast-in-place' ? `\n<span class="h">▸ 場鑄混凝土樁斷面限制</span>\n主筋至少 6 支且直徑不得小於 19 mm；As,prov = ${castInPlaceAreaProv.toFixed(2)} cm² ${castInPlaceAreaProv >= castInPlaceAreaReq ? '≥' : '<'} 0.005Ag = ${castInPlaceAreaReq.toFixed(2)} cm² → ${castInPlaceBarOk ? '✓' : '✗'}` : `\n<span class="h">▸ 鋼管樁斷面限制</span>\nOD = ${pileD.toFixed(0)} cm ${pileD >= 25 ? '≥' : '<'} 25 cm；t = ${pileSteelThickness.toFixed(0)} mm ${pileSteelThickness >= 9 ? '≥' : '<'} 9 mm → ${steelPipeOk ? '✓' : '✗'}`}
 \n<span class="h">▸ 樁身 / 樁帽結構設計</span>
-樁身壓應力 = ${pileStressKgCm2.toFixed(2)} kgf/cm² ${okPileStress ? '≤' : '>'} ${pileStressAllow.toFixed(2)} kgf/cm² → ${okPileStress ? '✓' : '✗'}
+樁身壓應力 = 強度最大單樁壓力 / Ag = ${pileStressKgCm2.toFixed(2)} kgf/cm² ${okPileStress ? '≤' : '>'} ${pileStressAllow.toFixed(2)} kgf/cm² → ${okPileStress ? '✓' : '✗'}
 樁帽撓曲取柱面斷面：Mu = Σ單側樁反力 × (樁心至柱面距離)；全帽寬 Bc/Lc = ${Bc} / ${Lc} cm 承擔，As(每方向) = ${As.toFixed(2)} cm²
 樁帽單向剪力取距柱面 d 斷面（樁反力依 dp/2 內插）；未輸入剪力筋，Vs = 0
 樁帽 Mu,long / Mu,trans = ${capMuLong_tfm.toFixed(2)} / ${capMuTrans_tfm.toFixed(2)} tf·m；控制 φMn ≥ Mu：${capPhiMn_tfm.toFixed(2)} / ${capMu_tfm.toFixed(2)} tf·m → ${okCapFlexStrength ? '✓' : '✗'}
@@ -5026,31 +5066,32 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const pileSummary = $('pileSummaryBody');
     if (pileSummary) {
       pileSummary.textContent = soilOk
-        ? `土層解析：${soilProfile.layers.length} 層\n單樁 Qs/Qb/Qult/Qall = ${Qs.toFixed(2)} / ${Qb.toFixed(2)} / ${Qult.toFixed(2)} / ${Qall.toFixed(2)} tf\n控制端承：${tipLayerLabel}\n端承上限：${capText}\n沉陷模式：${settlement.mode === 'manual' ? '手動' : '自動'}；ξ/Cp/Cs = ${settlement.xi.toFixed(3)} / ${settlement.Cp.toFixed(3)} / ${settlement.Cs.toFixed(3)}\n沉陷 Ws/Wpp/Wps/Wo = ${settlement.Ws_cm.toFixed(2)} / ${settlement.Wpp_cm.toFixed(2)} / ${settlement.Wps_cm.toFixed(2)} / ${settlement.Wo_cm.toFixed(2)} cm\n樁身壓應力：${pileStressKgCm2.toFixed(2)} / ${pileStressAllow.toFixed(2)} kgf/cm²\n樁帽 Mu,long/Mu,trans = ${capMuLong_tfm.toFixed(2)} / ${capMuTrans_tfm.toFixed(2)} tf·m\n樁帽控制 Mu/φMn = ${capMu_tfm.toFixed(2)} / ${capPhiMn_tfm.toFixed(2)} tf·m\n樁帽 Vu/φ(Vc+Vs) = ${capVu_tfm.toFixed(2)} / ${capPhiVn_tfm.toFixed(2)} tf\n建議樁徑/深度：${recommendation ? `${recommendation.dia} cm / ${recommendation.depth.toFixed(1)} m` : '—'}\n建議斷面：${recommendation ? (recommendation.structural.type === 'cast-in-place' ? `${recommendation.structural.mainBarCount}-${recommendation.structural.mainBarNo}` : `OD ${recommendation.structural.outerDiameterCm} cm、t ${recommendation.structural.thicknessMm} mm`) : '—'}\nWinkler 曲線：t-z ${pileCurves.tz.length} 點、q-w ${pileCurves.qw.length} 點、p-y ${pileCurves.py.length} 點`
+        ? `土層解析：${soilProfile.layers.length} 層\n單樁 Qs/Qb/Qult/Qall = ${Qs.toFixed(2)} / ${Qb.toFixed(2)} / ${Qult.toFixed(2)} / ${Qall.toFixed(2)} tf\n控制端承：${tipLayerLabel}\n端承上限：${capText}\n${FoundationPile.settlementBasis(settlement)}\n樁身壓應力：${pileStressKgCm2.toFixed(2)} / ${pileStressAllow.toFixed(2)} kgf/cm²\n樁帽 Mu,long/Mu,trans = ${capMuLong_tfm.toFixed(2)} / ${capMuTrans_tfm.toFixed(2)} tf·m\n樁帽控制 Mu/φMn = ${capMu_tfm.toFixed(2)} / ${capPhiMn_tfm.toFixed(2)} tf·m\n樁帽 Vu/φ(Vc+Vs) = ${capVu_tfm.toFixed(2)} / ${capPhiVn_tfm.toFixed(2)} tf\n建議樁徑/深度：${recommendation ? `${recommendation.dia} cm / ${recommendation.depth.toFixed(1)} m` : '—'}\n建議斷面：${recommendation ? (recommendation.structural.type === 'cast-in-place' ? `${recommendation.structural.mainBarCount}-${recommendation.structural.mainBarNo}` : `OD ${recommendation.structural.outerDiameterCm} cm、t ${recommendation.structural.thicknessMm} mm`) : '—'}\nWinkler 曲線：t-z ${pileCurves.tz.length} 點、q-w ${pileCurves.qw.length} 點、p-y ${pileCurves.py.length} 點`
         : `土層資料錯誤\n${soilErrors.join('\n')}`;
     }
 
     const checks = [
-      ['Rmax ≤ Qa·η', okR], ['|Rmin| ≤ Qt', okT], ['樁距 ≥ 2.5Dp', okSp],
+      ['服務 Rmax ≤ Qa·η', okR], ['max(0,−Rmin) ≤ Qt', okT], ['樁距 ≥ 2.5Dp', okSp],
       ['d ≥ 30 cm', okDMin], ['φVc ≥ Vu (衝剪)', okV2], ['土層資料有效', soilOk],
       ['斷面/配筋限制', structuralOk], ['Wo ≤ 容許沉陷', okSettlement], ['樁身壓應力', okPileStress],
       ['樁帽 φMn ≥ Mu', okCapFlexStrength], ['樁帽 As ≥ As,min', okCapAsMin], ['樁帽 φ(Vc+Vs) ≥ Vu,max', okCapShear]
     ];
     // 撓曲整體判定 okCapFlex 不變；若強度與最小鋼筋量皆通過但撓曲配筋需求未收斂／未滿足，另列不通過項
     if (!okCapFlex && okCapFlexStrength && okCapAsMin) checks.push(['樁帽撓曲配筋需求', false]);
-    if (soilOk) checks.push(['Qall ≥ 服務需求', Qall >= serviceDemandPerPile]);
+    if (soilOk) checks.push(['Qall ≥ 選樁需求', Qall >= QaDemandEff]);
     if (prestressed) checks.push(['Pu ≤ 0.4Ag·fc\'', okPrestress]);
     if (lateralRequired) {
       checks.push(['p-multiplier 適用範圍', lateralDistributionOk]);
       checks.push(['側向 p-y 位移/內力分析', lateralResponseOk]);
     }
+    reviewWarnings.forEach(note => checks.push([note, null]));
     updateBannerSimple(checks);
 
-    window.ftLast = { tab:'pile', fc, fy, lambda, c1, c2, cover, pileD, pileQa, pileQt,
+    window.ftLast = { tab:'pile', reviewWarnings, fc, fy, lambda, c1, c2, cover, pileD, pileQa, pileQt,
       pileType, pileInstall, pileNL, pileNB, pileSL, pileSB, pileEta, pileLength, pileFS, pileSteelThickness, soilProfileText,
       PD, PL, PE, Mx, My, HX, HY,
       Bc, Lc, hc, pcCover, barNo, nBar, ab, db, As, d, nPile, QaEff,
-      Pu_tf, rMax, rMin, minSpacing, okR, okT, okSp, okDMin,
+      Pu_tf, rMax, rMin, service, serviceRmax, serviceRmin, serviceMaxPile, strengthMaxPile, minSpacing, okR, okT, okSp, okDMin,
       Vu2_tf, phiVc2:phiVc2/1000, okV2, excludedCount,
       prestressed, puLimit, okPrestress, isSoft, noLateral,
       lateralGroup, lateralRequired, lateralDistributionOk, pilePyModel, pilePyResponse, lateralResponseOk,
@@ -5530,8 +5571,9 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     if (r.tab === 'pile') {
       const pileChecks = [
         ['土層資料有效', r.soilOk],
+        ['選樁目標 Qall', r.soilOk ? r.Qall >= r.QaDemandEff : null],
         ['Rmax ≤ Qallow,eff', r.okR],
-        ['|Rmin| ≤ Qt', r.okT],
+        ['max(0,−Rmin) ≤ Qt', r.okT],
         ['樁距 ≥ 規範下限', r.okSp],
         ['有效深 d ≥ 30', r.okDMin],
         ['Wo ≤ 容許沉陷', r.okSettlement],
@@ -6213,26 +6255,31 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         { group:'場址', items:[
           { label:'場址', value:r.activeSiteName || '未選取', unit:'' },
           { label:'鑽孔 / 剖面', value:r.activePresetName || '未選取', unit:'' },
-          { label:'沉陷模式', value:r.pileSettlementMode === 'manual' ? '手動' : '自動', unit:'' },
+          { label:'單樁沉陷係數', value:r.pileSettlementMode === 'manual' ? '專案指定' : '試算假設 ξ＝0.67、Cp＝0.09', unit:'' },
           { label:'容許沉陷', value:r.pileSettlementAllow ? r.pileSettlementAllow.toFixed(2) : '—', unit:'cm' }
         ]},
         { group:'樁體', items:[
           { label:'樁型式 / 施工', value:`${r.pileType === 'cast-in-place' ? '場鑄混凝土樁' : '鋼管樁'} / ${r.pileInstall === 'driven' ? '打入樁' : '鑽掘樁'}`, unit:'' },
           { label:'樁徑 / 樁深', value:`${r.pileD} cm / ${r.pileLength}`, unit:'m' },
-          { label:'單樁 Qs / Qb / Qall', value:`${r.Qs.toFixed(2)} / ${r.Qb.toFixed(2)} / ${r.Qall.toFixed(2)}`, unit:'tf' },
+          { label:'極限 Qs / Qb 與容許 Qall', value:`${r.Qs.toFixed(2)} / ${r.Qb.toFixed(2)} / ${r.Qall.toFixed(2)}`, unit:'tf' },
           { label:'端承控制層', value:r.tipLayerLabel, unit:'' },
-          { label:'沉陷 Wo', value:r.settlement ? r.settlement.Wo_cm.toFixed(2) : '—', unit:'cm' }
+          { label:'單樁瞬時沉陷', value:FoundationPile.settlementBasis(r.settlement), unit:'' }
         ]},
         { group:'群樁', items:[
           { label:'配置 nL×nB', value:`${r.pileNL}×${r.pileNB}`, unit:`(${r.nPile} 支)` },
-          { label:'Rmax / Rmin', value:`${r.rMax.toFixed(2)} / ${r.rMin.toFixed(2)}`, unit:'tf' },
+          { label:'服務 D＋L，P / Mx / My', value:[r.service.axial,r.service.mx,r.service.my].map(v => v.toFixed(2)).join(' / '), unit:'tf / tf·m / tf·m' },
+          { label:'服務 / 強度最大壓力樁（並列時列首支）', value:r.serviceMaxPile + ' / ' + r.strengthMaxPile, unit:'' },
+          { label:'服務 Rmax / Rmin', value:`${r.serviceRmax.toFixed(2)} / ${r.serviceRmin.toFixed(2)}`, unit:'tf' },
+          { label:'強度 Pu / Mx / My', value:[r.Pu_tf,r.Mx,r.My].map(v => v.toFixed(2)).join(' / '), unit:'tf / tf·m / tf·m' },
+          { label:'強度 Rmax / Rmin', value:`${r.rMax.toFixed(2)} / ${r.rMin.toFixed(2)}`, unit:'tf' },
           { label:'Qallow,eff', value:r.QaEff ? Math.min(r.QaEff, r.Qall * r.pileEta).toFixed(2) : '—', unit:'tf' },
           { label:'樁距下限', value:r.spacingLimit.toFixed(0), unit:'cm' }
         ]},
         { group:'建議', items:[
-          { label:'建議樁徑', value:r.recommendation ? r.recommendation.dia : '—', unit:'cm' },
-          { label:'建議樁深', value:r.recommendation ? r.recommendation.depth.toFixed(1) : '—', unit:'m' },
-          { label:'建議斷面', value:r.recommendation ? (r.recommendation.structural.type === 'cast-in-place' ? `${r.recommendation.structural.mainBarCount}-${r.recommendation.structural.mainBarNo}` : `OD ${r.recommendation.structural.outerDiameterCm} cm, t ${r.recommendation.structural.thicknessMm} mm`) : '—', unit:'' },
+          { label:'選樁（依承載）', value:r.recommendation?.exceededRange ? '搜尋範圍承載不足' : r.recommendation ? '達目標承載' : '待確認', unit:'' },
+          { label:'建議樁徑', value:r.recommendation && !r.recommendation.exceededRange ? r.recommendation.dia : '—', unit:'cm' },
+          { label:'建議樁深', value:r.recommendation && !r.recommendation.exceededRange ? r.recommendation.depth.toFixed(1) : '—', unit:'m' },
+          { label:'建議斷面', value:r.recommendation && !r.recommendation.exceededRange ? (r.recommendation.structural.type === 'cast-in-place' ? `${r.recommendation.structural.mainBarCount}-${r.recommendation.structural.mainBarNo}` : `OD ${r.recommendation.structural.outerDiameterCm} cm, t ${r.recommendation.structural.thicknessMm} mm`) : '—', unit:'' },
           { label:'樁帽 Mu / φMn', value:`${r.capMu_tfm.toFixed(2)} / ${r.capPhiMn_tfm.toFixed(2)}`, unit:'tf·m' }
         ]}
       ];
@@ -6288,9 +6335,9 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       checks = [
         { group:'土層與單樁承載', items:[
           { label:'土層資料有效', value:r.soilOk ? `共 ${r.soilLayers.length} 層` : r.soilErrors.join('；'), ok:r.soilOk },
-          { label:'Rmax ≤ Qallow,eff', value:`${r.rMax.toFixed(2)} / ${Math.min(r.QaEff, r.Qall * r.pileEta).toFixed(2)}`, unit:'tf', ok:r.okR },
-          { label:'|Rmin| ≤ Qt', value:`${Math.abs(r.rMin).toFixed(2)} / ${r.pileQt.toFixed(2)}`, unit:'tf', ok:r.okT },
-          { label:'Qall ≥ 服務需求', value:`${r.Qall.toFixed(2)} / ${r.serviceDemandPerPile.toFixed(2)}`, unit:'tf', ok:r.Qall >= r.serviceDemandPerPile }
+          { label:'服務 Rmax ≤ Qallow,eff', value:`${r.serviceRmax.toFixed(2)} / ${Math.min(r.QaEff, r.Qall * r.pileEta).toFixed(2)}`, unit:'tf', ok:r.okR },
+          { label:'max(0,−Rmin) ≤ Qt', value:`${Math.max(0,-r.serviceRmin).toFixed(2)} / ${r.pileQt.toFixed(2)}`, unit:'tf', ok:r.okT },
+          { label:'Qall ≥ 選樁需求', value:`${r.Qall.toFixed(2)} / ${r.QaDemandEff.toFixed(2)}`, unit:'tf', ok:r.Qall >= r.QaDemandEff }
         ]},
         { group:'群樁構造', items:[
           { label:'樁距 ≥ 規範下限', value:`${r.minSpacing.toFixed(0)} / ${r.spacingLimit.toFixed(0)}`, unit:'cm', ok:r.okSp },
@@ -6298,7 +6345,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'有效深 d ≥ 30 cm', value:`${r.d.toFixed(1)} / 30`, unit:'cm', ok:r.okDMin }
         ]},
         { group:'服務性與樁身', items:[
-          { label:'Wo ≤ 容許沉陷', value:r.settlement ? `${r.settlement.Wo_cm.toFixed(2)} / ${(r.pileSettlementAllow || r.soilSa || 2.5).toFixed(2)}` : '—', unit:'cm', ok:r.okSettlement },
+          { label:'Wo ≤ 容許沉陷', value:r.settlement ? `${FoundationPile.settlementRange(r.settlement)} / ${(r.pileSettlementAllow || r.soilSa || 2.5).toFixed(2)}` : '—', unit:'cm', ok:r.okSettlement },
           { label:'樁身壓應力', value:`${r.pileStressKgCm2.toFixed(2)} / ${r.pileStressAllow.toFixed(2)}`, unit:'kgf/cm²', ok:r.okPileStress }
         ]},
         { group:'樁帽結構', items:[
@@ -6391,7 +6438,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     openReport({
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
       textExport:true,
-      outputSource:{ tool:'基礎 Foundation 設計／檢核', version:'V3.2' },
+      outputSource:{ tool:'基礎 Foundation 設計／檢核', version:'V3.3' },
       subtitle: `112 年混凝土結構設計規範`,
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,

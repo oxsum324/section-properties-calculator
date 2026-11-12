@@ -666,7 +666,7 @@ async function exercisePilePyBridge(page) {
 
 async function main() {
   const html = fs.readFileSync(htmlPath, 'utf8');
-  const pileCore = fs.readFileSync(path.join(__dirname, '..', 'shared', 'foundation-pile.js'), 'utf8');
+  const pileCore = fs.readFileSync(path.join(__dirname, '..', 'shared', 'src', 'foundation-pile.source.js'), 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
   const tolerance = pack.tolerance ?? toleranceDefault;
@@ -856,6 +856,9 @@ async function main() {
           Qult: r.Qult,
           Qall: r.Qall,
           okR: r.okR,
+          okT: r.okT,
+          serviceRmax:r.serviceRmax, serviceRmin:r.serviceRmin, strengthRmax:r.rMax, strengthRmin:r.rMin,
+          workToe:r.settlement?.toe, workShaft:r.settlement?.shaft,
           soilOk: r.soilOk,
           structuralOk: r.structuralOk,
           capApplied: r.capApplied,
