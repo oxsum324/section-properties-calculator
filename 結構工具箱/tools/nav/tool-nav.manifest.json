@@ -348,7 +348,7 @@
       "route": "/steel-plate",
       "file": "鋼構工具/plate-check.html",
       "title": "連接板檢核",
-      "version": "V1.1",
+      "version": "V1.2",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "attachments",

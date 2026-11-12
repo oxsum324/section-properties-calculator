@@ -1309,9 +1309,9 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
     const edgeWidth = Math.max(grossWidth - spread, 0);
     const candidates = [];
     if (lines > 1) {
-      candidates.push({ Agt: spread * thickness, Ant: Math.max(spread - (lines - 1) * holeWidth, 0) * thickness });
+      candidates.push({ kind: "between", Agt: spread * thickness, Ant: Math.max(spread - (lines - 1) * holeWidth, 0) * thickness });
     }
-    candidates.push({ Agt: edgeWidth * thickness, Ant: Math.max(edgeWidth - holeWidth, 0) * thickness });
+    candidates.push({ kind: "edges", Agt: edgeWidth * thickness, Ant: Math.max(edgeWidth - holeWidth, 0) * thickness });
     const valid = candidates.filter((item) => item.Ant > 0);
     if (!valid.length) return candidates[0];
     return valid.reduce((best, item) => (
@@ -1332,7 +1332,7 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
     const shearLength = Math.min(orientation.startDistance, orientation.endDistance) + Math.max(orientation.holeCountAlong - 1, 0) * orientation.parallelSpacing;
     const AgvAuto = 2 * shearLength * state.plateThickness;
     const AnvAuto = 2 * Math.max(shearLength - (orientation.holeCountAlong - 0.5) * holeWidth, 0) * state.plateThickness;
-    const { Agt, Ant: AntAuto } = selectBoltGroupBlockTensionAreas({
+    const { kind: blockPathKind, Agt, Ant: AntAuto } = selectBoltGroupBlockTensionAreas({
       grossWidth: orientation.grossWidth,
       holeCountAcross: orientation.holeCountAcross,
       transverseSpacing: orientation.transverseSpacing,
@@ -1359,6 +1359,9 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       controlNetWidth,
       controlNetType,
       autoBlockValid,
+      blockPathKind,
+      alongClearance: orientation.grossLength - orientation.startDistance - orientation.endDistance - (orientation.holeCountAlong - 1) * orientation.parallelSpacing,
+      acrossClearance: orientation.grossWidth - orientation.edgeStart - orientation.edgeEnd - (orientation.holeCountAcross - 1) * orientation.transverseSpacing,
       shearLength,
       pathSource: state.useManualBlockShearPath ? "manual_override" : "auto_geometry",
     };
@@ -1407,6 +1410,16 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
 
     const holes = [];
     const positions = buildPlateHolePositions(state);
+    const along = orientation.horizontal ? positions.columns : positions.rows;
+    const across = orientation.horizontal ? positions.rows : positions.columns;
+    const fromEnd = orientation.endDistance < orientation.startDistance;
+    const lengthRemainder = derived.alongClearance;
+    const widthRemainder = derived.acrossClearance;
+    if (lengthRemainder < -1e-6 || widthRemainder < -1e-6) {
+      return {mode:"invalid_geometry", blockShearPaths:[], caption:"孔群、端距及邊距無法容納於板內，請核對幾何；本案無可採用的破壞路徑圖。"};
+    }
+    // 若有餘長，沿力向從計算採用的較短端距定位，確保畫出的剪力面長度為 Agv/(2t)。
+    if (fromEnd) for (let i = 0; i < along.length; i++) along[i] += lengthRemainder;
     positions.columns.forEach((x) => {
       positions.rows.forEach((y) => holes.push({ x, y }));
     });
@@ -1431,23 +1444,30 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
             : positions.columns.map((x) => ({ x, y: positions.rows[Math.floor((positions.rows.length - 1) / 2)] || state.plateLength / 2 })),
         };
 
-    const farX = positions.columns[positions.columns.length - 1] || state.plateWidth / 2;
-    const farY = positions.rows[positions.rows.length - 1] || state.plateLength / 2;
-    const nearX = positions.columns[0] || state.plateWidth / 2;
-    const nearY = positions.rows[0] || state.plateLength / 2;
-    const blockShear = orientation.horizontal
-      ? [
-          { x: 0, y: nearY - state.holeDiameter / 2 },
-          { x: farX + state.holeDiameter / 2, y: nearY - state.holeDiameter / 2 },
-          { x: farX + state.holeDiameter / 2, y: farY + state.holeDiameter / 2 },
-          { x: 0, y: farY + state.holeDiameter / 2 },
-        ]
-      : [
-          { x: nearX - state.holeDiameter / 2, y: 0 },
-          { x: nearX - state.holeDiameter / 2, y: farY + state.holeDiameter / 2 },
-          { x: farX + state.holeDiameter / 2, y: farY + state.holeDiameter / 2 },
-          { x: farX + state.holeDiameter / 2, y: 0 },
-        ];
+    const at = (parallel, transverse) => orientation.horizontal ? {x:parallel, y:transverse} : {x:transverse, y:parallel};
+    const first = netSection.points[0], last = netSection.points[netSection.points.length - 1];
+    netSection.points.unshift(at(orientation.horizontal ? first.x : first.y, 0));
+    netSection.points.push(at(orientation.horizontal ? last.x : last.y, orientation.grossWidth));
+    const origin = fromEnd ? orientation.grossLength : 0;
+    const tip = fromEnd ? along[0] : along[along.length - 1];
+    const near = across[0], far = across[across.length - 1];
+    const blockShearPaths = [];
+    let caption;
+    if (derived.pathSource === "manual_override") {
+      caption = "區塊剪力面積由使用者覆寫，未提供對應破壞線座標。";
+    } else if (!derived.autoBlockValid) {
+      caption = "孔群尺寸或扣孔面積無法形成所示板內路徑，請核對幾何。";
+    } else {
+      if (derived.blockPathKind === "between") {
+        blockShearPaths.push([at(origin,near), at(tip,near), at(tip,far), at(origin,far)]);
+      } else {
+        blockShearPaths.push([at(origin,near), at(tip,near), at(tip,0)],
+          [at(origin,far), at(tip,far), at(tip,orientation.grossWidth)]);
+      }
+      const name = derived.blockPathKind === "between" ? "外排孔線間拉斷面" : "孔群外側兩條邊帶";
+      caption = `虛線為全寬淨斷面。橙色實線為區塊剪力控制路徑：${name}，從${fromEnd ? "末端 e2" : "起始端 e1"}量起。每一剪力面長 ${formatEquationNumber(derived.shearLength)} mm，拉力面總毛寬 ${formatEquationNumber(derived.Agt/state.plateThickness)} mm。`;
+      if (lengthRemainder > 1e-6 || widthRemainder > 1e-6) caption += " 輸入距離未與板尺寸閉合；圖依控制端距與第一橫向邊距定位，請回查實際孔位。";
+    }
 
     return {
       mode: "geometry",
@@ -1456,11 +1476,12 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       loadDirection: state.loadDirection,
       holes,
       netSection,
-      blockShear,
+      blockShear: blockShearPaths.length === 1 ? blockShearPaths[0] : [],
+      blockShearPaths, blockPathKind: derived.blockPathKind, fromEnd, caption,
     };
   }
 
-  function buildPlateDetailChecks(state, orientation, derived) {
+  function buildPlateDetailChecks(state, orientation, derived, replayV11) {
     if (state.plateInputMode === "area_manual") {
       return [
         makeDetailCheck(
@@ -1504,6 +1525,13 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       makeDetailCheck("plate_maxSpacingAlong", "最大孔距 X/Y(受力向)", spacingAlong, maxSpacing, "lte", `提供值 = ${formatEquationNumber(spacingAlong)} mm，規定上限 = ${formatEquationNumber(maxSpacing)} mm`, "10.3.13"),
       makeDetailCheck("plate_maxSpacingAcross", "最大孔距 Y/X(橫向)", spacingAcross, maxSpacing, "lte", `提供值 = ${formatEquationNumber(spacingAcross)} mm，規定上限 = ${formatEquationNumber(maxSpacing)} mm`, "10.3.13"),
       makeDetailCheck("plate_maxEnd", "最大端距", Math.max(state.endDistanceStart, state.endDistanceEnd), maxEdge, "lte", `提供最大值 = ${formatEquationNumber(Math.max(state.endDistanceStart, state.endDistanceEnd))} mm，規定上限 = ${formatEquationNumber(maxEdge)} mm`, "10.3.13"),
+      ...(!replayV11 ? [
+        ["plate_fitAlong", "沿力向孔群與端距", derived.alongClearance, orientation.grossLength],
+        ["plate_fitAcross", "橫向孔群與邊距", derived.acrossClearance, orientation.grossWidth],
+      ].filter(([, , clearance]) => clearance < -1e-6).map(([key, label, clearance, provided]) =>
+        makeDetailCheck(key, label + "超過板尺寸", provided, provided - clearance, "gte",
+          `孔距及兩端距合計 ${formatEquationNumber(provided - clearance)} mm；板尺寸 ${formatEquationNumber(provided)} mm。`, "Geometry")
+      ) : []),
       makeDetailCheck("plate_geometryNet", "淨斷面幾何完整性", derived.netArea > 0 ? 1 : 0, true, "custom", "板件扣孔後需仍保有正值淨斷面面積。", "Geometry"),
       makeDetailCheck("plate_geometryBlock", "區塊剪力路徑完整性", derived.autoBlockValid ? 1 : 0, true, "custom", derived.pathSource === "manual_override" ? "已採手動覆寫區塊剪力路徑值。" : "自動區塊剪力路徑需形成有效 Agv、Anv、Agt、Ant。", "Geometry"),
     ];
@@ -3310,7 +3338,7 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
     };
   }
 
-  function calculatePlateCheck(state) {
+  function calculatePlateCheck(state, replayV11) {
     const validations = [];
     const plateData = state.plateInputMode === "geometry" ? derivePlateAreasFromGeometry(state) : derivePlateAreasFromManual(state);
     const { orientation, derived } = plateData;
@@ -3379,7 +3407,7 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
     return {
       ...CONNECTION_META.plate_check,
       checks,
-      detailChecks: buildPlateDetailChecks(state, orientation, derived),
+      detailChecks: buildPlateDetailChecks(state, orientation, derived, replayV11),
       validations,
       assumptions: [
         "本模組僅適用矩形板件，且主拉力方向限水平或垂直。",
@@ -3422,6 +3450,15 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
   }
 
   function calculateConnection(rawState) {
+    return calculateWithPlateRules(rawState, false);
+  }
+
+  function replayPlateV11(rawState) {
+    if (rawState.connectionType !== "plate_check") throw new Error("舊版連接板重現只適用連接板來源檔。");
+    return calculateWithPlateRules(rawState, true);
+  }
+
+  function calculateWithPlateRules(rawState, replayV11) {
     const state = normalizeState(rawState);
     const baseValidations = validateBaseState(state);
     let result;
@@ -3437,7 +3474,7 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
         result = calculateMomentConnection(state);
         break;
       case "plate_check":
-        result = calculatePlateCheck(state);
+        result = calculatePlateCheck(state, replayV11);
         break;
       case "tension_member":
         result = calculateTensionMember(state);
@@ -3507,6 +3544,7 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
 
   const api = {
     calculateConnection,
+    replayPlateV11,
     normalizeState,
     getMinimumSpacing,
     getMinimumEndEdgeDistance,

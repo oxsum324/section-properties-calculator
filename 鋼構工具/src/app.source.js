@@ -2146,13 +2146,14 @@
     `).join("");
   }
 
-  function buildDimensionLine({ x1, y1, x2, y2, label, cls = "sketch-dim", textOffsetX = 0, textOffsetY = 0, textAnchor = "middle", markerId = "" }) {
+  function buildDimensionLine({ x1, y1, x2, y2, label, cls = "sketch-dim", textOffsetX = 0, textOffsetY = 0, textAnchor = "middle", markerId = "", verticalLabel = false }) {
     const textX = (x1 + x2) / 2 + textOffsetX;
     const textY = (y1 + y2) / 2 + textOffsetY;
+    const rotation = verticalLabel ? ` transform="rotate(-90 ${textX} ${textY})"` : "";
     const markerAttrs = markerId ? ` marker-start="url(#${markerId})" marker-end="url(#${markerId})"` : "";
     return `
       <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${cls}"${markerAttrs} />
-      <text x="${textX}" y="${textY}" text-anchor="${textAnchor}" class="sketch-dim-label">${label}</text>
+      <text x="${textX}" y="${textY}" text-anchor="${textAnchor}"${rotation} class="sketch-dim-label">${label}</text>
     `;
   }
 
@@ -2201,13 +2202,17 @@
       return `<div class="card-placeholder">${result.sketchData?.caption || "本案採指定斷面面積，未建立幾何示意。"}</div>`;
     }
 
-    const { plateWidth, plateLength, holes, netSection, blockShear, loadDirection } = result.sketchData;
+    const { plateWidth, plateLength, holes, netSection, blockShearPaths, fromEnd, caption, loadDirection } = result.sketchData;
     const scale = Math.min(480 / Math.max(plateWidth, 1), 340 / Math.max(plateLength, 1));
     const toX = (value) => 20 + value * scale;
     const toY = (value) => 36 + value * scale;
     const holeRadius = Math.max(result.state.holeDiameter * scale / 2, 3);
     const netPath = (netSection?.points || []).map((point) => `${toX(point.x)},${toY(point.y)}`).join(" ");
-    const blockPath = (blockShear || []).map((point, index) => `${index === 0 ? "M" : "L"} ${toX(point.x)} ${toY(point.y)}`).join(" ") + " Z";
+    const blockMarkup = blockShearPaths.map(points => {
+      const path = points.map((p, i) => `${i ? "L" : "M"} ${toX(p.x)} ${toY(p.y)}`).join(" ");
+      return `<path d="${path}" class="sketch-block" style="fill:none"/>`;
+    }).join("");
+    const horizontal = loadDirection === "horizontal";
     const arrow = loadDirection === "horizontal"
       ? `<line x1="${toX(10)}" y1="${toY(plateLength / 2)}" x2="${toX(plateWidth - 10)}" y2="${toY(plateLength / 2)}" class="sketch-arrow" marker-end="url(#plateArrow)" />`
       : `<line x1="${toX(plateWidth / 2)}" y1="${toY(10)}" x2="${toX(plateWidth / 2)}" y2="${toY(plateLength - 10)}" class="sketch-arrow" marker-end="url(#plateArrow)" />`;
@@ -2227,45 +2232,40 @@
       y2: toY(plateLength),
       label: `板長 ${formatNumber(plateLength, 1)} mm`,
       cls: "sketch-dim sketch-dim--vertical",
-      textOffsetX: 24,
+      textOffsetX: -6,
+      verticalLabel: true,
       markerId: "plateDimArrow",
     });
-    const pitchXDim = result.state.pitchX > 0 && holes.length > 1
-      ? buildDimensionLine({
-          x1: toX(holes[0].x),
-          y1: toY(plateLength) + 58,
-          x2: toX(Math.min(holes[0].x + result.state.pitchX, plateWidth)),
-          y2: toY(plateLength) + 58,
-          label: `沿力方向孔距 ${formatNumber(result.state.pitchX, 1)} mm`,
-          textOffsetY: -6,
-          markerId: "plateDimArrow",
-        })
-      : "";
-    const edgeDim = result.state.endDistanceStart > 0
-      ? buildDimensionLine({
-          x1: toX(0),
-          y1: toY(0) - 14,
-          x2: toX(Math.min(result.state.endDistanceStart, plateWidth)),
-          y2: toY(0) - 14,
-          label: `端距 ${formatNumber(result.state.endDistanceStart, 1)} mm`,
-          textOffsetY: -6,
-          markerId: "plateDimArrow",
-        })
-      : "";
+    const alongCount = horizontal ? result.state.lineCount : result.state.rowCount;
+    const pitch = horizontal ? result.state.pitchX : result.state.pitchY;
+    const endDistance = fromEnd ? result.state.endDistanceEnd : result.state.endDistanceStart;
+    const extent = horizontal ? plateWidth : plateLength;
+    function alongDimension(a, b, label, pitchLine) {
+      if (horizontal) {
+        const y = pitchLine ? toY(plateLength) + 58 : toY(0) - 14;
+        return buildDimensionLine({x1:toX(a), x2:toX(b), y1:y, y2:y, label, textOffsetY:-6, markerId:"plateDimArrow"});
+      }
+      const x = toX(plateWidth) + (pitchLine ? 70 : 112);
+      return buildDimensionLine({x1:x, x2:x, y1:toY(a), y2:toY(b), label, cls:"sketch-dim sketch-dim--vertical", textOffsetX:-6, verticalLabel:true, markerId:"plateDimArrow"});
+    }
+    const pitchStart = horizontal ? holes[0].x : holes[0].y;
+    const pitchXDim = alongCount > 1 ? alongDimension(pitchStart, pitchStart + pitch, `沿力孔距 ${formatNumber(pitch,1)} mm`, true) : "";
+    const edgeDim = alongDimension(fromEnd ? extent-endDistance : 0, fromEnd ? extent : endDistance,
+      `${fromEnd ? "e2" : "e1"} ${formatNumber(endDistance,1)} mm`, false);
 
     return `
-      <svg class="plate-sketch${inline ? " plate-sketch--print" : ""}" viewBox="0 0 ${toX(plateWidth) + 76} ${toY(plateLength) + 92}" xmlns="http://www.w3.org/2000/svg" aria-label="連接板幾何示意">
+      <svg class="plate-sketch${inline ? " plate-sketch--print" : ""}" viewBox="0 0 ${toX(plateWidth) + (horizontal ? 62 : 145)} ${toY(plateLength) + 92}" xmlns="http://www.w3.org/2000/svg" aria-label="連接板幾何示意">
         <defs>
           <marker id="plateArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
             <path d="M0,0 L8,4 L0,8 z" fill="#0e7490"></path>
           </marker>
-          <marker id="plateDimArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <marker id="plateDimArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
             <path d="M0,0 L8,4 L0,8 z" fill="#475569"></path>
           </marker>
         </defs>
         <rect x="${toX(0)}" y="${toY(0)}" width="${plateWidth * scale}" height="${plateLength * scale}" class="sketch-plate"/>
         ${holes.map((hole) => `<circle cx="${toX(hole.x)}" cy="${toY(hole.y)}" r="${holeRadius}" class="sketch-hole"/>`).join("")}
-        <path d="${blockPath}" class="sketch-block"/>
+        ${blockMarkup}
         ${netPath ? `<polyline points="${netPath}" class="sketch-net"/>` : ""}
         ${arrow}
         ${widthDim}
@@ -2274,6 +2274,7 @@
         ${edgeDim}
         <text x="${toX(plateWidth / 2)}" y="${toY(plateLength) + 14}" text-anchor="middle" class="sketch-label">${loadDirection === "horizontal" ? "水平拉力" : "垂直拉力"}</text>
       </svg>
+      <p class="sketch-caption">${SteelFormalUI.escapeHtml(caption)}</p>
     `;
   }
 
@@ -2708,16 +2709,14 @@
     reportBanner.classList.remove("ok", "warn", "fail");
     reportBanner.classList.add(result.overallStatus);
 
+    reportBanner.textContent = reportResultText(result);
     if (result.passes) {
-      reportBanner.textContent = result.overallStatus === "warn" ? "基本通過，仍需留意提醒" : "檢核通過";
       approvalStamp.textContent = result.overallStatus === "warn" ? "條件式核可" : "核可";
       approvalDecision.textContent = result.overallStatus === "warn" ? "條件式核可" : "核可";
     } else if (result.summary.detailFailure && !result.summary.strengthFailure) {
-      reportBanner.textContent = "強度可行，但細部規定未通過";
       approvalStamp.textContent = "退回修正";
       approvalDecision.textContent = "細部不符";
     } else {
-      reportBanner.textContent = "檢核未通過";
       approvalStamp.textContent = "不核可";
       approvalDecision.textContent = "不核可";
     }
@@ -2881,6 +2880,12 @@
     assertSpliceFiniteFormalResult(result);
   }
 
+  function reportResultText(result) {
+    if (result.detailChecks.some(c => c.key === "plate_fitAlong" || c.key === "plate_fitAcross")) return "孔群放不進板內，請修正尺寸後重算";
+    if (result.passes) return result.overallStatus === "warn" ? "基本通過，仍需留意提醒" : "檢核通過";
+    return result.summary.detailFailure && !result.summary.strengthFailure ? "強度可行，但細部規定未通過" : "檢核未通過";
+  }
+
   function buildConnectionReportConfig(result) {
     const outputSource = getFormalToolMetadata(result.state.connectionType);
     return {
@@ -2896,7 +2901,7 @@
       formalApprovalAllowed: result.passes,
       reviewItems: result.overallStatus === "warn" ? ["計算結果尚待人工複核"] : [],
       checks: result.checks,
-      summary: { ok: result.passes, text: reportBanner.textContent },
+      summary: { ok: result.passes, text: reportResultText(result) },
       snapshot: {
         state: getReportSnapshotState(result),
         governing: result.governing,
@@ -3204,7 +3209,8 @@
       : [STEEL_TOOL_METADATA.plate.id, STEEL_TOOL_METADATA.tension.id, STEEL_TOOL_METADATA.connection.id];
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolIds: allowedToolIds,
-      expectedVersion: expectedMetadata.version,
+      expectedVersion: payload.connectionType === "plate_check" && payload.tool?.id === STEEL_TOOL_METADATA.plate.id
+        && SteelFormalUI.normalizeReportVersion(payload.tool.version) === "v1.1" ? "V1.1" : expectedMetadata.version,
     });
     if (!['plate_check', 'tension_member', 'single_plate', 'brace_gusset', 'beam_column_moment', 'column_splice'].includes(payload.connectionType)) {
       throw new Error('來源 JSON 驗證失敗：不支援此檢核模組。');
@@ -3233,15 +3239,19 @@
       }));
       stateChanged = true;
       setFormState(['single_plate', 'brace_gusset', 'beam_column_moment', 'column_splice'].includes(payload.connectionType) ? { ...defaultState, ...payload.fields } : payload.fields, false);
-      const replay = buildConnectionSourcePayload();
+      const oldPlate = payload.connectionType === "plate_check" && SteelFormalUI.normalizeReportVersion(payload.tool.version) === "v1.1";
+      const replay = oldPlate ? buildConnectionSourcePayload(window.ShearConnectionCalculator.replayPlateV11(collectFormState())) : buildConnectionSourcePayload();
       if (replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay.calculationFingerprint}）。`);
       }
-      if (['single_plate', 'brace_gusset', 'beam_column_moment', 'column_splice'].includes(payload.connectionType)
+      if (['plate_check', 'single_plate', 'brace_gusset', 'beam_column_moment', 'column_splice'].includes(payload.connectionType)
         && canonicalJson(jsonSerializableClone(replay.report)) !== canonicalJson(payload.report)) {
         throw new Error('來源 JSON 驗證失敗：內嵌報告內容與來源欄位重算結果不一致。');
       }
-      setExportReportStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
+      const current = oldPlate ? buildConnectionSourcePayload() : replay;
+      setExportReportStatus(current.calculationFingerprint === replay.calculationFingerprint
+        ? `已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`
+        : `已核對舊版 ${replay.calculationFingerprint}；依新版重算：${current.report.summary.text}｜${current.calculationFingerprint}`);
     } catch (error) {
       if (stateChanged) setFormState(previousFields, false);
       setExportReportStatus(`匯入失敗，已保留原輸入｜${error?.message || '未知錯誤'}`);

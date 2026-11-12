@@ -732,6 +732,17 @@ assert.ok(plateGeometry.derivedAreas.Ag > plateGeometry.derivedAreas.An, "plate 
 assert.ok(plateGeometry.derivedAreas.Ae <= plateGeometry.derivedAreas.Ag, "plate geometry should derive Ae within Ag");
 assert.equal(plateGeometry.complianceReady, true, "plate geometry should be marked as compliance-ready");
 
+const outsidePlate = { ...plateGeometry.state, plateWidth:200 };
+const fitFailure = calculateConnection(outsidePlate);
+assert.equal(fitFailure.passes, false, "plate cannot contain the specified end distances and pitches");
+assert.equal(fitFailure.detailChecks.find(item => item.key === "plate_fitAlong").passes, false);
+assert.equal(fitFailure.sketchData.mode, "invalid_geometry");
+const edgeBlocks = calculateConnection({ ...plateGeometry.state, plateWidth:280, plateLength:200, pitchX:60, pitchY:75,
+  endDistanceStart:100, endDistanceEnd:60, edgeDistanceTop:25, edgeDistanceBottom:25 });
+assert.equal(edgeBlocks.sketchData.blockPathKind, "edges");
+assert.deepEqual(edgeBlocks.sketchData.blockShearPaths, [
+  [{x:280,y:25},{x:100,y:25},{x:100,y:0}], [{x:280,y:175},{x:100,y:175},{x:100,y:200}],
+]);
 const plateGeometryScope = calculateConnection({
   ...shared,
   connectionType: "plate_check",
