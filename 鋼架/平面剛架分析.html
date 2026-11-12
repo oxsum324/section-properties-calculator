@@ -358,7 +358,7 @@
       </div>
 
       <div class="card diag-card">
-        <div class="diag-title"><h2>幾何 / 變形圖</h2><span class="legend">灰 = 原始, 藍 = 變形 (放大顯示)</span></div>
+        <div class="diag-title"><h2>幾何 / 變形圖</h2><span class="legend">灰為原形，藍為放大變形。橫向依彎曲曲線，軸向由節點內插。</span></div>
         <div class="canvas-wrap"><canvas id="geomCanvas" width="800" height="500"></canvas></div>
       </div>
 
@@ -419,8 +419,10 @@
 
       <div class="card">
         <h2>桿件極值</h2>
+        <p class="hint">依目前載重組合，沿局部 +y 顯示絕對值最大的有號位移。弦線撓度扣除兩端平移連線，x 自 i 端起算。</p>
         <table class="results-table" id="extrTbl"><thead><tr>
           <th>桿件</th><th>L (m)</th><th>|M|max (tf·m)</th><th>|V|max (tf)</th><th>|N|max (tf)</th>
+          <th>橫向位移 (mm)／x (m)</th><th>弦線撓度 (mm)／x (m)</th>
         </tr></thead><tbody></tbody></table>
       </div>
 
@@ -452,6 +454,7 @@
 </div>
 
 <script src="../結構工具箱/tools/analysis-section-tool-metadata.js"></script>
+<script src="../結構工具箱/tools/beam-element-deflection.js"></script>
 <script src="../結構工具箱/core/ui/report-utils.js"></script>
 <script src="../結構工具箱/core/ui/report-docx.js"></script>
 <script src="../結構工具箱/core/ui/report.js"></script>
@@ -1660,7 +1663,7 @@ function analyze(loadFactorOverride = null) {
       for (let b = 0; b < 6; b++) K[dofs[a]][dofs[b]] += kG[a][b];
     }
 
-    elemResults.push({ m, L, c, s, T, kL, fFEMlocal, dofs, qxLocal, wLocal, ptLocal, condInfo });
+    elemResults.push({ m, L, EI, c, s, T, kL, fFEMlocal, dofs, qxLocal, wLocal, ptLocal, condInfo });
   }
 
   // 保存桿件原始 K 以便計算固定支承反力；彈簧支承另以 -k·d 顯示。
@@ -1845,6 +1848,15 @@ function analyze(loadFactorOverride = null) {
       Ms.push(-e.qLocal[2] + e.qLocal[1] * x + 0.5 * e.wLocal * x * x + sumMom);
     }
     e.diag = { xs, Ns, Vs, Ms };
+    const [vi, ti, vj, tj] = [dFull[1], dFull[2], dFull[4], dFull[5]];
+    const loadTerms = [{ type:'udl', w:-e.wLocal },
+      ...e.ptLocal.filter(p => p.Pyl !== 0).map(p => ({ type:'point', P:-p.Pyl, a:p.a }))];
+    const curve = elementDeflectionCurve({ L:e.L, EI:e.EI, dispLocal:[vi, ti, vj, tj] }, loadTerms);
+    const chordSlope = (vj - vi) / e.L;
+    const relative = elementDeflectionCurve({ L:e.L, EI:e.EI, dispLocal:[0, ti-chordSlope, 0, tj-chordSlope] }, loadTerms);
+    const stations = [...new Set([...xs, curve.peak.x, relative.peak.x])].sort((a,b) => a-b);
+    e.deflection = { absolute:curve.peak, chord:relative.peak, stations,
+      values:stations.map(x => curve.displacement(x/e.L)) };
   }
 
   const solverDiagnostics = {
@@ -1890,7 +1902,6 @@ function drawGeometry() {
   const xs = [], ys = [];
   state.nodes.forEach(n => { xs.push(n.x); ys.push(n.y); });
   const pad = 50;
-  const tr = fitToCanvas(cv, xs, ys, pad);
 
   // 變形圖的放大倍率 (若有解)
   let scale = 0;
@@ -1900,9 +1911,26 @@ function drawGeometry() {
       const u = sol.d[i * 3], v = sol.d[i * 3 + 1];
       maxDisp = Math.max(maxDisp, Math.hypot(u, v));
     }
+    for (const e of sol.elems) maxDisp = Math.max(maxDisp, Math.abs(e.deflection.absolute.value));
     const diagSize = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
     scale = maxDisp > 1e-10 ? (diagSize * 0.12) / maxDisp : 0;
   }
+  const curves = [];
+  if (sol && scale > 0) {
+    for (const e of sol.elems) {
+      const ni = state.nodes.find(n => n.id === e.m.i);
+      const curve = e.deflection.stations.map((x, i) => {
+        const axial = e.dLocal[0] + (e.dLocal[3] - e.dLocal[0]) * x/e.L;
+        const transverse = e.deflection.values[i];
+        const px = ni.x + e.c*x + scale*(e.c*axial - e.s*transverse);
+        const py = ni.y + e.s*x + scale*(e.s*axial + e.c*transverse);
+        xs.push(px); ys.push(py);
+        return [px, py];
+      });
+      curves.push(curve);
+    }
+  }
+  const tr = fitToCanvas(cv, xs, ys, pad);
 
   // 原始幾何
   ctx.strokeStyle = '#cbd5e1';
@@ -1918,21 +1946,14 @@ function drawGeometry() {
   }
 
   // 變形後幾何
-  if (sol && scale > 0) {
+  if (curves.length) {
     ctx.strokeStyle = '#2563eb';
     ctx.lineWidth = 2.5;
-    for (const m of state.members) {
-      const iIdx = state.nodes.findIndex(n => n.id === m.i);
-      const jIdx = state.nodes.findIndex(n => n.id === m.j);
-      if (iIdx < 0 || jIdx < 0) continue;
-      const ni = state.nodes[iIdx], nj = state.nodes[jIdx];
-      const xi = ni.x + scale * sol.d[iIdx * 3];
-      const yi = ni.y + scale * sol.d[iIdx * 3 + 1];
-      const xj = nj.x + scale * sol.d[jIdx * 3];
-      const yj = nj.y + scale * sol.d[jIdx * 3 + 1];
+    for (const curve of curves) {
       ctx.beginPath();
-      ctx.moveTo(tr.x(xi), tr.y(yi));
-      ctx.lineTo(tr.x(xj), tr.y(yj));
+      curve.forEach(([x, y], i) => {
+        if (i === 0) ctx.moveTo(tr.x(x), tr.y(y)); else ctx.lineTo(tr.x(x), tr.y(y));
+      });
       ctx.stroke();
     }
   }
@@ -2793,7 +2814,7 @@ function renderResults() {
     const nMax = Math.max(...e.diag.Ns.map(Math.abs));
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>M${e.m.id}</td><td>${e.L.toFixed(3)}</td>
-      <td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td>`;
+      <td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td>${frameDeflectionCells(e)}`;
     tbE.appendChild(tr);
   }
   const combinationAnalyses = frameCombinationAnalysisSet();
@@ -2801,6 +2822,13 @@ function renderResults() {
   renderStoryEnvelope(combinationAnalyses);
   renderNodeEnvelope(combinationAnalyses);
   renderMemberEnvelope(combinationAnalyses);
+}
+
+function frameDeflectionCells(element) {
+  return ['absolute', 'chord'].map(key => {
+    const peak = element.deflection?.[key];
+    return peak ? `<td>${(peak.value * 1000).toFixed(3)} ／ ${peak.x.toFixed(3)}</td>` : '<td>無站位資料</td>';
+  }).join('');
 }
 
 function escapeHtml(value) {
@@ -3904,7 +3932,7 @@ function printReport() {
     const mMax = Math.max(...e.diag.Ms.map(Math.abs));
     const vMax = Math.max(...e.diag.Vs.map(Math.abs));
     const nMax = Math.max(...e.diag.Ns.map(Math.abs));
-    return `<tr><td>M${e.m.id}</td><td>${e.L.toFixed(3)}</td><td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td></tr>`;
+    return `<tr><td>M${e.m.id}</td><td>${e.L.toFixed(3)}</td><td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td>${frameDeflectionCells(e)}</tr>`;
   }).join('');
   const endForceRows = sol.elems.map(e => `<tr><td>M${e.m.id}</td><td>${e.qLocal[0].toFixed(3)}</td><td>${e.qLocal[1].toFixed(3)}</td><td>${e.qLocal[2].toFixed(3)}</td><td>${e.qLocal[3].toFixed(3)}</td><td>${e.qLocal[4].toFixed(3)}</td><td>${e.qLocal[5].toFixed(3)}</td></tr>`).join('');
   const activeResultLabel = `${activeCombination.name}（${formatActiveCombination()}）`;
@@ -4018,7 +4046,7 @@ ${envelopeSection ? `<section class="rep-block">${envelopeSection}</section>` : 
 <section class="rep-block"><h3>節點位移 / 反力</h3><p class="meta"><b>目前結果組合：</b>${escapeHtml(activeResultLabel)}</p><table><thead><tr><th>節點</th><th>uX(mm)</th><th>uY(mm)</th><th>θZ(×10⁻³rad)</th><th>Rx(tf)</th><th>Ry(tf)</th><th>Mz(tf·m)</th></tr></thead><tbody>${dispRows}</tbody></table></section>
 ${nodeEnvelopeSection ? `<section class="rep-block">${nodeEnvelopeSection}</section>` : ''}
 <section class="rep-block"><h3>桿件端力（局部座標）</h3><p class="meta"><b>目前結果組合：</b>${escapeHtml(activeResultLabel)}</p><table><thead><tr><th>桿件</th><th>Ni(tf)</th><th>Vi(tf)</th><th>Mi(tf·m)</th><th>Nj(tf)</th><th>Vj(tf)</th><th>Mj(tf·m)</th></tr></thead><tbody>${endForceRows}</tbody></table></section>
-<section class="rep-block"><h3>桿件極值</h3><p class="meta"><b>目前結果組合：</b>${escapeHtml(activeResultLabel)}</p><table><thead><tr><th>桿件</th><th>L(m)</th><th>|M|max(tf·m)</th><th>|V|max(tf)</th><th>|N|max(tf)</th></tr></thead><tbody>${extrRows}</tbody></table></section>
+<section class="rep-block"><h3>桿件極值</h3><p class="meta"><b>目前結果組合：</b>${escapeHtml(activeResultLabel)}。局部 +y 為正，弦線撓度扣除兩端平移連線，x 自 i 端起算。使用性檢核須另確認組合及容許值。</p><table><thead><tr><th>桿件</th><th>L(m)</th><th>|M|max(tf·m)</th><th>|V|max(tf)</th><th>|N|max(tf)</th><th>橫向位移(mm)／x(m)</th><th>弦線撓度(mm)／x(m)</th></tr></thead><tbody>${extrRows}</tbody></table></section>
 ${memberEnvelopeSection ? `<section class="rep-block">${memberEnvelopeSection}</section>` : ''}
 <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </body></html>`;

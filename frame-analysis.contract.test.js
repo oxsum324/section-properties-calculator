@@ -247,7 +247,7 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     'buildFrameCalculationTrace',
     'setReportLink',
     'setReportStatus',
-    'printReport',
+    'printReport', 'frameDeflectionCells',
   ].forEach(name => {
     vm.runInContext(functionSource(source, name), context, { filename: `frame-report:${name}` });
   });
@@ -330,6 +330,7 @@ function createFrameAnalysisContext(source) {
   vm.createContext(context);
   loadReportUtilities(context);
   vm.runInContext(sharedReportSource, context, { filename: 'shared-report-analysis-runtime' });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '結構工具箱/tools/beam-element-deflection.js'), 'utf8'), context);
   [
     'asNonNegativeNumber', 'makeNode', 'springValue', 'activeSpring', 'hasSupportDof',
     'ensureLoadCases', 'normalizedCombinationFactors', 'ensureLoadCombinations', 'currentLoadCombination',
@@ -827,6 +828,9 @@ const cantileverSolution = runClosedFormFrameCase({
   nodalLoads: [{ caseId: 1, node: 2, Fx: cantileverTipLoad, Fy: 0, M: 0 }],
 });
 assertNear(cantileverSolution.d[3], cantileverTipLoad * cantileverLength ** 3 / (3 * closedFormEI), 1e-11, 'cantilever tip translation matches PL^3/(3EI)');
+assertNear(cantileverSolution.elems[0].deflection.absolute.value, -cantileverSolution.d[3], 1e-11, 'vertical cantilever reports local transverse tip displacement');
+assertNear(cantileverSolution.elems[0].deflection.absolute.x, cantileverLength, 1e-11, 'cantilever maximum is at free end');
+assertNear(cantileverSolution.elems[0].deflection.chord.x, cantileverLength * (1 - 1 / Math.sqrt(3)), 1e-10, 'cantilever chord-relative maximum is inside member');
 assertNear(cantileverSolution.d[5], -cantileverTipLoad * cantileverLength ** 2 / (2 * closedFormEI), 1e-11, 'cantilever tip rotation matches PL^2/(2EI)');
 assertNear(cantileverSolution.reactions[0], -cantileverTipLoad, 1e-10, 'cantilever base horizontal reaction matches statics');
 assertNear(cantileverSolution.reactions[2], cantileverTipLoad * cantileverLength, 1e-10, 'cantilever base moment matches PL');
@@ -846,6 +850,7 @@ const simpleUdlSolution = runClosedFormFrameCase({
   memberLoads: [{ caseId: 1, member: 1, w: uniformLoad, dir: 'globalY' }],
 });
 assertNear(simpleUdlSolution.reactions[1], uniformLoad * simpleSpan / 2, 1e-10, 'simple beam UDL left reaction matches wL/2');
+assertNear(simpleUdlSolution.elems[0].deflection.chord.value, -5 * uniformLoad * simpleSpan ** 4 / (384 * closedFormEI), 1e-11, 'frame span with immobile supports bends under distributed load');
 assertNear(simpleUdlSolution.reactions[4], uniformLoad * simpleSpan / 2, 1e-10, 'simple beam UDL right reaction matches wL/2');
 assertNear(simpleUdlSolution.d[2], -uniformLoad * simpleSpan ** 3 / (24 * closedFormEI), 1e-11, 'simple beam UDL left rotation matches wL^3/(24EI)');
 assertNear(simpleUdlSolution.d[5], uniformLoad * simpleSpan ** 3 / (24 * closedFormEI), 1e-11, 'simple beam UDL right rotation matches wL^3/(24EI)');
@@ -864,6 +869,8 @@ const simplePointSolution = runClosedFormFrameCase({
   memberPointLoads: [{ caseId: 1, member: 1, P: midpointLoad, a: simpleSpan / 2, dir: 'globalY' }],
 });
 assertNear(simplePointSolution.reactions[1], midpointLoad / 2, 1e-10, 'simple beam midpoint load left reaction matches P/2');
+assertNear(simplePointSolution.elems[0].deflection.absolute.value, -midpointLoad * simpleSpan ** 3 / (48 * closedFormEI), 1e-11, 'frame member includes load-induced deflection at midspan');
+assertNear(simplePointSolution.elems[0].deflection.absolute.x, simpleSpan/2, 1e-11, 'frame midpoint station from i end');
 assertNear(simplePointSolution.reactions[4], midpointLoad / 2, 1e-10, 'simple beam midpoint load right reaction matches P/2');
 assertNear(simplePointSolution.d[2], -midpointLoad * simpleSpan ** 2 / (16 * closedFormEI), 1e-11, 'simple beam midpoint load left rotation matches PL^2/(16EI)');
 assertNear(simplePointSolution.d[5], midpointLoad * simpleSpan ** 2 / (16 * closedFormEI), 1e-11, 'simple beam midpoint load right rotation matches PL^2/(16EI)');
@@ -884,6 +891,10 @@ assertNear(releasedEndSolution.reactions[1], 5 * uniformLoad * simpleSpan / 8, 1
 assertNear(releasedEndSolution.reactions[4], 3 * uniformLoad * simpleSpan / 8, 1e-10, 'fixed-pinned beam right reaction matches 3wL/8');
 assertNear(releasedEndSolution.reactions[2], uniformLoad * simpleSpan ** 2 / 8, 1e-10, 'fixed-pinned beam fixed-end reaction moment matches wL^2/8');
 assertNear(releasedEndSolution.elems[0].qLocal[5], 0, 1e-10, 'released member end moment is zero after static condensation');
+const releasedPeakX = (15 - Math.sqrt(33)) * simpleSpan / 16;
+const releasedPeakV = -uniformLoad * releasedPeakX ** 2 * (3*simpleSpan**2 - 5*simpleSpan*releasedPeakX + 2*releasedPeakX**2) / (48*closedFormEI);
+assertNear(releasedEndSolution.elems[0].deflection.absolute.x, releasedPeakX, 1e-10, 'fixed-pinned controlling station uses recovered end rotation');
+assertNear(releasedEndSolution.elems[0].deflection.absolute.value, releasedPeakV, 1e-11, 'fixed-pinned deflection agrees with integrated moment diagram');
 assertNear(Math.min(...releasedEndSolution.elems[0].diag.Ms), -uniformLoad * simpleSpan ** 2 / 8, 1e-10, 'fixed-pinned beam hogging moment matches -wL^2/8');
 assertNear(Math.max(...releasedEndSolution.elems[0].diag.Ms), 9 * uniformLoad * simpleSpan ** 2 / 128, 1e-10, 'fixed-pinned beam positive moment matches 9wL^2/128');
 

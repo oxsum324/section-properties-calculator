@@ -548,6 +548,7 @@ function bootPage() {
   context.openReport = (cfg) => {
     context.__lastReportConfig = cfg;
   };
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '結構工具箱/tools/beam-element-deflection.js'), 'utf8'), context);
   vm.runInContext(mainScript, context, { filename: '連續梁分析.html#main' });
   [
     'collectSaveData',
