@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
 const { captureReportTextDownload } = require('./鋼筋混凝土/tools/report-text-download-check');
+const beamMetadata = require('./結構工具箱/tools/analysis-section-tool-metadata')['continuous-beam'];
 
 const ROOT = __dirname;
 const OUT_DIR = path.resolve(process.env.CONTINUOUS_BEAM_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
@@ -110,7 +111,7 @@ async function main() {
         reactionText: document.getElementById('reactionTable')?.textContent || '',
       };
     });
-    assert(result.version === 'V1.4', 'continuous beam public version is current', result.version);
+    assert(result.version === beamMetadata.version, 'continuous beam public version matches its catalogue', result.version);
     assert(result.reportReady && /30(?:\.0+)?/.test(result.reactionText), 'continuous beam representative result is calculated', result.reactionText.replace(/\s+/g, ' ').trim());
 
     const popupPromise = page.waitForEvent('popup', { timeout: 15000 });
