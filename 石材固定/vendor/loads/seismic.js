@@ -591,11 +591,13 @@
     const staticFull = Number(directionResult?.staticFull || stat);
     const floorRatio = Number(directionResult?.floorRatio || 1);
     const ratio = stat > 0 ? dyn / stat : null;
-    const requiredScale = dyn > 0 && stat > 0 ? stat / dyn : null;
+    // 第 3.3 節第 3 款：原動力值較大時仍採動力值。
+    const minimumShear = dyn > 0 && stat > 0 ? Math.max(dyn, stat) : null;
+    const requiredScale = minimumShear === null ? null : minimumShear / dyn;
     const adoptedShear = isFinite(directionResult?.adoptedShear) && directionResult.adoptedShear > 0 ? Number(directionResult.adoptedShear) : null;
     const adoptedScale = adoptedShear != null && dyn > 0 ? adoptedShear / dyn : null;
     const hasAdopted = adoptedShear != null;
-    const adoptedPass = hasAdopted && adoptedShear >= stat;
+    const adoptedPass = hasAdopted && minimumShear !== null && adoptedShear >= minimumShear;
     const needsScale = ratio != null && ratio < 1;
     return {
       dir,
@@ -605,6 +607,7 @@
       floorRatio,
       ratio,
       needsScale,
+      minimumShear,
       requiredScale,
       scaleFactor: requiredScale,
       hasAdopted,
@@ -614,8 +617,8 @@
       status: !hasAdopted
         ? '尚未輸入採用總橫力，僅列示規範調整要求。'
         : adoptedPass
-          ? '輸入採用總橫力已滿足第 3.3 節調整要求。'
-          : '輸入採用總橫力低於第 3.3 節調整要求，需提高或重新縮放。'
+          ? '輸入採用總橫力已達本方向最低採用值。'
+          : '輸入採用總橫力低於本方向最低採用值，需提高或重新縮放。'
     };
   }
 

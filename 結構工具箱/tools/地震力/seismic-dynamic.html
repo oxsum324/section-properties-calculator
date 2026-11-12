@@ -1403,7 +1403,8 @@ function renderDesignActionCards(actions) {
         <div class="decision-card ${!action.hasAdopted ? 'pending' : action.adoptedPass ? 'ok' : 'warn'}">
           <strong>${action.dir} 向工作輸出</strong>
           <div class="decision-line"><span>等值靜力結果</span><span>${fmt(action.staticFull, 2)} tf</span></div>
-          <div class="decision-line"><span>調整要求</span><span>${fmt(action.stat, 2)} tf (${fmt(action.floorRatio * 100, 0)}%)</span></div>
+          <div class="decision-line"><span>靜力比較值</span><span>${fmt(action.stat, 2)} tf (${fmt(action.floorRatio * 100, 0)}%)</span></div>
+          <div class="decision-line"><span>最低採用總橫力</span><span>${fmt(action.minimumShear, 2)} tf</span></div>
           <div class="decision-line"><span>最低縮放倍率</span><span>${fmt(action.requiredScale, 2)}</span></div>
           <div class="decision-line"><span>輸入採用總橫力</span><span>${action.hasAdopted ? `${fmt(action.adoptedShear, 2)} tf` : '未輸入'}</span></div>
           <div class="decision-line"><span>採用縮放倍率</span><span>${fmt(action.adoptedScale, 2)}</span></div>
@@ -1412,7 +1413,7 @@ function renderDesignActionCards(actions) {
       `).join('')}
     </div>
     <div class="decision-note">
-      依規範第 3.3 節精神，動力分析所得總橫力需與等值靜力分析結果之規定比例比對；本區列出最低縮放倍率，並檢核工程師輸入之採用總橫力。
+      依第 3.3 節，各向最低採用總橫力取原動力值與靜力比較值之較大者。動力值已較大時，最低縮放倍率為 1.00。
       正式採用仍需確認建築物規則性、模型軟體輸出、方向組合與案件審查要求。
     </div>
   `;
@@ -1604,16 +1605,7 @@ function calcDynamic() {
     modelCheck,
     notes
   };
-  result.designActions = buildDesignActions(result);
-  result.designActions.forEach(action => {
-    if (!action.hasAdopted) {
-      notes.push(`${action.dir} 向尚未輸入採用總橫力；最低縮放倍率 = ${fmt(action.requiredScale, 2)}，第 3.3 節調整要求 = ${fmt(action.stat, 2)} tf。`);
-    } else if (!action.adoptedPass) {
-      notes.push(`${action.dir} 向輸入採用總橫力 = ${fmt(action.adoptedShear, 2)} tf，採用縮放倍率 = ${fmt(action.adoptedScale, 2)}，低於第 3.3 節調整要求 ${fmt(action.stat, 2)} tf。`);
-    } else {
-      notes.push(`${action.dir} 向輸入採用總橫力 = ${fmt(action.adoptedShear, 2)} tf，採用縮放倍率 = ${fmt(action.adoptedScale, 2)}，已滿足第 3.3 節調整要求。`);
-    }
-  });
+  refreshDesignActionNotes(result);
   lastDynamicResult = { result, x, y, imported };
   setStorageJson(DYNAMIC_STORAGE_KEY, result);
   renderDynamicResult();
@@ -1623,10 +1615,21 @@ function calcDynamic() {
   return true;
 }
 
+function refreshDesignActionNotes(result) {
+  result.designActions = buildDesignActions(result);
+  // 舊摘要把自動判讀存成文字。保留其他備註，依原始方向數據重算這兩行。
+  const retained = (result.notes || []).filter(note => !/^[XY] 向(?:尚未輸入採用總橫力|輸入採用總橫力 =)/.test(note));
+  result.notes = retained.concat(result.designActions.map(action => {
+    const minimum = `最低採用總橫力 ${fmt(action.minimumShear, 2)} tf，最低縮放倍率 ${fmt(action.requiredScale, 2)}`;
+    if (!action.hasAdopted) return `${action.dir} 向尚未輸入採用總橫力。${minimum}。`;
+    return `${action.dir} 向輸入採用總橫力 = ${fmt(action.adoptedShear, 2)} tf。${minimum}。${action.status}`;
+  }));
+}
+
 function restoreDynamicSummary() {
   const saved = getStorageJson(DYNAMIC_STORAGE_KEY);
   if (!saved?.x || !saved?.y) return;
-  saved.designActions = saved.designActions || buildDesignActions(saved);
+  refreshDesignActionNotes(saved);
   if (saved.project?.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.name);
   if (saved.project?.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.no);
   if (saved.project?.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.designer);
@@ -1706,14 +1709,15 @@ function renderDynamicResult(drawSpectrum = true) {
   const ratios = [x.ratio, y.ratio].filter(v => v != null);
   const minRatio = ratios.length ? Math.min(...ratios) : null;
   const banner = document.getElementById('banner');
-  banner.className = `banner-status ${minRatio != null && minRatio < 1 ? 'warn' : 'ok'}`;
-  banner.innerHTML = `動力分析摘要已整理　X 向動力 / 調整要求 = <strong>${fmt(x.ratio, 2)}</strong> ｜ Y 向動力 / 調整要求 = <strong>${fmt(y.ratio, 2)}</strong>`;
+  const insufficient = result.designActions.some(action => action.hasAdopted && !action.adoptedPass);
+  banner.className = `banner-status ${insufficient || (minRatio != null && minRatio < 1) ? 'warn' : 'ok'}`;
+  banner.innerHTML = `動力分析摘要已整理　X 向動力 / 調整要求 = <strong>${fmt(x.ratio, 2)}</strong> ｜ Y 向動力 / 調整要求 = <strong>${fmt(y.ratio, 2)}</strong>（比值分母為靜力比較值）`;
   document.getElementById('resultPanel').style.display = '';
   document.getElementById('summaryGrid').innerHTML = `
     <div class="mini-card"><span class="label">X 向動力基底剪力</span><span class="value">${fmt(result.x.baseShear,2)} tf</span></div>
     <div class="mini-card"><span class="label">Y 向動力基底剪力</span><span class="value">${fmt(result.y.baseShear,2)} tf</span></div>
-    <div class="mini-card"><span class="label">X 向總橫力調整要求</span><span class="value">${fmt(result.x.staticRef,2)} tf</span></div>
-    <div class="mini-card"><span class="label">Y 向總橫力調整要求</span><span class="value">${fmt(result.y.staticRef,2)} tf</span></div>
+    <div class="mini-card"><span class="label">X 向總橫力調整要求</span><span class="value">${fmt(result.designActions[0].minimumShear,2)} tf</span></div>
+    <div class="mini-card"><span class="label">Y 向總橫力調整要求</span><span class="value">${fmt(result.designActions[1].minimumShear,2)} tf</span></div>
     <div class="mini-card"><span class="label">等值靜力結果</span><span class="value">X ${fmt(result.x.staticFull,2)} / Y ${fmt(result.y.staticFull,2)} tf</span></div>
     <div class="mini-card"><span class="label">第 3.3 節調整比例</span><span class="value">${fmt((result.baseShearFloorRatio || result.x.floorRatio || 1) * 100,0)}%</span></div>
   `;
@@ -1730,7 +1734,7 @@ function renderDynamicResult(drawSpectrum = true) {
   document.getElementById('compareTableWrap').innerHTML = `
     <table class="compare-table">
       <thead>
-          <tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>調整要求</th><th>動力/要求</th><th>最低倍率</th><th>輸入採用總橫力</th><th>採用倍率</th><th>判讀</th></tr>
+          <tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>靜力比較值</th><th>最低採用總橫力</th><th>動力/靜力比較值</th><th>最低倍率</th><th>輸入採用總橫力</th><th>採用倍率</th><th>判讀</th></tr>
       </thead>
       <tbody>
         <tr>
@@ -1739,6 +1743,7 @@ function renderDynamicResult(drawSpectrum = true) {
           <td>${fmt(result.x.baseShear,2)} tf</td>
           <td>${fmt(result.x.staticFull,2)} tf</td>
           <td>${fmt(result.x.staticRef,2)} tf</td>
+          <td>${fmt(result.designActions[0].minimumShear,2)} tf</td>
           <td>${fmt(result.x.ratio,2)}</td>
           <td>${fmt(result.designActions[0].requiredScale,2)}</td>
           <td>${result.designActions[0].hasAdopted ? `${fmt(result.designActions[0].adoptedShear,2)} tf` : '未輸入'}</td>
@@ -1751,6 +1756,7 @@ function renderDynamicResult(drawSpectrum = true) {
           <td>${fmt(result.y.baseShear,2)} tf</td>
           <td>${fmt(result.y.staticFull,2)} tf</td>
           <td>${fmt(result.y.staticRef,2)} tf</td>
+          <td>${fmt(result.designActions[1].minimumShear,2)} tf</td>
           <td>${fmt(result.y.ratio,2)}</td>
           <td>${fmt(result.designActions[1].requiredScale,2)}</td>
           <td>${result.designActions[1].hasAdopted ? `${fmt(result.designActions[1].adoptedShear,2)} tf` : '未輸入'}</td>
@@ -1765,7 +1771,7 @@ function renderDynamicResult(drawSpectrum = true) {
     </div>
   `;
   document.getElementById('modelCheckPanel').innerHTML = renderModelCheckPanel(result.modelCheck);
-  document.getElementById('noteList').innerHTML = result.notes.map(note => `<li>${note}</li>`).join('');
+  document.getElementById('noteList').innerHTML = result.notes.map(note => `<li>${escapeHtml(note)}</li>`).join('');
   renderSpectrumChart(result, drawSpectrum);
   if (window.matchMedia('(max-width: 1080px)').matches) {
     document.getElementById('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1871,17 +1877,18 @@ function openDynamicReport() {
         <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
         <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
       </div>
-      <div class="summary">X 向動力 / 調整要求 = ${esc(fmt(result.x.ratio,2))} ｜ Y 向動力 / 調整要求 = ${esc(fmt(result.y.ratio,2))}</div>
+      <div class="summary">X 向動力 / 調整要求 = ${esc(fmt(result.x.ratio,2))} ｜ Y 向動力 / 調整要求 = ${esc(fmt(result.y.ratio,2))}（比值分母為靜力比較值）</div>
       <section class="block">
         <h3>第 3.3 節總橫力調整檢核</h3>
         <table>
-          <thead><tr><th>方向</th><th>等值靜力結果</th><th>調整要求</th><th>動力 / 要求</th><th>最低倍率</th><th>輸入採用總橫力</th><th>採用倍率</th><th>判讀</th></tr></thead>
+          <thead><tr><th>方向</th><th>等值靜力結果</th><th>靜力比較值</th><th>最低採用總橫力</th><th>動力 / 靜力比較值</th><th>最低倍率</th><th>輸入採用總橫力</th><th>採用倍率</th><th>判讀</th></tr></thead>
           <tbody>
             ${result.designActions.map(action => `
               <tr>
                 <td>${esc(action.dir)} 向</td>
                 <td>${esc(fmt(action.staticFull,2))} tf</td>
                 <td>${esc(fmt(action.stat,2))} tf (${esc(fmt(action.floorRatio * 100,0))}%)</td>
+                <td>${esc(fmt(action.minimumShear,2))} tf</td>
                 <td>${esc(fmt(action.ratio,2))}</td>
                 <td>${esc(fmt(action.requiredScale,2))}</td>
                 <td>${action.hasAdopted ? `${esc(fmt(action.adoptedShear,2))} tf` : '未輸入'}</td>
@@ -1929,10 +1936,10 @@ function openDynamicReport() {
       <section class="block">
         <h3>總橫力比對表</h3>
         <table>
-        <thead><tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>調整要求</th><th>動力/要求</th><th>最低倍率</th><th>輸入採用總橫力</th><th>採用倍率</th><th>判讀</th></tr></thead>
+        <thead><tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>靜力比較值</th><th>最低採用總橫力</th><th>動力/靜力比較值</th><th>最低倍率</th><th>輸入採用總橫力</th><th>採用倍率</th><th>判讀</th></tr></thead>
           <tbody>
-            <tr><td>X 向</td><td>${esc(fmt(result.x.period,3))} sec</td><td>${esc(fmt(result.x.baseShear,2))} tf</td><td>${esc(fmt(result.x.staticFull,2))} tf</td><td>${esc(fmt(result.x.staticRef,2))} tf</td><td>${esc(fmt(result.x.ratio,2))}</td><td>${esc(fmt(result.designActions[0].requiredScale,2))}</td><td>${result.designActions[0].hasAdopted ? `${esc(fmt(result.designActions[0].adoptedShear,2))} tf` : '未輸入'}</td><td>${esc(fmt(result.designActions[0].adoptedScale,2))}</td><td>${esc(result.designActions[0].status)}</td></tr>
-            <tr><td>Y 向</td><td>${esc(fmt(result.y.period,3))} sec</td><td>${esc(fmt(result.y.baseShear,2))} tf</td><td>${esc(fmt(result.y.staticFull,2))} tf</td><td>${esc(fmt(result.y.staticRef,2))} tf</td><td>${esc(fmt(result.y.ratio,2))}</td><td>${esc(fmt(result.designActions[1].requiredScale,2))}</td><td>${result.designActions[1].hasAdopted ? `${esc(fmt(result.designActions[1].adoptedShear,2))} tf` : '未輸入'}</td><td>${esc(fmt(result.designActions[1].adoptedScale,2))}</td><td>${esc(result.designActions[1].status)}</td></tr>
+            <tr><td>X 向</td><td>${esc(fmt(result.x.period,3))} sec</td><td>${esc(fmt(result.x.baseShear,2))} tf</td><td>${esc(fmt(result.x.staticFull,2))} tf</td><td>${esc(fmt(result.x.staticRef,2))} tf</td><td>${esc(fmt(result.designActions[0].minimumShear,2))} tf</td><td>${esc(fmt(result.x.ratio,2))}</td><td>${esc(fmt(result.designActions[0].requiredScale,2))}</td><td>${result.designActions[0].hasAdopted ? `${esc(fmt(result.designActions[0].adoptedShear,2))} tf` : '未輸入'}</td><td>${esc(fmt(result.designActions[0].adoptedScale,2))}</td><td>${esc(result.designActions[0].status)}</td></tr>
+            <tr><td>Y 向</td><td>${esc(fmt(result.y.period,3))} sec</td><td>${esc(fmt(result.y.baseShear,2))} tf</td><td>${esc(fmt(result.y.staticFull,2))} tf</td><td>${esc(fmt(result.y.staticRef,2))} tf</td><td>${esc(fmt(result.designActions[1].minimumShear,2))} tf</td><td>${esc(fmt(result.y.ratio,2))}</td><td>${esc(fmt(result.designActions[1].requiredScale,2))}</td><td>${result.designActions[1].hasAdopted ? `${esc(fmt(result.designActions[1].adoptedShear,2))} tf` : '未輸入'}</td><td>${esc(fmt(result.designActions[1].adoptedScale,2))}</td><td>${esc(result.designActions[1].status)}</td></tr>
           </tbody>
         </table>
       </section>

@@ -285,6 +285,18 @@ function run() {
   approx(designActions[1].requiredScale, 2.310924369747899, 1e-12, 'dynamic Y required scale');
   assert.equal(designActions[0].hasAdopted, false, 'dynamic design action without adopted shear');
 
+  // 規範 3.3 第 1～3 款。靜力值 100 tf 時依規則性取 90 或 100 tf，再與原動力值取大值。
+  for (const [floorRatio, dyn, adopted, minimum, pass] of [
+    [0.9, 80, 90, 90, true], [0.9, 90, 90, 90, true],
+    [0.9, 120, 100, 120, false], [0.9, 120, 120, 120, true],
+    [1, 80, 90, 100, false], [1, 120, 110, 120, false], [1, 120, 125, 120, true]
+  ]) {
+    const a = S.buildDynamicDesignAction('X', { baseShear: dyn, staticFull: 100, staticRef: 100 * floorRatio, floorRatio, adoptedShear: adopted });
+    assert.equal(a.minimumShear, minimum);
+    approx(a.requiredScale, minimum / dyn, 1e-12, '3.3 minimum scale');
+    assert.equal(a.adoptedPass, pass);
+  }
+
   // ── 規範 2.6 節：未輸入結構力學週期時取經驗公式週期 T = Ta（1.4 倍僅為力學週期上限）──
   // 手算：Ta = 0.070 × 17.5^0.75 = 0.59893 s；第二類地盤 SsD=0.6/S1D=0.35 → SDS=0.66, SD1=0.49, T0D=0.7424
   // 0.2T0D < Ta ≤ T0D → SaD = SDS；Fu > 1 且 SaD/Fu < 0.3 → V* = I·SaD/(4.2αy)·W = 0.66/4.2×2500 = 392.857 tf 控制

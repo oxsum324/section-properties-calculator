@@ -2253,6 +2253,14 @@
               "value": 1.1229166666666668,
               "tolerance": 1e-12
             },
+            "lastDynamicResult.result.designActions.0.minimumShear": {
+              "value": 280,
+              "tolerance": 1e-9
+            },
+            "lastDynamicResult.result.designActions.0.requiredScale": {
+              "value": 1,
+              "tolerance": 1e-12
+            },
             "lastDynamicResult.result.y.ratio": {
               "value": 0.7734999999999999,
               "tolerance": 1e-12
