@@ -43,7 +43,7 @@ const PAGES = [
     ],
     firstEngineeringInput: 'seismicMode',
     collapsedIds: ['btnSaveBeamProject', 'btnLoadBeamProject', 'btnSaveBeamDraft', 'btnLoadBeamDraft', 'beamProjectFile', 'beamProjectStatus'],
-    ids: `MaNeg MaPos MuNeg MuPos Pu Tu TuWrap Ve VeWrap Vu anchorageLeft anchorageRight autoD autoMa bannerKey bannerStatus barShMin
+    ids: `simpleDeflLoad sustainedDeflLabel sustainedDeflPercent MaNeg MaPos MuNeg MuPos Pu Tu TuWrap Ve VeWrap Vu anchorageLeft anchorageRight autoD autoMa bannerKey bannerStatus barShMin
       beamAttachmentReadiness beamAttachmentReadinessCard beamDevLeftType beamDevRightType beamForceCandidateApply beamForceCandidateCard
       beamForceCandidateConfirm beamForceCandidateDiscard beamForceCandidateList beamForceCandidateSummary beamJointCard beamJointMprFactor
       beamJointSendStatus beamJointTarget beamLapClass beamLapEnd beamLapLength beamLapStart beamPreset beamProjectFile beamProjectStatus
@@ -68,7 +68,7 @@ const PAGES = [
       enableTorsion enableDefl showSteps stepsVerbosity beamPreset cover autoD dManual layerSv barShMin devTopPsi devEpoxyPsi
       beamDevLeftType beamDevRightType anchorageLeft anchorageRight beamLapStart beamLapEnd beamLapLength beamLapClass botBar1No
       botBar1N botBar2No botBar2N botBar3No botBar3N topBar1No topBar1N topBar2No topBar2N topBar3No topBar3N skinNo nSkin stirrup legs
-      stirS MuPos MuNeg Vu Pu Tu Ve torsionDesignStatus torsionAtPerS torsionAl sensitive enableExactDefl MaPos MaNeg autoMa xiTime
+      stirS MuPos MuNeg Vu Pu Tu Ve torsionDesignStatus torsionAtPerS torsionAl sensitive enableExactDefl simpleDeflLoad sustainedDeflPercent MaPos MaNeg autoMa xiTime
       deflLimit colW smrfMnMin firstHoopDist beamJointTarget beamJointMprFactor beamForceCandidateConfirm`,
     classes: `active badge-seismic banner-key banner-status big btn-calc btn-secondary canvas-wrap card checkbox-row combo container
       deep-beam-notice force-candidate-actions force-candidate-card force-candidate-confirm force-candidate-list force-candidate-summary
@@ -329,7 +329,7 @@ for (const page of PAGES) {
   // 3g. 凍結 id／控制項順序／class
   const staticIds = all(root, node => node.attrs.id).map(node => node.attrs.id);
   assert.equal(new Set(staticIds).size, staticIds.length, `${label}: static ids are unique`);
-  assert.deepEqual([...staticIds].sort(), words(page.ids).sort(), `${label}: static ids equal the HEAD 6958a2dd inventory`);
+  assert.deepEqual([...staticIds].sort(), words(page.ids).sort(), `${label}: static ids match the page control inventory`);
   const controls = all(root, node => ['input', 'select', 'textarea'].includes(node.tag) && node.attrs.id).map(node => node.attrs.id);
   assert.deepEqual(controls, words(page.controls), `${label}: form-control document order unchanged (JSON field order)`);
   const classes = new Set(all(root, node => node.attrs.class).flatMap(classesOf));
