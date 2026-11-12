@@ -65,7 +65,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>梁設計 — RC 工具箱 V3.2</title>
+<title>梁設計 — RC 工具箱 V3.3</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
@@ -74,6 +74,8 @@
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
 <link rel="stylesheet" href="../../結構工具箱/core/tool-shell.css">
 <style>
+  #beamResults.flange-pending > :not(#conclusionCard):not(#beamForceCandidateCard) { display:none !important; }
+  #tl-fields [hidden] { display:none !important; }
   #warningCard { border: 1px solid var(--hy-warning); background: linear-gradient(180deg, var(--hy-warning-100), var(--bg-surface)); }
   #warningList { font-style: normal; line-height: 1.65; }
   #stepsVerbosityWrap { margin-top: -4px; }
@@ -210,7 +212,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header class="tool-shell-header">
-  <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.2</span></h1>
+  <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.3</span></h1>
   <p class="tool-shell-header__sub">撓曲、剪力、扭力、跨深比；含特殊抗彎矩構架耐震檢核</p>
   <noscript><p class="tool-shell-noscript"><a href="../../結構工具箱/index.html">← 結構工具箱首頁</a>（未啟用 JavaScript，頂欄導覽無法顯示）</p></noscript>
 </header>
@@ -289,9 +291,20 @@
         <!-- T/L 形專屬欄位 -->
         <div id="tl-fields" style="display:none;">
           <div class="form-row">
-            <div class="form-group"><label>翼板寬 bf (cm)</label><input type="number" id="bf" value="120"></div>
+            <div class="form-group"><label for="bf">實際翼板全寬（含腹板，cm）</label><input type="number" id="bf" value="120"></div>
             <div class="form-group"><label>翼板厚 hf (cm)</label><input type="number" id="hf" value="15"></div>
           </div>
+          <div class="form-group"><label for="flangeMode">翼板構造</label><select id="flangeMode">
+            <option value="slab">一體澆置或全合成樓板（§6.3.2.1）</option>
+            <option value="isolated">單獨非預力 T 梁（§6.3.2.2）</option>
+          </select></div>
+          <div class="form-group" id="flangeProjectionGroup"><label for="flangeLeft">T 梁左側實際外伸（cm，留空採腹板置中）</label><input id="flangeLeft" type="number" min="0" step="any"></div>
+          <div id="flangeSpacingGroup">
+            <div class="hint">填腹板面到相鄰腹板面的淨距；該側到板邊且無相鄰梁時填「無」。</div>
+            <div class="form-group" id="flangeSwLeftGroup"><label for="flangeSwLeft">左側相鄰腹板淨距（cm）</label><input id="flangeSwLeft" type="text"></div>
+            <div class="form-group"><label for="flangeSwRight">右側或 L 梁翼側相鄰腹板淨距（cm）</label><input id="flangeSwRight" type="text"></div>
+          </div>
+          <div class="hint" id="flangeStatus" role="status"></div>
         </div>
 
         <div class="form-group">
@@ -638,7 +651,7 @@
     </div>
 
     <!-- 右側：結果區 -->
-    <div>
+    <div id="beamResults">
       <!-- 綜合結論 banner (所有分頁都顯示) -->
       <div class="card" id="conclusionCard">
         <h2>綜合結論 <span id="conclusionScope" class="hint">—</span></h2>
@@ -1127,6 +1140,9 @@
   function collectBeamProjectData() {
     if (typeof calcBeam === 'function') calcBeam();
     const fields = beamProjectStorage.collectFields();
+    if ($('sectionType').value === 'rect') {
+      for (const key of ['flangeMode','flangeLeft','flangeSwLeft','flangeSwRight']) delete fields[key];
+    }
     // 預設工況沿用舊案表示法，保留 V3.2 案件重播指紋。
     if (fields.simpleDeflLoad?.value === 'uniform') delete fields.simpleDeflLoad;
     if (fields.sustainedDeflPercent?.value === '100') delete fields.sustainedDeflPercent;
@@ -1135,7 +1151,7 @@
       schema: BEAM_PROJECT_SCHEMA,
       tool: 'rc-beam',
       toolTitle: '梁 Beam 設計／檢核',
-      appVersion: 'V3.2',
+      appVersion: 'V3.3',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -1148,9 +1164,15 @@
       fields,
       summary: {
         banner: bannerText,
-        manualReviewItems: collectBeamManualReviewItems(window.beamLast || {})
+        manualReviewItems: window.beamLast ? collectBeamManualReviewItems(window.beamLast) : [$('flangeStatus').textContent]
       }
     };
+    const r = window.beamLast;
+    if (r && (r.sectionType !== 'rect' || (r.enableTorsion && r.Pu_in !== 0))) {
+      payload.sectionCalculation = { flexWidth:r.bf, phiMnPos:r.phiMnPos, phiMnNeg:r.phiMnNeg,
+        torsionWidth:r.flange.torsion.width, Acp:r.flange.torsion.Acp, pcp:r.flange.torsion.pcp,
+        axialRadicand:r.axialRadicand, thresholdKgfCm:r.enableTorsion ? r.Tu_th : null };
+    }
     return window.RCReportFingerprint.withProjectCalculationFingerprint(payload, { ignoredKeys: ['activeTab'] });
   }
 
@@ -1162,7 +1184,7 @@
     try {
       const payload = collectBeamProjectData();
       const filename = beamProjectStorage.downloadJson(payload);
-      showBeamProjectStatus(`已下載梁專案檔：${filename}`);
+      showBeamProjectStatus(`${window.beamLast ? '已下載梁專案檔' : '已下載待補梁輸入'}：${filename}`);
       return payload;
     } catch (err) {
       console.error('beam project save failed', err);
@@ -1172,13 +1194,18 @@
   }
 
   function normalizeBeamProjectPayload(raw) {
-    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+    const source = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return window.RCReportFingerprint.validateProjectCalculationSource(source, {
       expectedSchema: BEAM_PROJECT_SCHEMA,
       expectedToolId: 'rc-beam',
-      expectedVersion: 'V3.2',
+      expectedVersion: beamSourceVersion(source) === 'V3.2' ? 'V3.2' : 'V3.3',
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
     });
+  }
+
+  function beamSourceVersion(source) {
+    return normalizeProjectToolVersion(source?.appVersion || source?.tool?.pageVersion || source?.pageVersion);
   }
 
   function setBeamProjectControl(id, saved) {
@@ -1188,8 +1215,12 @@
   function applyBeamProjectData(raw, options = {}) {
     const payload = normalizeBeamProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectBeamProjectData();
+    const migrated = beamSourceVersion(payload) === 'V3.2' && (payload.fields.sectionType?.value !== 'rect' ||
+      (payload.fields.enableTorsion?.checked && Number(payload.fields.Pu?.value) !== 0));
     setBeamMode(payload.mode, { recalculate: false, applyPanel: false });
     ensureProjectRebarLayers(payload.fields);
+    $('flangeMode').value = 'slab';
+    for (const id of ['flangeLeft','flangeSwLeft','flangeSwRight']) $(id).value = '';
     $('simpleDeflLoad').value = 'uniform';
     $('sustainedDeflPercent').value = '100';
     let applied = 0;
@@ -1204,7 +1235,14 @@
     applyPanel(tab);
     if (!options.skipReplayCheck) {
       try {
-        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectBeamProjectData());
+        let replay = collectBeamProjectData();
+        if (migrated) {
+          // V3.2 的計算摘要只用來核對原來源；另核對載入後的原版欄位與載重組合。
+          for (const id of ['flangeMode','flangeLeft','flangeSwLeft','flangeSwRight']) delete replay.fields[id];
+          delete replay.sectionCalculation;
+          replay = window.RCReportFingerprint.withProjectCalculationFingerprint({ ...replay, summary:payload.summary }, { ignoredKeys:['activeTab'] });
+        }
+        window.RCReportFingerprint.assertProjectCalculationReplay(payload, replay);
       } catch (error) {
         applyBeamProjectData(previous, { silent: true, skipReplayCheck: true });
         throw error;
@@ -1215,7 +1253,13 @@
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showBeamProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
+      if (migrated) {
+        const note = $('sectionType').value === 'rect' ? '扭力門檻已依本案軸力重算。' : '請確認翼板構造及實際淨距後重算。';
+        showBeamProjectStatus(`已核對 V3.2 原始輸入 ${payload.calculationFingerprint}。${note}`);
+      } else {
+        const state = window.beamLast ? '並重現計算' : '的待補輸入';
+        showBeamProjectStatus(`已讀取${source}${state}：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
+      }
     }
     return { payload, applied };
   }
@@ -1435,6 +1479,18 @@
   // 之後 setCheck/setResult 會清除該標記，未被觸及的項目最終隱藏。
   function markAllResultsPending() {
     document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
+  }
+
+  function flangeBasisText(g) {
+    if (g.mode === 'isolated') return `§6.3.2.2：hf ≥ bw/2，有效全寬取實際翼寬與 4bw 較小值。`;
+    const left = g.physical.left > 0 ? `左側 sw＝${g.swLeft}、實際外伸 ${g.physical.left} → 有效 ${g.left} cm；` : '';
+    return `表 6.3.2.1：翼厚限值 ${g.thicknessLimit}、淨跨限值 ${g.spanLimit.toFixed(2)} cm。${left}翼側 sw＝${g.swRight}、實際外伸 ${g.physical.right} → 有效 ${g.right} cm。淨間距以 cm 計，逐側檢核 sw/2。`;
+  }
+
+  function torsionCheckText(demand, threshold, negligible) {
+    if (demand === 0) return 'Tu＝0，無扭矩需求。';
+    if (threshold === null) return '軸拉使根號內小於零；無法依門檻忽略，需依 22.7 詳算。';
+    return `|Tu|＝${(Math.abs(demand)/1e5).toFixed(3)} tf·m ${negligible ? '<' : '≥'} 門檻 ${(threshold/1e5).toFixed(3)} tf·m，${negligible ? '可忽略扭力效應' : '需 22.7 詳算'}`;
   }
 
   // 多排筋應變相容嚴謹解 — 委派 shared/flexure.js
@@ -1721,11 +1777,11 @@
     };
   }
 
-  function calcShearData({ sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion, torsionDesignStatus = 'pending', rhoShear, cover, tieDb }) {
+  function calcShearData({ flange, sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion, torsionDesignStatus = 'pending', rhoShear, cover, tieDb }) {
     const stirrupAb = REBAR_TABLE[stirrup].area;
     const Av = legs * stirrupAb;
     const strength = BeamEvaluator.computeShearState({
-      sectionType, bw, bf, hf, h, fc, fyt, d, Ag, Av, s, rhoShear,
+      flange, sectionType, bw, bf, hf, h, fc, fyt, d, Ag, Av, s, rhoShear,
       phiShear:PHI.shear, lambda:LAMBDA_NORMAL, seismic, Ve,
       enableTorsion, torsionDesignStatus,
     }, { Pu, Vu, Tu });
@@ -1766,7 +1822,7 @@
       VsMax, vsExceedsMax, phiVnSectionLimit,
       needsShearRebar, okShearMin, lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress,
       shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit, okShearSpacing,
-      torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, torsionDesignStatus, Tu_th
+      torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, torsionDesignStatus, Tu_th, axialRadicand:strength.axialRadicand
     };
   }
 
@@ -2099,6 +2155,9 @@
   function syncToggles() {
     const sec = $('sectionType').value;
     $('tl-fields').style.display = (sec === 'rect') ? 'none' : 'block';
+    $('flangeProjectionGroup').hidden = sec !== 'T';
+    $('flangeSwLeftGroup').hidden = sec !== 'T';
+    $('flangeSpacingGroup').hidden = $('flangeMode').value !== 'slab';
     $('tab-torsion').style.display = $('enableTorsion').checked ? '' : 'none';
     $('tab-defl').style.display    = $('enableDefl').checked    ? '' : 'none';
     $('c-tor').style.display  = $('enableTorsion').checked ? '' : 'none';
@@ -2143,6 +2202,7 @@
     't-seismic': {
       sectionType: 'T', support: 'bothEnd', fc: 280, fy: 5000, fyt: 2800,
       bw: 40, h: 75, bf: 120, hf: 15, ln: 650, cover: 4, layerSv: 3, barShMin: 4,
+      flangeMode:'slab', flangeLeft:'', flangeSwLeft:200, flangeSwRight:200,
       enableTorsion: false, enableDefl: true, enableExactDefl: true, seismicMode: true,
       MuPos: 90, MuNeg: 120, Vu: 42, Pu: 45, Tu: 0, Ve: 30,
       MaPos: 64, MaNeg: 86, xiTime: 2, deflLimit: 360,
@@ -2154,6 +2214,7 @@
     'l-deflection': {
       sectionType: 'L', support: 'oneEnd', fc: 280, fy: 4200, fyt: 2800,
       bw: 35, h: 65, bf: 95, hf: 12, ln: 620, cover: 4, layerSv: 3, barShMin: 4,
+      flangeMode:'slab', flangeLeft:'', flangeSwLeft:'', flangeSwRight:180,
       enableTorsion: false, enableDefl: true, enableExactDefl: true, seismicMode: false,
       MuPos: 70, MuNeg: 55, Vu: 22, Pu: 0, Tu: 0, Ve: 0,
       MaPos: 50, MaNeg: 39, xiTime: 2, deflLimit: 480,
@@ -2187,7 +2248,7 @@
     const hint = presetSelect.options[presetSelect.selectedIndex]?.text || '';
     presetSelect.title = `目前選擇：${hint}`;
   });
-  ['sectionType','enableTorsion','enableDefl','autoD','seismicMode','enableExactDefl','autoMa','MuPos','MuNeg','stepsVerbosity'].forEach(id => {
+  ['sectionType','flangeMode','enableTorsion','enableDefl','autoD','seismicMode','enableExactDefl','autoMa','MuPos','MuNeg','stepsVerbosity'].forEach(id => {
     const el = $(id); if (el) el.addEventListener('change', () => { syncToggles(); calcBeam(); });
   });
   // 顯示計算過程切換：刷新可見性與重新建構文字
@@ -2222,7 +2283,27 @@
     const beamApplicability = window.BeamApplicability?.assess({ h, ln, loadDistance:deepLoadDistance })
       || { status:'invalid-input', methodApplicable:false, deepBeam:null, reason:'深梁適用性模組未載入。' };
     renderBeamApplicability(beamApplicability);
-    const bf = num('bf'), hf = num('hf');
+    const actualBf = num('bf'), hf = num('hf');
+    let flange;
+    try {
+      if (sectionType === 'T' && $('flangeLeft').validity.badInput) throw new RangeError('請完成左側實際外伸數值。');
+      flange = BeamEvaluator.resolveFlange({ sectionType, bw, h, bf:actualBf, hf, ln,
+        flangeMode:$('flangeMode').value, leftProjection:$('flangeLeft').value,
+        swLeft:$('flangeSwLeft').value, swRight:$('flangeSwRight').value });
+    } catch (error) {
+      window.beamLast = null;
+      $('beamResults').classList.add('flange-pending');
+      $('flangeStatus').textContent = error.message;
+      $('bannerStatus').className = 'banner-status warn';
+      $('bannerStatus').textContent = '斷面待補｜' + error.message;
+      $('bannerKey').textContent = '';
+      const canvas = $('sectionCanvas');
+      canvas?.getContext('2d')?.clearRect(0,0,canvas.width,canvas.height);
+      return false;
+    }
+    $('beamResults').classList.remove('flange-pending');
+    const bf = flange.flexWidth;
+    $('flangeStatus').textContent = sectionType === 'rect' ? '' : `${flangeBasisText(flange)} 撓曲有效全寬 ${bf} cm；扭力採用全寬 ${flange.torsion.width} cm。`;
     const cover = num('cover');
     const sv = Math.max(num('layerSv'), 0.1);
     const MuPos = num('MuPos') * 1e5;  // tf·m → kgf·cm
@@ -2318,7 +2399,7 @@
     const sensitive = $('sensitive').value === 'yes';
 
     const tieDb = REBAR_TABLE[stirrup].db;
-    const Ag = bw * h;
+    const Ag = bw * h + (bf-bw) * hf;
 
     // === 建立底/頂層筋 ===
     const botStack = buildRebarStack(botBarNos, botNs, cover, tieDb, sv);
@@ -2348,7 +2429,7 @@
     // === 剪力 / 扭力 (純計算模組) ===
     const rhoShearCandidates = [rhoPos, rhoNeg].filter(v => Number.isFinite(v) && v > 0);
     const rhoShear = Math.max(0.0001, rhoShearCandidates.length ? Math.min(...rhoShearCandidates) : 0.0001);
-    const shearData = calcShearData({ sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion, torsionDesignStatus, rhoShear, cover, tieDb });
+    const shearData = calcShearData({ flange, sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion, torsionDesignStatus, rhoShear, cover, tieDb });
     const {
       lambda, Vc, phiVc, Av, AvProvidedPerS, Vs_provided, phiVs, phiVn, forceVc0, phiVn_eff,
       VsMax, vsExceedsMax, phiVnSectionLimit,
@@ -2362,7 +2443,7 @@
       phiMnPos,
       phiMnNeg,
       shearBase: {
-        sectionType, bw, bf, hf, h, fc, fyt, d, Ag, Av, s, rhoShear,
+        flange, sectionType, bw, bf, hf, h, fc, fyt, d, Ag, Av, s, rhoShear,
         phiShear:PHI.shear, lambda:LAMBDA_NORMAL, seismic, Ve,
         enableTorsion, torsionDesignStatus,
       },
@@ -2527,7 +2608,7 @@
           : torsionDesignStatus === 'ng'
             ? '專案 22.7 詳算結論：不符合'
             : 'Tu 超過門檻，尚未輸入 22.7 詳算結論';
-      setCheck('c-tor', torNegligible ? true : null, torNegligible ? `可忽略 (Tu=${(Tu/1e5).toFixed(2)} < 門檻 ${(Tu_th/1e5).toFixed(2)})` : `Tu=${(Tu/1e5).toFixed(2)} ≥ 門檻 ${(Tu_th/1e5).toFixed(2)}，需 22.7 詳算`);
+      setCheck('c-tor', torNegligible ? true : null, torsionCheckText(Tu, Tu_th, torNegligible));
       setCheck('c-torDetail', torsionDetailOk, torsionDetailText);
     }
 
@@ -2763,7 +2844,7 @@ ${layerBars.map(L => {
 `【1】混凝土剪力強度 Vc (規範 22.5.5.1)
   λ = 1.0 (常重混凝土)
   Av/s = ${RCUI.formatFinite(AvProvidedPerS,4)} cm²/cm    Av,min/s = ${RCUI.formatFinite(AvMinPerS,4)} cm²/cm → ${hasMinStir?'採 Av ≥ Av,min 路徑':'採 Av < Av,min 路徑，含尺寸效應 λs'}
-  ρw = ${RCUI.formatFinite(rhoForVc,4)}    λs = ${RCUI.formatFinite(lambdaS,3)}    Nu/(6Ag) = ${RCUI.formatFinite(axialStress,2)} kgf/cm²
+  ρw = ${RCUI.formatFinite(rhoForVc,4)}    λs = ${RCUI.formatFinite(lambdaS,3)}    梁有效斷面 Ag＝${RCUI.formatFinite(Ag,1)} cm²，Nu/(6Ag) = ${RCUI.formatFinite(axialStress,2)} kgf/cm²
   Vc = ${RCUI.formatFinite(Vc,0)} kgf = ${RCUI.formatFinite(Vc/1000,2)} tf
   φVc = 0.75·Vc = ${RCUI.formatFinite(phiVc/1000,2)} tf${forceVc0?'  ⚠ 耐震塑鉸區強制 Vc=0':''}
 
@@ -2794,8 +2875,7 @@ ${layerBars.map(L => {
 
       // ── 扭力 ──
       if (enableTorsion) {
-        const Acp = (sectionType === 'rect') ? bw * h : (bw * h + (b_eff - bw) * hf);
-        const pcp = (sectionType === 'rect') ? 2 * (bw + h) : 2 * (b_eff + h);
+        const { Acp, pcp } = flange.torsion;
         const torsionStatusText = torsionDesignStatus === 'ok'
           ? '已詳算且符合 22.7'
           : torsionDesignStatus === 'ng'
@@ -2806,15 +2886,13 @@ ${layerBars.map(L => {
         const stepsTor =
 `【1】扭力門檻值 Tu,th (規範 22.7.4.1)
   Acp = ${RCUI.formatFinite(Acp,1)} cm²    pcp = ${RCUI.formatFinite(pcp,1)} cm
-  φTth = φ·0.265·λ·√fc'·(Acp²/pcp)
-        = 0.75·0.265·1·√${fc}·(${RCUI.formatFinite(Acp,1)}²/${RCUI.formatFinite(pcp,1)})
-        = ${RCUI.formatFinite(Tu_th,0)} kgf·cm = ${RCUI.formatFinite(Tu_th/1e5,2)} tf·m
+  §9.2.4.4 含翼候選與純腹板的 Acp²/pcp：${flange.torsion.candidateParameter.toFixed(2)}、${flange.torsion.webParameter.toFixed(2)} cm³。採用寬 ${flange.torsion.width} cm。
+  φTth = φ·0.265·λ·√fc'·(Acp²/pcp)·√k，k = 1 + Nu/(Ag·λ·√fc') = ${shearData.axialRadicand.toFixed(5)}
+  實心斷面 Ag = Acp；Nu = ${Pu} kgf（壓為正）。${Tu_th === null ? 'k < 0，門檻式無實數解。' : 'φTth = ' + (Tu_th/1e5).toFixed(3) + ' tf·m'}
 
 【2】判斷
   輸入 Tu = ${RCUI.formatFinite(num('Tu'),2)} tf·m
-  ${torNegligible
-      ? `Tu (${RCUI.formatFinite(num('Tu'),2)}) < Tu,th (${RCUI.formatFinite(Tu_th/1e5,2)}) → 可忽略扭力效應`
-      : `Tu (${RCUI.formatFinite(num('Tu'),2)}) ≥ Tu,th (${RCUI.formatFinite(Tu_th/1e5,2)}) → 需依規範 22.7 詳算縱向與橫向扭力鋼筋`}
+  ${torsionCheckText(Tu, Tu_th, torNegligible)}
 
 【3】22.7 詳算結論輸入
   結論 = ${torsionStatusText} → ${torsionDetailOk===true?'✓':torsionDetailOk===false?'✗':'人工複核'}
@@ -2933,7 +3011,7 @@ ${layerBars.map(L => {
 
     // 容量式候選只供 HTML 操作頁比較，不屬於正式計算書內容。
     const rebarRangeOptions = {
-      sectionType, support, bw, h, bf, hf, ln, cover, sv, shMin,
+      flange, sectionType, support, bw, h, bf, hf, ln, cover, sv, shMin,
       fc, fy, fyt, beta1,
       MuPos:num('MuPos'), MuNeg:num('MuNeg'), Vu:num('Vu'), Pu:num('Pu'), Tu:num('Tu'), Ve:num('Ve'),
       seismic, enableTorsion, torsionDesignStatus,
@@ -2958,7 +3036,7 @@ ${layerBars.map(L => {
     window.beamLast = {
       // 輸入
       sectionType, support, seismic, enableTorsion, enableDefl, enableExactDefl: exactDeflEnabled, sensitive,
-      fc, fy, fyt, bw, h, ln, bf, hf, cover, sv, d, d_pos, d_neg, tieDb, deepLoadDistance,
+      fc, fy, fyt, bw, h, ln, bf, actualBf, flange, axialRadicand:shearData.axialRadicand, hf, cover, sv, d, d_pos, d_neg, tieDb, deepLoadDistance,
       MuPos_in: num('MuPos'), MuNeg_in: num('MuNeg'),
       Vu_in: num('Vu'), Pu_in: num('Pu'), Tu_in: num('Tu'), Ve_in: num('Ve'),
       torsionDesignStatus, torsionAtPerS, torsionAl,
@@ -3315,6 +3393,7 @@ ${layerBars.map(L => {
     // 專案快照會先以最新輸入計算，並提供 JSON 與計算書共用的計算指紋。
     const projectSnapshot = collectBeamProjectData();
     const r = window.beamLast;
+    if (!r) return null;
     const isDesignMode = (currentMode === 'design');
     const reportDetail = $('showSteps')?.checked;
     const proj = getBeamProjectInfo();
@@ -3339,7 +3418,9 @@ ${layerBars.map(L => {
         { label:'集中載重距支承面 a_v', value:r.deepLoadDistance == null ? '未輸入' : r.deepLoadDistance, unit:r.deepLoadDistance == null ? '' : 'cm' },
         { label:'支承狀況',  value: ({simple:'簡支',oneEnd:'一端連續',bothEnd:'兩端連續',cantilever:'懸臂'})[r.support] },
         ...(r.sectionType!=='rect'?[
-          { label:'翼板寬 bf', value:r.bf, unit:'cm' },
+          { label:'實際翼板全寬', value:r.actualBf, unit:'cm' },
+          { label:'撓曲有效翼寬 bf', value:Number(r.bf.toFixed(3)), unit:'cm' },
+          { label:'翼板取值依據', value:flangeBasisText(r.flange), unit:'' },
           { label:'翼板厚 hf', value:r.hf, unit:'cm' }]:[]),
         { label:'保護層',    value: r.cover, unit:'cm' },
         { label:'排間淨距 sv', value: r.sv, unit:'cm' }
@@ -3473,8 +3554,8 @@ ${layerBars.map(L => {
       ]},
       ...(r.enableTorsion ? [{ group:'扭力檢核', items:[
         { label:'扭力門檻',
-          formula:'φTth = φ·0.265·λ·√fc·(Acp²/pcp)',
-          sub:`Tu,th = ${(r.Tu_th/1e5).toFixed(2)} tf·m    Tu = ${r.Tu_in.toFixed(2)} tf·m`,
+          formula:'φTth = φ·0.265·λ·√fc·(Acp²/pcp)·√[1+Nu/(Ag·λ·√fc)]',
+          sub:`§9.2.4.4 採用寬 ${r.flange.torsion.width} cm，Acp＝Ag＝${r.flange.torsion.Acp} cm²、pcp＝${r.flange.torsion.pcp} cm。含翼／純腹板 Acp²/pcp＝${r.flange.torsion.candidateParameter.toFixed(2)}／${r.flange.torsion.webParameter.toFixed(2)} cm³。Nu＝${r.Pu_in} tf，根號內＝${r.axialRadicand.toFixed(5)}。 ${torsionCheckText(r.Tu_in*1e5,r.Tu_th,r.torNegligible)}`,
           value: r.torNegligible?'可忽略':'不可忽略', unit:'', ok: r.torNegligible ? true : null,
           note: r.torsionNeedsDesign ? 'Tu 超過門檻時，需另有規範 22.7 扭力詳算結論；本頁不自動反算 At/Al。' : '' },
         ...(r.torsionNeedsDesign ? [{
@@ -3625,7 +3706,7 @@ ${layerBars.map(L => {
 
     return openReport({
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
-      outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.2' },
+      outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.3' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',
@@ -3833,7 +3914,8 @@ ${layerBars.map(L => {
     const scale = Math.min((W - margin * 2) / totalW, (H - margin * 2) / h);
     const drawW = bw * scale, drawH = h * scale;
     const sectionW = totalW * scale;
-    const ox = sectionType === 'L' ? (W - sectionW) / 2 : (W - drawW) / 2;
+    const leftProjection = sectionType === 'T' ? (optNum('flangeLeft') ?? (bf-bw)/2) : 0;
+    const ox = (W - sectionW) / 2 + leftProjection * scale;
     const oy = (H - drawH) / 2;
 
     // 翼板
@@ -3938,7 +4020,8 @@ ${layerBars.map(L => {
   document.getElementById('btnPrintReport2')?.addEventListener('click', () => buildBeamReport({ autoPrint:true }));
   document.getElementById('btnCopyJson')?.addEventListener('click', () => {
     calcBeam();
-    const r = window.beamLast || {};
+    const r = window.beamLast;
+    if (!r) { showBeamProjectStatus('請先補齊斷面資料，再複製計算結果。','warn'); return; }
     navigator.clipboard.writeText(JSON.stringify(r, null, 2)).then(() => {
       const note = document.createElement('div');
       note.textContent = '✓ 已複製輸入 JSON 到剪貼簿';

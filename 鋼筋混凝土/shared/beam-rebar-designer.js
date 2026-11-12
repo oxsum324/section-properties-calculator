@@ -70,7 +70,7 @@
   function grossSection(sectionType, bw, bf, hf, h) {
     if (sectionType === 'rect') {
       const Ig = bw * Math.pow(h, 3) / 12;
-      return { Ig, ytPos: h / 2, ytNeg: h / 2 };
+      return { Ig, area:bw*h, ytPos: h / 2, ytNeg: h / 2 };
     }
     const flangeArea = bf * hf;
     const flangeY = hf / 2;
@@ -80,7 +80,7 @@
     const ybarTop = total > 0 ? (flangeArea * flangeY + webArea * webY) / total : h / 2;
     const Ig = bf * Math.pow(hf, 3) / 12 + flangeArea * Math.pow(ybarTop - flangeY, 2)
       + bw * Math.pow(h - hf, 3) / 12 + webArea * Math.pow(webY - ybarTop, 2);
-    return { Ig, ytPos: h - ybarTop, ytNeg: ybarTop };
+    return { Ig, area:total, ytPos: h - ybarTop, ytNeg: ybarTop };
   }
 
   function isStaticallyDeterminate(support) {
@@ -194,7 +194,7 @@
   function normalizeBase(options) {
     const table = options?.barTable || root.Rebar?.REBAR_TABLE || root.REBAR_TABLE || {};
     const base = {
-      sectionType: String(options?.sectionType || 'rect'), support:String(options?.support || 'simple'),
+      flange: options?.flange, sectionType: String(options?.sectionType || 'rect'), support:String(options?.support || 'simple'),
       bw: Number(options?.bw), h: Number(options?.h), bf: Number(options?.bf), hf: Number(options?.hf),
       cover: Number(options?.cover), sv: Number(options?.sv), shMin: Math.max(Number(options?.shMin) || 4, 2.5),
       fc: Number(options?.fc), fy: Number(options?.fy), fyt: Number(options?.fyt), beta1: Number(options?.beta1),
@@ -327,8 +327,7 @@
           evaluatedCount += 1;
           const Av = legs * tie.area;
           const shear = root.BeamEvaluator.computeShearState({
-            sectionType: base.sectionType, bw: base.bw, bf: base.bf, hf: base.hf, h: base.h,
-            fc: base.fc, fyt: base.fyt, d, Ag: base.bw * base.h, Av, s: spacing, rhoShear,
+            ...base, d, Ag:section.area, Av, s: spacing, rhoShear,
             phiShear: PHI_SHEAR, lambda: 1, seismic: base.seismic, Ve: base.Ve * 1000,
             enableTorsion: base.enableTorsion, torsionDesignStatus: base.torsionDesignStatus,
           }, { Pu: base.Pu * 1000, Vu: base.Vu * 1000, Tu: base.Tu * 1e5 });

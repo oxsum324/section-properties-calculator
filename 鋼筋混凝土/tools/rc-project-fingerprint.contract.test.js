@@ -232,7 +232,7 @@ assert.strictEqual(replayApi.reconcileProjectCalculationReplay(currentWall, repl
 assert.throws(() => replayApi.reconcileProjectCalculationReplay({ ...legacyWall, appVersion: 'V3.0' }, flippedReplay, reconcileOptions), /重現失敗/);
 
 const pageContracts = [
-  ['beam.html', 'collectBeamProjectData', 'projectSnapshot = collectBeamProjectData()', '梁 Beam 設計／檢核', 'V3.2'],
+  ['beam.html', 'collectBeamProjectData', 'projectSnapshot = collectBeamProjectData()', '梁 Beam 設計／檢核', 'V3.3'],
   ['column.html', 'collectColumnProjectData', 'projectSnapshot = collectColumnProjectData()', '柱 Column 設計／檢核', 'V3.4'],
   ['slab.html', 'collectSlabProjectData', 'projectSnapshot = collectSlabProjectData()', '板 Slab 設計／檢核', 'V3.3'],
   ['wall.html', 'collectWallProjectData', 'projectSnapshot = collectWallProjectData()', '牆 Wall 設計／檢核', 'V3.4'],

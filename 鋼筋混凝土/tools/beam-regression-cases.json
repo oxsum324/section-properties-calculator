@@ -248,6 +248,7 @@
       "checkboxes": { "seismicMode": false, "enableTorsion": false, "enableDefl": false, "autoD": true },
       "selects": { "sectionType": "T", "support": "simple", "torsionDesignStatus": "pending" },
       "values": {
+        "flangeSwLeft": 200, "flangeSwRight": 200,
         "fc": 280, "fy": 4200, "fyt": 2800, "bw": 40, "bf": 120, "hf": 15, "h": 75, "ln": 650,
         "cover": 4, "layerSv": 3, "barShMin": 4, "MuPos": 20, "MuNeg": 20, "Vu": 8, "Pu": 0,
         "botBar1No": "#8", "botBar1N": 4, "botBar2No": "#8", "botBar2N": 0,
@@ -558,6 +559,7 @@
         "torsionDesignStatus": "pending"
       },
       "values": {
+        "flangeSwLeft": 200, "flangeSwRight": 200,
         "fc": 280,
         "fy": 5000,
         "fyt": 2800,
@@ -648,6 +650,7 @@
         "torsionDesignStatus": "pending"
       },
       "values": {
+        "flangeSwRight": 200,
         "fc": 280,
         "fy": 5000,
         "fyt": 2800,
@@ -692,7 +695,7 @@
         "AsMinPosB": 40,
         "AsMinNegB": 40,
         "AsMinNegFlangeInTension": true,
-        "phiMnPos": 103.50609886793542,
+        "phiMnPos": 101.79163867091181,
         "phiMnNeg": 110.48658127398402,
         "okFlex": false,
         "okFlexPos": true,

@@ -127,7 +127,7 @@
       "route": "/rc-beam",
       "file": "鋼筋混凝土/tools/beam.html",
       "title": "RC 梁",
-      "version": "V3.2",
+      "version": "V3.3",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "rc",

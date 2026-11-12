@@ -10,6 +10,31 @@ const shearBase = {
 };
 const base = { phiMnPos:100, phiMnNeg:80, shearBase };
 
+const section = { sectionType:'T', bw:30,h:60,bf:180,hf:12,ln:600,flangeMode:'slab',swLeft:200,swRight:200 };
+const flange = BeamEvaluator.resolveFlange(section);
+assert.equal(flange.flexWidth,180);
+assert.equal(flange.torsion.width,126);
+assert.equal(flange.torsion.Acp,2952);
+assert.equal(flange.torsion.pcp,372);
+const shearSection = { ...shearBase,...section,flange,enableTorsion:true };
+const threshold = Pu => BeamEvaluator.computeShearState(shearSection,{ Pu,Vu:5000,Tu:84000 });
+assert.ok(Math.abs(threshold(0).Tu_th/1e5 - .7790689924211653) < 1e-12);
+assert.equal(threshold(0).torsionStatus, 'review-required');
+assert.equal(BeamEvaluator.computeShearState(shearSection,{Pu:0,Vu:0,Tu:threshold(0).Tu_th}).torNegligible,false);
+for (const Pu of [-10000,10000]) {
+  const expected = threshold(0).Tu_th * Math.sqrt(1 + Pu/(2952*Math.sqrt(280)));
+  assert.ok(Math.abs(threshold(Pu).Tu_th-expected) < 1e-8);
+}
+assert.equal(threshold(-60000).Tu_th,null);
+assert.equal(threshold(-60000).torNegligible,false);
+assert.equal(BeamEvaluator.resolveFlange({...section,swLeft:60,leftProjection:45}).flexWidth,135);
+assert.equal(BeamEvaluator.resolveFlange({...section,sectionType:'L',swRight:'無'}).flexWidth,80);
+assert.equal(BeamEvaluator.resolveFlange({...section,bf:250,hf:2}).torsion.ignoreFlange,true);
+assert.equal(BeamEvaluator.resolveFlange({...section,bf:200,hf:16,flangeMode:'isolated'}).flexWidth,120);
+for (const override of [{swLeft:''},{swRight:-1},{leftProjection:151},{flangeMode:'isolated',hf:14}]) {
+  assert.throws(()=>BeamEvaluator.resolveFlange({...section,...override}),RangeError);
+}
+
 const neutral = BeamEvaluator.computeShearState(shearBase, { Pu:0, Vu:30000, Tu:0 });
 assert.equal(neutral.status, 'evaluated');
 assert.ok(neutral.phiVn_eff > 0);

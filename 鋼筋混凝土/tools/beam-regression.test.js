@@ -17,7 +17,7 @@ const rebarPath = path.join(ROOT, '結構工具箱', 'core', 'materials', 'rebar
 const flexurePath = path.join(RC_ROOT, 'shared', 'flexure.js');
 const beamApplicabilityPath = path.join(RC_ROOT, 'shared', 'beam-applicability.js');
 const commonPath = path.join(RC_ROOT, 'shared', 'common.js');
-const beamEvaluatorPath = path.join(RC_ROOT, 'shared', 'beam-evaluator.js');
+const beamEvaluatorPath = path.join(RC_ROOT, 'shared/src/beam-evaluator.source.js');
 const beamDesignerPath = path.join(RC_ROOT, 'shared', 'beam-rebar-designer.js');
 const toleranceDefault = 0.001;
 const CHROME_CANDIDATES = [
@@ -499,6 +499,8 @@ async function exerciseBeamProjectStorage(page) {
     setField('projNo', 'RC-BEAM-001');
     setField('projDesigner', 'QA');
     setField('sectionType', 'T');
+    setField('flangeSwLeft', 200);
+    setField('flangeSwRight', 200);
     setField('support', 'bothEnd');
     setField('seismicMode', true);
     setField('enableTorsion', true);
@@ -773,15 +775,18 @@ async function exerciseCapacityLoadCombo(page) {
   }, shearState.score);
   assert(Number.isFinite(refreshed.score) && refreshed.score > refreshed.previousScore, 'beam stirrup change refreshes capacity suggestions', JSON.stringify(refreshed));
 
-  const torsion = await page.evaluate(async () => {
+  const torsionAt = value => page.evaluate(async value => {
     const input = document.getElementById('lcBeam_T_W');
-    input.value = '2';
+    input.value = String(value);
     input.dispatchEvent(new Event('input', { bubbles:true }));
     input.dispatchEvent(new Event('change', { bubbles:true }));
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const state = window.lastLoadComboSuggestions?.lcBeam?.states?.[2];
     return { score:state?.score, details:state?.details, scoreText:document.getElementById('lcBeam_limit_2_score')?.textContent || '' };
-  });
+  }, value);
+  const oldDemand = await torsionAt(2);
+  assert(oldDemand.details?.status === 'evaluated' && oldDemand.details.shear.Tu_th > 200000, 'beam signed axial compression raises threshold above 2 tf-m', JSON.stringify(oldDemand));
+  const torsion = await torsionAt(3);
   assert(torsion.details?.status === 'torsion-review-required' && torsion.score >= 1e12, 'beam torsion above threshold fails closed', JSON.stringify(torsion));
   assert(torsion.scoreText === '扭力詳算待複核', 'beam torsion fail-closed state stays readable', torsion.scoreText);
 
