@@ -26,6 +26,7 @@
 | `tool_pm.js` | 小工具端：直接 `require` repo 內 `pmsection.js`，並以 `vm` 執行從 `column.app.js` 原文抽出的四個配筋函式；不修改任何檔案 |
 | `cp_pm.py` | concrete-properties 端：鋼筋座標直接取自 `tool_pm.js` 輸出，確保幾何一致 |
 | `compare.py` | 對照並寫出 `compare_tables.md`、`summary.json` |
+| `cover_biaxial_reference.py` | 以 6,000 條帶與 SciPy 聯立求解逐筋矩形柱有號雙軸名義力與設計力，產生 `tests/fixtures/column-cover-biaxial.json`。於專案根目錄執行 `node tests/column-cover-biaxial.test.cjs` 可複驗。 |
 | `run_all.sh` | 一次跑完上述三步並記錄執行環境 |
 
 輸出一律寫入已被 `.gitignore` 忽略的 `output/pm-crosscheck-concrete-properties/`（可用環境變數 `PMX_OUT` 改位置）。

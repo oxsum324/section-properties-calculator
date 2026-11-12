@@ -130,4 +130,6 @@ for (const goldenCase of goldenCases) {
   approx(mirrored.directions.find(item => item.key === 'myNegative').measured.phiMnTfm, original.directions.find(item => item.key === 'myPositive').measured.phiMnTfm, 1e-8);
 }
 
+require('../../../tests/column-cover-biaxial.test.cjs');
+
 console.log('RC column cover deviation core regression OK');

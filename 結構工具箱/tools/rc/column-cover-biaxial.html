@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>逐筋座標與雙軸斷面比較</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f7f6fa;color:#272330;font:16px/1.55 "Microsoft JhengHei",system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:16px}
+section{background:white;border:1px solid #ded8e8;border-radius:10px;margin-bottom:12px;padding:16px}h1,h2,h3{line-height:1.35;margin:0 0 10px;color:#49306b}h1{font-size:1.4rem}h2{font-size:1.12rem}h3{font-size:1rem}p{margin:.45rem 0}button,input,select,textarea{font:inherit}input,textarea,select{border:1px solid #9b90aa;border-radius:5px;padding:6px;max-width:100%;background:white;color:inherit}input:not([type=file]),textarea,select{width:100%}textarea{font:14px/1.55 Consolas,monospace;min-width:0;resize:vertical}label{display:block;font-weight:650}button{padding:7px 12px;border:1px solid #bba9d0;border-radius:7px;background:#f2ecf8;color:#392052;cursor:pointer}button.primary{background:#563278;color:#fff;border-color:#563278}button:disabled{opacity:.55;cursor:default}:focus-visible{outline:3px solid #9469ba;outline-offset:2px}
+.grid,.pair{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.pair{grid-template-columns:1fr 1fr}.wide{grid-column:span 2}.field{min-width:0}.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:.65rem 0}.note{color:#554c60;font-size:.9rem}.scroll{overflow-x:auto}th,td{padding:.38rem .6rem;border-bottom:1px solid #e4e0e8;text-align:left;vertical-align:top}th{background:#f7f3fb}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}#status{color:#522d72;font-weight:700}#summary{font-size:1.08rem;font-weight:bold}#plot{display:block;width:min(100%,580px);height:auto}#results{scroll-margin-top:8px}.caution{color:#713402;background:#fff5e6;padding:8px 10px}
+@media(max-width:720px){main{padding:6px}.grid{grid-template-columns:1fr 1fr}.pair{grid-template-columns:1fr}section{padding:11px}.wide{grid-column:1/-1}th,td{padding:.32rem}.scroll{font-size:.92rem}}
+@media screen and (max-width:720px){.position-table{min-width:42rem}.scroll:focus-visible{outline:2px solid #765398}}
+.position-table th:first-child{white-space:nowrap}.print-only{display:none}
+@media print{.position-block{break-before:page}.print-only{display:block}body{background:#fff;font-size:10pt}main{max-width:none;padding:0}.no-print,#editor,#actions,main>header{display:none!important}section{border:0;padding:0}tr{break-inside:avoid}h2,h3{break-after:avoid}thead{display:table-header-group}#plot{max-height:58mm;width:auto}.scroll{overflow:visible}body:has(#results[hidden]):after{content:'尚無可列印的逐筋雙軸計算紀錄。'}}
+</style>
+</head>
+<body><main>
+<header><h1>逐筋座標與雙軸斷面比較</h1></header>
+<div id="editor">
+<section><h2>構件與同一組合作用力</h2>
+<p class="note">矩形繫筋柱，彎矩對混凝土斷面形心取矩。軸壓為正，+Mx 使上側受壓，+My 使左側受壓。</p>
+<div class="actions"><button id="seed" type="button">帶入單筆頁設計配筋</button><button id="example" type="button">載入合成對照例</button><label for="load">讀取雙軸紀錄</label><input id="load" type="file" accept=".json,application/json"></div>
+<div class="grid">
+<div class="field wide"><label for="caseId">案號／樓層／柱號／修次</label><input id="caseId"></div><div class="field wide"><label for="materialBasis">尺寸與材料依據</label><input id="materialBasis"></div>
+<div class="field"><label for="widthMm">柱寬 b (mm)</label><input id="widthMm" type="number" step="any"></div><div class="field"><label for="depthMm">柱深 h (mm)</label><input id="depthMm" type="number" step="any"></div>
+<div class="field"><label for="fc">fc′ (kgf/cm²)</label><input id="fc" type="number" step="any"></div><div class="field"><label for="fy">fy (kgf/cm²)</label><input id="fy" type="number" step="any"></div>
+<div class="field wide"><label for="mode">計算基準</label><select id="mode"><option value="design">設計強度，輸入同組 Pu、Mux、Muy</option><option value="nominal">名義強度，輸入 Pn 與彎矩方向分量</option></select></div>
+<div class="field wide"><label for="demandBasis">內力組合與來源</label><input id="demandBasis"></div>
+<div class="field"><label id="pLabel" for="pTf">Pu (tf)</label><input id="pTf" type="number" step="any"></div>
+<div class="field"><label id="xLabel" for="mxTfm">Mux (tf·m)</label><input id="mxTfm" type="number" step="any"></div>
+<div class="field"><label id="yLabel" for="myTfm">Muy (tf·m)</label><input id="myTfm" type="number" step="any"></div>
+</div></section>
+<section><h2>設計與現況逐筋座標</h2>
+<p>左上角為原點，x 向右、y 向下。每列一支筋，依序貼入筋號、x (mm)、y (mm)、As (cm²)、定位方式、來源編號。Excel 可含表頭；相同筋號用來核對位移。</p>
+<p class="note">定位方式填「圖說」、「逐筋量測」、「圖說推定」或「合成」。請確認兩份清冊均涵蓋全斷面；四面保護層讀值無法單獨定位每支主筋。</p>
+<div class="pair"><div class="field"><label for="designBars">設計配置</label><textarea id="designBars" rows="7" spellcheck="false" wrap="off"></textarea></div>
+<div class="field"><label for="observedBars">現況配置</label><textarea id="observedBars" rows="7" spellcheck="false" wrap="off"></textarea></div></div>
+<div class="field"><label for="layoutBasis">兩清冊筋號或數量差異依據（如有）</label><input id="layoutBasis"><small>若有增減或改號，填入已查證的原始紀錄；尚未量到的鋼筋請先補資料。</small></div></section>
+</div>
+<div class="actions" id="actions"><button class="primary" id="calculate">比較雙軸斷面</button><button id="save" disabled>下載雙軸紀錄 JSON</button><button id="print" disabled>列印比較紀錄</button><span role="status" id="status"></span></div>
+<section id="results" hidden tabindex="-1"><h2>逐筋雙軸斷面比較紀錄</h2><p id="context"></p><p id="summary"></p><div class="scroll"><table><thead><tr><th>比較項目</th><th>設計配置</th><th>現況配置</th></tr></thead><tbody id="strength"></tbody></table></div>
+<p id="solverNote" class="caution" hidden></p><div id="solutions"></div>
+<div class="position-block"><h3>逐筋位置與施工偏差</h3><p id="positionContext" class="print-only"></p><p>圓圈為設計位置，實心點為現況位置，連線依筋號配對。紫色虛線與綠色實線分別顯示設計與現況平衡解的中性軸。位移 Δx 向右為正、Δy 向下為正。</p><canvas id="plot" width="840" height="440" aria-label="設計與現況鋼筋座標對照，逐筋數值見下表"></canvas>
+<div class="scroll" tabindex="0" aria-label="逐筋座標與位移，可左右捲動"><table class="position-table"><thead><tr><th>筋號</th><th>設計 x／y (mm)；As (cm²)</th><th>現況 x／y (mm)；As (cm²)</th><th>Δx／Δy (mm)</th><th>定位方式與來源</th></tr></thead><tbody id="positions"></tbody></table></div></div>
+<p>施工容許差待依契約、量測誤差與施工紀錄另核。二階效應、圍束細部、剪力及整體結構安全另行評估。</p>
+<p class="note">矩形等值壓力塊、平面應變、離散彈塑性鋼筋，Es＝2.04×10⁶ kgf/cm²。繫筋柱採一般 φ，設計軸壓上限 0.80×0.65×Po。兩組配置分別以同一軸力、同一有號彎矩方向求解。<a href="https://www.nlma.gov.tw/uploads/files/011d9249cac7d6c5547786aa348e352a.pdf" target="_blank" rel="noopener">建築物混凝土結構設計規範 112 年版，第 21、22 章</a></p>
+</section></main>
+<script src="../../../SRC工具/core/src-column-rc-biaxial.js"></script><script src="column-cover-biaxial.js"></script><script src="column-cover-biaxial-ui.js"></script>
+</body></html>
