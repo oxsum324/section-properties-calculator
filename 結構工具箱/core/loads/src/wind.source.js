@@ -596,6 +596,7 @@
    */
   function calcGustFlex(p) {
     const { fn, h, B, L, terrain, beta = 0.02, V } = p;
+    if (!(beta > 0 && Number.isFinite(beta))) throw new RangeError('Gf 須使用正值阻尼比');
     const t = TERRAIN[terrain] || TERRAIN.C;
     const zBar = Math.max(0.6 * h, t.zmin);
     const Iz = calcIz(zBar, terrain);
@@ -621,8 +622,7 @@
     const R2 = (1 / beta) * Rn * Rh * RB * (0.53 + 0.47 * RL);
 
     // gR (Eq 2.14)
-    const lnT = Math.log(3600 * Math.max(fn, 0.1));
-    const gR = Math.sqrt(2 * lnT) + 0.577 / Math.sqrt(2 * lnT);
+    const gR = calcPeakFactorForDuration(fn);
     const gQ = 3.4, gV = 3.4;
 
     // Gf (Eq 2.13)
@@ -665,60 +665,63 @@
   //  key: roofType -> blockage -> theta -> areaBand -> zone -> [pos, neg]
   //  areaBand: small = A < a², medium = a² < A <= 4a², large = A > 4a²
   // ═══════════════════════════════
+  function uniformRoofZones(positive, negative) {
+    return { zone3: [positive, negative], zone2: [positive, negative], zone1: [positive, negative] };
+  }
   const OPEN_ROOF_CPN = {
     monoslope: {
       unblocked: {
         0: {
           small:  { zone3: [2.4, -3.3], zone2: [1.8, -1.7], zone1: [1.2, -1.1] },
           medium: { zone3: [1.8, -1.7], zone2: [1.8, -1.7], zone1: [1.2, -1.1] },
-          large:  { zone3: [1.2, -1.1], zone2: [1.2, -1.1], zone1: [1.2, -1.1] },
+          large:  uniformRoofZones(1.2, -1.1),
         },
         7.5: {
           small:  { zone3: [3.2, -4.2], zone2: [2.4, -2.1], zone1: [1.6, -1.4] },
           medium: { zone3: [2.4, -2.1], zone2: [2.4, -2.1], zone1: [1.6, -1.4] },
-          large:  { zone3: [1.6, -1.4], zone2: [1.6, -1.4], zone1: [1.6, -1.4] },
+          large:  uniformRoofZones(1.6, -1.4),
         },
         15: {
           small:  { zone3: [3.6, -3.8], zone2: [2.7, -2.9], zone1: [1.8, -1.9] },
           medium: { zone3: [2.7, -2.9], zone2: [2.7, -2.9], zone1: [1.8, -1.9] },
-          large:  { zone3: [1.8, -1.9], zone2: [1.8, -1.9], zone1: [1.8, -1.9] },
+          large:  uniformRoofZones(1.8, -1.9),
         },
         30: {
           small:  { zone3: [5.2, -5.0], zone2: [3.9, -3.8], zone1: [2.6, -2.5] },
           medium: { zone3: [3.9, -3.8], zone2: [3.9, -3.8], zone1: [2.6, -2.5] },
-          large:  { zone3: [2.6, -2.5], zone2: [2.6, -2.5], zone1: [2.6, -2.5] },
+          large:  uniformRoofZones(2.6, -2.5),
         },
         45: {
           small:  { zone3: [5.2, -4.6], zone2: [3.9, -3.5], zone1: [2.6, -2.3] },
           medium: { zone3: [3.9, -3.5], zone2: [3.9, -3.5], zone1: [2.6, -2.3] },
-          large:  { zone3: [2.6, -2.3], zone2: [2.6, -2.3], zone1: [2.6, -2.3] },
+          large:  uniformRoofZones(2.6, -2.3),
         },
       },
       blocked: {
         0: {
           small:  { zone3: [1.0, -3.6], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
           medium: { zone3: [0.8, -1.8], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          large:  { zone3: [0.5, -1.2], zone2: [0.5, -1.2], zone1: [0.5, -1.2] },
+          large:  uniformRoofZones(0.5, -1.2),
         },
         7.5: {
           small:  { zone3: [1.6, -5.1], zone2: [1.2, -2.6], zone1: [0.8, -1.7] },
           medium: { zone3: [1.2, -2.6], zone2: [1.2, -2.6], zone1: [0.8, -1.7] },
-          large:  { zone3: [0.8, -1.7], zone2: [0.8, -1.7], zone1: [0.8, -1.7] },
+          large:  uniformRoofZones(0.8, -1.7),
         },
         15: {
           small:  { zone3: [2.4, -4.2], zone2: [1.8, -3.2], zone1: [1.2, -2.1] },
           medium: { zone3: [1.8, -3.2], zone2: [1.8, -3.2], zone1: [1.2, -2.1] },
-          large:  { zone3: [1.2, -2.1], zone2: [1.2, -2.1], zone1: [1.2, -2.1] },
+          large:  uniformRoofZones(1.2, -2.1),
         },
         30: {
           small:  { zone3: [3.2, -4.6], zone2: [2.4, -3.5], zone1: [1.6, -2.3] },
           medium: { zone3: [2.4, -3.5], zone2: [2.4, -3.5], zone1: [1.6, -2.3] },
-          large:  { zone3: [1.6, -2.3], zone2: [1.6, -2.3], zone1: [1.6, -2.3] },
+          large:  uniformRoofZones(1.6, -2.3),
         },
         45: {
           small:  { zone3: [4.2, -3.8], zone2: [3.2, -2.9], zone1: [2.1, -1.9] },
           medium: { zone3: [3.2, -2.9], zone2: [3.2, -2.9], zone1: [2.1, -1.9] },
-          large:  { zone3: [2.1, -1.9], zone2: [2.1, -1.9], zone1: [2.1, -1.9] },
+          large:  uniformRoofZones(2.1, -1.9),
         },
       },
     },
@@ -727,54 +730,54 @@
         0: {
           small:  { zone3: [2.4, -3.3], zone2: [1.8, -1.7], zone1: [1.2, -1.1] },
           medium: { zone3: [1.8, -1.7], zone2: [1.8, -1.7], zone1: [1.2, -1.1] },
-          large:  { zone3: [1.2, -1.1], zone2: [1.2, -1.1], zone1: [1.2, -1.1] },
+          large:  uniformRoofZones(1.2, -1.1),
         },
         7.5: {
           small:  { zone3: [2.2, -3.6], zone2: [1.7, -1.8], zone1: [1.1, -1.2] },
           medium: { zone3: [1.7, -1.8], zone2: [1.7, -1.8], zone1: [1.1, -1.2] },
-          large:  { zone3: [1.1, -1.2], zone2: [1.1, -1.2], zone1: [1.1, -1.2] },
+          large:  uniformRoofZones(1.1, -1.2),
         },
         15: {
           small:  { zone3: [2.2, -2.2], zone2: [1.7, -1.7], zone1: [1.1, -1.1] },
           medium: { zone3: [1.7, -1.7], zone2: [1.7, -1.7], zone1: [1.1, -1.1] },
-          large:  { zone3: [1.1, -1.1], zone2: [1.1, -1.1], zone1: [1.1, -1.1] },
+          large:  uniformRoofZones(1.1, -1.1),
         },
         30: {
           small:  { zone3: [2.6, -1.8], zone2: [2.0, -1.4], zone1: [1.3, -0.9] },
           medium: { zone3: [2.0, -1.4], zone2: [2.0, -1.4], zone1: [1.3, -0.9] },
-          large:  { zone3: [1.3, -0.9], zone2: [1.3, -0.9], zone1: [1.3, -0.9] },
+          large:  uniformRoofZones(1.3, -0.9),
         },
         45: {
           small:  { zone3: [2.2, -1.6], zone2: [1.7, -1.2], zone1: [1.1, -0.8] },
           medium: { zone3: [1.7, -1.2], zone2: [1.7, -1.2], zone1: [1.1, -0.8] },
-          large:  { zone3: [1.1, -0.8], zone2: [1.1, -0.8], zone1: [1.1, -0.8] },
+          large:  uniformRoofZones(1.1, -0.8),
         },
       },
       blocked: {
         0: {
           small:  { zone3: [1.0, -3.6], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
           medium: { zone3: [0.8, -1.8], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          large:  { zone3: [0.5, -1.2], zone2: [0.5, -1.2], zone1: [0.5, -1.2] },
+          large:  uniformRoofZones(0.5, -1.2),
         },
         7.5: {
           small:  { zone3: [1.0, -5.1], zone2: [0.8, -2.6], zone1: [0.5, -1.7] },
           medium: { zone3: [0.8, -2.6], zone2: [0.8, -2.6], zone1: [0.5, -1.7] },
-          large:  { zone3: [0.5, -1.7], zone2: [0.5, -1.7], zone1: [0.5, -1.7] },
+          large:  uniformRoofZones(0.5, -1.7),
         },
         15: {
           small:  { zone3: [1.0, -3.2], zone2: [0.8, -2.4], zone1: [0.5, -1.6] },
           medium: { zone3: [0.8, -2.4], zone2: [0.8, -2.4], zone1: [0.5, -1.6] },
-          large:  { zone3: [0.5, -1.6], zone2: [0.5, -1.6], zone1: [0.5, -1.6] },
+          large:  uniformRoofZones(0.5, -1.6),
         },
         30: {
           small:  { zone3: [1.0, -2.4], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
           medium: { zone3: [0.8, -1.8], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          large:  { zone3: [0.5, -1.2], zone2: [0.5, -1.2], zone1: [0.5, -1.2] },
+          large:  uniformRoofZones(0.5, -1.2),
         },
         45: {
           small:  { zone3: [1.0, -2.4], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
           medium: { zone3: [0.8, -1.8], zone2: [0.8, -1.8], zone1: [0.5, -1.2] },
-          large:  { zone3: [0.5, -1.2], zone2: [0.5, -1.2], zone1: [0.5, -1.2] },
+          large:  uniformRoofZones(0.5, -1.2),
         },
       },
     },
@@ -829,9 +832,9 @@
   }
 
   function calcPeakFactorForDuration(f) {
-    const ff = Math.max(f, 0.1);
-    const x = 2 * Math.log(3600 * ff);
-    return Math.sqrt(x) + 0.577 / Math.sqrt(x);
+    if (!(3600 * f > 1 && Number.isFinite(f))) throw new RangeError('尖峰因子須滿足 3600f > 1');
+    const peak = Math.sqrt(2 * Math.log(3600 * f));
+    return peak + 0.577 / peak;
   }
 
   function calcCrossWindResonanceFactor(L, B, fa, Vh) {
@@ -1153,15 +1156,19 @@
     let acc = 0;
     for (const h of storyH) { acc += h; zTops.push(acc); }
     const totalH = acc;
+    const estimate = totalH > 0 && totalH < 122 ? estFrequency(totalH) : null;
+    const gustFn = fn ?? estimate?.fn;
 
     // 陣風因子
     let G, gustInfo = null;
     if (GOverride != null) {
       G = GOverride;
-    } else if (isFlexible && fn > 0) {
-      gustInfo = calcGustFlex({ fn, h: totalH, B, L, terrain, beta, V });
+    } else if (isFlexible) {
+      if (!(gustFn < 1)) throw new RangeError('柔性建築物須確認 fn < 1 Hz');
+      gustInfo = calcGustFlex({ fn: gustFn, h: totalH, B, L, terrain, beta, V });
       G = gustInfo.Gf;
     } else {
+      if (!(Number.isFinite(gustFn) && gustFn >= 1)) throw new RangeError('普通建築物須確認 fn ≥ 1 Hz');
       gustInfo = calcGustRigid(totalH, B, terrain);
       G = gustInfo.G;
     }
@@ -1207,8 +1214,8 @@
     // 橫風向 & 扭矩
     const hBL = totalH / Math.sqrt(B * L);
     const Vh = calcMeanWindSpeed(totalH, V, terrain);
-    const faUse = fa > 0 ? fa : estFrequency(totalH).fa;
-    const ftUse = ft > 0 ? ft : estFrequency(totalH).ft;
+    const faUse = fa ?? estimate?.fa;
+    const ftUse = ft ?? estimate?.ft;
     let crossWind = null, torsion = null, lateralMeta = null;
     if (hBL < 3) {
       crossWind = stories.map(s => ({
@@ -1228,6 +1235,7 @@
         torsionApplicable: true,
       };
     } else if (hBL <= 6 && L / B >= 0.2 && L / B <= 5) {
+      if (!(faUse > 0 && ftUse > 0 && beta > 0)) throw new RangeError('共振計算須提供正值頻率及阻尼比');
       const crossRes = calcCrossWindResonanceFactor(L, B, faUse, Vh);
       const torsRes = calcTorsionResonanceFactor(L, B, ftUse, Vh);
       const crossApplicable = Vh / (faUse * Math.sqrt(B * L)) <= 10;
@@ -1350,7 +1358,7 @@
       stories, Vb, OTM,
       Cpw, Cpl, Cp_side: Cp_SIDEWALL, Cp_roof: Cp_FLAT_ROOF,
       totalH, qH, KzH,
-      G, gustInfo, isFlexible,
+      G, gustInfo, isFlexible, gustFn: GOverride == null ? gustFn : null,
       crossWind, torsion, hBL, Vh, lateralMeta,
       pSide,
       encl, GCpi, roof,
@@ -1689,6 +1697,7 @@
   //  fn = fa = 22.86/h (Hz), ft = 1.3·fn
   // ═══════════════════════════════
   function estFrequency(h) {
+    if (!(h > 0 && h < 122)) throw new RangeError('高度經驗式限 0 < H < 122 m');
     const fn = 22.86 / h;
     return { fn, fa: fn, ft: 1.3 * fn };
   }
@@ -2200,14 +2209,16 @@
     const dQ = dSqrtQz != null ? dSqrtQz : qzD;
     let key;
     if (memberType === 'flat') key = 'flat_member';
-    else key = (dQ != null && dQ <= 1.70) ? 'circular_low_qd' : 'circular_high_qd';
+    else if (memberType === 'circular' && Number.isFinite(dQ) && dQ >= 0) key = dQ <= 1.70 ? 'circular_low_qd' : 'circular_high_qd';
+    else return null;
     const rows = POROUS_FRAME_CF_TABLE[key];
-    const phi = Math.max(rows[0].min, Math.min(solidity, rows[rows.length - 1].max));
-    const row = rows.find(item => phi >= item.min && phi <= item.max) || rows[rows.length - 1];
+    if (!Number.isFinite(solidity)) return null;
+    const row = rows.find((item, index) => solidity >= item.min && (index === 0 ? solidity < item.max : solidity <= item.max));
+    if (!row) return null;
     return {
       key,
       memberType,
-      solidity: phi,
+      solidity,
       dSqrtQz: dQ,
       qzD: dQ,
       cf: row.cf,

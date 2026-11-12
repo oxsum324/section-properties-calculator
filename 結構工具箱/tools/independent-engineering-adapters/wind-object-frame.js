@@ -34,7 +34,7 @@ function validateInput(input) {
     for (const key of ['V', 'I', 'Kzt', 'z', 'A']) {
       if (!Number.isFinite(Number(item?.[key])) || Number(item[key]) <= 0) issues.push(`${id}.${key}:positive-finite-required`);
     }
-    if (!Number.isFinite(Number(item?.phi)) || Number(item.phi) < 0 || Number(item.phi) > 0.7) issues.push(`${id}.phi:zero-to-0.7-required`);
+    if (!Number.isFinite(item?.phi) || item.phi < 0 || item.phi > 0.7 || (item.phi > 0.29 && item.phi < 0.30)) issues.push(`${id}.phi:table-2.11-band-required`);
     if (!['A', 'B', 'C'].includes(item?.terrain)) issues.push(`${id}.terrain:A-B-C-required`);
     if (!['circular', 'flat'].includes(item?.memberType)) issues.push(`${id}.memberType:known-required`);
     if (item?.memberType === 'circular' && (!Number.isFinite(Number(item?.D)) || Number(item.D) <= 0)) issues.push(`${id}.D:positive-required`);

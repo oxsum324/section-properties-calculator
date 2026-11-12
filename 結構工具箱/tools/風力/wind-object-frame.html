@@ -150,7 +150,7 @@
     <div class="form-row">
       <div class="form-group">
         <label>實體率 φ</label>
-        <input id="phi" type="number" value="0.20" min="0" max="1" step="0.01">
+        <input id="phi" type="number" value="0.20" min="0" max="0.70" step="any">
         <div class="hint">表 2.11 主要範圍以 φ ≤ 0.7 整理。</div>
       </div>
       <div class="form-group">
@@ -248,7 +248,8 @@
 <script>
 const W = window.Wind;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['wind-object-frame'].version;
-const TOOL_VERSION = '3.4';
+const TOOL_VERSION = '3.5';
+const PREVIOUS_TABLE_ENGINE = '3.4';
 const CASE_SCHEMA_VERSION = 'wind-object-frame.case.v2';
 let lastResult = null;
 let lastStepsHtml = '';
@@ -284,6 +285,9 @@ function step(title, body, detail = '') {
   return `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}${detail ? `<div class="detail-formula">${detail}</div>` : ''}</div></div>`;
 }
 function showFormError(message, focusId) {
+  lastResult = null;
+  lastStepsHtml = '';
+  document.getElementById('resultPanel').hidden = true;
   const el = document.getElementById('formError');
   el.textContent = message;
   el.classList.add('show');
@@ -368,7 +372,7 @@ function resetCaseDefaults() {
   setCaseStatus('已恢復本頁預設值。');
 }
 function exportCaseJson() {
-  calc();
+  if (!calc()) return;
   const reportTrace = buildFrameObjectReportTrace(lastResult);
   const payload = {
     schema: CASE_SCHEMA_VERSION,
@@ -419,17 +423,23 @@ function importCaseJsonFile(file) {
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
+      const replayEngine = payload?.tool?.version === PREVIOUS_TABLE_ENGINE ? PREVIOUS_TABLE_ENGINE : TOOL_VERSION;
       const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
         expectedSchema: CASE_SCHEMA_VERSION,
         expectedToolId: 'wind-object-frame',
-        expectedVersion: TOOL_VERSION,
+        expectedVersion: replayEngine,
         capture: () => readCaseInputs(),
         apply: source => applyCaseInputs(source),
-        recalculate: () => calc(),
-        getFingerprint: () => buildFrameObjectReportTrace(lastResult).calculationFingerprint,
+        recalculate: () => {
+          if (!calc()) throw new Error(lastFrameObjectReportValidationMessage);
+          return true;
+        },
+        getFingerprint: () => buildFrameObjectReportTrace(lastResult, replayEngine).calculationFingerprint,
         restore: previous => applyCaseInputs(previous)
       });
-      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
+      setCaseStatus(replayEngine === TOOL_VERSION
+        ? `已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`
+        : `舊案指紋 ${replay.calculationFingerprint} 已核對。現行引擎重算指紋 ${buildFrameObjectReportTrace(lastResult).calculationFingerprint}。`);
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
     } finally {
@@ -476,8 +486,8 @@ function buildFrameObjectReportReadinessModel(validationMessage = lastFrameObjec
   }
 
   const r = lastResult;
-  readyItems.push({ label: '表 2.11 路線', value: `${r.cfRoute}；實體率 φ = ${fmt(r.phi,2)}。` });
-  readyItems.push({ label: '控制 C_f', value: `${fmt(r.cfData.cf,3)}；表列區間 ${r.cfData.band}。` });
+  readyItems.push({ label: '表 2.11 路線', value: `${r.cfRoute}；實體率 φ = ${formatSolidity(r.phi)}。` });
+  readyItems.push({ label: '控制 C_f', value: `${fmt(r.cfData.cf,3)}；表列區間 ${frameTableBand(r.cfData)}。` });
   readyItems.push({ label: '控制結果', value: `F = ${fmt(r.force,1)} kgf；M = ${fmt(r.baseMoment,1)} kgf·m。` });
   readyItems.push({ label: '計算書模式', value: `${reportModeLabel()}；報告會重新計算目前輸入。` });
 
@@ -523,6 +533,13 @@ function syncMemberTypeInputs() {
     group.setAttribute('aria-hidden', isCircular ? 'false' : 'true');
   }
   if (input) input.disabled = !isCircular;
+}
+function formatSolidity(phi) {
+  const rounded = phi.toFixed(2);
+  return Number(rounded) === phi ? rounded : String(phi);
+}
+function frameTableBand(data) {
+  return data.solidity < 0.10 ? '0 ≤ φ < 0.10' : data.band;
 }
 function porousCfRouteLabel(cfData) {
   if (cfData.memberType === 'flat') return '表 2.11 平邊構材';
@@ -581,13 +598,13 @@ function drawFrameDiagram(r) {
     </g>
     <rect x="392" y="218" width="140" height="66" rx="11" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.8"/>
     <text x="408" y="242" fill="#4c1d95" font-size="14" font-weight="700">表 2.11</text>
-    <text x="408" y="263" fill="#475569" font-size="12">φ = ${fmt(r.phi,2)}，Cf = ${fmt(r.cfData.cf,3)}</text>
+    <text x="408" y="263" fill="#475569" font-size="12">φ = ${formatSolidity(r.phi)}，Cf = ${fmt(r.cfData.cf,3)}</text>
     <text x="408" y="280" fill="#475569" font-size="12">A = ${fmt(r.A,2)} m²</text>
   `;
 }
 function buildAdoptRows(r) {
   return [
-    ['規範路線', r.cfRoute, '', `φ 區間 ${r.cfData.band}`],
+    ['規範路線', r.cfRoute, '', `φ 區間 ${frameTableBand(r.cfData)}`],
     ['C_f', fmt(r.cfData.cf,3), '', '依表 2.11'],
     ['q(z)', fmt(r.qz,1), 'kgf/m²', `K(z) = ${fmt(r.Kz,4)}`],
     ['G', fmt(r.G,3), '', '剛性陣風反應因子'],
@@ -611,17 +628,22 @@ function calc() {
   let html = '';
   const z = val('pz');
   const A = val('pA');
-  const phi = val('phi');
+  const phi = document.getElementById('phi').valueAsNumber;
   const D = val('memberD');
   const memberType = document.getElementById('memberType').value;
   syncMemberTypeInputs();
   if (z <= 0) return showFormError('作用高度 z 需大於 0。', 'pz');
   if (A <= 0) return showFormError('投影面積 A 需大於 0。', 'pA');
-  if (phi < 0 || phi > 0.7) return showFormError('表 2.11 主要範圍以 0 ≤ φ ≤ 0.7 整理，請確認實體率。', 'phi');
+  if (!Number.isFinite(phi) || phi < 0 || phi > 0.7) return showFormError('表 2.11 主要範圍以 0 ≤ φ ≤ 0.7 整理，請確認實體率。', 'phi');
   if (memberType === 'circular' && D <= 0) return showFormError('圓形斷面構材需輸入有效直徑 D。', 'memberD');
   const q = W.calcQz(z, V, terrain, I, Kzt);
   const dSqrtQz = memberType === 'circular' ? W.calcDiameterSqrtQz(D, q.qz) : null;
+  if (!['flat','circular'].includes(memberType) || (memberType === 'circular' && !Number.isFinite(dSqrtQz))) return showFormError('請確認構材型式、直徑與風速壓。', 'memberType');
   const cfData = W.lookupPorousFrameCf({ solidity: phi, memberType, dSqrtQz });
+  if (!cfData) {
+    const adjacent = [0.29, 0.30].map(solidity => W.lookupPorousFrameCf({ solidity, memberType, dSqrtQz }).cf);
+    return showFormError(`φ = ${phi} 落在表 2.11 未列區間。φ = 0.29 與 0.30 的 C_f 分別為 ${adjacent.join('、')}。請保留原實體率，依專案資料另核風力係數。`, 'phi');
+  }
   const gustInfo = W.calcGustRigid(z, Math.max(Math.sqrt(A), 1), terrain);
   const G = gustInfo.G;
   const force = q.qz * G * cfData.cf * A;
@@ -640,12 +662,12 @@ function calc() {
   setR('r-force', force, 1);
   setR('r-shear', force, 1);
   setR('r-moment', baseMoment, 1);
-  setR('r-extra', memberType === 'circular' ? `φ=${fmt(phi,2)}；D√q(z)=${fmt(dSqrtQz,2)}` : `φ=${fmt(phi,2)}；平邊構材`);
+  setR('r-extra', memberType === 'circular' ? `φ=${formatSolidity(phi)}；D√q(z)=${fmt(dSqrtQz,2)}` : `φ=${formatSolidity(phi)}；平邊構材`);
   document.getElementById('adoptNote').textContent = '設計採用表僅列計算採用值；規範提醒保留在頁面檢查區，不列入列印計算書。';
   const applicability = [
     { label: '規範路線', level: 'ok', message: '中空式標示物 / 格子式構架採表 2.11。' },
     { label: '構材型式', level: 'ok', message: memberTypeLabel(memberType) },
-    { label: '實體率 φ', level: 'ok', message: `${fmt(phi,2)}，採表列區間 ${cfData.band}` }
+    { label: '實體率 φ', level: 'ok', message: `${formatSolidity(phi)}，採表列區間 ${frameTableBand(cfData)}` }
   ];
   if (memberType === 'circular') {
     applicability.push({ label: 'D√q(z) 分類', level: 'ok', message: `D√q(z) = ${fmt(dSqrtQz,2)}，${cfRoute}` });
@@ -653,7 +675,7 @@ function calc() {
   setApplicability(applicability);
   html += step('① 規範查表路線', `
     規範路線 = <span class="val">中空式標示物 / 格子式構架</span>，採 <span class="val">表 2.11</span><br>
-    構材型式 = <span class="val">${memberTypeLabel(memberType)}</span>，φ = <span class="val">${fmt(phi,2)}</span><br>
+    構材型式 = <span class="val">${memberTypeLabel(memberType)}</span>，φ = <span class="val">${formatSolidity(phi)}</span><br>
     ${memberType === 'circular' ? `D√q(z) = <span class="val">${fmt(dSqrtQz,2)}</span>，採用路線 = <span class="val">${cfRoute}</span><br>` : `平邊構材依表 2.11 對應列查 C_f。<br>`}
     C<sub>f</sub> = <span class="val hl">${fmt(cfData.cf,3)}</span>
   `);
@@ -675,6 +697,7 @@ function calc() {
   `, `F = ${fmt(q.qz,2)} × ${fmt(G,3)} × ${fmt(cfData.cf,3)} × ${fmt(A,2)} = ${fmt(force,2)} kgf`);
 
   lastResult = r;
+  document.getElementById('resultPanel').hidden = false;
   lastStepsHtml = html;
   renderAdoptRows(buildAdoptRows(r));
   document.getElementById('steps').innerHTML = html;
@@ -695,7 +718,7 @@ function buildConditionRows(r) {
   ];
   return base.concat([
     ['規範路線', r.cfRoute],
-    ['幾何與實體率', `z = ${fmt(r.z,2)} m；A = ${fmt(r.A,2)} m²；φ = ${fmt(r.phi,2)}`],
+    ['幾何與實體率', `z = ${fmt(r.z,2)} m；A = ${fmt(r.A,2)} m²；φ = ${formatSolidity(r.phi)}`],
     ['構材型式', r.memberType === 'circular' ? `${memberTypeLabel(r.memberType)}；D√q(z) = ${fmt(r.dSqrtQz,2)}` : memberTypeLabel(r.memberType)]
   ]);
 }
@@ -709,12 +732,12 @@ function buildSimpleResultRows(r) {
   rows.splice(2, 0, ['q(z)', `${fmt(r.qz,1)} kgf/m²`]);
   return rows;
 }
-function buildFrameObjectReportTrace(result) {
+function buildFrameObjectReportTrace(result, engine = TOOL_VERSION) {
   return window.ToolReportUI.buildReportTrace({
     title: '中空式 / 格子式風力計算書',
     subtitle: '依建築物耐風設計規範及解說 103 年版｜表 2.11 Cf 路線',
     outputSource: { tool: '中空式 / 格子式風力', version: PUBLIC_TOOL_VERSION },
-    snapshot: { reportMode: getPrintReportMode(), calculationEngine: TOOL_VERSION, result }
+    snapshot: { reportMode: getPrintReportMode(), calculationEngine: engine, result }
   });
 }
 function buildFrameObjectReportHtml() {

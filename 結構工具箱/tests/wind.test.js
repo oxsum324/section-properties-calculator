@@ -186,13 +186,35 @@ function run() {
   const mwfrsResonant = W.calcBuildingWind({
     V: 42.5, terrain: 'C', I: 1.0, B: 20, L: 20, storyH: Array(20).fill(5), Kzt: 1.0,
     encl: 'enclosed', roofSlope: 0, roofType: 'flat', windToRidge: 'perpendicular', eaveHeight: 100,
-    fa: 0.35, ft: 0.45
+    fn: 1.2, fa: 0.35, ft: 0.45
   });
   assert.strictEqual(mwfrsResonant.lateralMeta.regime, 'resonant', 'should enter resonant lateral-force regime');
   assert.strictEqual(mwfrsResonant.crossWind[0].method, 'Eq 2.22', 'crosswind should use Eq 2.22');
   assert.strictEqual(mwfrsResonant.torsion[0].method, 'Eq 2.24', 'torsion should use Eq 2.24');
   assert.ok(mwfrsResonant.lateralMeta.cross.RLR > 0, 'crosswind resonance factor should be positive');
   assert.ok(mwfrsResonant.lateralMeta.torsion.RTR > 0, 'torsion resonance factor should be positive');
+
+  for (const engine of [W, productionWind]) {
+    const building = { V: 37.5, terrain: 'B', I: 1, B: 20, L: 30, storyH: [22.86] };
+    const run = extra => engine.calcBuildingWind({ ...building, ...extra });
+    assert.equal(run({}).gustFn, 1);
+    assert.equal(run({ fn: 1 }).G, engine.calcGustRigid(22.86, 20, 'B').G);
+    assert.throws(() => run({ fn: 0.9999 }), /普通建築物/);
+    assert.throws(() => run({ fn: 1, isFlexible: true }), /柔性建築物/);
+    assert.throws(() => run({ storyH: [122] }), /普通建築物/);
+    assert.throws(() => engine.estFrequency(122), /122/);
+    assert.throws(() => run({ fn: 0.4, isFlexible: true, beta: 0 }), /阻尼比/);
+    assert.throws(() => run({ fn: 1 / 3600, isFlexible: true }), /3600/);
+    assert.throws(() => run({ storyH: [122], B: 35, L: 38, fn: 0.4, isFlexible: true }), /共振/);
+    assert.equal(run({ storyH: [122], fn: 1.2, fa: 0.8, ft: 0.9 }).gustFn, 1.2);
+    const low = run({ fn: 0.05, isFlexible: true });
+    const peak = Math.sqrt(2 * Math.log(180));
+    approx(low.gustInfo.gR, peak + 0.577 / peak, 1e-12, 'Eq 2.14 uses actual fn');
+    assert.equal(low.G, low.gustInfo.Gf);
+    const specified = run({ GOverride: 1.88, storyH: [125], B: 60, L: 70 });
+    assert.equal(specified.G, 1.88);
+    assert.equal(specified.gustFn, null);
+  }
 
   assert.throws(() => W.calcBuildingWind({
     V: 42.5, terrain: 'C', I: 1.0, B: 20, L: 30, storyH: [3.5, 3.5, 3.5], Kzt: 1.0,

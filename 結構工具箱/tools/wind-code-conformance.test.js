@@ -70,25 +70,29 @@ check('Eq 2.8 Kzt hill crest / cliff upwind / H/Lh>0.5', () => {
 });
 
 // ── 式 (2.13)～(2.19)：R² = (1/β)·Rn·Rh·RB·(0.53+0.47RL) ──
-check('Eq 2.15 resonant response factor', () => {
-  const g = W.calcGustFlex({ fn: 0.4, h: 100, B: 30, L: 30, terrain: 'B', beta: 0.02, V: 37.5 });
+for (const fn of [0.4, 0.05]) {
+  check(`Eq 2.13–2.19 flexible gust response at ${fn} Hz`, () => checkFlexibleGust(fn));
+}
+function checkFlexibleGust(fn) {
+  const g = W.calcGustFlex({ fn, h: 100, B: 30, L: 30, terrain: 'B', beta: 0.02, V: 37.5 });
   // 獨立逐式手算
   const zBar = 60, c = 0.30, ell = 98, eps = 0.33, b = 0.62, alpha = 0.25;
   const Iz = c * Math.pow(10 / zBar, 1 / 6);
   const Lz = ell * Math.pow(zBar / 10, eps);
   const Q2 = 1 / (1 + 0.63 * Math.pow((30 + 100) / Lz, 0.63));
   const Vz = b * Math.pow(zBar / 10, alpha) * 37.5;
-  const N1 = 0.4 * Lz / Vz;
+  const N1 = fn * Lz / Vz;
   const Rn = 7.47 * N1 / Math.pow(1 + 10.3 * N1, 5 / 3);
   const Rj = eta => 1 / eta - (1 - Math.exp(-2 * eta)) / (2 * eta * eta);
-  const Rh = Rj(4.6 * 0.4 * 100 / Vz), RB = Rj(4.6 * 0.4 * 30 / Vz), RL = Rj(15.4 * 0.4 * 30 / Vz);
+  const Rh = Rj(4.6 * fn * 100 / Vz), RB = Rj(4.6 * fn * 30 / Vz), RL = Rj(15.4 * fn * 30 / Vz);
   const R2 = (1 / 0.02) * Rn * Rh * RB * (0.53 + 0.47 * RL);
-  const x = 2 * Math.log(3600 * 0.4);
+  const x = 2 * Math.log(3600 * fn);
   const gR = Math.sqrt(x) + 0.577 / Math.sqrt(x);
   const Gf = 1.927 * (1 + 1.7 * Iz * Math.sqrt(3.4 * 3.4 * Q2 + gR * gR * R2)) / (1 + 1.7 * 3.4 * Iz);
+  near(g.gR, gR, 1e-9, 'gR');
   near(g.R2, R2, 1e-9, 'R2');
   near(g.Gf, Gf, 1e-9, 'Gf');
-});
+}
 
 // ── 式 (2.21)：W_Lz = 0.87 (L/B) W_Dz（h/√BL < 3） ──
 check('Eq 2.21 cross-wind force', () => {
@@ -177,6 +181,19 @@ check('Table 2.11 porous frame Cf', () => {
   assert.strictEqual(cf(0.05, 'circular', 3.0), 0.8);
   assert.strictEqual(cf(0.20, 'circular', 3.0), 0.9);
   assert.strictEqual(cf(0.50, 'circular', 3.0), 1.1);
+  // 表 2.11 三欄各自檢查界點及沒有列表的實體率，D√q = 1.70 屬小值欄。
+  for (const [member, dQ, values] of [
+    ['flat', null, [2.0, 1.8, 1.6]],
+    ['circular', 1.70, [1.2, 1.3, 1.5]],
+    ['circular', 1.70001, [0.8, 0.9, 1.1]],
+  ]) {
+    for (const [phi, band] of [[0,0], [0.099999,0], [0.1,1], [0.29,1], [0.30,2], [0.70,2]]) {
+      assert.equal(cf(phi, member, dQ), values[band]);
+    }
+    for (const phi of [0.290001, 0.295, 0.299999, -0.01, 0.701, null, NaN]) {
+      assert.equal(W.lookupPorousFrameCf({ solidity: phi, memberType: member, dSqrtQz: dQ }), null);
+    }
+  }
 });
 
 // ── 表 2.15：桁架高塔（現行實作已符合；作為邊界回歸） ──

@@ -2490,9 +2490,11 @@ function windObjectFrameThreeRouteOracle(input) {
     C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 },
   };
   const coefficient = (memberType, lowQD, phi) => {
-    if (memberType === 'flat') return phi <= 0.10 ? 2.0 : phi <= 0.29 ? 1.8 : 1.6;
-    if (lowQD) return phi <= 0.10 ? 1.2 : phi <= 0.29 ? 1.3 : 1.5;
-    return phi <= 0.10 ? 0.8 : phi <= 0.29 ? 0.9 : 1.1;
+    // 國土署表 2.11（印刷頁 66）：第一列不含 0.10，0.29 與 0.30 間未列表值。
+    if (!Number.isFinite(phi) || phi < 0 || phi > 0.7 || (phi > 0.29 && phi < 0.30)) throw new RangeError('No Table 2.11 row');
+    if (memberType === 'flat') return phi < 0.10 ? 2.0 : phi <= 0.29 ? 1.8 : 1.6;
+    if (lowQD) return phi < 0.10 ? 1.2 : phi <= 0.29 ? 1.3 : 1.5;
+    return phi < 0.10 ? 0.8 : phi <= 0.29 ? 0.9 : 1.1;
   };
   return Object.fromEntries(input.cases.map(i => {
     const t = terrain[i.terrain];
@@ -2518,8 +2520,8 @@ function windObjectFrameThreeRouteOracle(input) {
       circularLowRoute:circularLowRoute ? 1 : 0,
       circularHighRoute:circularHighRoute ? 1 : 0,
       flatRoute:i.memberType === 'flat' ? 1 : 0,
-      lowBand:i.phi <= 0.10 ? 1 : 0,
-      mediumBand:i.phi > 0.10 && i.phi <= 0.29 ? 1 : 0,
+      lowBand:i.phi < 0.10 ? 1 : 0,
+      mediumBand:i.phi >= 0.10 && i.phi <= 0.29 ? 1 : 0,
       highBand:i.phi > 0.29 ? 1 : 0,
       cf,
       force,

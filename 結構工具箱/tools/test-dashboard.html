@@ -264,7 +264,7 @@ function runWindSuite(options = {}) {
   if (includeAdvanced) {
     runCase(results, 'MWFRS 共振路徑', () => {
       const mwfrsResonant = W.calcBuildingWind({
-        V: 42.5, terrain: 'C', I: 1.0, B: 20, L: 20, storyH: Array(20).fill(5), Kzt: 1.0,
+        V: 42.5, terrain: 'C', I: 1.0, B: 20, L: 20, storyH: Array(20).fill(5), Kzt: 1.0, fn: 1.2,
         encl: 'enclosed', roofSlope: 0, roofType: 'flat', windToRidge: 'perpendicular', eaveHeight: 100,
         fa: 0.35, ft: 0.45
       });

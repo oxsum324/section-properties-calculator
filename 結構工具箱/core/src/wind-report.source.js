@@ -42,7 +42,7 @@
     };
   }
 
-  function buildWindReportTrace({ title, subtitle, mode, summary, inputGroups }) {
+  function buildWindReportTrace({ title, subtitle, mode, summary, inputGroups, engine, gust }) {
     const reportUi = global.ToolReportUI;
     if (!reportUi || typeof reportUi.buildReportTrace !== 'function') {
       showWindReportIssue('共用報告追溯模組未載入，無法產生正式計算書。');
@@ -63,14 +63,15 @@
       outputSource: { tool, version },
       snapshot: {
         reportMode: mode,
-        calculationEngine,
+        calculationEngine: engine ?? calculationEngine,
+        ...(gust ? { gust } : {}),
         summary: { ok: summary?.ok, text: summary?.text || '' },
         inputs: inputGroups || [],
       },
     });
   }
 
-  function getCurrentReportTrace() {
+  function getCurrentReportTrace({ engine, omitInputIds } = {}) {
     const title = textFrom(document.querySelector('header h1')) || '耐風計算書';
     const subtitle = textFrom(document.querySelector('header p'));
     return buildWindReportTrace({
@@ -78,7 +79,9 @@
       subtitle,
       mode: currentReportMode(),
       summary: collectSummary(),
-      inputGroups: collectInputGroups(),
+      inputGroups: collectInputGroups(omitInputIds),
+      engine,
+      gust: engine === undefined ? global.getWindForceGustTrace?.() : null,
     });
   }
 
@@ -261,7 +264,7 @@ function closeReportWindow() {
     return id === 'chkDetail' || id === 'reportMode' || id === 'repRemember' || id.startsWith('rep_');
   }
 
-  function collectInputGroups() {
+  function collectInputGroups(omitInputIds) {
     const left = document.querySelector('.main-layout > div:first-child');
     if (!left) return [];
     const groups = Array.from(left.children)
@@ -273,7 +276,7 @@ function closeReportWindow() {
           const label = textFrom(group.querySelector('label'));
           const field = group.querySelector('input, select, textarea');
           if (!label || !field) return;
-          if (isCalculationBookOutputControl(field)) return;
+          if (isCalculationBookOutputControl(field) || omitInputIds?.includes(field.id) || (field.hasAttribute('data-report-omit-empty') && field.value === '')) return;
           if (field.disabled || field.hidden || !isVisible(field)) return;
           items.push({ label, value: fieldValue(field), unit: '' });
         });
@@ -742,6 +745,22 @@ function closeReportWindow() {
       .filter(Boolean);
   }
 
+  const reportHeaderStyles = `@page { size: A4 portrait; margin: 18mm 14mm 18mm; }
+* { box-sizing: border-box; }
+body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
+.rep-paper { max-width: 980px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+.rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
+.rep-header h1 { margin:0 0 4px; font-size:22px; }
+.rep-header .sub { color:#555; font-size:13px; }
+.rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
+.rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
+.rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
+.rep-meta b { display:inline-block; min-width:64px; color:#444; }
+.rep-summary { margin:12px 0 20px; padding:14px 18px; border-radius:5px; font-size:18px; font-weight:700; text-align:center; }
+.rep-summary.ok { background:#e8f5ec; color:#1b8a3a; border:2px solid #1b8a3a; }
+.rep-summary.ng { background:#fbeaea; color:#c0392b; border:2px solid #c0392b; }
+.rep-summary.na { background:#f0f0f0; color:#555; border:2px solid #888; }`;
+
   function openWindForceReport() {
     const calcResult = typeof global.calc === 'function' ? global.calc() : true;
     if (calcResult === false) {
@@ -773,21 +792,7 @@ function closeReportWindow() {
 <meta charset="utf-8">
 <title>${esc(title)} 計算書</title>
 <style>
-@page { size: A4 portrait; margin: 18mm 14mm 18mm; }
-* { box-sizing: border-box; }
-body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
-.rep-paper { max-width: 980px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
-.rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
-.rep-header h1 { margin:0 0 4px; font-size:22px; }
-.rep-header .sub { color:#555; font-size:13px; }
-.rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
-.rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
-.rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
-.rep-meta b { display:inline-block; min-width:64px; color:#444; }
-.rep-summary { margin:12px 0 20px; padding:14px 18px; border-radius:5px; font-size:18px; font-weight:700; text-align:center; }
-.rep-summary.ok { background:#e8f5ec; color:#1b8a3a; border:2px solid #1b8a3a; }
-.rep-summary.ng { background:#fbeaea; color:#c0392b; border:2px solid #c0392b; }
-.rep-summary.na { background:#f0f0f0; color:#555; border:2px solid #888; }
+${reportHeaderStyles}
 .rep-block { margin:14px 0 18px; page-break-inside: avoid; }
 .rep-block h3 { font-size:14px; margin:0 0 6px; padding:4px 8px; background:#1a3d5c; color:#fff; border-radius:3px 3px 0 0; }
 table { width:100%; border-collapse:collapse; font-size:12px; }
@@ -853,6 +858,7 @@ ${reportToolbarHtml()}
   </div>
   ${reportOpt('rep_summary', true) ? `<div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>` : ''}
   ${reportOpt('rep_summary', true) ? buildBannerKeySection() : ''}
+  ${!reportOpt('rep_summary', true) && !reportOpt('rep_applicability', true) ? buildNarrativeSection('陣風反應因子', document.getElementById('gustBasis')) : ''}
   ${reportOpt('rep_applicability', true) ? buildNarrativeSection('適用性檢查', document.getElementById('applicability')) : ''}
   ${reportOpt('rep_combo', true) ? buildNarrativeSection('設計風力組合', document.getElementById('comboSummary')) : ''}
   ${reportOpt('rep_control', true) ? buildTableSection('採用控制表', document.getElementById('controlTable'), null) : ''}
@@ -917,21 +923,7 @@ ${reportWindowScriptHtml()}
 <meta charset="utf-8">
 <title>${esc(title)} 計算書</title>
 <style>
-@page { size: A4 portrait; margin: 18mm 14mm 18mm; }
-* { box-sizing: border-box; }
-body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
-.rep-paper { max-width: 980px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
-.rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
-.rep-header h1 { margin:0 0 4px; font-size:22px; }
-.rep-header .sub { color:#555; font-size:13px; }
-.rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
-.rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
-.rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
-.rep-meta b { display:inline-block; min-width:64px; color:#444; }
-.rep-summary { margin:12px 0 20px; padding:14px 18px; border-radius:5px; font-size:18px; font-weight:700; text-align:center; }
-.rep-summary.ok { background:#e8f5ec; color:#1b8a3a; border:2px solid #1b8a3a; }
-.rep-summary.ng { background:#fbeaea; color:#c0392b; border:2px solid #c0392b; }
-.rep-summary.na { background:#f0f0f0; color:#555; border:2px solid #888; }
+${reportHeaderStyles}
 .rep-block { margin:14px 0 18px; page-break-inside: avoid; }
 .rep-block h3 { font-size:14px; margin:0 0 6px; padding:4px 8px; background:#1a3d5c; color:#fff; border-radius:3px 3px 0 0; }
 table { width:100%; border-collapse:collapse; font-size:12px; }

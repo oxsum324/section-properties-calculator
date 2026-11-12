@@ -299,9 +299,10 @@
       <input type="checkbox" id="flex" style="accent-color:#d97706;">
       <label for="flex" style="color:#78350f;">柔性結構 (f<sub>n</sub> &lt; 1 Hz) — 計算 G<sub>f</sub></label>
     </div>
-    <div id="flexRow" style="display:none;">
+    <p class="hint">依第一章定義，普通建築物 f<sub>n</sub> ≥ 1 Hz。低於 1 Hz 時請確認細長建築物適用條件再勾選。兩主風向共用順風向頻率。</p>
+    <div id="flexRow">
       <div class="form-row">
-        <div class="form-group">
+        <div class="form-group" data-flex-parameter hidden>
           <label>結構型式（阻尼比）</label>
           <select id="dampingType">
             <option value="RC" selected>RC / SRC（建議 β = 0.02）</option>
@@ -309,15 +310,15 @@
           </select>
         </div>
         <div class="form-group">
-          <label>自然頻率 f<sub>n</sub> (Hz)</label>
-          <input id="fn" type="number" value="0.5" step="0.05">
+          <label for="fn">自然頻率 f<sub>n</sub> (Hz)</label>
+          <input id="fn" type="number" step="any" min="0" placeholder="專案分析值，留空依高度概估" data-report-omit-empty>
           <div class="hint" id="fnHint">規範解說建議概略 fn ≈ 22.86 / H</div>
           <div class="inline-actions compact">
-            <button type="button" class="btn-secondary" id="btnFreqAll">全部帶入建議值</button>
-            <button type="button" class="btn-secondary" id="btnFreqMain">帶入規範建議值</button>
+            <button type="button" class="btn-secondary" id="btnFreqAll">兩向採高度概估</button>
+            <button type="button" class="btn-secondary" id="btnFreqMain">主向採高度概估</button>
           </div>
         </div>
-        <div class="form-group">
+        <div class="form-group" data-flex-parameter hidden>
           <label>阻尼比 β</label>
           <input id="beta" type="number" value="0.02" step="0.005">
           <div class="hint">規範解說建議：RC / SRC = 0.02，SS = 0.01</div>
@@ -329,7 +330,7 @@
         <label>Y 風向 f<sub>a,y</sub> (Hz)</label>
         <input id="faY" type="number" value="" step="0.01" placeholder="留空 = 沿用 X 風向 f_a">
         <div class="inline-actions compact">
-          <button type="button" class="btn-secondary" id="btnFreqY">帶入 Y 風向建議值</button>
+          <button type="button" class="btn-secondary" id="btnFreqY">Y 向沿用主向頻率</button>
         </div>
       </div>
       <div class="form-group">
@@ -369,19 +370,25 @@
           <div class="hint">§4.3 規範值對應住宅；其他用途以實務常用較寬限值參考。</div>
         </div>
       </div>
+    </div>
+    <div id="lateralFrequencyRow" hidden>
       <div class="form-row">
         <div class="form-group">
           <label>橫風向自然頻率 f<sub>a</sub> (Hz)</label>
-          <input id="fa" type="number" value="0.50" step="0.01">
+          <input id="fa" type="number" min="0" step="any">
           <div class="hint" id="faHint">規範解說建議概略 f<sub>a</sub> ≈ 22.86 / H</div>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>扭轉向自然頻率 f<sub>t</sub> (Hz)</label>
-          <input id="ft" type="number" value="0.65" step="0.01">
+          <input id="ft" type="number" min="0" step="any">
           <div class="hint" id="ftHint">規範解說建議概略 f<sub>t</sub> ≈ 1.3 f<sub>n</sub></div>
         </div>
+      </div>
+    </div>
+    <div id="accelDisplacementRow" hidden>
+      <div class="form-row">
         <div class="form-group">
           <label>說明</label>
           <div class="hint" style="margin-top:10px;">以下位移值應為回歸期半年的共振部分風力作用下，經結構分析所得最高居室樓層形心位移。</div>
@@ -668,7 +675,8 @@
 <script>
 const W = Wind;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['wind-force'].version;
-const TOOL_VERSION = 'wind-force.v1.1.0';
+const TOOL_VERSION = 'wind-force.v1.2.0';
+const LEGACY_GUST_ENGINE = 'wind-force.v1.1.0';
 const CASE_SCHEMA_VERSION = 'wind-force.case.v1';
 const CASE_VALUE_IDS = [
   'city', 'Vcustom', 'terrain', 'impClass', 'encl', 'roofSlope', 'roofType', 'ridgeAxis',
@@ -719,7 +727,10 @@ function setInputStatus(message) {
   if (!node) return;
   node.textContent = message || '';
   lastWindForceReportValidationMessage = message || '';
-  if (message) lastWindForceReportState = null;
+  if (message) {
+    lastWindForceReportState = null;
+    document.getElementById('resultPanel').style.display = 'none';
+  }
   renderWindForceReportReadiness(lastWindForceReportValidationMessage);
 }
 function clearInputStatus() {
@@ -837,6 +848,7 @@ function readCaseInputs() {
     ? storyHeightDraft.slice()
     : resolveStoryHeights();
   return {
+    gustFrequencyVersion: 2,
     project: {
       name: window.WindReport.normalizeProjectFieldValue(document.getElementById('projName').value),
       no: window.WindReport.normalizeProjectFieldValue(document.getElementById('projNo').value),
@@ -852,8 +864,12 @@ function readExportResultSummary() {
     banner: readText('#banner'),
     comboSummary: readText('#comboSummary'),
     controlTable: readText('#controlTable tbody'),
-    directionTable: readText('#dirComboTable tbody')
+    directionTable: readText('#dirComboTable tbody'),
+    gust: getWindForceGustTrace()
   };
+}
+function getWindForceGustTrace() {
+  return lastWindForceReportState?.gust ?? null;
 }
 function applyCaseInputs(payload) {
   const project = payload?.project || {};
@@ -861,6 +877,10 @@ function applyCaseInputs(payload) {
     ...(payload?.inputs?.values || {}),
     ...(payload?.values || {})
   };
+  // 舊普通法案例的隱藏 fn 只在第四章位移法實際參與計算。
+  if (payload.gustFrequencyVersion !== 2 && !values.flex && !(values.chkAccel && values.accelMode === 'manual')) {
+    values.fn = '';
+  }
   if (project.name != null) document.getElementById('projName').value = window.WindReport.normalizeProjectFieldValue(project.name);
   if (project.no != null) document.getElementById('projNo').value = window.WindReport.normalizeProjectFieldValue(project.no);
   if (project.designer != null) document.getElementById('projDesigner').value = window.WindReport.normalizeProjectFieldValue(project.designer);
@@ -939,17 +959,34 @@ function importCaseJsonFile(file) {
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
+      const oldEngine = payload?.tool?.version === LEGACY_GUST_ENGINE;
       const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
         expectedSchema: CASE_SCHEMA_VERSION,
         expectedToolId: 'wind-force',
-        expectedVersion: TOOL_VERSION,
+        expectedVersion: oldEngine ? LEGACY_GUST_ENGINE : TOOL_VERSION,
         capture: () => readCaseInputs(),
         apply: source => applyCaseInputs(source),
-        recalculate: () => calc(),
-        getFingerprint: () => window.WindReport.getCurrentReportTrace().calculationFingerprint,
+        recalculate: () => {
+          if (!calc()) throw new Error(lastWindForceReportValidationMessage);
+          return true;
+        },
+        getFingerprint: () => {
+          if (!oldEngine) return window.WindReport.getCurrentReportTrace().calculationFingerprint;
+          // 舊版指紋只含當時可見的輸入。另以原檔的四組結果摘要核對重新計算的載重。
+          const current = readExportResultSummary();
+          if (['banner','comboSummary','controlTable','directionTable'].some(key => payload.result?.[key] !== current[key])) {
+            throw new Error('新舊引擎計算摘要不同，請保留舊案並另行覆核。');
+          }
+          const omitInputIds = [];
+          if (!document.getElementById('flex').checked) omitInputIds.push('fn','beta','dampingType');
+          if (!document.getElementById('chkAccel').checked) omitInputIds.push('fa','ft');
+          return window.WindReport.getCurrentReportTrace({ engine: LEGACY_GUST_ENGINE, omitInputIds }).calculationFingerprint;
+        },
         restore: previous => applyCaseInputs(previous)
       });
-      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
+      setCaseStatus(oldEngine
+        ? `舊案指紋 ${replay.calculationFingerprint} 已核對。現行引擎重算指紋 ${window.WindReport.getCurrentReportTrace().calculationFingerprint}。`
+        : `已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
     } finally {
@@ -979,7 +1016,7 @@ function renderStoryHeightEditor(heights) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="idx">${floor}F</td>
-      <td class="edit-cell"><input class="story-height-input" type="number" min="0.1" step="0.1" value="${fmt(height,2)}" data-floor="${floor}"></td>
+      <td class="edit-cell"><input class="story-height-input" type="number" min="0.1" step="any" value="${Number(height)}" data-floor="${floor}"></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1003,39 +1040,35 @@ function resolveStoryHeights() {
 }
 function refreshFnHint(heights) {
   const totalH = (heights && heights.length) ? heights.reduce((s, v) => s + v, 0) : getStoryCount() * getInitialStoryHeight();
-  if (totalH > 0) {
+  const canEstimate = totalH > 0 && totalH < 122;
+  for (const id of ['btnFreqAll', 'btnFreqMain']) document.getElementById(id).disabled = !canEstimate;
+  const breadth = val('B'), length = val('L');
+  const aspect = totalH / Math.sqrt(breadth * length);
+  const resonant = aspect >= 3 && aspect <= 6 && length / breadth >= 0.2 && length / breadth <= 5;
+  const showDamping = document.getElementById('flex').checked || resonant;
+  document.querySelectorAll('[data-flex-parameter]').forEach(group => { group.hidden = !showDamping; });
+  document.getElementById('lateralFrequencyRow').hidden = !(resonant || document.getElementById('chkAccel').checked);
+  if (canEstimate) {
     const est = W.estFrequency(totalH);
-    document.getElementById('fnHint').textContent = `概略 fn ≈ ${est.fn.toFixed(2)} Hz`;
+    document.getElementById('fnHint').textContent = `本案總高 ${formatThresholdValue(totalH, 122)} m。留空依解說 22.86/H 概估為 ${formatThresholdValue(est.fn, 1)} Hz；低於 1 Hz 請核對細長建築適用條件。`;
     document.getElementById('faHint').textContent = `概略 f_a ≈ ${est.fa.toFixed(2)} Hz`;
     document.getElementById('ftHint').textContent = `概略 f_t ≈ ${est.ft.toFixed(2)} Hz`;
+  } else {
+    for (const id of ['fnHint','faHint','ftHint']) document.getElementById(id).textContent = '22.86/H 限 0 < H < 122 m。請填專案動力分析頻率。';
   }
 }
-function getEstimatedFreqSet() {
-  const storyH = resolveStoryHeights();
-  const totalH = storyH.reduce((s, v) => s + v, 0);
-  const est = W.estFrequency(totalH);
-  return {
-    totalH,
-    fn: est.fn,
-    faX: est.fa,
-    ftX: est.ft,
-    faY: est.fa,
-    ftY: est.ft,
-  };
+function formatThresholdValue(value, boundary) {
+  const rounded = Number(value.toPrecision(6));
+  return String(rounded === boundary && value !== boundary ? value : rounded);
 }
 function applyMainRecommendedFrequencies() {
-  const est = getEstimatedFreqSet();
-  const dampingType = document.getElementById('dampingType').value;
-  document.getElementById('fn').value = est.fn.toFixed(2);
-  document.getElementById('fa').value = est.faX.toFixed(2);
-  document.getElementById('ft').value = est.ftX.toFixed(2);
-  document.getElementById('beta').value = dampingType === 'SS' ? '0.01' : '0.02';
+  for (const id of ['fn','fa','ft']) document.getElementById(id).value = '';
   refreshFnHint(resolveStoryHeights());
+  markWindForceReportInputsChanged();
 }
 function applyYRecommendedFrequencies() {
-  const est = getEstimatedFreqSet();
-  document.getElementById('faY').value = est.faY.toFixed(2);
-  document.getElementById('ftY').value = est.ftY.toFixed(2);
+  for (const id of ['faY','ftY']) document.getElementById(id).value = '';
+  markWindForceReportInputsChanged();
 }
 function applyAllRecommendedValues() {
   applyMainRecommendedFrequencies();
@@ -1044,6 +1077,8 @@ function applyAllRecommendedValues() {
 function syncAccelInputs() {
   if (document.getElementById('chkAccel').checked) document.getElementById('dynamicCard').open = true;
   document.getElementById('accelRow').style.display = document.getElementById('chkAccel').checked ? '' : 'none';
+  document.getElementById('accelDisplacementRow').hidden = !document.getElementById('chkAccel').checked;
+  refreshFnHint(resolveStoryHeights());
   const estimate = document.getElementById('accelMode').value === 'estimate';
   document.getElementById('accelEstimateRow').style.display = estimate && document.getElementById('chkAccel').checked ? '' : 'none';
 }
@@ -1092,7 +1127,6 @@ function refreshV() {
 // ── 柔性切換 ──
 document.getElementById('flex').addEventListener('change', function() {
   document.getElementById('dynamicCard').open = true;
-  document.getElementById('flexRow').style.display = this.checked ? '' : 'none';
   refreshFnHint(resolveStoryHeights());
 });
 document.getElementById('chkAccel').addEventListener('change', syncAccelInputs);
@@ -1109,6 +1143,7 @@ syncStructDensity();
 syncRecommendedDamping();
 document.getElementById('N').addEventListener('input', () => refreshFnHint(buildUniformStoryHeights()));
 document.getElementById('h').addEventListener('input', () => refreshFnHint(buildUniformStoryHeights()));
+for (const id of ['B','L']) document.getElementById(id).addEventListener('input', () => refreshFnHint(resolveStoryHeights()));
 document.getElementById('btnStoryReset').addEventListener('click', () => {
   document.getElementById('storyHeightCard').open = true;
   const heights = buildUniformStoryHeights();
@@ -1175,29 +1210,43 @@ function calc(forcedStoryHeights) {
   const sawtoothFaceCode = document.getElementById('sawtoothFaceCode').value;
   const hp = val('hp');
   const isFlexible = document.getElementById('flex').checked;
-  const fn = val('fn') || 0.5;
-  const beta = val('beta') || 0.02;
+  const fnInput = document.getElementById('fn');
+  const beta = document.getElementById('beta').valueAsNumber;
   const doAccelCheck = document.getElementById('chkAccel').checked;
   const accelMode = document.getElementById('accelMode').value;
   const occFloor = Math.max(1, Math.round(val('occFloor')));
-  const faInput = val('fa');
-  const ftInput = val('ft');
-  const faYInput = parseFloat(document.getElementById('faY').value);
-  const ftYInput = parseFloat(document.getElementById('ftY').value);
   const Dstar = val('Dstar');
   const Lstar = val('Lstar');
   const thetaStar = val('thetaStar');
   const massDensity = val('massDensity');
   const storyH = Array.isArray(forcedStoryHeights) ? forcedStoryHeights.slice() : resolveStoryHeights();
   const totalHForEst = storyH.reduce((s, v) => s + v, 0);
-  const estFreq0 = W.estFrequency(totalHForEst);
-  const fa = faInput > 0 ? faInput : estFreq0.fa;
-  const ft = ftInput > 0 ? ftInput : estFreq0.ft;
-  const faY = isFinite(faYInput) && faYInput > 0 ? faYInput : fa;
-  const ftY = isFinite(ftYInput) && ftYInput > 0 ? ftYInput : ft;
-
   if (B <= 0 || L <= 0 || h <= 0 || he <= 0) { setInputStatus('請輸入有效之 B / L / h / h_e'); return false; }
   if (storyH.length !== N || storyH.some(v => !isFinite(v) || v <= 0)) { setInputStatus('逐層樓高資料無效，請確認各層樓高皆大於 0，且層數與 N 一致。'); return false; }
+  const estimate = totalHForEst < 122 ? W.estFrequency(totalHForEst) : null;
+  const fn = fnInput.value === '' && !fnInput.validity.badInput ? estimate?.fn : fnInput.valueAsNumber;
+  const fnSource = fnInput.value === '' ? `解說經驗式 22.86/H，H = ${formatThresholdValue(totalHForEst, 122)} m` : '頻率欄輸入值';
+  const dynamicError = message => {
+    document.getElementById('dynamicCard').open = true;
+    setInputStatus(message);
+    return false;
+  };
+  if (!(fn > 0 && Number.isFinite(fn))) return dynamicError('請填大於 0 的順風向基本自然頻率。高度達 122 m 時須提供專案分析頻率。');
+  if (isFlexible !== (fn < 1)) return dynamicError(fn < 1
+    ? `${fnSource}為 ${formatThresholdValue(fn, 1)} Hz，低於 1 Hz。請核對專案頻率；符合細長建築條件時，勾選柔性結構後重算。`
+    : `採用頻率 ${formatThresholdValue(fn, 1)} Hz 已達 1 Hz，請取消柔性結構，使用普通建築物陣風因子 G。`);
+  if (isFlexible && !(3600 * fn > 1)) return dynamicError('式 (2.14) 的根號與分母要求 3600 × f_n > 1，請核對頻率或採專案方法。');
+  const aspect = totalHForEst / Math.sqrt(B * L);
+  const resonant = aspect >= 3 && aspect <= 6 && L / B >= 0.2 && L / B <= 5;
+  if ((isFlexible || resonant) && !(beta > 0 && Number.isFinite(beta))) return dynamicError('共振反應計算須填大於 0 的結構阻尼比 β。');
+  const readFrequency = (id, fallback) => {
+    const field = document.getElementById(id);
+    return field.value === '' && !field.validity.badInput ? fallback : field.valueAsNumber;
+  };
+  const fa = readFrequency('fa', estimate?.fa), ft = readFrequency('ft', estimate?.ft);
+  const faY = readFrequency('faY', fa), ftY = readFrequency('ftY', ft);
+  if ((resonant || (doAccelCheck && accelMode === 'manual')) && [fa,ft,faY,ftY].some(f => !(f > 0 && Number.isFinite(f)))) return dynamicError('本次共振或加速度計算須提供正值橫風與扭轉頻率。高度達 122 m 時請填專案分析值。');
+  if (resonant && [fa,ft,faY,ftY].some(f => 3600*f <= 1)) return dynamicError('橫風或扭轉共振尖峰因子要求 3600 × f > 1，請核對頻率。');
   if (roofSlope < 0) { setInputStatus('屋面坡度 θ 不可小於 0'); return false; }
   if (hp < 0) { setInputStatus('女兒牆高度 h_p 不可小於 0'); return false; }
   if (roofType === 'arched' && (archRiseRatio <= 0 || archRiseRatio > 0.6)) { setInputStatus('拱形屋頂之 r 應介於 0 ~ 0.6'); return false; }
@@ -1218,10 +1267,6 @@ function calc(forcedStoryHeights) {
   const occHeight = storyH.slice(0, occFloorUse).reduce((s, v) => s + v, 0);
   const hasLateralStep = !!(r.crossWind || r.torsion);
   document.getElementById('occFloor').value = occFloorUse;
-  if (!(faInput > 0)) document.getElementById('fa').value = estFreq0.fa.toFixed(2);
-  if (!(ftInput > 0)) document.getElementById('ft').value = estFreq0.ft.toFixed(2);
-  if (!(isFinite(faYInput) && faYInput > 0)) document.getElementById('faY').value = faY.toFixed(2);
-  if (!(isFinite(ftYInput) && ftYInput > 0)) document.getElementById('ftY').value = ftY.toFixed(2);
   let accel = null;
   let accelY = null;
   let accelEstimate = null;
@@ -1279,7 +1324,8 @@ function calc(forcedStoryHeights) {
 
   document.getElementById('bannerKey').innerHTML = `
     <div class="k"><span class="k-label">V</span><span class="k-val">${V} m/s</span></div>
-    <div class="k"><span class="k-label">G</span><span class="k-val">${fmt(r.G,3)}</span></div>
+    <div class="k"><span class="k-label">${isFlexible ? '柔性 Gf' : '普通 G'}（X / Y）</span><span class="k-val">${fmt(r.G,3)} / ${fmt(rY.G,3)}</span></div>
+    <div class="k"><span class="k-label">順風向基本自然頻率</span><span class="k-val">${formatThresholdValue(fn, 1)} Hz（${fnSource}）</span></div>
     <div class="k"><span class="k-label">q<sub>h</sub></span><span class="k-val">${fmt(r.qH,1)} kgf/m²</span></div>
     <div class="k"><span class="k-label">GC<sub>pi</sub></span><span class="k-val">±${fmt(r.GCpi,3)}</span></div>
     <div class="k"><span class="k-label">OTM</span><span class="k-val">${fmt(r.OTM/1000,0)} tf·m</span></div>
@@ -1288,6 +1334,7 @@ function calc(forcedStoryHeights) {
   `;
 
   const app = [];
+  app.push(`<span id="gustBasis">順風向 f_n = ${formatThresholdValue(fn, 1)} Hz（${fnSource}）。${isFlexible ? '細長建築物依式 (2.13) 採 Gf，β = ' + beta : '普通建築物依式 (2.9) 採 G'}。X 向 ${fmt(r.G,3)}，Y 向 ${fmt(rY.G,3)}。</span>`);
   app.push(`封閉型式：<strong>${document.getElementById('encl').selectedOptions[0].textContent}</strong>`);
   app.push(`矩形建物假設：B = ${fmt(B,1)} m，L = ${fmt(L,1)} m，總高 = ${fmt(r.totalH,1)} m。`);
   app.push(`樓層配置：共 <strong>${storyH.length}</strong> 層；逐層樓高 = <strong>${storyH.map(v => fmt(v,2)).join(' / ')}</strong> m。`);
@@ -1760,6 +1807,8 @@ Eq 2.6: q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup><br>
     totalH: r.totalH,
     qH: r.qH,
     G: r.G,
+    gust: { method: isFlexible ? '2.13' : '2.9', frequencyHz: fn, source: fnSource, heightM: r.totalH,
+      dampingRatio: isFlexible || resonant ? beta : null, x: r.G, y: rY.G },
     roofType,
     roofTypeLabel: document.getElementById('roofType').selectedOptions[0]?.textContent || roofType,
     roofSlope,
