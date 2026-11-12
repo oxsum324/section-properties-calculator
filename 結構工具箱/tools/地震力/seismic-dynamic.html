@@ -1185,8 +1185,12 @@ function showSpectrumLabels() {
     const unit = basin && (index === 1 || index === 3) ? 'g·sec' : 'g';
     document.querySelector('label[for="' + spectrumIds[index] + '"]').textContent = prefix + label + ' (' + unit + ')';
   });
-  document.getElementById('spectrumInputHint').textContent = basin && located && !Object.keys(districtVillages()).length
-    ? '目前選擇的地區未列於本頁盆地微分區清冊。請核對縣市、鄉鎮與表 2-6(a)、(b) 的適用區域。' : hint;
+  const villages = districtVillages();
+  let regionHint = hint;
+  if (basin && located && !Object.keys(villages).length) regionHint = '目前選擇的地區未列於本頁盆地微分區清冊。請核對縣市、鄉鎮與表 2-6(a)、(b) 的適用區域。';
+  if (!basin && villages['所有里']) regionHint = '表 2-6(a) 將本鄉鎮所有里列入盆地微分區，請選臺北盆地模式。';
+  else if (!basin && Object.keys(villages).length) regionHint += ' 此區含盆地微分區，一般工址請依表 2-6(b) 核對里別。';
+  document.getElementById('spectrumInputHint').textContent = regionHint;
   if (activeSpectrumMode !== 'zone') document.getElementById('zoneHint').textContent = '';
 }
 function updateRaHint() {
@@ -1307,10 +1311,14 @@ function initZoneLookup() {
   distSel.addEventListener('change', function() {
     populateBasinVillages();
     document.getElementById('basinZone').value = '';
-    showSpectrumLabels();
-    if (activeSpectrumMode === 'basin') return;
     const city = citySel.value;
     const dist = this.value;
+    if (Object.keys(districtVillages()).length) {
+      document.getElementById('siteInputMode').value = 'basin';
+      resetSpectrumEditor();
+      return;
+    }
+    showSpectrumLabels();
     if (!city || !dist || !Z[city] || !Z[city][dist]) return;
     const d = Z[city][dist];
     document.getElementById('SsD').value = d[0];
@@ -1703,8 +1711,9 @@ function calcDynamic(persist = true, drawChart = true) {
   const SsM = parseFloat(document.getElementById('SsM').value);
   const S1M = parseFloat(document.getElementById('S1M').value);
   const siteInputMode = document.getElementById('siteInputMode').value;
-  if (!spectrumModes[siteInputMode] || (siteInputMode === 'basin' && !document.getElementById('basinZone').value)) {
-    const message = siteInputMode === 'basin' ? '請依里別指定臺北盆地微分區。' : '請先選擇設計譜值來源。';
+  const wrongRegion = siteInputMode !== 'basin' && Boolean(districtVillages()['所有里']);
+  if (!spectrumModes[siteInputMode] || wrongRegion || (siteInputMode === 'basin' && !document.getElementById('basinZone').value)) {
+    const message = wrongRegion ? '此鄉鎮所有里均屬表 2-6(a)，請選臺北盆地微分區。' : siteInputMode === 'basin' ? '請依里別指定臺北盆地微分區。' : '請先選擇設計譜值來源。';
     setInputStatus(message);
     setDynamicReportValidationMessage(message);
     return false;

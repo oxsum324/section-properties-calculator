@@ -1969,11 +1969,26 @@ function seismicDynamicProjectRestoreExpression() {
       resultText: (byId('summaryCard')?.textContent || document.body.textContent || '').replace(/\\s+/g, ' ').trim()
     };
 
+    const choose = (id, value) => {
+      byId(id).value = value;
+      byId(id).dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    choose('zoneCity','臺北市');
+    choose('zoneDist','中正區');
+    const mixedRequiresVillage = byId('siteInputMode').value === 'basin' && calcDynamic(false) === false;
+    choose('basinVillage','水源里');
+    const mixedZone = calcDynamic(false) && lastDynamicResult.result.responseSpectrum.params.basinZone;
+    choose('zoneCity','新北市');
+    choose('zoneDist','三重區');
+    const wholeZone = calcDynamic(false) && lastDynamicResult.result.responseSpectrum.params.basinZone;
+    choose('siteInputMode','direct');
+    const rejectedWholeDistrictOverride = calcDynamic(false) === false && byId('inputStatus').textContent.includes('所有里');
     return {
       dynamicCalculated,
       dynamicRestored,
       sameSource,
       changedCaseDetached,
+      mixedRequiresVillage, mixedZone, wholeZone, rejectedWholeDistrictOverride,
       afterStatic,
       afterDynamic
     };
@@ -2678,6 +2693,9 @@ function assertSeismicDynamicProjectRestoreState(state, label) {
   assert.equal(state.dynamicRestored, true, `${label} seismic-dynamic restores saved summary`);
   assert.equal(state.sameSource, true, `${label} another tab cannot replace the loaded static case`);
   assert.equal(state.changedCaseDetached, true, `${label} edited case uses its own static reference`);
+  assert.ok(state.mixedRequiresVillage && state.rejectedWholeDistrictOverride, `${label} basin district input boundary`);
+  assert.equal(state.mixedZone,2, `${label} Shuǐyuán village is Taipei microzone 2`);
+  assert.equal(state.wholeZone,1, `${label} Sanchong whole district is Taipei microzone 1`);
   assert.equal(state.afterStatic.name, '', `${label} seismic-dynamic static restore clears project name`);
   assert.equal(state.afterStatic.no, '', `${label} seismic-dynamic static restore clears project number`);
   assert.equal(state.afterStatic.designer, '', `${label} seismic-dynamic static restore clears designer`);
