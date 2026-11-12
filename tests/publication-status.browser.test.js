@@ -12,6 +12,9 @@ async function mainTest() {
     let live = main, responseStatus = 200, expectedRef = 'refs/heads/master';
     await page.route('https://tool.invalid/**', route => {
       const name = new URL(route.request().url()).pathname;
+      if (name === '/assets/home/home.css' || name === '/assets/hy/colors_and_type.css') {
+        return route.fulfill({ contentType:'text/css', body:fs.readFileSync(path.join(root,name.slice(1))) });
+      }
       if (name === '/platform-status.html' || name === '/assets/status/publication-status.js') {
         return route.fulfill({ contentType:name.endsWith('js')?'application/javascript':'text/html; charset=utf-8',
           body:fs.readFileSync(path.join(root,name.slice(1))) });
@@ -46,6 +49,11 @@ async function mainTest() {
     await refresh.click();
     await expect('無法核對');
     assert.match(await state.innerText(),/來源或提交識別無法確認/);
+    expectedRef = 'refs/heads/master';
+    live = main;
+    await refresh.click();
+    await expect('版本一致');
+    assert.equal(await compare.isVisible(),false);
     console.log('PASS matching carrier, drift, 503, recovery and non-master ref handling');
   } finally { await browser.close(); }
 }
