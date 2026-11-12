@@ -557,12 +557,17 @@
         </div>
         <div id="exactDeflInputs" style="display:none;">
           <div class="form-row">
-            <div class="form-group"><label>使用載重 Ma⁺ (tf·m)</label><input type="number" id="MaPos" value="36"></div>
-            <div class="form-group"><label>使用載重 Ma⁻ (tf·m)</label><input type="number" id="MaNeg" value="43"></div>
+            <div class="form-group"><label for="simpleDeflLoad">簡支梁使用載重分布</label><select id="simpleDeflLoad"><option value="uniform">全跨均布載重</option><option value="midpoint">跨中單一集中載重</option></select></div>
+            <div class="form-group"><label for="sustainedDeflPercent">持續載重瞬時撓度占比 <output id="sustainedDeflLabel">100%</output></label><input type="range" id="sustainedDeflPercent" min="0" max="100" step="0.1" value="100"></div>
           </div>
-          <p class="hint">Ma 為非因數化使用載重彎矩 (≈ Mu/1.4)；勾選下方「由 Mu/1.4 自動填」可同步。</p>
+          <p class="hint">占比取同一控制位置、同方向的持續載重瞬時撓度除以總瞬時撓度。100% 表示全數視為持續；不同分布請由各工況分析取得占比。</p>
+          <div class="form-row">
+            <div class="form-group"><label>使用載重 Ma⁺ 幅值 (tf·m)</label><input type="number" id="MaPos" value="36"></div>
+            <div class="form-group"><label>使用載重 Ma⁻ 幅值 (tf·m)</label><input type="number" id="MaNeg" value="43"></div>
+          </div>
+          <p class="hint">請填使用載重分析所得 Ma；簡支跨中單一集中力 P 的 Ma⁺ = Pℓn/4。若選用 Mu/1.4 概估，請核對專案載重組合。</p>
           <div class="checkbox-row">
-            <input type="checkbox" id="autoMa" checked>
+          <input type="checkbox" id="autoMa">
             <label for="autoMa">由 +Mu/−Mu 自動換算 Ma (除以 1.4)</label>
           </div>
           <div class="form-row">
@@ -793,7 +798,7 @@
           <div class="result-item" id="d-defAllow"><span class="label">容許撓度 Δa</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
           <div class="result-item" id="d-defOk"><span class="label">Δlt ≤ Δa</span><span class="value">—</span></div>
         </div>
-<p class="hint">Bischoff: 若 Ma ≤ (2/3)Mcr，Ie = Ig；若 Ma &gt; (2/3)Mcr，1/Ie = 1/Icr − ((2Mcr/3Ma)²)·(1/Icr − 1/Ig)。長期撓度 Δlt = (1+λΔ)·Δi，λΔ = ξ/(1+50ρ′)。</p>
+<p class="hint">Bischoff: 若 Ma ≤ (2/3)Mcr，Ie = Ig；若 Ma &gt; (2/3)Mcr，1/Ie = 1/Icr − ((2Mcr/3Ma)²)·(1/Icr − 1/Ig)。長期總撓度 Δlt = Δi + λΔ·Δs，Δs 為持續載重產生的瞬時撓度，λΔ = ξ/(1+50ρ′)。</p>
       </div>
 
       <!-- 計算過程卡 (依 showSteps 顯示) -->
@@ -1122,6 +1127,9 @@
   function collectBeamProjectData() {
     if (typeof calcBeam === 'function') calcBeam();
     const fields = beamProjectStorage.collectFields();
+    // 預設工況沿用舊案表示法，保留 V3.2 案件重播指紋。
+    if (fields.simpleDeflLoad?.value === 'uniform') delete fields.simpleDeflLoad;
+    if (fields.sustainedDeflPercent?.value === '100') delete fields.sustainedDeflPercent;
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
       schema: BEAM_PROJECT_SCHEMA,
@@ -1182,6 +1190,8 @@
     const previous = options.skipReplayCheck ? null : collectBeamProjectData();
     setBeamMode(payload.mode, { recalculate: false, applyPanel: false });
     ensureProjectRebarLayers(payload.fields);
+    $('simpleDeflLoad').value = 'uniform';
+    $('sustainedDeflPercent').value = '100';
     let applied = 0;
     Object.entries(payload.fields).forEach(([id, saved]) => {
       if (setBeamProjectControl(id, saved)) applied += 1;
@@ -1760,7 +1770,7 @@
     };
   }
 
-  function calcDeflectionData({ enabled, fc, bw, ln, support, AsBot, AsTop, d_pos, d_neg, topSum, botSum, cover, tieDb, Ig, Mcr_pos_kgcm, Mcr_neg_kgcm, MaPos_tf, MaNeg_tf, xi, limitDiv }) {
+  function calcDeflectionData({ enabled, fc, bw, ln, support, AsBot, AsTop, d_pos, d_neg, topSum, botSum, cover, tieDb, Ig, Mcr_pos_kgcm, Mcr_neg_kgcm, MaPos_tf, MaNeg_tf, xi, limitDiv, simpleLoad = 'uniform', sustainedPercent = 100, autoMa = false }) {
     if (!enabled) return null;
     const Ec = 12000 * Math.sqrt(fc);
     const Es = 2.04e6;
@@ -1786,7 +1796,8 @@
     const IePos = calcBischoffIe(Ma_pos_kgcm, IcrPos, Mcr_pos_kgcm, Ig);
     const IeNeg = calcBischoffIe(Ma_neg_kgcm, IcrNeg, Mcr_neg_kgcm, Ig);
     const K_map = { simple: 5/48, oneEnd: 0.073, bothEnd: 1/16, cantilever: 1/4 };
-    const K = K_map[support] || (5/48);
+    const midpointLoad = support === 'simple' && simpleLoad === 'midpoint';
+    const K = midpointLoad ? 1/12 : K_map[support];
     const continuous = (support === 'oneEnd' || support === 'bothEnd');
     const isCantilever = support === 'cantilever';
     const IeUse = isCantilever ? IeNeg : (continuous ? (IePos + IeNeg) / 2 : IePos);
@@ -1794,21 +1805,23 @@
       ? '懸臂固定端負彎矩臨界斷面'
       : (continuous ? '正負臨界斷面平均' : '跨中正彎矩臨界斷面');
     const Ma_use_tf = isCantilever ? MaNeg_tf : MaPos_tf;
-    const Ma_use = Math.max((isCantilever ? Ma_neg_kgcm : Ma_pos_kgcm), 1);
+    const Ma_use = Math.max((isCantilever ? Ma_neg_kgcm : Ma_pos_kgcm), 0);
     const rhoPrimeAs = isCantilever ? AsBot : AsTop;
     const rhoPrimeD = isCantilever ? d_neg : d_pos;
     const rhoPrimeSource = isCantilever ? 'AsBot/(bw·d⁻)' : 'AsTop/(bw·d⁺)';
     const rhoPrime = (rhoPrimeAs > 0 && rhoPrimeD > 0 && bw > 0) ? rhoPrimeAs / (bw * rhoPrimeD) : 0;
     const lambdaLT = xi / (1 + 50 * rhoPrime);
     const deltaImm = K * Ma_use * Math.pow(ln, 2) / (Ec * IeUse);
-    const deltaLT = (1 + lambdaLT) * deltaImm;
+    const deltaSustained = deltaImm * sustainedPercent / 100;
+    const deltaLT = (1 + lambdaLT * (sustainedPercent / 100)) * deltaImm;
     const deltaAllow = ln / limitDiv;
     return {
       Ec, n_ratio, IcrPos, IcrNeg, IePos, IeNeg, IeAvg: IeUse, IeUse, ieUseSource,
       statePos: getCrackingStateText(Ma_pos_kgcm, Mcr_pos_kgcm),
       stateNeg: getCrackingStateText(Ma_neg_kgcm, Mcr_neg_kgcm),
       deltaImm, deltaLT, deltaAllow, okDefl: deltaLT <= deltaAllow,
-      lambdaLT, rhoPrime, rhoPrimeAs, rhoPrimeD, rhoPrimeSource,
+      lambdaLT, rhoPrime, rhoPrimeAs, rhoPrimeD, rhoPrimeSource, deltaSustained, sustainedPercent, autoMa,
+      loadLabel: midpointLoad ? '簡支跨中集中載重' : '均布載重',
       K, support, deflDirection: isCantilever ? 'neg' : 'pos', Ma_pos: MaPos_tf, Ma_neg: MaNeg_tf, Ma_use, Ma_use_tf, xi, limitDiv
     };
   }
@@ -2154,6 +2167,8 @@
   function applyBeamPreset(name) {
     const preset = BEAM_PRESETS[name];
     if (!preset) return;
+    $('simpleDeflLoad').value = 'uniform';
+    $('sustainedDeflPercent').value = '100';
     Object.entries(preset).forEach(([id, value]) => {
       const el = $(id);
       if (!el) return;
@@ -2199,6 +2214,8 @@
     const torsionAtPerS = optNum('torsionAtPerS');
     const torsionAl = optNum('torsionAl');
     const support = $('support').value;
+    $('simpleDeflLoad').disabled = support !== 'simple';
+    $('sustainedDeflLabel').textContent = $('sustainedDeflPercent').value + '%';
     const fc = num('fc'), fy = num('fy'), fyt = num('fyt');
     const bw = num('bw'), h = num('h'), ln = num('ln');
     const deepLoadDistance = optNum('deepLoadDistance');
@@ -2608,7 +2625,8 @@
       enabled: exactDeflEnabled,
       fc, bw, ln, support, AsBot, AsTop, d_pos, d_neg, topSum, botSum, cover, tieDb, Ig,
       Mcr_pos_kgcm, Mcr_neg_kgcm,
-      MaPos_tf: num('MaPos'), MaNeg_tf: num('MaNeg'),
+      MaPos_tf: Math.abs(num('MaPos')), MaNeg_tf: Math.abs(num('MaNeg')),
+      simpleLoad: $('simpleDeflLoad').value, sustainedPercent: Number($('sustainedDeflPercent').value), autoMa: $('autoMa').checked,
       xi: parseFloat($('xiTime').value) || 2.0,
       limitDiv: parseFloat($('deflLimit').value) || 360
     });
@@ -2839,7 +2857,7 @@ ${layerBars.map(L => {
   Ie 用於撓度 = ${RCUI.formatFinite(r.IeAvg,0)} cm⁴   (${r.ieUseSource})
 
 【5】瞬時撓度 Δi
-  K(${support}) = ${RCUI.formatFinite(r.K,4)}
+  ${r.loadLabel}，K(${support}) = ${RCUI.formatFinite(r.K,4)}；Ma 來源：${r.autoMa ? 'Mu/1.4 概估' : '使用載重彎矩輸入'}
   Δi = K·Ma·ℓn²/(Ec·Ie)
      = ${RCUI.formatFinite(r.K,4)}·${RCUI.formatFinite(r.Ma_use,0)}·${ln}²/(${RCUI.formatFinite(r.Ec,0)}·${RCUI.formatFinite(r.IeAvg,0)})
      = ${RCUI.formatFinite(r.deltaImm,4)} cm
@@ -2848,7 +2866,8 @@ ${layerBars.map(L => {
   ρ′ = ${r.rhoPrimeSource} = ${RCUI.formatFinite(r.rhoPrimeAs,2)}/(${bw}·${RCUI.formatFinite(r.rhoPrimeD,2)}) = ${RCUI.formatFinite(r.rhoPrime,4)}
   ξ (持時) = ${r.xi}
   λΔ = ξ/(1+50ρ′) = ${r.xi}/(1+50·${RCUI.formatFinite(r.rhoPrime,4)}) = ${RCUI.formatFinite(r.lambdaLT,3)}
-  Δlt = (1+λΔ)·Δi = (1+${RCUI.formatFinite(r.lambdaLT,3)})·${RCUI.formatFinite(r.deltaImm,4)} = ${RCUI.formatFinite(r.deltaLT,4)} cm
+  持續分量 Δs = ${r.sustainedPercent}% × Δi = ${RCUI.formatFinite(r.deltaSustained,4)} cm
+  Δlt = Δi + λΔ·Δs = ${RCUI.formatFinite(r.deltaImm,4)} + ${RCUI.formatFinite(r.lambdaLT,3)}·${RCUI.formatFinite(r.deltaSustained,4)} = ${RCUI.formatFinite(r.deltaLT,4)} cm
 
 【7】容許撓度 (規範 9.3.2)
   Δa = ℓn/${r.limitDiv} = ${ln}/${r.limitDiv} = ${RCUI.formatFinite(r.deltaAllow,4)} cm
@@ -3556,11 +3575,11 @@ ${layerBars.map(L => {
           sub:`Ig = ${r.Ig.toFixed(0)} cm⁴    Ie⁺ = ${r.defl.IePos.toFixed(0)}    Ie⁻ = ${r.defl.IeNeg.toFixed(0)}    使用 Ie = ${r.defl.IeAvg.toFixed(0)} (${r.defl.ieUseSource})`,
           value:`${r.defl.IeAvg.toFixed(0)}`, unit:'cm⁴', ok:null },
         { label:'瞬時撓度 Δi',
-          formula:`Δi = K·Ma·ℓn²/(Ec·Ie)，K(${r.defl.support}) = ${r.defl.K.toFixed(4)}`,
+          formula:`Δi = K·Ma·ℓn²/(Ec·Ie)，${r.defl.loadLabel}，K(${r.defl.support}) = ${r.defl.K.toFixed(4)}；Ma 來源：${r.defl.autoMa ? 'Mu/1.4 概估' : '使用載重彎矩輸入'}`,
           sub:`Ma = ${r.defl.Ma_use_tf.toFixed(2)} tf·m；= ${r.defl.K.toFixed(4)}·${r.defl.Ma_use.toExponential(2)}·${r.ln}²/(${r.defl.Ec.toFixed(0)}·${r.defl.IeAvg.toFixed(0)})`,
           value: r.defl.deltaImm.toFixed(3), unit:'cm', ok:null },
         { label:'長期撓度 Δlt',
-          formula:'Δlt = (1+λΔ)·Δi，λΔ = ξ/(1+50ρ′)',
+          formula:`Δlt = Δi + λΔ·Δs，Δs = ${r.defl.sustainedPercent}% × Δi = ${r.defl.deltaSustained.toFixed(4)} cm，λΔ = ξ/(1+50ρ′)`,
           sub:`ξ = ${r.defl.xi}    ρ′ = ${r.defl.rhoPrimeSource} = ${r.defl.rhoPrime.toFixed(4)}    λΔ = ${r.defl.lambdaLT.toFixed(3)}`,
           value: r.defl.deltaLT.toFixed(3), unit:'cm', ok:null },
         { label:`Δlt ≤ ℓn/${r.defl.limitDiv}`,
@@ -4048,8 +4067,8 @@ ${layerBars.map(L => {
       'd-Mcr':        '開裂彎矩 Mcr = fr·Ig/yt\nMa ≤ (2/3)Mcr → 未開裂 (用 Ig)\nMa > (2/3)Mcr → 改用 Bischoff Ie',
       'd-IcrPos':     '開裂後 Icr (雙筋換算斷面)\nbw·kd²/2 + ((n−1)As\' + nAs)·kd − ((n−1)As\'·d\' + nAs·d) = 0\nIcr = bw·kd³/3 + (n−1)As\'(kd−d\')² + nAs(d−kd)²',
       'd-IePos':      'Bischoff 有效慣性矩\n1/Ie = 1/Icr − ((2Mcr/3Ma)²)·(1/Icr − 1/Ig)\n且 Ie ≤ Ig',
-      'd-defImm':     '瞬時撓度 Δi = K·Ma·ℓn²/(Ec·Ie)\nK 依支承狀況：\n簡支 5/48；兩端連續 1/16；一端連續 0.073；懸臂 1/4',
-      'd-defLong':    '長期撓度 Δlt = (1+λΔ)·Δi\nλΔ = ξ / (1+50ρ′)，ρ′ 為壓力筋比'
+      'd-defImm':     '瞬時撓度 Δi = K·Ma·ℓn²/(Ec·Ie)\n簡支均布 K=5/48、簡支跨中集中 K=1/12；均布載重兩端連續 1/16、一端連續 0.073、懸臂 1/4。',
+      'd-defLong':    '長期撓度 Δlt = Δi + λΔ·Δs\nΔs 為持續載重瞬時撓度；λΔ = ξ/(1+50ρ′)。'
     });
   }
 

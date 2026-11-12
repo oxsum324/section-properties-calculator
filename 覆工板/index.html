@@ -566,7 +566,7 @@
       <div class="field">
         <label>未支撐長 Lt</label>
         <input type="number" id="s_Lt" value="0" step="10">
-        <span class="unit">cm (有覆工版即 0)</span>
+        <span class="unit">cm（填 0 表示假設充分側撐，請核對覆工板與壓翼板的連接）</span>
       </div>
       <div class="field">
         <label>軸壓應力 fa</label>
@@ -625,7 +625,7 @@
       <div class="field">
         <label>未支撐長 Lt</label>
         <input type="number" id="g4_Lt" value="0" step="10">
-        <span class="unit">cm</span>
+        <span class="unit">cm（填 0 表示假設充分側撐，請核對實際支撐配置）</span>
       </div>
       <div class="field">
         <label>軸壓應力 fa</label>
@@ -1959,6 +1959,13 @@ function buildReport() {
       <tr><td>活載重 Wl</td><td>${g.Wl} kgf/m²</td></tr>
       <tr><td>容許撓度</td><td>L / ${g.defl}</td></tr>
     </tbody></table>
+
+    <h3>側撐假設與採用值</h3>
+    <table class="calc"><thead><tr><th>構件</th><th>未支撐長度 Lt</th><th>採用條件</th></tr></thead><tbody>
+      ${[['覆工小梁', R.stringer], ['覆工大梁', R.girder]].filter(([, member]) => member).map(([name, member]) =>
+        `<tr><td>${name}</td><td>${fmt(member.Lt, 2)} cm</td><td>${member.Lt === 0 ? '假設壓翼板充分側撐，須以實際側撐與連接配置確認。' : '依輸入 Lt 與該斷面 Lc、Lu 判定側撐等級。'}</td></tr>`).join('')}
+    </tbody></table>
+    <p>未充分側撐的容許彎曲應力計算固定採 Cb = 1.0。</p>
 
     <h3>2. 設計載重</h3>
     <table class="calc"><thead><tr><th>類型</th><th>原始載重</th><th>含衝擊</th></tr></thead><tbody>

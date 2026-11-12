@@ -4016,6 +4016,7 @@ FS_over = Mr/Mo = ${M_resist.toFixed(2)}/${M_overturn.toFixed(2)} = ${isFinite(F
 <span class="h">▸ 因數化載重</span>
 Pu = 1.2×${PD} + 1.6×${PL} + 1.0×${PE} = ${Pu_tf.toFixed(2)} tf
 qu = Pu/Ag = ${Pu_tf.toFixed(2)}/${Ag_m2.toFixed(4)} = ${qu.toFixed(2)} tf/m² = ${qu_kgf_cm2.toFixed(4)} kgf/cm²
+強度計算假設基底反力均布；柱彎矩造成的反力梯度未計入板式撓曲、單向剪力及雙向沖切需求。使用載重偏心與容許土壓另列檢核。
 
 <span class="h">▸ 板式配筋 / 撓曲</span>
 dX = hf − cover − dbX = ${hf} − ${cover} − ${dbX.toFixed(2)} = ${dX.toFixed(2)} cm
@@ -6066,6 +6067,10 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'PL', value:r.PL, unit:'tf' },
           { label:'PE', value:r.PE, unit:'tf' },
           { label:'Pu', value:r.Pu_tf.toFixed(2), unit:'tf' }
+        ]},
+        { group:'強度計算假設', items:[
+          { label:'基底反力分布', value:`均布 qu = Pu/Ag = ${r.qu.toFixed(2)}`, unit:'tf/m²' },
+          { label:'柱彎矩影響', value:'板式撓曲、單向剪力及雙向沖切需求均採上述均布反力；柱彎矩造成的反力梯度須另行評估。' }
         ]},
         { group:'板式配筋', items:[
           { label:'X 向', value:`${r.barNoX} @ ${r.spX.toFixed(1)}`, unit:`(As=${r.AsX_per_m.toFixed(2)} cm²/m)` },

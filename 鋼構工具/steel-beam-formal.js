@@ -24,6 +24,8 @@
     { id: "inVu", kind: "force", legacyDigits: 2, siDigits: 2 },
     { id: "inWD", kind: "lineLoad", legacyDigits: 2, siDigits: 3 },
     { id: "inWL", kind: "lineLoad", legacyDigits: 2, siDigits: 3 },
+    { id: "inPD", kind: "force", legacyDigits: 4, siDigits: 4 },
+    { id: "inPL", kind: "force", legacyDigits: 4, siDigits: 4 },
   ];
   const isFilled = (id) => {
     const field = $(id);
@@ -579,6 +581,8 @@
     $("beamLvLabel").textContent = `Lv 圓管剪力長度 (${getQuantityUnit("memberLength")})`;
     $("beamWdLabel").textContent = `wD 靜載重 (${getQuantityUnit("lineLoad")})`;
     $("beamWlLabel").textContent = `wL 活載重 (${getQuantityUnit("lineLoad")})`;
+    $("beamPdLabel").textContent = `跨中集中靜載重 PD (${getQuantityUnit("force")})`;
+    $("beamPlLabel").textContent = `跨中集中活載重 PL (${getQuantityUnit("force")})`;
     updateUnitCard();
   }
 
@@ -1020,7 +1024,7 @@
     if (result.deflStatus === "skipped" && result.flexOk && result.shearOk) {
       return {
         value: "撓度未檢核",
-        note: "目前 wD 與 wL 為 0，尚未形成服務性檢核；強度檢核已可先行閱讀。",
+        note: "均布與跨中集中使用載重均為 0，撓度未檢核。",
         tone: "warn",
       };
     }
@@ -1236,6 +1240,9 @@
       {
         group: "4. 撓度與使用性檢核",
         body: [
+          ...(result.pointDead || result.pointLive ? [
+            `簡支梁跨中 δ = 5wL⁴/(384EI) + PL³/(48EI)。靜載重 wD = ${result.loadDead} kgf/cm、PD = ${result.pointDead} tf；活載重 wL = ${result.loadLive} kgf/cm、PL = ${result.pointLive} tf。`,
+          ] : []),
           `ΔL = ${f2(result.deflection.deltaL)} cm，容許活載重撓度 = ${f2(result.allowLive)} cm`,
           `ΔT = ${f2(result.deflection.deltaT)} cm，容許總撓度 = ${f2(result.allowTotal)} cm`,
           "撓度限值由設計者依使用性需求輸入；如涉積水載重，應另依規範 11.3 節與附錄 4 檢核。",
@@ -1360,7 +1367,7 @@
       reminders.push({
         level: "warn",
         title: "撓度尚未啟動",
-        body: "目前使用載重為 0，故撓度僅列為未檢核；若要形成完整服務性報表，請輸入 wD 與 wL。",
+        body: "目前使用載重為 0；請依案件輸入均布或跨中集中使用載重後檢核撓度。",
       });
     } else if (result.deflStatus === "fail") {
       reminders.push({
@@ -1475,6 +1482,7 @@
       ${pairRow("設計需求", `${designMethod === "LRFD" ? "Mu" : "Ma"} = ${formatDisplayValue(result.demandMoment, "moment", 2)} ${getQuantityUnit("moment")}，${designMethod === "LRFD" ? "Vu" : "Va"} = ${formatDisplayValue(result.demandShear, "force", 2)} ${getQuantityUnit("force")}`)}
       ${pairRow("內力來源", result.adoptedInputSource)}
       ${pairRow("使用載重", `wD = ${formatDisplayValue(getLegacyInputValue("inWD"), "lineLoad", unitMode === "si" ? 3 : 2)} ${getQuantityUnit("lineLoad")}，wL = ${formatDisplayValue(getLegacyInputValue("inWL"), "lineLoad", unitMode === "si" ? 3 : 2)} ${getQuantityUnit("lineLoad")}`)}
+      ${result.pointDead || result.pointLive ? pairRow("跨中集中載重", `PD = ${formatDisplayValue(result.pointDead, "force", 4)}，PL = ${formatDisplayValue(result.pointLive, "force", 4)} ${getQuantityUnit("force")}`) : ""}
       ${pairRow("撓度限值", `活載重 L/${$("limL").value}，總撓度 L/${$("limT").value}`)}
       ${pairRow("輸出報表內容", getReportContentSummaryText())}
     `;
@@ -1785,13 +1793,19 @@
     const shearOk = strengthShear >= demandShear;
     const ratioFlex = strengthMoment > 0 ? f1(demandMoment / strengthMoment * 100) : "∞";
     const ratioShear = strengthShear > 0 ? f1(demandShear / strengthShear * 100) : "∞";
-    const deflection = Steel.calcDeflection(sec, loadDead, loadLive, L);
+    const pointDead = getLegacyInputValue("inPD", "force");
+    const pointLive = getLegacyInputValue("inPL", "force");
+    if ([loadDead, loadLive, pointDead, pointLive].some(value => value < 0) ||
+        ["inWD","inWL","inPD","inPL"].some(id => $(id).validity?.badInput)) {
+      return inputFail("服務性檢核請填向下載重的非負數值。");
+    }
+    const deflection = Steel.calcDeflection(sec, loadDead, loadLive, L, pointDead, pointLive);
     const limitLive = parseInt($("limL").value, 10);
     const limitTotal = parseInt($("limT").value, 10);
     const allowLive = L / limitLive;
     const allowTotal = L / limitTotal;
     let deflStatus = "skipped";
-    if (loadDead > 0 || loadLive > 0) {
+    if (loadDead > 0 || loadLive > 0 || pointDead > 0 || pointLive > 0) {
       deflStatus = deflection.deltaL <= allowLive && deflection.deltaT <= allowTotal ? "ok" : "fail";
     }
 
@@ -1862,7 +1876,7 @@
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk({ flexOk, shearOk, deflStatus }) ? "本次鋼梁斷面於主軸彎矩、剪力與撓度檢核均通過。" : "本次鋼梁斷面至少有一項控制條件未通過，請優先檢視控制模式、剪力條件與撓度條件。"}</div>`;
     $("summaryCard").hidden = false;
 
-    const result = { sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, adoptedInputSource: adoptedBeamImportSourceText() };
+    const result = { sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, loadDead, loadLive, pointDead, pointLive, adoptedInputSource: adoptedBeamImportSourceText() };
     resultState = result;
     setBeamReportValidationMessage("");
     renderSummary(result);
@@ -1998,6 +2012,9 @@
     const sectionType = source.fields?.sectionTypeSelect?.value;
     if (["h", "shs", "rhs", "chs"].includes(sectionType)) $("sectionTypeSelect").value = sectionType;
     syncSectionTypeUI();
+    // 舊案只支援均布載重，重播時必須清除前一案的集中載重。
+    $("inPD").value = "0";
+    $("inPL").value = "0";
     Object.entries(source.fields || {}).forEach(([id, entry]) => {
       const field = $(id);
       if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || field.disabled || field.dataset.filterInput) return;

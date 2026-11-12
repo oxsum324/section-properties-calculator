@@ -1021,6 +1021,8 @@ function oneSidedSlope(pts, x0, side) {
 function runDeflectionClosedFormChecks(ctx) {
   const E = 204000000, I = 0.00042, EI = E * I; // 85,680 kN·m²
   const mac = (x, a, n) => (x > a ? (x - a) ** n : 0);
+  setupBeam(ctx, { supports:['pin', 'roller'], spans:[{ L:6 }], loads:[[]] });
+  assert(ctx.formatSpanDeflection(ctx.diagrams.spans[0]).ratio === '—', 'zero deflection has no finite span ratio', 'unloaded beam');
 
   // 1) 簡支均佈：δ = w x (L³ − 2Lx² + x³) / 24EI，跨中 5wL⁴/384EI
   {
@@ -1055,6 +1057,12 @@ function runDeflectionClosedFormChecks(ctx) {
     const deltaMax = w * L ** 4 / (48 * EI) * (xiStar - 3 * xiStar ** 3 + 2 * xiStar ** 4);
     assertNear(deltaMax * EI / (w * L ** 4), 0.0054161216, 1e-9, 'two-span max deflection coefficient (hand)', 'ξ* = (1+√33)/16');
     const ds0 = ctx.diagrams.spans[0].ds;
+    for (const [span, station] of [[0, xiStar * L], [1, (1-xiStar) * L]]) {
+      const result = ctx.diagrams.spans[span];
+      assertNear(result.peakDeflection.x, station, 1e-10, 'reported peak station relative to span left end', 'two-span closed form');
+      assertNear(result.peakDeflection.value, -deltaMax, deltaMax * 1e-10, 'reported peak deflection between plotted samples', 'two-span closed form');
+      assert(ctx.formatSpanDeflection(result).ratio === ctx.fmtVal(L/deltaMax), 'reported L/deflection', 'span length divided by absolute peak');
+    }
     assertNear(-Math.min(...ds0), deltaMax, deltaMax * 3e-4, 'deflection: two equal spans sampled max within L/24 sampling of exact max', `exact=${deltaMax}`);
     assertNear(delta1(L / 2), w * L ** 4 / (192 * EI), 1e-15, 'two-span midspan coefficient 1/192 (hand)', 'ξ = 0.5');
   }

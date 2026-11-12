@@ -234,6 +234,21 @@ def generate(json_path, out_path=None):
             ['容許撓度', f"L / {g['defl']}", ''],
         ])
 
+    add_heading(doc, '側撐假設與採用值', 2)
+    bracing_rows = []
+    for key, label in [('stringer', '覆工小梁'), ('girder', '覆工大梁')]:
+        if R.get(key):
+            length = R[key].get('Lt')
+            if length is None:
+                bracing_rows.append([label, '未提供', '請回查案件採用的側撐配置。'])
+            else:
+                basis = ('假設壓翼板充分側撐，須以實際側撐與連接配置確認。'
+                         if length == 0 else '依輸入 Lt 與該斷面 Lc、Lu 判定側撐等級。')
+                bracing_rows.append([label, f'{length} cm', basis])
+    if bracing_rows:
+        add_table(doc, ['構件', '未支撐長度 Lt', '採用條件'], bracing_rows)
+    add_para(doc, '未充分側撐的容許彎曲應力計算固定採 Cb = 1.0。')
+
     add_heading(doc, '2.3 設計載重規格', 2)
     add_table(doc,
         ['類別', '型式', '載重', '幾何', '衝擊'],

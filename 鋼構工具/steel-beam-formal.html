@@ -311,10 +311,14 @@
             </div>
           </div>
           <hr>
-          <p class="section-note">撓度檢核採使用載重。</p>
+          <p class="section-note">簡支、等斷面梁的使用載重撓度。向下均布載重與跨中集中載重可同時輸入，未作用項填 0。</p>
           <div class="form-row">
             <div class="form-group"><label id="beamWdLabel">wD 靜載重 (kgf/cm)</label><input type="number" id="inWD" value="5"></div>
             <div class="form-group"><label id="beamWlLabel">wL 活載重 (kgf/cm)</label><input type="number" id="inWL" value="8"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label id="beamPdLabel" for="inPD">跨中集中靜載重 PD (tf)</label><input type="number" id="inPD" min="0" step="any" value="0"></div>
+            <div class="form-group"><label id="beamPlLabel" for="inPL">跨中集中活載重 PL (tf)</label><input type="number" id="inPL" min="0" step="any" value="0"></div>
           </div>
           <div class="form-row">
             <div class="form-group">

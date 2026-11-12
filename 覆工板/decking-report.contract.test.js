@@ -150,6 +150,9 @@ assert(fs.existsSync(outPath), 'decking report output exists', outPath);
 assert(fs.statSync(outPath).size > 0, 'decking report output is non-empty', String(fs.statSync(outPath).size));
 
 const docxPayload = readDocxPayload(outPath);
+for (const note of ['側撐假設與採用值', '未支撐長度 Lt', '未充分側撐的容許彎曲應力計算固定採 Cb = 1.0']) {
+  assert(docxPayload.text.includes(note), 'decking Word report records bracing assumptions', note);
+}
 assert(docxPayload.text.length > 2500, 'decking docx has substantial report text', `${docxPayload.text.length} chars`);
 assert(docxPayload.paragraphCount >= 60, 'decking docx paragraph structure is populated', `${docxPayload.paragraphCount} paragraphs`);
 assert(docxPayload.tableCount >= 6, 'decking docx table structure is populated', `${docxPayload.tableCount} tables`);
