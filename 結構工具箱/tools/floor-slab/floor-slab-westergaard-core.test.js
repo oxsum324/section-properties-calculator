@@ -61,4 +61,5 @@ for (const goldenCase of goldenCases) {
   });
 }
 
+require('../../../tests/floor-plate.test.cjs');
 console.log('floor slab Westergaard core regression OK');

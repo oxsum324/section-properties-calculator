@@ -1,0 +1,35 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>地坪多輪與腳位位置分析</title>
+<style>
+*{box-sizing:border-box}body{font:16px/1.55 "Microsoft JhengHei",system-ui,sans-serif;color:#203332;background:#f4f8f7;margin:0}main{max-width:1160px;margin:auto;padding:14px}section{background:white;padding:16px;border:1px solid #cbdcd8;border-radius:8px;margin-bottom:12px}
+h1,h2,h3{color:#194e49;line-height:1.35;margin:0 0 .5rem}h1{font-size:1.45rem}h2{font-size:1.17rem}h3{font-size:1rem;margin-top:1rem}p{margin:.55rem 0}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem}.wide{grid-column:span 2}label{display:block;font-weight:650}input,select,textarea,button{color:inherit;font:inherit;border:1px solid #8aa6a1;border-radius:5px;padding:6px}label input,label select,textarea{display:block;width:100%}textarea{font:14px/1.5 Consolas,monospace;resize:vertical}.actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:.75rem 0}input[type=file]{max-width:100%}button{background:#e6efed;color:#174e46;cursor:pointer}button.primary{background:#15574b;color:white}button:disabled{opacity:.55;cursor:default}.note{color:#4b605e;font-size:.92rem}.status{font-weight:700;color:#164f44}.summary{background:#eef7f4;border-left:4px solid #397e72;padding:8px 12px}.scroll{max-height:26rem;overflow:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:6px 8px;border-bottom:1px solid #dde6e4;text-align:left;vertical-align:top}th{background:#eef4f3;position:sticky;top:0}canvas{max-width:100%;height:auto}dialog{max-width:90%;border:1px solid #7e9c97;border-radius:8px}dialog::backdrop{background:#123a3266}:focus-visible{outline:3px solid #458d82;outline-offset:2px}
+@media(max-width:700px){main{padding:6px}section{padding:10px}.grid{grid-template-columns:1fr 1fr}.wide{grid-column:1/-1}table{min-width:39rem}}
+@media print{@page{margin:13mm}body{background:white;font-size:10pt}main,section{padding:0;margin:0;border:0}#entry,.no-print,dialog{display:none!important}.scroll{overflow:visible;max-height:none}table{min-width:0}td,th{padding:3px 5px;overflow-wrap:anywhere}th{position:static}thead{display:table-header-group}tr,canvas{break-inside:avoid}h2,h3{break-after:avoid}canvas{max-width:110mm;max-height:66mm;width:auto!important}.scroll td{overflow-wrap:normal}#values td:nth-child(5),#values td:nth-child(7){white-space:nowrap}#values td:nth-child(6){min-width:35mm}#values td{font-size:9pt}body:has(#result[hidden]):after{content:'尚無可列印的位置分析。'}}
+</style></head><body><main><div id="entry">
+<section><h1>地坪多輪與腳位位置分析</h1>
+<p>以矩形 Kirchhoff 薄板、自由邊與雙向線性 Winkler 地盤，求各輪在同一點的板面應力。x 向右、y 向上，左下角為原點。板面拉應力為正，撓度向下為正。</p>
+<div class="actions"><button id="example">帶入合成雙輪</button><button id="parentInput">帶入主頁材料與輪組</button><label for="file">讀取位置分析 JSON</label><input id="file" type="file" accept=".json,application/json"></div>
+<div class="grid"><label class="wide">案件／板區識別<input id="caseId"></label><label class="wide">材料、地基與板界依據<input id="basis"></label>
+<label>板 x 向長度 (m)<input id="width" type="number" step="any"></label><label>板 y 向長度 (m)<input id="depth" type="number" step="any"></label>
+<label>板厚 (mm)<input id="hMm" type="number" step="any"></label><label>E (MPa)<input id="eMpa" type="number" step="any"></label>
+<label>泊松比 ν<input id="nu" type="number" step="any"></label><label>地盤反力係數 (MN/m³)<input id="kMNm3" type="number" step="any"></label>
+<label class="wide">板內接縫模型<select id="joint"><option value="">請選擇</option><option value="none">完整板區，無內部接縫</option><option value="free">直線貫通接縫，兩側完全自由、無傳力</option><option value="unknown">有傳力或情況未知，另建模型</option></select></label>
+<label class="wide">平行 y 軸之縫 x 座標 (m)<input id="jointsX" placeholder="多條用逗號分隔"></label><label class="wide">平行 x 軸之縫 y 座標 (m)<input id="jointsY" placeholder="多條用逗號分隔"></label></div>
+<p class="note">接觸面跨越無傳力縫時，各板分別承受落在其上的均布壓力。輪印由實測或載重圖指定；雙向彈簧可受拉，脫空、溫度翹曲及疲勞另核。</p></section>
+<section><h2>輪印、腳位與觀察點</h2><p>每輪或每支腳各填一列。矩形均布接觸面與板軸平行，荷重向下；動力係數依個案輸入。從 Excel 複製時包含下列表頭。</p>
+<label for="loads">輪／腳項次與載重圖來源</label><textarea id="loads" rows="5" spellcheck="false" wrap="off"></textarea>
+<label for="points">指定觀察點</label><textarea id="points" rows="4" spellcheck="false" wrap="off"></textarea>
+<div class="grid"><label>檢視板面<select id="face"><option value="bottom">底面</option><option value="top">頂面</option></select></label>
+<label>應力方向 θ (°，由 +x 逆時針)<input id="angle" type="number" step="any" value="0"></label>
+<label class="wide">整板長邊網格分段，粗 → 細<select id="mesh"><option value="8">8 → 16</option><option value="12">12 → 24</option><option value="16" selected>16 → 32</option><option value="24">24 → 48</option></select></label></div>
+</section></div>
+<div class="actions no-print"><button id="run" class="primary">計算逐輪疊加</button><button id="save" disabled>下載位置分析 JSON</button><button id="print" disabled>列印比較紀錄</button><span class="status" id="status" role="status"></span></div>
+<section id="result" hidden tabindex="-1"><h2>地坪逐輪疊加紀錄</h2><p id="identity"></p><p id="model"></p><p class="summary" id="summary"></p>
+<h3>控制位置與加密差異</h3><div id="limits"></div><p class="note">搜尋每個矩形元素之角點、邊中點、中心、輪印九點及指定觀察點。控制值為取樣極值。元素交界的曲率可能有兩個單側值；同一座標的不同板區或元素分列。局部峰值請依輪印尺寸及加密差異覆核。</p>
+<canvas id="plot" width="820" height="440" aria-label="應力分布、接縫、輪印與控制點，座標數值見表格"></canvas><p id="legend" class="note"></p>
+<h3>控制點與觀察點的逐輪貢獻</h3><div id="values"></div>
+<h3>輪位與作用面</h3><div id="inventory"></div>
+<h3>細網格與地盤反力</h3><div id="panels"></div><p id="uplift"></p>
+<p>線彈性板剛度 D＝Eh³／[12(1−ν²)]。矩形雙三次 Hermite 板元，每節點含 w、wx、wy、wxy；依裁切後接觸面積積分荷載。指定方向正應力 σθ＝σx cos²θ＋σy sin²θ＋2τxy sinθ cosθ。容許應力、接縫傳力及脫空另依案件條件評估。</p>
+</section><dialog id="replace"><form method="dialog"><p>以新資料取代目前位置分析？</p><div class="actions"><button autofocus value="keep">保留目前資料</button><button value="yes">取代資料</button></div></form></dialog></main>
+<script src="floor-plate-fem.js"></script><script src="floor-plate-ui.js"></script></body></html>

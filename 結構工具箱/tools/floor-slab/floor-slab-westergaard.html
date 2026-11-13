@@ -25,6 +25,9 @@
     @media(max-width:900px){.main-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.span-3{grid-column:1/-1}}
     @media(max-width:560px){.page{padding:10px}.form-grid,.metrics{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.hero{padding:18px}.btn{width:100%}}
     @media print{.page-only-report-status,.case-actions{display:none!important}}
+    #plateDialog{box-sizing:border-box;width:min(1240px,97vw);height:93vh;height:93dvh;max-height:97vh;padding:0;border:1px solid #7e9c98;border-radius:9px}
+    #plateDialog[open]{display:flex;flex-direction:column}#plateDialog::backdrop{background:#17393299}
+    #plateDialog .dialog-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #c6d7d3}#plateDialog .dialog-heading h2{margin:0;font-size:1.1rem}#plateFrame{border:0;flex:1;min-height:0;width:100%}
   </style>
 </head>
 <body class="local-quick-output-page" data-family="local-quick">
@@ -35,6 +38,7 @@
     <p>請回工具頁按「列印計算書」，在獨立計算書視窗列印或存成 PDF。</p>
   </div>
   <main class="page">
+    <dialog id="plateDialog" aria-labelledby="plateTitle"><div class="dialog-heading"><h2 id="plateTitle">地坪輪組位置分析</h2><form method="dialog"><button class="btn btn-secondary" autofocus>返回單輪與輪組頁</button></form></div><iframe id="plateFrame" title="多輪與腳位位置分析"></iframe></dialog>
     <header class="hero" data-smoke="floor-slab-westergaard-smoke">
       <h1>地坪承載檢核（Westergaard）</h1>
       <p>以一般化 Westergaard 閉式解，計算地坪版內部、自由邊緣與角隅集中載重彎拉應力。</p>
@@ -49,6 +53,7 @@
         <div class="field"><label for="projDesigner">設計／整理人</label><input id="projDesigner" autocomplete="off"></div>
       </div>
       <div class="case-actions">
+        <button class="btn btn-secondary" type="button" id="openPlate" aria-haspopup="dialog">多輪與腳位位置分析</button>
         <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
         <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
         <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
@@ -390,6 +395,12 @@
       const win = window.open('', '_blank'); if (!win) return; win.document.open(); win.document.write(reportHtml); win.document.close();
     }
 
+    window.readFloorPlateSource=()=>({project:gatherProjectInfo(),input:gatherInputs()});
+    $('openPlate').onclick=()=>{
+      const frame=$('plateFrame');
+      if(!frame.hasAttribute('src'))frame.src='floor-plate.html';
+      $('plateDialog').showModal();
+    };
     function saveProjectInfo() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(gatherProjectInfo())); } catch (_) {} }
     function loadProjectInfo() { try { applyProjectInfo(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')); } catch (_) {} }
     function resetDefaults() {
