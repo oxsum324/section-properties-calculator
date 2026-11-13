@@ -436,12 +436,14 @@ test('V2.4.0：buildActiveProfileHashes 產出 scope→{id,hash} map', () => {
   assert.notStrictEqual(rOverride.seismic.hash, r.seismic.hash);
 });
 
-test('V3.1.0：最新 archive 含所有 7 個 profile（V2.4.0 baseline 仍保留）', () => {
+test('V3.2：新增鋼材參數快照並保留舊版指紋', () => {
   const archive = Reg.getLatestProfileArchive();
   assert.ok(archive, 'archive 應存在');
-  assert.strictEqual(archive.version, 'V3.1.0');
+  assert.strictEqual(archive.version, 'V3.2');
   assert.ok(archive.date);
   assert.strictEqual(Reg.PROFILE_HASH_ARCHIVE[0].version, 'V2.4.0');
+  assert.strictEqual(Reg.PROFILE_HASH_ARCHIVE.find(v=>v.version==='V3.1.0').hashes.cns_steel_general,'cyrb53:1e704b3330bcff');
+  assert.strictEqual(archive.hashes.cns_steel_general,'cyrb53:1d20c42a5c3d11');
   const ids = ['cns_wind_107','cns_seismic_113','cns_seismic_113_conservative','cns_concrete_112_ch17','aci_318_appendix_d','cns_steel_general','cns_stone_general'];
   for (const id of ids) {
     assert.ok(archive.hashes[id], `archive 應含 ${id} 之 hash`);
@@ -452,7 +454,7 @@ test('V2.4.1：compareProfileHashWithArchive — 未變動 profile changed=false
   // archive 與目前 inline 應一致（V2.4.0 上線時拍攝）
   const r = Reg.compareProfileHashWithArchive('cns_seismic_113');
   assert.strictEqual(r.changed, false, `應無變動，但 archive=${r.archiveHash} current=${r.currentHash}`);
-  assert.strictEqual(r.archiveVersion, 'V3.1.0');
+  assert.strictEqual(r.archiveVersion, 'V3.2');
 });
 
 test('V2.4.1：compareProfileHashWithArchive — 未在 archive 之 profile newProfile=true', () => {

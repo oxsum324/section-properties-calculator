@@ -354,6 +354,20 @@
         cns_steel_general:             'cyrb53:1e704b3330bcff',
         cns_stone_general:             'cyrb53:1dfaff36620b45'
       })
+    }),
+    Object.freeze({
+      version: 'V3.2',
+      date: '2026-11-13',
+      note: '彎曲容許應力另據個案文件採用，移除鋼材 profile 的通用 1.25 乘數。',
+      hashes: Object.freeze({
+        cns_wind_107:                  'cyrb53:17b5da32fdece2',
+        cns_seismic_113:               'cyrb53:16d961ede8be9d',
+        cns_seismic_113_conservative:  'cyrb53:13f5c547d3cd78',
+        cns_concrete_112_ch17:         'cyrb53:1d654c6a5634d0',
+        aci_318_appendix_d:            'cyrb53:1c6c15536a2ad1',
+        cns_steel_general:             'cyrb53:1d20c42a5c3d11',
+        cns_stone_general:             'cyrb53:1dfaff36620b45'
+      })
     })
   ]);
 
