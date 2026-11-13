@@ -4035,7 +4035,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       H_total > 0 ? `FS=${FS_slide.toFixed(2)}` : '無水平力');
     setCheck('c-overturn', M_overturn > 0 ? okOver : null,
       M_overturn > 0 ? `FS=${FS_over.toFixed(2)}` : '無傾覆力矩');
-    setCheck('c-v1', okV1, `${(phiVc1/1000).toFixed(1)} / ${(Vu1/1000).toFixed(1)}`);
+    setCheck('c-v1', okV1, `${v1Direction} 向 ${(phiVc1/1000).toFixed(1)} / ${(Vu1/1000).toFixed(1)}`);
     setCheck('c-v2', okV2, `${(phiVc2/1000).toFixed(1)} / ${(Vu2/1000).toFixed(1)}`);
     setCheck('c-flex', okFlex, `${phiMn_tfm.toFixed(2)} / ${Mu_tfm.toFixed(2)} (${MuMode})`);
     setCheck('c-As', okAsMin, `X ${AsX_per_m.toFixed(2)}；Y ${AsY_per_m.toFixed(2)} / ${AsMin_per_m.toFixed(2)}`);
@@ -6237,10 +6237,18 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'X/Y 間距 ≤ smax', value:`${r.spX.toFixed(1)}、${r.spY.toFixed(1)} / ${r.sMax.toFixed(1)}`, unit:'cm', ok:r.okSpacing },
           { label:'X/Y 淨距 ≥ max(db,2.5)', value:`X ${r.clearX.toFixed(1)} / ${r.clearMinX.toFixed(1)}；Y ${r.clearY.toFixed(1)} / ${r.clearMinY.toFixed(1)}`, unit:'cm', ok:r.okClear }
         ]},
-        { group:'剪力與撓曲', items:[
-          ...r.sections.map(t => ({ label:t.label + ' φVc ≥ Vu', value:`${t.phiVc.toFixed(2)} / ${t.Vu.toFixed(2)}${t.label === r.v1Direction ? '（控制）' : ''}`, unit:'tf', ok:t.phiVc >= t.Vu })),
-          ...r.sections.map(t => ({ label:t.label + ' φMn ≥ Mu', value:`${t.phiMn.toFixed(2)} / ${t.Mu.toFixed(2)}${t.label === r.MuMode ? '（控制）' : ''}`, unit:'tf·m', ok:t.phiMn >= t.Mu })),
-          { label:'各柱 φVc ≥ Vu (衝剪)', value:`${r.controlPunch.name} ${r.phiVc2.toFixed(2)} / ${r.Vu2.toFixed(2)}`, unit:'tf', ok:r.okV2 }
+        { group:'剪力與撓曲', keepTogether:true, items:[
+          ...r.sections.map(t => ({
+            label:t.label,
+            formula:'撓曲 φMn / Mu（tf·m） ' + t.phiMn.toFixed(2) + ' / ' + t.Mu.toFixed(2) + (t.phiMn >= t.Mu ? ' 通過' : ' 未通過'),
+            sub:'單向剪力 φVc / Vu（tf） ' + t.phiVc.toFixed(2) + ' / ' + t.Vu.toFixed(2) + (t.phiVc >= t.Vu ? ' 通過' : ' 未通過'),
+            value:[t.label === r.MuMode && '撓曲控制', t.label === r.v1Direction && '剪力控制'].filter(Boolean).join('、') || '已核對',
+            ok:t.phiMn >= t.Mu && t.phiVc >= t.Vu
+          })),
+          ...r.punchingCols.map(col => ({
+            label:col.name + ' 衝剪', formula:'φVc ≥ Vu', sub:'柱反力扣除臨界斷面內上浮力 ' + col.upliftTf.toFixed(2) + ' tf',
+            value:col.phiVc2.toFixed(2) + ' / ' + col.Vu2.toFixed(2), unit:'tf', ok:col.ok
+          }))
         ]}
       ];
     }
