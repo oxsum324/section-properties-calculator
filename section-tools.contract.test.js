@@ -829,7 +829,7 @@ const retrofitColumnText = assertReportHtmlText(retrofitColumnHtml, 'RC retrofit
   'Codex QA',
   '輸入條件',
   '圍束效應',
-  '軸壓能力',
+  '原柱與圍束後軸壓強度計算',
   'P-M 需求點檢核',
 ], 650);
 assert(retrofitColumnHtml.includes('RC 柱補強斷面計算書'), 'RC retrofit column runtime report title', 'RC 柱補強斷面計算書');

@@ -195,7 +195,7 @@
       '/rc-foundation-deep-beam-stm': '2026-10-23',
       '/rc-pile-cap-3d-stm': '2026-11-13',
       '/rc-pile': '2026-11-13',
-      '/rc-retrofit-section': '2026-10-23',
+      '/rc-retrofit-section': '2026-11-13',
       '/rc-column-cover-deviation': '2026-11-13',
       '/src-beam': '2026-10-23',
       '/src-column': '2026-10-26',
