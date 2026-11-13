@@ -49,6 +49,9 @@
     .case-actions { display:flex; gap:8px; flex-wrap:wrap; }
     #reportPreview { white-space:pre-wrap; overflow-wrap:anywhere; padding:12px; border-radius:8px; background:#f7fafb; font-size:.86rem; }
     .page-only-report-status { padding:9px; color:#526168; border:1px dashed #94a3b8; border-radius:8px; font-size:.82rem; }
+    #sonrebDialog{box-sizing:border-box;width:min(1220px,97vw);height:93vh;height:93dvh;max-height:97vh;padding:0;border:1px solid #7697a1;border-radius:9px}
+    #sonrebDialog[open]{display:flex;flex-direction:column}#sonrebDialog::backdrop{background:#1c343ca6}
+    #sonrebDialog .dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line)}#sonrebDialog h2{margin:0}#sonrebFrame{border:0;flex:1;min-height:0;width:100%}
     @media(max-width:800px) { .grid,.metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media(max-width:560px) { main { padding:11px; } .grid,.metrics { grid-template-columns:1fr; } }
   </style>
@@ -57,6 +60,10 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
   <div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書；本頁不得作為附件。</span><span>請回工具頁按「列印計算書」，在獨立內部審閱計算書視窗列印或存成 PDF。</span></div>
   <main data-smoke="concrete-strength-ndt-smoke" role="main">
+    <dialog id="sonrebDialog" aria-labelledby="sonrebTitle">
+      <div class="dialog-heading"><h2 id="sonrebTitle">混凝土同測區校正</h2><form method="dialog"><button autofocus>返回資料頁</button></form></div>
+      <iframe id="sonrebFrame" title="同測區 SonReb 校正與驗證"></iframe>
+    </dialog>
     <header class="hero">
       <h1>混凝土強度非破壞檢測推估</h1>
       <p>回彈錘、超音波脈波速度與鑽心試體資料整理，並列各法推估強度、描述統計、特徵強度與現場等值強度。</p>
@@ -72,6 +79,7 @@
       <p id="jsonStatus" class="muted" role="status" aria-live="polite">JSON 案例僅保存資料及重現指紋，不授予規格確認資格。</p>
       <div id="ndtReportReadiness" class="page-only-report-status">優先閱讀：頁面專用狀態為內部審閱 assist；不會寫入計算書或列印 PDF。</div>
       <div class="actions">
+        <button id="openSonReb" type="button" aria-haspopup="dialog">同測區 SonReb 校正與驗證</button>
         <button id="btnReadConfirmed" type="button">明確讀取同目錄已確認規格</button>
         <button id="btnCalc" class="primary" type="button">重新計算</button>
         <button id="btnJson" type="button">下載 JSON</button>
@@ -439,6 +447,12 @@
     function downloadText(){const result=calculate();if(!result.ok)return;const blob=new Blob([buildReportText(result)],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='concrete-strength-ndt-'+new Date().toISOString().slice(0,10)+'.txt';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);}    window.buildReportText=buildReportText;
     window.buildConcreteStrengthNdtReportHtml=buildReportHtml;
     window.getConcreteStrengthNdtCurrentResult=()=>lastResult;
+    window.readCurrentSonRebSource=calculate;
+    $('openSonReb').onclick=()=>{
+      const frame=$('sonrebFrame');
+      if(!frame.hasAttribute('src')) frame.src='sonreb.html';
+      $('sonrebDialog').showModal();
+    };
     $('btnCalc').addEventListener('click',calculate);$('btnPrint').addEventListener('click',openReport);$('btnJson').addEventListener('click',downloadResultJson);$('btnImportJson').addEventListener('click',()=>$('jsonFile').click());$('btnReset').addEventListener('click',resetDemo);$('jsonFile').addEventListener('change',event=>loadCaseJson(event.target.files&&event.target.files[0]));$('btnReadConfirmed').addEventListener('click',readConfirmed);$('repDownloadCurrentText').addEventListener('click',downloadText);
     installRowControls();
     resetDemo();

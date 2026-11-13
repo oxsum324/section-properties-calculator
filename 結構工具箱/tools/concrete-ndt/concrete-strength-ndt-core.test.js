@@ -345,4 +345,5 @@ assert.equal(ConcreteStrengthNdtCore.calculate({...empty,project:{...empty.proje
 
 
 
+require('../../../tests/sonreb.test.cjs');
 console.log('concrete-strength-ndt-core.test.js: all assertions passed.');

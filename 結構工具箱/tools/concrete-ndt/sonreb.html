@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>同測區 SonReb 校正與驗證</title>
+<style>
+*{box-sizing:border-box}body{margin:0;color:#192c33;background:#f4f8f9;font:16px/1.52 "Microsoft JhengHei",system-ui,sans-serif}main{max-width:1180px;margin:auto;padding:16px}section{padding:16px;background:#fff;border:1px solid #ccdce0;border-radius:9px;margin:0 0 12px}h1,h2,h3{color:#164e63;margin:0 0 .45rem;line-height:1.32}h1{font-size:1.35rem}h2{font-size:1.15rem}h3{font-size:1rem;margin-top:1rem}p{margin:.45rem 0}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.wide{grid-column:span 2}label{font-weight:650;display:block}label input,label textarea,label select{display:block;width:100%}input,select,textarea,button{font:inherit;color:inherit;border:1px solid #869fa8;border-radius:5px;padding:6px}textarea{display:block;width:100%;font:14px/1.5 Consolas,monospace;resize:vertical}button{cursor:pointer;background:#e8f1f3;color:#164e63}button.primary{background:#155e75;color:white}button:disabled{opacity:.5;cursor:default}a{color:#075975}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:.75rem 0}.hint{font-size:.9rem;color:#435c65}.scroll{overflow:auto;max-height:25rem;border:1px solid #d4e1e4}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,td{padding:.4rem .55rem;border-bottom:1px solid #dde5e7;text-align:left;vertical-align:top}th{position:sticky;top:0;background:#eef5f6;color:#164e63}.warn{color:#703b07}.metric{border-left:4px solid #267d85;padding:8px 12px;background:#f0f7f8}.status{font-weight:bold;color:#145368}dialog{border:1px solid #7797a2;border-radius:8px;max-width:90%}dialog::backdrop{background:#1f343d66}:focus-visible{outline:3px solid #4399b1;outline-offset:2px}canvas{display:block;width:min(100%,610px);height:auto}.print-only{display:none}
+@media(max-width:630px){main{padding:7px}section{padding:11px}.grid{grid-template-columns:1fr}.wide{grid-column:auto}table{min-width:38rem}.scroll{max-height:23rem}input[type=file]{max-width:100%}}
+@media print{@page{margin:13mm}body{background:#fff;font-size:10pt}main{padding:0}section{padding:0;border:0;margin:0 0 8mm}.no-print,#inputPanel,#selection,dialog{display:none!important}.print-only{display:block}.scroll{max-height:none;overflow:visible;border:0}table{min-width:0}thead{display:table-header-group}th{position:static}th,td{overflow-wrap:anywhere;padding:3px 4px}tr,canvas{break-inside:avoid}h2,h3{break-after:avoid}canvas{width:125mm}body:has(#result[hidden]):after{content:'尚無可列印的校正紀錄。'}}
+</style></head><body><main>
+<section id="inputPanel"><h1>同測區 SonReb 校正與驗證</h1><p>每列一個反彈量測值 R、波速 V（km/s）或鑽心 C（MPa）。以同一材料群、試驗條件和測區配對。不同位置的鑽心請編不同號，同一鑽心不可重複使用。</p>
+<label for="project">案件／資料集識別</label><input id="project">
+<div class="actions"><button id="example">載入合成範例</button><button id="fromPage">由主頁帶入量測</button><button id="blank">建立空白表頭</button><label for="file">讀取 TSV 或紀錄 JSON</label><input id="file" type="file" accept=".tsv,.txt,.json"></div>
+<label for="data">測區與試體資料（由 Excel 連同表頭貼入）</label><textarea id="data" rows="8" wrap="off" spellcheck="false"></textarea>
+<p class="hint">試驗條件請記儀器、方向、表面與波速量測方式。用途填「校正」、「外留」或「推估」；同區整體留出。「外留」需有對照鑽心，「推估」僅需 R、V。C 欄填試驗原強度及修正係數，無修正填 1 並註明依據。R、V 的係數欄留白。</p>
+<div class="actions"><button class="primary" id="prepare">配對並選擇材料群</button><button id="draft">另存原始資料</button></div></section>
+<section id="selection" hidden><h2>材料與試驗條件</h2><label for="group">選擇同條件群組</label><select id="group"></select><p id="coverage"></p><div class="actions"><button class="primary" id="fit">建立模型與整區驗證</button></div></section>
+<p id="status" class="status no-print" role="status"></p>
+<section id="result" hidden tabindex="-1"><h2>同測區校正紀錄</h2><p id="identity"></p><p id="summary" class="metric"></p><p id="formula"></p><p id="variance"></p><p class="hint">R、V 各取同區量測紀錄的算術平均；迴歸目標保留每顆經修正的鑽心強度。預測值為條件中位數。近似 95% 預測區間適用於同條件新測區的一顆鑽心，假設對數殘差近似常態。區間未計入儀器系統誤差及資料選擇偏差。</p>
+<h3>校正範圍與外留測區</h3><canvas id="plot" width="760" height="330" aria-label="反彈數與波速聯合校正範圍，位置及數值見下表"></canvas><p class="hint">橫軸 R、縱軸 V 採對數刻度。圓點為校正區，三角形為外留或推估區，橘色表示超出聯合校正範圍。</p>
+<h3>外留驗證與新區推估</h3><div id="external"></div>
+<h3>逐一留出完整校正測區</h3><p class="hint">每折重新估計係數、變異及範圍。誤差＝預測中位數−該顆修正鑽心值。外插值僅供檢視。</p><div id="loo"></div>
+<h3>同測區配對明細</h3><div id="pairs"></div>
+<h3>取樣與適用條件</h3><p id="sampling"></p><p class="hint"><a href="https://store.astm.org/c0805_c0805m-25.html" target="_blank" rel="noopener">ASTM C805/C805M-25 §5.4–5.5</a> 說明反彈強度關係的同位置取芯、儀器與適用條件。<a href="https://store.astm.org/c0597-22.html" target="_blank" rel="noopener">ASTM C597-22</a> 的波速與強度關係須另行建立。鑽心修正依各筆紀錄，齡期依案件適用依據處理。</p>
+<h3>工程採用紀錄</h3><p class="hint">若工程師已有採用決定，填入採用部位、強度與理由。保留空白時記為尚未指定。</p>
+<div class="grid no-print"><label>採用部位／測區<input id="selectedZone"></label><label>工程採用強度 (MPa)<input id="selectedMpa" type="number" min="0" step="any"></label><label>選值理由與依據<input id="reason"></label></div><p id="adoption"></p>
+<div class="actions no-print"><button id="save" class="primary">下載校正紀錄 JSON</button><button id="print">列印內部審閱紀錄</button></div>
+</section>
+<dialog id="replace"><form method="dialog"><p>以新資料取代目前工作區？</p><div class="actions"><button value="keep" autofocus>保留目前資料</button><button value="yes">取代資料</button></div></form></dialog>
+</main><script src="sonreb-model.js"></script><script src="sonreb-ui.js"></script></body></html>

@@ -1,0 +1,646 @@
+{
+  "scope": "合成獨立回歸基準。輸出為新測區單顆經指定修正鑽心之條件中位數與近似預測區間，測區隨機截距。模型、誤差分布及參數不確定性須依實測覆核。",
+  "model": "log(fc/MPa)=b0+bR log(R/35)+bV log(V/4)+zone effect+core error; REML, t(df=training zones−3) approximation",
+  "zones": [
+    {
+      "zone": "Z01",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        28.5,
+        29.5
+      ],
+      "velocityKmS": [
+        3.625,
+        3.675
+      ],
+      "cores": [
+        {
+          "id": "C1-1",
+          "rawMpa": 21.342158251867435,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C1-2",
+          "rawMpa": 22.88963933075001,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "校正"
+    },
+    {
+      "zone": "Z02",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        32.5,
+        33.5
+      ],
+      "velocityKmS": [
+        3.525,
+        3.5749999999999997
+      ],
+      "cores": [
+        {
+          "id": "C2-1",
+          "rawMpa": 25.762653180991283,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C2-2",
+          "rawMpa": 26.680311385203883,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C2-3",
+          "rawMpa": 27.63065630742812,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "校正"
+    },
+    {
+      "zone": "Z03",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        30.5,
+        31.5
+      ],
+      "velocityKmS": [
+        4.0249999999999995,
+        4.075
+      ],
+      "cores": [
+        {
+          "id": "C3-1",
+          "rawMpa": 26.43345619893266,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C3-2",
+          "rawMpa": 28.350098032180263,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "校正"
+    },
+    {
+      "zone": "Z04",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        35.5,
+        36.5
+      ],
+      "velocityKmS": [
+        3.775,
+        3.8249999999999997
+      ],
+      "cores": [
+        {
+          "id": "C4-1",
+          "rawMpa": 30.566763401950958,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C4-2",
+          "rawMpa": 31.28837393140015,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C4-3",
+          "rawMpa": 32.027020015100355,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C4-4",
+          "rawMpa": 32.78310382305437,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "校正"
+    },
+    {
+      "zone": "Z05",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        34.5,
+        35.5
+      ],
+      "velocityKmS": [
+        4.295,
+        4.345000000000001
+      ],
+      "cores": [
+        {
+          "id": "C5-1",
+          "rawMpa": 35.28582624102871,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C5-2",
+          "rawMpa": 37.844337325818,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "校正"
+    },
+    {
+      "zone": "Z06",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        39.5,
+        40.5
+      ],
+      "velocityKmS": [
+        3.975,
+        4.025
+      ],
+      "cores": [
+        {
+          "id": "C6-1",
+          "rawMpa": 34.21350450469093,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C6-2",
+          "rawMpa": 35.432179572162624,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C6-3",
+          "rawMpa": 36.69426349065902,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "校正"
+    },
+    {
+      "zone": "Z07",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        38.5,
+        39.5
+      ],
+      "velocityKmS": [
+        4.475,
+        4.525
+      ],
+      "cores": [
+        {
+          "id": "C7-1",
+          "rawMpa": 43.14933887342858,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C7-2",
+          "rawMpa": 46.278018957462756,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "校正"
+    },
+    {
+      "zone": "Z08",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        42.5,
+        43.5
+      ],
+      "velocityKmS": [
+        4.205,
+        4.255000000000001
+      ],
+      "cores": [
+        {
+          "id": "C8-1",
+          "rawMpa": 40.87194339679092,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C8-2",
+          "rawMpa": 41.83683537198425,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C8-3",
+          "rawMpa": 42.82450621322645,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C8-4",
+          "rawMpa": 43.83549367681751,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "校正"
+    },
+    {
+      "zone": "Z09",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        35.5,
+        36.5
+      ],
+      "velocityKmS": [
+        4.0249999999999995,
+        4.075
+      ],
+      "cores": [
+        {
+          "id": "C9-1",
+          "rawMpa": 32.921152867136925,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C9-2",
+          "rawMpa": 35.30820578632506,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "外留"
+    },
+    {
+      "zone": "Z10",
+      "material": "M1",
+      "condition": "H1／水平／乾表面／直達",
+      "rebound": [
+        45.5,
+        46.5
+      ],
+      "velocityKmS": [
+        4.625,
+        4.675000000000001
+      ],
+      "cores": [
+        {
+          "id": "C10-1",
+          "rawMpa": 52.570786365770125,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C10-2",
+          "rawMpa": 54.44334246748606,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        },
+        {
+          "id": "C10-3",
+          "rawMpa": 56.38259847225608,
+          "factor": 1.0,
+          "factorBasis": "合成 L/D=2.0；無齡期修正"
+        }
+      ],
+      "role": "外留"
+    }
+  ],
+  "fit": {
+    "beta": [
+      3.466802807303629,
+      1.1143007822382993,
+      1.3967051095720366
+    ],
+    "varianceWithinLog": 0.0014397009620655283,
+    "varianceBetweenLog": 0.0018136779022832768,
+    "nZones": 8,
+    "nCores": 22
+  },
+  "externalHoldout": [
+    {
+      "zone": "Z09",
+      "insideHull": true,
+      "measuredCoreMpa": [
+        32.921152867136925,
+        35.30820578632506
+      ],
+      "predictedMinusMeasuredMpa": [
+        0.7130749905025482,
+        -1.6739779286855878
+      ],
+      "medianMpa": 33.63422785763947,
+      "individualCoreApprox95Mpa": [
+        28.851922846323557,
+        39.209216300942714
+      ],
+      "coreIds": [
+        "C9-1",
+        "C9-2"
+      ]
+    },
+    {
+      "zone": "Z10",
+      "insideHull": false,
+      "measuredCoreMpa": [
+        52.570786365770125,
+        54.44334246748606,
+        56.38259847225608
+      ],
+      "predictedMinusMeasuredMpa": [
+        1.0340698533277717,
+        -0.8384862483881648,
+        -2.7777422531581806
+      ],
+      "medianMpa": 53.6048562190979,
+      "individualCoreApprox95Mpa": [
+        44.64662940806082,
+        64.3605272865539
+      ],
+      "coreIds": [
+        "C10-1",
+        "C10-2",
+        "C10-3"
+      ]
+    }
+  ],
+  "leaveOneZoneOut": [
+    {
+      "zone": "Z01",
+      "insideHull": false,
+      "measuredCoreMpa": [
+        21.342158251867435,
+        22.88963933075001
+      ],
+      "predictedMinusMeasuredMpa": [
+        2.1342260919489355,
+        0.5867450130663592
+      ],
+      "medianMpa": 23.47638434381637,
+      "individualCoreApprox95Mpa": [
+        19.165067660560762,
+        28.75756201960939
+      ],
+      "heldOutCoreIds": [
+        "C1-1",
+        "C1-2"
+      ],
+      "trainingZones": [
+        "Z02",
+        "Z03",
+        "Z04",
+        "Z05",
+        "Z06",
+        "Z07",
+        "Z08"
+      ]
+    },
+    {
+      "zone": "Z02",
+      "insideHull": false,
+      "measuredCoreMpa": [
+        25.762653180991283,
+        26.680311385203883,
+        27.63065630742812
+      ],
+      "predictedMinusMeasuredMpa": [
+        -1.3472317664181972,
+        -2.2648899706307972,
+        -3.215234892855033
+      ],
+      "medianMpa": 24.415421414573085,
+      "individualCoreApprox95Mpa": [
+        20.341265573661833,
+        29.305590681783805
+      ],
+      "heldOutCoreIds": [
+        "C2-1",
+        "C2-2",
+        "C2-3"
+      ],
+      "trainingZones": [
+        "Z01",
+        "Z03",
+        "Z04",
+        "Z05",
+        "Z06",
+        "Z07",
+        "Z08"
+      ]
+    },
+    {
+      "zone": "Z03",
+      "insideHull": false,
+      "measuredCoreMpa": [
+        26.43345619893266,
+        28.350098032180263
+      ],
+      "predictedMinusMeasuredMpa": [
+        2.751991267927014,
+        0.8353494346794115
+      ],
+      "medianMpa": 29.185447466859674,
+      "individualCoreApprox95Mpa": [
+        24.09439000125252,
+        35.35222696223256
+      ],
+      "heldOutCoreIds": [
+        "C3-1",
+        "C3-2"
+      ],
+      "trainingZones": [
+        "Z01",
+        "Z02",
+        "Z04",
+        "Z05",
+        "Z06",
+        "Z07",
+        "Z08"
+      ]
+    },
+    {
+      "zone": "Z04",
+      "insideHull": true,
+      "measuredCoreMpa": [
+        30.566763401950958,
+        31.28837393140015,
+        32.027020015100355,
+        32.78310382305437
+      ],
+      "predictedMinusMeasuredMpa": [
+        -0.06852500639280379,
+        -0.7901355358419977,
+        -1.528781619542201,
+        -2.2848654274962144
+      ],
+      "medianMpa": 30.498238395558154,
+      "individualCoreApprox95Mpa": [
+        25.339064676379977,
+        36.70784841949347
+      ],
+      "heldOutCoreIds": [
+        "C4-1",
+        "C4-2",
+        "C4-3",
+        "C4-4"
+      ],
+      "trainingZones": [
+        "Z01",
+        "Z02",
+        "Z03",
+        "Z05",
+        "Z06",
+        "Z07",
+        "Z08"
+      ]
+    },
+    {
+      "zone": "Z05",
+      "insideHull": false,
+      "measuredCoreMpa": [
+        35.28582624102871,
+        37.844337325818
+      ],
+      "predictedMinusMeasuredMpa": [
+        -0.0404115801011784,
+        -2.5989226648904733
+      ],
+      "medianMpa": 35.24541466092753,
+      "individualCoreApprox95Mpa": [
+        28.954866164712055,
+        42.90260737363276
+      ],
+      "heldOutCoreIds": [
+        "C5-1",
+        "C5-2"
+      ],
+      "trainingZones": [
+        "Z01",
+        "Z02",
+        "Z03",
+        "Z04",
+        "Z06",
+        "Z07",
+        "Z08"
+      ]
+    },
+    {
+      "zone": "Z06",
+      "insideHull": false,
+      "measuredCoreMpa": [
+        34.21350450469093,
+        35.432179572162624,
+        36.69426349065902
+      ],
+      "predictedMinusMeasuredMpa": [
+        3.7036138822984768,
+        2.4849388148267835,
+        1.2228548963303894
+      ],
+      "medianMpa": 37.91711838698941,
+      "individualCoreApprox95Mpa": [
+        31.855711367408727,
+        45.13187133670088
+      ],
+      "heldOutCoreIds": [
+        "C6-1",
+        "C6-2",
+        "C6-3"
+      ],
+      "trainingZones": [
+        "Z01",
+        "Z02",
+        "Z03",
+        "Z04",
+        "Z05",
+        "Z07",
+        "Z08"
+      ]
+    },
+    {
+      "zone": "Z07",
+      "insideHull": false,
+      "measuredCoreMpa": [
+        43.14933887342858,
+        46.278018957462756
+      ],
+      "predictedMinusMeasuredMpa": [
+        -1.908171377099002,
+        -5.036851461133175
+      ],
+      "medianMpa": 41.24116749632958,
+      "individualCoreApprox95Mpa": [
+        34.36475561177145,
+        49.49355425876216
+      ],
+      "heldOutCoreIds": [
+        "C7-1",
+        "C7-2"
+      ],
+      "trainingZones": [
+        "Z01",
+        "Z02",
+        "Z03",
+        "Z04",
+        "Z05",
+        "Z06",
+        "Z08"
+      ]
+    },
+    {
+      "zone": "Z08",
+      "insideHull": false,
+      "measuredCoreMpa": [
+        40.87194339679092,
+        41.83683537198425,
+        42.82450621322645,
+        43.83549367681751
+      ],
+      "predictedMinusMeasuredMpa": [
+        3.734240539808276,
+        2.769348564614944,
+        1.781677723372745,
+        0.7706902597816878
+      ],
+      "medianMpa": 44.606183936599194,
+      "individualCoreApprox95Mpa": [
+        36.29213222875164,
+        54.82487589443465
+      ],
+      "heldOutCoreIds": [
+        "C8-1",
+        "C8-2",
+        "C8-3",
+        "C8-4"
+      ],
+      "trainingZones": [
+        "Z01",
+        "Z02",
+        "Z03",
+        "Z04",
+        "Z05",
+        "Z06",
+        "Z07"
+      ]
+    }
+  ]
+}
