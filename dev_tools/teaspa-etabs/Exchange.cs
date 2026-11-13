@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Globalization;
 using ETABSv1;
 
 // A new, standalone model carries only the column and its exchange properties.
@@ -11,7 +10,7 @@ public static class TeaspaExchange {
     public sealed class ModelReadback {
         public string version, units, frame;
         public double widthCm, depthCm, clearCm, i33Cm4, i22Cm4;
-        public int propertyTableVersion, assignmentTableVersion, hingeCount;
+        public int propertyTableVersion, assignmentTableVersion, hingeCount, framesBeforeReopen;
         public double[] axes, hingeRD;
     }
     static void Check(string operation, int rc) {
@@ -54,8 +53,12 @@ public static class TeaspaExchange {
         var model = new ModelReadback();
         model.version = System.Diagnostics.FileVersionInfo.GetVersionInfo(exe).FileVersion;
         if (model.version != "22.3.0.3775") throw new InvalidOperationException("Expected ETABS 22.3.0.3775; found " + model.version);
-        string edb = Path.Combine(folder,"hinge-exchange.edb");
-        if (File.Exists(edb)) throw new IOException("Model already exists: " + edb);
+        string deliverable = Path.Combine(folder,"hinge-exchange.edb");
+        if (File.Exists(deliverable)) throw new IOException("Model already exists: " + deliverable);
+        // Keep CAD sidecar files separate from the delivered model and readback.
+        string work = Path.Combine(Path.GetTempPath(), "teaspa-pm3-" + Guid.NewGuid().ToString("N"));
+        string edb = Path.Combine(work,"hinge-exchange.edb");
+        Directory.CreateDirectory(work);
         cHelper helper = new Helper();
         cOAPI app = helper.CreateObject(exe);
         try {
@@ -76,6 +79,13 @@ public static class TeaspaExchange {
                 Import(m.DatabaseTables,EndTable,Path.Combine(folder,"assign.tsv"),log);
             }
             Check("Save", m.File.Save(edb));
+            if (!File.Exists(edb) || new FileInfo(edb).Length == 0) throw new IOException("Missing saved model.");
+            Check("Clear model", m.InitializeNewModel(eUnits.kgf_cm_C));
+            Check("Blank model", m.File.NewBlank());
+            int frameCount = 0; string[] emptyNames = null;
+            Check("Confirm empty model", m.FrameObj.GetNameList(ref frameCount,ref emptyNames));
+            if (frameCount != 0) throw new InvalidDataException("Model did not clear before readback.");
+            model.framesBeforeReopen = frameCount;
             Check("Reopen", m.File.OpenFile(edb));
             Check("Readback units", m.SetPresentUnits(eUnits.kgf_cm_C));
             model.units = m.GetPresentUnits().ToString();
@@ -99,7 +109,12 @@ public static class TeaspaExchange {
             int[] numbers=null,types=null,behaviors=null; string[] properties=null,sources=null;
             Check("Independent hinge locations",m.FrameObj.GetHingeAssigns(frame,ref model.hingeCount,ref numbers,ref properties,ref types,ref behaviors,ref sources,ref model.hingeRD));
             Array.Sort(model.hingeRD);
+            File.Copy(edb,deliverable,false);
             return model;
-        } finally { Check("Exit standalone ETABS",app.ApplicationExit(false)); }
+        } finally {
+            Check("Exit standalone ETABS",app.ApplicationExit(false));
+            // This newly created GUID directory contains only this instance's scratch files.
+            Directory.Delete(work,true);
+        }
     }
 }
