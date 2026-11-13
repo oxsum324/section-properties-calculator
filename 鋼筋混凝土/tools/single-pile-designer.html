@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>單樁承載力設計器 V3.3</title>
+<title>單樁承載力設計器 V3.4</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
@@ -287,7 +287,7 @@
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <div class="page" role="main">
   <section class="hero">
-    <h1>單樁承載力設計器 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.3</span></h1>
+    <h1>單樁承載力設計器 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.4</span></h1>
     <p>這是一份可獨立分享的單一 HTML。輸入單樁需求與土層資料後，工具會用 <code>Qs + Qb</code>、沉陷與構造限制，自動搜尋建議樁徑與樁深，並列出逐層摩擦力與候選方案。</p>
   </section>
 
@@ -463,15 +463,15 @@
         <h2>細部折減與規範參數</h2>
         <div class="form-grid">
           <div class="form-group">
-            <label for="alphaSoft">黏土/軟岩 α1 (c ≤ 3 tf/m²)</label>
+            <label for="alphaSoft">黏土 α1 (c ≤ 3 tf/m²)</label>
             <input id="alphaSoft" type="number" value="0.90" step="0.01">
           </div>
           <div class="form-group">
-            <label for="alphaMedium">黏土/軟岩 α2 (3 &lt; c ≤ 6)</label>
+            <label for="alphaMedium">黏土 α2 (3 &lt; c ≤ 6)</label>
             <input id="alphaMedium" type="number" value="0.70" step="0.01">
           </div>
           <div class="form-group">
-            <label for="alphaStiff">黏土/軟岩 α3 (c &gt; 6)</label>
+            <label for="alphaStiff">黏土 α3 (c &gt; 6)</label>
             <input id="alphaStiff" type="number" value="0.55" step="0.01">
           </div>
           <div class="form-group">
@@ -495,11 +495,11 @@
             <input id="denseSandFsCap" type="number" value="12" step="0.5">
           </div>
           <div class="form-group">
-            <label for="tipCapDriven">N&gt;50 端承上限 打入樁 (tf/m²)</label>
+            <label for="tipCapDriven">卵礫石端承上限 打入樁 (tf/m²)</label>
             <input id="tipCapDriven" type="number" value="1800" step="10">
           </div>
           <div class="form-group">
-            <label for="tipCapBored">N&gt;50 端承上限 鑽掘樁 (tf/m²)</label>
+            <label for="tipCapBored">卵礫石端承上限 鑽掘樁 (tf/m²)</label>
             <input id="tipCapBored" type="number" value="750" step="10">
           </div>
           <div class="form-group">
@@ -533,10 +533,10 @@
           <textarea id="soilProfile">0, 3, 8, 0, 28, 0.95, sand
 3, 9, 18, 0, 32, 1.00, sand
 9, 15, 32, 0, 36, 1.05, dense sand
-15, 24, 55, 0, 38, 1.10, gravel
-24, 32, 40, 12, 0, 1.20, mudstone</textarea>
+15, 24, 55, 0, 38, 1.10, gravel, 5, 600, 合成填寫範例 A
+24, 32, 40, 12, 0, 1.20, mudstone, 6, 300, 合成填寫範例 B</textarea>
         </div>
-        <p class="hint">砂層端承採臨界深度 <code>20D</code>。若 <code>N &gt; 50</code> 的極緊密砂或卵礫石，會自動套用上限：打入樁 <code>1800 tf/m²</code>、鑽掘樁 <code>750 tf/m²</code>。</p>
+        <p class="hint">土名後可加「專案 fs, 專案 qb, 試樁或地工文件依據」，阻力單位 tf/m²。岩層與卵礫石的樁身、樁端分別取專案值；岩礫層可將未量測的 N、c、φ 留空；只指定 fs 時可將 qb 留空。卵礫石端承原則上限為打入 1800、鑽掘 750 tf/m²。 表 5.3-2 以打入上 4D／下 1D、鑽掘上 1D／下 1D 的完整砂層求平均 N，再取 50 上限。</p>
         <div class="form-grid">
           <button id="btnCalc" type="button">重新試算</button>
           <button id="btnSample" type="button" class="secondary">載入示範資料</button>
@@ -632,7 +632,7 @@
 <script src="../../結構工具箱/core/ui/report-docx.js"></script>
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
-<script src="../shared/foundation-pile.js?v=2"></script>
+<script src="../shared/foundation-pile.js?v=3"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -712,7 +712,7 @@
     },
     'b-031': {
       name: '高捷紅線 R17 B-031',
-      note: '含珊瑚礁岩塊與泥岩，示範深樁搜尋與黏性/軟岩端承。',
+      note: '含珊瑚礁岩塊與泥岩，示範深樁搜尋與岩層資料待補的候選。',
       longTermLoad: 180,
       shortTermLoad: 240,
       factoredLoad: 320,
@@ -824,7 +824,7 @@
       tool: {
         id: 'single-pile-designer',
         name: '單樁承載力設計器',
-        pageVersion: 'V3.3'
+        pageVersion: 'V3.4'
       },
       savedAt: new Date().toISOString(),
       state: captureCurrentState()
@@ -837,7 +837,7 @@
     return window.RCReportFingerprint.validateProjectCalculationSource(source, {
       expectedSchema: PROJECT_SCHEMA,
       expectedToolId: 'single-pile-designer',
-      expectedVersion: normalizeProjectToolVersion(source?.tool?.pageVersion) === 'V3.2' ? 'V3.2' : 'V3.3',
+      expectedVersion: ['V3.2','V3.3'].includes(normalizeProjectToolVersion(source?.tool?.pageVersion)) ? source.tool.pageVersion : 'V3.4',
       sourceKey: 'state'
     });
   }
@@ -846,7 +846,8 @@
     const payload = normalizeProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : buildProjectPayload();
     const state = payload.state;
-    const legacy = normalizeProjectToolVersion(payload.tool.pageVersion) === 'V3.2';
+    const sourceVersion = normalizeProjectToolVersion(payload.tool.pageVersion);
+    const legacy = sourceVersion !== 'V3.4';
     $('toePercent').value = '';
     applyState(state);
     updateModeUi();
@@ -855,8 +856,8 @@
       try {
         const replay = buildProjectPayload();
         if (legacy) {
-          delete replay.state.toePercent;
-          replay.tool.pageVersion = 'V3.2';
+          if (sourceVersion === 'V3.2') delete replay.state.toePercent;
+          replay.tool.pageVersion = payload.tool.pageVersion;
         }
         window.RCReportFingerprint.assertProjectCalculationReplay(payload, window.RCReportFingerprint.withProjectCalculationFingerprint(replay));
       } catch (error) {
@@ -864,7 +865,7 @@
         throw error;
       }
     }
-    if (!options.silent) $('presetSummary').textContent = legacy ? `已核對 V3.2 原始輸入，沉陷已依工作載重重算。` : `已讀取 ${label} 並重現計算｜計算指紋 ${payload.calculationFingerprint}`;
+    if (!options.silent) $('presetSummary').textContent = legacy ? `已核對 ${sourceVersion} 原始輸入，已依 V3.4 的地層與工作載重條件重算，請核對待補項目。` : `已讀取 ${label} 並重現計算｜計算指紋 ${payload.calculationFingerprint}`;
     return payload;
   }
 
@@ -911,54 +912,8 @@
     }
   }
 
-  function inferSoilType(label, c, phi, N) {
-    const raw = String(label || '').toLowerCase();
-    if (/(gravel|礫|卵礫)/.test(raw)) return 'gravel';
-    if (/(clay|黏|silt|粉土|泥岩|mudstone)/.test(raw)) return c > 0 ? 'clay' : 'rock';
-    if (/(sand|砂)/.test(raw)) return 'sand';
-    if (N > 50) return 'gravel';
-    if (c > 0.5 && phi < 28) return 'clay';
-    return 'sand';
-  }
-
   function parseSoilProfile(text) {
-    const lines = String(text || '').split(/\r?\n/);
-    const layers = [];
-    const errors = [];
-    lines.forEach((line, idx) => {
-      const raw = line.trim();
-      if (!raw) return;
-      const parts = raw.split(',').map(v => v.trim());
-      if (parts.length < 6) {
-        errors.push(`第 ${idx + 1} 列欄位不足`);
-        return;
-      }
-      const from = parseFloat(parts[0]);
-      const to = parseFloat(parts[1]);
-      const N = parseFloat(parts[2]);
-      const c = parseFloat(parts[3]);
-      const phi = parseFloat(parts[4]);
-      const gammaEff = parseFloat(parts[5]);
-      const label = parts[6] || '';
-      if (![from, to, N, c, phi, gammaEff].every(Number.isFinite)) {
-        errors.push(`第 ${idx + 1} 列存在空值或非數字`);
-        return;
-      }
-      if (!(from >= 0 && to > from)) {
-        errors.push(`第 ${idx + 1} 列深度區間錯誤`);
-        return;
-      }
-      if (N < 0 || c < 0 || phi < 0 || phi > 50 || gammaEff <= 0 || gammaEff > 3) {
-        errors.push(`第 ${idx + 1} 列參數超出合理範圍`);
-        return;
-      }
-      layers.push({ from, to, N, c, phi, gammaEff, label, type: inferSoilType(label, c, phi, N) });
-    });
-    layers.sort((a, b) => a.from - b.from);
-    for (let i = 1; i < layers.length; i++) {
-      if (layers[i].from < layers[i - 1].to - 1e-9) errors.push(`第 ${i + 1} 層與前一層重疊`);
-    }
-    return { layers, errors };
+    return FoundationPile.parseAxialProfile(text);
   }
 
   function effectiveStressAtDepth(layers, depth) {
@@ -970,10 +925,6 @@
       if (depth <= layer.to) break;
     }
     return sigma;
-  }
-
-  function getLayerAtDepth(layers, depth) {
-    return layers.find(layer => depth > layer.from - 1e-9 && depth <= layer.to + 1e-9) || null;
   }
 
   function interpolateSupportFactor(phi, pileInstall) {
@@ -1053,16 +1004,16 @@
       if (params.safetyFactorLong < DEFAULT_RULES.safetyFactorLong) warnings.push('長期安全係數低於一般保守檢核值 3.0。');
       if (params.safetyFactorShort < DEFAULT_RULES.safetyFactorShort) warnings.push('短期安全係數低於一般保守檢核值 2.0。');
     }
-    if (rules.alphaSoft > DEFAULT_RULES.alphaSoft || rules.alphaMedium > DEFAULT_RULES.alphaMedium || rules.alphaStiff > DEFAULT_RULES.alphaStiff) warnings.push('黏土/軟岩 α 係數高於預設值，樁周摩擦力可能偏樂觀。');
+    if (rules.alphaSoft > DEFAULT_RULES.alphaSoft || rules.alphaMedium > DEFAULT_RULES.alphaMedium || rules.alphaStiff > DEFAULT_RULES.alphaStiff) warnings.push('黏土 α 係數高於預設值，樁周摩擦力可能偏樂觀。');
     if (rules.sandKDriven > DEFAULT_RULES.sandKDriven || rules.sandKBored > DEFAULT_RULES.sandKBored) warnings.push('砂層 K 值高於預設值，樁周摩擦力可能偏樂觀。');
     if (rules.deltaRatio > DEFAULT_RULES.deltaRatio) warnings.push('δ/φ 比例高於預設 0.75，請確認是否符合專案採用設計法。');
     if (rules.sandFsCap > DEFAULT_RULES.sandFsCap || rules.denseSandFsCap > DEFAULT_RULES.denseSandFsCap) warnings.push('砂層 fs 上限高於預設值，請確認是否符合地工報告。');
-    if (rules.tipCapDriven > DEFAULT_RULES.tipCapDriven || rules.tipCapBored > DEFAULT_RULES.tipCapBored) warnings.push('N>50 端承上限高於目前採用值，可能不保守。');
-    if (params.calcMode === 'regulation' && params.regulationMethod === 'nvalue') warnings.push('規範 N 值經驗式僅適用砂性土；遇礫石層、岩盤或高 N 值特殊地層時，應依試樁或當地經驗另行評估。');
+    if (rules.tipCapDriven > DEFAULT_RULES.tipCapDriven || rules.tipCapBored > DEFAULT_RULES.tipCapBored) warnings.push('卵礫石端承上限高於目前採用值，可能不保守。');
+    if (params.calcMode === 'regulation' && params.regulationMethod === 'nvalue') notes.push('表 5.3-2 適用砂性土。其他地層的阻力須另列專案依據。');
     if (params.calcMode === 'regulation' && params.regulationMethod === 'static') notes.push('規範靜力學公式中，黏土樁周摩擦採 α·c；砂層樁周摩擦採 K·σ\'v·tanδ；砂層端承採 Nq* 與 20D 臨界深度。');
     if (params.calcMode === 'code') notes.push('一般工程模式採靜力學公式與工程參數推估，使用 20D 臨界深度、K·σ\'v·tanδ、α·c 與端承上限等保守控制；它不是 112 規範表 5.3-1 的嚴格分項 FS 模式。');
-    notes.push('砂層端承採 20D 臨界深度；N>50 極緊密砂/卵礫石端承套用上限；砂層周摩擦採 K·σ\'v·tanδ 並受 fs 上限控制。');
-    notes.push('黏土/軟岩周摩擦採 α·c；若地工報告另有 β 法、λ 法、層別折減或試樁回饋，應以專案值覆寫。');
+    notes.push('卵礫石採專案 qb 並檢查端承上限；岩層依專案阻力。');
+    notes.push('黏土周摩擦採 α·c；若地工報告另有 β 法、λ 法、層別折減或試樁回饋，應以專案值覆寫。');
     if (params.calcMode === 'simplified') notes.push(`簡化模式採 Qa = Qb/FS1 + Qs/FS2，Ra = Qs/FS + Wp；目前常時 FS1/FS2 = ${rules.simpleFs1Long.toFixed(2)} / ${rules.simpleFs2Long.toFixed(2)}，短期 FS1/FS2 = ${rules.simpleFs1Short.toFixed(2)} / ${rules.simpleFs2Short.toFixed(2)}，抗拔 FS = ${rules.upliftSafetyFactor.toFixed(2)}。`);
     return { ok: warnings.length === 0, notes, warnings };
   }
@@ -1082,8 +1033,9 @@
       const segLen = Math.max(0, Math.min(pileLength, layer.to) - layer.from);
       if (segLen <= 0) continue;
       let fs = 0;
-      if (layer.type === 'clay' || layer.type === 'rock') {
-        const su = Math.max(layer.c, layer.type === 'rock' ? 8 : layer.c);
+      if (layer.fsInput != null) fs = layer.fsInput;
+      else if (layer.type === 'clay') {
+        const su = layer.c;
         fs = 0.45 * su;
       } else {
         fs = Math.min(layer.N / 3, params.rules.denseSandFsCap);
@@ -1092,10 +1044,11 @@
       Qs += dQs;
       segments.push({ ...layer, segLen, fs, dQs, accumQs: Qs });
     }
-    const tipLayer = getLayerAtDepth(layers, pileLength);
+    const tipLayer = FoundationPile.requireToe(layers,pileLength);
     if (tipLayer) {
-      if (tipLayer.type === 'clay' || tipLayer.type === 'rock') {
-        Qb = 6 * Math.max(tipLayer.c, tipLayer.type === 'rock' ? 20 : tipLayer.c) * pileArea_m2;
+      if (tipLayer.qbInput != null) Qb = FoundationPile.projectTip(tipLayer,pileInstall,params.rules).qbUlt * pileArea_m2;
+      else if (tipLayer.type === 'clay') {
+        Qb = 6 * tipLayer.c * pileArea_m2;
       } else {
         const qb = (pileInstall === 'bored' ? 7.5 : 30) * Math.min(tipLayer.N, 50);
         Qb = qb * pileArea_m2;
@@ -1121,16 +1074,12 @@
       const segLen = Math.max(0, Math.min(pileLength, layer.to) - layer.from);
       if (segLen <= 0) continue;
       let fs = 0;
-      if (method === 'nvalue') {
-        if (layer.type !== 'sand' && layer.type !== 'gravel') {
-          fs = 0;
-        } else if (pileInstall === 'driven' || pileInstall === 'bored') {
-          fs = Math.min(layer.N / 3, 15);
-        }
-      } else {
-        if (layer.type === 'clay' || layer.type === 'rock') {
+      if (layer.fsInput != null) fs = layer.fsInput;
+      else if (method === 'nvalue') fs = Math.min(layer.N/3,15);
+      else {
+        if (layer.type === 'clay') {
           const alpha = layer.c <= 3 ? params.rules.alphaSoft : layer.c <= 6 ? params.rules.alphaMedium : params.rules.alphaStiff;
-          fs = alpha * Math.max(layer.c, layer.type === 'rock' ? 8 : layer.c);
+          fs = alpha * layer.c;
         } else {
           const zMid = layer.from + segLen / 2;
           const sigmaMid = effectiveStressAtDepth(layers, Math.min(zMid, 20 * pileD_m));
@@ -1144,40 +1093,19 @@
       segments.push({ ...layer, segLen, fs, dQs, accumQs: Qs });
     }
 
-    const tipLayer = getLayerAtDepth(layers, pileLength);
+    const tipLayer = FoundationPile.requireToe(layers,pileLength,method === 'nvalue');
+    const averageN = method === 'nvalue' && tipLayer.qbInput == null ? FoundationPile.nValueTip(layers,pileLength,pileD_m,pileInstall) : null;
     let Qb = 0;
     let qbUlt = 0;
-    let capApplied = false;
-    let capValue = null;
     const criticalDepth = Math.min(pileLength, 20 * pileD_m);
     const sigmaCrit = effectiveStressAtDepth(layers, criticalDepth);
     if (tipLayer) {
-      if (method === 'nvalue') {
-        if (tipLayer.type === 'sand' || tipLayer.type === 'gravel') {
-          const influenceFrom = pileInstall === 'driven' ? Math.max(0, pileLength - 4 * pileD_m) : Math.max(0, pileLength - 1 * pileD_m);
-          const influenceTo = pileLength + 1 * pileD_m;
-          const influenceLayers = layers.filter(layer => layer.to > influenceFrom && layer.from < influenceTo);
-          const weighted = influenceLayers.reduce((acc, layer) => {
-            const len = Math.max(0, Math.min(influenceTo, layer.to) - Math.max(influenceFrom, layer.from));
-            if (len <= 0) return acc;
-            return { sum: acc.sum + Math.min(layer.N, 50) * len, len: acc.len + len };
-          }, { sum: 0, len: 0 });
-          const avgN = weighted.len > 0 ? Math.min(50, weighted.sum / weighted.len) : Math.min(50, tipLayer.N);
-          qbUlt = (pileInstall === 'driven' ? 30 : 7.5) * avgN;
-        } else {
-          qbUlt = 0;
-        }
-      } else if (tipLayer.type === 'clay' || tipLayer.type === 'rock') {
-        qbUlt = (pileInstall === 'driven' ? 9 : 6) * Math.max(tipLayer.c, tipLayer.type === 'rock' ? 20 : tipLayer.c);
-      } else {
+      if (tipLayer.qbInput != null) qbUlt = FoundationPile.projectTip(tipLayer,pileInstall,params.rules).qbUlt;
+      else if (averageN) qbUlt = averageN.qbUlt;
+      else if (tipLayer.type === 'clay') qbUlt = (pileInstall === 'driven' ? 9 : 6)*tipLayer.c;
+      else {
         qbUlt = sigmaCrit * interpolateSupportFactor(tipLayer.phi, pileInstall);
-        if (tipLayer.N > 50 || tipLayer.type === 'gravel') {
-          capValue = pileInstall === 'driven' ? params.rules.tipCapDriven : params.rules.tipCapBored;
-          if (qbUlt > capValue) {
-            qbUlt = capValue;
-            capApplied = true;
-          }
-        }
+
       }
       Qb = qbUlt * pileArea_m2;
     }
@@ -1187,9 +1115,8 @@
       Qb,
       qbUlt,
       segments,
+      averageN,
       tipLayer,
-      capApplied,
-      capValue,
       criticalDepth,
       sigmaCrit,
       qaLong: Qs / REGULATION_FACTORS.vertical.normal.Fs1 + Qb / REGULATION_FACTORS.vertical.normal.Fs2,
@@ -1203,36 +1130,23 @@
     const pileD_m = diaCm / 100;
     const pileArea_m2 = Math.PI * pileD_m * pileD_m / 4;
     const pilePerimeter_m = Math.PI * pileD_m;
-    const skin = integrateSkin(layers, depthM, pileD_m, params.pileInstall, params.rules);
-    const tip = calcTipResistance(layers, depthM, pileD_m, params.pileInstall, params.rules);
-    const simplified = calcSimplifiedResistance(layers, depthM, pileD_m, pileArea_m2, pilePerimeter_m, params.pileInstall, params);
-    const regulation = calcRegulationResistance(layers, depthM, pileD_m, pileArea_m2, pilePerimeter_m, params.pileInstall, params);
-    const activeSkin = params.calcMode === 'simplified'
-      ? { Qs: simplified.Qs, segments: simplified.segments }
-      : params.calcMode === 'regulation'
-        ? { Qs: regulation.Qs, segments: regulation.segments }
-        : skin;
-    const activeTip = params.calcMode === 'simplified'
-      ? {
-          Qb: simplified.Qb,
-          qbUlt: pileArea_m2 > 0 ? simplified.Qb / pileArea_m2 : 0,
-          tipLayer: simplified.tipLayer,
-          capApplied: false,
-          capValue: null,
-          criticalDepth: Math.min(depthM, 20 * pileD_m),
-          sigmaCrit: effectiveStressAtDepth(layers, Math.min(depthM, 20 * pileD_m))
-        }
-      : params.calcMode === 'regulation'
-        ? {
-            Qb: regulation.Qb,
-            qbUlt: regulation.qbUlt,
-            tipLayer: regulation.tipLayer,
-            capApplied: regulation.capApplied,
-            capValue: regulation.capValue,
-            criticalDepth: regulation.criticalDepth,
-            sigmaCrit: regulation.sigmaCrit
-          }
-        : tip;
+    const sandOnly = params.calcMode === 'regulation' && params.regulationMethod === 'nvalue';
+    FoundationPile.requireShaft(layers,depthM,sandOnly);
+    const tipLayer = FoundationPile.requireToe(layers,depthM,sandOnly);
+    let activeSkin, activeTip, methodResult;
+    if (params.calcMode === 'code') {
+      activeSkin = integrateSkin(layers,depthM,pileD_m,params.pileInstall,params.rules);
+      activeTip = calcTipResistance(layers,depthM,pileD_m,params.pileInstall,params.rules);
+    } else {
+      const solve = params.calcMode === 'simplified' ? calcSimplifiedResistance : calcRegulationResistance;
+      methodResult = solve(layers,depthM,pileD_m,pileArea_m2,pilePerimeter_m,params.pileInstall,params);
+      activeSkin = {Qs:methodResult.Qs,segments:methodResult.segments};
+      const criticalDepth = Math.min(depthM,20*pileD_m);
+      activeTip = {tipLayer,Qb:methodResult.Qb,qbUlt:methodResult.Qb/pileArea_m2,
+        criticalDepth,sigmaCrit:effectiveStressAtDepth(layers,criticalDepth),
+        capApplied:false,capValue:null,averageN:methodResult.averageN || null};
+      if (tipLayer.qbInput != null) Object.assign(activeTip,FoundationPile.projectTip(tipLayer,params.pileInstall,params.rules));
+    }
     const settlement = FoundationPile.workingSettlement({
       serviceLoad: params.longTermLoad, toePercent: params.toePercent, allowable: params.allowSettlement,
       Qb: activeTip.Qb,
@@ -1249,26 +1163,10 @@
       qbUlt: activeTip.qbUlt
     });
     const Qult = activeSkin.Qs + activeTip.Qb;
-    const QallLong = params.calcMode === 'simplified'
-      ? simplified.qaLong
-      : params.calcMode === 'regulation'
-        ? regulation.qaLong
-        : Qult / params.safetyFactorLong;
-    const QallShort = params.calcMode === 'simplified'
-      ? simplified.qaShort
-      : params.calcMode === 'regulation'
-        ? regulation.qaShort
-        : Qult / params.safetyFactorShort;
-    const upliftRa = params.calcMode === 'simplified'
-      ? simplified.upliftRa
-      : params.calcMode === 'regulation'
-        ? regulation.upliftRa
-        : activeSkin.Qs / params.rules.upliftSafetyFactor + params.rules.unitWeightPile * depthM * pileArea_m2;
-    const upliftWp = params.calcMode === 'simplified'
-      ? simplified.upliftWp
-      : params.calcMode === 'regulation'
-        ? regulation.upliftWp
-        : params.rules.unitWeightPile * depthM * pileArea_m2;
+    const QallLong = methodResult ? methodResult.qaLong : Qult/params.safetyFactorLong;
+    const QallShort = methodResult ? methodResult.qaShort : Qult/params.safetyFactorShort;
+    const upliftWp = methodResult ? methodResult.upliftWp : params.rules.unitWeightPile*depthM*pileArea_m2;
+    const upliftRa = methodResult ? methodResult.upliftRa : activeSkin.Qs/params.rules.upliftSafetyFactor + upliftWp;
     const stress = (params.factoredLoad * 1000) / Math.max(Math.PI * Math.pow(diaCm / 2, 2), 1e-6);
     const stressAllow = 0.7 * 0.85 * 0.85 * params.fc;
     const structural = checkStructural(params.pileType, diaCm);
@@ -1300,7 +1198,12 @@
     const depthStep = safePositive(params.depthStep, 0.5);
     for (let dia = diaMin; dia <= diaMax + 1e-9; dia += diaStep) {
       for (let depth = params.depthMin; depth <= params.depthMax + 1e-9; depth += depthStep) {
-        rows.push(evaluateCandidate(dia, Number(depth.toFixed(2)), layers, params));
+        const depthM = Number(depth.toFixed(2));
+        try { rows.push(evaluateCandidate(dia,depthM,layers,params)); }
+        catch (err) {
+          if (!(err instanceof FoundationPile.GroundDataError)) throw err;
+          rows.push({diaCm:dia,depthM,groundIssue:err.message,pass:false,reasons:[err.message]});
+        }
       }
     }
     return rows;
@@ -1318,6 +1221,7 @@
 
   function chooseDisplayCandidate(candidates, best, params) {
     if (best) return best;
+    candidates = candidates.filter(row => !row.groundIssue);
     if (!candidates.length) return null;
     const awaiting = candidates.find(c => c.settlementPending);
     if (awaiting) return awaiting;
@@ -1367,31 +1271,34 @@
       tr.innerHTML = `
         <td>L${idx + 1}</td>
         <td>${seg.from.toFixed(1)}-${Math.min(seg.to, candidate.depthM).toFixed(1)} m</td>
-        <td>${seg.label || seg.type}</td>
-        <td>${seg.N.toFixed(0)}</td>
-        <td>${seg.c.toFixed(2)}</td>
-        <td>${seg.phi.toFixed(1)}</td>
+        <td></td>
+        <td>${Number.isFinite(seg.N) ? seg.N.toFixed(0) : '—'}</td>
+        <td>${Number.isFinite(seg.c) ? seg.c.toFixed(2) : '—'}</td>
+        <td>${Number.isFinite(seg.phi) ? seg.phi.toFixed(1) : '—'}</td>
         <td>${seg.gammaEff.toFixed(2)}</td>
         <td>${seg.fs.toFixed(2)}</td>
         <td>${seg.dQs.toFixed(2)}</td>
         <td>${seg.accumQs.toFixed(2)}</td>`;
+      tr.cells[2].textContent = seg.label || seg.type;
       tbody.appendChild(tr);
     });
     const tip = candidate.tip;
+    if (note) note.textContent += ' ' + FoundationPile.axialBasis(candidate.skin,tip);
     if (tip.tipLayer) {
       const tr = document.createElement('tr');
       tr.className = 'control-row';
       tr.innerHTML = `
         <td>Tip</td>
         <td>${candidate.depthM.toFixed(1)} m</td>
-        <td>${tip.tipLayer.label || tip.tipLayer.type}</td>
-        <td>${tip.tipLayer.N.toFixed(0)}</td>
-        <td>${tip.tipLayer.c.toFixed(2)}</td>
-        <td>${tip.tipLayer.phi.toFixed(1)}</td>
+        <td></td>
+        <td>${Number.isFinite(tip.tipLayer.N) ? tip.tipLayer.N.toFixed(0) : '—'}</td>
+        <td>${Number.isFinite(tip.tipLayer.c) ? tip.tipLayer.c.toFixed(2) : '—'}</td>
+        <td>${Number.isFinite(tip.tipLayer.phi) ? tip.tipLayer.phi.toFixed(1) : '—'}</td>
         <td>${tip.tipLayer.gammaEff.toFixed(2)}</td>
         <td>qb=${tip.qbUlt.toFixed(1)}</td>
         <td>Qb=${tip.Qb.toFixed(2)}</td>
         <td>Qult=${candidate.Qult.toFixed(2)}</td>`;
+      tr.cells[2].textContent = tip.tipLayer.label || tip.tipLayer.type;
       tbody.appendChild(tr);
     }
   }
@@ -1405,6 +1312,11 @@
     }
     candidates.forEach(item => {
       const tr = document.createElement('tr');
+      if (item.groundIssue) {
+        for (const text of ['待補',item.diaCm,item.depthM,'—','—','—','—','—',item.groundIssue]) tr.insertCell().textContent = text;
+        tbody.appendChild(tr);
+        return;
+      }
       if (item.pass) tr.classList.add('pass-row');
       if (best && item.diaCm === best.diaCm && Math.abs(item.depthM - best.depthM) < 1e-9) tr.classList.add('control-row');
       tr.innerHTML = `
@@ -1415,14 +1327,18 @@
         <td>${item.tip.Qb.toFixed(2)}</td>
         <td>${item.QallLong.toFixed(2)} / ${item.QallShort.toFixed(2)}</td>
         <td>${FoundationPile.settlementRange(item.settlement)}</td>
-        <td>${item.tip.tipLayer ? (item.tip.tipLayer.label || item.tip.tipLayer.type) : '—'}</td>
+        <td></td>
         <td>${item.reasons.join('、')}</td>`;
+      tr.cells[7].textContent = item.tip.tipLayer?.label || item.tip.tipLayer?.type || '—';
       tbody.appendChild(tr);
     });
   }
 
   function buildSummary(best, params, parsed, candidates, compliance) {
     if (!best) {
+      const unavailable = candidates.filter(c => c.groundIssue);
+      candidates = candidates.filter(c => !c.groundIssue);
+      if (!candidates.length && unavailable.length) return '候選地層資料待補：' + unavailable[0].groundIssue;
       const pending = candidates.find(c => c.settlementPending);
       if (pending) return '承載與樁身符合的候選方案仍須確認沉陷。' + FoundationPile.settlementBasis(pending.settlement);
       const maxQallLong = candidates.length ? Math.max(...candidates.map(c => c.QallLong)) : 0;
@@ -1474,12 +1390,12 @@ ${gainText}`;
       phi: layer.phi,
       gammaEff: layer.gammaEff,
       label: layer.label,
-      type: layer.type
+      type: layer.type, fsInput:layer.fsInput, qbInput:layer.qbInput, basis:layer.basis
     };
   }
 
   function serializeCandidate(candidate) {
-    if (!candidate) return null;
+    if (!candidate || candidate.groundIssue) return candidate;
     return {
       diaCm: candidate.diaCm,
       depthM: candidate.depthM,
@@ -1513,6 +1429,7 @@ ${gainText}`;
         Qb: candidate.tip.Qb,
         qbUlt: candidate.tip.qbUlt,
         tipLayer: serializeLayer(candidate.tip.tipLayer),
+        averageN: candidate.tip.averageN || null,
         capApplied: candidate.tip.capApplied,
         capValue: candidate.tip.capValue,
         criticalDepth: candidate.tip.criticalDepth,
@@ -1535,6 +1452,7 @@ ${gainText}`;
     return [
       '狀態 | D(cm) | L(m) | Qs(tf) | Qb(tf) | Qall 長/短(tf) | Wo(cm) | 控制層 | 判讀',
       ...rows.map(item => {
+        if (item.groundIssue) return ['待補',item.diaCm,item.depthM,'—','—','—','—','—',item.groundIssue].join(' | ');
         const isBest = best && item.diaCm === best.diaCm && Math.abs(item.depthM - best.depthM) < 1e-9;
         const status = isBest ? '採用' : item.pass ? '通過' : item.settlementPending ? '待確認' : '未通過';
         return `${status} | ${item.diaCm} | ${RCUI.formatFinite(item.depthM, 1)} | ${RCUI.formatFinite(item.skin.Qs)} | ${RCUI.formatFinite(item.tip.Qb)} | ${RCUI.formatFinite(item.QallLong)} / ${RCUI.formatFinite(item.QallShort)} | ${FoundationPile.settlementRange(item.settlement)} | ${layerLabel(item.tip.tipLayer)} | ${(item.reasons || []).join('、')}`;
@@ -1548,11 +1466,12 @@ ${gainText}`;
       '層次 | 深度(m) | 土層 | N | c | φ | γ\' | fs(tf/m²) | ΔQs(tf) | 累計Qs(tf)'
     ];
     (candidate.skin.segments || []).forEach((seg, idx) => {
-      rows.push(`L${idx + 1} | ${RCUI.formatFinite(seg.from, 1)}-${RCUI.formatFinite(Math.min(seg.to, candidate.depthM), 1)} | ${layerLabel(seg)} | ${RCUI.formatFinite(seg.N, 0)} | ${RCUI.formatFinite(seg.c)} | ${RCUI.formatFinite(seg.phi, 1)} | ${RCUI.formatFinite(seg.gammaEff)} | ${RCUI.formatFinite(seg.fs)} | ${RCUI.formatFinite(seg.dQs)} | ${RCUI.formatFinite(seg.accumQs)}`);
+      rows.push(`L${idx + 1} | ${RCUI.formatFinite(seg.from, 1)}-${RCUI.formatFinite(Math.min(seg.to, candidate.depthM), 1)} | ${layerLabel(seg)} | ${seg.N == null ? '—' : RCUI.formatFinite(seg.N, 0)} | ${seg.c == null ? '—' : RCUI.formatFinite(seg.c)} | ${seg.phi == null ? '—' : RCUI.formatFinite(seg.phi, 1)} | ${RCUI.formatFinite(seg.gammaEff)} | ${RCUI.formatFinite(seg.fs)} | ${RCUI.formatFinite(seg.dQs)} | ${RCUI.formatFinite(seg.accumQs)}`);
     });
     if (candidate.tip.tipLayer) {
-      rows.push(`Tip | ${RCUI.formatFinite(candidate.depthM, 1)} | ${layerLabel(candidate.tip.tipLayer)} | ${RCUI.formatFinite(candidate.tip.tipLayer.N, 0)} | ${RCUI.formatFinite(candidate.tip.tipLayer.c)} | ${RCUI.formatFinite(candidate.tip.tipLayer.phi, 1)} | ${RCUI.formatFinite(candidate.tip.tipLayer.gammaEff)} | qb=${RCUI.formatFinite(candidate.tip.qbUlt, 1)} | Qb=${RCUI.formatFinite(candidate.tip.Qb)} | Qult=${RCUI.formatFinite(candidate.Qult)}`);
+      rows.push(`Tip | ${RCUI.formatFinite(candidate.depthM, 1)} | ${layerLabel(candidate.tip.tipLayer)} | ${candidate.tip.tipLayer.N == null ? '—' : RCUI.formatFinite(candidate.tip.tipLayer.N, 0)} | ${candidate.tip.tipLayer.c == null ? '—' : RCUI.formatFinite(candidate.tip.tipLayer.c)} | ${candidate.tip.tipLayer.phi == null ? '—' : RCUI.formatFinite(candidate.tip.tipLayer.phi, 1)} | ${RCUI.formatFinite(candidate.tip.tipLayer.gammaEff)} | qb=${RCUI.formatFinite(candidate.tip.qbUlt, 1)} | Qb=${RCUI.formatFinite(candidate.tip.Qb)} | Qult=${RCUI.formatFinite(candidate.Qult)}`);
     }
+    rows.push(FoundationPile.axialBasis(candidate.skin,candidate.tip));
     return rows.join('\n');
   }
 
@@ -1582,7 +1501,7 @@ ${gainText}`;
       const ly = 68 + idx * 36;
       return `<rect x="${legendX}" y="${ly - 10}" width="12" height="12" fill="${colors[idx % colors.length]}" stroke="#94a3b8"/>
         <text x="${legendX + 18}" y="${ly}" font-size="11" font-weight="700" fill="#1f2937">${esc(layerLabel(layer)).slice(0, 18)}</text>
-        <text x="${legendX + 18}" y="${ly + 14}" font-size="10" fill="#475569">z=${RCUI.formatFinite(layer.from, 1)}-${RCUI.formatFinite(layer.to, 1)}m, N=${RCUI.formatFinite(layer.N, 0)}, c=${RCUI.formatFinite(layer.c, 1)}, φ=${RCUI.formatFinite(layer.phi, 0)}</text>`;
+        <text x="${legendX + 18}" y="${ly + 14}" font-size="10" fill="#475569">z=${RCUI.formatFinite(layer.from, 1)}-${RCUI.formatFinite(layer.to, 1)}m, N=${layer.N == null ? '—' : RCUI.formatFinite(layer.N, 0)}, c=${layer.c == null ? '—' : RCUI.formatFinite(layer.c, 1)}, φ=${layer.phi == null ? '—' : RCUI.formatFinite(layer.phi, 0)}</text>`;
     }).join('');
     const pileTop = y(0);
     const pileBottom = y(candidate.depthM);
@@ -1702,7 +1621,7 @@ ${gainText}`;
     openReport({
       title: '單樁承載力設計計算書',
       textExport: true,
-      outputSource: { tool: '單樁承載力設計器', version: 'V3.3' },
+      outputSource: { tool: '單樁承載力設計器', version: 'V3.4' },
       subtitle: '單樁承載力、沉陷與樁身壓應力檢核',
       calculationFingerprint: projectSnapshot.calculationFingerprint,
       project: proj,
@@ -1844,13 +1763,21 @@ ${gainText}`;
     const compliance = buildCompliance(params.rules, params);
     const bannerOk = !!best;
     const reviewWarnings = collectSinglePileReviewWarnings(params, compliance, safetyFactorOrderWarning);
-    const unresolved = !best && displayCandidate?.settlementPending;
-    if (unresolved) reviewWarnings.push('工作分配或沉陷參數待確認');
+    const groundPending = candidates.filter(c => c.groundIssue);
+    if (groundPending.length) {
+      const note = groundPending.length + ' 個候選的地層依據待補，詳候選表。';
+      const mayChangeSelection = !best || groundPending.some(row => row.diaCm < best.diaCm ||
+        (row.diaCm === best.diaCm && row.depthM < best.depthM));
+      if (mayChangeSelection) reviewWarnings.push(note);
+      else compliance.notes.push(note);
+    }
+    const unresolved = !best && (!!displayCandidate?.settlementPending || groundPending.length > 0);
+    if (displayCandidate?.settlementPending) reviewWarnings.push('工作分配或沉陷參數待確認');
     const complianceWarningCount = reviewWarnings.length;
     const summaryOk = bannerOk ? (complianceWarningCount ? null : true) : unresolved ? null : false;
     const summaryText = summaryOk === true ? '✓ OK' : (summaryOk === false ? '✗ NG' : '⚠ 需人工複核');
     if (!bannerOk) {
-      banner.textContent = unresolved ? '單樁承載與樁身檢核通過，沉陷待確認' : '目前搜尋範圍內沒有完全通過的方案';
+      banner.textContent = groundPending.length ? '搜尋範圍內尚無可採用方案，地層待補' : unresolved ? '單樁承載與樁身檢核通過，沉陷待確認' : '目前搜尋範圍內沒有完全通過的方案';
       banner.className = unresolved ? 'banner warn' : 'banner bad';
     } else if (complianceWarningCount) {
       banner.textContent = bannerOk
@@ -1905,6 +1832,7 @@ ${reviewWarnings.length ? `\n需要複核：\n- ${reviewWarnings.join('\n- ')}` 
       complianceText: $('complianceSummary').textContent,
       bestCandidate: serializeCandidate(best),
       displayCandidate: serializeCandidate(displayCandidate),
+      errors: !displayCandidate && groundPending.length ? [...new Set(groundPending.map(c => c.groundIssue))] : [],
       candidates: candidates.map(serializeCandidate),
       recommendation: best ? {
         diaCm: best.diaCm,
@@ -1986,8 +1914,8 @@ ${preset.note}
     $('soilProfile').value = `0, 4, 6, 3.5, 0, 0.95, silty clay
 4, 10, 12, 0, 30, 0.98, fine sand
 10, 18, 22, 0, 33, 1.02, dense sand
-18, 24, 60, 0, 38, 1.10, gravel
-24, 35, 50, 18, 0, 1.20, mudstone`;
+18, 24, 60, 0, 38, 1.10, gravel, 5, 600, 合成填寫範例 A
+24, 35, 50, 18, 0, 1.20, mudstone, 6, 300, 合成填寫範例 B`;
     calc();
   }
 

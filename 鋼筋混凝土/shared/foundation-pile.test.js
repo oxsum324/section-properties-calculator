@@ -6,6 +6,36 @@ function near(actual, expected, tolerance, label) {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: expected ${expected}, got ${actual}`);
 }
 
+// §5.3.1 and Table 5.3-2. For the 1 m bored pile, the last metre above
+// the toe has N=10 and the first metre below N=80. Limit the average, not each reading.
+{
+  const profile = FoundationPile.parseAxialProfile('0,10,10,0,30,1,sand\n10,14,80,0,30,1,砂土');
+  assert.deepEqual(profile.errors,[]);
+  const [top,bottom] = profile.layers;
+  const window = FoundationPile.nValueTip(profile.layers,10,1,'bored');
+  assert.deepEqual([window.mean,window.adopted,window.qbUlt],[45,45,337.5]);
+  near(FoundationPile.nValueTip(profile.layers,10,1,'driven').qbUlt,720,1e-10,'4D above and 1D below');
+  assert.equal(FoundationPile.nValueTip([{...top,N:99},{...bottom,N:99}],10,1,'bored').qbUlt,375);
+  assert.throws(()=>FoundationPile.nValueTip([top],10,1,'bored'),/資料不足/);
+  assert.throws(()=>FoundationPile.nValueTip([top,{...bottom,from:10.1}],10,1,'bored'),/連續/);
+  assert.throws(()=>FoundationPile.nValueTip([top,{...bottom,type:'gravel'}],10,1,'bored'),/砂性土/);
+  assert.equal(FoundationPile.getLayerAtDepth(profile.layers,10),bottom);
+  const rock = FoundationPile.parseAxialProfile('0,15,50,0,30,1,砂岩').layers[0];
+  assert.equal(rock.type,'rock');
+  const unknownInputs=FoundationPile.parseAxialProfile('0,15,,,,1,頁岩,0,900,試樁 R01');
+  assert.deepEqual(unknownInputs.errors,[]);
+  assert.equal(unknownInputs.layers[0].N,null);
+  assert.equal(FoundationPile.calculateTipResistance(unknownInputs.layers,10,1,'bored').qbUlt,900);
+
+  assert.throws(()=>FoundationPile.calculateTipResistance([rock],10,1,'bored'),/專案|依據/);
+  assert.throws(()=>FoundationPile.integrateSkinFriction([rock],10,1,'bored'),/樁周/);
+  const specified = {...rock,fsInput:0,qbInput:900,basis:'測試紀錄'};
+  const capacity = FoundationPile.calculateAxialCapacity({layers:[specified],pileLength:10,pileDiameterM:1,pileInstall:'bored',safetyFactor:3});
+  near(capacity.Qult,900*Math.PI/4,1e-9,'independent rock inputs including zero shaft resistance');
+  assert.equal(FoundationPile.calculateTipResistance([{...specified,type:'gravel'}],10,1,'bored').qbUlt,750);
+  assert.ok(FoundationPile.parseAxialProfile('0,15,50,0,30,1,砂岩,5,900,').errors.length);
+}
+
 const layers = [{ from:0, to:10, N:0, c:5, phi:0, gammaEff:1.8, type:'clay' }];
 const capacity = FoundationPile.calculateAxialCapacity({
   layers, pileLength:10, pileDiameterM:0.5, pileInstall:'drilled', safetyFactor:2.5

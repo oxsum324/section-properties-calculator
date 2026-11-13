@@ -366,7 +366,7 @@ async function main() {
         caseKey: key,
         label: `${key} single pile report`,
         assert,
-        expectedFragments: ['單樁承載力設計計算書', '產出工具：單樁承載力設計器', '工具版本：V3.3'],
+        expectedFragments: ['單樁承載力設計計算書', '產出工具：單樁承載力設計器', '工具版本：V3.4'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {

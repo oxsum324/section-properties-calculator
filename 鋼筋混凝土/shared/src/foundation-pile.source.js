@@ -12,8 +12,139 @@
   // 樁帽混凝土剪力（單向表 22.5.5.1(c)、雙向 22.6.5.2）與尺寸效應 λs 由 foundation-isolated.js 之共用函式提供；
   // 樁帽由基樁支撐，不屬 13.2.6.2 可免計 λs 之淺基礎或擋土牆，λs 依 22.5.5.1.3 計算。
 
+  const depthTolerance = 1e-9;
+
+  // A toe exactly on an interface bears on the layer below. At the final
+  // investigated depth only the overlying material is known.
   function getLayerAtDepth(layers, depth) {
-    return layers.find(layer => depth >= layer.from - 1e-9 && depth <= layer.to + 1e-9) || null;
+    return layers.find(layer => depth >= layer.from && depth < layer.to)
+      || (layers.at(-1)?.to === depth ? layers.at(-1) : null);
+  }
+
+  function soilType(label) {
+    const name = String(label || '').trim().toLowerCase().split(/偶夾|夾| with /)[0];
+    if (/岩|rock|shale|sandstone|siltstone|mudstone|limestone|granite|basalt|slate/.test(name)) return 'rock';
+    // Use the principal soil in the description (砂質粉土 and 粉土質砂 differ).
+    const chinese = name.match(/卵石|礫(?:石)?|黏土|粘土|粉土|砂|沙土/g);
+    if (chinese) {
+      const primary = chinese.at(-1);
+      if (/礫|卵石/.test(primary)) return 'gravel';
+      return /砂|沙土/.test(primary) ? 'sand' : 'clay';
+    }
+    const english = name.match(/\b(?:gravel|cobbles?|clay|silt|sand)\b/g);
+    if (english) {
+      const primary = english.at(-1);
+      if (/gravel|cobble/.test(primary)) return 'gravel';
+      return primary === 'sand' ? 'sand' : 'clay';
+    }
+    return 'unknown';
+  }
+
+  function parseAxialProfile(text) {
+    const layers = [], errors = [];
+    for (const [i, line] of String(text || '').split(/\r?\n/).entries()) {
+      if (!line.trim()) continue;
+      const cols = line.split(',').map(x => x.trim());
+      const [from,to,N,c,phi,gammaEff] = cols.slice(0,6).map(x => x === '' ? null : Number(x));
+      const [label='',fsText='',qbText='',...reference] = cols.slice(6);
+      const fsInput = fsText === '' ? null : Number(fsText);
+      const qbInput = qbText === '' ? null : Number(qbText);
+      const basis = reference.join(',').trim(), type = soilType(label);
+      const prefix = '第 ' + (i+1) + ' 列：';
+      const nonNumeric = [N,c,phi].some(v => v !== null && !Number.isFinite(v));
+      const normalSoil = type === 'sand' || type === 'clay';
+      if (![from,to,gammaEff].every(Number.isFinite) || nonNumeric || (normalSoil && [N,c,phi].includes(null))
+          || !(from >= 0 && to > from && gammaEff > 0 && gammaEff <= 3)
+          || (N != null && N < 0) || (c != null && c < 0) || (phi != null && (phi < 0 || phi > 50))) {
+        errors.push(prefix + '請核對深度、N、c、φ 與有效單位重。');
+        continue;
+      }
+      if ([fsInput,qbInput].some(v => v !== null && !(Number.isFinite(v) && v >= 0))) {
+        errors.push(prefix + '專案 fs、qb 須為非負數值或留空。');
+        continue;
+      }
+      if ((fsInput !== null || qbInput !== null) && !basis) errors.push(prefix + '請填專案阻力的試樁或地工依據。');
+      layers.push({from,to,N,c,phi,gammaEff,label,soilLabel:label,type,fsInput,qbInput,basis});
+    }
+    layers.sort((a,b) => a.from-b.from);
+    for (let i=1;i<layers.length;i++) {
+      if (layers[i].from < layers[i-1].to-depthTolerance) errors.push('土層深度重疊，請核對分層。');
+    }
+    if (!layers.length) errors.push('至少需輸入一層有效土層。');
+    return {layers,errors};
+  }
+
+  class GroundDataError extends RangeError {}
+  function checkResistance(layer, field, sandOnly) {
+    const supplied = layer[field];
+    if (supplied != null) {
+      if (!Number.isFinite(supplied) || supplied < 0 || !String(layer.basis || '').trim()) {
+        throw new GroundDataError('專案阻力須為非負數值並附試樁或地工依據。');
+      }
+      return;
+    }
+    if (layer.type === 'sand' || (!sandOnly && layer.type === 'clay')) return;
+    const quantity = field === 'fsInput' ? '樁周 fs' : '樁端 qb';
+    throw new GroundDataError(layer.from + '–' + layer.to + ' m ' + (layer.label || layer.type || '土類待辨識')
+      + '：請補' + quantity + ' (tf/m²) 與依據' + (sandOnly ? '；表 5.3-2 僅適用砂性土。' : '。'));
+  }
+
+  function requireShaft(layers, depth, sandOnly=false) {
+    let covered = 0;
+    for (const layer of layers) {
+      if (layer.from >= depth) break;
+      if (Math.abs(layer.from-covered) > depthTolerance) throw new GroundDataError('樁身地層在 ' + covered + ' m 處不連續。');
+      checkResistance(layer,'fsInput',sandOnly);
+      covered = Math.min(layer.to,depth);
+    }
+    if (covered < depth-depthTolerance) throw new GroundDataError('樁身超出已知地層深度 ' + covered + ' m。');
+  }
+
+  function requireToe(layers,depth,sandOnly=false) {
+    const layer = getLayerAtDepth(layers,depth);
+    if (!layer) throw new GroundDataError('樁端深度 ' + depth + ' m 缺少地層資料。');
+    checkResistance(layer,'qbInput',sandOnly);
+    return layer;
+  }
+
+  function nValueTip(layers, depth, diameter, install) {
+    if (!['driven','bored'].includes(install)) throw new GroundDataError('請指定打入式或鑽掘式施工法。');
+    const from = depth-(install === 'driven' ? 4 : 1)*diameter, to = depth+diameter;
+    const samples = [];
+    let cursor = from, sum = 0;
+    for (const layer of layers) {
+      const start = Math.max(from,layer.from), end = Math.min(to,layer.to);
+      if (end <= start) continue;
+      if (Math.abs(start-cursor)>depthTolerance || layer.type !== 'sand' || !Number.isFinite(layer.N) || layer.N < 0) {
+        throw new GroundDataError('表 5.3-2 的 ' + from + '–' + to + ' m 須有連續砂性土 N 值。');
+      }
+      samples.push({from:start,to:end,N:layer.N});
+      sum += (end-start)*layer.N;
+      cursor = end;
+    }
+    if (Math.abs(cursor-to)>depthTolerance) throw new GroundDataError('樁端平均 N 所需 ' + from + '–' + to + ' m 的資料不足。');
+    const mean = sum/(to-from), adopted = Math.min(mean,50), factor = install==='driven' ? 30 : 7.5;
+    return {from,to,samples,mean,adopted,factor,qbUlt:factor*adopted};
+  }
+
+  function axialBasis(skin, tip) {
+    const lines = [];
+    for (const seg of skin.segments) {
+      if (seg.fsInput != null) lines.push(seg.from + '–' + (seg.from+seg.segLen) + ' m 樁周 fs = ' + seg.fsInput + ' tf/m²；' + seg.basis);
+    }
+    const layer = tip.tipLayer;
+    if (layer?.qbInput != null) lines.push('專案 qb = ' + layer.qbInput + ' tf/m²，採用 ' + tip.qbUlt.toFixed(2) + ' tf/m²；' + layer.basis);
+    const n = tip.averageN;
+    if (n) lines.push('表 5.3-2，' + n.from.toFixed(2) + '–' + n.to.toFixed(2) + ' m；'
+      + n.samples.map(v => v.from.toFixed(2)+'–'+v.to.toFixed(2)+' m N='+v.N).join('、')
+      + '；分層厚度加權平均 N = ' + n.mean.toFixed(3) + '，採用 ' + n.adopted.toFixed(3) + '，qb = ' + n.factor + ' × N = ' + n.qbUlt.toFixed(2) + ' tf/m²。');
+    return lines.join('\n');
+  }
+
+  function projectTip(layer, install, rules) {
+    const capValue = layer.type === 'gravel' ? (install === 'driven' ? rules.tipCapDriven : rules.tipCapBored) : null;
+    const qbUlt = capValue == null ? layer.qbInput : Math.min(layer.qbInput,capValue);
+    return {qbUlt,capValue,capApplied:qbUlt < layer.qbInput};
   }
 
   function effectiveStressAtDepth(layers, depth) {
@@ -51,6 +182,7 @@
 
   function integrateSkinFriction(layers, pileLength, pileDiameterM, pileInstall, rulesInput) {
     const rules = normalizeAxialRules(rulesInput);
+    requireShaft(layers,pileLength);
     const perimeter = Math.PI * pileDiameterM;
     let Qs = 0;
     const segments = [];
@@ -60,9 +192,10 @@
       const midpoint = layer.from + segmentLength / 2;
       const sigmaMid = effectiveStressAtDepth(layers, midpoint);
       let fs;
-      if (layer.type === 'clay' || layer.type === 'rock') {
+      if (layer.fsInput != null) fs = layer.fsInput;
+      else if (layer.type === 'clay') {
         const alpha = layer.c <= 3 ? rules.alphaSoft : layer.c <= 6 ? rules.alphaMedium : rules.alphaStiff;
-        fs = alpha * Math.max(layer.c, layer.type === 'rock' ? 8 : layer.c);
+        fs = alpha * layer.c;
       } else {
         const earthCoefficient = pileInstall === 'driven' ? rules.sandKDriven : rules.sandKBored;
         const delta = Math.max(15, Math.min(35, layer.phi * rules.deltaRatio)) * Math.PI / 180;
@@ -77,29 +210,21 @@
 
   function calculateTipResistance(layers, pileLength, pileDiameterM, pileInstall, rulesInput) {
     const rules = normalizeAxialRules(rulesInput);
-    const tipLayer = getLayerAtDepth(layers, pileLength);
-    if (!tipLayer) {
-      return { Qb: 0, qbUlt: 0, tipLayer: null, capApplied: false, capValue: null, criticalDepth: pileLength, sigmaCrit: 0 };
-    }
+    const tipLayer = requireToe(layers,pileLength);
     const area = Math.PI * pileDiameterM * pileDiameterM / 4;
     const criticalDepth = Math.min(pileLength, 20 * pileDiameterM);
     const sigmaCrit = effectiveStressAtDepth(layers, criticalDepth);
     let qbUlt;
     let capApplied = false;
     let capValue = null;
-    if (tipLayer.type === 'clay' || tipLayer.type === 'rock') {
-      qbUlt = 9 * Math.max(tipLayer.c, tipLayer.type === 'rock' ? 20 : tipLayer.c);
+    if (tipLayer.qbInput != null) {
+      ({qbUlt,capValue,capApplied} = projectTip(tipLayer,pileInstall,rules));
+    } else if (tipLayer.type === 'clay') {
+      qbUlt = 9 * tipLayer.c;
     } else {
       const phi = Math.max(0, Math.min(45, tipLayer.phi)) * Math.PI / 180;
       const Nq = Math.exp(Math.PI * Math.tan(phi)) * Math.pow(Math.tan(Math.PI / 4 + phi / 2), 2);
       qbUlt = sigmaCrit * Nq;
-      if (tipLayer.N > 50 || tipLayer.type === 'gravel') {
-        capValue = pileInstall === 'driven' ? rules.tipCapDriven : rules.tipCapBored;
-        if (qbUlt > capValue) {
-          qbUlt = capValue;
-          capApplied = true;
-        }
-      }
     }
     return { Qb: qbUlt * area, qbUlt, tipLayer, capApplied, capValue, criticalDepth, sigmaCrit };
   }
@@ -408,6 +533,7 @@
     effectiveStressAtDepth,
     DEFAULT_AXIAL_RULES,
     normalizeAxialRules,
+    parseAxialProfile, GroundDataError, requireShaft, requireToe, nValueTip, projectTip, axialBasis,
     integrateSkinFriction,
     calculateTipResistance,
     calculateAxialCapacity,

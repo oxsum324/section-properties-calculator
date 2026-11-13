@@ -18,7 +18,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>基礎設計 — RC 工具箱 V3.4</title>
+<title>基礎設計 — RC 工具箱 V3.5</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../shared/style.css">
@@ -285,7 +285,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>基礎 Foundation 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.4</span></h1>
+  <h1>基礎 Foundation 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.5</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ <a class="back" href="foundation-deep-beam-stm.html">基礎深梁二維 STM</a> ｜ <a class="back" href="pile-cap-3d-stm.html">樁帽三維 STM</a> ｜ 獨立基腳、聯合基腳、筏式基礎、樁基／樁帽、擋土牆、耐震繫材</p>
 </header>
 
@@ -659,11 +659,11 @@
           <textarea id="pileSoilProfile" class="soil-input">0, 3, 8, 0, 28, 0.95, sand
 3, 9, 18, 0, 32, 1.00, sand
 9, 15, 32, 0, 36, 1.05, dense sand
-15, 24, 55, 0, 38, 1.10, gravel</textarea>
+15, 24, 55, 0, 38, 1.10, gravel, 5, 600, 合成填寫範例 A</textarea>
         </div>
         <p class="code-hint">範例：0, 3, 8, 0, 28, 0.95, sand
 9, 15, 20, 4.5, 24, 0.90, clay
-若 N &gt; 50 且為極緊密砂 / 卵礫石，樁端阻力將自動套用上限：打入樁 1800 tf/m²、鑽掘樁 750 tf/m²；砂層樁端有效應力採臨界深度 20D。</p>
+土名後可加「專案 fs, 專案 qb, 試樁或地工文件依據」，阻力單位 tf/m²。岩層與卵礫石的樁身、樁端分別取專案值；岩礫層可將未量測的 N、c、φ 留空；只指定 fs 時可將 qb 留空。卵礫石端承原則上限為打入 1800、鑽掘 750 tf/m²。</p>
         <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">樁帽 (Pile Cap)</h3>
         <div class="form-row">
           <div class="form-group"><label>樁帽寬 Bc (cm)</label><input type="number" id="pcB" value="480"></div>
@@ -1335,7 +1335,7 @@
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/foundation-isolated.js?v=2"></script>
-<script src="../shared/foundation-pile.js?v=2"></script>
+<script src="../shared/foundation-pile.js?v=3"></script>
 <script src="../shared/retaining-base-demand.js?v=1"></script>
 <script src="../shared/pile-group-lateral.js?v=1"></script>
 <script src="../shared/pile-py-table-adapter.js?v=1"></script>
@@ -1453,70 +1453,8 @@
   function formatCheckText(pass, okText, failText) {
     return pass ? okText : failText;
   }
-  function inferSoilType({ c, phi, N, label }) {
-    const raw = String(label || '').toLowerCase();
-    if (/(gravel|礫|卵礫)/.test(raw)) return 'gravel';
-    if (/(clay|黏|silt|粉土)/.test(raw)) return 'clay';
-    if (/(sand|砂)/.test(raw)) return 'sand';
-    if (c > 0.5 && phi < 28) return 'clay';
-    if (N > 50) return 'gravel';
-    return 'sand';
-  }
   function parsePileSoilProfile(text) {
-    const layers = [];
-    const errors = [];
-    String(text || '').split(/\r?\n/).forEach((line, index) => {
-      const raw = line.trim();
-      if (!raw) return;
-      const parts = raw.split(',').map(v => v.trim());
-      if (parts.length < 6) {
-        errors.push(`第 ${index + 1} 列欄位不足，需至少 6 欄。`);
-        return;
-      }
-      const from = parseFloat(parts[0]);
-      const to = parseFloat(parts[1]);
-      const N = parseFloat(parts[2]);
-      const c = parseFloat(parts[3]);
-      const phi = parseFloat(parts[4]);
-      const gammaEff = parseFloat(parts[5]);
-      const soilLabel = parts[6] || '';
-      const numeric = { from, to, N, c, phi, gammaEff };
-      const missing = Object.entries(numeric).filter(([, v]) => !Number.isFinite(v));
-      if (missing.length) {
-        errors.push(`第 ${index + 1} 列存在空值或非數字：${missing.map(([k]) => k).join('、')}`);
-        return;
-      }
-      if (!(from >= 0 && to > from)) {
-        errors.push(`第 ${index + 1} 列深度區間無效，需滿足 0 ≤ 起深 < 迄深。`);
-        return;
-      }
-      if (N < 0 || c < 0 || phi < 0 || phi > 50 || gammaEff <= 0 || gammaEff > 3) {
-        errors.push(`第 ${index + 1} 列參數超出合理範圍。`);
-        return;
-      }
-      layers.push({
-        from,
-        to,
-        N,
-        c,
-        phi,
-        gammaEff,
-        soilLabel,
-        type: inferSoilType({ c, phi, N, label: soilLabel })
-      });
-    });
-    layers.sort((a, b) => a.from - b.from);
-    for (let i = 1; i < layers.length; i++) {
-      if (layers[i].from < layers[i - 1].to - 1e-9) {
-        errors.push(`土層深度重疊：第 ${i} 與第 ${i + 1} 層。`);
-        break;
-      }
-    }
-    if (!layers.length) errors.push('至少需輸入一層有效土層資料。');
-    return { layers, errors };
-  }
-  function getLayerAtDepth(layers, depth) {
-    return layers.find(layer => depth >= layer.from - 1e-9 && depth <= layer.to + 1e-9) || null;
+    return FoundationPile.parseAxialProfile(text);
   }
   function effectiveStressAtDepth(layers, depth) {
     if (!(depth > 0) || !layers.length) return 0;
@@ -1535,12 +1473,12 @@
     return FoundationPile.calculateTipResistance(layers, pileLength, pileD_m, pileInstall);
   }
   function buildWinklerCurves({ Qs, Qb, qbUlt, pileD_m, pileLength, layers }) {
-    const tipLayer = getLayerAtDepth(layers, pileLength) || layers[layers.length - 1];
+    const tipLayer = FoundationPile.getLayerAtDepth(layers,pileLength);
     const tult = Qs / Math.max(1e-6, Math.PI * pileD_m * pileLength);
     const z50 = Math.max(0.002, 0.01 * pileD_m);
     const w50 = Math.max(0.004, 0.02 * pileD_m);
     const pult = Math.max(5, qbUlt * pileD_m * 0.35);
-    const kpy = Math.max(100, effectiveStressAtDepth(layers, Math.min(pileLength / 2, pileLength)) * 120 + (tipLayer?.N || 0) * 25);
+    const kpy = Number.isFinite(tipLayer?.N) ? Math.max(100, effectiveStressAtDepth(layers, Math.min(pileLength / 2, pileLength)) * 120 + tipLayer.N * 25) : null;
     const tz = [];
     const qw = [];
     const py = [];
@@ -1550,7 +1488,7 @@
       const y = (0.08 * pileD_m) * i;
       tz.push({ displacement: z, resistance: tult * (1 - Math.exp(-z / z50)) });
       qw.push({ displacement: w, resistance: Qb * (1 - Math.exp(-w / w50)) });
-      py.push({ displacement: y, resistance: pult * Math.tanh((kpy * y) / Math.max(pult, 1e-6)) });
+      if (kpy !== null) py.push({ displacement: y, resistance: pult * Math.tanh((kpy * y) / Math.max(pult, 1e-6)) });
     }
     return { tz, qw, py, tult, z50, w50, pult, kpy };
   }
@@ -1577,6 +1515,12 @@
   function buildPileDepthComparison({ layers, pileInstall, pileD, safetyFactor, startDepth, endDepth, step, pileType, serviceDemand, settlementOptions = {}, fc = 280 }) {
     const rows = [];
     for (let depth = startDepth; depth <= endDepth + 1e-9; depth += step) {
+      try { FoundationPile.requireShaft(layers,depth); FoundationPile.requireToe(layers,depth); }
+      catch (err) {
+        if (!(err instanceof FoundationPile.GroundDataError)) throw err;
+        rows.push({depth,groundIssue:err.message,pass:false});
+        continue;
+      }
       const skin = integratePileSkinFriction(layers, depth, pileD / 100, pileInstall);
       const tip = calcTipResistance(layers, depth, pileD / 100, pileInstall);
       const settlement = FoundationPile.workingSettlement({
@@ -1619,7 +1563,7 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>L${idx + 1}</td>
-        <td>${seg.from.toFixed(1)} - ${seg.to.toFixed(1)}</td>
+        <td>${seg.from.toFixed(1)} - ${Math.min(seg.to,pileLength).toFixed(1)}</td>
         <td>${layer.type || seg.type || '—'}</td>
         <td>${Number.isFinite(layer.N) ? layer.N.toFixed(0) : '—'}</td>
         <td>${Number.isFinite(layer.c) ? layer.c.toFixed(2) : '—'}</td>
@@ -1651,6 +1595,7 @@
     const ctx = cv.getContext('2d');
     const W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
+    if (!curves) return;
     const cards = [
       { key:'tz', title:'t-z', color:'#2563eb', x:'z (m)', y:'t (tf/m²)' },
       { key:'qw', title:'q-w', color:'#dc2626', x:'w (m)', y:'Qb (tf)' },
@@ -1701,7 +1646,7 @@
     const parsed = parsePileSoilProfile(soilProfileText || '');
     if (!parsed.layers.length) return '尚無可用土層摘要';
     return parsed.layers.map((layer, idx) =>
-      `L${idx + 1} ${layer.from.toFixed(1)}-${layer.to.toFixed(1)} m｜${layer.label || layer.type}｜N=${layer.N.toFixed(0)}｜c=${layer.c.toFixed(2)}｜φ=${layer.phi.toFixed(1)}｜γ'=${layer.gammaEff.toFixed(2)}`
+      `L${idx + 1} ${layer.from.toFixed(1)}-${layer.to.toFixed(1)} m｜${layer.label || layer.type}｜N=${layer.N == null ? '—' : layer.N.toFixed(0)}｜c=${layer.c == null ? '—' : layer.c.toFixed(2)}｜φ=${layer.phi == null ? '—' : layer.phi.toFixed(1)}｜γ'=${layer.gammaEff.toFixed(2)}`
     ).join('\n');
   }
   function evaluatePileBoreholePreset(preset) {
@@ -1730,6 +1675,7 @@
       safetyFactor: pileFS,
       layers: parsed.layers
     });
+    if (!recommendation) return {ok:false,error:'有效調查深度內無可推薦方案，請核對分層與專案阻力。',layers:parsed.layers.length};
     const pileD = (recommendation?.dia || preset.pileD) / 100;
     const pileLength = recommendation?.depth || preset.pileLength;
     const skin = integratePileSkinFriction(parsed.layers, pileLength, pileD, pileInstall);
@@ -1918,6 +1864,11 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     let best = null;
     for (const dia of trialDiameters) {
       for (let depth = start; depth <= end; depth += 0.5) {
+        try { FoundationPile.requireShaft(layers,depth); FoundationPile.requireToe(layers,depth); }
+        catch (err) {
+          if (!(err instanceof FoundationPile.GroundDataError)) throw err;
+          continue;
+        }
         const pileD_m = dia / 100;
         const skin = integratePileSkinFriction(layers, depth, pileD_m, pileInstall);
         const tip = calcTipResistance(layers, depth, pileD_m, pileInstall);
@@ -1932,6 +1883,11 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     if (!best) {
       const dia = Math.max(existingDiameterCm, trialDiameters[trialDiameters.length - 1]);
       const depth = end;
+      try { FoundationPile.requireShaft(layers,depth); FoundationPile.requireToe(layers,depth); }
+      catch (err) {
+        if (!(err instanceof FoundationPile.GroundDataError)) throw err;
+        return null;
+      }
       const pileD_m = dia / 100;
       const skin = integratePileSkinFriction(layers, depth, pileD_m, pileInstall);
       const tip = calcTipResistance(layers, depth, pileD_m, pileInstall);
@@ -3269,7 +3225,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       schema: FOUNDATION_PROJECT_SCHEMA,
       tool: 'rc-foundation',
       toolTitle: '基礎 Foundation 設計／檢核',
-      appVersion: 'V3.4',
+      appVersion: 'V3.5',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: currentTab,
@@ -3499,7 +3455,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     return window.RCReportFingerprint.validateProjectCalculationSource(source, {
       expectedSchema: FOUNDATION_PROJECT_SCHEMA,
       expectedToolId: 'rc-foundation',
-      expectedVersion: ['V3.2','V3.3'].includes(normalizeProjectToolVersion(source?.appVersion)) ? source.appVersion : 'V3.4',
+      expectedVersion: ['V3.2','V3.3','V3.4'].includes(normalizeProjectToolVersion(source?.appVersion)) ? source.appVersion : 'V3.5',
       sourceKey: 'fields',
       fingerprintOptions: payload => ({
         ignoredKeys: ['activeTab'],
@@ -3516,8 +3472,8 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const payload = normalizeFoundationProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectFoundationProjectData();
     const sourceVersion = normalizeProjectToolVersion(payload.appVersion);
-    const legacy = sourceVersion !== 'V3.4';
-    const recalculated = legacy && (payload.activeTab === 'mat' || (sourceVersion === 'V3.2' && payload.activeTab === 'pile'));
+    const legacy = sourceVersion !== 'V3.5';
+    const recalculated = legacy && ((sourceVersion !== 'V3.4' && payload.activeTab === 'mat') || payload.activeTab === 'pile');
     $('mEdgeInward').value = 'y';
     $('pileToePercent').value = '';
     setFoundationMode(payload.mode, { recalculate: false });
@@ -3543,8 +3499,10 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       try {
         let replay = collectFoundationProjectData();
         if (legacy) {
-          delete replay.fields.mEdgeInward;
-          delete replay.matStripResult;
+          if (sourceVersion !== 'V3.4') {
+            delete replay.fields.mEdgeInward;
+            delete replay.matStripResult;
+          }
           if (sourceVersion === 'V3.2') delete replay.fields.pileToePercent;
           if (recalculated) replay.summary = payload.summary;
           replay.appVersion = payload.appVersion;
@@ -3563,7 +3521,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showFoundationProjectStatus(recalculated ? `已核對 ${sourceVersion} 原始輸入。${tab === 'mat' ? '邊柱沿舊圖採 +Y 向板內，請核對實際柱位。筏基條帶' : '樁反力與沉陷'}已依 V3.4 重算。` : `已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
+      showFoundationProjectStatus(recalculated ? `已核對 ${sourceVersion} 原始輸入。${tab === 'mat' ? '邊柱沿舊圖採 +Y 向板內，請核對實際柱位。筏基條帶' : '地層阻力、樁反力與沉陷'}已依 V3.5 重算。` : `已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
     }
     return { payload, applied };
   }
@@ -3755,6 +3713,15 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       else if (tab === 'seismic') calcSeismicFdtn();
     } catch (error) {
       window.ftLast = null;
+      if (tab === 'pile') {
+        document.querySelectorAll('[id^="pr-"] .value, [id^="pc-"] .value').forEach(el => { el.textContent = '—'; });
+        const canvas = $('ftCanvas');
+        canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+        $('stepsPileBody').textContent = '';
+        $('pileSummaryBody').textContent = error.message;
+        renderPileCapacityTable({});
+        drawPileCurves(null);
+      }
       if (tab === 'mat') {
         const canvas = $('matCanvas');
         canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
@@ -4804,74 +4771,55 @@ ${caseDefs.map(c => c.label + '（B×L=' + c.trib.raw + ' cm）\n' + matStripTex
     const pilePyResponse = PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', pilePyModel);
     const lateralResponseOk = !lateralRequired || (pilePyResponse.valid && pilePyResponse.complete && pilePyResponse.pass);
     renderPilePyImportStatus(pilePyResponse);
-    let soilCapacity = null;
-    let pileCurves = null;
-    let tipLayerLabel = '—';
-    let qbUlt = 0;
-    let Qs = 0;
-    let Qb = 0;
-    let Qult = 0;
-    let Qall = pileQa;
-    let capApplied = false;
-    let capText = '未啟動';
-    let criticalDepth = 0;
-    let sigmaCrit = 0;
-    const soilOk = soilErrors.length === 0;
-    let settlement = null;
-    let depthComparison = [];
-    let settlementOptions = null;
-    if (!soilErrors.length) {
-      const skin = integratePileSkinFriction(soilProfile.layers, pileLength, pileD_m, pileInstall);
-      const tip = calcTipResistance(soilProfile.layers, pileLength, pileD_m, pileInstall);
-      Qs = skin.Qs;
-      Qb = tip.Qb;
-      qbUlt = tip.qbUlt;
-      Qult = Qs + Qb;
-      Qall = Qult / pileFS;
-      criticalDepth = tip.criticalDepth;
-      sigmaCrit = tip.sigmaCrit || 0;
-      tipLayerLabel = tip.tipLayer ? `${tip.tipLayer.type} @ ${tip.tipLayer.from.toFixed(1)}-${tip.tipLayer.to.toFixed(1)} m` : '超出土層範圍';
-      capApplied = !!tip.capApplied;
-      capText = tip.tipLayer && tip.capValue ? `${capApplied ? '已套用' : '未達'} ${tip.capValue} tf/m²` : '不適用';
-      soilCapacity = { skin, tip };
-      pileCurves = buildWinklerCurves({ Qs, Qb, qbUlt, pileD_m, pileLength, layers: soilProfile.layers });
-      settlementOptions = {
-        mode: pileSettlementMode, serviceLoad:serviceDemandPerPile, allowable:pileSettlementAllow,
-        toePercent:$('pileToePercent').value === '' ? null : $('pileToePercent').valueAsNumber,
-        xiInput: pileXi,
-        CpInput: pileCp,
-        CsInput: pileCs,
-        qoInput: pileQo
-      };
-      settlement = FoundationPile.workingSettlement({
-        Qb,
-        Qs,
-        pileLength,
-        pileArea_m2: Math.PI * pileD_m * pileD_m / 4,
-        pileD_m,
-        fc,
-        qbUlt,
-        ...settlementOptions
-      });
-      depthComparison = buildPileDepthComparison({
-        layers: soilProfile.layers,
-        pileInstall,
-        pileD,
-        safetyFactor: pileFS,
-        startDepth: Math.max(20, Math.ceil((criticalDepth || 5) / 5) * 5 - 10),
-        endDepth: Math.max(soilProfile.layers[soilProfile.layers.length - 1].to, pileLength),
-        step: 5,
-        pileType,
-        serviceDemand: QaDemandEff,
-        settlementOptions,
-        fc
-      });
-      renderPileCapacityTable({ layers: soilProfile.layers, skinSegments: skin.segments, pileLength, tip });
-    } else {
-      renderPileCapacityTable({ layers: [], skinSegments: [], pileLength, tip: null });
-    }
-    const QaEffSoil = soilOk ? Qall * pileEta : QaEff;
-    const governingQaEff = soilOk ? Math.min(QaEff, QaEffSoil) : QaEff;
+    if (soilErrors.length) throw new RangeError(soilErrors.join('；'));
+    const skin = integratePileSkinFriction(soilProfile.layers, pileLength, pileD_m, pileInstall);
+    const tip = calcTipResistance(soilProfile.layers, pileLength, pileD_m, pileInstall);
+    const Qs = skin.Qs;
+    const Qb = tip.Qb;
+    const qbUlt = tip.qbUlt;
+    const Qult = Qs + Qb;
+    const Qall = Qult / pileFS;
+    const criticalDepth = tip.criticalDepth;
+    const sigmaCrit = tip.sigmaCrit || 0;
+    const tipLayerLabel = tip.tipLayer ? `${tip.tipLayer.type} @ ${tip.tipLayer.from.toFixed(1)}-${tip.tipLayer.to.toFixed(1)} m` : '超出土層範圍';
+    const capApplied = !!tip.capApplied;
+    const capText = tip.tipLayer && tip.capValue ? `${capApplied ? '已套用' : '未達'} ${tip.capValue} tf/m²` : '不適用';
+    const soilCapacity = { skin, tip };
+    const pileCurves = buildWinklerCurves({ Qs, Qb, qbUlt, pileD_m, pileLength, layers: soilProfile.layers });
+    const settlementOptions = {
+      mode: pileSettlementMode, serviceLoad:serviceDemandPerPile, allowable:pileSettlementAllow,
+      toePercent:$('pileToePercent').value === '' ? null : $('pileToePercent').valueAsNumber,
+      xiInput: pileXi,
+      CpInput: pileCp,
+      CsInput: pileCs,
+      qoInput: pileQo
+    };
+    const settlement = FoundationPile.workingSettlement({
+      Qb,
+      Qs,
+      pileLength,
+      pileArea_m2: Math.PI * pileD_m * pileD_m / 4,
+      pileD_m,
+      fc,
+      qbUlt,
+      ...settlementOptions
+    });
+    const depthComparison = buildPileDepthComparison({
+      layers: soilProfile.layers,
+      pileInstall,
+      pileD,
+      safetyFactor: pileFS,
+      startDepth: Math.max(20, Math.ceil((criticalDepth || 5) / 5) * 5 - 10),
+      endDepth: Math.max(soilProfile.layers[soilProfile.layers.length - 1].to, pileLength),
+      step: 5,
+      pileType,
+      serviceDemand: QaDemandEff,
+      settlementOptions,
+      fc
+    });
+    renderPileCapacityTable({ layers: soilProfile.layers, skinSegments: skin.segments, pileLength, tip });
+    const soilOk = true;
+    const governingQaEff = Math.min(QaEff,Qall*pileEta);
     const okR = serviceRmax <= governingQaEff;
     const okT = serviceRmin >= -pileQt;
     const spacingLimit = pileType === 'cast-in-place' ? Math.max(2.5 * pileD, pileD + 100) : 2.5 * pileD;
@@ -5081,7 +5029,7 @@ Qs = ${Qs.toFixed(2)} tf；Qb = ${Qb.toFixed(2)} tf；Qult = ${Qult.toFixed(2)} 
 端承控制層 = ${tipLayerLabel}；qb,ult = ${qbUlt.toFixed(1)} tf/m²${capApplied ? `（已套用上限 ${soilCapacity.tip.capValue} tf/m²）` : ''}
 最大服務壓力 = ${serviceDemandPerPile.toFixed(2)} tf；選樁 Qall 需求（含群樁效率）= ${QaDemandEff.toFixed(2)} tf；依承載篩選 = D ${recommendation?.dia ?? pileD} cm、L ${recommendation?.depth?.toFixed(1) ?? pileLength.toFixed(1)} m
 樁深比較（每 5m）:
-${depthComparison.map(row => `L=${row.depth.toFixed(1)} m → Qall=${row.Qall.toFixed(2)} tf, Wo=${row.settlementRange} cm${row.capApplied ? ', cap' : ''}${row.pass ? ' ✓' : ''}`).join('\n')}` : `土層資料錯誤：${soilErrors.join('；')}`}
+${depthComparison.map(row => row.groundIssue ? `L=${row.depth.toFixed(1)} m → 待補：${row.groundIssue}` : `L=${row.depth.toFixed(1)} m → Qall=${row.Qall.toFixed(2)} tf, Wo=${row.settlementRange} cm${row.capApplied ? ', cap' : ''}${row.pass ? ' ✓' : ''}`).join('\n')}` : `土層資料錯誤：${soilErrors.join('；')}`}
 
 <span class="h">▸ 單樁瞬時沉陷（基礎規範解說 5.5.1）</span>\n群樁整體沉陷另依 5.5.2 檢核。ξ、Cp 應依樁周摩擦分佈、樁端土層與施工法確認。
 ${FoundationPile.settlementBasis(settlement)}
@@ -5117,7 +5065,7 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const pileSummary = $('pileSummaryBody');
     if (pileSummary) {
       pileSummary.textContent = soilOk
-        ? `土層解析：${soilProfile.layers.length} 層\n單樁 Qs/Qb/Qult/Qall = ${Qs.toFixed(2)} / ${Qb.toFixed(2)} / ${Qult.toFixed(2)} / ${Qall.toFixed(2)} tf\n控制端承：${tipLayerLabel}\n端承上限：${capText}\n${FoundationPile.settlementBasis(settlement)}\n樁身壓應力：${pileStressKgCm2.toFixed(2)} / ${pileStressAllow.toFixed(2)} kgf/cm²\n樁帽 Mu,long/Mu,trans = ${capMuLong_tfm.toFixed(2)} / ${capMuTrans_tfm.toFixed(2)} tf·m\n樁帽控制 Mu/φMn = ${capMu_tfm.toFixed(2)} / ${capPhiMn_tfm.toFixed(2)} tf·m\n樁帽 Vu/φ(Vc+Vs) = ${capVu_tfm.toFixed(2)} / ${capPhiVn_tfm.toFixed(2)} tf\n建議樁徑/深度：${recommendation ? `${recommendation.dia} cm / ${recommendation.depth.toFixed(1)} m` : '—'}\n建議斷面：${recommendation ? (recommendation.structural.type === 'cast-in-place' ? `${recommendation.structural.mainBarCount}-${recommendation.structural.mainBarNo}` : `OD ${recommendation.structural.outerDiameterCm} cm、t ${recommendation.structural.thicknessMm} mm`) : '—'}\nWinkler 曲線：t-z ${pileCurves.tz.length} 點、q-w ${pileCurves.qw.length} 點、p-y ${pileCurves.py.length} 點`
+        ? `土層解析：${soilProfile.layers.length} 層\n單樁 Qs/Qb/Qult/Qall = ${Qs.toFixed(2)} / ${Qb.toFixed(2)} / ${Qult.toFixed(2)} / ${Qall.toFixed(2)} tf\n控制端承：${tipLayerLabel}\n${FoundationPile.axialBasis(soilCapacity.skin,soilCapacity.tip)}\n端承上限：${capText}\n${FoundationPile.settlementBasis(settlement)}\n樁身壓應力：${pileStressKgCm2.toFixed(2)} / ${pileStressAllow.toFixed(2)} kgf/cm²\n樁帽 Mu,long/Mu,trans = ${capMuLong_tfm.toFixed(2)} / ${capMuTrans_tfm.toFixed(2)} tf·m\n樁帽控制 Mu/φMn = ${capMu_tfm.toFixed(2)} / ${capPhiMn_tfm.toFixed(2)} tf·m\n樁帽 Vu/φ(Vc+Vs) = ${capVu_tfm.toFixed(2)} / ${capPhiVn_tfm.toFixed(2)} tf\n建議樁徑/深度：${recommendation ? `${recommendation.dia} cm / ${recommendation.depth.toFixed(1)} m` : '—'}\n建議斷面：${recommendation ? (recommendation.structural.type === 'cast-in-place' ? `${recommendation.structural.mainBarCount}-${recommendation.structural.mainBarNo}` : `OD ${recommendation.structural.outerDiameterCm} cm、t ${recommendation.structural.thicknessMm} mm`) : '—'}\nWinkler 曲線：t-z ${pileCurves.tz.length} 點、q-w ${pileCurves.qw.length} 點、p-y ${pileCurves.py.length} 點`
         : `土層資料錯誤\n${soilErrors.join('\n')}`;
     }
 
@@ -5147,6 +5095,7 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
       prestressed, puLimit, okPrestress, isSoft, noLateral,
       lateralGroup, lateralRequired, lateralDistributionOk, pilePyModel, pilePyResponse, lateralResponseOk,
       soilErrors, soilLayers: soilProfile.layers, soilOk,
+      groundBasis:FoundationPile.axialBasis(soilCapacity.skin,soilCapacity.tip),
       Qs, Qb, Qult, Qall, qbUlt, capApplied, capText, tipLayerLabel, criticalDepth, sigmaCrit,
       serviceDemandPerPile, QaDemandEff, spacingLimit, structuralOk, castInPlaceAreaReq, castInPlaceAreaProv,
       castInPlaceBarOk, steelPipeOk, recommendation,
@@ -6383,6 +6332,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       }
       checks = [
         { group:'土層與單樁承載', items:[
+          ...(r.groundBasis ? [{label:'地層阻力採用依據',value:r.groundBasis}] : []),
           { label:'土層資料有效', value:r.soilOk ? `共 ${r.soilLayers.length} 層` : r.soilErrors.join('；'), ok:r.soilOk },
           { label:'服務 Rmax ≤ Qallow,eff', value:`${r.serviceRmax.toFixed(2)} / ${Math.min(r.QaEff, r.Qall * r.pileEta).toFixed(2)}`, unit:'tf', ok:r.okR },
           { label:'max(0,−Rmin) ≤ Qt', value:`${Math.max(0,-r.serviceRmin).toFixed(2)} / ${r.pileQt.toFixed(2)}`, unit:'tf', ok:r.okT },
@@ -6488,7 +6438,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     openReport({
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
       textExport:true,
-      outputSource:{ tool:'基礎 Foundation 設計／檢核', version:'V3.4' },
+      outputSource:{ tool:'基礎 Foundation 設計／檢核', version:'V3.5' },
       subtitle: `112 年混凝土結構設計規範`,
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,

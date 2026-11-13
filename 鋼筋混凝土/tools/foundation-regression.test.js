@@ -337,7 +337,8 @@ async function exerciseFoundationProjectStorage(page) {
     setField('pileQt', 42);
     setField('pileCount', 4);
     setField('pileSpacing', 140);
-    setField('pileSoilProfile', '0, 4, 12, 0, 30, 0.95, sand\n4, 16, 32, 0, 36, 1.05, gravel');
+    setField('pileLength', 14);
+    setField('pileSoilProfile', '0, 4, 12, 0, 30, 0.95, sand\n4, 24, 32, 0, 36, 1.05, gravel, 5, 500, 合成地層檢核');
     if (typeof window.calcFdtn === 'function') window.calcFdtn();
   });
   await wait(300);
@@ -676,7 +677,7 @@ async function main() {
   assert(html.includes('id="bannerStatus"'), 'foundation.html has banner', 'summary banner exists');
   assert(html.includes('window.ftLast'), 'foundation.html exports ftLast', 'result snapshot exists for regression capture');
   assert(html.includes('../shared/foundation-isolated.js?v=2') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
-  assert(html.includes('../shared/foundation-pile.js?v=2') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
+  assert(html.includes('../shared/foundation-pile.js?v=3') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
   assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
   assert(!/0\.53 \* lambda/.test(html) && !/0\.53 \* lambda/.test(pileCore), 'foundation one-way shear no longer uses the simplified 0.53λ√fc′ expression', 'Table 22.5.5.1(c) is required without shear reinforcement');
   assert(html.includes('FoundationIsolated.oneWayShearNoStirrups') && pileCore.includes('FoundationShear.oneWayShearNoStirrups') && pileCore.includes('FoundationShear.sizeEffectFactor(d)'), 'foundation shear calls the shared Table 22.5.5.1(c) and λs helpers', 'shared foundation shear core');
