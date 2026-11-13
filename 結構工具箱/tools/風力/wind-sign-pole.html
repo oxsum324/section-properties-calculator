@@ -730,7 +730,7 @@ function calc() {
   const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
   const impClass = document.getElementById('impClass').value;
   const I = W.IMPORTANCE[impClass].factor;
-  const Kzt = val('Kzt') || 1.0;
+  const Kzt = val('Kzt');
   const panelWidth = val('panelWidth');
   const panelHeight = val('panelHeight');
   const panelBottom = val('panelBottom');
@@ -747,14 +747,17 @@ function calc() {
   if (panelWidth <= 0 || panelHeight <= 0) {
     return failCalc('面板寬度與高度需大於 0。');
   }
-  if (panelBottom < 0) {
-    return failCalc('面板底緣高度不得小於 0。');
+  if (!(Kzt > 0)) return failCalc('請填正值地形係數 Kzt，無地形放大時填 1。');
+  if (text('panelCfOverride') && !(panelCfOverride > 0)) return failCalc('指定面板 Cf 請填正值；採表 2.10 時留空。');
+  if (!text('panelBottom') || panelBottom < 0) {
+    return failCalc('請填面板底緣高度，座地可填 0 m。');
   }
+  if (!text('openingRatio') || openingRatio < 0) return failCalc('請填非負開口率，無開口填 0%。');
   if (openingRatio >= 30) {
     return failCalc('開口率達 30% 時，不宜在本頁採表 2.10 實體面板路線，應改用中空式 / 格子式風力。');
   }
-  if (supportCount <= 0 || supportSegments <= 0) {
-    return failCalc('支撐數量與分段數需大於 0。');
+  if (!Number.isInteger(supportCount) || supportCount <= 0 || !Number.isInteger(supportSegments) || supportSegments < 1 || supportSegments > 24) {
+    return failCalc('支撐數量須填正整數，分段數請填 1～24 的整數。');
   }
   if (supportType === 'pipe' && pipeDiameter <= 0) {
     return failCalc('管材外徑 D 需大於 0。');
