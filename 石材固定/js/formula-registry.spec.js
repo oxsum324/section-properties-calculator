@@ -1,10 +1,11 @@
 window.StoneFormulaRegistry = Object.freeze({
-  VERSION: 'formula-registry-2026.04.25',
+  VERSION: 'formula-registry-2026.11.13',
   refs: Object.freeze({
     cc: '建築物耐風設計規範及解說（103 年版）',
     seismic: '建築物耐震設計規範及解說（113 年版）',
     anchor: '混凝土結構設計規範附篇 D「混凝土結構用錨栓」及廠商試驗資料',
     steel: '鋼構造建築物鋼結構設計技術規範（容許應力設計法）',
+    materialBasis: '適用材質、載重組合及個案採用之條款或設計文件',
     stone: 'CNS 14448、CNS 6300 A1028 與 JASS 9 常用安全係數',
     geometry: '石材外牆規範研擬本與台北市石材外牆作業規範之孔位幾何要求',
     drift: '建築物耐震設計規範及解說（113 年版）非結構組件層間變位要求',
@@ -20,6 +21,7 @@ window.StoneFormulaRegistry = Object.freeze({
     '馬車螺栓 拉力 T₁': Object.freeze({ category: 'back_anchor', formula: 'T1 = V × h1 / h2', unit: 'kgf', ref: 'anchor' }),
     '插銷 剪力': Object.freeze({ category: 'pin', formula: 'Tu <= Va', unit: 'kgf', ref: 'stone' }),
     '角鋼 剪力（淨截面）': Object.freeze({ category: 'steel', formula: 'V <= 0.4 × Fy × Au', unit: 'kgf', ref: 'steel' }),
+    '彎曲容許應力採用依據': Object.freeze({ category:'steel', formula:'Fb = 基準 Fb × kFb', unit:'', ref:'materialBasis' }),
     '角鋼 彎矩（斷面模數）': Object.freeze({ category: 'steel', formula: 'Sreq = M / Fb', unit: 'cm3', ref: 'steel' }),
     '石材板彎曲應力': Object.freeze({ category: 'stone_panel', formula: 'fb = m / Z', unit: 'kgf/cm2', ref: 'stone' }),
     '石材孔周剪應力 / 石板衝切（簡化）': Object.freeze({ category: 'stone_local', formula: 'sigma = T / (pi × d × t_net)', unit: 'kgf/cm2', ref: 'stone' }),

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>石材外牆固定構件計算書產生器 規範版 V3.1.1</title>
+<title>石材外牆固定構件計算書產生器 規範版 V3.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -763,7 +763,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 <script src="vendor/loads/regulatory-locations.js"></script>
 <script src="vendor/loads/seismic.js"></script>
 <script src="vendor/loads/wind.js"></script>
-<script src="vendor/loads/project-location.js" data-location-tool-id="stone-fixing" data-location-tool-name="石材固定計算書" data-location-tool-version="V3.1.1"></script>
+<script src="vendor/loads/project-location.js" data-location-tool-id="stone-fixing" data-location-tool-name="石材固定計算書" data-location-tool-version="V3.2"></script>
 <script src="./js/constants.spec.js"></script>
 <script src="./js/input-schema.spec.js"></script>
 <script src="./js/code-profiles-registry.spec.js"></script>
@@ -857,7 +857,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 
 <!-- Sidebar -->
 <div id="sidebar">
-<div id="tool-header"><h1 style="display:inline;margin:0;font:inherit;line-height:inherit">石材固定構件計算書產生器｜規範版</h1> <span id="tool-version-label">V3.1.1 任務導向介面 ‧ 弘一工程顧問有限公司</span> <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span></div>
+<div id="tool-header"><h1 style="display:inline;margin:0;font:inherit;line-height:inherit">石材固定構件計算書產生器｜規範版</h1> <span id="tool-version-label">V3.2 任務導向介面 ‧ 弘一工程顧問有限公司</span> <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span></div>
 
   <!-- V2 快速工具列 -->
   <div id="v2-toolbar" role="toolbar" aria-label="快速工具列">
@@ -1140,10 +1140,17 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
         <input id="w_pos" type="number" value="426" oninput="save();render()"></div>
     </div>
     <div class="row">
-      <div class="field"><label>載重組合係數</label>
+      <div class="field"><label for="w_cf">風壓載重係數</label>
         <input id="w_cf" type="number" value="1.25" step="0.05" oninput="save();render()"></div>
       <div class="unit" style="align-self:flex-end;margin-bottom:8px">（×max風壓）</div>
     </div>
+    <div class="row">
+      <div class="field"><label for="m_fb_factor">角鋼及伸縮片彎曲容許應力係數 kFb</label>
+        <input id="m_fb_factor" type="number" step="any" value="1" oninput="save();render()"></div>
+      <div class="field"><label for="m_fb_basis">kFb 調整依據（材質、適用組合、條款或文件）</label>
+        <input id="m_fb_basis" maxlength="240" oninput="save();render()"></div>
+    </div>
+    <p class="note">基準容許彎曲應力採 kFb＝1。調整時請列依據；純靜載容許模式採 1。舊案未記錄獨立係數時會列待確認。</p>
     <p class="note" id="wind_effective_note" style="display:none">→ GCp / GCpi 模式下，正／負風壓欄位改為顯示用途；實際計算、預覽與 Word 匯出會直接採上方係數細算值，即使未按「✔ 套用係數結果至正/負風壓欄位」亦然。</p>
     <p class="note">→ 設計風壓會對正、負風壓分別乘上載重組合係數；是否採方向性控制可由規範模組決定，詳附件 1耐風計算</p>
 
@@ -1697,7 +1704,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
           <div class="row">
             <div class="field" style="grid-column:1 / -1"><label style="display:flex;align-items:center;gap:6px;height:29px;cursor:pointer;border:1px solid #bbb;border-radius:3px;padding:0 8px;background:#fafafa">
               <input type="checkbox" id="sp_allow_stress_static_on" onchange="save();render()">
-              角鋼容許應力採純靜載模式（Fb 不乘 1.25）
+              角鋼及伸縮片採純靜載容許應力（kFb 固定 1.00）
             </label></div>
           </div>
           <div class="rule-box">勾選後，Fph 會改採 0.4apSDSIp(1+2z/h)Wp/Rp，並受 0.3SDSIpWp 與 1.6SDSIpWp 上下限控制；石材幕牆掛件常用 Rp = 2.5，剛性組件可採 1.5。若勾選「地震水平比較採上限值」，則另列 1.6SDSIpWp 上限作風震包絡參考，但主設計力仍維持採細算後 PE，不回寫主檢核值；若勾選「PEV 採 0.5PE」，垂直地震力維持保守式，未勾選則採 Ev = 0.2SDSD。</div>
@@ -4984,7 +4991,7 @@ window.V2_FIELD_HINTS = Object.freeze({
   w_i:        { default_source: '一般建物 I=1.0', impacts_main_dcr: false, category: 'load' },
   w_neg:      { default_source: 'C&C Zone 4 推算', impacts_main_dcr: true,  category: 'load' },
   w_pos:      { default_source: 'C&C Zone 4 推算', impacts_main_dcr: true,  category: 'load' },
-  w_cf:       { default_source: 'ASD 1.25 載重組合', impacts_main_dcr: false, category: 'load' },
+  w_cf:       { default_source: '風壓乘數，依專案載重組合採用', impacts_main_dcr: true, category: 'load' },
   w_qref:     { default_source: '依 V=37.5 推得 q=341', impacts_main_dcr: true,  category: 'load' },
   w_gcpi:     { default_source: '封閉式 GCpi=±0.18', impacts_main_dcr: true,  category: 'load' },
   // 地震
@@ -7936,6 +7943,8 @@ const MIGRATABLE_SPEC_FIELDS = Object.freeze({
   sp_angle_on: true,
   sp_seismic_detail_on: true,
   sp_allow_stress_static_on: false,
+  m_fb_factor: null, // Imported files without a recorded material factor require review.
+  m_fb_basis: '',
   sp_anchor_group_on: true,
   sp_interaction_mode: 'conservative_envelope',
   sp_drift_on: true,
@@ -9286,6 +9295,7 @@ function inputs(){
     w_manual:n('w_manual'),
     w_v:n('w_v'), w_i:n('w_i'), w_exp:chipVal('chips_exp')||'B',
     w_neg:n('w_neg'), w_pos:n('w_pos'), w_cf:n('w_cf'),
+    m_fb_factor: v('m_fb_factor') === '' ? null : Number(v('m_fb_factor')), m_fb_basis: v('m_fb_basis').trim(),
     w_qref:n('w_qref'), w_cpe_pos:n('w_cpe_pos'), w_cpe_neg:n('w_cpe_neg'), w_gcpi:n('w_gcpi'),
     sa_case_id: v('sa_case_id'),
     sa_sds_values: v('sa_sds_values'),
@@ -9713,7 +9723,7 @@ function slipPlateSpecLabel(cd, result=null){
 
 function slipPlateMaterialFormulaText(inp){
   const fy = Math.max(0, Number(inp?.m_fy) || 2100);
-  return `伸縮片檢核基準：Va = 0.4 × Fy × A，A = B × t；S = (1/6) × B × t²；M = V × L；Sreq = M ÷ Fb，Fb = 0.6 × Fy × cf。各形式依個別伸縮片尺寸與受彎長度檢核。`;
+  return `伸縮片檢核基準：Va = 0.4 × Fy × A，A = B × t；S = (1/6) × B × t²；M = V × L；Sreq = M ÷ Fb，Fb = 0.6 × Fy × kFb。各形式依個別伸縮片尺寸與受彎長度檢核。`;
 }
 
 function signaturePageTitle(){
@@ -10482,7 +10492,7 @@ function manualWindNote(inp){
     if(!coeff) return '手動風壓係數：尚未完成 GCp / GCpi 細算。';
     return `手動風壓係數細算：q = ${coeff.qRef.toFixed(1)} kgf/m²，ΔGCp(+) = ${coeff.deltaPos.toFixed(2)}，ΔGCp(-) = ${coeff.deltaNeg.toFixed(2)}，p+ / |p-| = ${Math.abs(coeff.pPos).toFixed(1)} / ${Math.abs(coeff.pNeg).toFixed(1)} kgf/m²；本計算直接採此細算結果，無需另行套用。`;
   }
-  return `手動指定風壓：正、負風壓均採 ${inp.w_manual.toFixed(1)} kgf/m²，且視為最終設計風壓。`;
+  return `手動指定風壓：正、負風壓均採 ${inp.w_manual.toFixed(1)} kgf/m²，另乘本案風壓載重係數。`;
 }
 
 function effectiveWindValues(inp){
@@ -10580,14 +10590,10 @@ function geometryNote(spec){
   return `孔位幾何（${geo.sourceLabel || '未指定來源'}）：e = ${geo.edge.toFixed(1)} mm，s = ${geo.spacing.toFixed(1)} mm，h = ${geo.depth.toFixed(1)} mm。`;
 }
 function allowStressNote(spec){
-  if(!spec?.allowStressFactor) return '';
-  if(spec?.allowStressBasis === 'D only（手動）'){
-    return `角鋼彎曲容許應力提高係數 = ${spec.allowStressFactor.toFixed(2)}（依 D only 手動模式採用，僅影響角鋼 Fb，不回寫主荷載需求）。`;
-  }
-  const dynamicHint = spec.verticalBasis && spec.verticalBasis !== 'D only'
-    ? ' 目前案例因 SDS 或風壓不為 0，實際採動載組合；若需純靜載檢核，請手動將 SDS 與正、負風壓設為 0。'
-    : '';
-  return `角鋼彎曲容許應力提高係數 = ${spec.allowStressFactor.toFixed(2)}（依 ${spec.allowStressBasis || spec.verticalBasis || '荷載組合'} 採用）。${dynamicHint}`;
+  if(!spec || !Number.isFinite(spec.allowStressFactor)) return '';
+  return '角鋼及伸縮片彎曲容許應力係數 kFb = ' + spec.allowStressFactor.toFixed(2)
+    + '（' + spec.allowStressBasis + '；' + spec.allowStressReference + '）。'
+    + (spec.allowStressIssue || '');
 }
 function stoneGradeNote(inp){
   const preset = stoneGradePreset(inp?.sp_stone_grade);
@@ -11826,12 +11832,12 @@ ${inp.w_manual_mode === 'coeff' && coeffWind ? `
   <tr><td>ΔGCp（正）</td><td class="r">${coeffWind.cpePos.toFixed(2)} + ${coeffWind.gcpi.toFixed(2)} = <b>${coeffWind.deltaPos.toFixed(2)}</b></td></tr>
   <tr><td>ΔGCp（負）</td><td class="r">${coeffWind.cpeNeg.toFixed(2)} - ${coeffWind.gcpi.toFixed(2)} = <b>${coeffWind.deltaNeg.toFixed(2)}</b></td></tr>
   <tr><td>p<sup>+</sup> / |p<sup>−</sup>|</td><td class="r">${coeffWind.qRef.toFixed(1)} × ${coeffWind.deltaPos.toFixed(2)} = <b>${Math.abs(coeffWind.pPos).toFixed(1)}</b>　｜　${coeffWind.qRef.toFixed(1)} × ${coeffWind.deltaNeg.toFixed(2)} = <b>${Math.abs(coeffWind.pNeg).toFixed(1)}</b></td></tr>
-  <tr><td>× 載重組合係數 ${inp.w_cf}</td><td class="r">FW<sup>−</sup> / FW<sup>+</sup> = ${FW_design_neg.toFixed(1)} / ${FW_design_pos.toFixed(1)} kgf/m²</td></tr>
+  <tr><td>× 風壓載重係數 ${inp.w_cf}</td><td class="r">FW<sup>−</sup> / FW<sup>+</sup> = ${FW_design_neg.toFixed(1)} / ${FW_design_pos.toFixed(1)} kgf/m²</td></tr>
 </table>` : `
 <table class="dt" style="margin:6px 0 6px 24px;width:calc(100% - 24px)">
   <tr><th scope="row"><span style="position:absolute;left:0;top:0;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">項目</span></th><th>負風壓</th><th>正風壓</th><th>包絡控制值</th></tr>
   <tr><td>指定風壓（kgf/m²）</td><td class="r">${windValues.rawNeg.toFixed(1)}</td><td class="r">${windValues.rawPos.toFixed(1)}</td><td class="r"><b>${windValues.rawEnvelope.toFixed(1)}</b></td></tr>
-  <tr><td>× 載重組合係數 ${inp.w_cf}</td><td class="r">${FW_design_neg.toFixed(1)}</td><td class="r">${FW_design_pos.toFixed(1)}</td><td class="r"><b>${FW_design.toFixed(1)}</b></td></tr>
+  <tr><td>× 風壓載重係數 ${inp.w_cf}</td><td class="r">${FW_design_neg.toFixed(1)}</td><td class="r">${FW_design_pos.toFixed(1)}</td><td class="r"><b>${FW_design.toFixed(1)}</b></td></tr>
 </table>`}
 ${mainWindDirectionNote(inp) ? `<div class="calc indent calc-note">${mainWindDirectionNote(inp)}</div>` : ''}
 ${buildMainLoadAnnotations(inp, results[0]).filter(note => note === manualWindNote(inp)).map(note => `<div class="calc indent calc-note">${note}</div>`).join('')}` : `
@@ -11841,7 +11847,7 @@ ${buildMainLoadAnnotations(inp, results[0]).filter(note => note === manualWindNo
   <tr><th scope="row"><span style="position:absolute;left:0;top:0;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">項目</span></th><th>負風壓</th><th>正風壓</th><th>包絡控制值</th></tr>
   <tr><td>${ccAdoptedWindLabel(ccReportSnapshot(inp))}</td><td class="r">${inp.w_neg}</td><td class="r">${inp.w_pos}</td>
     <td class="r"><b>${Math.max(inp.w_pos,inp.w_neg).toFixed(1)}</b></td></tr>
-  <tr><td>× 載重組合係數 ${inp.w_cf}</td><td class="r">${(inp.w_neg*inp.w_cf).toFixed(1)}</td><td class="r">${(inp.w_pos*inp.w_cf).toFixed(1)}</td>
+  <tr><td>× 風壓載重係數 ${inp.w_cf}</td><td class="r">${(inp.w_neg*inp.w_cf).toFixed(1)}</td><td class="r">${(inp.w_pos*inp.w_cf).toFixed(1)}</td>
     <td class="r"><b>${FW_design.toFixed(1)}</b></td></tr>
 </table>
 ${ccAdoptedWindInterpolationNote(ccReportSnapshot(inp)) ? `<div class="calc indent calc-note">${escapeHtml(ccAdoptedWindInterpolationNote(ccReportSnapshot(inp)))}</div>` : ''}
@@ -12175,7 +12181,8 @@ const specAnnotations = appendixSpecSummaryNotes(inp, r, cd);
 <div class="calc">斷面模數　S  = ${sec.mode === 'l_angle_composite' ? `min(Sx, Sy) = min(${(sec.Sx || 0).toFixed(4)}, ${(sec.Sy || 0).toFixed(4)})` : `(1/6) × h × t² = (1/6) × ${cd.LL} × ${cd.Lt}²`} = <span class="highlight">${S_sec.toFixed(4)}</span> cm³</div>
 <div class="calc">容許剪力　Va = 0.4 × Fy × Au = 0.4 × ${inp.m_fy} kgf/cm² × ${Au.toFixed(3)} cm² = <span class="highlight">${Va_L.toFixed(2)}</span> kgf</div>
 <div class="calc">最大彎矩　M  = max(V×H, T<sub>b</sub>×d₁) = max(${(V*cd.bh).toFixed(2)}, ${(Tb*cd.d1).toFixed(2)}) = <span class="highlight">${M.toFixed(2)}</span> kgf·cm</div>
-<div class="calc">容許彎曲應力　Fb = 0.6 × Fy × cf = 0.6 × ${inp.m_fy} × ${(r.spec?.allowStressFactor || 1).toFixed(2)} = <span class="highlight">${Fb.toFixed(2)}</span> kgf/cm²</div>
+<div class="calc">${escapeHtml(allowStressNote(r.spec))}</div>
+<div class="calc">容許彎曲應力　Fb = 0.6 × Fy × kFb = 0.6 × ${inp.m_fy} × ${(r.spec?.allowStressFactor || 1).toFixed(2)} = <span class="highlight">${Fb.toFixed(2)}</span> kgf/cm²</div>
 <div class="calc">需求斷面模數　S<sub>req</sub> = M ÷ Fb = ${M.toFixed(2)} ÷ ${Fb.toFixed(2)} = <span class="highlight">${Sreq.toFixed(4)}</span> cm³</div>
 ${sectionNote(r.spec) ? `<div class="calc calc-note">${sectionNote(r.spec)}</div>` : ''}
 </div>`;
@@ -13071,6 +13078,8 @@ function load(){
     sp_thermal_alpha:'sp_thermal_alpha',sp_thermal_delta_t:'sp_thermal_delta_t',sp_thermal_reserve_mm:'sp_thermal_reserve_mm',
     sp_custom_torque_nm:'sp_custom_torque_nm'};
     Object.keys(mapping).forEach(k=>{ if(inp[k]!==undefined && inp[k]!==null) set(mapping[k], inp[k]); });
+    set('m_fb_factor', inp.m_fb_factor ?? '');
+    set('m_fb_basis', inp.m_fb_basis || '');
     if(inp.city){
       set('c_city', inp.city);
       onCityChange();
@@ -14295,12 +14304,12 @@ function buildWordMainPage1(inp, sampleResult, pageNo){
             <tr><td>ΔGCp（正）</td><td class="r">${coeffWind.cpePos.toFixed(2)} + ${coeffWind.gcpi.toFixed(2)} = <b>${coeffWind.deltaPos.toFixed(2)}</b></td></tr>
             <tr><td>ΔGCp（負）</td><td class="r">${coeffWind.cpeNeg.toFixed(2)} - ${coeffWind.gcpi.toFixed(2)} = <b>${coeffWind.deltaNeg.toFixed(2)}</b></td></tr>
             <tr><td>p<sup>+</sup> / |p<sup>−</sup>|</td><td class="r">${coeffWind.qRef.toFixed(1)} × ${coeffWind.deltaPos.toFixed(2)} = <b>${Math.abs(coeffWind.pPos).toFixed(1)}</b> kgf/m²；${coeffWind.qRef.toFixed(1)} × ${coeffWind.deltaNeg.toFixed(2)} = <b>${Math.abs(coeffWind.pNeg).toFixed(1)}</b> kgf/m²</td></tr>
-            <tr><td>× 載重組合係數 ${inp.w_cf}</td><td class="r">FW<sup>−</sup> / FW<sup>+</sup> = ${FW_design_neg.toFixed(1)} / ${FW_design_pos.toFixed(1)} kgf/m²</td></tr>
+            <tr><td>× 風壓載重係數 ${inp.w_cf}</td><td class="r">FW<sup>−</sup> / FW<sup>+</sup> = ${FW_design_neg.toFixed(1)} / ${FW_design_pos.toFixed(1)} kgf/m²</td></tr>
           </table>` : `
           <table class="word-grid">
             <tr><th scope="row"><span style="position:absolute;left:0;top:0;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">項目</span></th><th>負風壓</th><th>正風壓</th><th>包絡控制值</th></tr>
             <tr><td>指定風壓（kgf/m²）</td><td class="r">${windValues.rawNeg.toFixed(1)}</td><td class="r">${windValues.rawPos.toFixed(1)}</td><td class="r"><b>${windValues.rawEnvelope.toFixed(1)}</b></td></tr>
-            <tr><td>× 載重組合係數 ${inp.w_cf}</td><td class="r">${FW_design_neg.toFixed(1)}</td><td class="r">${FW_design_pos.toFixed(1)}</td><td class="r"><b>${FW_design.toFixed(1)}</b></td></tr>
+            <tr><td>× 風壓載重係數 ${inp.w_cf}</td><td class="r">${FW_design_neg.toFixed(1)}</td><td class="r">${FW_design_pos.toFixed(1)}</td><td class="r"><b>${FW_design.toFixed(1)}</b></td></tr>
           </table>`}
         ${mainWindDirectionNote(inp) ? `<div class="word-note">${mainWindDirectionNote(inp)}</div>` : ''}
         ${mainLoadAnnotations.filter(note => note === manualWindNote(inp)).map(note => `<div class="word-note">${escapeHtml(note)}</div>`).join('')}
@@ -14309,7 +14318,7 @@ function buildWordMainPage1(inp, sampleResult, pageNo){
         <table class="word-grid">
           <tr><th scope="row"><span style="position:absolute;left:0;top:0;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">項目</span></th><th>負風壓</th><th>正風壓</th><th>包絡控制值</th></tr>
           <tr><td>${escapeHtml(ccAdoptedWindLabel(ccReportSnapshot(inp)))}</td><td class="r">${inp.w_neg}</td><td class="r">${inp.w_pos}</td><td class="r"><b>${Math.max(inp.w_pos, inp.w_neg).toFixed(1)}</b></td></tr>
-          <tr><td>× 載重組合係數 ${inp.w_cf}</td><td class="r">${(inp.w_neg * inp.w_cf).toFixed(1)}</td><td class="r">${(inp.w_pos * inp.w_cf).toFixed(1)}</td><td class="r"><b>${FW_design.toFixed(1)}</b></td></tr>
+          <tr><td>× 風壓載重係數 ${inp.w_cf}</td><td class="r">${(inp.w_neg * inp.w_cf).toFixed(1)}</td><td class="r">${(inp.w_pos * inp.w_cf).toFixed(1)}</td><td class="r"><b>${FW_design.toFixed(1)}</b></td></tr>
         </table>
         <div class="word-note">採用 ${escapeHtml(inp.w_exp)} 地況，設計風速 ${inp.w_v} m/sec，用途係數 I = ${inp.w_i}</div>
         ${ccAdoptedWindInterpolationNote(ccReportSnapshot(inp)) ? `<div class="word-note">${escapeHtml(ccAdoptedWindInterpolationNote(ccReportSnapshot(inp)))}</div>` : ''}
@@ -14569,7 +14578,8 @@ const specAnnotations = appendixSpecSummaryNotes(inp, r, cd);
     ['斷面模數 S', `${sec.mode === 'l_angle_composite' ? `min(Sx, Sy) = min(${(sec.Sx || 0).toFixed(4)}, ${(sec.Sy || 0).toFixed(4)})` : `(1/6) × h × t² = (1/6) × ${cd.LL} × ${cd.Lt}²`} = ${S_sec.toFixed(4)} cm³`],
     ['容許剪力 Va', `0.4 × Fy × Au = 0.4 × ${inp.m_fy} × ${Au.toFixed(3)} = ${Va_L.toFixed(2)} kgf`],
     ['最大彎矩 M', `max(V×H, Tb×d₁) = max(${(V*cd.bh).toFixed(2)}, ${(Tb*cd.d1).toFixed(2)}) = ${M.toFixed(2)} kgf·cm`],
-    ['容許彎曲應力 Fb', `0.6 × Fy × cf = 0.6 × ${inp.m_fy} × ${(r.spec?.allowStressFactor || 1).toFixed(2)} = ${Fb.toFixed(2)} kgf/cm²`],
+    ['容許應力採用依據', allowStressNote(r.spec)],
+    ['容許彎曲應力 Fb', `0.6 × Fy × kFb = 0.6 × ${inp.m_fy} × ${(r.spec?.allowStressFactor || 1).toFixed(2)} = ${Fb.toFixed(2)} kgf/cm²`],
     ['需求斷面模數 Sreq', `M ÷ Fb = ${M.toFixed(2)} ÷ ${Fb.toFixed(2)} = ${Sreq.toFixed(4)} cm³`],
   ];
   const loadRows = [
@@ -15615,12 +15625,12 @@ function buildDocxMainSection1(inp, sampleResult){
                 ['ΔGCp（正）', `${coeffWind.cpePos.toFixed(2)} + ${coeffWind.gcpi.toFixed(2)} = ${coeffWind.deltaPos.toFixed(2)}`],
                 ['ΔGCp（負）', `${coeffWind.cpeNeg.toFixed(2)} - ${coeffWind.gcpi.toFixed(2)} = ${coeffWind.deltaNeg.toFixed(2)}`],
                 ['p+ / |p-|', `${coeffWind.qRef.toFixed(1)} × ${coeffWind.deltaPos.toFixed(2)} = ${Math.abs(coeffWind.pPos).toFixed(1)} kgf/m²；${coeffWind.qRef.toFixed(1)} × ${coeffWind.deltaNeg.toFixed(2)} = ${Math.abs(coeffWind.pNeg).toFixed(1)} kgf/m²`],
-                [`× 載重組合係數 ${inp.w_cf}`, `FW− / FW+ = ${FW_design_neg.toFixed(1)} / ${FW_design_pos.toFixed(1)} kgf/m²`],
+                [`× 風壓載重係數 ${inp.w_cf}`, `FW− / FW+ = ${FW_design_neg.toFixed(1)} / ${FW_design_pos.toFixed(1)} kgf/m²`],
               ], { widths: [28, 72] })
             : docxTable([
                 ['', '負風壓', '正風壓', '包絡控制值'],
                 ['指定風壓（kgf/m²）', windValues.rawNeg.toFixed(1), windValues.rawPos.toFixed(1), windValues.rawEnvelope.toFixed(1)],
-                [`× 載重組合係數 ${inp.w_cf}`, FW_design_neg.toFixed(1), FW_design_pos.toFixed(1), Math.max(FW_design_neg, FW_design_pos).toFixed(1)],
+                [`× 風壓載重係數 ${inp.w_cf}`, FW_design_neg.toFixed(1), FW_design_pos.toFixed(1), Math.max(FW_design_neg, FW_design_pos).toFixed(1)],
               ], { widths: [38, 20, 20, 22] })),
           ...(mainWindDirectionNote(inp) ? [docxNote(mainWindDirectionNote(inp))] : []),
           ...mainLoadAnnotations.filter(note => note === manualWindNote(inp)).map(note => docxNote(note))]
@@ -15628,7 +15638,7 @@ function buildDocxMainSection1(inp, sampleResult){
           docxTable([
             ['', '負風壓', '正風壓', '包絡控制值'],
             [ccAdoptedWindLabel(ccReportSnapshot(inp)), String(inp.w_neg), String(inp.w_pos), Math.max(inp.w_pos, inp.w_neg).toFixed(1)],
-            [`× 載重組合係數 ${inp.w_cf}`, (inp.w_neg * inp.w_cf).toFixed(1), (inp.w_pos * inp.w_cf).toFixed(1), (Math.max(inp.w_pos, inp.w_neg) * inp.w_cf).toFixed(1)],
+            [`× 風壓載重係數 ${inp.w_cf}`, (inp.w_neg * inp.w_cf).toFixed(1), (inp.w_pos * inp.w_cf).toFixed(1), (Math.max(inp.w_pos, inp.w_neg) * inp.w_cf).toFixed(1)],
           ], { widths: [38, 20, 20, 22] }),
           ...(ccAdoptedWindInterpolationNote(ccReportSnapshot(inp)) ? [docxNote(ccAdoptedWindInterpolationNote(ccReportSnapshot(inp)))] : []),
           ...(mainWindDirectionNote(inp) ? [docxNote(mainWindDirectionNote(inp))] : [])]),
@@ -15815,7 +15825,8 @@ const specAnnotations = appendixSpecSummaryNotes(inp, r, cd);
     ['斷面模數 S', `${sec.mode === 'l_angle_composite' ? `min(Sx, Sy) = min(${(sec.Sx || 0).toFixed(4)}, ${(sec.Sy || 0).toFixed(4)})` : `(1/6) × h × t² = (1/6) × ${cd.LL} × ${cd.Lt}²`} = ${S_sec.toFixed(4)} cm³`],
     ['容許剪力 Va', `0.4 × Fy × Au = 0.4 × ${inp.m_fy} × ${Au.toFixed(3)} = ${Va_L.toFixed(2)} kgf`],
     ['最大彎矩 M', `max(V×H, Tb×d₁) = max(${(V*cd.bh).toFixed(2)}, ${(Tb*cd.d1).toFixed(2)}) = ${M.toFixed(2)} kgf·cm`],
-    ['容許彎曲應力 Fb', `0.6 × Fy × cf = 0.6 × ${inp.m_fy} × ${(r.spec?.allowStressFactor || 1).toFixed(2)} = ${Fb.toFixed(2)} kgf/cm²`],
+    ['容許應力採用依據', allowStressNote(r.spec)],
+    ['容許彎曲應力 Fb', `0.6 × Fy × kFb = 0.6 × ${inp.m_fy} × ${(r.spec?.allowStressFactor || 1).toFixed(2)} = ${Fb.toFixed(2)} kgf/cm²`],
     ['需求斷面模數 Sreq', `M ÷ Fb = ${M.toFixed(2)} ÷ ${Fb.toFixed(2)} = ${Sreq.toFixed(4)} cm³`],
   ];
   const loadRows = [

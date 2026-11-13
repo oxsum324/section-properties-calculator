@@ -1,5 +1,5 @@
 window.StoneCalculator = (() => {
-const VERSION = '2026.04.23-spec-core11';
+const VERSION = '2026.11.13-spec-core12';
   const CONSTS = window.STONE_CONSTANTS || {};
   const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬', '⑭', '⑮', '⑯'];
   const MATERIALS = Object.fromEntries((CONSTS.MATERIAL_GRADE_OPTIONS || []).map((item) => [item.value, item]));
@@ -1453,7 +1453,7 @@ const VERSION = '2026.04.23-spec-core11';
             'cm³',
             plateSreq <= slipPlate.sectionModulus,
             {
-              detail: `L = ${slipPlate.spanLabel} = ${slipPlate.spanCm.toFixed(2)} cm；M = V × L = ${V.toFixed(2)} × ${slipPlate.spanCm.toFixed(2)} = ${plateM.toFixed(2)} kgf·cm；Fb = 0.6 × Fy × cf = 0.6 × ${slipPlate.fy.toFixed(0)} × ${allowStressFactor.toFixed(2)} = ${plateFb.toFixed(2)} kgf/cm²。`,
+              detail: `L = ${slipPlate.spanLabel} = ${slipPlate.spanCm.toFixed(2)} cm；M = V × L = ${V.toFixed(2)} × ${slipPlate.spanCm.toFixed(2)} = ${plateM.toFixed(2)} kgf·cm；Fb = 0.6 × Fy × kFb = 0.6 × ${slipPlate.fy.toFixed(0)} × ${allowStressFactor.toFixed(2)} = ${plateFb.toFixed(2)} kgf/cm²。`,
             }
           )
         );
@@ -1521,6 +1521,20 @@ const VERSION = '2026.04.23-spec-core11';
       : baseN;
   }
 
+  function bendingAllowance(inp, loadBasis) {
+    if (loadBasis.startsWith('D only')) return {factor:1, basis:'純靜載容許值'};
+    const raw = inp?.m_fb_factor;
+    const factor = typeof raw === 'number' || (typeof raw === 'string' && raw.trim()) ? Number(raw) : NaN;
+    const basis = typeof inp?.m_fb_basis === 'string' ? inp.m_fb_basis.trim() : '';
+    if (!Number.isFinite(factor) || factor <= 0) {
+      return {factor:1, basis:'暫按基準容許值', issue:'請核對角鋼及伸縮片彎曲容許應力係數。舊版曾沿用風壓係數。'};
+    }
+    if (factor !== 1 && !basis) {
+      return {factor:1, basis:'暫按基準容許值', issue:'調整彎曲容許應力須填適用材料、載重組合及條款或專案文件。'};
+    }
+    return {factor, basis:basis || '基準容許彎曲應力，係數 1.00'};
+  }
+
   function calcCase(cd, inp) {
     const w = toNumber(cd?.w, 870);
     const h = toNumber(cd?.h, 800);
@@ -1572,14 +1586,9 @@ const VERSION = '2026.04.23-spec-core11';
       : null;
     const rawPressurePos = windFromGCp ? windFromGCp.pos : toNumber(inp?.w_pos, 426);
     const rawPressureNeg = windFromGCp ? windFromGCp.neg : toNumber(inp?.w_neg, 341);
-    // V2.1.1：風壓組合係數預設由鋼材 profile Fb_factor_with_wind_seismic 取得，
-    // 同時也是允許應力法 D+W/D+E 組合下 Fb 放大係數的對應預設
-    const _profilesWcf = (typeof globalThis !== 'undefined' && globalThis.StoneCodeProfiles)
-      ? globalThis.StoneCodeProfiles
-      : (typeof window !== 'undefined' && window.StoneCodeProfiles ? window.StoneCodeProfiles : null);
-    const wcfDefault = _profilesWcf ? _profilesWcf.getParam(inp, 'steel', 'Fb_factor_with_wind_seismic', 1.25) : 1.25;
-    const pressurePos = rawPressurePos * toNumber(inp?.w_cf, wcfDefault);
-    const pressureNeg = rawPressureNeg * toNumber(inp?.w_cf, wcfDefault);
+    const windFactor = toNumber(inp?.w_cf, 1.25);
+    const pressurePos = rawPressurePos * windFactor;
+    const pressureNeg = rawPressureNeg * windFactor;
     const PWPos = A * pressurePos;
     const PWNeg = A * pressureNeg;
     const windDirectional = moduleOn(inp, 'sp_wind_dir_on');
@@ -1608,7 +1617,8 @@ const VERSION = '2026.04.23-spec-core11';
         ? 'D + E'
         : (!eqControlsPull && !eqControlsPush ? 'D + W' : 'D + E / D + W 取較不利'));
     const allowStressBasis = manualStaticAllow ? 'D only（手動）' : verticalBasis;
-    const allowStressFactor = allowStressBasis.startsWith('D only') ? 1.0 : toNumber(inp?.w_cf, wcfDefault);
+    const fb = bendingAllowance(inp, allowStressBasis);
+    const allowStressFactor = fb.factor;
 
     const anchorBase = anchorCapacity(inp);
     const anchorGroup = anchorGroupReduction(cd, inp, anchorBase);
@@ -1636,6 +1646,7 @@ const VERSION = '2026.04.23-spec-core11';
     const bk2 = bk2Check(cd, inp);
 
     const extraChecks = [];
+    if (fb.issue) extraChecks.push(row('彎曲容許應力採用依據', '核對係數與依據', '待確認', '已確認', null, null, '', false, {detail:fb.issue}));
     [panel, drift, thermal, geometry, material, dimensions, customAnchor, bk2].forEach((group) => {
       if (Array.isArray(group?.checks) && group.checks.length) extraChecks.push(...group.checks);
     });
@@ -1729,6 +1740,9 @@ const VERSION = '2026.04.23-spec-core11';
         windDirectional,
         verticalBasis,
         allowStressBasis,
+        allowStressReference: fb.basis,
+        allowStressIssue: fb.issue || '',
+        windFactor,
         verticalPull,
         verticalPush,
         allowStressFactor,
@@ -1768,7 +1782,7 @@ const VERSION = '2026.04.23-spec-core11';
           anchorGroup.enabled ? `群組/邊距折減：Ta ${anchor.baseTa.toFixed(1)}→${anchor.effectiveTa.toFixed(1)} kgf，Va ${anchor.baseVa.toFixed(1)}→${anchor.effectiveVa.toFixed(1)} kgf` : '',
           seismic.detailed ? `耐震細算：${seismic.control}` : '',
           bool(inp?.sp_seis_upper_compare_on) ? `地震上限比較：Fph* = ${compareFph.toFixed(2)} kgf/m²，P* = ${compareP.toFixed(2)} kgf（${compareControlsPull && compareControlsPush ? '上限比較為地震控制' : compareControlsPull || compareControlsPush ? '上限比較於不同方向控制不同' : '上限比較仍為風力控制'}，僅供比較，不回寫主設計力）` : '',
-          manualStaticAllow ? `角鋼容許應力採純靜載模式：Fb 不乘 ${wcfDefault.toFixed(2)}。` : '',
+          manualStaticAllow ? '角鋼與伸縮片採基準容許彎曲應力。' : fb.issue || '',
           inp?.sp_interaction_mode === 'separated' ? '錨栓拉剪交互採分離計算：Tu1 與 V 同源時，不重複累加 V 項。' : '',
           `PEV 採 ${pevMethod}`,
           ipEff > toNumber(inp?.s_ip_raw ?? inp?.s_ip, 1.0) ? `Ip 自動提升：${toNumber(inp?.s_ip_raw ?? inp?.s_ip, 1.0).toFixed(2)} → ${ipEff.toFixed(2)}` : '',

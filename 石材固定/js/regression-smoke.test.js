@@ -30,6 +30,8 @@ function baseInput(overrides = {}) {
     w_pos: 360,
     w_neg: 360,
     w_cf: 1.25,
+    m_fb_factor: 1.25,
+    m_fb_basis: '合成回歸例的獨立材料係數，保留歷史參考值。',
     s_sds: 0.6,
     s_ip_raw: 1.0,
     s_ip: 1.5,
@@ -212,6 +214,36 @@ function assertFocused(name, cd, inp, expected) {
 }
 
 const { calculator, profiles } = loadCalculator();
+// V2 exchange: 1.25W is a demand multiplier. A project bending allowance has its own basis.
+{
+  const cd = caseFixture({hasSlipPlate:true});
+  const run = (data) => calculator.calcCase(cd,baseInput({w_pos:900,w_neg:900,m_fb_factor:1,m_fb_basis:'',...data}));
+  const first = run({w_cf:1}), wind = run({w_cf:1.5});
+  const requiredS = r => r.checks.find(c=>c.item==='角鋼 彎矩（斷面模數）').v;
+  assert.ok(Math.abs(wind.pressurePos / first.pressurePos - 1.5)<1e-12);
+  assert.ok(Math.abs(requiredS(wind) / requiredS(first) - 1.5)<1e-12);
+  assert.strictEqual(wind.spec.allowStressFactor,1);
+  const material = run({w_cf:1,m_fb_factor:1.2,m_fb_basis:'試算 A，組合 DW'});
+  assert.strictEqual(material.pressurePos,first.pressurePos);
+  const slipS = r => r.checks.find(c=>c.item==='伸縮片 彎矩（斷面模數）').v;
+  assert.ok(Math.abs(slipS(first)/slipS(material)-1.2)<1e-12);
+
+  assert.ok(Math.abs(requiredS(first)/requiredS(material)-1.2)<1e-12);
+  for (const args of [{m_fb_factor:undefined},{m_fb_factor:0},{m_fb_factor:1.25,m_fb_basis:''}]) {
+    const r=run(args);
+    assert.strictEqual(r.allOK,false);
+    assert.ok(r.checks.some(c=>c.item==='彎曲容許應力採用依據' && !c.pass));
+    assert.strictEqual(r.spec.allowStressFactor,1);
+  }
+  const stat=run({m_fb_factor:1.2,m_fb_basis:'試算',sp_allow_stress_static_on:true});
+  assert.strictEqual(stat.spec.allowStressFactor,1);
+  const eq1=run({w_pos:1,w_neg:1,w_cf:1,s_sds:1.2});
+  const eq2=run({w_pos:1,w_neg:1,w_cf:1.5,s_sds:1.2});
+  assert.strictEqual(eq1.spec.verticalBasis,'D + E');
+  assert.strictEqual(eq1.P,eq2.P);
+  assert.strictEqual(requiredS(eq1),requiredS(eq2));
+}
+
 
 assert.match(calculator.VERSION, /^\d{4}\.\d{2}\.\d{2}-spec-core\d+$/);
 

@@ -4,7 +4,7 @@
   const metadata = Object.freeze({
     id: 'stone-fixing',
     name: '石材外牆固定構件計算書產生器',
-    version: 'V3.1.1',
+    version: 'V3.2',
     state: 'formal',
     governance: 'stone-v2',
   });

@@ -18,7 +18,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = 'input-schema-2026.04.27';
+  const VERSION = 'input-schema-2026.11.13';
 
   // ─────────────────────────────────────────────────────────────
   // 欄位 schema 定義
@@ -46,6 +46,8 @@
     s_sds:   { type: 'number', min: 0.1,  max: 2.0,  default: 0.6,                  label: 'SDS 短週期設計譜' },
     s_ip:    { type: 'number', min: 1.0,  max: 1.5,  default: 1.0,                  label: 'Ip 重要性係數',   required: false },
     // ─── 材料 ───
+    m_fb_factor: { type: 'number', min: 0, required: false, label: '彎曲容許應力係數 kFb' },
+    m_fb_basis: { type: 'string', required: false, label: '容許應力調整依據' },
     m_fy:        { type: 'number', min: 1000, max: 5000, default: 2100, unit: 'kgf/cm²', label: 'SUS304 Fy' },
     m_fya36:     { type: 'number', min: 1000, max: 5000, default: 2500, unit: 'kgf/cm²', label: 'A36 Fy' },
     m_anc_type:  { type: 'enum', options: ['custom', 'SH-440', 'SH-550', 'SH-560', 'SH-660'], default: 'SH-440', label: '內迫膨脹螺栓型號' },

@@ -223,7 +223,7 @@
       '/seismic-appendage': '2026-11-12',
       '/seismic-misc': '2026-11-12',
       '/anchor': '2026-10-26',
-      '/stone-fixing': '2026-11-12',
+      '/stone-fixing': '2026-11-13',
       '/foundation-local': '2026-10-23',
       '/equipment-load': '2026-10-23',
       '/earth-pressure': '2026-11-12',
@@ -944,7 +944,7 @@
     },
     {
       title: '石材固定構件計算書',
-      version: 'V3.1.1',
+      version: 'V3.2',
       href: '/stone-fixing',
       aliases: ['stone cladding anchor', '外牆石材錨固'],
       categories: ['attachments'],

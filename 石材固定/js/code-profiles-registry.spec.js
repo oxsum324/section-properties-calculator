@@ -11,7 +11,7 @@
 (function (root) {
   'use strict';
 
-  const REGISTRY_VERSION = 'code-profiles-registry-2026.09.29-v5';
+  const REGISTRY_VERSION = 'code-profiles-registry-2026.11.13-v6';
   // V3.0.0：StoneGovernanceProtocol 版本號 — 對應 dev_tools/StoneGovernanceProtocol-v1.0.md
   // 任何 protocol-compliant 工具於 result.meta.governance_protocol_version 寫入此值；
   // 用於跨工具 / 跨版本比對時確認治理欄位 schema 相容性
@@ -172,7 +172,6 @@
         Fy_SUS304_default: 2100,
         Fy_A36_default: 2500,
         Fb_factor_static: 0.6,
-        Fb_factor_with_wind_seismic: 1.25,
         Fv_factor: 0.4
       })
     }),
