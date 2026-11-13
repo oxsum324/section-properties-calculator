@@ -234,6 +234,8 @@ export type SoilLayer = {
   kp?: number | null;
   es_t_per_m2?: number | null;
   kh_t_per_m3?: number | null;
+  kh_pressure_gradient_per_m?: number | null;
+  kh_source?: string;
   soil_type: "sand" | "clay" | "mixed";
 };
 

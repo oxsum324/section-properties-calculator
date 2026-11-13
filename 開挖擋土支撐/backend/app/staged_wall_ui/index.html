@@ -1,0 +1,31 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>逐階壁體與土彈簧</title>
+<style>
+*{box-sizing:border-box}body{font:16px/1.55 "Microsoft JhengHei",system-ui,sans-serif;color:#263632;background:#f4f6f4;margin:0}main{max-width:1180px;margin:auto;padding:15px}section{padding:15px;background:white;border:1px solid #cdd9d3;border-radius:8px;margin-bottom:12px}h1,h2,h3{color:#245343;line-height:1.35;margin:0 0 .5rem}h1{font-size:1.5rem}h2{font-size:1.18rem}h3{font-size:1rem}p{margin:.5rem 0}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.wide{grid-column:span 2}label{display:block;font-weight:650}input,textarea,select,button{font:inherit;color:inherit;border:1px solid #8ba59d;border-radius:5px;padding:6px;max-width:100%}label input,label select,textarea{width:100%;display:block}textarea{font:14px/1.5 Consolas,monospace;resize:vertical}button{background:#e9f0ec;color:#234f3f;cursor:pointer}button.primary{background:#275946;color:white}.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:.6rem 0}.note{font-size:.93rem;color:#51665c}.status{color:#285643;font-weight:700}.scroll{overflow:auto;max-height:24rem}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{text-align:left;vertical-align:top;padding:5px 7px;border-bottom:1px solid #d9e2dc}th{background:#ebf1ee;position:sticky;top:0}canvas{width:min(100%,750px);height:auto}.summary{padding:8px;border-left:4px solid #437c66;background:#edf5ef}.print-only{display:none}dialog{border:1px solid #809a89;border-radius:8px;max-width:90%}[hidden]{display:none!important}
+@media(max-width:700px){main{padding:6px}section{padding:10px}.grid{grid-template-columns:1fr 1fr}.wide{grid-column:1/-1}table{min-width:40rem}}
+@media print{@page{margin:12mm}body{background:white;font-size:10pt}main,section{padding:0;border:0}.no-print,dialog,details:not([open]){display:none!important}.print-only{display:block}.scroll{max-height:none;overflow:visible}table{min-width:0}thead{display:table-header-group}th{position:static}tr,canvas{break-inside:avoid}h2,h3{break-after:avoid}canvas{max-width:142mm}body:has(#result[hidden]):after{content:'尚無可列印的逐階結果。'}}
+</style></head><body><main>
+<div class="no-print"><h1>逐階壁體與土彈簧</h1><p>以一公尺寬牆帶計算。地表深度 z＝0，向下為正；壁體往開挖側的位移為正，M＝EI u″，V＝dM/dz。</p>
+<section><div class="actions"><button id="example">載入五階合成例</button><label for="file">讀取工作紀錄 JSON</label><input id="file" type="file" accept=".json,application/json"></div>
+<div class="actions"><label for="externalSide">已儲存案件的外部來源</label><select id="externalSide"><option value="top_analysis_source">上側</option><option value="bottom_analysis_source">下側</option><option value="analysis_import">原共用匯入紀錄</option></select><button id="bring" disabled>帶入階段供核對</button><span id="sourceName"></span></div>
+<div class="grid"><label class="wide">案件／壁段識別<input id="case_id"></label><label class="wide">高程零點、EI、壁趾及材料依據<input id="basis"></label>
+<label>壁長 (m)<input id="length" type="number" step="any"></label><label>壁剛度 EI (kN·m²/m)<input id="ei" type="number" step="any"></label><label>水單位重 (kN/m³)<input id="water_weight" type="number" step="any"></label><label>粗網格最大步距 (m)<input id="step" type="number" step="any"></label>
+<label class="wide">壁趾條件<select id="toe"><option value="">請指定</option><option value="fixed">固定平移及轉動</option><option value="pinned">固定平移，轉動自由</option><option value="free">平移與轉動均自由</option></select></label>
+<label class="wide">土彈簧路徑<select id="soil_law"><option value="">請指定</option><option value="linear">雙向線彈性，加卸載同斜率</option><option value="plastic">彈性完全塑性，卸載保留塑性位移</option></select></label></div></section>
+<section><h2>土層、階段與支撐</h2>
+<p class="note">各表可由 Excel 複製並保留表頭。土層有效側壓是案件另算的「淨驅動壓力」，在層內線性變化；水壓差另加。kh 為開挖側剩餘地盤的增量反力模數，挖除部分停用。彈塑性上下限為此彈簧反力的有號界限，無法直接以總土壓代入。</p>
+<label for="layers">土層與有效側壓</label><textarea id="layers" rows="4" wrap="off"></textarea>
+<label for="stages">施工階段（檔案順序）</label><textarea id="stages" rows="5" wrap="off"></textarea><p class="note">每階填完整水位深度及兩個倍率。有效側壓、水壓分開乘倍率；靜水壓差依內外水頭。零水壓應填相同水位或給定有據倍率。</p>
+<label for="supports">支撐與預力（可只保留表頭）</label><textarea id="supports" rows="4" wrap="off"></textarea>
+<p class="note">每支撐垂直壁面的水平勁度用 kN/m，水平預力用 kN/支，依沿牆間距換為每米牆反力。型式填「雙向」或「只受壓」。安裝時採上一步平衡位移作為零變形基準，預力為初始力；拆撐階從方程中移除。斜撐須先依其方向換算水平分量。</p>
+<label for="comparisons">外部解與監測比較（可只保留表頭）</label><textarea id="comparisons" rows="4" wrap="off"></textarea>
+<p class="note">來源類別填「外部」或「監測」。量填 u、M、V、R；位移 mm／cm／m、彎矩 kN·m/m／tf·m/m、剪力 kN/m／tf/m、單支水平反力 kN／tf。側別填「上」或「下」，支撐站的剪力分兩側取值。數值須先按本表正向換號，來源填檔號或儀器、時間及換號依據。</p>
+<button id="run" class="primary">計算全部施工階段</button><span id="status" role="status" class="status"></span></section></div>
+<section id="result" hidden><h2>逐階壁體分析紀錄</h2><p id="context"></p><div id="stageTable"></div>
+<div class="actions no-print"><label for="stage">顯示階段</label><select id="stage"></select><button id="save">下載全部階段 JSON</button><button id="print">列印本階與總覽</button></div>
+<h3 id="title"></h3><p class="summary" id="summary"></p><canvas id="plot" width="760" height="360" aria-label="位移、彎矩及剪力隨深度變化圖，詳細數值見下表"></canvas>
+<p class="note">深度由上向下，水平虛線為當階開挖面；各圖橫軸以中線為零，左右為負／正。</p><h3>當階支撐</h3><div id="struts"></div><h3>同階／同深度之對照</h3><div id="comparison"></div>
+<h3>當階牆體與內力</h3><div id="profile"></div>
+<details id="springDetails"><summary>土彈簧積分點與塑性位移</summary><div id="springs"></div></details>
+<p id="assumptions"></p><p class="note">本紀錄用於內部模型核對。鄰地沉陷、管湧、底部隆起、支撐構件強度及施工安全另核。工作紀錄保存所有階段、原輸入與殘差。</p></section>
+<dialog id="replace"><form method="dialog"><p>以新資料取代目前壁段與分析？</p><div class="actions"><button autofocus value="keep">保留目前資料</button><button value="yes">取代資料</button></div></form></dialog></main>
+<script src="./workspace.js"></script></body></html>

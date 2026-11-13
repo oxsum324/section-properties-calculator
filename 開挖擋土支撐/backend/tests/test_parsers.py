@@ -35,6 +35,13 @@ class ParserTests(unittest.TestCase):
         fallback = parse_analysis_file("note.rio", "* Stage 1 Excavtion Depth= 3.25 m")
         self.assertEqual(fallback.stages[0].excavation_depth_m, 3.25)
 
+    def test_rido_re_and_rp_have_distinct_units(self) -> None:
+        s = parse_analysis_file("wall.LST", "4 ... 3 2.03 1.03 0.34 0.546 4.044 0 27 0 0.5 500 3.25").soils[0]
+        self.assertEqual(s.kh_t_per_m3, 500)
+        self.assertEqual(s.kh_pressure_gradient_per_m, 3.25)
+        self.assertEqual(s.kh_source, "RIDO Re/Rp")
+        self.assertIsNone(s.es_t_per_m2)
+
     def test_parse_o_file(self) -> None:
         settings = get_settings()
         path = settings.root_dir / "1150317.o"

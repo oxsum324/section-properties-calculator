@@ -14,6 +14,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 
+from .staged_wall_routes import router as staged_wall_router
 from .calculations import calculate_project
 from .config import get_settings
 from .parsers import parse_analysis_file
@@ -133,6 +134,7 @@ receiver_operator_store = ReceiverOperatorStore()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="擋土支撐計算網頁工具", version="0.1.0")
+app.include_router(staged_wall_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

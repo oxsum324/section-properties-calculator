@@ -68,7 +68,9 @@ def _parse_lst_like(filename: str, content: str) -> AnalysisImportResult:
         depth = float(match.group(1))
         phi = float(match.group(8))
         cohesion = float(match.group(7))
-        kh = float(match.group(12))
+        # Re is the zero-pressure spring modulus (tf/m³); Rp is its gradient (1/m).
+        kh = float(match.group(11))
+        gradient = float(match.group(12))
         result.soils.append(
             SoilLayer(
                 index=soil_index,
@@ -79,8 +81,9 @@ def _parse_lst_like(filename: str, content: str) -> AnalysisImportResult:
                 cohesion_t_per_m2=cohesion,
                 ka=float(match.group(4)),
                 kp=float(match.group(6)),
-                es_t_per_m2=float(match.group(11)),
                 kh_t_per_m3=kh,
+                kh_pressure_gradient_per_m=gradient,
+                kh_source="RIDO Re/Rp",
                 soil_type="clay" if cohesion > 0 else "sand",
             )
         )
@@ -242,6 +245,7 @@ def _parse_o_file(filename: str, content: str) -> AnalysisImportResult:
                 kp=kp,
                 cohesion_t_per_m2=cohesion,
                 kh_t_per_m3=kh,
+                kh_source="O SOIL NO/Kh",
                 phi_deg=phi,
                 soil_type="clay" if soil_flag.upper() == "U" or cohesion > 0 else "sand",
             )

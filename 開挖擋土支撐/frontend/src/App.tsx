@@ -4654,6 +4654,7 @@ function App() {
                   {projectDirty ? "儲存變更" : "已儲存"}
                 </button>
                 <span className="toolbar-label">{autoSaveLabel}</span>
+                {project.metadata.id && <a className="secondary" href={`/api/staged-wall/?project=${encodeURIComponent(project.metadata.id)}`} target="_blank" rel="noreferrer">逐階壁體與土彈簧（已儲存案件）</a>}
               </>
             )}
             <button className="secondary" onClick={() => jumpToStep(STEP_RESULTS)}>

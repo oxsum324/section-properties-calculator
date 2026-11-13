@@ -63,6 +63,8 @@ class SoilLayer(BaseModel):
     kp: float | None = None
     es_t_per_m2: float | None = None
     kh_t_per_m3: float | None = None
+    kh_pressure_gradient_per_m: float | None = None
+    kh_source: str = ""
     soil_type: Literal["sand", "clay", "mixed"] = "mixed"
 
 
