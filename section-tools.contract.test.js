@@ -453,6 +453,7 @@ function captureRetrofitReportPayload(source, functionName, stateKey, stateValue
     openReport(nextPayload) {
       payload = nextPayload;
     },
+    calcCol() { /* 此單元提供已算的柱狀態；全頁回歸另驗證重算。 */ },
     setReportStatus(id, message, tone = 'warn') {
       statuses.push({ id, message, tone });
       const el = elements.get(id);
@@ -535,11 +536,11 @@ const tools = [
     label: 'RC retrofit section reports',
     path: 'RC補強斷面性質.html',
     needles: [
-      '<title>RC 補強斷面性質計算 V1.8</title>',
+      '<title>RC 補強斷面性質計算 V1.9</title>',
       'id="b-report-status"', 'id="c-report-status"', 'id="b-report-readiness"', 'id="c-report-readiness"',
       'id="caseStatus"', 'id="retrofitJsonFile"', 'function collectRetrofitProjectData',
       'function validateRetrofitProjectData', 'function applyRetrofitProjectData',
-      'rc-retrofit-section.project.v1', "version: 'V1.8'", 'function renderReportReadiness', 'page-only-report-status',
+      'rc-retrofit-section.project.v1', "version: 'V1.9'", 'function renderReportReadiness', 'page-only-report-status',
     ],
   },
 ];
@@ -800,6 +801,7 @@ const retrofitColumnPayload = captureRetrofitReportPayload(rcRetrofitHtml, 'expo
     ],
     jacketInfo: { tj_mm: 9, fyj: 2800, ke: 0.85 },
   },
+  elastic: {pending:true,basis:'待補鋼套管縱向傳力依據',A_trans:null,I_trans:null,y_trans:null},
   confine: { f_l: 45, f_cc: 420 },
   axial: { Po_base: 2.5e6, Po_conf: 3.2e6, Pn_max_base: 2.0e6, Pn_max_conf: 2.56e6 },
   flex: { Mn_base: 1.2e7, Mn_conf: 1.8e7, c_base: 12, c_conf: 10 },
@@ -819,6 +821,8 @@ const retrofitColumnHtml = renderSharedReportPayload(
 );
 const retrofitColumnText = assertReportHtmlText(retrofitColumnHtml, 'RC retrofit column runtime report', [
   'RC 柱補強斷面計算書',
+  '縱向彈性轉換斷面',
+  '待補鋼套管縱向傳力依據',
   '計畫編號',
   'RETROFIT-QA-001',
   '設計人員',

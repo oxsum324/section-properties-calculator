@@ -97,7 +97,7 @@ assert.ok(!rcWallAdapterSource.includes('golden'), 'RC wall adapter does not rep
 const rcRetrofitAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-retrofit-section.js'), 'utf8');
 assert.ok(rcRetrofitAdapterSource.includes("../../../RC補強斷面性質.html"), 'RC retrofit adapter reads the formal beam and column page');
 assert.ok(rcRetrofitAdapterSource.includes('formalPageSource.slice(coreStart, coreEnd)'), 'RC retrofit adapter executes the production functions extracted from the formal page');
-assert.ok(rcRetrofitAdapterSource.includes('solveBeamMn, uncrackedTransSection, crackedTransSection'), 'RC retrofit adapter exercises production flexural and transformed-section functions');
+assert.ok(['Production.solveBeamMn(', 'Production.uncrackedTransSection(', 'Production.crackedTransSection(', 'Production.columnElasticSection('].every(call => rcRetrofitAdapterSource.includes(call)), 'RC retrofit adapter exercises production flexural and transformed-section functions');
 assert.ok(rcRetrofitAdapterSource.includes('pmCurvePoints, findMnAtP'), 'RC retrofit adapter exercises the production column P-M functions');
 assert.ok(!rcRetrofitAdapterSource.includes('golden'), 'RC retrofit adapter does not replay a golden-case fixture');
 const rcFoundationAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-foundation.js'), 'utf8');

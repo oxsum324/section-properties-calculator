@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RC 補強斷面性質計算 V1.8</title>
+<title>RC 補強斷面性質計算 V1.9</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="tool-chrome.css">
 <link rel="stylesheet" href="鋼筋混凝土/shared/direct-print-boundary.css">
@@ -98,7 +98,7 @@
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
   <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>RC 補強斷面性質計算 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.8</span></h1>
+  <h1>RC 補強斷面性質計算 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.9</span></h1>
   <p>既有 RC 矩形斷面 ＋ 鋼板／碳纖補強 | 彈性斷面性質 + 極限強度（Mn／Pn）| 依 112 規範 + ACI 440.2R-17</p>
 </header>
 
@@ -394,6 +394,11 @@
             </div>
             <div class="form-group"><label>Esj (kgf/cm²)</label><input type="number" id="c-Esj" value="2040000" step="any"></div>
             <div class="form-group">
+              <label><input type="checkbox" id="c-jacket-composite" onchange="calcCol()">彈性斷面計入鋼套管縱向合成作用</label>
+              <label for="c-jacket-basis">連接、端部傳力與變形相容依據</label>
+              <input type="text" id="c-jacket-basis" placeholder="圖號、詳圖或專案計算編號" onchange="calcCol()">
+            </div>
+            <div class="form-group">
               <label>ke 形狀效率（Priestley 1994；文獻範圍 0 ~ 0.75）</label>
               <select id="c-ke-preset" onchange="applyKePreset()">
                 <option value="0">0.00 — 無圍束貢獻（僅剪力 / 搭接束制）</option>
@@ -440,6 +445,7 @@
                 </select>
               </div>
             </div>
+            <div class="hint">此處採環向 CFRP 圍束；柱縱向 EA、EI 採既有 RC 斷面。</div>
             <div class="form-group"><label>εfe 圍束有效應變（建議 0.004 保守）</label><input type="number" id="c-efe" value="0.004" step="any"></div>
             <div class="form-group">
               <label>ka 形狀效率（ACI 440.2R-17 §12；矩形範圍 0.25 ~ 0.5）</label>
@@ -571,7 +577,7 @@ function collectRetrofitFields(prefix) {
 function collectRetrofitProjectData() {
   return {
     schema: RETROFIT_PROJECT_SCHEMA,
-    tool: { id: 'rc-retrofit-section', name: 'RC 補強斷面性質計算', version: 'V1.8' },
+    tool: { id: 'rc-retrofit-section', name: 'RC 補強斷面性質計算', version: 'V1.9' },
     savedAt: new Date().toISOString(),
     project: {
       name: getProjectFieldValue('projName'),
@@ -635,6 +641,15 @@ function applyRetrofitFieldRecords(records) {
   });
 }
 function applyRetrofitProjectData(data) {
+  const oldElastic = data?.schema === RETROFIT_PROJECT_SCHEMA && (!data.tool?.version || data.tool.version === 'V1.8');
+  if (oldElastic && Array.isArray(data.inputs?.column)) {
+    const records = data.inputs.column;
+    const defaults = [
+      {id:'c-jacket-composite',type:'checkbox',value:'on',checked:false},
+      {id:'c-jacket-basis',type:'text',value:'',checked:false}
+    ];
+    data = {...data,inputs:{...data.inputs,column:[...records,...defaults.filter(d => !records.some(r => r?.id === d.id))]}};
+  }
   validateRetrofitProjectData(data);
   const project = data.project || {};
   document.getElementById('projName').value = normalizeProjectFieldValue(project.name);
@@ -653,7 +668,7 @@ function applyRetrofitProjectData(data) {
   calcBeam();
   calcCol();
   switchTab(data.view?.activeTab || 'beam');
-  setCaseStatus('已讀取 JSON，並重新計算梁、柱結果。');
+  setCaseStatus(oldElastic ? '已讀取 JSON，柱縱向彈性斷面依原配筋重算。鋼套管合成作用請核對傳力依據。' : '已讀取 JSON，並重新計算梁、柱結果。');
 }
 function downloadRetrofitJSON(filename, payload) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
@@ -722,6 +737,7 @@ function assessColumnRetrofitAttachmentReadiness(data, project = getRetrofitProj
   const failedItems = [];
   const reviewItems = [];
   if (data?.pm?.checkRatio_conf !== null && data?.pm?.checkRatio_conf > 1) failedItems.push('P-M 需求 Mu/φMn > 1.0');
+  if (data?.elastic?.pending) reviewItems.push(data.elastic.basis);
   if (data?.shear?.Vs_Vj_capped) reviewItems.push('剪力補強貢獻達規範上限');
   if (data && data?.pm?.checkRatio_conf === null) reviewItems.push('P-M 需求點未形成可判定之容量交點');
   return window.RCUI.assessFormalAttachment({
@@ -799,6 +815,7 @@ function buildColumnReadinessModel(data) {
   const issues = [];
   if (data.pm.checkRatio_conf !== null && data.pm.checkRatio_conf > 1) issues.push('P-M 需求 Mu/φMn > 1.0');
   if (data.shear.Vs_Vj_capped) issues.push('剪力補強貢獻達規範上限');
+  if (data.elastic?.pending) issues.push(data.elastic.basis);
   const modeText = { none:'無補強', jacket:'全包覆鋼板', frp:'全包覆 CFRP' }[data.geom.mode];
   if (issues.some((item) => item.includes('> 1.0'))) {
     return {
@@ -1319,7 +1336,28 @@ function solveBeamMn(b, h, d, dp, fc_ksc, fy_ksc, Es_ksc, As, Asp, opts) {
   return { ok:true, c, Mn, phi, a, es, fs, es_p, fs_p, eps_fe, ffe, eps_fd: eps_fd_max, efu, failMode };
 }
 
-// 彈性：轉換斷面（未開裂 uncracked）
+// 未開裂柱以混凝土為基準，主筋視為各排集中面積，y 自原混凝土頂面起算。
+function columnElasticSection(b,h,layers,Ec,Es,thickness,jacketE) {
+  const gross = b*h;
+  const addSteel = Es/Ec-1;
+  const bars = layers.reduce((total,row) => total+row.A,0);
+  const A_base = gross + addSteel*bars;
+  const first = gross*h/2 + addSteel*layers.reduce((sum,row) => sum+row.A*row.y,0);
+  const y_base = first/A_base;
+  const about = y => b*h**3/12 + gross*(h/2-y)**2
+    + addSteel*layers.reduce((sum,row) => sum+row.A*(row.y-y)**2,0);
+  const I_base = about(y_base);
+  const outerB = b+2*thickness, outerH = h+2*thickness;
+  const ringArea = outerB*outerH-gross;
+  const ringI = (outerB*outerH**3-b*h**3)/12;
+  const n = jacketE/Ec;
+  const A_trans = A_base+n*ringArea;
+  const y_trans = (first+n*ringArea*h/2)/A_trans;
+  const I_trans = about(y_trans)+n*(ringI+ringArea*(h/2-y_trans)**2);
+  return {A_base,I_base,y_base,A_trans,I_trans,y_trans,ringArea,ringI};
+}
+
+// 梁未開裂轉換斷面
 function uncrackedTransSection(b, h, As, Asp, d, dp, ns, Af, nf, df, Ap_plate, dsp, ns_plate) {
   // 混凝土總斷面
   const A_c  = b * h;
@@ -1892,29 +1930,17 @@ function calcCol() {
   const resCol_base = solveBeamMn(b, h, d_col, dp_col, fc,   fy, Es, As_bot, As_top, { mode:'rc' });
   const resCol_conf = solveBeamMn(b, h, d_col, dp_col, f_cc, fy, Es, As_bot, As_top, { mode:'rc' });
 
-  // 彈性轉換斷面（含鋼板套管或 FRP 的貢獻，粗估）
-  let A_trans = Ag + (ns-1)*Ast;
-  let I_trans = b*h**3/12 + (ns-1)*( (As_top+As_bot)*(h/2 - cov)**2 );
-  let A_base = A_trans, I_base = I_trans;
-  if (mode === 'jacket') {
-    const tj = (jacketInfo.tj_mm||0)/10;
-    const Aj = 2*(b + h + 2*tj)*tj; // 封閉鋼套管總面積（近似：周長×tj）
-    const nj = (jacketInfo.Esj||Es)/Ec;
-    A_trans += (nj - 1) * Aj;
-    // Ij（薄壁套管）：Iz ≈ 2·b·tj·(h/2)² + 2·h·tj·(b/2)²/1（保守粗估主強軸 h）
-    const Ij = 2 * b * tj * (h/2 + tj/2)**2 + 2 * (h)*tj**3/12;
-    I_trans += (nj - 1) * Ij;
-  }
-  if (mode === 'frp') {
-    const tf_total_cm = (frpInfo.tf_mm/10) * frpInfo.nLayer;
-    const Af_total = 2 * (b + h) * tf_total_cm; // 封閉環狀，近似周長×tf_total
-    const Ef_ksc = frpInfo.Ef_GPa * 10197;
-    const nf = Ef_ksc / Ec;
-    A_trans += (nf - 1) * Af_total;
-    // FRP 貢獻剛度小，粗估
-    const Iadd = Af_total * (h/2)**2 * 0.5;
-    I_trans += (nf - 1) * Iadd;
-  }
+  const composite = mode === 'jacket' && document.getElementById('c-jacket-composite').checked;
+  const basis = composite ? document.getElementById('c-jacket-basis').value.trim() : '';
+  const pendingElastic = composite && (!basis || !(jacketInfo.tj_mm > 0 && jacketInfo.Esj > 0));
+  const elastic = columnElasticSection(b,h,rebarLayers,Ec,Es,
+    composite && !pendingElastic ? jacketInfo.tj_mm/10 : 0,
+    composite && !pendingElastic ? jacketInfo.Esj : 0);
+  if (pendingElastic) elastic.A_trans = elastic.I_trans = elastic.y_trans = null;
+  const elasticBasis = pendingElastic ? '待補鋼套管厚度、彈性模數與縱向傳力依據'
+    : composite ? '鋼套管與 RC 縱向變形相容，依據：' + basis
+    : mode === 'jacket' ? '鋼套管僅計圍束，縱向彈性斷面採原 RC。'
+    : mode === 'frp' ? '環向 CFRP 用於圍束及剪力，縱向彈性斷面採原 RC。' : '原 RC 逐排主筋轉換斷面。';
 
   // ========= 剪力檢核 =========
   const Av = val('c-Av'), s_stirrup = val('c-s'), fyt = val('c-fyt');
@@ -1964,7 +1990,7 @@ function calcCol() {
     confine: { f_l, f_cc, confineKind },
     axial: { Po_base, Po_conf, Pn_max_base, Pn_max_conf, phi_axial },
     flex:  { Mn_base: resCol_base.Mn, Mn_conf: resCol_conf.Mn, c_base: resCol_base.c, c_conf: resCol_conf.c },
-    elastic: { A_trans, I_trans, A_base, I_base, Ec, ns },
+    elastic: { ...elastic, Ec, ns, composite, pending:pendingElastic, basis:elasticBasis },
     shear: { Vc, Vs, Vs_used, Vs_cap, Vs_Vj_capped, Vj, Vn_base, Vn, phiVn, phiVn_base, Av, s: s_stirrup, fyt, Nu_kgf },
     pm:    { pm_base, pm_conf, Nu_kgf, Mu_kgfcm, demandAtPu_base, demandAtPu_conf, checkRatio_base, checkRatio_conf },
   };
@@ -2000,8 +2026,9 @@ function renderColResults() {
   }
 
   rows.push(['<b>彈性轉換斷面</b>', '', '', '']);
-  rows.push(['A_t 轉換斷面積', fmt(d.elastic.A_trans), 'cm²', pct(d.elastic.A_trans, d.elastic.A_base)]);
-  rows.push(['I_t 慣性矩',       fmt(d.elastic.I_trans), 'cm⁴', pct(d.elastic.I_trans, d.elastic.I_base)]);
+  rows.push(['A_t 轉換斷面積', d.elastic.pending ? '待補' : fmt(d.elastic.A_trans), 'cm²', d.elastic.pending ? '' : pct(d.elastic.A_trans, d.elastic.A_base)]);
+  rows.push(['形心至原混凝土頂面', d.elastic.pending ? '待補' : fmt(d.elastic.y_trans), 'cm', '']);
+  rows.push(['I_t 形心軸慣性矩', d.elastic.pending ? '待補' : fmt(d.elastic.I_trans), 'cm⁴', d.elastic.pending ? '' : pct(d.elastic.I_trans, d.elastic.I_base)]);
 
   rows.push(['<b>軸壓能力</b>', '', '', '']);
   rows.push(['Po 純軸壓（補強後）', fmt(d.axial.Po_conf/1000), 'tf', pct(d.axial.Po_conf, d.axial.Po_base), 'hi']);
@@ -2050,6 +2077,10 @@ function renderColResults() {
     const deltaHTML = (dp !== '' && isFinite(dp) && Math.abs(dp) > 0.01) ? `<span class="delta">${dp>0?'+':''}${dp.toFixed(1)}%</span>` : '';
     return `<div class="result-item ${cls||''}"><span class="label">${label}</span><span class="value">${v}${unit?` <span class="unit">${unit}</span>`:''}${deltaHTML}</span></div>`;
   }).join('')}</div>`;
+
+  const elasticNote = document.createElement('p');
+  elasticNote.textContent = d.elastic.basis;
+  host.appendChild(elasticNote);
 
   // Notes
   const nb = document.getElementById('c-note');
@@ -2393,7 +2424,7 @@ function exportBeamReport() {
     title: 'RC 梁補強斷面計算書',
     subtitle: `${g.b_mm}×${g.h_mm} 矩形梁　｜　${modeTxt}`,
     textExport: true,
-    outputSource: { tool: 'RC 補強斷面性質計算', version: 'V1.8' },
+    outputSource: { tool: 'RC 補強斷面性質計算', version: 'V1.9' },
     project,
     documentState: attachmentReadiness.documentState,
     documentClass: attachmentReadiness.documentClass,
@@ -2410,6 +2441,7 @@ function exportBeamReport() {
 }
 
 function exportColReport() {
+  calcCol();
   if (!lastCol) { setReportStatus('c-report-status', '請先執行計算', 'warn'); return; }
   if (typeof openReport !== 'function') { setReportStatus('c-report-status', '計算書模組尚未載入', 'error'); return; }
   const d = lastCol, g = d.geom;
@@ -2514,7 +2546,7 @@ function exportColReport() {
     title: 'RC 柱補強斷面計算書',
     subtitle: `${g.b_mm}×${g.h_mm} 矩形柱　｜　${modeTxt}`,
     textExport: true,
-    outputSource: { tool: 'RC 補強斷面性質計算', version: 'V1.8' },
+    outputSource: { tool: 'RC 補強斷面性質計算', version: 'V1.9' },
     project,
     documentState: attachmentReadiness.documentState,
     documentClass: attachmentReadiness.documentClass,
@@ -2525,6 +2557,13 @@ function exportColReport() {
     ],
     inputs: [
       { group:'輸入條件', items: inputItems },
+      { group:'縱向彈性轉換斷面（未開裂）', items:[
+        {label:'傳力假設與依據',value:d.elastic.basis},
+        {label:'轉換面積 Aₜ',value:d.elastic.pending ? '待補' : fmt(d.elastic.A_trans),unit:'cm²'},
+        {label:'形心距原柱頂面',value:d.elastic.pending ? '待補' : fmt(d.elastic.y_trans),unit:'cm'},
+        {label:'形心軸 Iₜ',value:d.elastic.pending ? '待補' : fmt(d.elastic.I_trans),unit:'cm⁴'},
+        {label:'計算法',value:'內埋主筋補入 (Es/Ec−1)As，採各排座標。確認縱向合成時，以 Esj/Ec 計入外矩形扣除原柱的完整環帶。'}
+      ]},
       { group:'圍束效應', items: confItems },
       { group:'軸壓能力', items: axialItems },
       { group:'純彎能力（P=0 參考）', items: flexItems },

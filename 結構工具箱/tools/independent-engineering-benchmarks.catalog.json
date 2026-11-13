@@ -750,7 +750,7 @@
             "bMm":500, "hMm":500, "fc":280, "fy":4200, "coverMm":50, "layout":"perim",
             "rebarLayers":[{"A":20.268,"y":5},{"A":10.134,"y":18.333333333333332},{"A":10.134,"y":31.666666666666668},{"A":20.268,"y":45}],
             "Av":2.534, "stirrupSpacing":15, "fyt":2800, "NuTf":120, "MuTfm":30,
-            "jacket":{"thicknessMm":6, "fy":2500, "Es":2040000, "ke":0.5}
+            "jacket":{"thicknessMm":6, "fy":2500, "Es":2040000, "ke":0.5, "compositeBasis":"合成四板獨立算例，假設鋼套管縱向共同受力"}
           },
           {
             "id":"columnFrpWrap", "kind":"column", "mode":"frp",

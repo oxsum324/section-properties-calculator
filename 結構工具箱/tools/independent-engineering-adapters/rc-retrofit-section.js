@@ -28,7 +28,7 @@ const context = { Math, window: {} };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(concreteCorePath, 'utf8'), context, { filename:concreteCorePath });
 context.Concrete = context.window.Concrete;
-vm.runInContext(`${formalPageSource.slice(coreStart, coreEnd)}\nthis.__production = { Vc_beam_ksc, Vc_col_ksc, Vs_stirrup, Vf_frp, beta1, Ec_ksc, epsilon_fd, activeBondLength_mm, kappaV_shear, pmCurvePoints, findMnAtP, solveBeamMn, uncrackedTransSection, crackedTransSection };`, context, { filename:formalPagePath });
+vm.runInContext(`${formalPageSource.slice(coreStart, coreEnd)}\nthis.__production = { Vc_beam_ksc, Vc_col_ksc, Vs_stirrup, Vf_frp, beta1, Ec_ksc, epsilon_fd, activeBondLength_mm, kappaV_shear, pmCurvePoints, findMnAtP, solveBeamMn, columnElasticSection, uncrackedTransSection, crackedTransSection };`, context, { filename:formalPagePath });
 const Production = context.__production;
 
 function bool(value) {
@@ -180,22 +180,15 @@ function evaluateColumn(item) {
   const Ast = item.rebarLayers.reduce((sum, layer) => sum + layer.A, 0);
   const Ag = b * h;
   const Ec = Production.Ec_ksc(item.fc);
-  const ns = Es / Ec;
   let lateralPressure = 0;
   let confinedFc = item.fc;
-  let jacketArea = 0;
-  let jacketI = 0;
   let jacketShear = 0;
-  let frpArea = 0;
-  let frpI = 0;
   if (item.mode === 'jacket') {
     const p = item.jacket;
     const thickness = p.thicknessMm / 10;
     lateralPressure = p.ke * 2 * p.fy * thickness / h;
     confinedFc = item.fc * (-1.254 + 2.254 * Math.sqrt(1 + 7.94 * lateralPressure / item.fc) - 2 * lateralPressure / item.fc);
     if (!Number.isFinite(confinedFc) || confinedFc < item.fc) confinedFc = item.fc;
-    jacketArea = 2 * (b + h + 2 * thickness) * thickness;
-    jacketI = 2 * b * thickness * (h / 2 + thickness / 2) ** 2 + 2 * h * thickness ** 3 / 12;
     jacketShear = 2 * thickness * p.fy * (h - cover);
   } else if (item.mode === 'frp') {
     const p = item.frp;
@@ -203,8 +196,6 @@ function evaluateColumn(item) {
     const totalThickness = p.tfMm / 10 * p.layers;
     lateralPressure = p.ka * 2 * Ef * p.effectiveStrain * totalThickness / h;
     confinedFc = item.fc + 4.1 * lateralPressure;
-    frpArea = 2 * (b + h) * totalThickness;
-    frpI = frpArea * (h / 2) ** 2 * 0.5;
     jacketShear = 0.95 * 2 * totalThickness * Ef * 0.004 * (h - cover);
   }
   const PoBase = 0.85 * item.fc * (Ag - Ast) + item.fy * Ast;
@@ -212,19 +203,10 @@ function evaluateColumn(item) {
   const topBottomFraction = item.layout === 'perim' ? 0.3 : 0.5;
   const flexBase = Production.solveBeamMn(b, h, h - cover, cover, item.fc, item.fy, Es, Ast * topBottomFraction, Ast * topBottomFraction, { mode:'rc' });
   const flexConf = Production.solveBeamMn(b, h, h - cover, cover, confinedFc, item.fy, Es, Ast * topBottomFraction, Ast * topBottomFraction, { mode:'rc' });
-  const baseArea = Ag + (ns - 1) * Ast;
-  const baseI = b * h ** 3 / 12 + (ns - 1) * (2 * Ast * topBottomFraction * (h / 2 - cover) ** 2);
-  let transformedArea = baseArea;
-  let transformedI = baseI;
-  if (item.mode === 'jacket') {
-    const nj = item.jacket.Es / Ec;
-    transformedArea += (nj - 1) * jacketArea;
-    transformedI += (nj - 1) * jacketI;
-  } else if (item.mode === 'frp') {
-    const nf = item.frp.EfGPa * 10197 / Ec;
-    transformedArea += (nf - 1) * frpArea;
-    transformedI += (nf - 1) * frpI;
-  }
+  const composite = item.mode === 'jacket' && item.jacket.compositeBasis?.trim();
+  const {A_base:baseArea,I_base:baseI,A_trans:transformedArea,I_trans:transformedI} =
+    Production.columnElasticSection(b,h,item.rebarLayers,Ec,Es,
+      composite ? item.jacket.thicknessMm/10 : 0, composite ? item.jacket.Es : 0);
   const Nu = item.NuTf * 1000;
   const Mu = item.MuTfm * 1e5;
   const Vc = Production.Vc_col_ksc(item.fc, b, h, h - cover, Nu);

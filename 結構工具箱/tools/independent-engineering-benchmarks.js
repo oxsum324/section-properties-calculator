@@ -1841,9 +1841,6 @@ function rcRetrofitSectionOracle(input) {
     const modularRatio = steelModulus / concreteModulus;
     let lateralPressure = 0;
     let confinedFc = item.fc;
-    let retrofitArea = 0;
-    let retrofitInertia = 0;
-    let retrofitModularRatio = 0;
     let jacketShear = 0;
     if (item.mode === 'jacket') {
       const p = item.jacket;
@@ -1851,9 +1848,6 @@ function rcRetrofitSectionOracle(input) {
       lateralPressure = p.ke * 2 * p.fy * thickness / height;
       confinedFc = item.fc * (-1.254 + 2.254 * Math.sqrt(1 + 7.94 * lateralPressure / item.fc) - 2 * lateralPressure / item.fc);
       if (!Number.isFinite(confinedFc) || confinedFc < item.fc) confinedFc = item.fc;
-      retrofitArea = 2 * (width + height + 2 * thickness) * thickness;
-      retrofitInertia = 2 * width * thickness * (height / 2 + thickness / 2) ** 2 + 2 * height * thickness ** 3 / 12;
-      retrofitModularRatio = p.Es / concreteModulus;
       jacketShear = 2 * thickness * p.fy * (height - cover);
     } else {
       const p = item.frp;
@@ -1861,9 +1855,6 @@ function rcRetrofitSectionOracle(input) {
       const totalThickness = p.tfMm / 10 * p.layers;
       lateralPressure = p.ka * 2 * modulus * p.effectiveStrain * totalThickness / height;
       confinedFc = item.fc + 4.1 * lateralPressure;
-      retrofitArea = 2 * (width + height) * totalThickness;
-      retrofitInertia = retrofitArea * (height / 2) ** 2 * 0.5;
-      retrofitModularRatio = modulus / concreteModulus;
       jacketShear = 0.95 * 2 * totalThickness * modulus * 0.004 * (height - cover);
     }
     const PoBase = 0.85 * item.fc * (grossArea - steelArea) + item.fy * steelArea;
@@ -1873,10 +1864,24 @@ function rcRetrofitSectionOracle(input) {
     const emptyAddition = { mode:'rc', Af:0, AfSide:0, Ef:0, efu:0, epsLimit:0, epsBi:0, df:height, dfSide:height, ApPlate:0, ApSide:0, fyPlate:0, EsPlate:0, dsp:height, dspSide:height };
     const flexBase = beamCapacity(flexSection, emptyAddition);
     const flexConf = beamCapacity({ ...flexSection, fc:confinedFc }, emptyAddition);
-    const baseArea = grossArea + (modularRatio - 1) * steelArea;
-    const baseI = width * height ** 3 / 12 + (modularRatio - 1) * (2 * steelArea * fraction * (height / 2 - cover) ** 2);
-    const transformedArea = baseArea + (retrofitModularRatio - 1) * retrofitArea;
-    const transformedI = baseI + (retrofitModularRatio - 1) * retrofitInertia;
+    // 以原柱頂面作平行軸基準；鋼箱以四片不重疊的平板檢查頁面的外減內算法。
+    const strips = [{area:grossArea, y:height/2, local:grossArea*height**2/12},
+      ...item.rebarLayers.map(row => ({area:(modularRatio-1)*row.A,y:row.y,local:0}))];
+    function centroidalSection(pieces) {
+      const area = pieces.reduce((s,p) => s+p.area,0);
+      const first = pieces.reduce((s,p) => s+p.area*p.y,0);
+      const second = pieces.reduce((s,p) => s+p.local+p.area*p.y**2,0);
+      return {area,inertia:second-first**2/area};
+    }
+    const {area:baseArea,inertia:baseI} = centroidalSection(strips);
+    if (item.mode === 'jacket' && item.jacket.compositeBasis?.trim()) {
+      const t = item.jacket.thicknessMm/10, n = item.jacket.Es/concreteModulus;
+      const flange = n*(width+2*t)*t;
+      for (const y of [-t/2,height+t/2]) strips.push({area:flange,y,local:flange*t**2/12});
+      const webs = 2*n*t*height;
+      strips.push({area:webs,y:height/2,local:webs*height**2/12});
+    }
+    const {area:transformedArea,inertia:transformedI} = centroidalSection(strips);
     const Nu = item.NuTf * 1000;
     const Mu = item.MuTfm * 1e5;
     const Vc = concreteShearColumn(item.fc, width, height, height - cover, Nu);

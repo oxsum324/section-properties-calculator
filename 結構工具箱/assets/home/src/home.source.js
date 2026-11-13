@@ -548,7 +548,7 @@
     },
     {
       title: 'RC 補強斷面',
-      version: 'V1.8',
+      version: 'V1.9',
       href: '/rc-retrofit-section',
       aliases: ['RC retrofit', 'CFRP 補強'],
       categories: ['member'],
