@@ -132,10 +132,18 @@
         </div>
         <div class="form-group">
           <label>Fy (kgf/cm²)</label>
-          <input type="number" id="inFy" value="2500">
+          <input type="number" id="inFy" step="any" value="2500">
         </div>
       </div>
-      <div class="form-row">
+
+            <label hidden>材證或設計依據 <input type="text" id="materialBasis" maxlength="200" disabled></label>
+            <p id="materialNote" class="section-note" aria-live="polite"></p>
+            <details><summary>查 SM490A／B／C 鋼板最低 Fy</summary>
+              <label>鋼板厚度 (mm) <input type="number" id="plateLookupThickness" min="6" max="160" step="any" data-filter-input="lookup"></label>
+              <output id="plateLookupResult" aria-live="polite"></output>
+              <p>查表值供鋼板核對。梁柱的熱軋型鋼、鋼管及計算材料另依上方選項。<a href="https://www.csc.com.tw/csc/pd/doc/spec_pl_e_2025.pdf">中鋼鋼板型錄 §6.1.1.2</a> · <a href="https://www.nipponsteel.com/product/catalog_download/pdf/K004en.pdf">日本製鐵型鋼表</a></p>
+            </details>
+        <div class="form-row">
         <div class="form-group"><label>跨度 L (cm)</label><input type="number" id="inL" value="800"></div>
         <div class="form-group"><label>側撐間距 Lb (cm)</label><input type="number" id="inLb" value="400"></div>
       </div>
@@ -225,6 +233,7 @@
 
 <!-- ===== Scripts ===== -->
 <script src="../../core/materials/steel.js"></script>
+<script src="../../../鋼構工具/member-material.js"></script>
 <script src="../../core/utils/common.js"></script>
 <script src="../../core/loads/loadcombo.js"></script>
 <script src="../../core/ui/formulas.js"></script>
@@ -443,17 +452,11 @@ function onSecSelect() {
 
 // ── 初始化材料下拉 ──
 function buildMatOptions() {
-  const sel = $('matSelect');
-  Steel.FY_OPTIONS.forEach((m,i) => {
-    const o = document.createElement('option');
-    o.value = i;
-    o.textContent = m.label;
-    sel.appendChild(o);
-  });
+  SteelMemberMaterial.selectOptions();
+  SteelMemberMaterial.initPlateLookup();
 }
 function onMatSelect() {
-  const m = Steel.FY_OPTIONS[parseInt($('matSelect').value)];
-  if (m) $('inFy').value = m.Fy;
+  SteelMemberMaterial.refresh('legacy',true,false);
 }
 
 // ── 載重組合 ──
@@ -533,7 +536,9 @@ function runCheck() {
 
   const sec = Steel.calcProps(mm);
   if (!sec) return inputFail('請核對斷面淨空及根部圓角半徑 R；無圓角請明填 0。');
-  const Fy  = num('inFy');
+  const material = SteelMemberMaterial.refresh('legacy',false,false);
+  if (material.error) return inputFail(material.error);
+  const Fy = material.value;
   const Lb  = num('inLb');
   const Cb  = num('inCb') || 1.0;
   const Mu  = num('inMu') * 1e5;   // tf·m → kgf·cm
@@ -775,6 +780,8 @@ $('chkDetail').addEventListener('change', function() {
 // ── Init ──
 buildSecOptions();
 buildMatOptions();
+$('inTf').addEventListener('input', () => SteelMemberMaterial.refresh('legacy',false,false));
+$('secSelect').addEventListener('change', () => SteelMemberMaterial.refresh('legacy',false,false));
 renderLoadComboPanel();
 // 預設選第一個材料
 onMatSelect();
@@ -899,6 +906,7 @@ function buildBeamReport() {
         { label:'既有案件用途', value: beamLegacyPurposeLabel() },
         { label:'用途確認', value:'已確認：僅限既有案件，不作新案正式計算附件' },
         { label:'設計方法', value: designMethod },
+        { label:'材料採用依據', value:$('materialNote').textContent },
         { label:'Fy', value: Fy, unit:'kgf/cm²' },
         { label:'跨度 L', value: L, unit:'cm' },
         { label:'側撐間距 Lb', value: Lb, unit:'cm' },

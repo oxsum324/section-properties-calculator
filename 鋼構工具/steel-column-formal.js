@@ -340,16 +340,7 @@
   }
 
   function buildMatOptions() {
-    const select = $("matSelect");
-    const currentValue = select.value || "0";
-    select.innerHTML = "";
-    Steel.FY_OPTIONS.forEach((item, index) => {
-      const option = document.createElement("option");
-      option.value = String(index);
-      option.textContent = `${item.label}｜Fy ${formatDisplayValue(item.Fy, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}`;
-      select.appendChild(option);
-    });
-    select.value = currentValue;
+    SteelMemberMaterial.selectOptions();
   }
 
   function onSecSelect() {
@@ -389,8 +380,7 @@
   }
 
   function onMatSelect() {
-    const item = Steel.FY_OPTIONS[parseInt($("matSelect").value || "0", 10)];
-    if (item) setDisplayFieldValue("inFy", item.Fy, "stress");
+    SteelMemberMaterial.refresh(unitMode,true,false);
   }
 
   function setMethod(method) {
@@ -1248,6 +1238,7 @@
   function renderInputSummary(result) {
     $("columnInputSummaryBody").innerHTML = `
       ${pairRow("斷面規格", getSectionInputSummaryText(result))}
+      ${pairRow("材料採用依據", SteelFormalUI.escapeHtml(result.materialNote))}
       ${pairRow("材料強度 Fy", `${formatDisplayValue(result.Fy, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}`)}
       ${pairRow("單位系統", getFormalUnitSummaryText())}
       ${pairRow("有效長度", `Lx = ${formatDisplayValue(result.Lx, "memberLength", unitMode === "si" ? 3 : 1)} ${getQuantityUnit("memberLength")}，Ly = ${formatDisplayValue(result.Ly, "memberLength", unitMode === "si" ? 3 : 1)} ${getQuantityUnit("memberLength")}`)}
@@ -1533,8 +1524,11 @@
     renderFillStatus();
     clearInputStatus();
     setColumnReportValidationMessage("");
+    const replayGrade = !!sourceVersion && sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version);
+    const material = SteelMemberMaterial.refresh(unitMode,false,replayGrade);
+    if (material.error) return inputFail(material.error);
     const sectionType = getSectionType();
-    const Fy = getLegacyInputValue("inFy", "stress");
+    const Fy = material.value;
     let sec;
     let clsC;
 
@@ -1700,7 +1694,7 @@
         <div class="result-item ${clsC.isSlender ? "fail" : "ok"}"><span class="label">壁厚分類</span><span class="value">${clsC.isSlender ? "細長" : "非細長"}</span></div>
         <div class="result-item"><span class="label">${sectionType === "shs" ? "Bflat / t" : "D / t"}</span><span class="value">${f2(clsC.lambdaF)}</span></div>
       `;
-    const result = { sectionType, sec, clsC, pn, local, bending, E, Fy, Kx, Ky, Lx, Ly, KLrX, KLrY, KLrMax, ctrlAxis, PuTf, MuxTf, MuyTf, Lbx, Cbx, isLRFD, designPcTf, axialOk, interOk, ratioAx, interRatioText, flexX, flexY, interDetail };
+    const result = { materialNote: material.note, sectionType, sec, clsC, pn, local, bending, E, Fy, Kx, Ky, Lx, Ly, KLrX, KLrY, KLrMax, ctrlAxis, PuTf, MuxTf, MuyTf, Lbx, Cbx, isLRFD, designPcTf, axialOk, interOk, ratioAx, interRatioText, flexX, flexY, interDetail };
     document.querySelectorAll("[data-column-invalid]").forEach(block => {
       delete block.dataset.columnInvalid;
       block.hidden = false;
@@ -1759,6 +1753,8 @@
             { label: "Sx / Sy", value: f2(result.sec.Sx) + " / " + f2(result.sec.Sy), unit:"cm³" },
             { label: "Zx / Zy", value: f2(result.sec.Zx) + " / " + f2(result.sec.Zy), unit:"cm³" },
           ] : []),
+          ...((!sourceVersion || sourceVersion === SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) && result.materialNote
+            ? [{ label:"材料採用依據", value:result.materialNote }] : []),
           { label: "Fy", value: formatDisplayValue(result.Fy, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress") },
             { label: "rx", value: f2(result.sec.rx), unit: "cm" },
             { label: "ry", value: f2(result.sec.ry), unit: "cm" },
@@ -1875,9 +1871,10 @@
     const sectionType = source.fields?.sectionTypeSelect?.value;
     if (["h", "shs", "rhs", "chs"].includes(sectionType)) $("sectionTypeSelect").value = sectionType;
     syncSectionTypeUI();
+    $("materialBasis").value = "";
     Object.entries(source.fields || {}).forEach(([id, entry]) => {
       const field = $(id);
-      if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || field.disabled || field.dataset.filterInput) return;
+      if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || (field.disabled && id !== "materialBasis") || field.dataset.filterInput) return;
       if (field.type === "checkbox") field.checked = Boolean(entry?.value);
       else field.value = entry?.value ?? "";
     });
@@ -1892,7 +1889,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.4"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.4", "v1.4.1"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -1921,7 +1918,10 @@
       if (!replay || replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay?.calculationFingerprint || "無法計算"}）。`);
       }
-      if (sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) {
+      if ($("matSelect").value === "1") {
+        runCheck();
+        setInputStatus("已重現舊案 " + payload.calculationFingerprint + "，已保留原 Fy；請依材證重選鋼級後另存新版。");
+      } else if (sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) {
         const updated = buildColumnSourcePayload();
         if (!updated) throw new Error("舊案已核對，新版無法完成重算。");
         setInputStatus(`已核對 ${sourceVersion.toUpperCase()} 原始計算 ${payload.calculationFingerprint}，已依 ${TOOL_METADATA.version} 重算，請另存新版來源 JSON｜${updated.calculationFingerprint}`);
@@ -2107,6 +2107,7 @@
   window.importColumnSourceJson = importColumnSourceJson;
   buildSecOptions();
   buildMatOptions();
+  SteelMemberMaterial.initPlateLookup();
   renderGlossary();
   loadUiPrefs();
   setUnitMode(unitMode, { convertFields: unitMode !== "legacy", previousMode: "legacy", rerun: false, persist: false });

@@ -564,16 +564,7 @@
   }
 
   function buildMatOptions() {
-    const select = $("matSelect");
-    const currentValue = select.value || "0";
-    select.innerHTML = "";
-    Steel.FY_OPTIONS.forEach((item, index) => {
-      const option = document.createElement("option");
-      option.value = String(index);
-      option.textContent = `${item.label}｜Fy ${formatDisplayValue(item.Fy, "stress", unitMode === "si" ? 1 : 0) } ${getQuantityUnit("stress")}`;
-      select.appendChild(option);
-    });
-    select.value = currentValue;
+    SteelMemberMaterial.selectOptions();
   }
 
   function onSecSelect() {
@@ -613,8 +604,7 @@
   }
 
   function onMatSelect() {
-    const item = Steel.FY_OPTIONS[parseInt($("matSelect").value || "0", 10)];
-    if (item) setDisplayFieldValue("inFy", item.Fy, "stress");
+    SteelMemberMaterial.refresh(unitMode,true,false);
   }
 
   function setMethod(method) {
@@ -1560,6 +1550,7 @@
         : `L = ${formatDisplayValue(result.L, "memberLength", unitMode === "si" ? 3 : 1)} ${getQuantityUnit("memberLength")}｜閉鎖 HSS 不啟用 Lb / Cb`;
     $("beamInputSummaryBody").innerHTML = `
       ${pairRow("斷面規格", getSectionInputSummaryText(result))}
+      ${pairRow("材料採用依據", SteelFormalUI.escapeHtml(result.materialNote))}
       ${pairRow("材料強度 Fy", `${formatDisplayValue(result.Fy, "stress", unitMode === "si" ? 1 : 0)} ${getQuantityUnit("stress")}`)}
       ${pairRow("單位系統", getFormalUnitSummaryText())}
       ${pairRow("跨度 / 穩定參數", spanAndStability)}
@@ -1793,14 +1784,18 @@
     `).join("");
   }
 
-  function runCheck(replayV11 = false) {
+  function runCheck(sourceVersion = "") {
+    const replayV11 = sourceVersion === "v1.1";
     renderFillStatus();
     clearInputStatus();
     setBeamReportValidationMessage("");
+    const replayGrade = !!sourceVersion && sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version);
+    const material = SteelMemberMaterial.refresh(unitMode,false,replayGrade);
+    if (material.error) return inputFail(material.error);
     const issue = braceIssue();
     if (issue) return inputFail(issue);
     const sectionType = getSectionType();
-    const Fy = getLegacyInputValue("inFy", "stress");
+    const Fy = material.value;
     const L = getLegacyInputValue("inL", "memberLength");
     const isLRFD = designMethod === "LRFD";
     const demandMoment = Math.abs(getLegacyInputValue("inMu", "moment"));
@@ -1973,7 +1968,7 @@
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk({ flexOk, shearOk, deflStatus }) ? "本次鋼梁斷面於主軸彎矩、剪力與撓度檢核均通過。" : "本次鋼梁斷面至少有一項控制條件未通過，請優先檢視控制模式、剪力條件與撓度條件。"}</div>`;
     $("summaryCard").hidden = false;
 
-    const result = { sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, loadDead, loadLive, pointDead, pointLive, adoptedInputSource: adoptedBeamImportSourceText() };
+    const result = { materialNote: material.note, sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, loadDead, loadLive, pointDead, pointLive, adoptedInputSource: adoptedBeamImportSourceText() };
     resultState = result;
     setBeamReportValidationMessage("");
     renderSummary(result);
@@ -2010,6 +2005,8 @@
             { label: "Sx / Sy", value: f2(result.sec.Sx) + " / " + f2(result.sec.Sy), unit:"cm³" },
             { label: "Zx / Zy", value: f2(result.sec.Zx) + " / " + f2(result.sec.Zy), unit:"cm³" },
           ] : []),
+          ...((!sourceVersion || sourceVersion === SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) && result.materialNote
+            ? [{ label:"材料採用依據", value:result.materialNote }] : []),
           { label: "Fy", value: formatDisplayValue(result.Fy, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress") },
           ...(result.sec.shape === "h" || result.sec.shape === "rhs" ? [
             { label: "Lb", value: formatDisplayValue(result.Lb, "memberLength", unitMode === "si" ? 3 : 1), unit: getQuantityUnit("memberLength") },
@@ -2121,7 +2118,7 @@
     };
   }
 
-  function applyBeamSourceState(source, replayV11 = false) {
+  function applyBeamSourceState(source, sourceVersion = "") {
     adoptedBeamImport = source.adoptedBeamImport || null;
     adoptedBrace = source.adoptedBrace || null;
     updateBraceControl();
@@ -2136,16 +2133,17 @@
     // 舊案只支援均布載重，重播時必須清除前一案的集中載重。
     $("inPD").value = "0";
     $("inPL").value = "0";
+    $("materialBasis").value = "";
     Object.entries(source.fields || {}).forEach(([id, entry]) => {
       const field = $(id);
-      if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || field.disabled || field.dataset.filterInput) return;
+      if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || (field.disabled && id !== "materialBasis") || field.dataset.filterInput) return;
       if (field.type === "checkbox") field.checked = Boolean(entry?.value);
       else field.value = entry?.value ?? "";
     });
     syncSectionTypeUI();
     syncBeamProjectMetaUi();
     persistUiPrefs();
-    resultState = runCheck(replayV11);
+    resultState = runCheck(sourceVersion);
     return resultState;
   }
 
@@ -2153,7 +2151,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.3.1"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -2188,14 +2186,17 @@
       }
       const sourceVersion = SteelFormalUI.normalizeReportVersion(payload.tool.version);
       stateChanged = true;
-      const replayResult = applyBeamSourceState(payload, sourceVersion === "v1.1");
+      const replayResult = applyBeamSourceState(payload, sourceVersion);
       const replay = replayResult ? buildBeamSourcePayload(replayResult, sourceVersion) : null;
       if (!replay || replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay?.calculationFingerprint || "無法計算"}）。`);
       }
       persistInputDraft();
       window.dispatchEvent(new Event("steel-beam-source-restored"));
-      if (sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) {
+      if ($("matSelect").value === "1") {
+        runCheck();
+        setInputStatus("已重現舊案 " + payload.calculationFingerprint + "，已保留原 Fy；請依材證重選鋼級後另存新版。");
+      } else if (sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) {
         const updated = buildBeamSourcePayload();
         if (!updated) throw new Error("舊案已核對，新版無法完成重算。");
         setInputStatus(`已核對 ${sourceVersion.toUpperCase()} 原始計算 ${payload.calculationFingerprint}，已依 ${TOOL_METADATA.version} 重算，請另存新版來源 JSON｜${updated.calculationFingerprint}`);
@@ -2410,6 +2411,7 @@
   window.importBeamSourceJson = importBeamSourceJson;
   buildSecOptions();
   buildMatOptions();
+  SteelMemberMaterial.initPlateLookup();
   renderGlossary();
   loadUiPrefs();
   setUnitMode(unitMode, { convertFields: unitMode !== "legacy", previousMode: "legacy", rerun: false, persist: false });

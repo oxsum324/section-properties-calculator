@@ -124,6 +124,22 @@ function assertReportHtmlText(html, label, requiredNeedles) {
 }
 
 const Steel = loadSteelCore();
+// Published lower yield values (MPa), independent of the production lookup.
+for (const key of ['sm490a-h','sm490b-h']) {
+  for (const [tf,mpa] of [[6,325],[16,325],[16.001,315],[40,315],[40.001,295],[75,295],[100,295]]) {
+    assert.equal(Steel.lookupMemberGrade(key,tf).fyMpa,mpa);
+  }
+  for (const tf of [0,5.99,100.01,NaN,null]) assert.equal(Steel.lookupMemberGrade(key,tf),null);
+}
+assert.equal(Steel.lookupMemberGrade('sm490-plate',100.01).fyMpa,285);
+assert.equal(Steel.lookupMemberGrade('sm490-plate',160).fyMpa,285);
+assert.equal(Steel.lookupMemberGrade('sm490-plate',161),null);
+assert.equal(Steel.lookupMemberGrade('a572m50-h',50).fyMpa,345);
+assert.equal(Steel.lookupMemberGrade('a572m50-h',50).fuMpa,450);
+assert.equal(Steel.lookupMemberGrade('unknown',20),null);
+assert.equal(Steel.FY_OPTIONS[1].archived,true);
+assert.equal(Steel.FY_OPTIONS[1].Fy,undefined);
+
 
 assert.equal(Steel.calcB1(0.85, 8000, 10000), 4.250000000000001, "stable B1 case should keep the amplified moment");
 assert.equal(Steel.calcB1(0.85, 10000, 10000), Infinity, "Pu = Pe1 should be treated as a stability limit, not clipped to 1.0");
@@ -439,7 +455,7 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, key === "column" ? "V1.4.1" : key === "connection" ? "V1.3" : key === "beam" ? "V1.3.1" : key === "plate" ? "V1.2" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
+  assert.equal(metadata.version, key === "column" ? "V1.5" : key === "connection" ? "V1.3" : key === "beam" ? "V1.4" : key === "plate" ? "V1.2" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
 }
 const momentModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.beamColumnMoment;
 assert.equal(momentModuleMetadata?.state, "formal", "connection metadata should mark the scoped beam-column moment review formal");
@@ -575,8 +591,8 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
 for (const [label, html, expectedVersion, navFamily] of [
   ["steel main", indexSource, "V1.3", "steel"],
   ["steel plate", plateCheckSource, "V1.2", "attachments"],
-  ["steel beam", beamFormalHtmlSource, "V1.3.1", "steel"],
-  ["steel column", columnFormalHtmlSource, "V1.4.1", "steel"],
+  ["steel beam", beamFormalHtmlSource, "V1.4", "steel"],
+  ["steel column", columnFormalHtmlSource, "V1.5", "steel"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
   const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";
@@ -1276,7 +1292,7 @@ assert.doesNotMatch(
 );
 assert.match(
   beamFormalSource,
-  /function inputFail\(message\)\s*{[\s\S]*setBeamReportValidationMessage\(message\)[\s\S]*function runCheck\(replayV11 = false\)[\s\S]*setBeamReportValidationMessage\(""\)/s,
+  /function inputFail\(message\)\s*{[\s\S]*setBeamReportValidationMessage\(message\)[\s\S]*function runCheck\(sourceVersion = ""\)[\s\S]*setBeamReportValidationMessage\(""\)/s,
   "steel-beam-formal.js should route inline validation into the page-only report readiness state",
 );
 assert.match(
@@ -1344,7 +1360,7 @@ assert.match(
 );
 assert.match(
   beamFormalSource,
-  /function applyBeamSourceState\(source, replayV11 = false\)[\s\S]*convertFields: false[\s\S]*function validateBeamSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importBeamSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyBeamSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
+  /function applyBeamSourceState\(source, sourceVersion = ""\)[\s\S]*convertFields: false[\s\S]*function validateBeamSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importBeamSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyBeamSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
   "steel beam source import should preserve units, validate provenance, replay the calculation, and roll back on mismatch",
 );
 assert.match(

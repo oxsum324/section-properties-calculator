@@ -12,10 +12,26 @@
 
   const FY_OPTIONS = [
     { label:'SS400 / A36',     Fy:2500, Fu:4100 },
-    { label:'SM490 / A572-50', Fy:3500, Fu:4900 },
+    { label:'舊案 SM490／A572-50（待辨識）', archived:true },
     { label:'SM520',           Fy:3600, Fu:5200 },
     { label:'SN490B',          Fy:3300, Fu:4900 },
+    { key:'sm490a-h', label:'JIS G 3106 SM490A 熱軋 H 型鋼' },
+    { key:'sm490b-h', label:'JIS G 3106 SM490B 熱軋 H 型鋼' },
+    { key:'a572m50-h', label:'ASTM A572M Gr.50 熱軋 H 型鋼' },
+    { key:'specified', label:'專案指定 Fy（依材證或設計文件）' },
   ];
+
+  // Nippon Steel K004en, Structural Shapes, JIS / ASTM tables. The CSC plate
+  // table has a different product range and must not be used for rolled shapes.
+  function lookupMemberGrade(key, thicknessMm) {
+    if (!Number.isFinite(thicknessMm) || thicknessMm <= 0) return null;
+    if (key === 'a572m50-h') return {fyMpa:345,fuMpa:450,source:'ASTM A572M Gr.50；日本製鐵 K004en 型鋼表'};
+    const plate = key === 'sm490-plate';
+    if (!plate && key !== 'sm490a-h' && key !== 'sm490b-h') return null;
+    if (thicknessMm < 6 || thicknessMm > (plate ? 160 : 100)) return null;
+    const fyMpa = thicknessMm <= 16 ? 325 : thicknessMm <= 40 ? 315 : thicknessMm <= 100 ? 295 : 285;
+    return {fyMpa,fuMpa:490,source:plate ? '中鋼 2025 鋼板型錄 §6.1.1.2' : '日本製鐵 K004en，JIS 型鋼機械性質表'};
+  }
 
   // ── 強度折減因數 φ (LRFD) 與安全因數 Ω (ASD) ──
   const PHI   = { flexure:0.90, shear:0.90, shearCompact:1.00, compress:0.90, tension:0.90, rupture:0.75 };
@@ -1491,7 +1507,7 @@
 
   // ── 匯出 ──
   global.Steel = {
-    ES, G, FY_OPTIONS, PHI, OMEGA,
+    ES, G, FY_OPTIONS, lookupMemberGrade, PHI, OMEGA,
     H_SECTIONS_MM,
     SHS_SECTIONS_MM,
     RHS_SECTIONS_MM,

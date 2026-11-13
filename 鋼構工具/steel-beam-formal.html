@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>鋼梁正式規範核算工具 V1.3.1</title>
+  <title>鋼梁正式規範核算工具 V1.4</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="../tool-chrome.css">
   <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
@@ -25,7 +25,7 @@
       <a class="page-header__link" href="./plate-check.html">連接板獨立頁</a>
       <a class="page-header__link" href="../結構工具箱/tools/鋼構/steel-beam.html">舊版鋼梁頁</a>
     </nav>
-    <h1>鋼梁正式規範核算工具 V1.3.1</h1>
+    <h1>鋼梁正式規範核算工具 V1.4</h1>
     <p>沿用既有鋼梁檢算核心，升級為左輸入、右報表、計算流程、參數詞典的一體化正式模板</p>
   </header>
 
@@ -278,9 +278,17 @@
             </div>
             <div class="form-group">
               <label id="beamFyLabel">Fy (kgf/cm²)</label>
-              <input type="number" id="inFy" value="2500">
+              <input type="number" id="inFy" value="2500" step="any">
             </div>
           </div>
+
+            <label hidden>材證或設計依據 <input type="text" id="materialBasis" maxlength="200" disabled></label>
+            <p id="materialNote" class="section-note" aria-live="polite"></p>
+            <details><summary>查 SM490A／B／C 鋼板最低 Fy</summary>
+              <label>鋼板厚度 (mm) <input type="number" id="plateLookupThickness" min="6" max="160" step="any" data-filter-input="lookup"></label>
+              <output id="plateLookupResult" aria-live="polite"></output>
+              <p>查表值供鋼板核對。梁柱的熱軋型鋼、鋼管及計算材料另依上方選項。<a href="https://www.csc.com.tw/csc/pd/doc/spec_pl_e_2025.pdf">中鋼鋼板型錄 §6.1.1.2</a> · <a href="https://www.nipponsteel.com/product/catalog_download/pdf/K004en.pdf">日本製鐵型鋼表</a></p>
+            </details>
           <div class="form-row">
             <div class="form-group"><label id="beamLLabel">跨度 L (cm)</label><input type="number" id="inL" value="800"></div>
             <div class="form-group" id="beamLtbField"><label id="beamLbLabel">側撐間距 Lb (cm)</label><input type="number" id="inLb" value="400"></div>
@@ -516,6 +524,7 @@
   <button id="beamMobileFab" class="mobile-fab" type="button" aria-label="回到頂部">回到頂部</button>
 
   <script src="./core/materials/steel.js"></script>
+  <script src="./member-material.js"></script>
   <script src="../結構工具箱/core/ui/tool-workflow.js"></script>
   <script src="./tool-metadata.js"></script>
   <script src="core/ui/report-utils.js"></script>
