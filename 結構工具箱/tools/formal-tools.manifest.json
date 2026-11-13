@@ -1410,6 +1410,7 @@
     },
     {
       "key": "wind-sign-pole",
+      "previousCaseEngine": "1.1",
       "label": "招牌 / 燈桿組合風力",
       "discipline": "wind",
       "route": "/wind-sign-pole",
@@ -1471,6 +1472,17 @@
         }
       },
       "goldenCases": [
+        {
+          "id": "tall-ground-sign-eccentric-load",
+          "description": "座地窄高面板依高寬比 8 查 Cf=1.4；斜風向中心線偏心 0.2 m。",
+          "inputs": {
+            "city": "臺北市", "terrain": "C", "impClass": "IV", "Kzt": "1.0",
+            "panelWidth": "1", "panelHeight": "8", "panelBottom": "0", "openingRatio": "0",
+            "panelCfOverride": "", "supportType": "pipe", "supportCount": "1", "supportSegments": "6",
+            "pipeDiameter": "0.216", "pipeRoughness": "moderate", "chkDetail": true
+          },
+          "expectedSelectors": { "#r-panelF .value": "1842.1", "#r-totalM .value": "7368.2", "#r-obliqueT .value": "368.4" }
+        },
         {
           "id": "default-sign-panel-pipe-support",
           "description": "預設招牌面板與單支管材支撐案例，鎖定表 2.10 面板與表 2.14 支撐合成結果。",

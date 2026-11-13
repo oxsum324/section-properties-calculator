@@ -217,7 +217,7 @@
       '/wind-lattice-tower': '2026-11-12',
       '/wind-object-tower': '2026-11-12',
       '/wind-fence-sign': '2026-11-12',
-      '/wind-sign-pole': '2026-11-12',
+      '/wind-sign-pole': '2026-11-13',
       '/seismic-force': '2026-11-13',
       '/seismic-dynamic': '2026-11-13',
       '/seismic-appendage': '2026-11-13',
@@ -860,7 +860,7 @@
     },
     {
       title: '招牌 / 燈桿組合風力',
-      version: 'V1.1',
+      version: 'V1.2',
       href: '/wind-sign-pole',
       aliases: ['pole sign wind load', '燈桿附掛招牌'],
       categories: ['wind'],

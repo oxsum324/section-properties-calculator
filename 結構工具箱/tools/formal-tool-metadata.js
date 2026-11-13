@@ -18,7 +18,7 @@
     'wind-lattice-tower': { route: '/wind-lattice-tower', discipline: 'wind', version: 'V1.2', state: 'formal', governance: 'formal-tools' },
     'wind-object-tower': { route: '/wind-object-tower', discipline: 'wind', version: 'V3.3', state: 'formal', governance: 'formal-tools' },
     'wind-fence-sign': { route: '/wind-fence-sign', discipline: 'wind', version: 'V2.2', state: 'formal', governance: 'formal-tools' },
-    'wind-sign-pole': { route: '/wind-sign-pole', discipline: 'wind', version: 'V1.1', state: 'formal', governance: 'formal-tools' },
+    'wind-sign-pole': { route: '/wind-sign-pole', discipline: 'wind', version: 'V1.2', state: 'formal', governance: 'formal-tools' },
     'seismic-force': { route: '/seismic-force', discipline: 'seismic', version: 'V3', state: 'formal', governance: 'formal-tools' },
     'seismic-dynamic': { route: '/seismic-dynamic', discipline: 'seismic', version: 'V3.9', state: 'report', governance: 'formal-tools' },
     'seismic-appendage': { route: '/seismic-appendage', discipline: 'seismic', version: 'V2.6', state: 'formal', governance: 'formal-tools' },

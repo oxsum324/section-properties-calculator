@@ -2830,7 +2830,7 @@ function windSignPoleCompositeOracle(input) {
     const panelArea = item.panelWidth * item.panelHeight * (1 - item.openingRatio / 100);
     // 表 2.10 註 (2)：底緣離地 < 0.25 倍垂直向尺寸為位於地面上；架高以 M/N 查表
     const panelAtGround = item.panelBottom < 0.25 * item.panelHeight;
-    const panelAspect = panelAtGround ? item.panelWidth / item.panelHeight : Math.max(item.panelWidth, item.panelHeight) / Math.min(item.panelWidth, item.panelHeight);
+    const panelAspect = panelAtGround ? item.panelHeight / item.panelWidth : Math.max(item.panelWidth, item.panelHeight) / Math.min(item.panelWidth, item.panelHeight);
     const panelTable = interpolate(panelAtGround ? signTables.ground : signTables.elevated, panelAspect);
     const panelCf = item.panelCfOverride == null ? panelTable.value : item.panelCfOverride;
     const panelQ = calcQz(panelZr, item);
@@ -2886,6 +2886,7 @@ function windSignPoleCompositeOracle(input) {
       panelPressure,
       panelForce,
       panelMoment,
+      obliqueTorsion:panelForce * (item.panelWidth / 2 - 0.3 * item.panelWidth),
       supportPipeRoute:item.supportType === 'pipe' ? 1 : 0,
       supportAngularRoute:item.supportType === 'angular' ? 1 : 0,
       supportZeroHeight:supportHeight === 0 ? 1 : 0,

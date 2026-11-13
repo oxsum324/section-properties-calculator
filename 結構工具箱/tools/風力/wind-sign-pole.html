@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>建築物耐風設計 — 招牌 / 燈桿組合風力 V1.1</title>
+<title>建築物耐風設計 — 招牌 / 燈桿組合風力 V1.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../../tool-chrome.css">
 <link rel="stylesheet" href="../../assets/hy/colors_and_type.css">
@@ -75,7 +75,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>建築物耐風設計 — 招牌 / 燈桿組合風力 <span class="badge-v">V1.1</span></h1>
+  <h1>建築物耐風設計 — 招牌 / 燈桿組合風力 <span class="badge-v">V1.2</span></h1>
   <p>面板採表 2.10；支撐構件建型式採表 2.14 或表 2.13 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
@@ -248,6 +248,7 @@
     <div class="results-grid">
       <div class="result-item ok" id="r-totalV"><span class="label">合計底部剪力 V</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
       <div class="result-item warn" id="r-totalM"><span class="label">合計底部彎矩 M</span><span><span class="value">—</span><span class="unit">kgf·m</span></span></div>
+      <div class="result-item" id="r-obliqueT"><span class="label">斜風向面板對中心線扭矩 |Tz|</span><span><span class="value">—</span><span class="unit">kgf·m</span></span></div>
       <div class="result-item" id="r-zbar"><span class="label">合力作用高度 z<sub>r</sub></span><span><span class="value">—</span><span class="unit">m</span></span></div>
       <div class="result-item" id="r-panelF"><span class="label">面板風力 F<sub>p</sub></span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
       <div class="result-item" id="r-supportF"><span class="label">支撐風力 F<sub>s</sub></span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
@@ -296,7 +297,8 @@
 <script>
 const W = window.Wind;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['wind-sign-pole'].version;
-const TOOL_VERSION = '1.1';
+const TOOL_VERSION = '1.2';
+const PREVIOUS_ENGINE = '1.1';
 const CASE_SCHEMA_VERSION = 'wind-sign-pole.case.v1';
 let lastResult = null;
 let lastStepsHtml = '';
@@ -407,7 +409,7 @@ function buildSignPoleReportReadinessModel(validationMessage = lastSignPoleRepor
 
   const r = lastResult;
   const supportShare = r.total.shear > 0 ? r.support.shear / r.total.shear : 0;
-  readyItems.push({ label: '表 2.10 面板路線', value: `${r.panel.atGround ? '座地' : '架高'}；B_p/H_p = ${fmt(r.panel.aspectRatio, 3)}；C_f = ${fmt(r.panel.cf, 3)}。` });
+  readyItems.push({ label: '表 2.10 面板路線', value: `${r.panel.atGround ? '座地' : '架高'}；${r.panel.atGround ? '高寬比 Hp/Bp' : '長短邊比 M/N'} = ${fmt(r.panel.aspectRatio, 3)}；C_f = ${fmt(r.panel.cf, 3)}。` });
   readyItems.push({ label: '支撐構件路線', value: `${supportRouteLabel(r)}；${r.support.cfSummary}。` });
   readyItems.push({ label: '元件分流', value: `F_p = ${fmt(r.panel.force, 1)} kgf；F_s = ${fmt(r.support.shear, 1)} kgf；支撐占比 ${fmt(supportShare * 100, 1)}%。` });
   readyItems.push({ label: '控制結果', value: `V = ${fmt(r.total.shear, 1)} kgf；M = ${fmt(r.total.moment, 1)} kgf·m；z_r = ${fmt(r.total.resultantHeight, 2)} m。` });
@@ -509,7 +511,7 @@ function applyCaseInputs(payload) {
 }
 
 function exportCaseJson() {
-  if (calc() === false) return;
+  if (!calc()) return;
   const reportTrace = buildSignPoleReportTrace(lastResult);
   const payload = {
     schema: CASE_SCHEMA_VERSION,
@@ -562,17 +564,19 @@ function importCaseJsonFile(file) {
   reader.onload = () => {
     try {
       const payload = JSON.parse(reader.result);
+      const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION;
+      const previous = replayEngine === PREVIOUS_ENGINE;
       const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
         expectedSchema: CASE_SCHEMA_VERSION,
         expectedToolId: 'wind-sign-pole',
-        expectedVersion: TOOL_VERSION,
+        expectedVersion: replayEngine,
         capture: () => readCaseInputs(),
         apply: source => applyCaseInputs(source),
         recalculate: () => calc(),
-        getFingerprint: () => buildSignPoleReportTrace(lastResult).calculationFingerprint,
+        getFingerprint: () => previous ? previousSignPoleReportFingerprint(lastResult) : buildSignPoleReportTrace(lastResult).calculationFingerprint,
         restore: previous => applyCaseInputs(previous)
       });
-      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
+      setCaseStatus(previous ? '已核對 V1.1 原案，依 V1.2 重算座地面板高寬比與斜風向偏心扭矩。' : `已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
     } finally {
@@ -766,7 +770,7 @@ function calc() {
   const panelQ = W.calcQz(panelZr, V, terrain, I, Kzt);
   // 表 2.10 註 (2)：底緣離地小於標示物垂直向尺寸 0.25 倍者為位於地面上；架高者以 M/N（較大邊 / 較小邊）查表
   const atGround = panelBottom < 0.25 * panelHeight;
-  const panelAspect = atGround ? panelWidth / panelHeight : Math.max(panelWidth, panelHeight) / Math.min(panelWidth, panelHeight);
+  const panelAspect = atGround ? panelHeight / panelWidth : Math.max(panelWidth, panelHeight) / Math.min(panelWidth, panelHeight);
   const panelCfData = W.lookupSignCf({ atGround, aspectRatio: panelAspect });
   const panelCf = (Number.isFinite(panelCfOverride) && panelCfOverride > 0) ? panelCfOverride : panelCfData.cf;
   const panelCfSource = (Number.isFinite(panelCfOverride) && panelCfOverride > 0) ? '專案指定值' : '表 2.10 實體標示物';
@@ -817,7 +821,9 @@ function calc() {
       gust: panelGust,
       pressure: panelPressure,
       force: panelForce,
-      moment: panelMoment
+      moment: panelMoment,
+      obliqueEccentricity: 0.2 * panelWidth,
+      obliqueTorsion: 0.2 * panelWidth * panelForce
     },
     support,
     total: {
@@ -853,6 +859,7 @@ function renderResult(r) {
   setResult('r-totalM', r.total.moment, 1);
   setResult('r-zbar', r.total.resultantHeight, 2);
   setResult('r-panelF', r.panel.force, 1);
+  setResult('r-obliqueT', r.panel.obliqueTorsion, 1);
   setResult('r-supportF', r.support.shear, 1);
   setResult('r-lineLoad', r.support.lineLoadAvg, 1);
   renderComponentTable(r);
@@ -967,7 +974,7 @@ function buildStepsHtml(r) {
         面板高度 H<sub>p</sub> = <span class="val">${fmt(r.input.panelHeight, 2)}</span> m，寬度 B<sub>p</sub> = <span class="val">${fmt(r.input.panelWidth, 2)}</span> m，
         底緣高度 z<sub>b</sub> = <span class="val">${fmt(r.input.panelBottom, 2)}</span> m。<br>
         形心高度 z<sub>p</sub> = z<sub>b</sub> + H<sub>p</sub>/2 = <span class="val">${fmt(r.panel.zr, 2)}</span> m，
-        B<sub>p</sub>/H<sub>p</sub> = <span class="val">${fmt(r.panel.aspectRatio, 3)}</span>，
+        ${r.panel.atGround ? '高寬比 H<sub>p</sub>/B<sub>p</sub>' : '長短邊比 M/N'} = <span class="val">${fmt(r.panel.aspectRatio, 3)}</span>，
         ${r.panel.atGround ? '座地路線' : '架高路線'}；C<sub>f</sub> = <span class="val">${fmt(r.panel.cf, 3)}</span>（${escHtml(r.panel.cfSource)}）。<br>
         q(z<sub>p</sub>) = <span class="val">${fmt(r.panel.qz, 1)}</span> kgf/m²，A<sub>p</sub> = <span class="val">${fmt(r.panel.area, 2)}</span> m²。<br>
         ${gustDetailHtml('面板陣風反應因子', r.panel.gust)}
@@ -994,6 +1001,8 @@ function buildStepsHtml(r) {
       <div class="step-body">
         V = F<sub>p</sub> + F<sub>s</sub> = <span class="val hl">${fmt(r.total.shear, 1)}</span> kgf。<br>
         M = M<sub>p</sub> + M<sub>s</sub> = <span class="val hl">${fmt(r.total.moment, 1)}</span> kgf·m。<br>
+        表 2.10 註 (3) 斜風向合力與形心同高，距迎風緣 0.3B<sub>p</sub>，兩側來風時對面板中心線之偏心為 ±0.2B<sub>p</sub>。
+        |T<sub>z</sub>| = F<sub>p</sub> × ${fmt(r.panel.obliqueEccentricity,2)} = ${fmt(r.panel.obliqueTorsion,1)} kgf·m。<br>
         合力作用高度 z<sub>r</sub> = M/V = <span class="val">${fmt(r.total.resultantHeight, 2)}</span> m。
       </div>
     </div>
@@ -1103,7 +1112,9 @@ function buildConditionRows(r) {
     ['地況 / 用途係數', `${r.input.terrainName} / I=${fmt(r.input.I, 2)}`],
     ['Kzt', fmt(r.input.Kzt, 2)],
     ['面板尺寸', `B_p=${fmt(r.input.panelWidth, 2)} m, H_p=${fmt(r.input.panelHeight, 2)} m, z_b=${fmt(r.input.panelBottom, 2)} m`],
-    ['面板 Cf 來源', r.panel.cfSource],
+    ['表 2.10 面板查表', (r.panel.atGround ? '座地，高寬比 Hp/Bp' : '架高，長短邊比 M/N') +
+      ' = ' + fmt(r.panel.aspectRatio, 3) + '，查表 Cf = ' + fmt(r.panel.cfTable, 3)],
+    ['採用面板 Cf', r.panel.cfSource + '，Cf = ' + fmt(r.panel.cf, 3)],
     ['支撐型式', `${r.support.typeLabel} / ${r.support.source}`],
     ['支撐數量 / 分段', `${r.input.supportCount} / ${r.input.supportSegments}`]
   ];
@@ -1114,6 +1125,7 @@ function buildSimpleResultRows(r) {
     ['面板風力 Fp', `${fmt(r.panel.force, 1)} kgf`],
     ['支撐風力 Fs', `${fmt(r.support.shear, 1)} kgf`],
     ['合計底部剪力 V', `${fmt(r.total.shear, 1)} kgf`],
+    ['斜風向面板對中心線扭矩 |Tz|', fmt(r.panel.obliqueTorsion, 1) + ' kgf·m（合力距迎風緣 0.3Bp，對面板中心偏心 ' + fmt(r.panel.obliqueEccentricity, 2) + ' m）'],
     ['合計底部彎矩 M', `${fmt(r.total.moment, 1)} kgf·m`],
     ['合力作用高度 zr', `${fmt(r.total.resultantHeight, 2)} m`],
     ['支撐平均線載重 ws', `${fmt(r.support.lineLoadAvg, 1)} kgf/m`]
@@ -1138,12 +1150,30 @@ function buildSegmentReportTable(rows) {
   `).join('')}</tbody></table>`;
 }
 
+// 只為驗證 V1.1 案件。以當次輸入重建舊查表與舊合計，驗完仍使用當前頁的結果。
+function previousSignPoleReportFingerprint(r) {
+  const { panelWidth, panelHeight, panelCfOverride } = r.input;
+  const panel = { ...r.panel };
+  delete panel.obliqueEccentricity;
+  delete panel.obliqueTorsion;
+  panel.aspectRatio = panel.atGround ? panelWidth / panelHeight : Math.max(panelWidth, panelHeight) / Math.min(panelWidth, panelHeight);
+  panel.cfData = W.lookupSignCf({ atGround:panel.atGround, aspectRatio:panel.aspectRatio });
+  panel.cfTable = panel.cfData.cf;
+  panel.cf = panelCfOverride > 0 ? panelCfOverride : panel.cfTable;
+  panel.pressure = panel.qz * panel.G * panel.cf;
+  panel.force = panel.pressure * panel.area;
+  panel.moment = panel.force * panel.zr;
+  const shear = panel.force + r.support.shear, moment = panel.moment + r.support.moment;
+  const total = { shear, moment, resultantHeight:shear > 0 ? moment / shear : 0 };
+  return buildSignPoleReportTrace({ ...r, toolVersion:PREVIOUS_ENGINE, panel, total }).calculationFingerprint;
+}
+
 function buildSignPoleReportTrace(result) {
   return window.ToolReportUI.buildReportTrace({
     title: '招牌 / 燈桿組合風力計算書',
     subtitle: '依建築物耐風設計規範及解說 103 年版｜表 2.10 + 表 2.14 / 表 2.13 元件組合',
     outputSource: { tool: '招牌 / 燈桿組合風力', version: PUBLIC_TOOL_VERSION },
-    snapshot: { reportMode: getPrintReportMode(), calculationEngine: TOOL_VERSION, result }
+    snapshot: { reportMode: getPrintReportMode(), calculationEngine: result.toolVersion, result }
   });
 }
 function buildSignPoleReportHtml() {

@@ -3255,6 +3255,7 @@
       "input": {
         "cases": [
           {"id":"groundPanelOnly","V":37.5,"terrain":"A","I":1,"Kzt":1,"panelWidth":4,"panelHeight":2,"panelBottom":0,"openingRatio":0,"panelCfOverride":null,"supportType":"pipe","supportCount":1,"supportSegments":4,"pipeDiameter":0.1,"pipeRoughness":"smooth","prismWidth":0.3,"prismShape":"rect_long"},
+          {"id":"tallGround","V":37.5,"terrain":"A","I":1,"Kzt":1,"panelWidth":1,"panelHeight":8,"panelBottom":0,"openingRatio":0,"panelCfOverride":null,"supportType":"pipe","supportCount":1,"supportSegments":4,"pipeDiameter":0.1,"pipeRoughness":"smooth","prismWidth":0.3,"prismShape":"rect_long"},
           {"id":"pipeThresholdSplit","V":37.5,"terrain":"C","I":1,"Kzt":1,"panelWidth":4,"panelHeight":2,"panelBottom":6,"openingRatio":0,"panelCfOverride":null,"supportType":"pipe","supportCount":1,"supportSegments":6,"pipeDiameter":0.205,"pipeRoughness":"moderate","prismWidth":0.3,"prismShape":"rect_long"},
           {"id":"angularR06","V":40,"terrain":"B","I":0.95,"Kzt":1.05,"panelWidth":6,"panelHeight":2,"panelBottom":3,"openingRatio":10,"panelCfOverride":null,"supportType":"angular","supportCount":1,"supportSegments":3,"pipeDiameter":0.1,"pipeRoughness":"smooth","prismWidth":2,"prismShape":"rect_short"},
           {"id":"angularR07","V":42.5,"terrain":"C","I":1.1,"Kzt":1.08,"panelWidth":10,"panelHeight":2,"panelBottom":4,"openingRatio":0,"panelCfOverride":null,"supportType":"angular","supportCount":1,"supportSegments":4,"pipeDiameter":0.1,"pipeRoughness":"smooth","prismWidth":1.6,"prismShape":"tri_vertex"},
@@ -3263,6 +3264,10 @@
         ]
       },
       "assertions": [
+        {"path":"tallGround.panelAspect","absTolerance":0},
+        {"path":"tallGround.panelTableCf","absTolerance":1e-12},
+        {"path":"tallGround.panelForce","absTolerance":1e-8},
+        {"path":"tallGround.obliqueTorsion","absTolerance":1e-8},
         {"path":"groundPanelOnly.panelGroundRoute","absTolerance":0},
         {"path":"groundPanelOnly.panelClampedLow","absTolerance":0},
         {"path":"groundPanelOnly.panelAspectUsed","absTolerance":0},

@@ -543,7 +543,7 @@
       "route": "/wind-sign-pole",
       "file": "結構工具箱/tools/風力/wind-sign-pole.html",
       "title": "招牌 / 燈桿組合風力",
-      "version": "V1.1",
+      "version": "V1.2",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "wind",

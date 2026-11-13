@@ -989,7 +989,7 @@ assert.match(repoDocs.homeJs, /title: '中空式 \/ 格子式風力',\s*version:
 assert.match(repoDocs.homeJs, /title: '桁架高塔風力'[\s\S]*?version: 'V1\.2'/, 'lattice tower wind home version');
 assert.match(repoDocs.homeJs, /title: '煙囪 \/ 水塔風力'[\s\S]*?version: 'V3\.3'/, 'chimney and water tower wind home version');
 assert.match(repoDocs.homeJs, /title: '圍籬牆 \/ 獨立招牌風力'[\s\S]*?version: 'V2\.2'/, 'fence sign wind new home version');
-assert.match(repoDocs.homeJs, /title: '招牌 \/ 燈桿組合風力'[\s\S]*?version: 'V1\.1'/, 'sign pole wind home version');
+assert.match(repoDocs.homeJs, /title: '招牌 \/ 燈桿組合風力'[\s\S]*?version: 'V1\.2'/, 'sign pole wind home version');
 assert.equal(repoDocs.homeJs.includes('H/B、M/N 判定 Cf'), false, 'solid object homepage no longer mixes object height and section ratio');
 assert.equal(repoDocs.homeJs.includes('斜風向 0.3B 偏心'), false, 'solid object homepage uses wind-width eccentricity wording');
 assert.equal(repoDocs.homeSource.includes('風力係數選用導引'), false, 'shape factor guide removed from homepage surfaces');
@@ -1538,7 +1538,7 @@ assert.equal(repoDocs.windFenceSign.includes('覆寫'), false, 'wind fence sign 
 assert.equal(repoDocs.windFenceSign.includes('使用者'), false, 'wind fence sign avoids user-choice wording in report-sensitive flow');
 assert.equal(repoDocs.windFenceSign.includes('工具預設'), false, 'wind fence sign avoids tool-centric default wording');
 [
-  '<title>建築物耐風設計 — 招牌 / 燈桿組合風力 V1.1</title>',
+  '<title>建築物耐風設計 — 招牌 / 燈桿組合風力 V1.2</title>',
   'TOOL_VERSION',
   'CASE_SCHEMA_VERSION',
   'wind-sign-pole.case.v1',

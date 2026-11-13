@@ -9,6 +9,8 @@ const formalPageSource = fs.readFileSync(formalPagePath, 'utf8');
 
 const requiredFormalWiring = [
   'const panelQ = W.calcQz(panelZr, V, terrain, I, Kzt);',
+  'const panelAspect = atGround ? panelHeight / panelWidth :',
+  'obliqueTorsion: 0.2 * panelWidth * panelForce',
   'const panelCfData = W.lookupSignCf({ atGround, aspectRatio: panelAspect });',
   'const panelGust = W.calcGustRigid(Math.max(panelTop, 0.1), panelWidth, terrain);',
   'const dSqrtQz = W.calcDiameterSqrtQz(pipeDiameter, q.qz);',
@@ -28,7 +30,7 @@ vm.runInContext(productionSource, context, { filename:productionCorePath });
 const Wind = context.window.Wind;
 
 function validateInput(input) {
-  if (!Array.isArray(input?.cases) || input.cases.length !== 6) return ['cases:six-composite-routes-required'];
+  if (!Array.isArray(input?.cases) || input.cases.length < 6) return ['cases:at-least-six-composite-routes-required'];
   const issues = [];
   const ids = new Set();
   for (const item of input.cases) {
@@ -60,7 +62,7 @@ function calculate(input) {
     const panelArea = item.panelWidth * item.panelHeight * (1 - item.openingRatio / 100);
     const panelQ = Wind.calcQz(panelZr, item.V, item.terrain, item.I, item.Kzt);
     const panelAtGround = item.panelBottom < 0.25 * item.panelHeight;
-    const panelAspect = panelAtGround ? item.panelWidth / item.panelHeight : Math.max(item.panelWidth, item.panelHeight) / Math.min(item.panelWidth, item.panelHeight);
+    const panelAspect = panelAtGround ? item.panelHeight / item.panelWidth : Math.max(item.panelWidth, item.panelHeight) / Math.min(item.panelWidth, item.panelHeight);
     const panelCfData = Wind.lookupSignCf({ atGround:panelAtGround, aspectRatio:panelAspect });
     const panelManualCf = item.panelCfOverride != null;
     const panelCf = panelManualCf ? item.panelCfOverride : panelCfData.cf;
@@ -114,6 +116,7 @@ function calculate(input) {
       panelPressure,
       panelForce,
       panelMoment,
+      obliqueTorsion:0.2 * item.panelWidth * panelForce,
       supportPipeRoute:item.supportType === 'pipe' ? 1 : 0,
       supportAngularRoute:item.supportType === 'angular' ? 1 : 0,
       supportZeroHeight:supportHeight === 0 ? 1 : 0,
