@@ -168,10 +168,8 @@
 
     const MuxKgfCm = quKgfCm2 * B * armX * armX / 2;
     const MuyKgfCm = quKgfCm2 * L * armY * armY / 2;
-    const MuKgfCm = Math.max(MuxKgfCm, MuyKgfCm);
     const MuxTfm = MuxKgfCm / 1e5;
     const MuyTfm = MuyKgfCm / 1e5;
-    const MuTfm = MuKgfCm / 1e5;
 
     const AsProvX = AsXPerM * B / 100;
     const AsProvY = AsYPerM * L / 100;
@@ -179,7 +177,10 @@
     const flexY = Flexure.phiMnRect({ b: L, d: dY, h: hf, As: AsProvY, fc, fy });
     const phiMnXTfm = flexX.phiMn / 1e5;
     const phiMnYTfm = flexY.phiMn / 1e5;
-    const MuMode = MuxTfm >= MuyTfm ? 'X 向柱面懸臂' : 'Y 向柱面懸臂';
+    const controlsX = MuxTfm / phiMnXTfm >= MuyTfm / phiMnYTfm;
+    const MuKgfCm = controlsX ? MuxKgfCm : MuyKgfCm;
+    const MuTfm = MuKgfCm / 1e5;
+    const MuMode = controlsX ? 'X 向柱面懸臂' : 'Y 向柱面懸臂';
     const phiMnTfm = MuMode === 'X 向柱面懸臂' ? phiMnXTfm : phiMnYTfm;
 
     const AsMinPerM = 0.0018 * 100 * hf;
@@ -199,15 +200,15 @@
     // 單向剪力：距柱面 d 之臨界斷面，X 向懸臂（臂長 armX）斷面寬 B、受拉筋為 X 向筋；
     // Y 向懸臂（臂長 armY）斷面寬 L、受拉筋為 Y 向筋。表 22.5.5.1(c)，λs = 1（13.2.6.2(a)），Nu = 0。
     const lambdaS1 = sizeEffectFactor(d, { waived: true });
-    const oneWayFor = (direction, armDir, width, AsProv) => {
-      const v1ArmDir = Math.max(0, armDir - d);
+    const oneWayFor = (direction, armDir, width, depth, AsProv) => {
+      const v1ArmDir = Math.max(0, armDir - depth);
       const VuKgf = quKgfCm2 * width * v1ArmDir;
-      const shear = oneWayShearNoStirrups({ fc, lambda, bw: width, d, As: AsProv, lambdaS: lambdaS1, phi: phiShear });
+      const shear = oneWayShearNoStirrups({ fc, lambda, bw: width, d:depth, As: AsProv, lambdaS: lambdaS1, phi: phiShear });
       const ratio = shear.phiVc > 0 ? VuKgf / shear.phiVc : (VuKgf > 0 ? Infinity : 0);
-      return { direction, arm: armDir, v1Arm: v1ArmDir, width, As: AsProv, VuKgf, ratio, ...shear };
+      return { direction, depth, arm: armDir, v1Arm: v1ArmDir, width, As: AsProv, VuKgf, ratio, ...shear };
     };
-    const oneWayX = oneWayFor('X', armX, B, AsProvX);
-    const oneWayY = oneWayFor('Y', armY, L, AsProvY);
+    const oneWayX = oneWayFor('X', armX, B, dX, AsProvX);
+    const oneWayY = oneWayFor('Y', armY, L, dY, AsProvY);
     const oneWay = oneWayX.ratio >= oneWayY.ratio ? oneWayX : oneWayY;
     const v1Arm = oneWay.v1Arm;
     const v1Width = oneWay.width;
@@ -241,7 +242,7 @@
       AsProvX, AsProvY, phiMnXTfm, phiMnYTfm, MuMode, phiMnTfm,
       AsMinPerM, flexuralAsX: designX.As, flexuralAsY: designY.As, AsReqX, AsReqY, AsReq,
       betaRect, centerBandRatio, isRect,
-      v1Arm, v1Width, v1Direction, v1As, lambdaS1, rhoW1, vc1, Vu1Kgf, Vc1Kgf, phiVc1Kgf, oneWayX, oneWayY,
+      v1Arm, v1Width, v1Depth:oneWay.depth, v1Direction, v1As, lambdaS1, rhoW1, vc1, Vu1Kgf, Vc1Kgf, phiVc1Kgf, oneWayX, oneWayY,
       c1d, c2d, bo, criticalAreaM2, Vu2Kgf, betaC, lambdaS2, vcA, vcB, alphaS, vcC, vc2, phiVc2Kgf
     };
   }

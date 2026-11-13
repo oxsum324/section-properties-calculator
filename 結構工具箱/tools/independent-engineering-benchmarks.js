@@ -1951,12 +1951,12 @@ function rcFoundationOracle(i) {
   // One-way shear without stirrups, Table 22.5.5.1(c): Vc = 2.12 lambda_s lambda (As/(b d))^(1/3) sqrt(fc') b d,
   // lambda_s = 1 for a shallow footing bearing directly on soil (13.2.6.2(a)); each cantilever uses its own width and bars.
   const oneWay = [
-    { arm: armX, width: i.B, steel: AsProvX },
-    { arm: armY, width: i.L, steel: AsProvY }
-  ].map(({ arm, width, steel }) => {
-    const demand = quKgfCm2 * width * Math.max(0, arm - d);
-    const stress = Math.min(2.12 * i.lambda * Math.pow(steel / (width * d), 1 / 3) * Math.sqrt(i.fc), 1.33 * i.lambda * Math.sqrt(i.fc));
-    const capacity = i.phiShear * stress * width * d;
+    { arm: armX, width: i.B, steel: AsProvX, depth:dX },
+    { arm: armY, width: i.L, steel: AsProvY, depth:dY }
+  ].map(({ arm, width, steel, depth }) => {
+    const demand = quKgfCm2 * width * Math.max(0, arm - depth);
+    const stress = Math.min(2.12 * i.lambda * Math.pow(steel / (width * depth), 1 / 3) * Math.sqrt(i.fc), 1.33 * i.lambda * Math.sqrt(i.fc));
+    const capacity = i.phiShear * stress * width * depth;
     return { demand, capacity, ratio: demand / capacity };
   });
   const governingOneWay = oneWay[1].ratio > oneWay[0].ratio ? oneWay[1] : oneWay[0];

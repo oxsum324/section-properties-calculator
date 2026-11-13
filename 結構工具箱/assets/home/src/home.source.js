@@ -488,7 +488,7 @@
     },
     {
       title: 'RC 基礎',
-      version: 'V3.6',
+      version: 'V3.7',
       href: '/rc-foundation',
       aliases: ['spread footing', 'RC footing design'],
       categories: ['member'],

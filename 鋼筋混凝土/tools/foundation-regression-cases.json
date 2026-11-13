@@ -75,6 +75,71 @@
       ]
     },
     {
+      "key": "combined_weak_transverse",
+      "label": "需求較小的 Y 向撓曲控制",
+      "tab": "combined",
+      "values": {
+        "cB": 250,
+        "cL": 600,
+        "cColDist": 400,
+        "cHf": 45,
+        "cBarNoX": "#10",
+        "cBarSpX": 12,
+        "cBarNoY": "#4",
+        "cBarSpY": 18,
+        "cP1D": 105,
+        "cP2D": 105,
+        "cP1L": 20,
+        "cP2L": 20,
+        "cCol1": "60×60",
+        "cCol2": "60×60"
+      },
+      "expected": {
+        "tab": "combined",
+        "okFlex": false,
+        "MuMode": "Y 柱1分帶",
+        "Mu_tfm": 28.519,
+        "phiMn_tfm": 28.42339728
+      },
+      "tolerance": 1e-05,
+      "handCalc": [
+        "316/15 × 3 × 0.95²/2 = 28.519 tf·m；每帶配筋量依 3 m 帶寬計算。"
+      ]
+    },
+    {
+      "key": "combined_transverse_shear",
+      "label": "X 向單向剪力通過，Y 向未通過",
+      "tab": "combined",
+      "values": {
+        "cB": 420,
+        "cL": 500,
+        "cColDist": 250,
+        "cHf": 60,
+        "cBarNoX": "#10",
+        "cBarSpX": 12,
+        "cBarNoY": "#5",
+        "cBarSpY": 15,
+        "cP1D": 165,
+        "cP2D": 165,
+        "cP1L": 30,
+        "cP2L": 30,
+        "cCol1": "60×60",
+        "cCol2": "60×60",
+        "cQa": 100
+      },
+      "expected": {
+        "tab": "combined",
+        "okV1": false,
+        "shearDirection": "Y 柱1分帶",
+        "Vu1_tf": 75.61,
+        "phiVc1_tf": 46.51
+      },
+      "tolerance": 0.01,
+      "handCalc": [
+        "每帶寬 2.5 m，橫向臂長 1.8 m。取柱面外一個 dY 的土反力，配合該帶 Y 向實配筋檢核。"
+      ]
+    },
+    {
       "key": "combined_pass_warn",
       "label": "聯合基腳數值通過待確認例",
       "tab": "combined",

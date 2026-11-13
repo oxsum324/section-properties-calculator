@@ -676,14 +676,14 @@ async function main() {
   assert(html.includes('id="mainTabs"'), 'foundation.html has section tabs', 'multi-foundation tab UI exists');
   assert(html.includes('id="bannerStatus"'), 'foundation.html has banner', 'summary banner exists');
   assert(html.includes('window.ftLast'), 'foundation.html exports ftLast', 'result snapshot exists for regression capture');
-  assert(html.includes('../shared/foundation-isolated.js?v=2') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
+  assert(html.includes('../shared/foundation-isolated.js?v=3') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
   assert(html.includes('../shared/foundation-pile.js?v=4') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
   assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
   assert(!/0\.53 \* lambda/.test(html) && !/0\.53 \* lambda/.test(pileCore), 'foundation one-way shear no longer uses the simplified 0.53λ√fc′ expression', 'Table 22.5.5.1(c) is required without shear reinforcement');
   assert(html.includes('FoundationIsolated.oneWayShearNoStirrups') && pileCore.includes('FoundationShear.oneWayShearNoStirrups') && pileCore.includes('FoundationShear.sizeEffectFactor(d)'), 'foundation shear calls the shared Table 22.5.5.1(c) and λs helpers', 'shared foundation shear core');
   assert(html.includes('DevLength.ldTension({ fc, fy, db, lambda, psit: 1.0, psie: 1.0, condition })') && html.includes('DevLength.spacingCondition({ db, clearSpacing: clear, clearCover: cover, minTransverse: false })') && html.includes("const devX = devFor('X', dbX, clearX, armX);") && html.includes("const devY = devFor('Y', dbY, clearY, armY);") && html.includes('const okDev = devX.ok && devY.ok;'), 'isolated footing development length uses shared Table 25.4.2.3 helper in both directions', 'DevLength.ldTension with spacing condition for X and Y bars');
   assert(!/designAsRect\(\{[^\n}]*\bMu\s*:/.test(html), 'foundation flexural design uses the Mu_kgcm interface', 'no obsolete Mu key remains');
-  assert(html.includes('Mu_kgcm:Mu_long_tfm * 1e5') && pileCore.includes('Mu_kgcm:capMuLongTfm * 1e5') && pileCore.includes('Mu_kgcm:capMuTransTfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
+  assert(html.includes('Mu_kgcm:flex.Mu * 1e5') && pileCore.includes('Mu_kgcm:capMuLongTfm * 1e5') && pileCore.includes('Mu_kgcm:capMuTransTfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
   assert(html.includes('id="cHDL"') && html.includes('id="cHE"'), 'combined footing has horizontal force inputs', 'HDL/HE inputs exist');
   assert(html.includes('id="cc-slide"') && html.includes('id="cr-FSslide"'), 'combined footing has sliding checks', 'combined sliding UI exists');
   assert(!html.includes('預留，尚未做抗滑檢核'), 'combined footing sliding input is not stale placeholder text', 'cMu is active');
@@ -719,7 +719,7 @@ async function main() {
   assert(html.includes('PILE_PY_BRIDGE.inspectState'), 'foundation revalidates adopted p-y source against current model', 'fail-closed replay gate exists');
   assert(reportSrc.includes("group:'專項 p-y 分析結果'"), 'foundation report includes adopted p-y calculation results', 'formal report result group exists');
   assert(reportSrc.includes("label:'分析範圍 / Hx / Hy'") && reportSrc.includes("label:'來源表格換算'"), 'foundation report identifies p-y analysis scope and table provenance', 'formal report provenance exists');
-  assert(html.includes('pile-cap-3d-stm-bridge.js?v=4') && html.includes('id="btnOpenPileCap3DSTM"') && html.includes('id="btnDownloadPileCap3DSTM"'), 'foundation exposes versioned pile-cap 3D STM bridge', 'one-click and JSON fallback controls exist');
+  assert(html.includes('pile-cap-3d-stm-bridge.js?v=5') && html.includes('id="btnOpenPileCap3DSTM"') && html.includes('id="btnDownloadPileCap3DSTM"'), 'foundation exposes versioned pile-cap 3D STM bridge', 'one-click and JSON fallback controls exist');
   assert(html.includes('pile-cap-load-combinations.js?v=1') && html.includes('id="pileCap3DSTMCaseMode"') && html.includes('id="btnPreviewPileCap3DSTMCombos"'), 'foundation exposes automatic LRFD component-to-combination workflow', 'shared LoadCombo adapter, source mode and preview controls exist');
   assert(html.includes('PILE_CAP_LOAD_COMBINATIONS.generate') && html.includes("method:'LRFD'") && html.includes('loadCombinationSource = generated'), 'foundation generates traceable LRFD pile-cap cases from the shared load-combination core', 'automatic cases preserve component and schema provenance');
   assert(html.includes('loadcombo-components-v1') && html.includes('id="btnImportPileCapLoadComponents"') && html.includes('id="btnAdoptPileCapLoadComponents"') && html.includes('forces-receive.js'), 'foundation accepts common D/L/W/E component packages as review candidates', 'analysis JSON and ForcePicker candidates require explicit adoption');
@@ -805,6 +805,7 @@ async function main() {
           okOver: r.okOver,
           okQr: r.okQr,
           okContact: r.okContact,
+          MuMode:r.MuMode, shearDirection:r.v1Direction,
           Mu_tfm: r.Mu_tfm,
           phiMn_tfm: r.phiMn_tfm,
           Mu_wall_tfm: r.Mu_wall_tfm,

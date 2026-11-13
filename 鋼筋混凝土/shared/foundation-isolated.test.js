@@ -57,6 +57,14 @@ near(mixed.Vu1Kgf, quMixed * 260 * (125 - 50.595), 1e-6, 'mixed-steel footing go
 near(mixed.phiVc1Kgf, phiVcY, 1e-6, 'mixed-steel footing governing one-way shear capacity');
 near(mixed.phiVc1Kgf / 1000, 34.861, 0.001, 'mixed-steel footing governing one-way shear capacity hand value');
 
+// X 需求較大但通過，較弱的 Y 向未通過，摘要須成對回傳同一方向的需求與強度。
+const weakY = FoundationIsolated.calculateStrength({ ...input, L:270, AsXPerM:40, AsYPerM:5, dbY:1.27 });
+assert.ok(weakY.MuxTfm > weakY.MuyTfm && weakY.MuxTfm < weakY.phiMnXTfm && weakY.MuyTfm > weakY.phiMnYTfm);
+assert.equal(weakY.MuMode, 'Y 向柱面懸臂');
+assert.equal(weakY.MuTfm, weakY.MuyTfm);
+assert.equal(weakY.phiMnTfm, weakY.phiMnYTfm);
+near(weakY.oneWayY.VuKgf, 184 / 6.75 / 10 * 270 * (95 - (60 - 7.5 - 1.27)), 1e-6, 'Y shear section is one Y effective depth from the face');
+
 // 共用剪力函式：22.5.5.1.3 λs、22.5.5.1.1 上限與 Nu/6Ag ≤ 0.05fc′、ρw = 0 時 Vc = 0
 near(FoundationIsolated.sizeEffectFactor(90.278), Math.sqrt(2 / (1 + 90.278 / 25)), 1e-15, 'size effect factor 22.5.5.1.3');
 near(FoundationIsolated.sizeEffectFactor(90.278), 0.658585, 1e-6, 'size effect factor hand value d = 90.278 cm');
