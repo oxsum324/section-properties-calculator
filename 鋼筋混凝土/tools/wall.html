@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>牆設計 — RC 工具箱 V3.4</title>
+<title>牆設計 — RC 工具箱 V3.5</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
@@ -52,7 +52,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>牆 Wall 設計／檢核 <span data-ui="version">V3.4</span></h1>
+  <h1>牆 Wall 設計／檢核 <span data-ui="version">V3.5</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 承重牆／結構牆 P-M 互制、軸壓與軸拉、面內剪力、牆端配筋與特殊邊界構材</p>
 </header>
 
@@ -227,6 +227,7 @@
             <label for="pmBoundaryRebar">計入兩端附加集中縱筋</label>
           </div>
         </div>
+        <p id="wallDevLength" class="hint"></p>
         <div id="pmBoundaryRebarInputs" data-check-only style="display:none;">
           <div class="form-row">
             <div class="form-group"><label>附加縱筋號數</label>
@@ -869,7 +870,7 @@
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
   const WALL_PROJECT_SCHEMA = 'rc-wall-project-v1';
-  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2', 'V3.3']);
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2', 'V3.3', 'V3.4']);
   const WALL_PROJECT_STORAGE_KEY = 'rc.wall.project.draft';
   const WALL_PROJECT_EXCLUDED_IDS = new Set(['wallProjectFile', 'caseJson', 'compareCaseJson', 'baselineReport']);
   const wallProjectStorage = window.RCProjectStorage.createManager({
@@ -909,7 +910,7 @@
       schema: WALL_PROJECT_SCHEMA,
       tool: 'rc-wall',
       toolTitle: '牆 Wall 設計／檢核',
-      appVersion: 'V3.4',
+      appVersion: 'V3.5',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -946,11 +947,11 @@
   }
 
   function normalizeWallProjectPayload(raw) {
-    // V3.1～V3.3 舊檔：以原版本驗證存檔指紋後依 V3.4 重新計算；版本正規化與舊版判定見 shared/project-replay.js
+    // V3.1～V3.4 舊檔：以原版本驗證存檔指紋後依 V3.5 重新計算；版本正規化與舊版判定見 shared/project-replay.js
     return window.RCProjectReplay.validateLegacyProjectSource(raw, {
       expectedSchema: WALL_PROJECT_SCHEMA,
       expectedToolId: 'rc-wall',
-      expectedVersion: 'V3.4',
+      expectedVersion: 'V3.5',
       legacyVersions: LEGACY_REPLAY_VERSIONS,
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
@@ -989,7 +990,7 @@
     let replay = null;
     if (!options.skipReplayCheck) {
       try {
-        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.4 結果接受並揭露
+        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.5 結果接受並揭露
         replay = window.RCProjectReplay.reconcileProjectCalculationReplay(payload, collectWallProjectData(), {
           legacyVersions: LEGACY_REPLAY_VERSIONS,
           sourceKey: 'fields',
@@ -1587,6 +1588,11 @@
     const { rholMin, rhotMin } = Wall.minRho({ seismic, isShearWall, needTwoLayer, hwlw, rhot, fy,
       dbV: REBAR_TABLE[vBar].db, dbH: REBAR_TABLE[hBar].db, highShear: highShearWall, rhotRequired: rhotRequiredShear });
 
+    // 牆身間距不代表搭接或錨定段最小淨距。此頁未調查該段的橫向圍束，採表中「其他情況」。
+    const devOptions = { fc, fy, db:REBAR_TABLE[vBar].db, lambda, psit:1, psie:1, condition:'other' };
+    const devLength = DevLength.ldTension(devOptions);
+    $('wallDevLength').textContent = '縱筋拉力伸展長度 ' + devLength.toFixed(1) + ' cm（表 25.4.2.3 其他情況，λ＝' + lambda.toFixed(2) + '）。';
+
     // === 面外撓曲 (Alternative method, 規範 11.8) ===
     // 取單位寬度 b=100 cm
     const bUnit = 100;
@@ -2183,7 +2189,7 @@ ${basementStepTxt}
       phiVn: phiVn/1000, Vu: Vu/1000,
       vBar, vSp, hBar, hSp, layers, cover,
       pmBoundaryRebar, pmBoundaryBar, pmBoundaryCountEach, sigmaMax,
-      dbV: REBAR_TABLE[vBar]?.db,
+      dbV: REBAR_TABLE[vBar]?.db, devOptions, devLength,
       hmin, Ag, Pn_kgf:Pn, phiPn_kgf:phiPn,
       rhol, rhot, rholMin, rhotMin, needTwoLayer,
       Acv, hwlw, alpha_c, Vn_kgf:Vn, phiVn_kgf:phiVn, VnLimit_kgf:VnLimit, VnFormula_kgf:VnFormula, VnCap_kgf:VnCap, vnCapGoverns,
@@ -2727,10 +2733,10 @@ ${basementStepTxt}
           value:`${(r.Vu_kgf/1000).toFixed(1)} / ${(r.VnLimit_kgf/1000).toFixed(1)}`, unit:'tf', ok:r.Vu_kgf<=r.VnLimit_kgf }]:[])
       ]},
       { group:'最少鋼筋', items:[
-        { label:'ρℓ ≥ ρℓ,min', formula: r.seismic?'≥0.0025':'≥0.0012',
+        { label:'ρℓ ≥ ρℓ,min', formula:'ρℓ ≥ ' + r.rholMin.toFixed(4),
           sub:`ρℓ = ${r.rhol.toFixed(4)}    下限 = ${r.rholMin.toFixed(4)}`,
           value:r.rhol.toFixed(4), ok:r.okRhol },
-        { label:'ρt ≥ ρt,min', formula: r.seismic?'≥0.0025':'≥0.0020',
+        { label:'ρt ≥ ρt,min', formula:'ρt ≥ ' + r.rhotMin.toFixed(4),
           sub:`ρt = ${r.rhot.toFixed(4)}    下限 = ${r.rhotMin.toFixed(4)}`,
           value:r.rhot.toFixed(4), ok:r.okRhot },
         { label:'雙層鋼筋網', formula:'Vu>0.5φVc 或 hw/lw≥2 須雙層',
@@ -2738,7 +2744,7 @@ ${basementStepTxt}
           value: r.needTwoLayer?(r.layers>=2?'OK':'不足'):'單層', ok:r.okLayers }
       ]},
       { group:'握裹 / 搭接長度 (規範 25 章)', items:
-        DevLength.reportItems({ fc:r.fc, fy:r.fy, db:r.dbV||r.db||1.27, lambda:1.0, psit:1.0, psie:1.0 }, '縱筋拉力 ℓd')
+        DevLength.reportItems(r.devOptions, '縱筋拉力 ℓd')
       },
       ...(r.flangeShape && r.flangeShape !== 'rect' ? [{ group:'有效翼版寬', items:[
         { label:'b_eff (單邊)', formula:'min(s/2, 0.25hw, bf,act)',
@@ -2851,7 +2857,7 @@ ${basementStepTxt}
     openReport({
       title:'牆設計計算書', subtitle:'RC Wall Design Report',
       textExport:true,
-      outputSource:{ tool:'牆 Wall 設計／檢核', version:'V3.4' },
+      outputSource:{ tool:'牆 Wall 設計／檢核', version:'V3.5' },
       project:proj,
       calculationFingerprint:projectSnapshot.calculationFingerprint,
       documentState:attachmentReadiness.documentState,
@@ -3029,8 +3035,8 @@ ${basementStepTxt}
     FormulaInfo.attach({
       'r-hmin':      '承重牆最小厚度 h ≥ max(ℓc/25, 10 cm)',
       'r-phiPn':     '簡易公式 φPn = 0.55·φ·fc·Ag·[1−(k·ℓc/(32h))²]',
-      'r-rhol':      '縱向最小配筋比 ρℓ ≥ 0.0012 (#5 以下) 或 0.0015',
-      'r-rhot':      '橫向最小配筋比 ρt ≥ 0.0020 (#5 以下) 或 0.0025',
+      'r-rhol':      '縱向最小配筋比依鋼筋號數、降伏強度及剪力計算，見本案 ρℓ,min',
+      'r-rhot':      '橫向最小配筋比依鋼筋號數、降伏強度、剪力與雙層配筋條件計算，見本案 ρt,min',
       'r-Acv':       'Acv = ℓw·tw (剪力面積)',
       'r-phiVn':     'φVn = φ·(αc·√fc + ρt·fy)·Acv\nαc = 0.80 (hw/ℓw≤1.5) ~ 0.53 (≥2.0)',
       'r-VnLimit':   'Vn 上限 = 2.65·√fc·Acv (規範 11.5.4.3)',

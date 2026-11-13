@@ -189,7 +189,7 @@
       '/rc-deep-beam-stm': '2026-10-23',
       '/rc-column': '2026-11-13',
       '/rc-slab': '2026-10-24',
-      '/rc-wall': '2026-10-25',
+      '/rc-wall': '2026-11-13',
       '/rc-shear-wall': '2026-10-26',
       '/rc-foundation': '2026-11-13',
       '/rc-foundation-deep-beam-stm': '2026-10-23',
@@ -458,7 +458,7 @@
     },
     {
       title: 'RC 牆',
-      version: 'V3.4',
+      version: 'V3.5',
       href: '/rc-wall',
       aliases: ['RC structural wall', '牆體軸力檢核'],
       categories: ['member'],
