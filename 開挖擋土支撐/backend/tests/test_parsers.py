@@ -19,6 +19,22 @@ class ParserTests(unittest.TestCase):
         self.assertIsNotNone(result.excavation_depth_m)
         self.assertIsNotNone(result.ground_water_level_m)
 
+    def test_lst_commands_override_comment_and_keep_distinct_actions(self) -> None:
+        sample = "\n".join([
+            "* Stage 3 Excavation Depth= 6.80 m", ": EXC(2) 5.8", ": EAU(2) 6.8",
+            "* Stage 3 Remove strut", ": BUT(0, 1)", ": STOP",
+            "* Stage 3 Excavation Depth= 6.80 m", "* Stage 3 Remove strut",
+        ])
+        result = parse_analysis_file("case.LST", sample)
+        self.assertEqual([(s.index, s.excavation_depth_m, s.water_level_m) for s in result.stages],
+                         [(3, 5.8, 6.8), (3, None, None)])
+        self.assertNotEqual(result.stages[0].label, result.stages[1].label)
+        self.assertTrue(any("EXC(2)" in warning for warning in result.warnings))
+        self.assertEqual(len(result.events), 1)
+        self.assertEqual(result.events[0].stage_label, result.stages[1].label)
+        fallback = parse_analysis_file("note.rio", "* Stage 1 Excavtion Depth= 3.25 m")
+        self.assertEqual(fallback.stages[0].excavation_depth_m, 3.25)
+
     def test_parse_o_file(self) -> None:
         settings = get_settings()
         path = settings.root_dir / "1150317.o"

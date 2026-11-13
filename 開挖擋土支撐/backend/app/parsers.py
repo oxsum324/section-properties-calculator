@@ -87,7 +87,7 @@ def _parse_lst_like(filename: str, content: str) -> AnalysisImportResult:
         soil_index += 1
 
     stage_header_pattern = re.compile(r"\* Stage\s+(\d+)\s+(.+)", re.I)
-    excavation_header_pattern = re.compile(r"Excavtion Depth=\s*(%s)\s*m" % _FLOAT, re.I)
+    excavation_header_pattern = re.compile(r"Excav(?:a)?tion\s+Depth\s*=\s*(%s)\s*m" % _FLOAT, re.I)
     excav_command_pattern = re.compile(r": EXC\(2\)\s+(%s)" % _FLOAT)
     water_command_pattern = re.compile(r": EAU\(2\)\s+(%s)" % _FLOAT)
     setup_pattern = re.compile(
@@ -98,15 +98,27 @@ def _parse_lst_like(filename: str, content: str) -> AnalysisImportResult:
 
     current_stage: AnalysisStage | None = None
     current_stage_description = ""
-    for line in lines:
+    comment_depth: float | None = None
+    occurrences: dict[int, int] = {}
+    command_end = next((i for i, line in enumerate(lines)
+                        if re.match(r"^\s*(?::\s*|\d+\s+\.\.\.\s+)STOP\b", line, re.I)), len(lines))
+    # A complete RIDO listing echoes the stage comments in the printed results.
+    # Preserve report-only files when no annotated input deck is available.
+    stage_lines = lines[:command_end] if any(stage_header_pattern.search(line) for line in lines[:command_end]) else lines
+    for line_index, line in enumerate(stage_lines, 1):
         header_match = stage_header_pattern.search(line)
         if header_match:
             stage_index = int(header_match.group(1))
             current_stage_description = _clean_text(header_match.group(2))
-            current_stage = AnalysisStage(index=stage_index, label=f"施工階段 {stage_index}")
+            occurrences[stage_index] = occurrences.get(stage_index, 0) + 1
+            label = f"施工階段 {stage_index}"
+            if occurrences[stage_index] > 1:
+                label += f"（同號第 {occurrences[stage_index]} 筆）"
+                result.warnings.append(f"第 {line_index} 行施工階段 {stage_index} 重號，已依檔案順序分列；請核對施工事件。")
+            current_stage = AnalysisStage(index=stage_index, label=label)
             excavation_match = excavation_header_pattern.search(current_stage_description)
-            if excavation_match:
-                current_stage.excavation_depth_m = float(excavation_match.group(1))
+            comment_depth = float(excavation_match.group(1)) if excavation_match else None
+            current_stage.excavation_depth_m = comment_depth
             result.stages.append(current_stage)
             continue
 
@@ -114,8 +126,14 @@ def _parse_lst_like(filename: str, content: str) -> AnalysisImportResult:
             continue
 
         excavation_match = excav_command_pattern.search(line)
-        if excavation_match and current_stage.excavation_depth_m is None:
-            current_stage.excavation_depth_m = float(excavation_match.group(1))
+        if excavation_match:
+            depth = float(excavation_match.group(1))
+            if comment_depth is not None and abs(comment_depth - depth) > 1e-8:
+                result.warnings.append(
+                    f"{current_stage.label} 標題深度 {comment_depth:g} m 與第 {line_index} 行 EXC(2) "
+                    f"指令 {depth:g} m 不同，開挖深度採執行指令。"
+                )
+            current_stage.excavation_depth_m = depth
             continue
 
         water_match = water_command_pattern.search(line)
