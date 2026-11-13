@@ -114,7 +114,7 @@ const PAGES = [
     ids: `assumptionConfirmed bannerStatus btnAddMeasurement btnCalc btnImportJson btnJson btnLoadDraft btnPrint btnReset btnSaveDraft
       btnSaveProject cableTensionDiagram cableTensionReportReadiness checkList coreVersion effectiveLengthBasis effectiveLengthM
       frequencyBasis harmonicToleranceBasis harmonicTolerancePct jsonFile jsonStatus massBasis massPerLengthKgM measurementRows
-      metricGrid projDesigner projName projNo reportMode sensitivityResult sensitivityTitle stepBody targetTensionBasis targetTensionKn
+      metricGrid projDesigner projName projNo reportMode sensitivityResult sensitivityTitle openSpectrum spectrumDialog spectrumTitle spectrumFrame stepBody targetTensionBasis targetTensionKn
       targetTolerancePct`,
     controls: `projName projNo projDesigner jsonFile effectiveLengthM massPerLengthKgM harmonicTolerancePct harmonicToleranceBasis
       effectiveLengthBasis massBasis frequencyBasis targetTensionKn targetTolerancePct targetTensionBasis assumptionConfirmed reportMode`,

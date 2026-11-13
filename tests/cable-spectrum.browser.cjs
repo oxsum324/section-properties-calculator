@@ -22,7 +22,7 @@ async function main(){
     const direct=await f('csv').evaluate(el=>el.ownerDocument.location.href);
     await f('parent').click();assert.ok(await f('length').inputValue());assert.equal(await f('sensor').inputValue(),'');assert.equal(await f('csv').inputValue(),'');
     await f('example').click();await f('replace').getByRole('button',{name:'保留目前資料'}).click();assert.equal(await f('csv').inputValue(),'');
-    await f('example').click();await f('replace').getByRole('button',{name:'取代資料'}).click();assert.equal(await f('peaks').locator('input').count(),5);
+    await f('example').click();await f('replace').getByRole('button',{name:'取代資料'}).click();await f('peaks').locator('input').nth(4).waitFor();assert.equal(await f('peaks').locator('input').count(),5);
     const read=async name=>{const ev=page.waitForEvent('download');await f('save').click();const d=await ev;await d.saveAs(path.join(out,name));return JSON.parse(await fs.readFile(path.join(out,name),'utf8'));};
     const results={};let last;
     for(const [name,s] of Object.entries(ref.signals)){
