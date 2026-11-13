@@ -17,8 +17,8 @@
  *   ℓdc = max( (0.075·fy)/(λ·√fc')·db,  0.0044·fy·db ),  下限 20 cm
  *
  * Lap splice (25.5.2):
- *   Class A: 1.0·ℓd  (As 配置 ≥ 2·As 需求 且 搭接量 ≤ 50%)
- *   Class B: 1.3·ℓd  (其他)
+ *   Class A: 1.0·ψg·ℓd  (As 配置 ≥ 2·As 需求 且 搭接量 ≤ 50%)
+ *   Class B: 1.3·ψg·ℓd  (其他)
  *   下限 30 cm
  */
 (function(){
@@ -44,7 +44,7 @@
     return opts.condition === 'favorable' ? (isLarge ? 5.3 : 6.6) : (isLarge ? 3.5 : 4.4);
   }
 
-  function ldTension(opts){
+  function tensionLengthByFormula(opts){
     const fc = opts.fc;            // kgf/cm²
     const fy = opts.fy;            // kgf/cm²
     const db = opts.db;            // cm
@@ -53,8 +53,11 @@
     const psie = opts.psie || 1.0; // 環氧塗布
     const psiProduct = Math.min(psit * psie, 1.7);
     const k = tensionCoefficient({ db, condition: opts.condition });
-    const ld = (fy * psiProduct / (k * lambda * Math.sqrt(fc))) * db;
-    return Math.max(ld, 30);
+    return (fy * psiProduct / (k * lambda * Math.sqrt(fc))) * db;
+  }
+
+  function ldTension(opts){
+    return Math.max(tensionLengthByFormula(opts), 30);
   }
 
   function ldCompression(opts){
@@ -66,13 +69,20 @@
     return Math.max(ldc1, ldc2, 20);
   }
 
+  const LAP_GRADE_REVIEW = '表 25.5.2.1 未列此 fy 的 ψg，請核對鋼筋等級';
+  function lapGradeFactor(fy) {
+    const grade = Number(fy);
+    if (grade > 0 && grade <= 4200) return 1;
+    return ({ 5000:1.08, 5600:1.15, 7000:1.30 })[grade] ?? null;
+  }
+
   function lapSplice(opts){
-    // opts: { ld, classB:bool }  or  full opts forwarded to ldTension + classB
-    let ld;
-    if (opts.ld != null) ld = opts.ld;
-    else ld = ldTension(opts);
-    const factor = opts.classB ? 1.3 : 1.0;
-    return Math.max(ld * factor, 30);
+    const psiG = lapGradeFactor(opts.fy);
+    if (psiG === null) return null;
+    // 表 25.5.2.1 指定 25.4.2.1(a)；先乘搭接係數，再施加搭接自身的 30 cm 下限。
+    const base = tensionLengthByFormula(opts);
+    if (!(base > 0) || !Number.isFinite(base)) return null;
+    return Math.max((opts.classB ? 1.3 : 1) * psiG * base, 30);
   }
 
   // 產生 計算書 用的檢核項目陣列
@@ -81,6 +91,7 @@
     const ldc = ldCompression(opts);
     const lsB = lapSplice({ ...opts, classB:true });
     const lsA = lapSplice({ ...opts, classB:false });
+    const psiG = lapGradeFactor(opts.fy);
     const k = tensionCoefficient(opts);
     const condition = opts.condition === 'favorable' ? 'favorable' : 'other';
     return [
@@ -92,12 +103,14 @@
         formula:"ℓdc = max(0.075·fy/(λ·√fc')·db, 0.0044·fy·db) ≥ 20 cm (kgf/cm²)",
         sub:`= ${ldc.toFixed(1)} cm`,
         value: ldc.toFixed(1), unit:'cm', ok:null },
-      { label:'搭接長度 ℓs (Class B 1.3·ℓd)',
-        formula:'規範 25.5.2 — 多數情況採 Class B',
-        sub:`Class A = ${lsA.toFixed(1)} cm,  Class B = ${lsB.toFixed(1)} cm`,
-        value: `${lsA.toFixed(0)} / ${lsB.toFixed(0)}`, unit:'cm', ok:null }
+      { label:'受拉搭接長度 ℓst（甲 / 乙級）',
+        formula:'表 25.5.2.1：max(等級倍率 × ψg × ℓd(a), 30 cm)',
+        sub:lsA === null ? LAP_GRADE_REVIEW : `fy=${opts.fy} kgf/cm²，ψg=${psiG}，ℓd(a)=${tensionLengthByFormula(opts).toFixed(2)} cm；甲級 1.0、乙級 1.3`,
+        value:lsA === null ? '待確認' : `${lsA.toFixed(1)} / ${lsB.toFixed(1)}`, unit:lsA === null ? '' : 'cm', ok:null,
+        note:'甲級須同時滿足配置量至少為需求量兩倍、同區搭接量不大於 50%。' +
+          (opts.fy >= 5600 ? '中心距小於 15 cm 時須核對 Ktr ≥ 0.5db（25.5.1.5）。' : '') }
     ];
   }
 
-  window.DevLength = { ldTension, ldCompression, lapSplice, reportItems, spacingCondition, tensionCoefficient, CONDITION_LABELS };
+  window.DevLength = { ldTension, ldCompression, lapSplice, lapGradeFactor, LAP_GRADE_REVIEW, reportItems, spacingCondition, tensionCoefficient, CONDITION_LABELS };
 })();

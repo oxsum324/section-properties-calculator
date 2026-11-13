@@ -222,7 +222,7 @@
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
   const COLUMN_PROJECT_SCHEMA = 'rc-column-project-v1';
-  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.2', 'V3.3']);
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.2', 'V3.3', 'V3.4']);
   // V3.4 起主筋中心 = 保護層（量至箍筋外緣）＋橫向鋼筋直徑＋主筋直徑/2；此前版本為保護層＋主筋直徑/2。
   // 這些舊版檔讀入後一律揭露計算定義變更，即使摘要判定未翻轉也不得靜默換值。
   const BAR_CENTER_DEFINITION_CHANGED_VERSIONS = Object.freeze(['V3.2', 'V3.3']);
@@ -418,7 +418,7 @@
       schema: COLUMN_PROJECT_SCHEMA,
       tool: 'rc-column',
       toolTitle: '柱 Column 設計／檢核',
-      appVersion: 'V3.4',
+      appVersion: 'V3.5',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -460,7 +460,7 @@
     const payload = window.RCProjectReplay.validateLegacyProjectSource(raw, {
       expectedSchema: COLUMN_PROJECT_SCHEMA,
       expectedToolId: 'rc-column',
-      expectedVersion: 'V3.4',
+      expectedVersion: 'V3.5',
       legacyVersions: LEGACY_REPLAY_VERSIONS,
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
@@ -485,14 +485,20 @@
     return columnProjectStorage.setControl(id, saved);
   }
 
+  let restoringColumnFields = false;
   function applyColumnProjectData(raw, options = {}) {
     const payload = normalizeColumnProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectColumnProjectData();
     setColumnMode(payload.mode, { enforceCheckDefaults: false, recalculate: false, applyPanel: false });
     let applied = 0;
-    Object.entries(payload.fields).forEach(([id, saved]) => {
-      if (setColumnProjectControl(id, saved)) applied += 1;
-    });
+    restoringColumnFields = true;
+    try {
+      Object.entries(payload.fields).forEach(([id, saved]) => {
+        if (setColumnProjectControl(id, saved)) applied += 1;
+      });
+    } finally {
+      restoringColumnFields = false;
+    }
     restoreColumnForceImport(payload.forceImport);
     restoreColumnReviewResolutions(payload.reviewResolutions);
     syncDesignFields();
@@ -522,6 +528,8 @@
         // 摘要判定相同時共用文字為「並重現計算」；主筋定義已變，數值必然不同，改稱重新計算以免誤認為逐值重現
         const lead = notice.message.replace('並重現計算：', `並依 ${replay.currentVersion} 重新計算：`);
         showColumnProjectStatus(`${lead}｜${replay.sourceVersion} → ${replay.currentVersion}：${BAR_CENTER_DEFINITION_NOTICE}`, ['error', 'fail'].includes(notice.status) ? notice.status : 'warn');
+      } else if (replay.legacy) {
+        showColumnProjectStatus(notice.message.replace('並重現計算', '並重新計算') + '｜受拉搭接依表 25.5.2.1 重算。', 'warn');
       } else {
         showColumnProjectStatus(notice.message, notice.status);
       }
@@ -1428,6 +1436,7 @@
   }
 
   function calcColumn() {
+    if (restoringColumnFields) return;
     // 全域規則：先標記所有結果項為「未檢核」，下方各 setResult/setCheck 觸及時清除
     markAllResultsPending();
     columnBlockedDesignSearch = null;
@@ -2223,6 +2232,7 @@
       db: dbEq, clearSpacing: columnClearSpacing, clearCover: columnClearCover, minTransverse: columnTieSpacingOk
     });
     const lapDevOpts = { fc, fy, db: lapDb, lambda: 1.0, psit: 1.0, psie: 1.0, condition: columnDevCondition };
+    const lapPsiG = DevLength.lapGradeFactor(fy);
     const lapLdTension = window.DevLength?.ldTension ? window.DevLength.ldTension(lapDevOpts) : null;
     const lapLengthReqA = window.DevLength?.lapSplice ? window.DevLength.lapSplice({ ...lapDevOpts, classB: false }) : null;
     const lapLengthReqB = window.DevLength?.lapSplice ? window.DevLength.lapSplice({ ...lapDevOpts, classB: true }) : null;
@@ -2735,11 +2745,6 @@
         lapZoneText = `搭接 ${lapSpliceStart.toFixed(1)}~${lapSpliceEnd.toFixed(1)} cm；允許 ${lapMiddleStart.toFixed(1)}~${lapMiddleEnd.toFixed(1)} cm`;
       }
       setCheck('s-lapZone', okLapZone, lapZoneText);
-      const lapLengthNeed = lapLengthReq == null ? '—' : lapLengthReq.toFixed(1);
-      const lapLengthText = lapSpliceLength == null
-        ? `未輸入；${lapSpliceClass} 需求 ℓs,req=${lapLengthNeed} cm，需人工確認`
-        : `ℓs=${lapSpliceLength.toFixed(1)} cm ${okLapLength?'≥':'<'} ${lapLengthNeed} cm (${lapSpliceClass})`;
-      setCheck('s-lapLength', okLapLength, lapLengthText);
       // ℓo 外間距 (規範 18.4.5.5): ≤ min(6db, 15)
       const outsideSource = outsideTieSInput == null ? '採用 ℓo 內 s' : '輸入值';
       const outsideText = `${outsideSource} ${outsideTieS.toFixed(1)} cm ${okOutsideTieSpacing?'≤':'>'} ${seismicMidSpacingLimit.toFixed(1)} cm`;
@@ -2772,7 +2777,7 @@
     if (lapSpliceClassRequested === 'A') {
       lapClassAAstRatio = AstReq > 0 ? Ast / AstReq : null;
       lapClassAAstOk = lapClassAAstRatio != null ? lapClassAAstRatio >= 2 - 1e-6 : null;
-      lapClassASpliceOk = lapSpliceRatio == null ? null : lapSpliceRatio <= 50 + 1e-6;
+      lapClassASpliceOk = lapSpliceRatio == null ? null : lapSpliceRatio > 0 && lapSpliceRatio <= 50;
       okLapClassA = (lapClassAAstOk === true && lapClassASpliceOk === true)
         ? true
         : (lapClassAAstOk === false || lapClassASpliceOk === false ? false : null);
@@ -2790,7 +2795,7 @@
         : `Ast/Ast,req=${lapClassAAstRatio.toFixed(2)} ${lapClassAAstOk ? '≥' : '<'} 2.00`;
       const spliceText = lapSpliceRatio == null
         ? '搭接比例未輸入'
-        : `搭接比例=${lapSpliceRatio.toFixed(0)}% ${lapClassASpliceOk ? '≤' : '>'} 50%`;
+        : lapSpliceRatio <= 0 ? '有效搭接比例須大於 0%' : `搭接比例=${lapSpliceRatio.toFixed(0)}% ${lapClassASpliceOk ? '≤' : '>'} 50%`;
       lapClassANote = `${ratioText}；${spliceText}`;
     } else {
       lapSpliceClass = 'B';
@@ -2808,7 +2813,7 @@
       const lapLengthTextFinal = lapSpliceLength == null
         ? `未輸入；${lapSpliceClass} 需求 ℓs,req=${lapLengthNeedFinal} cm，需人工確認${classNote}`
         : `ℓs=${lapSpliceLength.toFixed(1)} cm ${okLapLength ? '≥' : '<'} ${lapLengthNeedFinal} cm (${lapSpliceClass})${classNote}`;
-      setCheck('s-lapLength', okLapLength, lapLengthTextFinal);
+      setCheck('s-lapLength', okLapLength, lapLengthReq == null ? DevLength.LAP_GRADE_REVIEW : lapLengthTextFinal + '；ψg＝' + lapPsiG);
     }
 
     {
@@ -3230,7 +3235,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         const lapClassLineS = lapSpliceClassRequested === 'A'
           ? `；${okLapClassA === true ? 'Class A成立' : 'Class A未成立，按 Class B'} (${lapClassANote})`
           : '';
-        const lapLengthLineS = lapSpliceLength == null
+        const lapLengthLineS = lapLengthReq == null ? DevLength.LAP_GRADE_REVIEW : lapSpliceLength == null
           ? `搭接長度：未輸入；${lapSpliceClass} 需求 ℓs,req=${fmt(lapLengthReq,1)} cm (25.5.2)${lapClassLineS}`
           : `搭接長度：ℓs=${fmt(lapSpliceLength,1)} cm ${okLapLength?'≥':'<'} ${fmt(lapLengthReq,1)} cm (${lapSpliceClass}, 25.5.2)${lapClassLineS}`;
         const scwbLine = (dir, label) => dir.active
@@ -3330,7 +3335,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       columnDevTopText: columnDevTopCheck.text, columnDevBottomText: columnDevBottomCheck.text,
       columnDevDb, columnDevCondition, columnLdTension, columnLdCompression, columnDevReq, okColumnDevTop, okColumnDevBottom, okColumnDevelopment,
       columnDevelopmentHasInput, columnDevelopmentManual,
-      lapSpliceLength, lapSpliceRatio, lapSpliceClassRequested, lapSpliceClass, lapDb, lapLdTension, lapLengthReqA, lapLengthReqB, lapLengthReq, okLapLength,
+      lapSpliceLength, lapSpliceRatio, lapSpliceClassRequested, lapSpliceClass, lapDb, lapPsiG, lapLdTension, lapLengthReqA, lapLengthReqB, lapLengthReq, okLapLength,
       lapClassAAstRatio, lapClassAAstOk, lapClassASpliceOk, okLapClassA, lapClassANote,
       totalSpacingLimitAuto, totalSpacingReasonAuto,
       sClearCol, nMaxB, nMaxH, nBarMaxRect, okBarsPerSide, barsPerSideDetail,
@@ -3396,7 +3401,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
           lapLength: r.lapSpliceLength,
           lapRatio: r.lapSpliceRatio,
           lapClass: r.lapSpliceClassRequested,
-          requiredLength: r.lapLengthReq
+          requiredLength: r.lapLengthReq,
+          ...(r.lapPsiG == null ? { fy:r.fy } : {})
         })
       });
     }
@@ -4030,12 +4036,12 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
           ok: r.okLapZone
         },{
           label:'搭接長度',
-          formula:'規範 25.5.2 — Class A = 1.0ℓd，Class B = 1.3ℓd；Class A 需 As≥2As,req 且同區搭接量≤50%',
-          sub: (r.lapSpliceLength == null
+          formula:'規範 25.5.2 — 甲級 = 1.0ψgℓd(a)，乙級 = 1.3ψgℓd(a)，下限 30 cm；Class A 需 As≥2As,req 且同區搭接量≤50%',
+          sub: r.lapLengthReq == null ? DevLength.LAP_GRADE_REVIEW : `ψg＝${r.lapPsiG}；` + (r.lapSpliceLength == null
             ? `未輸入；${r.lapSpliceClass} 需求 ${r.lapLengthReq.toFixed(1)} cm，需施工詳圖確認。`
             : `輸入 ${r.lapSpliceLength.toFixed(1)} cm；${r.lapSpliceClass} 需求 ${r.lapLengthReq.toFixed(1)} cm`)
             + (r.lapSpliceClassRequested === 'A' ? `；${r.okLapClassA === true ? 'Class A成立' : 'Class A未成立，按 Class B'} (${r.lapClassANote})` : ''),
-          value: r.lapSpliceLength == null ? '未輸入' : `${r.lapSpliceLength.toFixed(1)} / ${r.lapLengthReq.toFixed(1)}`,
+          value: r.lapLengthReq == null ? '待確認' : r.lapSpliceLength == null ? '未輸入' : `${r.lapSpliceLength.toFixed(1)} / ${r.lapLengthReq.toFixed(1)}`,
           unit: r.lapSpliceLength == null ? '' : 'cm',
           ok: r.okLapLength
         }] : []),
@@ -4346,7 +4352,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
 
     const reportConfig = {
       title: isDesignMode ? '柱設計計算書' : '柱檢核計算書',
-      outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.4' },
+      outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.5' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Column Design Report' : 'RC Column Check Report',

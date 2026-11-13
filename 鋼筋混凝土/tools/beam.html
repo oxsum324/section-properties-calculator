@@ -65,7 +65,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>梁設計 — RC 工具箱 V3.3</title>
+<title>梁設計 — RC 工具箱 V3.4</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
@@ -212,7 +212,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header class="tool-shell-header">
-  <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.3</span></h1>
+  <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.4</span></h1>
   <p class="tool-shell-header__sub">撓曲、剪力、扭力、跨深比；含特殊抗彎矩構架耐震檢核</p>
   <noscript><p class="tool-shell-noscript"><a href="../../結構工具箱/index.html">← 結構工具箱首頁</a>（未啟用 JavaScript，頂欄導覽無法顯示）</p></noscript>
 </header>
@@ -418,7 +418,11 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>實際搭接長度 ℓs (cm，可選)</label><input type="number" id="beamLapLength" placeholder="空白時取終點−起點" step="any"></div>
-          <div class="form-group"><label>搭接等級</label><select id="beamLapClass"><option value="B" selected>Class B (1.3ℓd)</option><option value="A">Class A (1.0ℓd)</option></select></div>
+          <div class="form-group"><label>搭接等級</label><select id="beamLapClass"><option value="B" selected>Class B (1.3ψgℓd(a))</option><option value="A">Class A (1.0ψgℓd(a))</option></select></div>
+        </div>
+        <div class="form-row" id="beamLapClassAEvidence" style="display:none">
+          <div class="form-group"><label for="beamLapAreaRatio">搭接處配置 As / 需求 As</label><input type="number" id="beamLapAreaRatio" min="0" step="any"></div>
+          <div class="form-group"><label for="beamLapPercent">同區搭接鋼筋面積占比 (%)</label><input type="number" id="beamLapPercent" min="0" max="100" step="any"></div>
         </div>
         <p class="hint">直線錨定依 shared/devlength.js 的 25.4.2 簡化式判定；標準彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。SMRF 梁搭接位置需避開距柱面 2h 內塑鉸區。</p>
 
@@ -864,7 +868,7 @@
 <script src="../shared/beam-evaluator.js?v=2"></script>
 <script src="../shared/beam-rebar-designer.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
-<script src="../shared/devlength.js?v=3"></script>
+<script src="../shared/devlength.js?v=4"></script>
 <script>
   // 各分頁要顯示的 data-topic 集合 (用於 result-item 內細項過濾)
   const TOPIC_VISIBLE = {
@@ -1140,6 +1144,9 @@
   function collectBeamProjectData() {
     if (typeof calcBeam === 'function') calcBeam();
     const fields = beamProjectStorage.collectFields();
+    for (const id of ['beamLapAreaRatio','beamLapPercent']) {
+      if ($('beamLapClass').value !== 'A' || !fields[id]?.value) delete fields[id];
+    }
     if ($('sectionType').value === 'rect') {
       for (const key of ['flangeMode','flangeLeft','flangeSwLeft','flangeSwRight']) delete fields[key];
     }
@@ -1151,7 +1158,7 @@
       schema: BEAM_PROJECT_SCHEMA,
       tool: 'rc-beam',
       toolTitle: '梁 Beam 設計／檢核',
-      appVersion: 'V3.3',
+      appVersion: 'V3.4',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -1198,7 +1205,7 @@
     return window.RCReportFingerprint.validateProjectCalculationSource(source, {
       expectedSchema: BEAM_PROJECT_SCHEMA,
       expectedToolId: 'rc-beam',
-      expectedVersion: beamSourceVersion(source) === 'V3.2' ? 'V3.2' : 'V3.3',
+      expectedVersion: ['V3.2','V3.3'].includes(beamSourceVersion(source)) ? source.appVersion : 'V3.4',
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
     });
@@ -1212,10 +1219,13 @@
     return beamProjectStorage.setControl(id, saved);
   }
 
+  let restoringBeamFields = false;
   function applyBeamProjectData(raw, options = {}) {
     const payload = normalizeBeamProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectBeamProjectData();
-    const migrated = beamSourceVersion(payload) === 'V3.2' && (payload.fields.sectionType?.value !== 'rect' ||
+    const oldVersion = beamSourceVersion(payload);
+    const legacy = oldVersion !== 'V3.4';
+    const migrated = oldVersion === 'V3.2' && (payload.fields.sectionType?.value !== 'rect' ||
       (payload.fields.enableTorsion?.checked && Number(payload.fields.Pu?.value) !== 0));
     setBeamMode(payload.mode, { recalculate: false, applyPanel: false });
     ensureProjectRebarLayers(payload.fields);
@@ -1223,10 +1233,17 @@
     for (const id of ['flangeLeft','flangeSwLeft','flangeSwRight']) $(id).value = '';
     $('simpleDeflLoad').value = 'uniform';
     $('sustainedDeflPercent').value = '100';
+    $('beamLapAreaRatio').value = '';
+    $('beamLapPercent').value = '';
     let applied = 0;
-    Object.entries(payload.fields).forEach(([id, saved]) => {
-      if (setBeamProjectControl(id, saved)) applied += 1;
-    });
+    restoringBeamFields = true;
+    try {
+      Object.entries(payload.fields).forEach(([id, saved]) => {
+        if (setBeamProjectControl(id, saved)) applied += 1;
+      });
+    } finally {
+      restoringBeamFields = false;
+    }
     restoreBeamForceImport(payload.forceImport);
     syncToggles();
     syncDesignFields();
@@ -1240,7 +1257,9 @@
           // V3.2 的計算摘要只用來核對原來源；另核對載入後的原版欄位與載重組合。
           for (const id of ['flangeMode','flangeLeft','flangeSwLeft','flangeSwRight']) delete replay.fields[id];
           delete replay.sectionCalculation;
-          replay = window.RCReportFingerprint.withProjectCalculationFingerprint({ ...replay, summary:payload.summary }, { ignoredKeys:['activeTab'] });
+        }
+        if (legacy) {
+          replay = window.RCReportFingerprint.withProjectCalculationFingerprint({ ...replay, appVersion:payload.appVersion, summary:payload.summary }, { ignoredKeys:['activeTab'] });
         }
         window.RCReportFingerprint.assertProjectCalculationReplay(payload, replay);
       } catch (error) {
@@ -1256,6 +1275,8 @@
       if (migrated) {
         const note = $('sectionType').value === 'rect' ? '扭力門檻已依本案軸力重算。' : '請確認翼板構造及實際淨距後重算。';
         showBeamProjectStatus(`已核對 V3.2 原始輸入 ${payload.calculationFingerprint}。${note}`);
+      } else if (legacy) {
+        showBeamProjectStatus('已核對 ' + oldVersion + ' 原始輸入，搭接長度與甲級條件已依 V3.4 重算。');
       } else {
         const state = window.beamLast ? '並重現計算' : '的待補輸入';
         showBeamProjectStatus(`已讀取${source}${state}：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
@@ -1405,7 +1426,13 @@
   function calcBeamDevelopmentData({ fc, fy, botStack, topStack, h, ln, seismic, bw, cover, tieDb, sv, hasMinStir, stirrupSpacingOk }) {
     const topPsi = Math.max(parseFloat($('devTopPsi')?.value) || 1.3, 1.0);
     const epoxyPsi = Math.max(parseFloat($('devEpoxyPsi')?.value) || 1.0, 1.0);
-    const lapClass = $('beamLapClass')?.value === 'A' ? 'A' : 'B';
+    const requestedA = $('beamLapClass').value === 'A';
+    $('beamLapClassAEvidence').style.display = requestedA ? '' : 'none';
+    const ratio = optNum('beamLapAreaRatio'), percent = optNum('beamLapPercent');
+    const lapClass = requestedA && ratio >= 2 && percent > 0 && percent <= 50 ? 'A' : 'B';
+    const classBasis = !requestedA ? '' : lapClass === 'A' ?
+      '；甲級依據 As/As,req＝' + ratio + '，同區搭接 ' + percent + '%' :
+      '；甲級條件未證實，採乙級';
     const leftType = normalizeBeamDevType(String($('beamDevLeftType')?.value || 'straight'));
     const rightType = normalizeBeamDevType(String($('beamDevRightType')?.value || 'straight'));
     const botDb = maxActiveDb(botStack);
@@ -1414,12 +1441,19 @@
     const minTransverse = hasMinStir === true && stirrupSpacingOk === true;
     const botDev = beamDevCondition(botStack, { bw, cover, tieDb, sv, minTransverse });
     const topDev = beamDevCondition(topStack, { bw, cover, tieDb, sv, minTransverse });
-    const ldBot = botDb > 0 ? DevLength.ldTension({ fc, fy, db: botDb, lambda: 1.0, psit: 1.0, psie: epoxyPsi, condition: botDev.condition }) : 0;
-    const ldTop = topDb > 0 ? DevLength.ldTension({ fc, fy, db: topDb, lambda: 1.0, psit: topPsi, psie: epoxyPsi, condition: topDev.condition }) : 0;
+    const botOpts = { fc, fy, db:botDb, lambda:1, psit:1, psie:epoxyPsi, condition:botDev.condition };
+    const topOpts = { fc, fy, db:topDb, lambda:1, psit:topPsi, psie:epoxyPsi, condition:topDev.condition };
+    const ldBot = botDb > 0 ? DevLength.ldTension(botOpts) : 0;
+    const ldTop = topDb > 0 ? DevLength.ldTension(topOpts) : 0;
     const kBot = DevLength.tensionCoefficient({ db: botDb, condition: botDev.condition });
     const kTop = DevLength.tensionCoefficient({ db: topDb, condition: topDev.condition });
     const ldReq = Math.max(ldBot, ldTop);
-    const lapReq = DevLength.lapSplice({ ld: ldReq, classB: lapClass !== 'A' });
+    const psiG = DevLength.lapGradeFactor(fy);
+    const lapLengths = [botOpts, topOpts].filter(o => o.db > 0)
+      .map(o => DevLength.lapSplice({ ...o, classB:lapClass !== 'A' }));
+    const lapReq = lapLengths.length && lapLengths.every(Number.isFinite) ? Math.max(...lapLengths) : null;
+    const lapDemandText = lapReq === null ? (psiG === null ? DevLength.LAP_GRADE_REVIEW : '請確認搭接鋼筋斷面與材料') :
+      lapClass + ' 類需求 ' + lapReq.toFixed(1) + ' cm（ψg＝' + psiG + '）' + classBasis;
     const leftAnchorage = optNum('anchorageLeft');
     const rightAnchorage = optNum('anchorageRight');
     const leftCheck = buildBeamAnchorageEndCheck(leftType, leftAnchorage, '左端', ldReq);
@@ -1429,7 +1463,7 @@
     const lapLengthInput = optNum('beamLapLength');
     const lapLengthFromRange = (lapStart != null && lapEnd != null && lapEnd >= lapStart) ? (lapEnd - lapStart) : null;
     const lapLength = lapLengthInput != null ? lapLengthInput : lapLengthFromRange;
-    const okLapLength = lapLength == null ? null : lapLength + 1e-6 >= lapReq;
+    const okLapLength = lapLength == null || lapReq == null ? null : lapLength + 1e-6 >= lapReq;
     const lapZoneStart = seismic ? 2 * h : 0;
     const lapZoneEnd = seismic ? Math.max(0, ln - 2 * h) : ln;
     const hasLapRange = lapStart != null && lapEnd != null && lapEnd >= lapStart;
@@ -1441,10 +1475,10 @@
     const hasCompleteAnchorageInput = leftCheck.hasInput && rightCheck.hasInput;
     const developmentManualReview = (leftCheck.manual && leftCheck.hasInput) || (rightCheck.manual && rightCheck.hasInput);
     const lapHasAnyInput = lapStart != null || lapEnd != null || lapLengthInput != null;
-    const lapManualReview = !lapHasAnyInput || lapLength == null || (seismic && !hasLapRange);
+    const lapManualReview = lapReq == null || !lapHasAnyInput || lapLength == null || (seismic && !hasLapRange);
     return {
       topPsi, epoxyPsi, lapClass, leftType, rightType, leftTypeLabel:leftCheck.typeLabel, rightTypeLabel:rightCheck.typeLabel,
-      botDb, topDb, ldBot, ldTop, ldReq, lapReq, botDev, topDev, kBot, kTop,
+      botDb, topDb, ldBot, ldTop, ldReq, lapReq, lapDemandText, psiG, botDev, topDev, kBot, kTop,
       leftAnchorage, rightAnchorage, leftCheck, rightCheck,
       lapStart, lapEnd, lapLengthInput, lapLengthFromRange, lapLength,
       lapZoneStart, lapZoneEnd, hasLapRange,
@@ -2230,6 +2264,8 @@
     if (!preset) return;
     $('simpleDeflLoad').value = 'uniform';
     $('sustainedDeflPercent').value = '100';
+    $('beamLapAreaRatio').value = '';
+    $('beamLapPercent').value = '';
     Object.entries(preset).forEach(([id, value]) => {
       const el = $(id);
       if (!el) return;
@@ -2263,6 +2299,7 @@
   })();
 
   function calcBeam() {
+    if (restoringBeamFields) return;
     // 標記所有結果項為「未檢核」；下方 setCheck/setResult 會逐一清除
     markAllResultsPending();
     // === 讀取輸入 ===
@@ -2587,9 +2624,8 @@
 
     setCheck('c-devLeft', developmentData.okLeftAnchorage, developmentData.leftCheck.text);
     setCheck('c-devRight', developmentData.okRightAnchorage, developmentData.rightCheck.text);
-    setCheck('c-lapLength', developmentData.okLapLength, developmentData.lapLength == null
-      ? `未輸入；${developmentData.lapClass} 類 ℓs,req=${developmentData.lapReq.toFixed(1)} cm`
-      : `ℓs=${developmentData.lapLength.toFixed(1)} / ${developmentData.lapClass} 類需求 ${developmentData.lapReq.toFixed(1)} cm`);
+    setCheck('c-lapLength', developmentData.okLapLength,
+      (developmentData.lapLength == null ? '未輸入；' : '實際 ' + developmentData.lapLength.toFixed(1) + ' cm；') + developmentData.lapDemandText);
 
     // 表層筋檢核 (規範 9.7.2.3)：h > 90 cm 時須依受拉面 h/2 範圍與裂縫間距限制配置
     const skinData = calcSkinReinforcementData({ h, fy, cover, nSkin, skinNo, MuPos: num('MuPos'), MuNeg: num('MuNeg') });
@@ -3141,8 +3177,10 @@ ${layerBars.map(L => {
         value:d.rightType === 'straight' ? fmtOpt(d.rightAnchorage) : d.rightTypeLabel, unit:d.rightType === 'straight' && d.rightAnchorage != null ? 'cm' : '', ok:d.okRightAnchorage,
         note:d.rightType === 'straight' ? (d.rightAnchorage == null ? '未輸入時不作通過判定。' : '已納入自動規範判定。') : '人工複核項，不納入自動 OK 判定。' },
       { label:`搭接長度 ℓs (${d.lapClass} 類)`,
-        formula:`規範 25.5.2：Class A = 1.0ℓd，Class B = 1.3ℓd；本列採 ${d.lapClass} 類`,
-        sub:d.lapLength == null ? '未輸入實際搭接長度；列為人工複核' : `實際 ℓs=${d.lapLength.toFixed(1)} cm，需求 ${d.lapReq.toFixed(1)} cm`,
+        formula:'表 25.5.2.1：甲、乙級倍率 1.0 / 1.3，乘 ψg 與 ℓd(a)，下限 30 cm',
+        sub:d.lapDemandText + (d.lapLength == null ? '；待填實際搭接長度' : '；實際 ' + d.lapLength.toFixed(1) + ' cm'),
+        note:'甲級須同時滿足配置量至少為需求量兩倍、同區搭接量不大於 50%。' +
+          (r.fy >= 5600 ? '中心距小於 15 cm 時須核對 Ktr ≥ 0.5db（25.5.1.5）。' : ''),
         value:fmtOpt(d.lapLength), unit:'', ok:d.okLapLength },
       { label:'SMRF 搭接位置避開塑鉸區',
         formula:'規範 18.3.4：梁端塑鉸區取距柱面 2h；搭接應避開兩端塑鉸區並配置圍束',
@@ -3706,7 +3744,7 @@ ${layerBars.map(L => {
 
     return openReport({
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
-      outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.3' },
+      outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.4' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',
@@ -3803,7 +3841,7 @@ ${layerBars.map(L => {
       kv.push({ label:'頂 As/需', val:`${r.AsTop.toFixed(2)}/${r.AsReqNeg.toFixed(2)}`, ok:(r.AsTop>=r.AsReqNeg) });
       if (r.developmentData) {
         kv.push({ label:'ℓd,req', val:`${r.developmentData.ldReq.toFixed(1)} cm`, ok:null });
-        kv.push({ label:'ℓs,req', val:`${r.developmentData.lapReq.toFixed(1)} cm`, ok:null });
+        kv.push({ label:'ℓs,req', val:r.developmentData.lapDemandText, ok:null });
         kv.push({ label:'端部錨定', val:`${r.developmentData.leftTypeLabel}/${r.developmentData.rightTypeLabel}`, ok:r.developmentData.developmentManualReview ? null : r.developmentData.okExplicit });
       }
     } else if (tab === 'shear') {
@@ -4145,7 +4183,7 @@ ${layerBars.map(L => {
       'c-layerSpacing':'排間淨距 sv ≥ max(2.5 cm, db_outer)\n規範 25.2.2',
       'c-devLeft':    '直線錨定：可用長度 ≥ ℓd,req\n標準彎鉤、機械錨定或其他端部構造列為人工複核',
       'c-devRight':   '直線錨定：可用長度 ≥ ℓd,req\n標準彎鉤、機械錨定或其他端部構造列為人工複核',
-      'c-lapLength':  '搭接長度 ℓs ≥ 規範 25.5.2 需求\nClass A = 1.0ℓd；Class B = 1.3ℓd',
+      'c-lapLength':  '搭接長度 ℓs ≥ 規範 25.5.2 需求\nClass A = 1.0ψgℓd(a)；Class B = 1.3ψgℓd(a)',
       'd-Ec':         "彈性模數 Ec = 12000·√fc' (規範 19.2.2 常重混凝土)",
       'd-Mcr':        '開裂彎矩 Mcr = fr·Ig/yt\nMa ≤ (2/3)Mcr → 未開裂 (用 Ig)\nMa > (2/3)Mcr → 改用 Bischoff Ie',
       'd-IcrPos':     '開裂後 Icr (雙筋換算斷面)\nbw·kd²/2 + ((n−1)As\' + nAs)·kd − ((n−1)As\'·d\' + nAs·d) = 0\nIcr = bw·kd³/3 + (n−1)As\'(kd−d\')² + nAs(d−kd)²',

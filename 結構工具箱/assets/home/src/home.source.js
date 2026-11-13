@@ -398,7 +398,7 @@
     },
     {
       title: 'RC 梁',
-      version: 'V3.3',
+      version: 'V3.4',
       href: '/rc-beam',
       aliases: ['RC beam design', '鋼筋混凝土梁'],
       categories: ['member'],
@@ -428,7 +428,7 @@
     },
     {
       title: 'RC 柱',
-      version: 'V3.4',
+      version: 'V3.5',
       href: '/rc-column',
       aliases: ['RC column design', '柱軸壓強度'],
       categories: ['member'],
@@ -458,7 +458,7 @@
     },
     {
       title: 'RC 牆',
-      version: 'V3.5',
+      version: 'V3.6',
       href: '/rc-wall',
       aliases: ['RC structural wall', '牆體軸力檢核'],
       categories: ['member'],

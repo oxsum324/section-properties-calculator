@@ -3,6 +3,25 @@
   "tolerance": 0.001,
   "cases": [
     {
+      "key": "column_high_grade_lap",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": true
+      },
+      "selects": {
+        "lapSpliceClass": "B"
+      },
+      "values": {
+        "fy": 5600,
+        "lapSpliceLength": 225
+      },
+      "expected": {
+        "okLapLength": false,
+        "lapLengthReq": 239.777291981724
+      },
+      "label": "fy 5600 kgf/cm² 乙級搭接需乘 1.15，舊版判通過"
+    },
+    {
       "key": "default_rect_design",
       "mode": "design",
       "checkboxes": {

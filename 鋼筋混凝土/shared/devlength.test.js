@@ -73,4 +73,19 @@ assert.equal(DevLength.spacingCondition({ db:2.54, clearSpacing:3.0, clearCover:
 assert.equal(DevLength.spacingCondition({ db:2.54, clearSpacing:2.0, clearCover:5.0, minTransverse:true }), 'other');
 assert.equal(DevLength.spacingCondition({ db:2.54 }), 'other', '缺資料時保守取其他情況');
 
+// 表 25.5.2.1 註 1。分別檢查純伸展、兩種搭接等級與最後才套用的 30 cm 下限。
+for (const [fy, psiG] of [[2800,1],[4200,1],[5000,1.08],[5600,1.15],[7000,1.30]]) {
+  const options = { fc:280, fy, db:1.905, lambda:0.75, condition:'other' };
+  const formulaLength = fy * 1.905 / (4.4 * 0.75 * Math.sqrt(280));
+  close(DevLength.ldTension(options), formulaLength, '伸展長度獨立於 ψg');
+  close(DevLength.lapSplice({ ...options, classB:false }), psiG * formulaLength, '甲級搭接');
+  close(DevLength.lapSplice({ ...options, classB:true }), 1.3 * psiG * formulaLength, '乙級搭接');
+}
+const shortBar = { fc:560, fy:2800, db:0.953, condition:'favorable', classB:true };
+assert.equal(DevLength.ldTension(shortBar),30);
+assert.equal(DevLength.lapSplice(shortBar),30,'乙級長度未達 30 cm 時取 30 cm');
+for (const fy of ['',0,4500,6000,7100]) {
+  assert.equal(DevLength.lapGradeFactor(fy),null);
+  assert.equal(DevLength.lapSplice({ ...shortBar, fy }),null,'未列等級不推定係數');
+}
 console.log('devlength.test.js: PASS');
