@@ -2812,6 +2812,7 @@
         { "path": "mnControl.force", "absTolerance": 1e-8 },
         { "path": "mnControl.baseShear", "absTolerance": 1e-8 },
         { "path": "mnControl.baseMoment", "absTolerance": 1e-8 },
+        { "path": "mnControl.edgeDistance", "absTolerance": 1e-12 },
         { "path": "mnControl.eccentricity", "absTolerance": 1e-12 },
         { "path": "mnControl.torsion", "absTolerance": 1e-8 },
         { "path": "nuControl.objectHeight", "absTolerance": 0 },
@@ -2853,6 +2854,7 @@
         { "path": "nuControl.force", "absTolerance": 1e-8 },
         { "path": "nuControl.baseShear", "absTolerance": 1e-8 },
         { "path": "nuControl.baseMoment", "absTolerance": 1e-8 },
+        { "path": "nuControl.edgeDistance", "absTolerance": 1e-12 },
         { "path": "nuControl.eccentricity", "absTolerance": 1e-12 },
         { "path": "nuControl.torsion", "absTolerance": 1e-8 }
       ]

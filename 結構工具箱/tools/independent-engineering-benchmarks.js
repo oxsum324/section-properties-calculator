@@ -2453,7 +2453,8 @@ function windObjectSolidTable210Oracle(i) {
     const G = 1.927 * (1 + 1.7 * 3.4 * gustIz * gustQ) / (1 + 1.7 * 3.4 * gustIz);
     const area = objectHeight * windWidth;
     const force = qz * G * baseCf * area;
-    const eccentricity = 0.3 * windWidth;
+    const edgeDistance = 0.3 * windWidth;
+    const eccentricity = 0.2 * windWidth;
     return {
       objectHeight, bigM, smallN, windWidth, nu, mnRatio, groundLimit,
       atGround:atGround ? 1 : 0,
@@ -2488,7 +2489,7 @@ function windObjectSolidTable210Oracle(i) {
       force,
       baseShear:force,
       baseMoment:force * zr,
-      eccentricity,
+      edgeDistance, eccentricity,
       torsion:force * eccentricity
     };
   }

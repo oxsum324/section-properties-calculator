@@ -478,7 +478,7 @@
       "route": "/wind-object-solid",
       "file": "結構工具箱/tools/風力/wind-object-solid.html",
       "title": "實體標示物風力",
-      "version": "V4.1",
+      "version": "V4.2",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "wind",

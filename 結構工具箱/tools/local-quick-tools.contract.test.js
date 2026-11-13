@@ -984,7 +984,7 @@ assertHomeToolCategories('桁架高塔風力', ['wind'], 'lattice tower wind sta
 assertHomeToolCategories('煙囪 / 水塔風力', ['wind'], 'chimney and water tower wind stays in wind category');
 assertHomeToolCategories('圍籬牆 / 獨立招牌風力', ['wind'], 'fence sign wind stays in wind category');
 assertHomeToolCategories('招牌 / 燈桿組合風力', ['wind'], 'sign pole combo wind stays in wind category');
-assert.match(repoDocs.homeJs, /title: '實體標示物風力'[\s\S]*?version: 'V4\.1'/, 'solid object wind new home version');
+assert.match(repoDocs.homeJs, /title: '實體標示物風力'[\s\S]*?version: 'V4\.2'/, 'solid object wind new home version');
 assert.match(repoDocs.homeJs, /title: '中空式 \/ 格子式風力',\s*version: 'V3\.5'/, 'frame object wind new home version');
 assert.match(repoDocs.homeJs, /title: '桁架高塔風力'[\s\S]*?version: 'V1\.2'/, 'lattice tower wind home version');
 assert.match(repoDocs.homeJs, /title: '煙囪 \/ 水塔風力'[\s\S]*?version: 'V3\.3'/, 'chimney and water tower wind home version');
@@ -1162,7 +1162,7 @@ assert.equal(repoDocs.seismicAppendage.includes('id="btnPrint"'), false, 'seismi
 assert.equal(repoDocs.seismicMisc.includes('id="btnPrint"'), false, 'seismic misc removes duplicate print action');
 assert.equal(repoDocs.seismicMisc.includes('diagram-caption'), false, 'seismic misc removes diagram caption copy');
 [
-  '<title>建築物耐風設計 — 實體標示物風力 V4.1</title>',
+  '<title>建築物耐風設計 — 實體標示物風力 V4.2</title>',
   'CASE_SCHEMA_VERSION',
   'wind-object-solid.case.v3',
   '匯出案件 JSON',

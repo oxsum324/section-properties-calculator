@@ -73,7 +73,8 @@ function calculateCase(input, item) {
   const gust = Wind.calcGustRigid(Math.max(zr, 0.1), Math.max(windWidth, 1), input.terrain);
   const area = objectHeight * windWidth;
   const force = pressure.qz * gust.G * baseCf * area;
-  const eccentricity = 0.3 * windWidth;
+  const edgeDistance = 0.3 * windWidth;
+  const eccentricity = windWidth / 2 - edgeDistance;
 
   return {
     objectHeight, bigM, smallN, windWidth, nu, mnRatio, groundLimit,
@@ -109,7 +110,7 @@ function calculateCase(input, item) {
     force,
     baseShear:force,
     baseMoment:force * zr,
-    eccentricity,
+    edgeDistance, eccentricity,
     torsion:force * eccentricity
   };
 }

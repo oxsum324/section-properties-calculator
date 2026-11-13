@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>建築物耐風設計 — 實體標示物風力 V4.1</title>
+<title>建築物耐風設計 — 實體標示物風力 V4.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../../tool-chrome.css">
 <link rel="stylesheet" href="../../assets/hy/colors_and_type.css">
@@ -69,7 +69,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>建築物耐風設計 — 實體標示物風力 <span class="badge-v">V4.1</span></h1>
+  <h1>建築物耐風設計 — 實體標示物風力 <span class="badge-v">V4.2</span></h1>
   <p>依「建築物耐風設計規範及解說」103 年版表 2.10 實體標示物 Cf 路線 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
@@ -275,7 +275,9 @@
       <div class="result-item ok" id="r-force"><span class="label">設計風力 F</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
       <div class="result-item" id="r-shear"><span class="label">底部剪力 V</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
       <div class="result-item" id="r-moment"><span class="label">底部彎矩 M<sub>b</sub></span><span><span class="value">—</span><span class="unit">kgf·m</span></span></div>
-      <div class="result-item" id="r-ecc"><span class="label">斜風向偏心 e</span><span><span class="value">—</span><span class="unit">m</span></span></div>
+      <div class="result-item" id="r-edgeDistance"><span class="label">作用線距迎風緣</span><span><span class="value">—</span><span class="unit">m</span></span></div>
+      <div class="result-item" id="r-torsion"><span class="label">中心線扭矩 |T|</span><span><span class="value">—</span><span class="unit">kgf·m</span></span></div>
+      <div class="result-item" id="r-ecc"><span class="label">斜風向對中心線偏心 |e|</span><span><span class="value">—</span><span class="unit">m</span></span></div>
     </div>
   </div>
 
@@ -311,7 +313,8 @@
 <script>
 const W = window.Wind;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['wind-object-solid'].version;
-const TOOL_VERSION = 'V4.1';
+const TOOL_VERSION = 'V4.2';
+const PREVIOUS_ENGINE = 'V4.1';
 const CASE_SCHEMA_VERSION = 'wind-object-solid.case.v3';
 let lastResult = null;
 let lastStepsHtml = '';
@@ -503,17 +506,24 @@ function importCaseJsonFile(file) {
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
+      const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION;
       const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
         expectedSchema: CASE_SCHEMA_VERSION,
         expectedToolId: 'wind-object-solid',
-        expectedVersion: TOOL_VERSION,
+        expectedVersion: replayEngine,
         capture: () => readCaseInputs(),
         apply: source => applyCaseInputs(source),
         recalculate: () => calc(),
-        getFingerprint: () => buildSolidObjectReportTrace(lastResult).calculationFingerprint,
+        getFingerprint: () => {
+          if (replayEngine === TOOL_VERSION) return buildSolidObjectReportTrace(lastResult).calculationFingerprint;
+          const { windwardEdgeDistance, ...old } = lastResult;
+          old.obliqueEccentricity = windwardEdgeDistance;
+          old.obliqueTorsion = old.F * windwardEdgeDistance;
+          return buildSolidObjectReportTrace(old, PREVIOUS_ENGINE).calculationFingerprint;
+        },
         restore: previous => applyCaseInputs(previous)
       });
-      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
+      setCaseStatus(replayEngine === PREVIOUS_ENGINE ? '已核對 V4.1 原案，中心線偏心及扭矩已依 V4.2 重算。' : `已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
     } finally {
@@ -625,7 +635,7 @@ function buildSolidReportReadinessModel(validationMessage = lastSolidReportValid
   if (!r.atGround) {
     reviewItems.push({ label: '座地判定', value: '本案為位於地面以上情境，請確認支承高度與作用高度設定符合專案模型。' });
   }
-  readyItems.push({ label: '斜風向作用', value: `已列 e = 0.3b_w = ${fmt(r.obliqueEccentricity,2)} m 的偏心作用。` });
+  readyItems.push({ label: '斜風向作用', value: `距迎風緣 ${fmt(r.windwardEdgeDistance,2)} m，對中心線偏心 ${fmt(r.obliqueEccentricity,2)} m。` });
 
   return {
     level: reviewItems.length ? 'review' : 'ready',
@@ -709,7 +719,8 @@ function buildAdoptRows(r) {
     { item: '形心高度 z_r', value: fmt(r.zr,2), unit: 'm', note: 'z_r = z_b + H_o/2' },
     { item: '設計風力 F', value: fmt(r.F,1), unit: 'kgf', note: 'F = q(z_r) x G x C_f x A' },
     { item: '底部彎矩 M_b', value: fmt(r.baseMoment,1), unit: 'kgf·m', note: 'M_b = F x z_r' },
-    { item: '斜風向偏心 e', value: fmt(r.obliqueEccentricity,2), unit: 'm', note: 'e = 0.3b_w，自迎風緣量取' }
+    { item:'作用線距迎風緣', value:fmt(r.windwardEdgeDistance,2), unit:'m', note:'自迎風緣量取 0.3b_w' },
+    { item:'對中心線偏心 |e|', value:fmt(r.obliqueEccentricity,2), unit:'m', note:'0.5b_w − 0.3b_w' }
   ];
 }
 function gustDetailHtml(r) {
@@ -776,7 +787,8 @@ function calc() {
   const G = gustDetail.G;
   const A = objectHeight * windWidth;
   const F = qz * G * baseCf * A;
-  const obliqueEccentricity = 0.3 * windWidth;
+  const windwardEdgeDistance = 0.3 * windWidth;
+  const obliqueEccentricity = windWidth / 2 - windwardEdgeDistance;
   const obliqueTorsion = F * obliqueEccentricity;
   const cfReference = `表 2.10：ν = ${fmt(nu,3)}，C_f(ν) = ${fmt(cfByNu.cf,3)}；M/N = ${fmt(mnRatio,3)}，C_f(M/N) = ${fmt(cfByMN.cf,3)}；規範判定取較大 C_f = ${fmt(codeCf,3)}（控制：${controllingCfKey === 'nu' ? 'ν' : 'M/N'}）`;
   const cfSourceNote = cfState.useManual
@@ -793,7 +805,7 @@ function calc() {
     baseCf, suggestedCf: codeCf,
     zr, qz, qzKz: qzData.Kz, G, gustDetail, A, F,
     baseShear: F, baseMoment: F * zr,
-    obliqueEccentricity, obliqueTorsion,
+    windwardEdgeDistance, obliqueEccentricity, obliqueTorsion,
     cfSourceLabel: cfState.label,
     cfSourceNote
   };
@@ -806,6 +818,8 @@ function calc() {
   setR('r-force', F, 1);
   setR('r-shear', F, 1);
   setR('r-moment', r.baseMoment, 1);
+  setR('r-edgeDistance', windwardEdgeDistance, 2);
+  setR('r-torsion', obliqueTorsion, 1);
   setR('r-ecc', obliqueEccentricity, 2);
   renderAdoptTable(buildAdoptRows(r));
   setApplicability([
@@ -816,7 +830,7 @@ function calc() {
     { label: '受風投影寬', level: 'ok', message: `b_w = ${fmt(windWidth,2)} m；${windWidthState.label}。` },
     { label: '表 2.10 比對', level: 'ok', message: `C_f(ν) = ${fmt(cfByNu.cf,3)}；C_f(M/N) = ${fmt(cfByMN.cf,3)}；取較大值 ${fmt(codeCf,3)}。` },
     { label: 'C_f 來源', level: cfState.useManual && !cfState.basis ? 'warn' : 'ok', message: cfSourceNote },
-    { label: '斜風向作用', level: 'ok', message: `除垂直風向形心作用外，應另考慮同高且距迎風緣 0.3b_w = ${fmt(obliqueEccentricity,2)} m 之偏心作用。` }
+    { label: '斜風向作用', level: 'ok', message: `除垂直風向形心作用外，應另考慮同高且距迎風緣 0.3b_w = ${fmt(windwardEdgeDistance,2)} m 之偏心作用。` }
   ]);
   drawSolidObjectDiagram(r);
   const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
@@ -849,8 +863,8 @@ function calc() {
   `, `F = ${fmt(qz,2)} x ${fmt(G,3)} x ${fmt(baseCf,3)} x ${fmt(A,2)} = ${fmt(F,2)} kgf`);
   html += step('④ 斜風向偏心作用', `
     除風向垂直於標示物時合力作用於幾何中心外，表 2.10 註記亦要求考慮斜風向。<br>
-    e = 0.3b<sub>w</sub> = 0.3 x ${fmt(windWidth,2)} = <span class="val">${fmt(obliqueEccentricity,2)}</span> m<br>
-    T = F x e = <span class="val">${fmt(obliqueTorsion,1)}</span> kgf·m
+    距迎風緣 0.3b<sub>w</sub> = ${fmt(windwardEdgeDistance,2)} m。由中心線取矩，|e| = (0.5 − 0.3)b<sub>w</sub> = ${fmt(obliqueEccentricity,2)} m。<br>
+    由兩側迎風緣量取時方向相反，|T| = F × |e| = <span class="val">${fmt(obliqueTorsion,1)}</span> kgf·m。
   `);
   lastResult = r;
   lastStepsHtml = html;
@@ -937,16 +951,17 @@ function buildSimpleResultRows(r) {
     ['設計風力 F', `${fmt(r.F,1)} kgf`],
     ['底部剪力 V', `${fmt(r.baseShear,1)} kgf`],
     ['底部彎矩 M_b', `${fmt(r.baseMoment,1)} kgf·m`],
-    ['斜風向偏心 e', `${fmt(r.obliqueEccentricity,2)} m`],
-    ['斜風向扭矩 T', `${fmt(r.obliqueTorsion,1)} kgf·m`]
+    ['作用線距迎風緣', fmt(r.windwardEdgeDistance,2) + ' m'],
+    ['對中心線偏心 |e|', `${fmt(r.obliqueEccentricity,2)} m`],
+    ['斜風向中心線扭矩 |T|', `${fmt(r.obliqueTorsion,1)} kgf·m`]
   ];
 }
-function buildSolidObjectReportTrace(result) {
+function buildSolidObjectReportTrace(result, engine = TOOL_VERSION) {
   return window.ToolReportUI.buildReportTrace({
     title: '實體標示物風力計算書',
     subtitle: '依建築物耐風設計規範及解說 103 年版｜表 2.10 實體標示物 Cf 路線',
     outputSource: { tool: '實體標示物風力', version: PUBLIC_TOOL_VERSION },
-    snapshot: { reportMode: getPrintReportMode(), calculationEngine: TOOL_VERSION, result }
+    snapshot: { reportMode: getPrintReportMode(), calculationEngine: engine, result }
   });
 }
 function buildSolidObjectReportHtml() {

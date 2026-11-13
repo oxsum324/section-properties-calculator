@@ -731,6 +731,7 @@
     },
     {
       "key": "wind-object-solid",
+      "previousCaseEngine": "V4.1",
       "label": "實體標示物風力",
       "discipline": "wind",
       "route": "/wind-object-solid",
@@ -815,7 +816,8 @@
             "#r-force .value": "569.1",
             "#r-shear .value": "569.1",
             "#r-moment .value": "853.6",
-            "#r-ecc .value": "0.60"
+            "#r-edgeDistance .value": "0.60",
+            "#r-ecc .value": "0.40"
           },
           "expectedTextNeedles": [
             "C_f(ν) = 1.200",
@@ -850,7 +852,8 @@
             "#r-force .value": "244.6",
             "#r-shear .value": "244.6",
             "#r-moment .value": "929.5",
-            "#r-ecc .value": "0.18"
+            "#r-edgeDistance .value": "0.18",
+            "#r-ecc .value": "0.12"
           },
           "expectedTextNeedles": [
             "H_o = 4.80 m；M = 1.20 m，N = 0.80 m。H_o 不代入 M/N。",

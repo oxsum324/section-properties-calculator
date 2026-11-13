@@ -212,7 +212,7 @@
       '/wind-cc': '2026-11-12',
       '/wind-parapet': '2026-11-12',
       '/wind-open-roof': '2026-11-12',
-      '/wind-object-solid': '2026-11-12',
+      '/wind-object-solid': '2026-11-13',
       '/wind-object-frame': '2026-11-12',
       '/wind-lattice-tower': '2026-11-12',
       '/wind-object-tower': '2026-11-12',
@@ -790,7 +790,7 @@
     },
     {
       title: '實體標示物風力',
-      version: 'V4.1',
+      version: 'V4.2',
       href: '/wind-object-solid',
       aliases: ['solid sign wind force', '實體標示物 Cf'],
       categories: ['wind'],
