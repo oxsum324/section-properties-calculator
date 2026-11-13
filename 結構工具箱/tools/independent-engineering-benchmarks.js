@@ -5183,7 +5183,7 @@ function stoneFixingOracle(input) {
     const interaction = interactionSeparated
       ? (Tu1 / effectiveTa) ** (5 / 3)
       : (Math.max(Tu1, Tu2) / effectiveTa) ** (5 / 3) + (shearPerPoint / effectiveVa) ** (5 / 3);
-    const allowStressFactor = i.sp_allow_stress_static_on ? 1 : i.w_cf;
+    const allowStressFactor = i.sp_allow_stress_static_on || (seismicForce === 0 && windPressurePos === 0 && windPressureNeg === 0) ? 1 : i.m_fb_factor;
     const angleShearLimit = 0.4 * i.m_fy * Math.max(0.01, (cd.LL - cd.d0) * cd.Lt);
     const angleMoment = Math.max(shearPerPoint * cd.bh, bendingPerPoint * cd.d1);
     const angleBendingDemand = angleMoment / (0.6 * i.m_fy * allowStressFactor);

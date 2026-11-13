@@ -47,7 +47,7 @@ function validateInput(input) {
         issues.push(`${prefix}.caseData.${field}:positive-finite-required`);
       }
     }
-    for (const field of ['st_gam', 'st_t', 's_sds', 'w_cf', 'm_fy', 'm_anc_sf']) {
+    for (const field of ['st_gam', 'st_t', 's_sds', 'w_cf', 'm_fb_factor', 'm_fy', 'm_anc_sf']) {
       if (!Number.isFinite(Number(item?.global?.[field])) || Number(item.global[field]) <= 0) {
         issues.push(`${prefix}.global.${field}:positive-finite-required`);
       }
