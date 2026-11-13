@@ -99,6 +99,8 @@ assert(/^  function applyPanel\(tab\) \{/m.test(app) && /^  function calcColumn\
 const relativeApp = path.relative(path.resolve(toolsDir, '..', '..'), appPath).split(path.sep).join('/');
 assert(relativeApp === '鋼筋混凝土/tools/column.app.js' && !/\/(?:core|shared|vendor)\//.test(`/${relativeApp}`), 'column.app.js stays a page-specific script outside core/shared/vendor', relativeApp);
 
+require('../../tests/teaspa-pm3.test.cjs');
+
 if (failed) {
   console.error(`column app extraction contract failed: ${failed} check(s)`);
   process.exitCode = 1;

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>一般柱耐震鉸交換｜TEASPA V4.0</title>
+<style>
+*{box-sizing:border-box}body{margin:0;color:#27323b;background:#f1f4f5;font:16px/1.6 "Microsoft JhengHei",system-ui,sans-serif}
+main{max-width:960px;margin:auto;padding:1rem}header,section{margin-bottom:1rem}section{background:white;padding:1.2rem;border:1px solid #cbd6d9;border-radius:8px}h1,h2{color:#183e4a;line-height:1.3;margin:0 0 .65rem}h1{font-size:1.65rem}h2{font-size:1.2rem}p{margin:.5rem 0}a{color:#005d73}label{display:block;margin:.5rem 0;color:#2c414a;font-weight:600}input,textarea,button{font:inherit}textarea,input:not([type=file]){width:100%;padding:.45rem;border:1px solid #81959b;border-radius:4px}textarea{font:14px/1.5 Consolas,monospace}input[type=file]{max-width:100%}button{border:1px solid #69848d;border-radius:5px;background:white;color:#16414d;padding:.4rem .8rem;cursor:pointer}button.primary{background:#155567;color:white}button:disabled{opacity:.45;cursor:default}.row{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center}.pair,.grid{display:grid;gap:.65rem;grid-template-columns:1fr 1fr}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,th{border-bottom:1px solid #d4dde0;text-align:left;padding:.35rem .6rem}th{color:#194251;background:#eef4f5}.status{font-weight:bold;color:#174b5a}.note{color:#475f66}code{overflow-wrap:anywhere;white-space:normal;font:14px/1.5 Consolas,monospace}.attention{border-left:3px solid #b17a2a;padding-left:.65rem}summary{cursor:pointer}dialog{max-width:90%;border:1px solid #6f838b;border-radius:6px}
+@media(max-width:680px){main{padding:.65rem}section{padding:.8rem}.grid{grid-template-columns:1fr 1fr}.pair{grid-template-columns:1fr}}
+</style></head><body><main>
+<header><a href="../../../鋼筋混凝土/tools/column.html">返回 RC 柱設計</a><h1>一般柱耐震鉸交換</h1>
+<p>將 TEASPA V4.0 矩形柱的 X 向 P–M 互制與彎矩／塑性轉角表交給 ETABS 22.3，並逐點核對存檔重開後的讀值。</p></header>
+<section><h2>構件與來源</h2><div class="row"><button id="example" type="button">載入手冊 Story1C1 範例</button><label>讀取來源 JSON <input id="sourceFile" type="file" accept=".json"></label></div>
+<div id="editor"><div class="pair"><label>構件編號<input id="member"></label><label>手冊、版本與頁碼或案件依據<input id="source"></label></div>
+<label>配筋、材料及資料依據<input id="sectionBasis"></label>
+<div class="grid"><label>柱寬，局部 2 (cm)<input id="widthCm" type="number" step="any"></label><label>柱深，局部 3 (cm)<input id="depthCm" type="number" step="any"></label><label>柱淨高 (cm)<input id="clearCm" type="number" step="any"></label>
+<label>DL＋0.5LL 軸力 (kgf)<input id="gravityPKgf" type="number" step="any"></label><label>背骨採用軸力 (kgf)<input id="curvePKgf" type="number" step="any"></label><label>該軸力降伏彎矩 (kgf·cm)<input id="yieldMKgfCm" type="number" step="any"></label></div>
+<div class="pair"><label>互制點 P (kgf)、M (kgf·cm)<textarea id="pm" rows="11" spellcheck="false" placeholder="壓為正，由大至小，每行一點"></textarea></label>
+<label>背骨點、M/My、塑性轉角 (rad)<textarea id="backbone" rows="11" spellcheck="false" placeholder="依序輸入 -E 至 E，各欄以 Tab 或空白分隔"></textarea></label></div></div>
+<p class="note">柱自下向上，局部 2 沿全域 X、局部 3 沿全域 Y。X 向側力取 M3。此版使用單一軸力的對稱背骨；其他軸力的降伏彎矩沿互制線變化，未提供其他軸力的轉角曲線。</p>
+<button class="primary" id="prepare" type="button">建立交換資料</button><p id="status" role="status" class="status"></p></section>
+<section id="exchange" hidden><h2>ETABS 匯入資料</h2><p id="summary"></p><p>表採 kgf、cm、rad，拉力為正。P、M3 的互制比例因數分別為 1 kgf、1 kgf·cm。柱兩端以淨長比例 0、1 指派；彎矩－塑性轉角鉸不需指定塑鉸長。</p>
+<div class="row"><button id="exportSource">下載來源 JSON</button><button id="exportHinge">下載鉸定義 TSV</button><button id="exportEnds">下載柱端指派 TSV</button></div>
+<details><summary>本機 ETABS 存檔及讀回方式</summary><p>於專案根目錄開啟 PowerShell，將來源 JSON 的路徑與新的輸出資料夾代入下列命令。需要本機 ETABS 22.3.0.3775 與 Node.js。</p>
+<code>.\dev_tools\teaspa-etabs\run.ps1 -SourceFile "來源.json" -OutputDirectory "新資料夾"</code><p>程式建立獨立單柱交換模型，存檔重開後輸出 readback.json、原始 TSV 與 comparison.json。材料及配筋說明留在來源 JSON；模型內的斷面僅供鉸指派。此流程未分析整棟側推。</p></details>
+<p class="attention">交換模型採獨立彈性－理想塑性軸向行為（EPP），E 點後承載力歸零。IO、LS、CP 須另據個案設定。</p>
+<label>核對重開後的 readback.json <input id="readFile" type="file" accept=".json"></label><p id="readStatus" role="status"></p>
+<div id="results" hidden><h2>逐點核對</h2><p id="criteria"></p><div class="scroll"><table><thead><tr><th>點</th><th>讀回 M/My</th><th>塑性轉角 (rad)</th><th>取得方式</th></tr></thead><tbody id="signed"></tbody></table></div><details><summary>互制點與柱端位置</summary><div class="scroll"><table><thead><tr><th>點</th><th>來源 P (kgf)</th><th>讀回 P (kgf)</th><th>來源 M (kgf·cm)</th><th>讀回 M3 (kgf·cm)</th></tr></thead><tbody id="interaction"></tbody></table></div><p id="ends"></p></details><div id="diff"></div><button id="exportCheck">下載比對紀錄 JSON</button></div></section>
+<footer><a href="https://www.ncree.niar.org.tw/accomplishment/technicalreports/page/12070">國震中心 TEASPA V4.0 手冊，§8.2.1(1)</a>　<a href="https://docs.csiamerica.com/help-files/etabs/Menus/Define/Section_Properties/Frame_Nonlinear_Hinge_Properties/Hinge_Interaction_Surface_Form.htm">CSI 互制曲面與軸力正負</a></footer>
+<dialog id="replace"><p>以讀入內容取代目前的來源資料？</p><form method="dialog" class="row"><button value="cancel">保留目前資料</button><button value="replace">取代資料</button></form></dialog>
+</main><script src="teaspa-column-reference.js"></script><script src="teaspa-pm3.js"></script><script src="teaspa-column-ui.js"></script></body></html>
