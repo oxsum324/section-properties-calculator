@@ -1202,6 +1202,7 @@ async function runBrowserCases() {
     await wait(300);
 
     for (const tc of pack.cases) {
+      await page.goto(TOOL_URL, { waitUntil:'networkidle' });
       await applyCase(page, tc);
       const actual = await captureBeamSnapshot(page);
       captured.push({ key: tc.key, actual });
