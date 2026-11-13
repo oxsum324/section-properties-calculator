@@ -6199,11 +6199,9 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     else if (r.tab === 'combined') {
       inputs = [
         { group:'幾何', items:[
-          { label:'柱1斷面', value:r.col1?.raw || `${r.c1}×${r.c2}`, unit:'cm' },
-          { label:'柱2斷面', value:r.col2?.raw || `${r.c1}×${r.c2}`, unit:'cm' },
+          { label:'柱1 / 柱2斷面', value:`${r.col1.raw} / ${r.col2.raw}`, unit:'cm' },
           { label:'柱距 s', value:r.colDist, unit:'cm' },
-          { label:'基腳 B×L', value:`${r.B}×${r.L}`, unit:'cm' },
-          { label:'基腳厚 hf', value:r.hf, unit:'cm' },
+          { label:'基腳 B×L×hf', value:`${r.B}×${r.L}×${r.hf}`, unit:'cm' },
           { label:'有效深 dX / dY', value:`${r.dX.toFixed(2)} / ${r.dY.toFixed(2)}`, unit:'cm' },
           { label:'強度分析', value:'長向梁化包絡取柱集中力。橫向以兩柱中心中點分界，各帶按土壓積分平均，由各自柱面起算。正負彎矩區採相同受拉鋼筋量，須核對實際配筋。' },
           ...r.sections.slice(1).map(t => ({ label:t.label, value:'帶寬 ' + t.bw.toFixed(1) + ' cm，臂長 ' + t.arm.toFixed(2) + ' m，平均 qu ' + t.qMean.toFixed(2) + ' tf/m²' }))
@@ -6213,10 +6211,8 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'fy', value:r.fy, unit:'kgf/cm²' }
         ]},
         { group:'載重', items:[
-          { label:'柱1 D/L/E', value:`${r.P1D}/${r.P1L}/${r.P1E}`, unit:'tf' },
-          { label:'柱2 D/L/E', value:`${r.P2D}/${r.P2L}/${r.P2E}`, unit:'tf' },
-          { label:'柱1 Pu', value:r.P1u.toFixed(2), unit:'tf' },
-          { label:'柱2 Pu', value:r.P2u.toFixed(2), unit:'tf' },
+          { label:'柱1 D/L/E → Pu', value:`${r.P1D}/${r.P1L}/${r.P1E} → ${r.P1u.toFixed(2)}`, unit:'tf' },
+          { label:'柱2 D/L/E → Pu', value:`${r.P2D}/${r.P2L}/${r.P2E} → ${r.P2u.toFixed(2)}`, unit:'tf' },
           { label:'Pu,tot', value:r.Pu_tf.toFixed(2), unit:'tf' },
           { label:'HDL / HE', value:`${r.HDL.toFixed(2)} / ${r.HE.toFixed(2)}`, unit:'tf' },
           { label:'抗滑 N / H', value:`${r.N_total.toFixed(2)} / ${r.H_total.toFixed(2)}`, unit:'tf' },
