@@ -61,7 +61,7 @@ if (appRef) {
   const previous = scripts[position - 1];
   const next = scripts[position + 1];
   const afterNext = scripts[position + 2];
-  assert(previous && previous.src === '../shared/devlength.js?v=4', 'column.app.js loads right after devlength.js (original inline position)', previous ? previous.tag : 'missing');
+  assert(previous && previous.src === '../shared/devlength.js?v=5', 'column.app.js loads right after devlength.js (original inline position)', previous ? previous.tag : 'missing');
   assert(next && next.src === '../../結構工具箱/core/ui/forces-receive.js', 'column.app.js loads right before forces-receive.js', next ? next.tag : 'missing');
   assert(afterNext && !afterNext.src && afterNext.body.trim() === 'initColumnForceCandidateReview();', 'candidate receiver init stays inline after forces-receive.js', afterNext ? JSON.stringify(afterNext.body) : 'missing');
   const before = scripts.slice(0, position);

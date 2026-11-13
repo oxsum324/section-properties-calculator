@@ -108,7 +108,7 @@
         sub:lsA === null ? LAP_GRADE_REVIEW : `fy=${opts.fy} kgf/cm²，ψg=${psiG}，ℓd(a)=${tensionLengthByFormula(opts).toFixed(2)} cm；甲級 1.0、乙級 1.3`,
         value:lsA === null ? '待確認' : `${lsA.toFixed(1)} / ${lsB.toFixed(1)}`, unit:lsA === null ? '' : 'cm', ok:null,
         note:'甲級須同時滿足配置量至少為需求量兩倍、同區搭接量不大於 50%。' +
-          (opts.fy >= 5600 ? '中心距小於 15 cm 時須核對 Ktr ≥ 0.5db（25.5.1.5）。' : '') }
+          (opts.fy >= 5600 ? (opts.member === 'column' ? '高強度柱縱筋圍束依 §10.7.1.3 核對。' : '中心距小於 15 cm 時須核對 Ktr ≥ 0.5db（25.5.1.5）。') : '') }
     ];
   }
 

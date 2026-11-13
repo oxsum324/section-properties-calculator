@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>柱設計 — RC 工具箱 V3.5</title>
+<title>柱設計 — RC 工具箱 V3.6</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
@@ -41,7 +41,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>柱 Column 設計／檢核 <span data-ui="version">V3.5</span></h1>
+  <h1>柱 Column 設計／檢核 <span data-ui="version">V3.6</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ P-M 互制圖、軸壓上限、橫向圍束、強柱弱梁 ｜ <a class="back" href="../../結構工具箱/tools/rc/teaspa-column.html">一般柱耐震鉸交換</a></p>
 </header>
 
@@ -225,6 +225,8 @@
           <div class="form-group"><label>柱底可用直線錨定長度 (cm，可選)</label><input type="number" id="columnDevBottom" placeholder="直線錨定時輸入" step="any"></div>
         </div>
         <p class="hint" data-ui="field-hint">直線錨定依最大主筋直徑計算 25.4.2 拉力開發長度 ℓd；彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。</p>
+        <input type="hidden" id="bondPlaneData">
+        <section data-bond-confinement hidden></section>
         <p class="hint" id="barLayoutInfo" data-ui="detail-hint">—</p>
       </div>
 
@@ -661,8 +663,9 @@
 <script src="../shared/column-rebar-designer.js?v=2"></script>
 <script src="../shared/column-transverse-designer.js?v=2"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
-<script src="../shared/devlength.js?v=4"></script>
-<script src="column.app.js?v=5"></script>
+<script src="../shared/bond-confinement.js?v=1"></script>
+<script src="../shared/devlength.js?v=5"></script>
+<script src="column.app.js?v=6"></script>
 <!-- ForcePicker 接收器：RC 頁面先顯示候選值，人工確認後才套用。 -->
 <script src="../../結構工具箱/core/ui/forces-receive.js"></script>
 <script>initColumnForceCandidateReview();</script>

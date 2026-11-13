@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>牆設計 — RC 工具箱 V3.6</title>
+<title>牆設計 — RC 工具箱 V3.7</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
@@ -52,7 +52,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>牆 Wall 設計／檢核 <span data-ui="version">V3.6</span></h1>
+  <h1>牆 Wall 設計／檢核 <span data-ui="version">V3.7</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 承重牆／結構牆 P-M 互制、軸壓與軸拉、面內剪力、牆端配筋與特殊邊界構材</p>
 </header>
 
@@ -227,6 +227,8 @@
             <label for="pmBoundaryRebar">計入兩端附加集中縱筋</label>
           </div>
         </div>
+        <input type="hidden" id="bondPlaneData">
+        <section data-bond-confinement hidden></section>
         <p id="wallDevLength" class="hint"></p>
         <div id="pmBoundaryRebarInputs" data-check-only style="display:none;">
           <div class="form-row">
@@ -673,7 +675,8 @@
 <script src="../shared/project-replay.js?v=1"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
-<script src="../shared/devlength.js?v=4"></script>
+<script src="../shared/bond-confinement.js?v=1"></script>
+<script src="../shared/devlength.js?v=5"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/wall.js?v=3"></script>
 <script src="../shared/pmsection.js?v=4"></script>
@@ -868,9 +871,10 @@
 
   // ========== 牆計算邏輯 ==========
   const $ = id => document.getElementById(id);
+  const updateBondPlanes = BondConfinement.mount('wall', calcWall);
   const num = id => parseFloat($(id).value) || 0;
   const WALL_PROJECT_SCHEMA = 'rc-wall-project-v1';
-  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2', 'V3.3', 'V3.4', 'V3.5']);
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2', 'V3.3', 'V3.4', 'V3.5', 'V3.6']);
   const WALL_PROJECT_STORAGE_KEY = 'rc.wall.project.draft';
   const WALL_PROJECT_EXCLUDED_IDS = new Set(['wallProjectFile', 'caseJson', 'compareCaseJson', 'baselineReport']);
   const wallProjectStorage = window.RCProjectStorage.createManager({
@@ -904,13 +908,14 @@
   function collectWallProjectData() {
     if (typeof calcWall === 'function') calcWall();
     const fields = wallProjectStorage.collectFields();
+    if (!fields.bondPlaneData?.value) delete fields.bondPlaneData;
     const snap = window.wallLast || {};
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
       schema: WALL_PROJECT_SCHEMA,
       tool: 'rc-wall',
       toolTitle: '牆 Wall 設計／檢核',
-      appVersion: 'V3.6',
+      appVersion: 'V3.7',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -947,11 +952,11 @@
   }
 
   function normalizeWallProjectPayload(raw) {
-    // V3.1～V3.5 舊檔：以原版本驗證存檔指紋後依 V3.6 重新計算；版本正規化與舊版判定見 shared/project-replay.js
+    // V3.1～V3.6 舊檔：以原版本驗證存檔指紋後依 V3.7 重新計算；版本正規化與舊版判定見 shared/project-replay.js
     return window.RCProjectReplay.validateLegacyProjectSource(raw, {
       expectedSchema: WALL_PROJECT_SCHEMA,
       expectedToolId: 'rc-wall',
-      expectedVersion: 'V3.6',
+      expectedVersion: 'V3.7',
       legacyVersions: LEGACY_REPLAY_VERSIONS,
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
@@ -968,6 +973,7 @@
     const previous = options.skipReplayCheck ? null : collectWallProjectData();
     setWallMode(payload.mode || 'design');
     let applied = 0;
+    $('bondPlaneData').value = '';
     restoringWallFields = true;
     try {
       Object.entries(payload.fields).forEach(([id, saved]) => {
@@ -996,7 +1002,7 @@
     let replay = null;
     if (!options.skipReplayCheck) {
       try {
-        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.6 結果接受並揭露
+        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.7 結果接受並揭露
         replay = window.RCProjectReplay.reconcileProjectCalculationReplay(payload, collectWallProjectData(), {
           legacyVersions: LEGACY_REPLAY_VERSIONS,
           sourceKey: 'fields',
@@ -1012,8 +1018,8 @@
         sourceLabel: options.sourceLabel || '牆專案檔',
         applied
       });
-      if (replay.legacy && replay.sourceVersion === 'V3.5') {
-        showWallProjectStatus(notice.message.replace('並重現計算', '並重新計算') + '｜受拉搭接依表 25.5.2.1 重算。', 'warn');
+      if (replay.legacy && ['V3.5','V3.6'].includes(replay.sourceVersion)) {
+        showWallProjectStatus(notice.message.replace('並重現計算', '並重新計算') + '｜受拉搭接長度與伸展／搭接區圍束依 V3.7 重算。', 'warn');
       } else {
         showWallProjectStatus(notice.message, notice.status);
       }
@@ -1087,6 +1093,7 @@
   function applyWallTestCase(caseKey) {
     const tc = WALL_TEST_CASES[caseKey];
     if (!tc) return;
+    $('bondPlaneData').value = '';
     setWallMode(tc.mode || 'check');
     Object.entries(tc.values).forEach(([id, value]) => {
       const el = $(id);
@@ -1116,6 +1123,7 @@
       label: $('testCaseSelect')?.value ? (WALL_TEST_CASES[$('testCaseSelect').value]?.label || '自訂案例') : '自訂案例',
       mode: currentMode,
       values: {
+        ...($('bondPlaneData').value ? {bondPlaneData:$('bondPlaneData').value} : {}),
         seismicMode: $('seismicMode').checked,
         showSteps: $('showSteps').checked,
         wallType: $('wallType').value,
@@ -1167,6 +1175,7 @@
     try {
       const data = JSON.parse(raw);
       if (data.schema !== 'wall-case-v1' || !data.values) throw new Error('schema mismatch');
+      $('bondPlaneData').value = '';
       setWallMode(data.mode || 'check');
       Object.entries(data.values).forEach(([id, value]) => {
         const el = $(id);
@@ -1355,6 +1364,7 @@
   function collectWallReviewWarnings(r) {
     const warnings = [];
     if (!r) return warnings;
+    if (r.bond?.active && r.bond.ok === null) warnings.push(BondConfinement.label + '待補。');
     if (r.slenderMethod || r.okOopFlex !== undefined || r.okDeltaLim !== undefined) {
       warnings.push('面外 Slender Wall / P-Delta 目前採單位寬條帶、輸入保護層與簡化邊界假設，數值通過仍須以正式面外分析與配筋位置確認。');
     }
@@ -1379,6 +1389,7 @@
     const okSswVnLimit = r.okSswVnLimit ?? (!isShear || r.Vu_kgf <= r.VnLimit_kgf);
     const aggCount = r.aggCount ?? (Array.isArray(r.aggRows) ? r.aggRows.length : 0);
     const checks = [
+      ...(r.bond?.active ? [[BondConfinement.label,r.bond.ok]] : []),
       ['Wall Pier', !r.isWallPier],
       ["fc' 上限", r.fcLimitOk],
       ['牆厚', r.okH],
@@ -1603,6 +1614,10 @@
     // 表 25.4.2.5、25.4.9.3 的握裹係數對各種輕質混凝土均取 0.75。
     const devLambda = lambda === 1 ? 1 : 0.75;
     const devOptions = { fc, fy, db:REBAR_TABLE[vBar].db, lambda:devLambda, psit:1, psie:1, condition:'other' };
+    const bondBars = [{key:'V'+vBar,label:'縱筋 '+vBar,db:REBAR_TABLE[vBar].db,spacing:Math.min(vSp, pmDemand.actualSpacing || vSp)},
+      {key:'H'+hBar,label:'橫筋 '+hBar,db:REBAR_TABLE[hBar].db,spacing:hSp}];
+    if (pmBoundaryCountEach > 0) bondBars.push({key:'E'+pmBoundaryBar,label:'端部附加筋 '+pmBoundaryBar,db:REBAR_TABLE[pmBoundaryBar].db});
+    const bond = updateBondPlanes(fy,bondBars,[wallType,h,lw,hw,lc,cover,layers,vSp,hSp,pmBoundaryCountEach]);
     const devLength = DevLength.ldTension(devOptions);
     const lapB = DevLength.lapSplice({ ...devOptions, classB:true });
     $('wallDevLength').textContent = '縱筋拉力伸展長度 ' + devLength.toFixed(1) + ' cm（表 25.4.2.3 其他情況，握裹 λ＝' + devLambda.toFixed(2) + '）。' +
@@ -2204,7 +2219,7 @@ ${basementStepTxt}
       phiVn: phiVn/1000, Vu: Vu/1000,
       vBar, vSp, hBar, hSp, layers, cover,
       pmBoundaryRebar, pmBoundaryBar, pmBoundaryCountEach, sigmaMax,
-      dbV: REBAR_TABLE[vBar]?.db, devOptions, devLength,
+      dbV: REBAR_TABLE[vBar]?.db, devOptions, devLength, bond,
       hmin, Ag, Pn_kgf:Pn, phiPn_kgf:phiPn,
       rhol, rhot, rholMin, rhotMin, needTwoLayer,
       Acv, hwlw, alpha_c, Vn_kgf:Vn, phiVn_kgf:phiVn, VnLimit_kgf:VnLimit, VnFormula_kgf:VnFormula, VnCap_kgf:VnCap, vnCapGoverns,
@@ -2759,7 +2774,7 @@ ${basementStepTxt}
           value: r.needTwoLayer?(r.layers>=2?'OK':'不足'):'單層', ok:r.okLayers }
       ]},
       { group:'握裹 / 搭接長度 (規範 25 章)', items:
-        DevLength.reportItems(r.devOptions, '縱筋拉力 ℓd')
+        DevLength.reportItems(r.devOptions, '縱筋拉力 ℓd').concat(BondConfinement.reportRows(r.bond))
       },
       ...(r.flangeShape && r.flangeShape !== 'rect' ? [{ group:'有效翼版寬', items:[
         { label:'b_eff (單邊)', formula:'min(s/2, 0.25hw, bf,act)',
@@ -2872,7 +2887,7 @@ ${basementStepTxt}
     openReport({
       title:'牆設計計算書', subtitle:'RC Wall Design Report',
       textExport:true,
-      outputSource:{ tool:'牆 Wall 設計／檢核', version:'V3.6' },
+      outputSource:{ tool:'牆 Wall 設計／檢核', version:'V3.7' },
       project:proj,
       calculationFingerprint:projectSnapshot.calculationFingerprint,
       documentState:attachmentReadiness.documentState,
@@ -2930,6 +2945,7 @@ ${basementStepTxt}
       kv.push({ label:'φVn', val:`${r.phiVn.toFixed(2)} tf`, ok:r.okShear });
       kv.push({ label:'Vu', val:`${r.Vu.toFixed(2)} tf`, ok:null });
     } else if (tab === 'rebar') {
+      if (r.bond?.active) checks.push([BondConfinement.label,r.bond.ok]);
       checks.push(['ρℓ ≥ 下限', r.okRhol]);
       checks.push(['ρt ≥ 下限', r.okRhot]);
       checks.push(['鋼筋層數', r.okLayers]);

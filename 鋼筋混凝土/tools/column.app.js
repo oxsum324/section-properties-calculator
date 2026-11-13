@@ -220,9 +220,10 @@
 
   // ========== 柱計算邏輯 ==========
   const $ = id => document.getElementById(id);
+  const updateBondPlanes = BondConfinement.mount('column', calcColumn);
   const num = id => parseFloat($(id).value) || 0;
   const COLUMN_PROJECT_SCHEMA = 'rc-column-project-v1';
-  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.2', 'V3.3', 'V3.4']);
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.2', 'V3.3', 'V3.4', 'V3.5']);
   // V3.4 起主筋中心 = 保護層（量至箍筋外緣）＋橫向鋼筋直徑＋主筋直徑/2；此前版本為保護層＋主筋直徑/2。
   // 這些舊版檔讀入後一律揭露計算定義變更，即使摘要判定未翻轉也不得靜默換值。
   const BAR_CENTER_DEFINITION_CHANGED_VERSIONS = Object.freeze(['V3.2', 'V3.3']);
@@ -413,12 +414,13 @@
   function collectColumnProjectData() {
     if (typeof calcColumn === 'function') calcColumn();
     const fields = columnProjectStorage.collectFields();
+    if (!fields.bondPlaneData?.value) delete fields.bondPlaneData;
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
       schema: COLUMN_PROJECT_SCHEMA,
       tool: 'rc-column',
       toolTitle: '柱 Column 設計／檢核',
-      appVersion: 'V3.5',
+      appVersion: 'V3.6',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -460,7 +462,7 @@
     const payload = window.RCProjectReplay.validateLegacyProjectSource(raw, {
       expectedSchema: COLUMN_PROJECT_SCHEMA,
       expectedToolId: 'rc-column',
-      expectedVersion: 'V3.5',
+      expectedVersion: 'V3.6',
       legacyVersions: LEGACY_REPLAY_VERSIONS,
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
@@ -491,6 +493,7 @@
     const previous = options.skipReplayCheck ? null : collectColumnProjectData();
     setColumnMode(payload.mode, { enforceCheckDefaults: false, recalculate: false, applyPanel: false });
     let applied = 0;
+    $('bondPlaneData').value = '';
     restoringColumnFields = true;
     try {
       Object.entries(payload.fields).forEach(([id, saved]) => {
@@ -529,7 +532,7 @@
         const lead = notice.message.replace('並重現計算：', `並依 ${replay.currentVersion} 重新計算：`);
         showColumnProjectStatus(`${lead}｜${replay.sourceVersion} → ${replay.currentVersion}：${BAR_CENTER_DEFINITION_NOTICE}`, ['error', 'fail'].includes(notice.status) ? notice.status : 'warn');
       } else if (replay.legacy) {
-        showColumnProjectStatus(notice.message.replace('並重現計算', '並重新計算') + '｜受拉搭接依表 25.5.2.1 重算。', 'warn');
+        showColumnProjectStatus(notice.message.replace('並重現計算', '並重新計算') + '｜受拉搭接與 §10.7.1.3 圍束已依 V3.6 重算。', 'warn');
       } else {
         showColumnProjectStatus(notice.message, notice.status);
       }
@@ -798,6 +801,7 @@
   function blockColumnGeometry(message) {
     columnBlockedDesignSearch = null;
     window.columnGeometryError = message;
+    document.querySelector('[data-bond-confinement]').hidden = true;
     window.colLast = null;
     window.lastColumnReportConfig = null;
     pmCurve = []; pmCurveY = [];
@@ -2212,6 +2216,11 @@
     const lapSpliceClassRequested = String($('lapSpliceClass')?.value || 'B').toUpperCase() === 'A' ? 'A' : 'B';
     let lapSpliceClass = lapSpliceClassRequested;
     let lapSpliceClassB = lapSpliceClass !== 'A';
+    const bondBars = [{ key:barNo, label:(colType === 'rect' ? '角隅筋 ' : '縱筋 ') + barNo, db }];
+    const hasFaceBars = colType === 'rect' && columnLayout && ['topN','botN','leftN','rightN'].some(k=>columnLayout[k] > 2);
+    if (hasFaceBars && faceBarNo !== barNo) bondBars.push({key:faceBarNo,label:'面筋 ' + faceBarNo, db:faceDb});
+    const bond = updateBondPlanes(fy, bondBars, [colType,b,h,lu,cover,nBar,columnLayout,tieNo,tieS,crossTieNo,crossTieS,spiralBarForBars,spiralS,legs,legsX,legsY,
+      $('columnDevTop').value,$('columnDevBottom').value,lapSpliceStart,lapSpliceEnd,lapSpliceLength]);
     const lapDb = dbMax;
     // 表 25.4.2.3 條件：以實際最小淨距判定（矩形柱取四側位置數，圓形柱取弦長淨距），
     // 淨保護層 = cover + 箍筋 db；箍筋間距 ≤ 規範上限時才視為「肋筋或箍筋不少於最小值」
@@ -3060,7 +3069,7 @@
     const okRhogChk = okRhog;
     const okShearChk = okShearStrengthNow && okShearAvMinNow && okShearSizeNow;
     updateBanner({
-      okRhog: okRhogChk, pmOk, okShear: okShearChk, okNbar: nBar >= minBars,
+      bond, okRhog: okRhogChk, pmOk, okShear: okShearChk, okNbar: nBar >= minBars,
       Pu, Mux, phiMnAtPu, phiPnMax, phiVn:phiVn/1000, phiVnY:phiVn_y/1000, Vu:Vu/1000, Vuy:Vuy/1000,
       designVxTf, designVyTf, veDemand,
       okShearStrength: okShearStrengthNow, okShearAvMin: okShearAvMinNow, okShearSize: okShearSizeNow,
@@ -3289,7 +3298,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     // === 儲存供計算書 ===
     window.colLast = {
       seismic, colType, fc, fy, b, h, lu, k, cover, transverseDbForBars,
-      barNo, nBar, ab, db, tieDb, Ast, Ag, rhog, beta1,
+      bond, barNo, nBar, ab, db, tieDb, Ast, Ag, rhog, beta1,
       Pu, Mux, Muy: num('Muy'), Vu_in: num('Vu'), Vuy_in: num('Vuy'),
       phiVn: phiVn/1000, phiVnY: phiVn_y/1000, Vu: Vu/1000, Vuy: Vuy/1000,
       tieNo, tieS, tieFy, crossTieNo, crossTieFy, spiralBar, spiralS, spiralAb, spiralFy, legs, legsX, legsY, SMnb,
@@ -3448,7 +3457,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
   function renderColumnReviewResolutionPanel(readiness) {
     const panel = $('columnReviewResolutionPanel');
     if (!panel) return;
-    const requirements = readiness?.reviewRequirements || [];
+    const requirements = (readiness?.reviewRequirements || []).filter(item=>item.label !== BondConfinement.label);
     if (!requirements.length) {
       panel.hidden = true;
       panel.innerHTML = '';
@@ -3607,6 +3616,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       ['剪力 Av,min', r.okShearAvMin],
       ['剪力斷面上限', r.okShearSize]
     ];
+    if (r.bond?.active) checks.push([BondConfinement.label, r.bond.ok]);
     if (r.okLateralSupport === true || r.okLateralSupport === false) checks.push(['縱筋橫向支撐', r.okLateralSupport]);
     if (r.columnDevelopmentHasInput && !r.columnDevelopmentManual) checks.push(['柱端錨定', r.okColumnDevelopment]);
     if (r.seismic) {
@@ -3627,8 +3637,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     const readiness = window.RCUI.assessFormalAttachment({
       project: getColumnProjectInfo(),
       failedItems,
-      reviewItems: manualReviewRequirements,
-      reviewResolutions: columnReviewResolutions
+      reviewItems: r.bond?.active && r.bond.ok === null ? [...manualReviewRequirements, BondConfinement.label] : manualReviewRequirements,
+      reviewResolutions: columnReviewResolutions.filter(item => item.id !== BondConfinement.label)
     });
     window.lastColumnAttachmentReadiness = readiness;
     const { status, summary } = readiness;
@@ -3948,6 +3958,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       ? (anchorReviewResolved ? '已複核' : (r.columnDevelopmentHasInput ? '人工複核' : '未輸入'))
       : (r.columnDevelopmentHasInput ? reportJudgeText(anchorSummaryOk) : '未輸入');
     const engineeringSummaryItems = [
+      ...(r.bond?.active ? [{label:BondConfinement.label, sub:r.bond.clause + '，' + r.bond.detail, value:r.bond.status, ok:r.bond.ok}] : []),
       { label:'配筋與幾何',
         formula:'ρg、主筋根數、淨距 / 側撐、長細比',
         sub:`ρg=${(r.rhog*100).toFixed(2)}%；主筋=${r.nBar}-${r.barNo}；kℓu/r=${r.klr.toFixed(1)} / ${r.klrLim.toFixed(1)}；側撐=${reportJudgeText(r.okLateralSupport)}`,
@@ -4177,7 +4188,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         { label:'箍筋建議間距', formula: r.seismic?'規範 18.4.5.3 — min(最小尺度/4, 主筋直徑倍率, so, 剪力/Av.min)':'規範 10.7 — min(16db_min, 48dt, 最小尺度, 剪力/Av.min)', sub: r.sSuggReason==='規範間距' ? `${r.codeTieSpacingReason}；採用 s=${r.adoptedTieSpacing.toFixed(1)} cm` : `${r.codeTieSpacingReason}；${r.sSuggReason} 上限=${r.shearSpacingLimitAuto.toFixed(1)} cm；採用 s=${r.adoptedTieSpacing.toFixed(1)} cm`, value: r.sSugg.toFixed(1), unit:'cm', ok:null }
       ]},
       { group:'握裹 / 搭接長度 (規範 25 章)', items:
-        DevLength.reportItems({ fc:r.fc, fy:r.fy, db:r.columnDevDb || r.lapDb || r.db, lambda:1.0, psit:1.0, psie:1.0, condition:r.columnDevCondition }, '主筋拉力 ℓd')
+        DevLength.reportItems({ fc:r.fc, fy:r.fy, db:r.columnDevDb || r.lapDb || r.db, lambda:1.0, psit:1.0, psie:1.0, condition:r.columnDevCondition, member:'column' }, '主筋拉力 ℓd').concat(BondConfinement.reportRows(r.bond))
           .concat([
             { label:'柱頂錨定型式 / 長度',
               formula: r.columnDevTopType === 'straight' ? '可用直線錨定長度 ≥ ℓd,req' : `${r.columnDevTopTypeLabel}；非直線 ℓd 自動檢核，須依配筋圖、產品資料或專案文件人工複核`,
@@ -4352,7 +4363,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
 
     const reportConfig = {
       title: isDesignMode ? '柱設計計算書' : '柱檢核計算書',
-      outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.5' },
+      outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.6' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Column Design Report' : 'RC Column Check Report',
@@ -4476,6 +4487,10 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       kv.push({ label:'Mc (放大後)', val:`${McShow.toFixed(2)} tf·m`, ok:null });
       kv.push({ label:'φVn', val:`${r.phiVn.toFixed(2)} tf`, ok:null });
       kv.push({ label:'Vd,x/Vd,y', val:`${(r.designVxTf ?? r.Vu).toFixed(2)} / ${((r.designVyTf ?? r.Vuy) || 0).toFixed(2)} tf`, ok:null });
+    }
+    if (['rebar','summary'].includes(tab) && r.bond?.active) {
+      checks.push([BondConfinement.label,r.bond.ok]);
+      if (r.bond.ok === null) unresolvedManualReviewItems.push(BondConfinement.label);
     }
     const pendingManualReview = tab === 'summary' && unresolvedManualReviewItems.length > 0;
     const bannerChecks = pendingManualReview

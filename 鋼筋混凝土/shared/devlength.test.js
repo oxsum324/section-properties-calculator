@@ -88,4 +88,30 @@ for (const fy of ['',0,4500,6000,7100]) {
   assert.equal(DevLength.lapGradeFactor(fy),null);
   assert.equal(DevLength.lapSplice({ ...shortBar, fy }),null,'未列等級不推定係數');
 }
+// 梁、柱依第 9、10 章；中心距恰 15 cm 的牆筋依第 25 章。
+require('./bond-confinement.js');
+const checkBond = globalThis.BondConfinement.evaluate;
+const bondBars = [{key:'test', label:'主筋', db:2.54}];
+const plane = {group:'test',site:'端部 X 面',method:'area',area:'1.27',spacing:'10',count:'4',pitch:'15'};
+function bondFor(member, changes={}, fy=5600, detail=plane) {
+  return checkBond(member,fy,bondBars,{rows:[{...detail,...changes}],confirmed:'current'},'current');
+}
+for (const member of ['beam','column']) {
+  assert.equal(bondFor(member).status,'符合');
+  assert.equal(bondFor(member).rows[0].actual,1.27);
+  assert.equal(bondFor(member,{area:'1.26999'}).status,'不足');
+  assert.equal(bondFor(member,{area:''}).status,'待補');
+  assert.equal(bondFor(member,{area:'0'}).status,'不足');
+  assert.equal(bondFor(member,{count:'1.5'}).status,'待補');
+  assert.equal(bondFor(member,{spacing:'0'}).status,'待補');
+  assert.equal(bondFor(member,{},5599).active,false);
+  assert.equal(bondFor(member,{method:'project',ktr:'1.27',source:''}).status,'待補');
+  assert.equal(bondFor(member,{method:'project',ktr:'1.27',source:'S-1'}).status,'符合');
+}
+assert.equal(bondFor('wall').status,'免核');
+assert.equal(bondFor('wall',{pitch:'14.9999',area:'0'}).status,'不足');
+assert.equal(bondFor('wall',{pitch:''}).status,'待補');
+assert.equal(checkBond('wall',5600,[{...bondBars[0],spacing:14}],{rows:[{...plane,area:'0'}],confirmed:'ok'},'ok').status,'不足');
+assert.equal(checkBond('beam',5600,bondBars,{rows:[plane,{...plane,area:'0'}],confirmed:'ok'},'ok').status,'不足');
+assert.equal(checkBond('beam',5600,bondBars,{rows:[plane],confirmed:'old'},'new').status,'待補');
 console.log('devlength.test.js: PASS');

@@ -216,7 +216,7 @@ async function exerciseProjectStorage(page) {
   assert(imported.Pu === '321', 'column project file input import Pu', imported.Pu);
   assert(imported.status.includes('已讀取柱專案檔並重現計算') && imported.status.includes(saved.calculationFingerprint), 'column project file input status', imported.status);
 
-  // V3.2／V3.3 舊檔：以原版本驗證指紋後依 V3.5 重新計算，提示另存，並揭露主筋中心定義變更（不得靜默換值）
+  // V3.2／V3.3 舊檔：以原版本驗證指紋後依 V3.6 重新計算，提示另存，並揭露主筋中心定義變更（不得靜默換值）
   for (const legacyVersion of ['V3.2', 'V3.3']) {
     const legacyColumn = await page.evaluate(([payload, appVersion]) => window.RCReportFingerprint.withProjectCalculationFingerprint({ ...payload, appVersion }, { ignoredKeys: ['activeTab'] }), [saved, legacyVersion]);
     await page.evaluate(() => { document.getElementById('projectFileStatus').textContent = ''; });
@@ -232,10 +232,10 @@ async function exerciseProjectStorage(page) {
       status: document.getElementById('projectFileStatus')?.textContent || '',
       currentVersion: window.collectColumnProjectData().appVersion
     }));
-    assert(legacyImported.projectName === '柱專案存讀檔測試' && legacyImported.Pu === '321' && legacyImported.currentVersion === 'V3.5', `column replays verified ${legacyVersion} project under V3.5`, JSON.stringify(legacyImported));
-    assert(legacyImported.status.includes(`計算指紋 ${legacyColumn.calculationFingerprint}｜原為 ${legacyVersion} 專案檔，已依 V3.5 重新計算，請另存 V3.5 專案檔`), `column ${legacyVersion} migration status asks for a V3.5 save`, legacyImported.status);
+    assert(legacyImported.projectName === '柱專案存讀檔測試' && legacyImported.Pu === '321' && legacyImported.currentVersion === 'V3.6', `column replays verified ${legacyVersion} project under V3.6`, JSON.stringify(legacyImported));
+    assert(legacyImported.status.includes(`計算指紋 ${legacyColumn.calculationFingerprint}｜原為 ${legacyVersion} 專案檔，已依 V3.6 重新計算，請另存 V3.6 專案檔`), `column ${legacyVersion} migration status asks for a V3.6 save`, legacyImported.status);
     assert(!legacyImported.status.includes('並重現計算'), `column ${legacyVersion} migration does not claim the saved values were reproduced`, legacyImported.status);
-    assert(legacyImported.status.includes(`${legacyVersion} → V3.5：計算定義已變更（主筋中心改為量至箍筋外緣`) && legacyImported.status.includes('結果與舊版不同'), `column ${legacyVersion} migration discloses the bar-center definition change`, legacyImported.status);
+    assert(legacyImported.status.includes(`${legacyVersion} → V3.6：計算定義已變更（主筋中心改為量至箍筋外緣`) && legacyImported.status.includes('結果與舊版不同'), `column ${legacyVersion} migration discloses the bar-center definition change`, legacyImported.status);
   }
 
   const draft = await page.evaluate(() => {
