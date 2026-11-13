@@ -358,3 +358,5 @@ for (const goldenCase of goldenCases) {
 }
 
 console.log('cable tension frequency core and fixed sensitivity regression OK');
+
+require('../../../tests/cable-spectrum.test.cjs');
