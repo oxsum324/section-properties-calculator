@@ -1589,9 +1589,11 @@
       dbV: REBAR_TABLE[vBar].db, dbH: REBAR_TABLE[hBar].db, highShear: highShearWall, rhotRequired: rhotRequiredShear });
 
     // 牆身間距不代表搭接或錨定段最小淨距。此頁未調查該段的橫向圍束，採表中「其他情況」。
-    const devOptions = { fc, fy, db:REBAR_TABLE[vBar].db, lambda, psit:1, psie:1, condition:'other' };
+    // 表 25.4.2.5、25.4.9.3 的握裹係數對各種輕質混凝土均取 0.75。
+    const devLambda = lambda === 1 ? 1 : 0.75;
+    const devOptions = { fc, fy, db:REBAR_TABLE[vBar].db, lambda:devLambda, psit:1, psie:1, condition:'other' };
     const devLength = DevLength.ldTension(devOptions);
-    $('wallDevLength').textContent = '縱筋拉力伸展長度 ' + devLength.toFixed(1) + ' cm（表 25.4.2.3 其他情況，λ＝' + lambda.toFixed(2) + '）。';
+    $('wallDevLength').textContent = '縱筋拉力伸展長度 ' + devLength.toFixed(1) + ' cm（表 25.4.2.3 其他情況，握裹 λ＝' + devLambda.toFixed(2) + '）。';
 
     // === 面外撓曲 (Alternative method, 規範 11.8) ===
     // 取單位寬度 b=100 cm

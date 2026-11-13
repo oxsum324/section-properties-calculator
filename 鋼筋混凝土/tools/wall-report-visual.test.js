@@ -746,6 +746,16 @@ async function main() {
       assert((await row.locator('.formula').innerText()).includes(value) && (await row.locator('.sub').innerText()).includes(value), 'wall report applies #6 minimum for ' + ratio, value);
     }
     await materialsReport.close();
+    for (const [material, bondLambda] of [['0.85',0.75],['1.00',1]]) {
+      await materialsPage.evaluate(material => {
+        const select = document.getElementById('lambdaSel');
+        select.value = material;
+        select.dispatchEvent(new Event('change', { bubbles:true }));
+      }, material);
+      const shown = await materialsPage.locator('#wallDevLength').textContent();
+      const required = 4200 * 1.905 / (4.4 * bondLambda * Math.sqrt(280));
+      assert(shown.includes(required.toFixed(1) + ' cm'), 'wall development uses Table 25.4.2.5 for material ' + material, shown);
+    }
     await materialsPage.close();
 
     for (const key of CASE_KEYS) {
