@@ -4,25 +4,6 @@
   "tolerance": 0.001,
   "cases": [
     {
-      "key": "beam_high_grade_lap",
-      "mode": "check",
-      "checkboxes": {
-        "seismicMode": false
-      },
-      "selects": {
-        "beamLapClass": "B"
-      },
-      "values": {
-        "fy": 5600,
-        "beamLapLength": 260
-      },
-      "expected": {
-        "okLapLength": false,
-        "lapReq": 272.685309298586
-      },
-      "label": "fy 5600 kgf/cm² 乙級搭接需乘 1.15，舊版判通過"
-    },
-    {
       "key": "default_rect_design",
       "label": "矩形梁一般設計基準例",
       "mode": "design",
@@ -1560,6 +1541,26 @@
         "頂層 3-#8 單排淨距 (40 − 9.906 − 7.62)/2 = 11.237 ≥ 2db → 有利：ℓd,top = 1.3×4200/(5.3×√280)×2.54 = 156.376 cm",
         "B 類搭接 = 1.3 × 182.153 = 236.799 cm"
       ]
+    },
+    {
+      "key": "beam_high_grade_lap",
+      "mode": "check",
+      "freshPage": true,
+      "checkboxes": {
+        "seismicMode": false
+      },
+      "selects": {
+        "beamLapClass": "B"
+      },
+      "values": {
+        "fy": 5600,
+        "beamLapLength": 260
+      },
+      "expected": {
+        "okLapLength": false,
+        "lapReq": 272.685309298586
+      },
+      "label": "fy 5600 kgf/cm² 乙級搭接需乘 1.15，舊版判通過"
     }
   ]
 }
