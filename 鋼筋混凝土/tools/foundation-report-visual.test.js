@@ -437,7 +437,7 @@ async function main() {
         caseKey: tc.key,
         label: `${tc.key} foundation report`,
         assert,
-        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.5'],
+        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.6'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {

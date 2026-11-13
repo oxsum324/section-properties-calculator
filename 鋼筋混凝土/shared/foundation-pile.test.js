@@ -56,10 +56,16 @@ const working = {serviceLoad:60, toePercent:25, Qb:50, Qs:100, pileLength:22, pi
 const settle = overrides => FoundationPile.workingSettlement({...working, ...overrides});
 const parts = toe => {
   const shaft = 60 - toe;
-  return [(toe + 0.67*shaft)*22*100/(working.pileArea_m2*150000*Math.sqrt(280)),
+  return [(toe + 0.67*shaft)*22*100/(working.pileArea_m2*120000*Math.sqrt(280)),
     0.09*toe*100/(0.4*400), (0.93+0.16*Math.sqrt(22/0.4))*0.09*shaft*100/(22*400)];
 };
 const w60 = settle({});
+near(w60.Ep, 2007984.0636817813, 1e-8, '常重混凝土 Ec 轉 tf/m²');
+const steelSettlement = settle({pileType:'steel-pipe'});
+assert.strictEqual(steelSettlement.Ep, null);
+assert.strictEqual(steelSettlement.Wo_cm, null);
+assert.strictEqual(steelSettlement.ok, null);
+assert.match(FoundationPile.settlementBasis(steelSettlement), /鋼管樁/);
 [w60.Ws_cm,w60.Wpp_cm,w60.Wps_cm].forEach((v,i) => near(v,parts(15)[i],1e-12,'working-load component'));
 near(settle({serviceLoad:120}).Wo_cm,2*w60.Wo_cm,1e-12,'constant proportion doubles settlement');
 const envelope = settle({toePercent:null});

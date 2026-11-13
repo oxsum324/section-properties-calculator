@@ -488,7 +488,7 @@
     },
     {
       title: 'RC 基礎',
-      version: 'V3.5',
+      version: 'V3.6',
       href: '/rc-foundation',
       aliases: ['spread footing', 'RC footing design'],
       categories: ['member'],
@@ -533,7 +533,7 @@
     },
     {
       title: '單樁承載力設計器',
-      version: 'V3.4',
+      version: 'V3.5',
       href: '/rc-pile',
       aliases: ['single pile capacity', '樁軸向承載'],
       categories: ['member'],

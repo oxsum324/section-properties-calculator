@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>單樁承載力設計器 V3.4</title>
+<title>單樁承載力設計器 V3.5</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
@@ -287,7 +287,7 @@
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <div class="page" role="main">
   <section class="hero">
-    <h1>單樁承載力設計器 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.4</span></h1>
+    <h1>單樁承載力設計器 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.5</span></h1>
     <p>這是一份可獨立分享的單一 HTML。輸入單樁需求與土層資料後，工具會用 <code>Qs + Qb</code>、沉陷與構造限制，自動搜尋建議樁徑與樁深，並列出逐層摩擦力與候選方案。</p>
   </section>
 
@@ -632,7 +632,7 @@
 <script src="../../結構工具箱/core/ui/report-docx.js"></script>
 <script src="../shared/report.js?v=10"></script>
 <script src="../shared/project-storage.js?v=1"></script>
-<script src="../shared/foundation-pile.js?v=3"></script>
+<script src="../shared/foundation-pile.js?v=4"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -824,7 +824,7 @@
       tool: {
         id: 'single-pile-designer',
         name: '單樁承載力設計器',
-        pageVersion: 'V3.4'
+        pageVersion: 'V3.5'
       },
       savedAt: new Date().toISOString(),
       state: captureCurrentState()
@@ -837,7 +837,7 @@
     return window.RCReportFingerprint.validateProjectCalculationSource(source, {
       expectedSchema: PROJECT_SCHEMA,
       expectedToolId: 'single-pile-designer',
-      expectedVersion: ['V3.2','V3.3'].includes(normalizeProjectToolVersion(source?.tool?.pageVersion)) ? source.tool.pageVersion : 'V3.4',
+      expectedVersion: ['V3.2','V3.3','V3.4'].includes(normalizeProjectToolVersion(source?.tool?.pageVersion)) ? source.tool.pageVersion : 'V3.5',
       sourceKey: 'state'
     });
   }
@@ -847,7 +847,7 @@
     const previous = options.skipReplayCheck ? null : buildProjectPayload();
     const state = payload.state;
     const sourceVersion = normalizeProjectToolVersion(payload.tool.pageVersion);
-    const legacy = sourceVersion !== 'V3.4';
+    const legacy = sourceVersion !== 'V3.5';
     $('toePercent').value = '';
     applyState(state);
     updateModeUi();
@@ -865,7 +865,7 @@
         throw error;
       }
     }
-    if (!options.silent) $('presetSummary').textContent = legacy ? `已核對 ${sourceVersion} 原始輸入，已依 V3.4 的地層與工作載重條件重算，請核對待補項目。` : `已讀取 ${label} 並重現計算｜計算指紋 ${payload.calculationFingerprint}`;
+    if (!options.silent) $('presetSummary').textContent = legacy ? `已核對 ${sourceVersion} 原始輸入，已依 V3.5 的地層、工作載重與樁材條件重算，請核對待補項目。` : `已讀取 ${label} 並重現計算｜計算指紋 ${payload.calculationFingerprint}`;
     return payload;
   }
 
@@ -1020,7 +1020,7 @@
 
   function collectSinglePileReviewWarnings(params, compliance, safetyFactorOrderWarning = false) {
     const warnings = Array.isArray(compliance?.warnings) ? compliance.warnings.slice() : [];
-    if (params.pileType === 'steel-pipe') warnings.push('本頁軸向剛度與壓應力採實心混凝土斷面，鋼管樁須另核實際截面及材料。');
+    if (params.pileType === 'steel-pipe') warnings.push('鋼管樁的沉陷、樁身強度及抗拔自重待確認。須依實際管截面、樁端閉合條件、材料及充填情形核算。');
     if (safetyFactorOrderWarning) warnings.push('長期安全係數小於短期安全係數，請確認是否符合專案指定設計準則。');
     return warnings;
   }
@@ -1060,9 +1060,7 @@
       segments,
       tipLayer,
       qaLong: Qb / params.rules.simpleFs1Long + Qs / params.rules.simpleFs2Long,
-      qaShort: Qb / params.rules.simpleFs1Short + Qs / params.rules.simpleFs2Short,
-      upliftWp: params.rules.unitWeightPile * pileLength * pileArea_m2,
-      upliftRa: Qs / params.rules.upliftSafetyFactor + params.rules.unitWeightPile * pileLength * pileArea_m2
+      qaShort: Qb / params.rules.simpleFs1Short + Qs / params.rules.simpleFs2Short
     };
   }
 
@@ -1109,7 +1107,6 @@
       }
       Qb = qbUlt * pileArea_m2;
     }
-    const upliftWp = params.rules.unitWeightPile * pileLength * pileArea_m2;
     return {
       Qs,
       Qb,
@@ -1120,9 +1117,7 @@
       criticalDepth,
       sigmaCrit,
       qaLong: Qs / REGULATION_FACTORS.vertical.normal.Fs1 + Qb / REGULATION_FACTORS.vertical.normal.Fs2,
-      qaShort: Qs / REGULATION_FACTORS.vertical.short.Fs1 + Qb / REGULATION_FACTORS.vertical.short.Fs2,
-      upliftWp,
-      upliftRa: upliftWp + Qs / REGULATION_FACTORS.uplift.normal
+      qaShort: Qs / REGULATION_FACTORS.vertical.short.Fs1 + Qb / REGULATION_FACTORS.vertical.short.Fs2
     };
   }
 
@@ -1154,7 +1149,7 @@
       pileLength: depthM,
       pileArea_m2,
       pileD_m,
-      fc: params.fc,
+      fc: params.fc, pileType: params.pileType,
       mode: params.settlementMode,
       xiInput: params.xi,
       CpInput: params.cp,
@@ -1165,23 +1160,26 @@
     const Qult = activeSkin.Qs + activeTip.Qb;
     const QallLong = methodResult ? methodResult.qaLong : Qult/params.safetyFactorLong;
     const QallShort = methodResult ? methodResult.qaShort : Qult/params.safetyFactorShort;
-    const upliftWp = methodResult ? methodResult.upliftWp : params.rules.unitWeightPile*depthM*pileArea_m2;
-    const upliftRa = methodResult ? methodResult.upliftRa : activeSkin.Qs/params.rules.upliftSafetyFactor + upliftWp;
-    const stress = (params.factoredLoad * 1000) / Math.max(Math.PI * Math.pow(diaCm / 2, 2), 1e-6);
-    const stressAllow = 0.7 * 0.85 * 0.85 * params.fc;
+    const concretePile = params.pileType === 'cast-in-place';
+    const upliftWp = concretePile ? params.rules.unitWeightPile*depthM*pileArea_m2 : null;
+    const upliftFactor = params.calcMode === 'regulation' ? REGULATION_FACTORS.uplift.normal : params.rules.upliftSafetyFactor;
+    const upliftRa = concretePile ? activeSkin.Qs/upliftFactor + upliftWp : null;
+    const stress = concretePile ? params.factoredLoad * 1000 / (Math.PI * (diaCm / 2) ** 2) : null;
+    const stressAllow = concretePile ? 0.7 * 0.85 * 0.85 * params.fc : null;
     const structural = checkStructural(params.pileType, diaCm);
     const okBearingLong = QallLong >= params.longTermLoad;
     const okBearingShort = QallShort >= params.shortTermLoad;
     const okSettlement = settlement.ok;
-    const okStress = stress <= stressAllow;
-    const otherChecksPass = okBearingLong && okBearingShort && okStress && structural.ok;
-    const pass = otherChecksPass && okSettlement === true;
+    const okStress = concretePile ? stress <= stressAllow : null;
+    const otherChecksPass = okBearingLong && okBearingShort && okStress !== false && structural.ok;
+    const pass = otherChecksPass && okStress === true && okSettlement === true;
     const settlementPending = otherChecksPass && okSettlement === null;
     const reasons = [];
     if (!okBearingLong) reasons.push('長期承載不足');
     if (!okBearingShort) reasons.push('短期承載不足');
     if (okSettlement !== true) reasons.push(settlement.reason || '沉陷超限');
-    if (!okStress) reasons.push('樁身壓應力超限');
+    if (okStress === false) reasons.push('樁身壓應力超限');
+    if (okStress === null) reasons.push('鋼管樁身強度及抗拔自重待確認');
     if (!structural.ok) reasons.push('構造限制');
     if (!reasons.length) reasons.push('通過');
     return {
@@ -1340,7 +1338,7 @@
       candidates = candidates.filter(c => !c.groundIssue);
       if (!candidates.length && unavailable.length) return '候選地層資料待補：' + unavailable[0].groundIssue;
       const pending = candidates.find(c => c.settlementPending);
-      if (pending) return '承載與樁身符合的候選方案仍須確認沉陷。' + FoundationPile.settlementBasis(pending.settlement);
+      if (pending) return '候選方案仍有待確認項目。' + FoundationPile.settlementBasis(pending.settlement);
       const maxQallLong = candidates.length ? Math.max(...candidates.map(c => c.QallLong)) : 0;
       const maxQallShort = candidates.length ? Math.max(...candidates.map(c => c.QallShort)) : 0;
       return `目前搜尋範圍內沒有同時滿足條件的方案。
@@ -1621,7 +1619,7 @@ ${gainText}`;
     openReport({
       title: '單樁承載力設計計算書',
       textExport: true,
-      outputSource: { tool: '單樁承載力設計器', version: 'V3.4' },
+      outputSource: { tool: '單樁承載力設計器', version: 'V3.5' },
       subtitle: '單樁承載力、沉陷與樁身壓應力檢核',
       calculationFingerprint: projectSnapshot.calculationFingerprint,
       project: proj,
@@ -1656,12 +1654,12 @@ ${gainText}`;
           { label: '土層資料有效', value: `共 ${r.soilLayers.length} 層`, ok: true },
           { label: 'Qall 長期 ≥ 服務需求', formula: 'Qall,long ≥ P,long', sub: `${RCUI.formatFinite(candidate.QallLong)} ≥ ${RCUI.formatFinite(params.longTermLoad)}`, value: `${RCUI.formatFinite(candidate.QallLong)} / ${RCUI.formatFinite(params.longTermLoad)}`, unit: 'tf', ok: candidate.okBearingLong },
           { label: 'Qall 短期 ≥ 服務需求', formula: 'Qall,short ≥ P,short', sub: `${RCUI.formatFinite(candidate.QallShort)} ≥ ${RCUI.formatFinite(params.shortTermLoad)}`, value: `${RCUI.formatFinite(candidate.QallShort)} / ${RCUI.formatFinite(params.shortTermLoad)}`, unit: 'tf', ok: candidate.okBearingShort },
-          { label: '抗拔承載力 Ra', formula: params.calcMode === 'regulation' ? 'Ra = Wp + Qs / 5.0' : 'Ra = Wp + Qs / FS', sub: `Wp=${RCUI.formatFinite(candidate.upliftWp)}, Qs=${RCUI.formatFinite(candidate.skin.Qs)}`, value: RCUI.formatFinite(candidate.upliftRa), unit: 'tf', ok: null },
+          { label: '抗拔承載力 Ra', formula: candidate.upliftRa === null ? '鋼管樁有效自重待確認' : params.calcMode === 'regulation' ? 'Ra = Wp + Qs / 5.0' : 'Ra = Wp + Qs / FS', sub: `Wp=${RCUI.formatFinite(candidate.upliftWp)}, Qs=${RCUI.formatFinite(candidate.skin.Qs)}`, value: RCUI.formatFinite(candidate.upliftRa), unit: 'tf', ok: null },
           { label: '端承上限', value: candidate.tip.capApplied ? `已套用 ${RCUI.formatFinite(candidate.tip.capValue, 0)} tf/m²` : '未觸發上限', ok: null }
         ]},
         { group: '服務性與樁身', items: [
           { label: 'Wo ≤ 容許沉陷', formula: 'Ws + Wpp + Wps ≤ Sa（留白時分項取同一上界）', sub: `${RCUI.formatFinite(candidate.settlement.Ws_cm)} + ${RCUI.formatFinite(candidate.settlement.Wpp_cm)} + ${RCUI.formatFinite(candidate.settlement.Wps_cm)} = ${RCUI.formatFinite(candidate.settlement.Wo_cm)}`, value: `${FoundationPile.settlementRange(candidate.settlement)} / ${RCUI.formatFinite(params.allowSettlement)}`, unit: 'cm', ok: candidate.okSettlement },
-          { label: '樁身壓應力', formula: 'Pu / Ag ≤ 0.7·0.85·0.85·fc′', sub: `${RCUI.formatFinite(candidate.stress)} ≤ ${RCUI.formatFinite(candidate.stressAllow)}`, value: `${RCUI.formatFinite(candidate.stress)} / ${RCUI.formatFinite(candidate.stressAllow)}`, unit: 'kgf/cm²', ok: candidate.okStress },
+          { label: '樁身壓應力', formula: candidate.okStress === null ? '鋼管有效截面與材料待確認' : 'Pu / Ag ≤ 0.7·0.85·0.85·fc′', sub: candidate.okStress === null ? '待確認' : `${RCUI.formatFinite(candidate.stress)} ≤ ${RCUI.formatFinite(candidate.stressAllow)}`, value: `${RCUI.formatFinite(candidate.stress)} / ${RCUI.formatFinite(candidate.stressAllow)}`, unit: 'kgf/cm²', ok: candidate.okStress },
           { label: '構造限制', value: candidate.structural.text, ok: candidate.structural.ok }
         ]},
         { group: '規範假設檢核', items: [
@@ -1772,12 +1770,12 @@ ${gainText}`;
       else compliance.notes.push(note);
     }
     const unresolved = !best && (!!displayCandidate?.settlementPending || groundPending.length > 0);
-    if (displayCandidate?.settlementPending) reviewWarnings.push('工作分配或沉陷參數待確認');
+    if (displayCandidate?.settlementPending) reviewWarnings.push(displayCandidate.settlement.reason || '工作分配或沉陷參數待確認');
     const complianceWarningCount = reviewWarnings.length;
     const summaryOk = bannerOk ? (complianceWarningCount ? null : true) : unresolved ? null : false;
     const summaryText = summaryOk === true ? '✓ OK' : (summaryOk === false ? '✗ NG' : '⚠ 需人工複核');
     if (!bannerOk) {
-      banner.textContent = groundPending.length ? '搜尋範圍內尚無可採用方案，地層待補' : unresolved ? '單樁承載與樁身檢核通過，沉陷待確認' : '目前搜尋範圍內沒有完全通過的方案';
+      banner.textContent = groundPending.length ? '搜尋範圍內尚無可採用方案，地層待補' : unresolved ? '候選方案的服務性或樁身檢核待確認' : '目前搜尋範圍內沒有完全通過的方案';
       banner.className = unresolved ? 'banner warn' : 'banner bad';
     } else if (complianceWarningCount) {
       banner.textContent = bannerOk

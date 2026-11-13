@@ -244,17 +244,19 @@
   }
 
   // 規範解說 5.5-3～5.5-7。兩個工作分量總和為樁頭服務壓力；q0 為極限單位端阻。
-  function workingSettlement({ serviceLoad, toePercent, Qb, Qs, pileLength, pileArea_m2, pileD_m, fc,
+  function workingSettlement({ serviceLoad, toePercent, Qb, Qs, pileLength, pileArea_m2, pileD_m, fc, pileType = 'cast-in-place',
     mode, xiInput, CpInput, CsInput, qoInput, qbUlt, allowable }) {
     const manual = mode === 'manual';
     const xi = manual ? xiInput : 0.67;
     const Cp = manual ? CpInput : 0.09;
     const Cs = manual && CsInput !== 0 ? CsInput : (0.93 + 0.16 * Math.sqrt(pileLength / pileD_m)) * Cp;
     const qo = manual && qoInput !== 0 ? qoInput : qbUlt;
-    const Ep = 15000 * Math.sqrt(fc) * 10;
+    // 常重混凝土 §19.2.2.1(b)，kgf/cm² 換算為 tf/m²。
+    const Ep = pileType === 'cast-in-place' ? 12000 * Math.sqrt(fc) * 10 : null;
     const envelope = toePercent == null;
     const base = { serviceLoad, toePercent, envelope, xi, Cp, Cs, qo, Ep, mode };
     const pending = reason => ({ ...base, reason, ok:null, Wo_cm:null, minWo_cm:null, Ws_cm:null, Wpp_cm:null, Wps_cm:null });
+    if (pileType !== 'cast-in-place') return pending('鋼管樁沉陷待確認：須核對有效軸向斷面與樁材彈性模數。');
     if (![serviceLoad, Qb, Qs].every(v => Number.isFinite(v) && v >= 0)) return pending('工作載重或極限分量待確認');
     if (![xi, Cp, Cs, qo, Ep, pileLength, pileArea_m2, pileD_m, allowable].every(v => Number.isFinite(v) && v > 0) || xi > 1) return pending('沉陷參數待確認');
     if (!envelope && !(Number.isFinite(toePercent) && toePercent >= 0 && toePercent <= 100)) return pending('指定端承比例須在 0～100%');
@@ -288,7 +290,7 @@
   function settlementBasis(result) {
     if (!result || result.Wo_cm == null) return result?.reason || '沉陷資料待確認';
     const method = result.envelope ? '可行範圍（分項取上界同一組分配）' : '指定端承 ' + result.toePercent + '%';
-    return '服務載重 ' + result.serviceLoad.toFixed(2) + ' tf；' + method + '；工作 Qb/Qs = ' +
+    return '常重混凝土 §19.2.2.1(b)，Ep = 12000√fc′ = ' + (result.Ep/10).toFixed(0) + ' kgf/cm²；服務載重 ' + result.serviceLoad.toFixed(2) + ' tf；' + method + '；工作 Qb/Qs = ' +
       result.toe.toFixed(2) + ' / ' + result.shaft.toFixed(2) + ' tf；Wo = ' + settlementRange(result) + ' cm' +
       (result.reason ? '；' + result.reason : '');
   }
