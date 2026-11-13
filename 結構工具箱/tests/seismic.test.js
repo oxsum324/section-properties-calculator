@@ -18,6 +18,20 @@ vm.runInContext(seismicZonesCode, context);
 const S = context.window.Seismic;
 const Z = context.window.SeismicZones;
 
+// 同一條斷層依鄉鎮分列，和平區條文的 13.5 km 必須分別核對車籠埔列。
+for (const [city,district,fault,km,expected] of [
+  ['桃園市','龍潭區','新城斷層',8,[0.75,0.425,0.95,0.525]],
+  ['新竹縣','竹北市','新城斷層',8,[0.8,0.45,1.0,0.55]],
+  ['臺中市','和平區','車籠埔斷層',13.5,[0.75,0.425,0.95,0.525]],
+  ['苗栗縣','泰安鄉','車籠埔斷層',18,[0.7,0.4,0.9,0.5]],
+  ['桃園市','龍潭區','新城斷層',0,[0.88,0.52,1.20,0.74]]
+]) {
+  Z.faultSpectrum(city,district,fault,km).values.forEach((v,i) => approx(v,expected[i],1e-12));
+}
+assert.throws(() => Z.faultSpectrum('桃園市','龍潭區','新城斷層',null), /待補/);
+assert.throws(() => Z.faultSpectrum('宜蘭縣','宜蘭市','新城斷層',8), /不適用/);
+assert.equal(Z.needsFaultRecalculation({zoneCity:'桃園市',zoneDist:'龍潭區',spectrumSource:'zone',faultDistanceKm:8}),true);
+
 // 表 2-6(c)、式 (3-2)、表 3-3，並在各分段用原表的顯式公式比對。
 for (const [zone, T0] of [[1,1.60],[2,1.30],[3,1.05]]) {
   const site = S.resolveSpectrumSite('basin', null, null, null, null, null, zone);

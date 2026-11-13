@@ -146,6 +146,7 @@
   <div class="case-actions">
     <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
     <button type="button" id="btnImportCase">匯入案件 JSON</button>
+    <button type="button" id="btnLoadOldFaultInputs" hidden>載入舊案輸入重新查表</button>
     <button type="button" id="btnSaveCaseDraft">暫存</button>
     <button type="button" id="btnLoadCaseDraft">讀取暫存</button>
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
@@ -238,12 +239,8 @@
     <div id="faultRow" style="display:none;">
       <div style="padding:8px 12px; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; margin-bottom:10px;">
         <div style="font-size:0.85em; font-weight:700; color:#991b1b; margin-bottom:6px;">⚠ 近斷層區域</div>
-        <div class="hint" id="faultList" style="color:#7f1d1d; font-style:normal;"></div>
-        <div class="form-group" style="margin-top:8px; margin-bottom:0;">
-          <label style="color:#991b1b;">距最近斷層距離 (km)</label>
-          <input id="faultDist" type="number" value="" step="0.5" min="0" placeholder="填入距離 → 自動內插增強">
-          <div class="hint">填入後將依距離內插取 SDS/SD1/SMS/SM1；主結構與雜項工作物將直接採用控制後譜值</div>
-        </div>
+        <div class="hint">依表 2-3-1～4 填寫工址至每條斷層地表跡線的最短水平距離，各譜係數分別取控制值。</div>
+        <div id="faultList" class="form-row"></div>
       </div>
     </div>
 
@@ -506,19 +503,23 @@
 
   <!-- ═══ 垂直地震力 ═══ -->
   <div class="card" id="verticalCard">
-    <h2 class="collapse-toggle" onclick="toggleCollapse(this)">垂直地震力 (式 2-19, C2-10~C2-12)</h2>
+    <h2 class="collapse-toggle" onclick="toggleCollapse(this)">垂直地震力（式 2-19、解說 §2.18）</h2>
     <div class="collapse-body">
       <div class="form-row">
         <div class="form-group">
-          <label>樓版系統重量 W<sub>slab</sub> (tf)</label>
+          <label for="vPeriod">樓版系統垂直週期 Tᵥ（sec）</label>
+          <input id="vPeriod" type="number" min="0" step="any" placeholder="依樓版垂直振動分析填入">
+        </div>
+        <div class="form-group">
+          <label for="vW">樓版系統重量 W<sub>slab</sub> (tf)</label>
           <input id="vW" type="number" value="200" step="10">
-          <div class="hint">單層樓版 + 梁 + 活載重之等效重量</div>
+          <div class="hint">依 §2.18 解說填入參與垂直振動的樓版系統重量，梁自重按單位長度另施加 ±Kz。</div>
         </div>
         <div class="form-group">
           <label>近斷層區域</label>
           <select id="vNearFault">
-            <option value="0" selected>否 — S<sub>aD,V</sub>=½S<sub>aD</sub></option>
-            <option value="1">是 — S<sub>aD,V</sub>=⅔S<sub>aD</sub></option>
+            <option value="0" selected>依主結構工址（一般與盆地 ½，近斷層 ⅔）</option>
+            <option value="1">專案指定近斷層（⅔）</option>
           </select>
         </div>
       </div>
@@ -671,7 +672,7 @@
 </div><!-- container -->
 
 <script src="../../core/ui/chart-runtime.js"></script>
-<script src="../../core/loads/seismic-zones.js"></script>
+<script src="../../core/loads/seismic-zones.js?v=3"></script>
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/wind.js"></script>
 <script src="../../core/loads/regulatory-locations.js"></script>
@@ -687,14 +688,15 @@
  * ════════════════════════════════════════ */
 const S = Seismic;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['seismic-force'].version;
-const TOOL_VERSION = 'seismic-force.v1.1.0';
+const TOOL_VERSION = 'seismic-force.v1.2.0';
+const PREVIOUS_ENGINE = 'seismic-force.v1.1.0';
 const CASE_SCHEMA_VERSION = 'seismic-force.case.v1';
-const CASE_ZONE_VALUE_IDS = ['zoneCity', 'zoneDist', 'zoneVillage', 'faultDist'];
+const CASE_ZONE_VALUE_IDS = ['zoneCity', 'zoneDist', 'zoneVillage'];
 const CASE_VALUE_IDS = [
   'chkAssist', 'sys', 'Rcustom', 'aYcustom', 'impClass', 'chkXY', 'sysY', 'TdynaY',
   'chkTaipei', ...CASE_ZONE_VALUE_IDS, 'SsD', 'S1D', 'SsM', 'S1M', 'siteClass',
   'N', 'hn', 'B', 'Bh', 'wUniform', 'Tdyna', 'chkDetail',
-  'apType','apCustom','rpCustom','apWp','apIp','apHx','apNearFault',
+  'apType','apCustom','rpCustom','apWp','apIp','apHx','apNearFault','vPeriod','vW','vNearFault',
   'rep_summary', 'rep_direction', 'rep_adopt', 'rep_spectrum', 'rep_story', 'rep_sub', 'rep_drift',
   'rep_appendage', 'rep_vertical', 'rep_misc', 'rep_steps', 'rep_inputs'
 ];
@@ -772,8 +774,8 @@ function saveStaticSummary(x, y) {
         SsDLower: x.SsD, S1DLower: x.S1D
       },
       spectrumSource: fault ? 'near-fault-zone' : x.directSite?.basinZone ? 'basin' : 'zone',
-      ...(window.SeismicZones?.ZONES?.[zoneCity]?.[zoneDist]?.[5]?.length && document.getElementById('faultDist').valueAsNumber >= 0
-        ? { faultDistanceKm: document.getElementById('faultDist').valueAsNumber } : {}),
+      ...(fault ? {faultDistanceKm:fault.userDist, faultDistances:Object.fromEntries(fault.faults.map(row => [row.name,row.distanceKm])),
+        appendageNearFault:(fault.enhanced || readInputValue('apNearFault') === '1'), faultTableRevision:SeismicZones.faultTableRevision} : {}),
       spectrumRevision: S.SPECTRUM_REVISION,
       ...(x.directSite?.basinZone ? { basinZone: x.directSite.basinZone, basinVillage: x.directSite.basinVillage } : {}),
       importanceKey: impKey,
@@ -806,6 +808,10 @@ function renderDynamicCompareCard() {
   if (!box) return;
   const staticSummary = getStorageJson(STATIC_STORAGE_KEY);
   const dynamicSummary = getStorageJson(DYNAMIC_STORAGE_KEY);
+  if (SeismicZones.needsFaultRecalculation(staticSummary?.project)) {
+    box.textContent = '近斷層靜力摘要須依逐條距離重新查表後才能與動力摘要比對。';
+    return;
+  }
   if (!staticSummary?.x) {
     box.innerHTML = '尚未完成本頁靜力計算，暫時無法建立靜力 / 動力比較。';
     return;
@@ -869,10 +875,42 @@ function clearNearFaultOverride() {
   window._nearFaultOverride = null;
 }
 
-function setNearFaultOverride(city, dist, userDist, values) {
-  window._nearFaultOverride = { city, dist, userDist, ...values };
+function faultDistanceInputs() {
+  return Array.from(document.querySelectorAll('#faultList input[data-fault]'));
 }
-
+function faultDistanceNote(site) {
+  return (site?.faults || []).map(row => row.name + ' ' + row.distanceKm + ' km').join('、');
+}
+function faultInputIssue() {
+  const missing = faultDistanceInputs().filter(el => !(el.valueAsNumber >= 0));
+  return missing.length ? '請補各斷層最短水平距離（km）：' + missing.map(el => el.dataset.fault).join('、') : '';
+}
+function refreshFaultSpectrum() {
+  clearNearFaultOverride();
+  const fields = faultDistanceInputs();
+  if (!fields.length) return;
+  const hint = document.getElementById('zoneHint');
+  const missing = faultInputIssue();
+  if (missing) {
+    hint.textContent = missing;
+    document.getElementById('resultPanel').style.display = 'none';
+    return;
+  }
+  const city = readInputValue('zoneCity'), district = readInputValue('zoneDist');
+  const zone = SeismicZones.ZONES[city][district];
+  const faults = fields.map(el => SeismicZones.faultSpectrum(city,district,el.dataset.fault,el.valueAsNumber));
+  const site = S.calcNearFaultSiteCoeff(Number(readInputValue('siteClass')),zone,faults.map(row => row.values));
+  const coefficients = [site.SsD,site.S1D,site.SsM,site.S1M];
+  const controls = coefficients.map((value,i) => [
+    ...(value === zone[i] ? ['表 2-1'] : []),
+    ...faults.filter(row => row.values[i] === value).map(row => row.name)
+  ].join('、'));
+  window._nearFaultOverride = {city,dist:district,userDist:Math.min(...faults.map(row => row.distanceKm)),
+    faults,controls,enhanced:coefficients.some((v,i) => v > zone[i]), ...site,
+    nfSsD:site.SsD,nfS1D:site.S1D,nfSsM:site.SsM,nfS1M:site.S1M};
+  hint.textContent = ['SsD','S1D','SsM','S1M'].map((key,i) =>
+    key + ' = ' + fmt(coefficients[i],4) + '（' + controls[i] + '）').join('、');
+}
 function getNearFaultOverride() {
   return window._nearFaultOverride;
 }
@@ -921,6 +959,8 @@ function normalizedText(selector) {
 }
 function readCaseInputs() {
   const values = {};
+  const distances = faultDistanceInputs();
+  if (distances.length) values.faultDistances = Object.fromEntries(distances.map(el => [el.dataset.fault,el.value]));
   CASE_VALUE_IDS.forEach(id => {
     const value = readInputValue(id);
     if (value !== undefined) values[id] = value;
@@ -933,6 +973,7 @@ function readCaseInputs() {
     },
     values,
     appendageCalculated: Boolean(window._lastAppendageForceResult),
+    verticalCalculated: Boolean(window._lastVerticalForceResult),
     floors: floorData.map(f => ({ label: f.label, dH: f.dH, W: f.W, disp: Number.isFinite(Number(f.disp)) ? Number(f.disp) : null }))
   };
 }
@@ -958,10 +999,12 @@ function applyZoneCaseValues(values) {
     setInputValue('zoneVillage', values.zoneVillage);
     document.getElementById('zoneVillage').dispatchEvent(new Event('change'));
   }
-  if (Object.prototype.hasOwnProperty.call(values, 'faultDist')) {
-    setInputValue('faultDist', values.faultDist);
-    document.getElementById('faultDist').dispatchEvent(new Event('change'));
+  const fields = faultDistanceInputs();
+  for (const el of fields) {
+    const saved = values.faultDistances?.[el.dataset.fault];
+    el.value = saved ?? (fields.length === 1 ? values.faultDist ?? '' : '');
   }
+  refreshFaultSpectrum();
 }
 function refreshCaseDependentUi() {
   document.getElementById('sys').dispatchEvent(new Event('change'));
@@ -978,6 +1021,10 @@ function applyCaseInputs(payload) {
   const values = { ...(inputBlock.values || {}), ...(payload?.values || {}) };
   const importedFloors = payload?.floors || inputBlock.floors;
   clearAppendageOutput();
+  clearVerticalOutput();
+  document.getElementById('vPeriod').value = '';
+  document.getElementById('vNearFault').value = '0';
+  document.getElementById('vW').value = '200';
   if (!Object.hasOwn(values,'apWp')) {
     document.getElementById('apWp').value = '';
     document.getElementById('apHx').value = '';
@@ -988,7 +1035,7 @@ function applyCaseInputs(payload) {
   setInputValue('siteClass', values.siteClass);
   applyZoneCaseValues(values);
   CASE_VALUE_IDS.forEach(id => {
-    if (CASE_ZONE_VALUE_IDS.includes(id)) return;
+    if (CASE_ZONE_VALUE_IDS.includes(id) || document.getElementById(id)?.readOnly) return;
     if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);
   });
   if (Array.isArray(importedFloors) && importedFloors.length) {
@@ -1001,7 +1048,10 @@ function applyCaseInputs(payload) {
     renderFloorTable();
   }
   refreshCaseDependentUi();
-  if (calc() && (payload?.appendageCalculated || inputBlock.appendageCalculated)) calcAppendage(true);
+  if (calc()) {
+    if (payload?.appendageCalculated || inputBlock.appendageCalculated) calcAppendage(true);
+    if (payload?.verticalCalculated || inputBlock.verticalCalculated) calcVertical(true);
+  }
 }
 function exportCaseJson() {
   if (calc() === false) return;
@@ -1048,23 +1098,52 @@ function loadCaseDraft() {
   return caseDraftController.load();
 }
 
+let oldFaultCase = null;
+document.getElementById('btnLoadOldFaultInputs').addEventListener('click', () => {
+  if (!oldFaultCase) return;
+  const previous = readCaseInputs();
+  try {
+    applyCaseInputs(oldFaultCase);
+    setCaseStatus('已載入舊案輸入。' + (faultInputIssue() || '已依表 2-3-1～4 重算，請核對採用值。'));
+    oldFaultCase = null;
+    document.getElementById('btnLoadOldFaultInputs').hidden = true;
+  } catch (error) {
+    applyCaseInputs(previous);
+    setCaseStatus('舊案輸入無法套用：' + error.message,true);
+  }
+});
+
 function importCaseJsonFile(file) {
   if (!file) return;
+  oldFaultCase = null;
+  const oldButton = document.getElementById('btnLoadOldFaultInputs');
+  oldButton.hidden = true;
   const reader = new FileReader();
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
+      const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION;
+      const zone = payload.values || payload.inputs?.values || {};
+      if (replayEngine === PREVIOUS_ENGINE && SeismicZones.districtFaults(zone.zoneCity,zone.zoneDist).length) {
+        window.ToolReportUI.validateCalculationCasePayload(payload, {
+          expectedSchema:CASE_SCHEMA_VERSION,expectedToolId:'seismic-force',expectedVersion:replayEngine
+        });
+        oldFaultCase = payload;
+        oldButton.hidden = false;
+        setCaseStatus('舊案採用前版近斷層表。可載入原輸入重新查表；多條斷層請逐條補距離，核對後另存。',true);
+        return;
+      }
       const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
         expectedSchema: CASE_SCHEMA_VERSION,
         expectedToolId: 'seismic-force',
-        expectedVersion: TOOL_VERSION,
+        expectedVersion: replayEngine,
         capture: () => readCaseInputs(),
         apply: source => applyCaseInputs(source),
         recalculate: () => calc(),
-        getFingerprint: () => buildSeismicReportTrace().calculationFingerprint,
+        getFingerprint: () => buildSeismicReportTrace(replayEngine).calculationFingerprint,
         restore: previous => applyCaseInputs(previous)
       });
-      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
+      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。` + (replayEngine === PREVIOUS_ENGINE && zone.rep_vertical ? '舊檔未保存樓版垂直週期，請補後重算該節。' : ''));
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, true);
     } finally {
@@ -1148,7 +1227,10 @@ document.getElementById('chkXY').addEventListener('change', function() {
     distSel.innerHTML = '<option value="">— 選擇鄉鎮市區 —</option>';
     villSel.innerHTML = '<option value="">全區</option>';
     basinRow.style.display = 'none';
+    document.getElementById('faultRow').style.display = 'none';
+    document.getElementById('faultList').replaceChildren();
     hintEl.textContent = '';
+    for (const id of ['SsD','S1D','SsM','S1M']) document.getElementById(id).readOnly = false;
     window._basinSelection = null;
     clearNearFaultOverride();
     if (!this.value || !Z[this.value]) return;
@@ -1161,7 +1243,8 @@ document.getElementById('chkXY').addEventListener('change', function() {
 
   const faultRow = document.getElementById('faultRow');
   const faultListEl = document.getElementById('faultList');
-  const F = SeismicZones.FAULTS;
+  faultListEl.addEventListener('input',refreshFaultSpectrum);
+  faultListEl.addEventListener('change',refreshFaultSpectrum);
 
   // 鄉鎮切換 → 自動填入參數 + 檢查盆地 + 近斷層
   distSel.addEventListener('change', function() {
@@ -1170,6 +1253,8 @@ document.getElementById('chkXY').addEventListener('change', function() {
     villSel.innerHTML = '<option value="">全區</option>';
     basinRow.style.display = 'none';
     faultRow.style.display = 'none';
+    faultListEl.replaceChildren();
+    for (const id of ['SsD','S1D','SsM','S1M']) document.getElementById(id).readOnly = false;
     const city = citySel.value;
     const dist = this.value;
     if (!city || !dist || !Z[city] || !Z[city][dist]) return;
@@ -1185,18 +1270,21 @@ document.getElementById('chkXY').addEventListener('change', function() {
     clearNearFaultOverride();
     if (d.length > 5 && Array.isArray(d[5])) {
       faultRow.style.display = '';
-      const faultNames = d[5];
-      faultListEl.innerHTML = faultNames.map(f => {
-        const info = F[f];
-        return `<b>${f}</b> (影響半徑 ${info ? info.r : '?'} km)`;
-      }).join('、');
-      document.getElementById('faultDist').value = '';
-      document.getElementById('apNearFault').value = '0';
-      document.getElementById('vNearFault').value = '1';
-    } else {
-      document.getElementById('apNearFault').value = '0';
-      document.getElementById('vNearFault').value = '0';
+      for (const id of ['SsD','S1D','SsM','S1M']) document.getElementById(id).readOnly = true;
+      SeismicZones.districtFaults(city,dist).forEach((name,index) => {
+        const group = document.createElement('div');
+        group.className = 'form-group';
+        const label = document.createElement('label'), el = document.createElement('input');
+        el.type = 'number'; el.min = '0'; el.step = 'any';
+        el.id = index === 0 ? 'faultDist' : 'faultDist' + (index+1);
+        el.dataset.fault = name;
+        label.htmlFor = el.id; label.textContent = name + '（km）';
+        group.append(label,el); faultListEl.appendChild(group);
+      });
+      refreshFaultSpectrum();
     }
+    document.getElementById('apNearFault').value = '0';
+    document.getElementById('vNearFault').value = '0';
 
     // 檢查臺北盆地微分區
     if (B[city] && B[city][dist]) {
@@ -1220,74 +1308,7 @@ document.getElementById('chkXY').addEventListener('change', function() {
     }
   });
 
-  // 近斷層距離輸入 → 內插增強 (直接控制 SDS/SD1/SMS/SM1，不覆蓋原始區域輸入)
-  document.getElementById('faultDist').addEventListener('change', function() {
-    const city = citySel.value, dist = distSel.value;
-    if (!city || !dist || !Z[city] || !Z[city][dist]) return;
-    const d = Z[city][dist];
-    if (d.length <= 5 || !Array.isArray(d[5])) return;
-
-    const userDist = parseFloat(this.value);
-    if (!isFinite(userDist) || userDist < 0) {
-      clearNearFaultOverride();
-    hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
-      return;
-    }
-
-    const siteClassNow = +document.getElementById('siteClass').value || 2;
-    const faultValsList = [];
-    let hasOverride = false;
-
-    d[5].forEach(fName => {
-      const fInfo = F[fName];
-      if (!fInfo || userDist > fInfo.r) return;
-      hasOverride = true;
-      const dists = Object.keys(fInfo.d).map(Number).sort((a, b) => a - b);
-      function interp(idx) {
-        if (userDist <= dists[0]) return fInfo.d[dists[0]][idx];
-        if (userDist >= dists[dists.length - 1]) return fInfo.d[dists[dists.length - 1]][idx];
-        for (let i = 0; i < dists.length - 1; i++) {
-          if (userDist >= dists[i] && userDist <= dists[i + 1]) {
-            const t = (userDist - dists[i]) / (dists[i + 1] - dists[i]);
-            return fInfo.d[dists[i]][idx] + t * (fInfo.d[dists[i + 1]][idx] - fInfo.d[dists[i]][idx]);
-          }
-        }
-        return fInfo.d[dists[dists.length - 1]][idx];
-      }
-      // 表 2-3-1~2-3-4 為近斷層「震區」係數 SsD/S1D/SsM/S1M，仍須依式 (2-4) 經 Fa/Fv 放大
-      faultValsList.push([interp(0), interp(1), interp(2), interp(3)].map(v => +v.toFixed(3)));
-    });
-
-    if (!hasOverride) {
-      clearNearFaultOverride();
-    hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
-      return;
-    }
-
-    const nfSite = S.calcNearFaultSiteCoeff(siteClassNow, d, faultValsList);
-    setNearFaultOverride(city, dist, userDist, {
-      SDS: nfSite.SDS,
-      SD1: nfSite.SD1,
-      SMS: nfSite.SMS,
-      SM1: nfSite.SM1,
-      FaD: nfSite.FaD,
-      FvD: nfSite.FvD,
-      FaM: nfSite.FaM,
-      FvM: nfSite.FvM,
-      nfSsD: nfSite.SsD,
-      nfS1D: nfSite.S1D,
-      nfSsM: nfSite.SsM,
-      nfS1M: nfSite.S1M
-    });
-    hintEl.innerHTML = `<b>${city} ${dist}</b> (近斷層 ${userDist} km 控制)　SsD=${nfSite.SsD}, S1D=${nfSite.S1D}, SsM=${nfSite.SsM}, S1M=${nfSite.S1M} → SDS=${fmt(nfSite.SDS,3)}, SD1=${fmt(nfSite.SD1,3)}, SMS=${fmt(nfSite.SMS,3)}, SM1=${fmt(nfSite.SM1,3)}`;
-  });
-
-  document.getElementById('siteClass').addEventListener('change', function() {
-    const faultDistEl = document.getElementById('faultDist');
-    if (faultDistEl.value !== '') {
-      faultDistEl.dispatchEvent(new Event('change'));
-    }
-  });
+  document.getElementById('siteClass').addEventListener('change',refreshFaultSpectrum);
 
   // 里切換 → 更新盆地 T0 提示
   villSel.addEventListener('change', function() {
@@ -1866,6 +1887,7 @@ function renderSeismicReportReadiness(validationMessage = '') {
 
 function markSeismicReportInputsChanged() {
   clearAppendageOutput();
+  clearVerticalOutput();
   if (window._lastSeismicReport?.x) {
     window._lastSeismicReportStale = true;
   }
@@ -1932,7 +1954,7 @@ function collectSeismicInputs() {
   const totalHeight = floorData.reduce((sum, floor) => sum + (Number(floor.dH) || 0), 0);
   const siteSourceLabel = (() => {
     const directSite = getNearFaultOverride() || (document.getElementById('chkTaipei').checked ? getBasinDirectSite() : null);
-    if (directSite?.userDist != null) return `近斷層控制譜（${fmt(directSite.userDist, 1)} km）`;
+    if (directSite?.userDist != null) return `近斷層查表（${faultDistanceNote(directSite)}）`;
     if (directSite?.basinZoneName) return `${directSite.basinZoneName}（臺北盆地微分區）`;
     return '一般工址反應譜';
   })();
@@ -1954,7 +1976,7 @@ function collectSeismicInputs() {
     { label: '里別微分區', value: basinSelection?.village || getFieldValue(document.getElementById('zoneVillage')), unit: '' },
     { label: '微分區', value: basinSelection?.zoneName || '—', unit: '' },
     { label: '盆地特徵週期 T0', value: basinSelection?.T0 != null ? fmt(basinSelection.T0, 3) : '—', unit: 'sec' },
-    { label: '近斷層距離', value: getFieldValue(document.getElementById('faultDist')), unit: 'km' },
+    { label: '近斷層距離', value: faultDistanceNote(getNearFaultOverride()) || '—', unit: '' },
     { label: 'SsD', value: getFieldValue(document.getElementById('SsD')), unit: 'g' },
     { label: 'S1D', value: getFieldValue(document.getElementById('S1D')), unit: 'g' },
     { label: 'SsM', value: getFieldValue(document.getElementById('SsM')), unit: 'g' },
@@ -2113,15 +2135,16 @@ function escReport(text) {
     .replace(/>/g, '&gt;');
 }
 
-function buildSeismicReportTrace() {
+function buildSeismicReportTrace(engineVersion = TOOL_VERSION) {
   const state = window._lastSeismicReport || {};
   const { project: ignoredProject, ...calculation } = state;
   if (window._lastAppendageForceResult) calculation.appendage = window._lastAppendageForceResult;
+  if (window._lastVerticalForceResult) calculation.vertical = window._lastVerticalForceResult;
   return window.ToolReportUI.buildReportTrace({
     title: '建築物耐震設計 — 等值靜力分析 計算書',
     subtitle: '依「建築物耐震設計規範及解說」113 年版｜第二章靜力分析方法',
     outputSource: { tool: '建築物耐震設計 — 等值靜力分析', version: PUBLIC_TOOL_VERSION },
-    snapshot: { reportOptions: snapshotReportOptions(), calculationEngine: TOOL_VERSION, calculation },
+    snapshot: { reportOptions: snapshotReportOptions(), calculationEngine: engineVersion, calculation },
   });
 }
 
@@ -2485,6 +2508,12 @@ function calc() {
 
   // 組裝 floors
   const floors = floorData.map(f => ({ W: f.W, dH: f.dH, label: f.label }));
+  const faultIssue = faultInputIssue();
+  if (faultIssue) {
+    setInputStatus(faultIssue); renderSeismicReportReadiness(faultIssue);
+    document.getElementById('resultPanel').style.display = 'none';
+    return false;
+  }
   const directSite = getNearFaultOverride() || (isTB ? getBasinDirectSite() : null);
   const basinSelection = window._basinSelection;
   const wholeDistrict = window.SeismicZones?.BASIN?.[document.getElementById('zoneCity').value]?.[document.getElementById('zoneDist').value]?.['所有里'];
@@ -2558,7 +2587,7 @@ function calc() {
   }
   bkHTML += `<div class="k"><span class="k-label">F<sub>t</sub></span><span class="k-val">${fmt(r.Ft,2)} tf</span></div>`;
   if (directSite?.userDist != null) {
-    bkHTML += `<div class="k"><span class="k-label">譜來源</span><span class="k-val">近斷層 ${fmt(directSite.userDist,1)} km</span></div>`;
+    bkHTML += `<div class="k"><span class="k-label">譜來源</span><span class="k-val">${faultDistanceNote(directSite)}</span></div>`;
   } else if (directSite?.basinZoneName) {
     bkHTML += `<div class="k"><span class="k-label">譜來源</span><span class="k-val">${directSite.basinZoneName}</span></div>`;
   } else {
@@ -2580,7 +2609,8 @@ function calc() {
     html += step('① 近斷層震區係數 (2.4 節、表 2-3-1~2-3-4)', `
       地盤分類 = <span class="val">${r.siteClass}</span> 類<br>
       表 2-1 區域輸入 SsD=${r.SsD}, S1D=${r.S1D}, SsM=${r.SsM}, S1M=${r.S1M}<br>
-      近斷層距離 = <span class="val">${fmt(nf.userDist,1)}</span> km<br>
+      逐條最短距離 = ${escReport(faultDistanceNote(nf))}<br>
+      各分量控制來源（SsD、S1D、SsM、S1M）= ${escReport(nf.controls.join(' ／ '))}<br>
       近斷層調整後震區係數（取表 2-1 與表 2-3 內插值之大者）：
       S<sub>sD</sub> = <span class="val">${nf.nfSsD}</span>，S<sub>1D</sub> = <span class="val">${nf.nfS1D}</span>，
       S<sub>sM</sub> = <span class="val">${nf.nfSsM}</span>，S<sub>1M</sub> = <span class="val">${nf.nfS1M}</span>
@@ -2948,12 +2978,7 @@ function calcAppendage(parentReady = false) {
   const hx = document.getElementById('apHx').valueAsNumber;
   const hn = document.getElementById('hn').valueAsNumber;
   const isTB = document.getElementById('chkTaipei').checked;
-  const district = window.SeismicZones?.ZONES?.[document.getElementById('zoneCity').value]?.[document.getElementById('zoneDist').value];
-  if (!isTB && district?.[5]?.length && !(document.getElementById('faultDist').valueAsNumber >= 0)) {
-    setInputStatus('請填入與斷層的距離，以確認主結構短週期譜值與垂直力比值。','apStatus');
-    return false;
-  }
-  const isNF = parent.directSite?.userDist != null || document.getElementById('apNearFault').value === '1';
+  const isNF = parent.directSite?.enhanced === true || document.getElementById('apNearFault').value === '1';
   if (!(Wp > 0 && hx >= 0 && hx <= hn && [1,1.5].includes(componentIp)) || (isTB && isNF)) {
     setInputStatus('請確認正值重量、構材用途、固定高度（0 至 hn）及工址分類。盆地與近斷層須擇一。','apStatus');
     return false;
@@ -3053,33 +3078,42 @@ function calcAppendage(parentReady = false) {
 // ═══════════════════════════════
 //  垂直地震力 (式 2-19, C2-10)
 // ═══════════════════════════════
-function calcVertical() {
-  // 需要先有主計算結果
-  if (!window._lastSeismicSDS) {
-    setInputStatus('請先執行主結構地震力計算，以取得 SDS / SD1 等參數', 'vStatus');
+function clearVerticalOutput() {
+  window._lastVerticalForceResult = null;
+  document.getElementById('vResult').replaceChildren();
+}
+function calcVertical(parentReady = false) {
+  clearVerticalOutput();
+  if (!parentReady && calc() === false) {
+    setInputStatus('請先補齊主結構工址及載重條件。','vStatus');
     return false;
   }
   const lastR = window._lastSeismicResult;
-  if (!lastR) {
-    setInputStatus('請先執行主結構地震力計算', 'vStatus');
+  const W_slab = document.getElementById('vW').valueAsNumber;
+  const Tv = document.getElementById('vPeriod').valueAsNumber;
+  if (!(W_slab > 0 && Tv > 0)) {
+    setInputStatus('請填入正值樓版系統重量（tf）與樓版垂直振動週期（sec）。','vStatus');
     return false;
   }
+  const isNF = lastR.directSite?.enhanced === true || document.getElementById('vNearFault').value === '1';
 
-  const W_slab = parseFloat(document.getElementById('vW').value) || 0;
-  const isNF   = document.getElementById('vNearFault').value === '1';
-
+  if (isNF && document.getElementById('chkTaipei').checked) {
+    setInputStatus('臺北盆地與近斷層工址須擇一。','vStatus');
+    return false;
+  }
   const r = S.calcVerticalSeismic({
     SDS: lastR.site.SDS,
     SD1: lastR.site.SD1,
     I: lastR.I,
     alphaY: lastR.alphaY,
-    T: lastR.Tdesign,
+    T: Tv,
     ToD: lastR.ToD,
     isNearFault: isNF,
     isTaipeiBasin: document.getElementById('chkTaipei').checked,
     W_slab
   });
 
+  window._lastVerticalForceResult = r;
   const nfLabel = isNF ? '⅔' : '½';
   const loV = isNF ? 0.20 : 0.15;
   const hiV = isNF ? 0.53 : 0.40;
@@ -3109,7 +3143,7 @@ function calcVertical() {
       <div class="step-title" style="border-left-color:var(--seismic);background:#faf5ff;">垂直地震力計算過程</div>
       <div class="step-body">
         <strong>式(2-19) 垂直設計譜加速度:</strong><br>
-        S<sub>aD</sub>(T=${fmt(r.T,3)}) = <span class="val">${fmt(r.SaD,4)}</span> g<br>
+        樓版 Tᵥ = ${fmt(r.T,3)} sec，S<sub>aD</sub>(Tᵥ) = <span class="val">${fmt(r.SaD,4)}</span> g<br>
         S<sub>aD,V</sub> = ${nfLabel} × ${fmt(r.SaD,4)} = <span class="val">${fmt(r.SaD_V,4)}</span> g
         ${isNF ? '<br><span style="color:#dc2626;">※ 近斷層：垂直譜取 ⅔ 倍</span>' : ''}<br><br>
 
@@ -3126,7 +3160,7 @@ function calcVertical() {
         &emsp;= [${r.I}/(1.4×${r.alphaY})] × ${fmt(r.ratio_m,4)} × ${fmt(W_slab,1)}<br>
         &emsp;= <span class="val hl">${fmt(r.VZ,3)}</span> tf<br><br>
 
-        <strong>式(C2-12) 柱軸力簡化係數:</strong><br>
+        <strong>§2.18 解說　柱單位長度自重的垂直力係數</strong><br>
         ${isNF ? `0.80×S<sub>DS</sub>×I/(3α<sub>y</sub>) = 0.80×${fmt(r.SDS,4)}×${r.I}/(3×${r.alphaY})` :
                  `0.40×S<sub>DS</sub>×I/(2α<sub>y</sub>) = 0.40×${fmt(r.SDS,4)}×${r.I}/(2×${r.alphaY})`}
         = <span class="val">${fmt(r.col_coeff,4)}</span> × W<sub>col</sub>
@@ -3298,6 +3332,12 @@ function calcMiscSeismicFull(p) {
 }
 
 function calcMisc() {
+  const missing = faultInputIssue();
+  if (missing) {
+    document.getElementById('miscResult').replaceChildren();
+    setInputStatus(missing,'miscStatus');
+    return false;
+  }
   document.getElementById('miscResult').replaceChildren();
   const mode = document.getElementById('miscChapterMode').value;
   const table = currentMiscTypeTable();
@@ -3318,7 +3358,7 @@ function calcMisc() {
   const hn = parseFloat(document.getElementById('miscH').value) || 1;
   const T_user = document.getElementById('miscT').valueAsNumber;
   const I  = parseFloat(document.getElementById('miscI').value) || 1.0;
-  const isNearFault = document.getElementById('chkNearFaultMisc').checked;
+  const isNearFault = getNearFaultOverride()?.enhanced === true || document.getElementById('chkNearFaultMisc').checked;
   const preset = typeIdx >= 0 ? table[typeIdx] : null;
   const R_custom  = typeIdx === -1 ? parseFloat(document.getElementById('miscR').value) || 1.5 : preset.R;
   const aY_custom = typeIdx === -1 ? parseFloat(document.getElementById('miscAY').value) || 1.0 : preset.alphaY;
@@ -3446,8 +3486,9 @@ function calcMisc() {
 
 function invalidateMiscOutput(event) {
   const el = event.target;
+  if (el.closest('#verticalCard')) clearVerticalOutput();
   if (el.closest('#appendageCard')) clearAppendageOutput();
-  if (el.closest('#miscCard') || ['zoneCity','zoneDist','zoneVillage','faultDist','chkTaipei','siteClass','SsD','S1D','SsM','S1M'].includes(el.id)) {
+  if (el.closest('#faultRow') || el.closest('#miscCard') || ['zoneCity','zoneDist','zoneVillage','faultDist','chkTaipei','siteClass','SsD','S1D','SsM','S1M'].includes(el.id)) {
     document.getElementById('miscResult').replaceChildren();
   }
 }

@@ -567,7 +567,7 @@
 
 <script src="../../core/ui/chart-runtime.js"></script>
 <script src="../../core/loads/seismic.js"></script>
-<script src="../../core/loads/seismic-zones.js"></script>
+<script src="../../core/loads/seismic-zones.js?v=3"></script>
 <script src="../../core/loads/wind.js"></script>
 <script src="../../core/loads/regulatory-locations.js"></script>
 <script src="../../core/loads/project-location.js" data-location-tool-id="seismic-dynamic" data-location-tool-name="反應譜動力分析" data-location-tool-version="V3.9"></script>
@@ -1655,6 +1655,10 @@ function loadStaticSummaryIntoPage() {
     return null;
   }
   const proj = saved.project || {};
+  if (SeismicZones.needsFaultRecalculation(proj)) {
+    box.textContent = '此靜力摘要的近斷層查表或逐條距離尚待更新。請於等值靜力頁重新查表並計算，再載入摘要。';
+    return null;
+  }
   if (proj.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(proj.name);
   if (proj.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(proj.no);
   if (proj.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);
@@ -1687,7 +1691,7 @@ function loadStaticSummaryIntoPage() {
     X 向靜力 Vdesign = ${fmt(saved.x.Vdesign, 2)} tf${saved.y ? ` ｜ Y 向 = ${fmt(saved.y.Vdesign, 2)} tf` : ''}<br>
     靜力摘要時間：${saved.savedAt ? new Date(saved.savedAt).toLocaleString('zh-TW') : '—'}<br>
     已同步帶入工址、系統、用途與建物量體條件。
-    ${proj.spectrumSource === 'basin' ? (proj.basinZone ? '靜力摘要採臺北盆地微分區 ' + escapeHtml(proj.basinZone) + '，' + escapeHtml(proj.basinVillage || '') + '。' : '舊摘要缺微分區代號，請依里別補選。') : proj.spectrumSource === 'near-fault-zone' ? '四個震區係數含近斷層比較控制，依地盤分類換算工址值。下限譜另採原震區值。' : !proj.spectrumInputs ? '舊摘要未記錄完整譜值來源，請核對原靜力計算書的近斷層或盆地條件。' : ''}
+    ${proj.spectrumSource === 'basin' ? (proj.basinZone ? '靜力摘要採臺北盆地微分區 ' + escapeHtml(proj.basinZone) + '，' + escapeHtml(proj.basinVillage || '') + '。' : '舊摘要缺微分區代號，請依里別補選。') : proj.spectrumSource === 'near-fault-zone' ? '四個震區係數含近斷層比較控制，依地盤分類換算工址值。下限譜另採原震區值。逐條距離：' + escapeHtml(Object.entries(proj.faultDistances).map(([name,km]) => name + ' ' + km + ' km').join('、')) + '。' : !proj.spectrumInputs ? '舊摘要未記錄完整譜值來源，請核對原靜力計算書的近斷層或盆地條件。' : ''}
   `;
   if (lastDynamicResult?.result) {
     dynamicReportInputsChanged = true;

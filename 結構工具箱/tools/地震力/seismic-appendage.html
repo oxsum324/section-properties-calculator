@@ -340,7 +340,7 @@
 </div>
 
 <script src="../../core/loads/seismic.js"></script>
-<script src="../../core/loads/seismic-zones.js"></script>
+<script src="../../core/loads/seismic-zones.js?v=3"></script>
 <script src="../../core/loads/wind.js"></script>
 <script src="../../core/loads/regulatory-locations.js"></script>
 <script src="../../core/loads/project-location.js" data-location-tool-id="seismic-appendage" data-location-tool-name="附屬構造物地震力" data-location-tool-version="V2.6"></script>
@@ -861,6 +861,10 @@ function loadStaticSummaryIntoPage() {
     return null;
   }
   const proj = saved.project;
+  if (SeismicZones.needsFaultRecalculation(proj)) {
+    box.textContent = '此靜力摘要的近斷層查表或逐條距離尚待更新。請於等值靜力頁重新查表並計算，再載入摘要。';
+    return null;
+  }
   document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(proj.name);
   document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(proj.no);
   document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);
@@ -876,7 +880,7 @@ function loadStaticSummaryIntoPage() {
   const listedFaults = window.SeismicZones?.ZONES?.[proj.zoneCity]?.[proj.zoneDist]?.[5];
   const pendingFault = listedFaults?.length && !document.getElementById('chkTaipei').checked &&
     !(Number.isFinite(proj.faultDistanceKm) && proj.faultDistanceKm >= 0) && proj.spectrumSource !== 'near-fault-zone';
-  document.getElementById('chkNearFault').checked = proj.spectrumSource === 'near-fault-zone' || Boolean(pendingFault);
+  document.getElementById('chkNearFault').checked = proj.appendageNearFault === true || Boolean(pendingFault);
   if (pendingFault || (proj.spectrumSource === 'near-fault-zone' && !proj.spectrumInputs)) document.getElementById('SsD').value = '';
   document.getElementById('hostImportance').value = proj.importanceKey || '';
   syncAppendageSiteControls();

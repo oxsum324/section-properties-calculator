@@ -1553,6 +1553,7 @@
     },
     {
       "key": "seismic-force",
+      "previousCaseEngine": "seismic-force.v1.1.0",
       "label": "等值靜力分析",
       "discipline": "seismic",
       "route": "/seismic-force",
