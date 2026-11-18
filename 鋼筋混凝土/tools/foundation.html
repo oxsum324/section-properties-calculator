@@ -6225,7 +6225,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'PE', value:r.PE, unit:'tf' }
         ]},
         isoServiceReportInputs(r),
-        { group:'強度載重組合與反力', items:[
+        { group:'強度載重組合與反力計算', items:[
           { label:'基底反力分布', value:'置中柱、底面全接觸。依 §13.2.6.3～.4 以各組 Pu、M沿L、M沿B 求線性基底反力。' },
           ...r.pressureCases.map(item => ({ label:item.id,
             value:`Pu ${item.PuTf.toFixed(2)} tf；M沿L／M沿B ${item.mAlongLTfm.toFixed(2)}／${item.mAlongBTfm.toFixed(2)} tf·m；qmin／qmax ${item.minTfM2.toFixed(2)}／${item.maxTfM2.toFixed(2)} tf/m²` }))
