@@ -412,6 +412,7 @@
   });
 
   function collectColumnProjectData() {
+    if (!BondConfinement.readyFor($('fy').value)) throw new Error(BondConfinement.message());
     if (typeof calcColumn === 'function') calcColumn();
     const fields = columnProjectStorage.collectFields();
     if (!fields.bondPlaneData?.value) delete fields.bondPlaneData;
@@ -445,6 +446,7 @@
   }
 
   function downloadColumnProjectFile() {
+    if (!BondConfinement.allowOutput($('fy').value, showColumnProjectStatus)) return null;
     try {
       const payload = collectColumnProjectData();
       const filename = columnProjectStorage.downloadJson(payload);
@@ -490,6 +492,10 @@
   let restoringColumnFields = false;
   function applyColumnProjectData(raw, options = {}) {
     const payload = normalizeColumnProjectPayload(raw);
+    return BondConfinement.replay(payload, $('fy').value, () => applyColumnProjectDataFields(payload, options));
+  }
+
+  function applyColumnProjectDataFields(payload, options) {
     const previous = options.skipReplayCheck ? null : collectColumnProjectData();
     setColumnMode(payload.mode, { enforceCheckDefaults: false, recalculate: false, applyPanel: false });
     let applied = 0;
@@ -518,7 +524,7 @@
           fingerprintOptions: { ignoredKeys: ['activeTab'] }
         });
       } catch (error) {
-        applyColumnProjectData(previous, { silent: true, skipReplayCheck: true });
+        applyColumnProjectDataFields(previous, { silent: true, skipReplayCheck: true });
         throw error;
       }
     }
@@ -550,7 +556,7 @@
     if (!file) return null;
     try {
       const text = await columnProjectStorage.readProjectFile(file);
-      return applyColumnProjectData(text, { sourceLabel: '柱專案檔' });
+      return await applyColumnProjectData(text, { sourceLabel: '柱專案檔' });
     } catch (err) {
       console.error('column project load failed', err);
       showColumnProjectStatus(`柱專案檔讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
@@ -559,6 +565,7 @@
   }
 
   function saveColumnProjectDraft() {
+    if (!BondConfinement.allowOutput($('fy').value, showColumnProjectStatus)) return null;
     try {
       const payload = collectColumnProjectData();
       columnProjectStorage.writeDraft(payload);
@@ -573,17 +580,20 @@
   }
 
   function loadColumnProjectDraft() {
+    const onError = err => {
+      showColumnProjectStatus(`瀏覽器暫存讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
+      return null;
+    };
     try {
       const raw = columnProjectStorage.readDraft();
       if (!raw) {
         showColumnProjectStatus('此瀏覽器目前沒有柱專案暫存。', 'fail');
         return null;
       }
-      return applyColumnProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+      const result = applyColumnProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+      return result?.catch?.(onError) ?? result;
     } catch (err) {
-      console.error('column project draft load failed', err);
-      showColumnProjectStatus('瀏覽器暫存讀取失敗，請重新存檔。', 'fail');
-      return null;
+      return onError(err);
     }
   }
 
@@ -3831,6 +3841,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
   }
 
   function buildColumnReport(options = {}) {
+    if (!BondConfinement.allowOutput($('fy').value, showColumnProjectStatus)) return null;
     const projectSnapshot = collectColumnProjectData();
     const r = window.colLast;
     if (!r) { showColumnProjectStatus('幾何錯誤或尚未完成計算，無法輸出計算書。', 'fail'); return null; }

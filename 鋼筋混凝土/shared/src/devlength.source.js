@@ -114,3 +114,95 @@
 
   window.DevLength = { ldTension, ldCompression, lapSplice, lapGradeFactor, LAP_GRADE_REVIEW, reportItems, spacingCondition, tensionCoefficient, CONDITION_LABELS };
 })();
+
+
+// The ordinary-grade RC pages do not need the splitting-plane editor or calculator.
+(function () {
+  if (typeof document === 'undefined' || !document.querySelector('[data-bond-confinement]')) return;
+  const label = '伸展／搭接區橫向圍束 Ktr';
+  const url = new URL('bond-confinement.js?v=3', document.currentScript.src);
+  const requiresCheck = fy => !(fy > 0 && fy < 5600);
+  const runtime = () => window.BondConfinementRuntime;
+  const readyFor = fy => !requiresCheck(fy) || !!runtime();
+  const message = () => failed ? '圍束程式載入失敗，請重試。' : '圍束程式載入中，請稍候。';
+  let request, failed = false, attempts = 0, replayRevision = 0;
+
+  function load() {
+    if (runtime()) return Promise.resolve(runtime());
+    if (request) return request;
+    failed = false;
+    const script = document.createElement('script');
+    if (attempts++) url.searchParams.set('retry', attempts);
+    script.src = url.href;
+    request = new Promise((resolve, reject) => {
+      const finish = () => {
+        clearTimeout(timeout);
+        script.remove();
+        if (runtime()) resolve(runtime());
+        else reject(new Error('圍束程式無法載入，請重試。'));
+      };
+      const timeout = setTimeout(finish, 12000);
+      script.onload = script.onerror = finish;
+      document.head.append(script);
+    }).catch(error => {
+      failed = true;
+      request = null;
+      throw error;
+    });
+    return request;
+  }
+
+  function replay(payload, currentFy, apply) {
+    const current = ++replayRevision;
+    const savedFy = payload.fields.fy?.value ?? currentFy;
+    if (runtime() || (readyFor(savedFy) && readyFor(currentFy) && !payload.fields.bondPlaneData?.value)) return apply();
+    return load().then(() => current === replayRevision ? apply() : null);
+  }
+
+  function allowOutput(fy, showStatus) {
+    if (readyFor(fy)) return true;
+    showStatus(message(), 'warn');
+    return false;
+  }
+
+  function mount(member, recalculate) {
+    const host = document.querySelector('[data-bond-confinement]');
+    let update, observed;
+    const status = document.createElement('p');
+    status.setAttribute('role', 'status');
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.textContent = '重試載入圍束檢核';
+    retry.addEventListener('click', () => {
+      failed = false;
+      recalculate();
+    });
+    host.append(status, retry);
+    return (fy, bars, context) => {
+      const engine = runtime();
+      if (engine) {
+        if (!update) {
+          host.replaceChildren();
+          update = engine.mount(member, recalculate);
+        }
+        return update(fy, bars, context);
+      }
+      const active = requiresCheck(fy);
+      host.hidden = !active;
+      if (!active) return { active, ok:null, status:'免核', rows:[] };
+      if (!failed) {
+        const loading = load();
+        if (observed !== loading) {
+          observed = loading;
+          loading.then(recalculate, recalculate);
+        }
+      }
+      status.textContent = message();
+      retry.hidden = !failed;
+      return { active, ok:null, status:'待補', detail:status.textContent, rows:[] };
+    };
+  }
+
+  window.BondConfinement = { label, readyFor, message, replay, allowOutput, mount,
+    reportRows: result => runtime()?.reportRows(result) || [] };
+})();

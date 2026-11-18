@@ -874,8 +874,7 @@
 <script src="../../結構工具箱/tools/beam-element-deflection.js?v=2"></script>
 <script src="../shared/beam-rebar-designer.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
-<script src="../shared/bond-confinement.js?v=2"></script>
-<script src="../shared/devlength.js?v=6"></script>
+<script src="../shared/devlength.js?v=7"></script>
 <script>
   // 各分頁要顯示的 data-topic 集合 (用於 result-item 內細項過濾)
   const TOPIC_VISIBLE = {
@@ -1150,6 +1149,7 @@
   }
 
   function collectBeamProjectData() {
+    if (!BondConfinement.readyFor($('fy').value)) throw new Error(BondConfinement.message());
     if (typeof calcBeam === 'function') calcBeam();
     const fields = beamProjectStorage.collectFields();
     if (!fields.bondPlaneData?.value) delete fields.bondPlaneData;
@@ -1198,6 +1198,7 @@
   }
 
   function downloadBeamProjectFile() {
+    if (!BondConfinement.allowOutput($('fy').value, showBeamProjectStatus)) return null;
     try {
       const payload = collectBeamProjectData();
       const filename = beamProjectStorage.downloadJson(payload);
@@ -1232,6 +1233,10 @@
   let restoringBeamFields = false;
   function applyBeamProjectData(raw, options = {}) {
     const payload = normalizeBeamProjectPayload(raw);
+    return BondConfinement.replay(payload, $('fy').value, () => applyBeamProjectDataFields(payload, options));
+  }
+
+  function applyBeamProjectDataFields(payload, options) {
     const previous = options.skipReplayCheck ? null : collectBeamProjectData();
     const oldVersion = beamSourceVersion(payload);
     const legacy = oldVersion !== 'V3.6';
@@ -1275,7 +1280,7 @@
         }
         window.RCReportFingerprint.assertProjectCalculationReplay(payload, replay);
       } catch (error) {
-        applyBeamProjectData(previous, { silent: true, skipReplayCheck: true });
+        applyBeamProjectDataFields(previous, { silent: true, skipReplayCheck: true });
         throw error;
       }
     }
@@ -1301,7 +1306,7 @@
     if (!file) return null;
     try {
       const text = await beamProjectStorage.readProjectFile(file);
-      return applyBeamProjectData(text, { sourceLabel: '梁專案檔' });
+      return await applyBeamProjectData(text, { sourceLabel: '梁專案檔' });
     } catch (err) {
       console.error('beam project load failed', err);
       showBeamProjectStatus(`梁專案檔讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
@@ -1310,6 +1315,7 @@
   }
 
   function saveBeamProjectDraft() {
+    if (!BondConfinement.allowOutput($('fy').value, showBeamProjectStatus)) return null;
     try {
       const payload = collectBeamProjectData();
       beamProjectStorage.writeDraft(payload);
@@ -1324,17 +1330,20 @@
   }
 
   function loadBeamProjectDraft() {
+    const onError = err => {
+      showBeamProjectStatus(`瀏覽器暫存讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
+      return null;
+    };
     try {
       const raw = beamProjectStorage.readDraft();
       if (!raw) {
         showBeamProjectStatus('此瀏覽器目前沒有梁專案暫存。', 'fail');
         return null;
       }
-      return applyBeamProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+      const result = applyBeamProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+      return result?.catch?.(onError) ?? result;
     } catch (err) {
-      console.error('beam project draft load failed', err);
-      showBeamProjectStatus('瀏覽器暫存讀取失敗，請重新存檔。', 'fail');
-      return null;
+      return onError(err);
     }
   }
 
@@ -3480,6 +3489,7 @@ ${layerBars.map(L => {
 
   // === 計算書產生 ===
   function buildBeamReport(options = {}) {
+    if (!BondConfinement.allowOutput($('fy').value, showBeamProjectStatus)) return null;
     // 專案快照會先以最新輸入計算，並提供 JSON 與計算書共用的計算指紋。
     const projectSnapshot = collectBeamProjectData();
     const r = window.beamLast;

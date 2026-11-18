@@ -165,5 +165,7 @@
       return result;
     };
   }
-  root.BondConfinement={ label, evaluate, reportRows, mount };
+  const runtime = { label, evaluate, reportRows, mount };
+  root.BondConfinementRuntime = runtime;
+  if (!root.BondConfinement) root.BondConfinement = runtime;
 })(typeof window === 'undefined' ? globalThis : window);

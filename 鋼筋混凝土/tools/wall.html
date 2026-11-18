@@ -675,8 +675,7 @@
 <script src="../shared/project-replay.js?v=1"></script>
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
-<script src="../shared/bond-confinement.js?v=2"></script>
-<script src="../shared/devlength.js?v=6"></script>
+<script src="../shared/devlength.js?v=7"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/wall.js?v=3"></script>
 <script src="../shared/pmsection.js?v=4"></script>
@@ -906,6 +905,7 @@
   }
 
   function collectWallProjectData() {
+    if (!BondConfinement.readyFor($('fy').value)) throw new Error(BondConfinement.message());
     if (typeof calcWall === 'function') calcWall();
     const fields = wallProjectStorage.collectFields();
     if (!fields.bondPlaneData?.value) delete fields.bondPlaneData;
@@ -939,6 +939,7 @@
   }
 
   function downloadWallProjectFile() {
+    if (!BondConfinement.allowOutput($('fy').value, showWallProjectStatus)) return null;
     try {
       const payload = collectWallProjectData();
       const filename = wallProjectStorage.downloadJson(payload);
@@ -970,6 +971,10 @@
   let restoringWallFields = false;
   function applyWallProjectData(raw, options = {}) {
     const payload = normalizeWallProjectPayload(raw);
+    return BondConfinement.replay(payload, $('fy').value, () => applyWallProjectDataFields(payload, options));
+  }
+
+  function applyWallProjectDataFields(payload, options) {
     const previous = options.skipReplayCheck ? null : collectWallProjectData();
     setWallMode(payload.mode || 'design');
     let applied = 0;
@@ -1009,7 +1014,7 @@
           fingerprintOptions: { ignoredKeys: ['activeTab'] }
         });
       } catch (error) {
-        applyWallProjectData(previous, { silent: true, skipReplayCheck: true });
+        applyWallProjectDataFields(previous, { silent: true, skipReplayCheck: true });
         throw error;
       }
     }
@@ -1031,7 +1036,7 @@
     if (!file) return null;
     try {
       const text = await wallProjectStorage.readProjectFile(file);
-      return applyWallProjectData(text, { sourceLabel: '牆專案檔' });
+      return await applyWallProjectData(text, { sourceLabel: '牆專案檔' });
     } catch (err) {
       console.error('wall project load failed', err);
       showWallProjectStatus(`牆專案檔讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
@@ -1040,6 +1045,7 @@
   }
 
   function saveWallProjectDraft() {
+    if (!BondConfinement.allowOutput($('fy').value, showWallProjectStatus)) return null;
     try {
       const payload = collectWallProjectData();
       wallProjectStorage.writeDraft(payload);
@@ -1054,17 +1060,20 @@
   }
 
   function loadWallProjectDraft() {
+    const onError = err => {
+      showWallProjectStatus(`瀏覽器暫存讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
+      return null;
+    };
     try {
       const raw = wallProjectStorage.readDraft();
       if (!raw) {
         showWallProjectStatus('此瀏覽器目前沒有牆專案暫存。', 'fail');
         return null;
       }
-      return applyWallProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+      const result = applyWallProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+      return result?.catch?.(onError) ?? result;
     } catch (err) {
-      console.error('wall project draft load failed', err);
-      showWallProjectStatus('瀏覽器暫存讀取失敗，請重新存檔。', 'fail');
-      return null;
+      return onError(err);
     }
   }
 
@@ -1161,6 +1170,7 @@
   }
 
   function exportCurrentWallCase() {
+    if (!BondConfinement.allowOutput($('fy').value, showWallProjectStatus)) return null;
     const payload = collectWallCasePayload();
     $('caseJson').value = JSON.stringify(payload, null, 2);
     $('testCaseHint').textContent = '已將目前設定匯出為 JSON，可直接保存作為回歸案例。';
@@ -1203,6 +1213,7 @@
   }
 
   function buildWallBaselineReport() {
+    if (!BondConfinement.allowOutput($('fy').value, showWallProjectStatus)) return null;
     const payload = collectWallCasePayload();
     const s = payload.snapshot || {};
     const lines = [];
@@ -2683,6 +2694,7 @@ ${basementStepTxt}
   }
 
   function buildWallReport() {
+    if (!BondConfinement.allowOutput($('fy').value, showWallProjectStatus)) return null;
     const projectSnapshot = collectWallProjectData();
     const r = window.wallLast;
     const proj = {
