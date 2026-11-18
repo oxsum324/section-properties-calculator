@@ -175,16 +175,16 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-11-18',
+    generatedAt: '2026-11-19',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
       '/condition-survey': '2026-11-12',
-      '/beam-analysis': '2026-11-18',
-      '/frame-analysis': '2026-11-18',
+      '/beam-analysis': '2026-11-19',
+      '/frame-analysis': '2026-11-19',
       '/struct-dx': '2026-08-13',
-      '/section': '2026-11-13',
-      '/composite-section': '2026-11-13',
+      '/section': '2026-11-19',
+      '/composite-section': '2026-11-19',
       '/rc-beam': '2026-11-18',
       '/rc-deep-beam-stm': '2026-10-23',
       '/rc-column': '2026-11-18',
@@ -329,7 +329,7 @@
     },
     {
       title: '連續梁分析',
-      version: 'V1.6',
+      version: 'V1.7',
       href: '/beam-analysis',
       aliases: ['Continuous beam', '多跨梁分析'],
       categories: ['analysis'],

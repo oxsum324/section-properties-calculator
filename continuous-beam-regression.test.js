@@ -572,6 +572,7 @@ function bootPage() {
     'buildLocalPayload',
     'updateFileLabel',
     'validateContinuousBeamSaveData',
+    'setLoadedCaseStatus',
     'restoreLocalPayload',
     'restoreFromData',
   ].forEach(name => {
@@ -802,6 +803,7 @@ function main() {
   assert(replaySnapshotSha256 === sourceSnapshotSha256, 'JSON replay reproduces every adopted input and analysis result', `source=${sourceSnapshotSha256}, replay=${replaySnapshotSha256}`);
   assert(replayFingerprint === sourceFingerprint, 'JSON replay reproduces the calculation-book fingerprint', `source=${sourceFingerprint}, replay=${replayFingerprint}`);
   assert(ctx.document.getElementById('saveStatus').textContent.includes('round-trip.json'), 'JSON replay reports the restored local filename', ctx.document.getElementById('saveStatus').textContent);
+  assert(!ctx.document.getElementById('saveStatus').textContent.includes('請執行分析'), 'current case opens without a legacy prompt', 'current engine and page version');
 
   const stateBeforeRejectedImport = stableSha256(ctx.collectSaveData());
   let rejectedSchemaMessage = '';
@@ -1041,6 +1043,7 @@ function runDeflectionClosedFormChecks(ctx) {
   const mac = (x, a, n) => (x > a ? (x - a) ** n : 0);
   setupBeam(ctx, { supports:['pin', 'roller'], spans:[{ L:6 }], loads:[[]] });
   assert(ctx.formatSpanDeflection(ctx.diagrams.spans[0]).ratio === '—', 'zero deflection has no finite span ratio', 'unloaded beam');
+  assert(ctx.compareSpanDeflection(ctx.diagrams.spans[0], 0).legacy.stationFromLeft === null, 'zero legacy deflection has no governing station', 'unloaded beam');
 
   // 1) 簡支均佈：δ = w x (L³ − 2Lx² + x³) / 24EI，跨中 5wL⁴/384EI
   {
@@ -1050,6 +1053,9 @@ function runDeflectionClosedFormChecks(ctx) {
     assertDeflectionClosedForm(ctx, 0, delta, 'deflection: simply supported UDL at all stations');
     assertNear(-Math.min(...ctx.diagrams.spans[0].ds), 5 * w * L ** 4 / (384 * EI), 5 * w * L ** 4 / (384 * EI) * 1e-9,
       'deflection: simply supported UDL max = 5wL^4/384EI', 'midspan');
+    const comparison = ctx.compareSpanDeflection(ctx.diagrams.spans[0], 0);
+    assertNear(comparison.legacy.magnitude, w * L ** 4 / (96 * EI), 1e-15, 'legacy UDL peak uses nodal slopes only', 'old magnitude at midspan');
+    assertNear(comparison.magnitudeDifference, w * L ** 4 / (384 * EI), 1e-15, 'UDL comparison separates the load contribution', 'difference in magnitude');
   }
 
   // 2) 簡支跨中集中：δ = P x (3L² − 4x²) / 48EI（x ≤ L/2，對稱），跨中 PL³/48EI
@@ -1060,6 +1066,8 @@ function runDeflectionClosedFormChecks(ctx) {
     assertDeflectionClosedForm(ctx, 0, delta, 'deflection: simply supported midspan point at all stations');
     assertNear(-Math.min(...ctx.diagrams.spans[0].ds), P * L ** 3 / (48 * EI), P * L ** 3 / (48 * EI) * 1e-9,
       'deflection: simply supported midspan point max = PL^3/48EI', 'midspan');
+    assertNear(ctx.compareSpanDeflection(ctx.diagrams.spans[0], 0).legacy.magnitude, P * L ** 3 / (64 * EI), 1e-15,
+      'legacy midspan point load peak uses nodal slopes only', 'old magnitude at midspan');
   }
 
   // 3) 兩等跨全跨均佈：三彎矩式 M_B = −wL²/8；跨 1 = 簡支均佈 − M_B 引起之上拱
@@ -1091,6 +1099,9 @@ function runDeflectionClosedFormChecks(ctx) {
     setupBeam(ctx, { supports: ['fixed', 'fixed'], spans: [{ L }], loads: [[{ type: 'udl', w }]] });
     const delta = x => w * x * x * (L - x) ** 2 / (24 * EI);
     assertDeflectionClosedForm(ctx, 0, delta, 'deflection: fixed-fixed UDL at all stations');
+    const comparison = ctx.compareSpanDeflection(ctx.diagrams.spans[0], 0);
+    assert(comparison.legacy.magnitude === 0 && comparison.legacy.stationFromLeft === null,
+      'legacy fixed-fixed UDL incorrectly had zero deflection', 'zero nodal displacement and rotation');
     assertNear(-Math.min(...ctx.diagrams.spans[0].ds), w * L ** 4 / (384 * EI), w * L ** 4 / (384 * EI) * 1e-9,
       'deflection: fixed-fixed UDL max = wL^4/384EI', 'midspan');
   }

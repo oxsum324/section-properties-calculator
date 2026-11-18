@@ -62,7 +62,7 @@
       "route": "/beam-analysis",
       "file": "連續梁分析.html",
       "title": "連續梁分析",
-      "version": "V1.6",
+      "version": "V1.7",
       "state": "assist",
       "stateLabel": "分析輔助",
       "family": "analysis",

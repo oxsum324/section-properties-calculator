@@ -42,6 +42,9 @@
   .load-item .load-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
   .results-table { width: 100%; }
   .results-table th, .results-table td { padding: 6px 8px; text-align: center; }
+  #deflectionReview { margin-top: 1rem; }
+  #deflectionReview summary { cursor: pointer; font-weight: 600; }
+  #deflectionReviewTable { overflow-x: auto; margin-bottom: .75rem; }
   .section-divider { height: 1px; margin: 10px 0; }
   .error-msg { padding: 8px 12px; margin-top: 8px; display: none; }
   .il-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -339,6 +342,13 @@
       <div id="reactionTable"></div>
       <h3>各跨極值</h3>
       <div id="extremeTable"></div>
+      <details id="deflectionReview" class="page-only-report-status">
+        <summary>舊案撓度比對</summary>
+        <p id="deflectionReviewSource"></p>
+        <p>以本次輸入並列修正前的曲線取樣峰值與現版極值。請核對原報告的模型、單位及撓度數字，確認引用情形。</p>
+        <div id="deflectionReviewTable"></div>
+        <button type="button" class="btn btn-accent btn-sm" id="downloadDeflectionReview">下載撓度比對 JSON</button>
+      </details>
     </div>
   </div>
 </div>
@@ -551,6 +561,7 @@ var model = { numSpans: 2, spans: [], supports: [], loads: [] };
 var solution = null;
 var diagrams = null;
 var influenceLineState = null;
+let deflectionReviewSource = null;
 
 function hideAnalysisCards() {
   ['sfdCard','bmdCard','deflCard','ilCard','resultsCard'].forEach(id => {
@@ -1084,6 +1095,7 @@ function computeDiagrams(mdl, sol) {
                                             .map(ld => clipLoadToRange(ld, e.x1, e.x2)).filter(Boolean);
     const sp = result.spans[e.spanIdx];
     const curve = elementDeflectionCurve(e, loads);
+    const [v1, t1, v2, t2] = e.dispLocal;
     if (!sp.peakDeflection || Math.abs(curve.peak.value) > Math.abs(sp.peakDeflection.value)) {
       sp.peakDeflection = { x:e.x1 + curve.peak.x, value:curve.peak.value };
     }
@@ -1100,17 +1112,27 @@ function computeDiagrams(mdl, sol) {
 
     for (const x of uniqueXs) {
       const left = evalSectionState(x, L, ef, loads, 'left');
-      const defl = curve.displacement(x/L);
+      const xi = x / L;
+      const defl = curve.displacement(xi);
       const xGlobal = spanOffset[e.spanIdx] + e.x1 + x;
-      if (!(sp.xs.length > 0 && Math.abs(sp.xs[sp.xs.length-1] - xGlobal) < 1e-9 &&
+      const appendLeft = !(sp.xs.length > 0 && Math.abs(sp.xs[sp.xs.length-1] - xGlobal) < 1e-9 &&
             Math.abs(sp.vs[sp.vs.length-1] - left.V) < 1e-9 &&
-            Math.abs(sp.ms[sp.ms.length-1] - left.M) < 1e-9)) {
+            Math.abs(sp.ms[sp.ms.length-1] - left.M) < 1e-9);
+      if (appendLeft) {
         sp.xs.push(xGlobal); sp.vs.push(left.V); sp.ms.push(left.M); sp.ds.push(defl);
       }
       const hasJump = loads.some(ld => (ld.type === 'point' || ld.type === 'moment') && Math.abs(ld.a - x) <= 1e-9 && x > 1e-9 && x < L - 1e-9);
       if (hasJump) {
         const right = evalSectionState(x, L, ef, loads, 'right');
         sp.xs.push(xGlobal); sp.vs.push(right.V); sp.ms.push(right.M); sp.ds.push(defl);
+      }
+      if (appendLeft || hasJump) {
+        // Reproduce the historical plot samples, which used only nodal displacement and rotation.
+        const xi2 = xi * xi, xi3 = xi2 * xi;
+        const value = (1-3*xi2+2*xi3)*v1 + L*(xi-2*xi2+xi3)*t1 + (3*xi2-2*xi3)*v2 + L*(-xi2+xi3)*t2;
+        if (!sp.legacyPeakDeflection || Math.abs(value) > Math.abs(sp.legacyPeakDeflection.value)) {
+          sp.legacyPeakDeflection = { x: e.x1 + x, value };
+        }
       }
     }
   }
@@ -1565,6 +1587,42 @@ function formatSpanDeflection(span) {
     ratio:magnitude ? fmtVal(span.L / magnitude) : '—' };
 }
 
+function compareSpanDeflection(span, index) {
+  const toPeak = peak => ({
+    signedDeflection: peak.value,
+    magnitude: Math.abs(peak.value),
+    stationFromLeft: peak.value === 0 ? null : peak.x,
+  });
+  const legacy = toPeak(span.legacyPeakDeflection);
+  const current = toPeak(span.peakDeflection);
+  return { span: index + 1, spanLength: span.L, legacy, current, magnitudeDifference: current.magnitude - legacy.magnitude };
+}
+
+function needsDeflectionReview(source) {
+  return !!source && !(source.calculationEngine === CONTINUOUS_BEAM_CALCULATION_ENGINE &&
+    ['V1.5', 'V1.6', CONTINUOUS_BEAM_PUBLIC_VERSION].includes(source.pageVersion));
+}
+
+function showDeflectionReview(diag, lengthUnit) {
+  const source = deflectionReviewSource;
+  let message = '目前使用頁面內的模型。';
+  if (source) {
+    message = `原輸入版號 ${source.pageVersion || '未記錄'}。`;
+    if (source.pageVersion === 'V1.4') message += ' V1.4 在撓度修正前後共用版號，請對照原報告。';
+    else if (needsDeflectionReview(source)) message += ' 無法由來源資料確認原報告的撓度算法。';
+  }
+  document.getElementById('deflectionReviewSource').textContent = message;
+  const peakCell = peak => `${fmtVal(peak.magnitude)}<br><small>x ${peak.stationFromLeft === null ? '—' : fmtVal(peak.stationFromLeft)}</small>`;
+  const rows = diag.spans.map((span, index) => {
+    const row = compareSpanDeflection(span, index);
+    return `<tr><th scope="row">${row.span}</th><td>${peakCell(row.legacy)}</td><td>${peakCell(row.current)}</td><td>${fmtVal(row.magnitudeDifference)}</td></tr>`;
+  }).join('');
+  document.getElementById('deflectionReviewTable').innerHTML = `<table class="results-table">
+    <caption>撓度及距跨左端位置 x（${lengthUnit}）</caption>
+    <thead><tr><th scope="col">跨</th><th scope="col">舊法峰值</th><th scope="col">現版峰值</th><th scope="col">峰值量差（現版－舊法）</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
 function showResults(sol, diag) {
   const u = getUnit(), n = model.numSpans;
   let html = `<table class="results-table"><tr><th>支承</th><th>類型</th><th>Ry (${u.force})</th><th>Mr (${u.moment})</th></tr>`;
@@ -1585,6 +1643,7 @@ function showResults(sol, diag) {
   }
   html += '</table>';
   document.getElementById('extremeTable').innerHTML = html;
+  showDeflectionReview(diag, u.length);
 }
 
 // ==================== MAIN ====================
@@ -2277,6 +2336,8 @@ function updateFileLabel() {
 
 function collectSaveData() {
   return {
+    analysisVersion: { pageVersion: CONTINUOUS_BEAM_PUBLIC_VERSION, calculationEngine: CONTINUOUS_BEAM_CALCULATION_ENGINE },
+    ...(deflectionReviewSource && { deflectionReviewSource }),
     model: JSON.parse(JSON.stringify(window.model)),
     pickedSection: pickedSection ? JSON.parse(JSON.stringify(pickedSection)) : null,
     unitSystem: document.getElementById('unitSystem').value,
@@ -2321,6 +2382,27 @@ function downloadJson(filename, payload) {
   URL.revokeObjectURL(url);
 }
 
+document.getElementById('downloadDeflectionReview').addEventListener('click', () => {
+  if (!diagrams) return;
+  downloadJson('連續梁_撓度比對.json', {
+    schema: 'continuous-beam.deflection-review.v1',
+    createdAt: new Date().toISOString(),
+    source: deflectionReviewSource,
+    current: { pageVersion: CONTINUOUS_BEAM_PUBLIC_VERSION, calculationEngine: CONTINUOUS_BEAM_CALCULATION_ENGINE },
+    modelFingerprint: StructReportUtils.sha256Text(diagrams.sourceModelJson),
+    unitSystem: diagrams.sourceUnits,
+    lengthUnit: window.getUnit().length,
+    legacyMethod: '端點位移及轉角三次內插，採修正前的曲線取樣位置',
+    currentMethod: '含跨內載重特解，逐區間求撓度極值',
+    spans: diagrams.spans.map(compareSpanDeflection),
+  });
+});
+
+function setLoadedCaseStatus(label) {
+  const review = needsDeflectionReview(deflectionReviewSource);
+  window.setSaveStatus(review ? `${label}。請執行分析並用舊案撓度比對核對原報告。` : label, review ? 'warn' : 'ok');
+}
+
 function restoreLocalPayload(payload, label) {
   if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
   if (payload.schema && payload.schema !== 'continuous-beam.project.v1') {
@@ -2329,11 +2411,11 @@ function restoreLocalPayload(payload, label) {
   if (payload.tool && payload.tool.id && payload.tool.id !== 'continuous-beam') {
     throw new Error('此 JSON 屬於 ' + payload.tool.id + '，不是連續梁分析案例。');
   }
-  restoreFromData(payload.data || payload);
+  restoreFromData(payload.data || payload, payload.tool);
   currentSaveId = null;
   currentSaveName = null;
   updateFileLabel();
-  window.setSaveStatus('已讀取本地檔：' + (label || '案例檔'), 'ok');
+  setLoadedCaseStatus('已讀取本地檔：' + (label || '案例檔'));
 }
 
 function validateContinuousBeamSaveData(d) {
@@ -2357,7 +2439,7 @@ function validateContinuousBeamSaveData(d) {
   return d;
 }
 
-function restoreFromData(d) {
+function restoreFromData(d, sourceTool) {
   validateContinuousBeamSaveData(d);
   window._prevUnitKey = null;
   document.getElementById('unitSystem').value = d.unitSystem || 'kN-m';
@@ -2403,6 +2485,12 @@ function restoreFromData(d) {
   window.renderLoadInputs();
   window.drawSchematic();
   window.invalidateAnalysis({ keepError: true });
+  const source = d.deflectionReviewSource ?? sourceTool ?? d.analysisVersion;
+  deflectionReviewSource = {
+    pageVersion: typeof source?.pageVersion === 'string' ? source.pageVersion : null,
+    calculationEngine: typeof source?.calculationEngine === 'string' ? source.calculationEngine : null,
+  };
+  document.getElementById('deflectionReview').open = needsDeflectionReview(deflectionReviewSource);
 }
 
 window._localSave = function() {
@@ -2605,7 +2693,7 @@ async function doLoad(docId) {
     currentSaveId = docId;
     currentSaveName = d.name || '(未命名)';
     updateFileLabel();
-    window.setSaveStatus('已載入：' + currentSaveName, 'ok');
+    setLoadedCaseStatus('已載入：' + currentSaveName);
     document.getElementById('loadModal').classList.remove('active');
   } catch(e) {
     window.setLoadModalStatus('載入失敗：' + e.message, 'error');
