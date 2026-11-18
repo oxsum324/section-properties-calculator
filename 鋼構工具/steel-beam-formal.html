@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>鋼梁正式規範核算工具 V1.4</title>
+  <title>鋼梁正式規範核算工具 V1.5</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="../tool-chrome.css">
   <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
@@ -25,7 +25,7 @@
       <a class="page-header__link" href="./plate-check.html">連接板獨立頁</a>
       <a class="page-header__link" href="../結構工具箱/tools/鋼構/steel-beam.html">舊版鋼梁頁</a>
     </nav>
-    <h1>鋼梁正式規範核算工具 V1.4</h1>
+    <h1>鋼梁正式規範核算工具 V1.5</h1>
     <p>沿用既有鋼梁檢算核心，升級為左輸入、右報表、計算流程、參數詞典的一體化正式模板</p>
   </header>
 
@@ -322,14 +322,18 @@
             </div>
           </div>
           <hr>
-          <p class="section-note">簡支、等斷面梁的使用載重撓度。向下均布載重與跨中集中載重可同時輸入，未作用項填 0。</p>
+          <p class="section-note">簡支、等斷面梁的使用載重撓度。向下均布載重及跨內集中載重可同時輸入。各集中載重的位置由左支承起算，留空採跨中，未作用項填 0。</p>
           <div class="form-row">
             <div class="form-group"><label id="beamWdLabel">wD 靜載重 (kgf/cm)</label><input type="number" id="inWD" value="5"></div>
             <div class="form-group"><label id="beamWlLabel">wL 活載重 (kgf/cm)</label><input type="number" id="inWL" value="8"></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label id="beamPdLabel" for="inPD">跨中集中靜載重 PD (tf)</label><input type="number" id="inPD" min="0" step="any" value="0"></div>
-            <div class="form-group"><label id="beamPlLabel" for="inPL">跨中集中活載重 PL (tf)</label><input type="number" id="inPL" min="0" step="any" value="0"></div>
+            <div class="form-group"><label id="beamPdLabel" for="inPD">集中靜載重 PD (tf)</label><input type="number" id="inPD" min="0" step="any" value="0"></div>
+            <div class="form-group"><label id="beamPlLabel" for="inPL">集中活載重 PL (tf)</label><input type="number" id="inPL" min="0" step="any" value="0"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label id="beamPointDeadXLabel" for="inPointDeadX">PD 距左支承 aD (cm)</label><input type="number" id="inPointDeadX" step="any" placeholder="留空採跨中"></div>
+            <div class="form-group"><label id="beamPointLiveXLabel" for="inPointLiveX">PL 距左支承 aL (cm)</label><input type="number" id="inPointLiveX" step="any" placeholder="留空採跨中"></div>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -531,7 +535,8 @@
 <script src="../結構工具箱/core/ui/report-docx.js"></script>
 <script src="./core/ui/report.js"></script>
   <script src="./steel-member-report.js"></script>
-  <script src="./steel-beam-formal.js"></script>
+  <script src="../結構工具箱/tools/beam-element-deflection.js?v=2"></script>
+  <script src="./steel-beam-formal.js?v=2"></script>
 <script src="../tool-nav.manifest.js" defer></script>
 <script src="../tool-chrome.js" defer></script>
 <script src="../tool-page-a11y.js" defer></script>

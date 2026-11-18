@@ -65,7 +65,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>梁設計 — RC 工具箱 V3.5</title>
+<title>梁設計 — RC 工具箱 V3.6</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
@@ -212,7 +212,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header class="tool-shell-header">
-  <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.5</span></h1>
+  <h1>梁 Beam 設計／檢核 <span data-ui="version">V3.6</span></h1>
   <p class="tool-shell-header__sub">撓曲、剪力、扭力、跨深比；含特殊抗彎矩構架耐震檢核</p>
   <noscript><p class="tool-shell-noscript"><a href="../../結構工具箱/index.html">← 結構工具箱首頁</a>（未啟用 JavaScript，頂欄導覽無法顯示）</p></noscript>
 </header>
@@ -576,15 +576,18 @@
         </div>
         <div id="exactDeflInputs" style="display:none;">
           <div class="form-row">
-            <div class="form-group"><label for="simpleDeflLoad">簡支梁使用載重分布</label><select id="simpleDeflLoad"><option value="uniform">全跨均布載重</option><option value="midpoint">跨中單一集中載重</option></select></div>
+            <div class="form-group"><label for="simpleDeflLoad">簡支梁使用載重分布</label><select id="simpleDeflLoad"><option value="uniform">全跨均布載重</option><option value="midpoint">跨內單一集中載重</option></select></div>
             <div class="form-group"><label for="sustainedDeflPercent">持續載重瞬時撓度占比 <output id="sustainedDeflLabel">100%</output></label><input type="range" id="sustainedDeflPercent" min="0" max="100" step="0.1" value="100"></div>
+          </div>
+          <div class="form-group" id="simpleDeflPointGroup" hidden>
+            <label for="simpleDeflPointX">集中載重距左支承 a (cm)</label><input type="number" id="simpleDeflPointX" step="any" placeholder="留空採跨中">
           </div>
           <p class="hint">占比取同一控制位置、同方向的持續載重瞬時撓度除以總瞬時撓度。100% 表示全數視為持續；不同分布請由各工況分析取得占比。</p>
           <div class="form-row">
             <div class="form-group"><label>使用載重 Ma⁺ 幅值 (tf·m)</label><input type="number" id="MaPos" value="36"></div>
             <div class="form-group"><label>使用載重 Ma⁻ 幅值 (tf·m)</label><input type="number" id="MaNeg" value="43"></div>
           </div>
-          <p class="hint">請填使用載重分析所得 Ma；簡支跨中單一集中力 P 的 Ma⁺ = Pℓn/4。若選用 Mu/1.4 概估，請核對專案載重組合。</p>
+          <p class="hint">請填使用載重分析所得 Ma；簡支跨內單一集中力 P 的最大 Ma⁺ = P·a·(ℓn−a)/ℓn，請填集中力所在截面的使用彎矩。若選用 Mu/1.4 概估，請核對專案載重組合。</p>
           <div class="checkbox-row">
           <input type="checkbox" id="autoMa">
             <label for="autoMa">由 +Mu/−Mu 自動換算 Ma (除以 1.4)</label>
@@ -868,6 +871,7 @@
 <script src="../shared/project-storage.js?v=1"></script>
 <script src="../shared/beam-applicability.js?v=1"></script>
 <script src="../shared/beam-evaluator.js?v=2"></script>
+<script src="../../結構工具箱/tools/beam-element-deflection.js?v=2"></script>
 <script src="../shared/beam-rebar-designer.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/bond-confinement.js?v=1"></script>
@@ -1157,13 +1161,14 @@
     }
     // 預設工況沿用舊案表示法，保留 V3.2 案件重播指紋。
     if (fields.simpleDeflLoad?.value === 'uniform') delete fields.simpleDeflLoad;
+    if (!fields.simpleDeflPointX?.value) delete fields.simpleDeflPointX;
     if (fields.sustainedDeflPercent?.value === '100') delete fields.sustainedDeflPercent;
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
       schema: BEAM_PROJECT_SCHEMA,
       tool: 'rc-beam',
       toolTitle: '梁 Beam 設計／檢核',
-      appVersion: 'V3.5',
+      appVersion: 'V3.6',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -1210,7 +1215,7 @@
     return window.RCReportFingerprint.validateProjectCalculationSource(source, {
       expectedSchema: BEAM_PROJECT_SCHEMA,
       expectedToolId: 'rc-beam',
-      expectedVersion: ['V3.2','V3.3','V3.4'].includes(beamSourceVersion(source)) ? source.appVersion : 'V3.5',
+      expectedVersion: ['V3.2','V3.3','V3.4','V3.5'].includes(beamSourceVersion(source)) ? source.appVersion : 'V3.6',
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
     });
@@ -1229,7 +1234,7 @@
     const payload = normalizeBeamProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectBeamProjectData();
     const oldVersion = beamSourceVersion(payload);
-    const legacy = oldVersion !== 'V3.5';
+    const legacy = oldVersion !== 'V3.6';
     const migrated = oldVersion === 'V3.2' && (payload.fields.sectionType?.value !== 'rect' ||
       (payload.fields.enableTorsion?.checked && Number(payload.fields.Pu?.value) !== 0));
     setBeamMode(payload.mode, { recalculate: false, applyPanel: false });
@@ -1237,6 +1242,7 @@
     $('flangeMode').value = 'slab';
     for (const id of ['flangeLeft','flangeSwLeft','flangeSwRight']) $(id).value = '';
     $('simpleDeflLoad').value = 'uniform';
+    $('simpleDeflPointX').value = '';
     $('sustainedDeflPercent').value = '100';
     $('beamLapAreaRatio').value = '';
     $('beamLapPercent').value = '';
@@ -1282,7 +1288,7 @@
         const note = $('sectionType').value === 'rect' ? '扭力門檻已依本案軸力重算。' : '請確認翼板構造及實際淨距後重算。';
         showBeamProjectStatus(`已核對 V3.2 原始輸入 ${payload.calculationFingerprint}。${note}`);
       } else if (legacy) {
-        showBeamProjectStatus('已核對 ' + oldVersion + ' 原始輸入，搭接長度、甲級條件與伸展／搭接區圍束已依 V3.5 重算。');
+        showBeamProjectStatus('已核對 ' + oldVersion + ' 原始輸入。撓度、搭接與圍束已依 V3.6 重算。');
       } else {
         const state = window.beamLast ? '並重現計算' : '的待補輸入';
         showBeamProjectStatus(`已讀取${source}${state}：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
@@ -1875,7 +1881,7 @@
     };
   }
 
-  function calcDeflectionData({ enabled, fc, bw, ln, support, AsBot, AsTop, d_pos, d_neg, topSum, botSum, cover, tieDb, Ig, Mcr_pos_kgcm, Mcr_neg_kgcm, MaPos_tf, MaNeg_tf, xi, limitDiv, simpleLoad = 'uniform', sustainedPercent = 100, autoMa = false }) {
+  function calcDeflectionData({ enabled, fc, bw, ln, support, AsBot, AsTop, d_pos, d_neg, topSum, botSum, cover, tieDb, Ig, Mcr_pos_kgcm, Mcr_neg_kgcm, MaPos_tf, MaNeg_tf, xi, limitDiv, simpleLoad = 'uniform', pointX = null, sustainedPercent = 100, autoMa = false }) {
     if (!enabled) return null;
     const Ec = 12000 * Math.sqrt(fc);
     const Es = 2.04e6;
@@ -1901,14 +1907,18 @@
     const IePos = calcBischoffIe(Ma_pos_kgcm, IcrPos, Mcr_pos_kgcm, Ig);
     const IeNeg = calcBischoffIe(Ma_neg_kgcm, IcrNeg, Mcr_neg_kgcm, Ig);
     const K_map = { simple: 5/48, oneEnd: 0.073, bothEnd: 1/16, cantilever: 1/4 };
-    const midpointLoad = support === 'simple' && simpleLoad === 'midpoint';
-    const K = midpointLoad ? 1/12 : K_map[support];
+    const pointLoad = support === 'simple' && simpleLoad === 'midpoint';
+    const pointACm = pointLoad ? pointX ?? ln / 2 : null;
+    // Normalise to L=EI=Ma=1. Ma is the moment at the point load, not necessarily at peak deflection.
+    const relativeA = pointACm / ln;
+    const shape = pointLoad ? simpleBeamDeflection({ L:1, EI:1, points:[{a:relativeA, P:1 / (relativeA * (1-relativeA))}] }) : null;
+    const K = shape?.delta ?? K_map[support];
     const continuous = (support === 'oneEnd' || support === 'bothEnd');
     const isCantilever = support === 'cantilever';
     const IeUse = isCantilever ? IeNeg : (continuous ? (IePos + IeNeg) / 2 : IePos);
     const ieUseSource = isCantilever
       ? '懸臂固定端負彎矩臨界斷面'
-      : (continuous ? '正負臨界斷面平均' : '跨中正彎矩臨界斷面');
+      : (continuous ? '正負臨界斷面平均' : pointLoad && pointX !== null ? '集中載重處正彎矩臨界斷面' : '跨中正彎矩臨界斷面');
     const Ma_use_tf = isCantilever ? MaNeg_tf : MaPos_tf;
     const Ma_use = Math.max((isCantilever ? Ma_neg_kgcm : Ma_pos_kgcm), 0);
     const rhoPrimeAs = isCantilever ? AsBot : AsTop;
@@ -1926,7 +1936,8 @@
       stateNeg: getCrackingStateText(Ma_neg_kgcm, Mcr_neg_kgcm),
       deltaImm, deltaLT, deltaAllow, okDefl: deltaLT <= deltaAllow,
       lambdaLT, rhoPrime, rhoPrimeAs, rhoPrimeD, rhoPrimeSource, deltaSustained, sustainedPercent, autoMa,
-      loadLabel: midpointLoad ? '簡支跨中集中載重' : '均布載重',
+      loadLabel: pointLoad ? (pointX === null ? '簡支跨中集中載重' : '簡支跨內集中載重') : '均布載重',
+      pointACm, peakXCm:shape ? shape.x * ln : null,
       K, support, deflDirection: isCantilever ? 'neg' : 'pos', Ma_pos: MaPos_tf, Ma_neg: MaNeg_tf, Ma_use, Ma_use_tf, xi, limitDiv
     };
   }
@@ -2208,7 +2219,7 @@
     $('flangeSwLeftGroup').hidden = sec !== 'T';
     $('flangeSpacingGroup').hidden = $('flangeMode').value !== 'slab';
     $('tab-torsion').style.display = $('enableTorsion').checked ? '' : 'none';
-    $('tab-defl').style.display    = $('enableDefl').checked    ? '' : 'none';
+    $('tab-defl').style.display    = $('enableDefl').checked || $('enableExactDefl').checked ? '' : 'none';
     $('c-tor').style.display  = $('enableTorsion').checked ? '' : 'none';
     $('c-hmin').style.display = $('enableDefl').checked    ? '' : 'none';
     $('dManualWrap').style.display = $('autoD').checked ? 'none' : '';
@@ -2279,6 +2290,7 @@
     if (!preset) return;
     $('bondPlaneData').value = '';
     $('simpleDeflLoad').value = 'uniform';
+    $('simpleDeflPointX').value = '';
     $('sustainedDeflPercent').value = '100';
     $('beamLapAreaRatio').value = '';
     $('beamLapPercent').value = '';
@@ -2322,13 +2334,17 @@
     const seismic = $('seismicMode').checked;
     const sectionType = $('sectionType').value;       // rect / T / L
     const enableTorsion = $('enableTorsion').checked;
-    const enableDefl    = $('enableDefl').checked;
-    const exactDeflEnabled = !!($('enableExactDefl') && $('enableExactDefl').checked);
+    const exactDeflEnabled = $('enableExactDefl').checked;
+    const enableSpanDepth = $('enableDefl').checked;
+    const enableDefl = enableSpanDepth || exactDeflEnabled;
     const torsionDesignStatus = $('torsionDesignStatus')?.value || 'pending';
     const torsionAtPerS = optNum('torsionAtPerS');
     const torsionAl = optNum('torsionAl');
     const support = $('support').value;
     $('simpleDeflLoad').disabled = support !== 'simple';
+    const pointPositionEnabled = exactDeflEnabled && support === 'simple' && $('simpleDeflLoad').value === 'midpoint';
+    $('simpleDeflPointGroup').hidden = !pointPositionEnabled;
+    $('simpleDeflPointX').disabled = !pointPositionEnabled;
     $('sustainedDeflLabel').textContent = $('sustainedDeflPercent').value + '%';
     const fc = num('fc'), fy = num('fy'), fyt = num('fyt');
     const bw = num('bw'), h = num('h'), ln = num('ln');
@@ -2537,13 +2553,15 @@
     const okAsMinTop = asMinCheckNeg.ok;
     const okAsMin = okAsMinBot && okAsMinTop;
     // okHmin = 跨深比是否可免算撓度；未達 hmin 或連接易損時，需嚴謹撓度計算，不直接判 NG。
-    const okHmin = enableDefl ? (!sensitive && (h >= hmin)) : true;
-    const deflNeedsExact = enableDefl && !okHmin;
+    const okHmin = enableSpanDepth ? (!sensitive && (h >= hmin)) : true;
+    const deflNeedsExact = enableSpanDepth && !okHmin;
     let okDeflOverall = enableDefl ? (okHmin ? true : null) : true;
     let deflManualReview = enableDefl && deflNeedsExact && !exactDeflEnabled;
     let deflStatusText = !enableDefl
       ? '未啟用撓度檢核'
-      : okHmin
+      : !enableSpanDepth
+        ? '嚴謹撓度計算已啟用'
+        : okHmin
         ? `跨深比可免算：h=${h.toFixed(1)} ≥ hmin=${hmin.toFixed(1)} cm`
         : sensitive
           ? '連接易損構造，需做 Bischoff Ie 嚴謹撓度計算'
@@ -2597,7 +2615,7 @@
     setCheck('c-rhoMaxNeg', okTensionNeg, `εt⁻=${resNeg.epsT.toFixed(5)} / ${epsTLimit.toFixed(5)}`);
     setCheck('c-AsMinBot', okAsMinBot, `fy,Asmin=${AsMinPosInfo.fyForAsMin.toFixed(0)}；b=${AsMinPosInfo.bAsMin.toFixed(1)} cm (${AsMinPosInfo.bSourceText})；${asMinCheckPos.text}`);
     setCheck('c-AsMinTop', okAsMinTop, `fy,Asmin=${AsMinNegInfo.fyForAsMin.toFixed(0)}；b=${AsMinNegInfo.bAsMin.toFixed(1)} cm (${AsMinNegInfo.bSourceText})；${asMinCheckNeg.text}`);
-    if (enableDefl) {
+    if (enableSpanDepth) {
       // sensitive 時跨深比不適用，但這是資訊提示而非 NG
       if (sensitive) {
         setCheck('c-hmin', null, '⚠ 連接易損構造，需做嚴謹撓度');
@@ -2755,8 +2773,12 @@
     $('heroVsReq').textContent = `${(VsReq/1000).toFixed(2)} tf`;
     $('heroStirS').textContent = `${sFinal.toFixed(1)} cm`;
     // === 嚴謹撓度計算 (Bischoff Ie) ===
+    const pointField = $('simpleDeflPointX');
+    const pointX = pointPositionEnabled && pointField.value !== '' ? pointField.valueAsNumber : null;
+    const invalidDeflPoint = pointPositionEnabled && (pointField.validity.badInput ||
+      (pointX !== null && !(pointX > 0 && pointX < ln)));
     const deflResult = calcDeflectionData({
-      enabled: exactDeflEnabled,
+      enabled: exactDeflEnabled && !invalidDeflPoint, pointX,
       fc, bw, ln, support, AsBot, AsTop, d_pos, d_neg, topSum, botSum, cover, tieDb, Ig,
       Mcr_pos_kgcm, Mcr_neg_kgcm,
       MaPos_tf: Math.abs(num('MaPos')), MaNeg_tf: Math.abs(num('MaNeg')),
@@ -2783,6 +2805,12 @@
     const tuItem = $('ls-TuItem'); if (tuItem) tuItem.style.display = enableTorsion ? '' : 'none';
     const veItem = $('ls-VeItem'); if (veItem) veItem.style.display = seismic       ? '' : 'none';
 
+    if (invalidDeflPoint) {
+      deflManualReview = true;
+      okDeflOverall = null;
+      deflStatusText = '集中載重位置待補：a 須大於 0 且小於淨跨 ℓn。';
+      setCheck('d-defOk', null, deflStatusText);
+    }
     if (deflResult) {
       setResult('d-Ec', deflResult.Ec, 'kgf/cm²', 0);
       setResult('d-n', deflResult.n_ratio, '', 2);
@@ -2797,6 +2825,9 @@
       setResult('d-IeAvg', deflResult.IeAvg, 'cm⁴', 0);
       setResult('d-lambda', deflResult.lambdaLT, '', 3);
       setResult('d-defImm', deflResult.deltaImm, 'cm', 3);
+      if (deflResult.peakXCm !== null && deflResult.Ma_use > 0) {
+        $('d-defImm').querySelector('.value').textContent += `（距左支承 ${deflResult.peakXCm.toFixed(2)} cm）`;
+      }
       setResult('d-defLong', deflResult.deltaLT, 'cm', 3);
       setResult('d-defAllow', deflResult.deltaAllow, 'cm', 3);
       setCheck('d-defOk', deflResult.okDefl, `Δlt=${deflResult.deltaLT.toFixed(3)} / Δa=${deflResult.deltaAllow.toFixed(3)}`);
@@ -2959,7 +2990,7 @@ ${layerBars.map(L => {
 
       // ── 撓度 / 跨深比 ──
       let stepsD = '';
-      if (enableDefl) {
+      if (enableSpanDepth) {
         const fac = factorMap[support];
         const supName = ({simple:'簡支',oneEnd:'一端連續',bothEnd:'兩端連續',cantilever:'懸臂'})[support];
         stepsD +=
@@ -2989,7 +3020,7 @@ ${layerBars.map(L => {
 
 【5】瞬時撓度 Δi
   ${r.loadLabel}，K(${support}) = ${RCUI.formatFinite(r.K,4)}；Ma 來源：${r.autoMa ? 'Mu/1.4 概估' : '使用載重彎矩輸入'}
-  Δi = K·Ma·ℓn²/(Ec·Ie)
+  ${r.pointACm !== null ? `集中力距左支承 a＝${r.pointACm.toFixed(2)} cm，最大撓度距左支承 ${r.peakXCm.toFixed(2)} cm。\n  ` : ''}Δi = K·Ma·ℓn²/(Ec·Ie)
      = ${RCUI.formatFinite(r.K,4)}·${RCUI.formatFinite(r.Ma_use,0)}·${ln}²/(${RCUI.formatFinite(r.Ec,0)}·${RCUI.formatFinite(r.IeAvg,0)})
      = ${RCUI.formatFinite(r.deltaImm,4)} cm
 
@@ -3004,6 +3035,7 @@ ${layerBars.map(L => {
   Δa = ℓn/${r.limitDiv} = ${ln}/${r.limitDiv} = ${RCUI.formatFinite(r.deltaAllow,4)} cm
   檢核 Δlt (${RCUI.formatFinite(r.deltaLT,4)}) ≤ Δa (${RCUI.formatFinite(r.deltaAllow,4)}) → ${r.okDefl?'✓ OK':'✗ NG'}`;
       }
+      if (invalidDeflPoint) stepsD += '\n' + deflStatusText;
       if (!stepsD) stepsD = '未啟用跨深比與嚴謹撓度檢核。';
       const sd = $('stepsDeflBody'); if (sd) sd.textContent = isFullSteps ? stepsD : summarizeStepText(stepsD);
 
@@ -3088,7 +3120,7 @@ ${layerBars.map(L => {
     // === 儲存所有計算明細供計算書產生器使用 ===
     window.beamLast = {
       // 輸入
-      sectionType, support, seismic, enableTorsion, enableDefl, enableExactDefl: exactDeflEnabled, sensitive,
+      sectionType, support, seismic, enableTorsion, enableDefl, enableSpanDepth, enableExactDefl: exactDeflEnabled, sensitive,
       fc, fy, fyt, bw, h, ln, bf, actualBf, flange, axialRadicand:shearData.axialRadicand, hf, cover, sv, d, d_pos, d_neg, tieDb, deepLoadDistance,
       MuPos_in: num('MuPos'), MuNeg_in: num('MuNeg'),
       Vu_in: num('Vu'), Pu_in: num('Pu'), Tu_in: num('Tu'), Ve_in: num('Ve'),
@@ -3633,7 +3665,7 @@ ${layerBars.map(L => {
           formula:'規範 18.3.2，僅耐震模式列為強制檢核',
           sub:`ℓn = ${r.ln}    4d = ${(4*r.d).toFixed(1)}`,
           value:`${r.ln}`, unit:'cm', ok:r.seismic ? r.okLnRaw : null },
-        ...(r.enableDefl?[{
+        ...(r.enableSpanDepth ? [{
           label:'h ≥ hmin (跨深比免算條件)',
           formula:`hmin = ℓn/${r.factorMap[r.support]}`,
           sub:`hmin = ${r.ln}/${r.factorMap[r.support]} = ${r.hmin.toFixed(1)} cm    h = ${r.h} cm；${r.deflStatusText}`,
@@ -3715,7 +3747,7 @@ ${layerBars.map(L => {
           value:`${r.defl.IeAvg.toFixed(0)}`, unit:'cm⁴', ok:null },
         { label:'瞬時撓度 Δi',
           formula:`Δi = K·Ma·ℓn²/(Ec·Ie)，${r.defl.loadLabel}，K(${r.defl.support}) = ${r.defl.K.toFixed(4)}；Ma 來源：${r.defl.autoMa ? 'Mu/1.4 概估' : '使用載重彎矩輸入'}`,
-          sub:`Ma = ${r.defl.Ma_use_tf.toFixed(2)} tf·m；= ${r.defl.K.toFixed(4)}·${r.defl.Ma_use.toExponential(2)}·${r.ln}²/(${r.defl.Ec.toFixed(0)}·${r.defl.IeAvg.toFixed(0)})`,
+          sub:`${r.defl.pointACm !== null ? `a＝${r.defl.pointACm.toFixed(2)}\u00a0cm，峰值距左支承 ${r.defl.peakXCm.toFixed(2)}\u00a0cm；` : ''}Ma = ${r.defl.Ma_use_tf.toFixed(2)} tf·m；= ${r.defl.K.toFixed(4)}·${r.defl.Ma_use.toExponential(2)}·${r.ln}²/(${r.defl.Ec.toFixed(0)}·${r.defl.IeAvg.toFixed(0)})`,
           value: r.defl.deltaImm.toFixed(3), unit:'cm', ok:null },
         { label:'長期撓度 Δlt',
           formula:`Δlt = Δi + λΔ·Δs，Δs = ${r.defl.sustainedPercent}% × Δi = ${r.defl.deltaSustained.toFixed(4)} cm，λΔ = ξ/(1+50ρ′)`,
@@ -3725,6 +3757,9 @@ ${layerBars.map(L => {
           formula:'規範 9.3.2 容許撓度',
           sub:`Δa = ${r.ln}/${r.defl.limitDiv} = ${r.defl.deltaAllow.toFixed(3)} cm    Δlt = ${r.defl.deltaLT.toFixed(3)} cm`,
           value:`${r.defl.deltaLT.toFixed(3)} / ${r.defl.deltaAllow.toFixed(3)}`, unit:'cm', ok: r.defl.okDefl }
+      ]}] : []),
+      ...(r.enableExactDefl && !r.defl && r.deflManualReview ? [{ group:'撓度檢核 (Bischoff Ie)', items:[
+        { label:'嚴謹撓度', sub:r.deflStatusText, value:'待補', ok:null }
       ]}] : []),
       { group:'握裹 / 搭接長度 (規範 25 章)', items: buildDevelopmentReportItems(r) }
     ];
@@ -3764,7 +3799,7 @@ ${layerBars.map(L => {
 
     return openReport({
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
-      outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.5' },
+      outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.6' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',

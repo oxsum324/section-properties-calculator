@@ -36,6 +36,12 @@ const EXPECTED = {
       '未輸入時不作通過判定。',
     ],
   },
+  off_centre_service_load: {
+    excludes: ['h ≥ hmin (跨深比免算條件)'],
+    title: '梁設計計算書',
+    fragments: ['a＝200.00 cm', '峰值距左支承 273.40 cm'],
+    pdfFragments: ['200.00 cm', '273.40 cm'],
+  },
   smrf_ve_controls_shear_demand: {
     title: '梁檢核計算書',
     fragments: [
@@ -288,8 +294,16 @@ async function reportMetrics(report) {
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const pack = JSON.parse(fs.readFileSync(CASES_PATH, 'utf8'));
+  const defaultRect = pack.cases.find(c => c.key === 'default_rect_design');
+  const offCentre = {
+    ...defaultRect,
+    key: 'off_centre_service_load',
+    checkboxes: { ...defaultRect.checkboxes, enableDefl:false, enableExactDefl:true, autoMa:false },
+    selects: { ...defaultRect.selects, support:'simple', simpleDeflLoad:'midpoint' },
+    values: { ...defaultRect.values, MaPos:18, simpleDeflPointX:200, sustainedDeflPercent:25 },
+  };
   const cases = CASE_KEYS.map(key => {
-    const tc = pack.cases.find(c => c.key === key);
+    const tc = [offCentre, ...pack.cases].find(c => c.key === key);
     assert(!!tc, `${key} case exists`, CASES_PATH);
     return tc;
   });
@@ -461,13 +475,13 @@ async function main() {
         content:textContent,
       };
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
+      const expected = EXPECTED[tc.key] || {};
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
-        include: ['計算書', '文件狀態：內部審閱'],
+        include: ['計算書', '文件狀態：內部審閱', ...(expected.pdfFragments || [])],
         includeAny: [['梁設計計算書', '梁檢核計算書']],
         exclude: ['DRAFT／非正式附件'],
       });
-      const expected = EXPECTED[tc.key] || {};
       const artifactIntegrity = [
         captureArtifactIntegrity(pdfPath, 'reportPdf'),
         captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
@@ -493,7 +507,7 @@ async function main() {
         '文件用途：文字備查版（不作為正式附件）',
         '來源文件狀態：正式附件',
         '產出工具：梁 Beam 設計／檢核',
-        '工具版本：V3.5',
+        '工具版本：V3.6',
         '計算指紋：CF-',
         '[幾何與斷面]',
         '文字版限制：不含可列印圖形',
@@ -554,6 +568,9 @@ async function main() {
       }
       for (const fragment of expected.fragments || []) {
         assert(metrics.bodyText.includes(fragment), `${tc.key} report includes`, fragment);
+      }
+      for (const fragment of expected.excludes || []) {
+        assert(!metrics.bodyText.includes(fragment), `${tc.key} report excludes disabled check`, fragment);
       }
       [
         '人工複核 / 補充資料需求',

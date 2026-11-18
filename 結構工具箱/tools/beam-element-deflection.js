@@ -63,3 +63,23 @@ function elementDeflectionCurve(element, loads) {
   }
   return { peak, displacement };
 }
+
+// Simply supported beam with constant EI. Return the downward peak as a positive magnitude.
+function simpleBeamDeflection({ L, EI, w = 0, points = [] }) {
+  if (![L, EI, w].every(Number.isFinite) || L <= 0 || EI <= 0 ||
+      points.some(({ P, a }) => !Number.isFinite(P) || !Number.isFinite(a) || a <= 0 || a >= L)) {
+    throw new RangeError('Invalid simply supported beam deflection inputs');
+  }
+  let leftRotation = -w * L**3 / (24 * EI);
+  let rightRotation = -leftRotation;
+  for (const { P, a } of points) {
+    const b = L - a;
+    leftRotation -= P * a * b * (L + b) / (6 * L * EI);
+    rightRotation += P * a * b * (L + a) / (6 * L * EI);
+  }
+  const loads = [{ type:'udl', w }, ...points.map(({ P, a }) => ({type:'point', P, a}))];
+  const { peak } = elementDeflectionCurve({ L, EI, dispLocal:[0,leftRotation,0,rightRotation] }, loads);
+  return { x:peak.x, delta:-peak.value };
+}
+
+if (typeof module === 'object' && module.exports) module.exports = { simpleBeamDeflection };

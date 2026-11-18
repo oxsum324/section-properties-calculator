@@ -43,7 +43,7 @@ const PAGES = [
     ],
     firstEngineeringInput: 'seismicMode',
     collapsedIds: ['btnSaveBeamProject', 'btnLoadBeamProject', 'btnSaveBeamDraft', 'btnLoadBeamDraft', 'beamProjectFile', 'beamProjectStatus'],
-    ids: `bondPlaneData beamLapAreaRatio beamLapPercent beamLapClassAEvidence beamResults flangeMode flangeProjectionGroup flangeLeft flangeSpacingGroup flangeSwLeftGroup flangeSwLeft flangeSwRight flangeStatus simpleDeflLoad sustainedDeflLabel sustainedDeflPercent MaNeg MaPos MuNeg MuPos Pu Tu TuWrap Ve VeWrap Vu anchorageLeft anchorageRight autoD autoMa bannerKey bannerStatus barShMin
+    ids: `bondPlaneData beamLapAreaRatio beamLapPercent beamLapClassAEvidence beamResults flangeMode flangeProjectionGroup flangeLeft flangeSpacingGroup flangeSwLeftGroup flangeSwLeft flangeSwRight flangeStatus simpleDeflLoad sustainedDeflLabel sustainedDeflPercent simpleDeflPointGroup simpleDeflPointX MaNeg MaPos MuNeg MuPos Pu Tu TuWrap Ve VeWrap Vu anchorageLeft anchorageRight autoD autoMa bannerKey bannerStatus barShMin
       beamAttachmentReadiness beamAttachmentReadinessCard beamDevLeftType beamDevRightType beamForceCandidateApply beamForceCandidateCard
       beamForceCandidateConfirm beamForceCandidateDiscard beamForceCandidateList beamForceCandidateSummary beamJointCard beamJointMprFactor
       beamJointSendStatus beamJointTarget beamLapClass beamLapEnd beamLapLength beamLapStart beamPreset beamProjectFile beamProjectStatus
@@ -68,7 +68,7 @@ const PAGES = [
       enableTorsion enableDefl showSteps stepsVerbosity beamPreset cover autoD dManual layerSv barShMin devTopPsi devEpoxyPsi
       beamDevLeftType beamDevRightType anchorageLeft anchorageRight beamLapStart beamLapEnd beamLapLength beamLapClass beamLapAreaRatio beamLapPercent bondPlaneData botBar1No
       botBar1N botBar2No botBar2N botBar3No botBar3N topBar1No topBar1N topBar2No topBar2N topBar3No topBar3N skinNo nSkin stirrup legs
-      stirS MuPos MuNeg Vu Pu Tu Ve torsionDesignStatus torsionAtPerS torsionAl sensitive enableExactDefl simpleDeflLoad sustainedDeflPercent MaPos MaNeg autoMa xiTime
+      stirS MuPos MuNeg Vu Pu Tu Ve torsionDesignStatus torsionAtPerS torsionAl sensitive enableExactDefl simpleDeflLoad sustainedDeflPercent simpleDeflPointX MaPos MaNeg autoMa xiTime
       deflLimit colW smrfMnMin firstHoopDist beamJointTarget beamJointMprFactor beamForceCandidateConfirm`,
     classes: `active badge-seismic banner-key banner-status big btn-calc btn-secondary canvas-wrap card checkbox-row combo container
       deep-beam-notice force-candidate-actions force-candidate-card force-candidate-confirm force-candidate-list force-candidate-summary

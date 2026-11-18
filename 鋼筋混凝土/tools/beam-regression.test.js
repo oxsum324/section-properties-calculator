@@ -1174,12 +1174,36 @@ async function runBrowserCases() {
       const reset = el('simpleDeflLoad').value === 'uniform' && el('sustainedDeflPercent').value === '100';
       window.applyBeamProjectData(saved, {silent:true});
       const restored = window.beamLast.defl.deltaLT;
+      el('enableDefl').checked = false;
+      el('simpleDeflPointX').value = String(L / 3);
+      window.calcBeam();
+      const offCenter = window.beamLast.defl;
+      const a = L / 3;
+      const z = Math.sqrt((L**2 - a**2) / 3);
+      const P = 18e5 * L / (a * (L - a));
+      const expectedOffCenter = P * a * z * (L**2 - a**2 - z**2) / (6 * L * offCenter.Ec * offCenter.IeUse);
+      const offCenterProject = window.collectBeamProjectData();
+      el('simpleDeflPointX').value = String(L);
+      window.calcBeam();
+      const invalid = !window.beamLast.defl && el('d-defOk').textContent.includes('位置待補');
+      window.applyBeamProjectData(offCenterProject, {silent:true});
+      const restoredOffCenter = window.beamLast.defl.peakXCm;
+      const tabVisible = el('tab-defl').style.display !== 'none';
       window.applyBeamProjectData(original, {silent:true});
-      return { immediate:r.deltaImm, total:r.deltaLT, expected, lambda:r.lambdaLT, reset, restored };
+      return {
+        immediate:r.deltaImm, total:r.deltaLT, expected, lambda:r.lambdaLT, reset, restored,
+        offCenter:offCenter.deltaImm, offCenterX:offCenter.peakXCm, expectedOffCenter, expectedX:L-z,
+        invalid, restoredOffCenter, tabVisible,
+      };
     });
     assert(Math.abs(loadCase.immediate-loadCase.expected)<1e-10, 'simply supported midpoint service load', 'PL³/(48EcIe)');
     assert(Math.abs(loadCase.total-loadCase.expected*(1+0.25*loadCase.lambda))<1e-10, 'additional creep from sustained deflection only', '25% sustained share');
     assert(loadCase.reset && loadCase.restored===loadCase.total, 'service load case project round trip', 'old fields cleared and new inputs restored');
+    assert(Math.abs(loadCase.offCenter-loadCase.expectedOffCenter)<1e-10 &&
+      Math.abs(loadCase.offCenterX-loadCase.expectedX)<1e-7,
+      'off-centre service load matches piecewise solution', JSON.stringify(loadCase));
+    assert(loadCase.invalid && loadCase.tabVisible && loadCase.restoredOffCenter===loadCase.offCenterX,
+      'off-centre service load validation and replay', 'out-of-span location pending, exact-only tab visible, station restored');
     await exerciseRCWorkflowSummary(page);
     await page.reload({ waitUntil: 'networkidle' });
     await wait(300);

@@ -28,6 +28,8 @@
     { id: "inWL", kind: "lineLoad", legacyDigits: 2, siDigits: 3 },
     { id: "inPD", kind: "force", legacyDigits: 4, siDigits: 4 },
     { id: "inPL", kind: "force", legacyDigits: 4, siDigits: 4 },
+    { id: "inPointDeadX", kind: "memberLength", legacyDigits: 4, siDigits: 6 },
+    { id: "inPointLiveX", kind: "memberLength", legacyDigits: 4, siDigits: 6 },
   ];
   const isFilled = (id) => {
     const field = $(id);
@@ -651,8 +653,10 @@
     $("beamLvLabel").textContent = `Lv 圓管剪力長度 (${getQuantityUnit("memberLength")})`;
     $("beamWdLabel").textContent = `wD 靜載重 (${getQuantityUnit("lineLoad")})`;
     $("beamWlLabel").textContent = `wL 活載重 (${getQuantityUnit("lineLoad")})`;
-    $("beamPdLabel").textContent = `跨中集中靜載重 PD (${getQuantityUnit("force")})`;
-    $("beamPlLabel").textContent = `跨中集中活載重 PL (${getQuantityUnit("force")})`;
+    $("beamPdLabel").textContent = `集中靜載重 PD (${getQuantityUnit("force")})`;
+    $("beamPlLabel").textContent = `集中活載重 PL (${getQuantityUnit("force")})`;
+    $("beamPointDeadXLabel").textContent = `PD 距左支承 aD (${getQuantityUnit("memberLength")})`;
+    $("beamPointLiveXLabel").textContent = `PL 距左支承 aL (${getQuantityUnit("memberLength")})`;
     updateUnitCard();
   }
 
@@ -1098,7 +1102,7 @@
     if (result.deflStatus === "skipped" && result.flexOk && result.shearOk) {
       return {
         value: "撓度未檢核",
-        note: "均布與跨中集中使用載重均為 0，撓度未檢核。",
+        note: "均布與集中使用載重均為 0，撓度未檢核。",
         tone: "warn",
       };
     }
@@ -1254,7 +1258,16 @@
     return result.sec.name;
   }
 
-  function buildReportSteps(result) {
+  function beamDeflectionStation(x) {
+    return x === null ? "無作用力" : `${formatDisplayValue(x, "memberLength", unitMode === "si" ? 4 : 2)} ${getQuantityUnit("memberLength")}`;
+  }
+
+  function beamServiceLoadLine(label, w, P, a) {
+    return `${label}：w = ${formatDisplayValue(w, "lineLoad", 3)} ${getQuantityUnit("lineLoad")}` +
+      (P > 0 ? `，P = ${formatDisplayValue(P, "force", 4)} ${getQuantityUnit("force")}（距左支承 ${beamDeflectionStation(a)}）` : "");
+  }
+
+  function buildReportSteps(result, previousDeflectionFormat = false) {
     const strengthMoment = result.isLRFD ? result.flex.phiMn_tfm : result.flex.MnOmega_tfm;
     const strengthShear = result.isLRFD ? result.shear.phiVn_tf : result.shear.VnOmega_tf;
     const flexureFactorLine = result.isLRFD
@@ -1314,9 +1327,14 @@
       {
         group: "4. 撓度與使用性檢核",
         body: [
-          ...(result.pointDead || result.pointLive ? [
+          ...(previousDeflectionFormat ? (result.pointDead || result.pointLive ? [
             `簡支梁跨中 δ = 5wL⁴/(384EI) + PL³/(48EI)。靜載重 wD = ${result.loadDead} kgf/cm、PD = ${result.pointDead} tf；活載重 wL = ${result.loadLive} kgf/cm、PL = ${result.pointLive} tf。`,
-          ] : []),
+          ] : []) : result.deflStatus === "skipped" ? [] : [
+            "等斷面簡支梁以使用載重疊加撓度曲線，分別搜尋活載重及總載重曲線的斜率零點。",
+            beamServiceLoadLine("靜載重", result.loadDead, result.pointDead, result.pointDeadX),
+            beamServiceLoadLine("活載重", result.loadLive, result.pointLive, result.pointLiveX),
+            `峰值距左支承：活載重 ${beamDeflectionStation(result.deflection.xL)}，總載重 ${beamDeflectionStation(result.deflection.xT)}。`,
+          ]),
           `ΔL = ${f2(result.deflection.deltaL)} cm，容許活載重撓度 = ${f2(result.allowLive)} cm`,
           `ΔT = ${f2(result.deflection.deltaT)} cm，容許總撓度 = ${f2(result.allowTotal)} cm`,
           "撓度限值由設計者依使用性需求輸入；如涉積水載重，應另依規範 11.3 節與附錄 4 檢核。",
@@ -1441,7 +1459,7 @@
       reminders.push({
         level: "warn",
         title: "撓度尚未啟動",
-        body: "目前使用載重為 0；請依案件輸入均布或跨中集中使用載重後檢核撓度。",
+        body: "目前使用載重為 0；請依案件輸入均布或集中使用載重後檢核撓度。",
       });
     } else if (result.deflStatus === "fail") {
       reminders.push({
@@ -1557,7 +1575,7 @@
       ${pairRow("設計需求", `${designMethod === "LRFD" ? "Mu" : "Ma"} = ${formatDisplayValue(result.demandMoment, "moment", 2)} ${getQuantityUnit("moment")}，${designMethod === "LRFD" ? "Vu" : "Va"} = ${formatDisplayValue(result.demandShear, "force", 2)} ${getQuantityUnit("force")}`)}
       ${pairRow("內力來源", SteelFormalUI.escapeHtml(result.adoptedInputSource))}
       ${pairRow("使用載重", `wD = ${formatDisplayValue(getLegacyInputValue("inWD"), "lineLoad", unitMode === "si" ? 3 : 2)} ${getQuantityUnit("lineLoad")}，wL = ${formatDisplayValue(getLegacyInputValue("inWL"), "lineLoad", unitMode === "si" ? 3 : 2)} ${getQuantityUnit("lineLoad")}`)}
-      ${result.pointDead || result.pointLive ? pairRow("跨中集中載重", `PD = ${formatDisplayValue(result.pointDead, "force", 4)}，PL = ${formatDisplayValue(result.pointLive, "force", 4)} ${getQuantityUnit("force")}`) : ""}
+      ${result.pointDead || result.pointLive ? pairRow("集中載重與位置", [beamServiceLoadLine("靜載重", result.loadDead, result.pointDead, result.pointDeadX), beamServiceLoadLine("活載重", result.loadLive, result.pointLive, result.pointLiveX)].join("；")) : ""}
       ${pairRow("撓度限值", `活載重 L/${$("limL").value}，總撓度 L/${$("limT").value}`)}
       ${pairRow("輸出報表內容", getReportContentSummaryText())}
     `;
@@ -1789,7 +1807,7 @@
     renderFillStatus();
     clearInputStatus();
     setBeamReportValidationMessage("");
-    const replayGrade = !!sourceVersion && sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version);
+    const replayGrade = !!sourceVersion && sourceVersion !== "v1.4" && sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version);
     const material = SteelMemberMaterial.refresh(unitMode,false,replayGrade);
     if (material.error) return inputFail(material.error);
     const issue = braceIssue();
@@ -1881,16 +1899,37 @@
         ["inWD","inWL","inPD","inPL"].some(id => $(id).validity?.badInput)) {
       return inputFail("服務性檢核請填向下載重的非負數值。");
     }
+    const pointPosition = (fieldId, force) => {
+      if (!force) return null;
+      const field = $(fieldId);
+      if (field.validity.badInput) return NaN;
+      return field.value === "" ? L / 2 : getLegacyInputValue(fieldId, "memberLength");
+    };
+    const pointDeadX = pointPosition("inPointDeadX", pointDead);
+    const pointLiveX = pointPosition("inPointLiveX", pointLive);
+    if ([pointDeadX, pointLiveX].some(value => value !== null && !(value > 0 && value < L))) {
+      return inputFail("使用集中載重的位置須大於 0 且小於跨度 L。");
+    }
     const deflection = Steel.calcDeflection(sec, loadDead, loadLive, L);
-    if (pointDead || pointLive) {
-      // 簡支對稱載重的兩個峰值均在跨中；核心的 EI 單位為 kgf·cm²，集中力輸入為 tf。
+    if ([pointDeadX,pointLiveX].some(value => value !== null && value !== L / 2)) {
+      const deadPoints = pointDead ? [{ P:pointDead*1000, a:pointDeadX }] : [];
+      const livePoints = pointLive ? [{ P:pointLive*1000, a:pointLiveX }] : [];
+      const evaluate = (w, points) => simpleBeamDeflection({ L, EI:deflection.EI, w, points });
+      const dead = evaluate(loadDead, deadPoints);
+      const live = evaluate(loadLive, livePoints);
+      const total = evaluate(loadDead + loadLive, [...deadPoints, ...livePoints]);
+      Object.assign(deflection, { deltaD:dead.delta, deltaL:live.delta, deltaT:total.delta,
+        xL:loadLive || pointLive ? live.x : null, xT:total.x });
+    } else {
       const cmPerTf = 1000 * L**3 / (48 * deflection.EI);
       deflection.deltaD += pointDead * cmPerTf;
       deflection.deltaL += pointLive * cmPerTf;
       deflection.deltaT = deflection.deltaD + deflection.deltaL;
-      deflection.ratioL = L / deflection.deltaL;
-      deflection.ratioT = L / deflection.deltaT;
+      deflection.xL = loadLive || pointLive ? L / 2 : null;
+      deflection.xT = deflection.deltaT > 0 ? L / 2 : null;
     }
+    deflection.ratioL = L / deflection.deltaL;
+    deflection.ratioT = L / deflection.deltaT;
     const limitLive = parseInt($("limL").value, 10);
     const limitTotal = parseInt($("limT").value, 10);
     const allowLive = L / limitLive;
@@ -1963,12 +2002,13 @@
       <div class="result-item ${deflStatus === "ok" ? "ok" : deflStatus === "fail" ? "fail" : "warn"}"><span class="label">撓度狀態</span><span class="value">${deflStatus === "ok" ? "OK" : deflStatus === "fail" ? "NG" : "未檢核"}</span></div>
       <div class="result-item"><span class="label">ΔL / 容許值</span><span class="value">${formatDisplayValue(deflection.deltaL, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(allowLive, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}</span></div>
       <div class="result-item"><span class="label">ΔT / 容許值</span><span class="value">${formatDisplayValue(deflection.deltaT, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(allowTotal, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}</span></div>
+      ${deflStatus === "skipped" ? "" : `<div class="result-item"><span class="label">活載重／總撓度峰值距左支承</span><span class="value">${beamDeflectionStation(deflection.xL)}／${beamDeflectionStation(deflection.xT)}</span></div>`}
     `;
     $("deflCard").hidden = false;
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk({ flexOk, shearOk, deflStatus }) ? "本次鋼梁斷面於主軸彎矩、剪力與撓度檢核均通過。" : "本次鋼梁斷面至少有一項控制條件未通過，請優先檢視控制模式、剪力條件與撓度條件。"}</div>`;
     $("summaryCard").hidden = false;
 
-    const result = { materialNote: material.note, sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, loadDead, loadLive, pointDead, pointLive, adoptedInputSource: adoptedBeamImportSourceText() };
+    const result = { materialNote: material.note, sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, loadDead, loadLive, pointDead, pointLive, pointDeadX, pointLiveX, adoptedInputSource: adoptedBeamImportSourceText() };
     resultState = result;
     setBeamReportValidationMessage("");
     renderSummary(result);
@@ -1980,6 +2020,7 @@
   function buildBeamReportConfig(result, sourceVersion = "") {
     const replayV11 = sourceVersion === "v1.1";
     const previousFormat = replayV11 || sourceVersion === "v1.2";
+    const previousDeflectionFormat = !!sourceVersion && sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version);
     function comparison(left, right, minimum, kind) {
       if (previousFormat) return `${f2(left)} ${minimum ? "≥" : "≤"} ${f2(right)}`;
       return formatSteelMemberComparison(left, right, minimum, getQuantityUnit(kind), convertLegacyValue(1, kind, unitMode));
@@ -2005,7 +2046,7 @@
             { label: "Sx / Sy", value: f2(result.sec.Sx) + " / " + f2(result.sec.Sy), unit:"cm³" },
             { label: "Zx / Zy", value: f2(result.sec.Zx) + " / " + f2(result.sec.Zy), unit:"cm³" },
           ] : []),
-          ...((!sourceVersion || sourceVersion === SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) && result.materialNote
+          ...((!previousDeflectionFormat || sourceVersion === "v1.4") && result.materialNote
             ? [{ label:"材料採用依據", value:result.materialNote }] : []),
           { label: "Fy", value: formatDisplayValue(result.Fy, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress") },
           ...(result.sec.shape === "h" || result.sec.shape === "rhs" ? [
@@ -2039,7 +2080,7 @@
         ]},
       ],
       summary: summaryState,
-      steps: buildReportSteps(result),
+      steps: buildReportSteps(result, previousDeflectionFormat),
     };
   }
 
@@ -2133,6 +2174,8 @@
     // 舊案只支援均布載重，重播時必須清除前一案的集中載重。
     $("inPD").value = "0";
     $("inPL").value = "0";
+    $("inPointDeadX").value = "";
+    $("inPointLiveX").value = "";
     $("materialBasis").value = "";
     Object.entries(source.fields || {}).forEach(([id, entry]) => {
       const field = $(id);
@@ -2151,7 +2194,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.3.1"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.3.1", "v1.4"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");

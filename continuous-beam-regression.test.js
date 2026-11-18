@@ -29,6 +29,23 @@ function assert(pass, title, detail) {
   console.log(`PASS | ${title} | ${detail}`);
 }
 
+// Benchmarks from the simply supported piecewise point-load solution and its slope.
+const { simpleBeamDeflection } = require('./結構工具箱/tools/beam-element-deflection.js');
+const deflectionBenchmarks = [
+  { w:0, points:[{P:12, a:3}], x:3, delta:0.000882352941176 },
+  { w:0, points:[{P:12, a:2}], x:2.734013676289, delta:0.000758980118800 },
+  { w:0, points:[{P:12, a:4}], x:3.265986323711, delta:0.000758980118800 },
+  { w:10, points:[], x:3, delta:0.002757352941176 },
+  { w:10, points:[{P:14, a:1.25}], x:2.932848743935, delta:0.003365487097118 },
+  { w:6, points:[{P:11, a:4.7}], x:3.084794608937, delta:0.002149253273142 },
+  { w:16, points:[{P:14, a:1.25}, {P:11, a:4.7}], x:2.991902834171, delta:0.005510789528231 },
+];
+for (const { w, points, x, delta } of deflectionBenchmarks) {
+  const result = simpleBeamDeflection({ L:6, EI:61200, w, points });
+  assert(Math.abs(result.x - x) < 1e-8 && Math.abs(result.delta - delta) < 1e-11,
+    'simply supported span peak', `w=${w}, points=${JSON.stringify(points)}, x=${result.x}, delta=${result.delta}`);
+}
+
 function escapeRegex(text) {
   return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

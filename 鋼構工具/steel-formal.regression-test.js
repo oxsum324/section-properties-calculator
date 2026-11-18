@@ -455,7 +455,7 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, key === "column" ? "V1.5" : key === "connection" ? "V1.3" : key === "beam" ? "V1.4" : key === "plate" ? "V1.2" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
+  assert.equal(metadata.version, key === "column" ? "V1.5" : key === "connection" ? "V1.3" : key === "beam" ? "V1.5" : key === "plate" ? "V1.2" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
 }
 const momentModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.beamColumnMoment;
 assert.equal(momentModuleMetadata?.state, "formal", "connection metadata should mark the scoped beam-column moment review formal");
@@ -591,7 +591,7 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
 for (const [label, html, expectedVersion, navFamily] of [
   ["steel main", indexSource, "V1.3", "steel"],
   ["steel plate", plateCheckSource, "V1.2", "attachments"],
-  ["steel beam", beamFormalHtmlSource, "V1.4", "steel"],
+  ["steel beam", beamFormalHtmlSource, "V1.5", "steel"],
   ["steel column", columnFormalHtmlSource, "V1.5", "steel"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
@@ -1329,7 +1329,7 @@ const beamBuildReportSource = beamFormalSource.match(/function buildBeamReportCo
 const columnBuildReportSource = columnFormalSource.match(/function buildColumnReportConfig\(result, sourceVersion = ""\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
 assert.match(
   beamBuildReportSource,
-  /subtitle: `Steel Beam Formal Report \(\$\{designMethod\}\)`[\s\S]*inputs:[\s\S]*group: "斷面與材料"[\s\S]*checks:[\s\S]*summary: summaryState[\s\S]*steps: buildReportSteps\(result\)/s,
+  /subtitle: `Steel Beam Formal Report \(\$\{designMethod\}\)`[\s\S]*inputs:[\s\S]*group: "斷面與材料"[\s\S]*checks:[\s\S]*summary: summaryState[\s\S]*steps: buildReportSteps\(result, previousDeflectionFormat\)/s,
   "steel-beam-formal.js should export adopted inputs, checks, calculation steps, and the final conclusion",
 );
 assert.match(beamBuildReportSource, /outputSource:\s*TOOL_METADATA,[\s\S]*textExport:\s*true/, "steel beam report should opt into governed TXT reference export");
