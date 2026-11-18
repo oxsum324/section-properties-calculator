@@ -138,13 +138,20 @@ function analyzeResults(results, baseline, baseUrl) {
     if ((result.workflowScripts || []).length && !result.workflowPanel) functionalFailures.push(`${result.route}: workflow script loaded without a workflow panel`);
     const prior = baselineByRoute.get(result.route);
     if (!prior) { functionalFailures.push(`${result.route}: missing baseline route`); continue; }
-    const before = new Map(prior.sharedScripts.map(script => [script.path, script.bytes]));
-    const currentShared = new Map();
-    for (const script of scripts) {
-      if (!isMeasuredShared(script.url, baseUrl)) continue;
-      const scriptPath = normalizedPath(script.url);
-      if (validBytes(script.bytes)) currentShared.set(scriptPath, (currentShared.get(scriptPath) || 0) + script.bytes);
-    }
+    const measured = scripts.filter(script => isMeasuredShared(script.url, baseUrl)).map(script => ({
+      path: normalizedPath(script.url),
+      bytes: script.bytes,
+      external: new URL(script.url).origin !== new URL(baseUrl).origin,
+    }));
+    // Only first-party static cache versions share a budget. Preserve complete
+    // queries when a third-party resource on this route has the same pathname.
+    const externalPaths = new Set(measured.filter(script => script.external).map(script => withoutCacheVersion(script.path)));
+    const budgetPath = scriptPath => {
+      const logicalPath = withoutCacheVersion(scriptPath);
+      return externalPaths.has(logicalPath) ? scriptPath : logicalPath;
+    };
+    const before = sumScriptBytes(prior.sharedScripts, budgetPath);
+    const currentShared = sumScriptBytes(measured, budgetPath);
     for (const [scriptPath, bytes] of currentShared) {
       if (!before.has(scriptPath)) capacityDifferences.push(`${result.route}: new third-party/shared script ${scriptPath} (${bytes} bytes)`);
       else if (bytes > before.get(scriptPath)) capacityDifferences.push(`${result.route}: third-party/shared script grew ${scriptPath} ${before.get(scriptPath)} -> ${bytes} bytes`);
@@ -155,6 +162,20 @@ function analyzeResults(results, baseline, baseUrl) {
 }
 
 function normalizedPath(url) { const parsed = new URL(url); return parsed.pathname + parsed.search; }
+
+function withoutCacheVersion(scriptPath) {
+  return scriptPath.replace(/(\.js)\?v=\d+$/, '$1');
+}
+
+function sumScriptBytes(scripts, identify) {
+  const byPath = new Map();
+  for (const script of scripts) {
+    if (!validBytes(script.bytes)) continue;
+    const key = identify(script.path);
+    byPath.set(key, (byPath.get(key) || 0) + script.bytes);
+  }
+  return byPath;
+}
 function isMeasuredShared(url, baseUrl) {
   const parsed = new URL(url);
   return parsed.origin !== new URL(baseUrl).origin || /^\/npm\//i.test(parsed.pathname)

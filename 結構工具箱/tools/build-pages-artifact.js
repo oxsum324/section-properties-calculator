@@ -23,6 +23,9 @@ const PRIVATE_FILES = new Set([
   '鋼筋混凝土/shared/src/common.source.js',
   '鋼筋混凝土/shared/src/beam-evaluator.source.js',
   '鋼筋混凝土/shared/src/foundation-pile.source.js',
+  '鋼筋混凝土/shared/src/devlength.source.js',
+  '鋼筋混凝土/shared/src/bond-confinement.source.js',
+  '鋼筋混凝土/shared/foundation-isolated.source.js',
 
   '結構工具箱/assets/home/src/home.source.js',
   '結構工具箱/core/ui/src/report-docx.source.js',

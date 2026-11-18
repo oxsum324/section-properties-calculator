@@ -97,6 +97,24 @@ const runtimes = [
     builder: 'build-minified-runtimes.js',
   },
   {
+    id: 'devlength',
+    source: '鋼筋混凝土/shared/src/devlength.source.js',
+    output: '鋼筋混凝土/shared/devlength.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
+    id: 'bond-confinement',
+    source: '鋼筋混凝土/shared/src/bond-confinement.source.js',
+    output: '鋼筋混凝土/shared/bond-confinement.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
+    id: 'foundation-isolated',
+    source: '鋼筋混凝土/shared/foundation-isolated.source.js',
+    output: '鋼筋混凝土/shared/foundation-isolated.js',
+    builder: 'build-minified-runtimes.js',
+  },
+  {
     id: 'foundation-pile',
     source: '鋼筋混凝土/shared/src/foundation-pile.source.js',
     output: '鋼筋混凝土/shared/foundation-pile.js',
@@ -208,15 +226,17 @@ async function build(runtime, check) {
 }
 
 async function main() {
+  const ids = runtimes.map(runtime => runtime.id).join('|');
+  const usage = `Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=${ids}]`;
   const args = process.argv.slice(2);
   const check = args.includes('--check');
   const selected = args.filter(arg => arg !== '--check').map(arg => {
-    if (!arg.startsWith('--only=')) throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=home|a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo|survey-report-ui|survey-signoff-ui|survey-sketch|survey-detail|survey-model|src-column-page|src-beam-page|src-beam-core|wind-report|seismic-zones|wind-shared-profile|rc-common|beam-evaluator|foundation-pile|steel-app|steel-calculator|steel-materials]');
+    if (!arg.startsWith('--only=')) throw new Error(usage);
     return arg.slice('--only='.length);
   });
   if (args.filter(arg => arg === '--check').length > 1 || selected.length > 1
       || selected.some(id => !runtimes.some(runtime => runtime.id === id))) {
-    throw new Error('Usage: node 結構工具箱/tools/build-minified-runtimes.js [--check] [--only=home|a11y|profile|wind|report-docx|tool-workflow|workflow-adapters|toolbox-storage|rc-storage|loadcombo|survey-report-ui|survey-signoff-ui|survey-sketch|survey-detail|survey-model|src-column-page|src-beam-page|src-beam-core|wind-report|seismic-zones|wind-shared-profile|rc-common|beam-evaluator|foundation-pile|steel-app|steel-calculator|steel-materials]');
+    throw new Error(usage);
   }
   if (!fs.existsSync(path.join(terserPath, 'package.json'))) {
     throw new Error('Run ensure-homepage-quality-deps.ps1 to install the pinned ignored Terser dependency.');

@@ -122,6 +122,23 @@ for (const [name, alter] of [
   });
 }
 
+const versionedBaseline = structuredClone(baseline);
+versionedBaseline.routes[0].sharedScripts[0].path += '?v=3';
+function compareScriptVariants(variants, frozen = versionedBaseline) {
+  const results = cleanResults();
+  results[0].scripts = variants.map(([url, bytes]) => ({ url, bytes, status:200, error:null }));
+  results[0].jsBytes = variants.reduce((sum, [, bytes]) => sum + bytes, 0);
+  return analyzeResults(results, frozen, baseUrl);
+}
+const revision4 = `${baseUrl}core/shared.js?v=4`;
+assert.deepEqual(compareScriptVariants([[revision4, 98]]), { functionalFailures:[], capacityDifferences:[] });
+assert.deepEqual(compareScriptVariants([[revision4, 98]], baseline).capacityDifferences, []);
+assert.match(compareScriptVariants([[revision4, 101]]).capacityDifferences[0], /shared\.js 100 -> 101 bytes/);
+assert.match(compareScriptVariants([[revision4, 60], [`${baseUrl}core/shared.js?v=5`, 60]]).capacityDifferences[0], /shared\.js 100 -> 120 bytes/);
+assert.match(compareScriptVariants([[revision4 + '&mode=other', 98]]).capacityDifferences[0], /new third-party\/shared script/);
+assert.match(compareScriptVariants([['https://cdn.example/core/shared.js?v=4', 98]]).capacityDifferences[0], /new third-party\/shared script/);
+assert.match(compareScriptVariants([[`${baseUrl}core/new-file.js?v=4`, 98]]).capacityDifferences[0], /new third-party\/shared script/);
+
 const docxGuard = new Error('DOCX runtime eagerly loaded');
 withTempBaseline(file => {
   const before = fs.readFileSync(file);
