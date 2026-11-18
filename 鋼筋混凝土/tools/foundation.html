@@ -6207,8 +6207,11 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     return {
       group:'偏心衝剪與有效板寬撓曲檢核',
       items:r.punchingCases.flatMap(item => [
-        { label:item.id + ' 衝剪剪應力', value:isoPunchingCaseLine(item), ok:item.okShear,
-          sub:item.reference ? '外力與實配依據 ' + item.reference : '' },
+        { label:item.id + ' 衝剪剪應力', formula:item.pending ? '軸力分量' : 'vu,max ≤ φvc',
+          value:`${isoNumber(item.peakStress)}／${isoNumber(item.phiVcStress)}`, unit:'kgf/cm²', ok:item.okShear,
+          sub:`Vu,軸力=${isoNumber(item.Vu2Kgf / 1000)} tf，λs=${isoNumber(item.lambdaS, 3)}。` +
+            (item.pending ? '柱底彎矩待補。' : `${item.peakCorner} 最大剪應力。`) +
+            (item.reference ? '外力與實配依據 ' + item.reference : '') },
         ...[['L',item.alongL],['B',item.alongB]].filter(([, axis]) => axis).map(([name, axis]) => ({
           label:item.id + ' 沿 ' + name + ' 撓曲傳力',
           formula:'γf |Msc| ≤ 可用 φMn',
@@ -6325,7 +6328,8 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         { group:'剪力', items:[
           { label:'φVc ≥ Vu (單向)', value:`${(r.phiVc1/1000).toFixed(2)} / ${(r.Vu1/1000).toFixed(2)}（表22.5.5.1(c) λs=${r.lambdaS1.toFixed(2)}、ρw=${r.rhoW1.toFixed(4)}）`, unit:'tf', ok:r.okV1 },
           ...[r.oneWayX,r.oneWayY].map(t => ({ label:t.direction + ' 向 φVc ≥ Vu', value:`${(t.phiVc/1000).toFixed(2)} / ${(t.VuKgf/1000).toFixed(2)}（${t.caseId}、${t.side} 側；d=${t.depth.toFixed(2)} cm）`, unit:'tf', ok:t.phiVc >= t.VuKgf })),
-          { label:'φVc ≥ Vu (衝剪)', value:`${(r.phiVc2/1000).toFixed(2)} / ${(r.Vu2/1000).toFixed(2)}（${r.punchingAxialControl.id} 軸力分量）`, unit:'tf', ok:r.hasMomentTransfer ? null : r.okV2 },
+          { label:'φVc ≥ Vu (衝剪)', value:`${(r.phiVc2/1000).toFixed(2)} / ${(r.Vu2/1000).toFixed(2)}`,
+            sub:r.punchingAxialControl.id + ' 軸力分量', unit:'tf', ok:r.hasMomentTransfer ? null : r.okV2 },
           ...r.reviewWarnings.map(note => ({ label:'柱底彎矩傳遞與偏心衝剪', value:note, ok:null }))
         ]},
         ...(r.hasMomentTransfer ? [isoTransferReport(r)] : []),
