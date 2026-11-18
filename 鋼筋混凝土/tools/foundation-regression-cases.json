@@ -448,6 +448,31 @@
       ]
     },
     {
+      "key": "iso_factored_eccentric",
+      "label": "獨立基腳不同因數化組合控制 X、Y，偏心衝剪待確認",
+      "tab": "iso",
+      "values": {
+        "L": 400,
+        "B": 300,
+        "c1": 80,
+        "c2": 60,
+        "hf": 65,
+        "qa": 45,
+        "MDL": 15,
+        "MDLy": 10,
+        "isoStrengthCases": "U1,200,-35,10\nU2\t170\t7\t35"
+      },
+      "expected": {
+        "tab": "iso",
+        "Mu_tfm": 76.32,
+        "Vu1_tf": 62.5073149536875,
+        "okFlex": true,
+        "okV1": true,
+        "okV2": null,
+        "reviewWarningCount": 1
+      }
+    },
+    {
       "key": "iso_ecc_y_beyond_kern",
       "label": "獨立基腳 Y 向單向偏心超出核心（三角形部分接觸）",
       "tab": "iso",
@@ -467,6 +492,7 @@
       },
       "expected": {
         "tab": "iso",
+        "strengthPending": true,
         "qmax": 35.55555555555556,
         "qmin": 0,
         "okQ": true,
@@ -493,6 +519,7 @@
       },
       "expected": {
         "tab": "iso",
+        "strengthPending": true,
         "qmax": 32,
         "qmin": 0,
         "okQ": true
@@ -518,6 +545,7 @@
       },
       "expected": {
         "tab": "iso",
+        "strengthPending": true,
         "qmax": 32.128514056224894,
         "qmin": 0,
         "okQ": true
@@ -543,6 +571,7 @@
       },
       "expected": {
         "tab": "iso",
+        "strengthPending": true,
         "qmax": 32,
         "qmin": 0,
         "okQ": true,
@@ -569,6 +598,7 @@
       },
       "expected": {
         "tab": "iso",
+        "strengthPending": true,
         "okQ": false,
         "qmin": 0
       }
@@ -593,6 +623,7 @@
       },
       "expected": {
         "tab": "iso",
+        "strengthPending": true,
         "qmax": 106.66666666666667,
         "FS_over": 1.25,
         "okOver": false

@@ -412,6 +412,57 @@ async function exerciseFoundationProjectStorage(page) {
   assert(restored.ftLastOk, 'foundation project recalculates after restore', 'ftLast pile present');
 }
 
+async function exerciseIsoFactoredCases(page) {
+  await page.goto(TOOL_URL, { waitUntil:'domcontentloaded' });
+  const result = await page.evaluate(() => {
+    const setFields = values => {
+      for (const [id, value] of Object.entries(values)) document.getElementById(id).value = value;
+      document.getElementById('isoStrengthCases').dispatchEvent(new Event('input', { bubbles:true }));
+    };
+    setFields({ L:400, B:300, c1:80, c2:60, hf:65, qa:45, MDL:15, MDLy:10 });
+    const missing = window.ftLast;
+    const legacy = window.collectFoundationProjectData();
+    legacy.appVersion = 'V3.7';
+    delete legacy.fields.isoStrengthCases;
+    legacy.summary = { ...legacy.summary, banner:'舊版軸力均壓結果', reviewWarningCount:0 };
+    const legacyProject = window.RCReportFingerprint.withProjectCalculationFingerprint(legacy, {
+      ignoredKeys:['activeTab'], calculationContext:{ foundationTab:'iso' }
+    });
+    const entered = 'U1,200,-35,10\nU2\t170\t7\t35';
+    setFields({ isoStrengthCases:entered });
+    const applied = window.ftLast;
+    const review = window.lastFoundationAttachmentReadiness;
+    const saved = window.collectFoundationProjectData();
+    setFields({ isoStrengthCases:'U1,200,-35,' });
+    const invalid = window.ftLast;
+    const cleared = document.querySelector('#r-Mu .value').textContent;
+    setFields({ isoStrengthCases:'U1,200,135,0' });
+    const partial = window.ftLast;
+    window.applyFoundationProjectData(saved, { silent:true });
+    const replay = window.collectFoundationProjectData();
+    window.applyFoundationProjectData(legacyProject);
+    return { missing, applied, review, invalid, cleared, partial, entered, saved, replay,
+      migrated:window.ftLast, legacyNote:document.getElementById('foundationProjectStatus').textContent };
+  });
+  assert(result.missing.strengthUnavailable.includes('請補同一組合'), 'strength input is required for known service moments', result.missing.strengthUnavailable);
+  assert(Number.isFinite(result.missing.qmax), 'service pressure remains available', String(result.missing.qmax));
+  assert(result.applied.flexureControlX.caseId === 'U1' && result.applied.flexureControlX.side === '−',
+    'X uses simultaneous U1 reactions on minus L face', JSON.stringify(result.applied.flexureControlX));
+  assert(result.applied.flexureControlY.caseId === 'U2' && result.applied.flexureControlY.side === '+',
+    'Y uses simultaneous U2 reactions on plus B face', JSON.stringify(result.applied.flexureControlY));
+  assert(result.applied.okV2 === null && result.review.status === 'review',
+    'axial punching capacity alone cannot approve eccentric footing', JSON.stringify(result.review));
+  assert(result.invalid.strengthUnavailable.includes('第 1 列') && result.cleared === '—',
+    'blank moment invalidates prior strength', result.invalid.strengthUnavailable);
+  assert(result.partial.strengthUnavailable.includes('U1') && result.partial.strengthUnavailable.includes('部分接觸'),
+    'negative factored contact pressure cannot produce strength pass', result.partial.strengthUnavailable);
+  assert(result.replay.fields.isoStrengthCases.value === result.entered &&
+    result.replay.calculationFingerprint === result.saved.calculationFingerprint,
+    'V3.8 reopens factored load cases and recalculates fingerprint', result.replay.calculationFingerprint);
+  assert(result.migrated.strengthUnavailable.includes('請補同一組合') && result.legacyNote.includes('強度待補'),
+    'legacy eccentric project is reopened without inheriting current cases or old acceptance', result.legacyNote);
+}
+
 async function exerciseEarthPressureBridge(page) {
   const state = await page.evaluate(() => {
     const input = {
@@ -676,7 +727,7 @@ async function main() {
   assert(html.includes('id="mainTabs"'), 'foundation.html has section tabs', 'multi-foundation tab UI exists');
   assert(html.includes('id="bannerStatus"'), 'foundation.html has banner', 'summary banner exists');
   assert(html.includes('window.ftLast'), 'foundation.html exports ftLast', 'result snapshot exists for regression capture');
-  assert(html.includes('../shared/foundation-isolated.js?v=3') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
+  assert(html.includes('../shared/foundation-isolated.js?v=4') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
   assert(html.includes('../shared/foundation-pile.js?v=4') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
   assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
   assert(!/0\.53 \* lambda/.test(html) && !/0\.53 \* lambda/.test(pileCore), 'foundation one-way shear no longer uses the simplified 0.53λ√fc′ expression', 'Table 22.5.5.1(c) is required without shear reinforcement');
@@ -761,6 +812,7 @@ async function main() {
     await exerciseFoundationProjectStorage(page);
     await exerciseEarthPressureBridge(page);
     await exercisePilePyBridge(page);
+    await exerciseIsoFactoredCases(page);
     for (const tc of pack.cases) {
       // A preceding load case must not supply moments, materials or reinforcement to the next one.
       await page.goto(TOOL_URL, { waitUntil: 'domcontentloaded' });
@@ -792,6 +844,7 @@ async function main() {
         const r = window.ftLast || {};
         return {
           tab: r.tab,
+          strengthPending: !!r.strengthUnavailable,
           retainType: r.retainType,
           qmax: r.qmax,
           qmin: r.qmin,
@@ -905,7 +958,7 @@ async function main() {
       ['Vu1_tf', 'phiVc1_tf', 'Vu2_tf', 'phiVc2_tf'].forEach(key => {
         actual[key] = toTfMaybe(actual[key]);
       });
-      if (tc.tab === 'iso') {
+      if (tc.tab === 'iso' && !tc.expected.strengthPending) {
         assert(Number.isFinite(actual.AsReqX) && Number.isFinite(actual.AsReqY), `${tc.key} :: isolated footing reinforcement demand is finite`, JSON.stringify({ AsReqX:actual.AsReqX, AsReqY:actual.AsReqY }));
       }
       if (tc.tab === 'combined') {

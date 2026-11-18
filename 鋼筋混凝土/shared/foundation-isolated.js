@@ -133,8 +133,47 @@
     return issues;
   }
 
+  function pressureCase({ id, PuTf, mAlongLTfm, mAlongBTfm }, L, B) {
+    if (!Number.isFinite(PuTf) || PuTf <= 0 || !Number.isFinite(mAlongLTfm) || !Number.isFinite(mAlongBTfm)) {
+      throw new RangeError(`${id}：請填同一組合的正向壓力 Pu 與兩向有號彎矩（零值也須填）。`);
+    }
+    // q(x,y) = average + gradientX*x + gradientY*y, x along L and y along B.
+    // Internally, q is in kgf/cm² and coordinates are in cm.
+    const average = PuTf * 1000 / (L * B);
+    const gradientX = 12 * mAlongLTfm * 1e5 / (B * L ** 3);
+    const gradientY = 12 * mAlongBTfm * 1e5 / (L * B ** 3);
+    const cornerVariation = Math.abs(gradientX) * L / 2 + Math.abs(gradientY) * B / 2;
+    if (cornerVariation > average * (1 + 1e-12)) {
+      throw new RangeError(`${id}：因數化基底反力出現拉應力，須先完成部分接觸分析。`);
+    }
+    return { id, PuTf, mAlongLTfm, mAlongBTfm, average, gradientX, gradientY,
+      minTfM2: 10 * Math.max(0, average - cornerVariation), maxTfM2: 10 * (average + cornerVariation) };
+  }
+
+  function stripDemands(pressure, direction, span, width, arm, depth) {
+    const gradient = direction === 'X' ? pressure.gradientX : pressure.gradientY;
+    const face = span / 2 - arm;
+    const shearArm = Math.max(0, arm - depth);
+    // Integrating across the full perpendicular width cancels that direction's gradient.
+    // On each side, integrate q(t) or q(t)*t over the strip, measured from the cut.
+    return [1, -1].map(sign => {
+      const qFace = pressure.average + sign * gradient * face;
+      const qCut = pressure.average + sign * gradient * (face + depth);
+      return {
+        caseId: pressure.id,
+        side: sign === 1 ? '+' : '−',
+        momentKgfCm: width * (qFace * arm ** 2 / 2 + sign * gradient * arm ** 3 / 3),
+        shearKgf: width * shearArm * (qCut + sign * gradient * shearArm / 2)
+      };
+    });
+  }
+
+  const maxBy = (items, score) => items.reduce((control, item) => score(item) > score(control) ? item : control);
+
   function calculateStrength(input) {
-    const issues = validateInput(input);
+    const cases = input?.strengthCases ?? [{ id:'軸力工況', PuTf:Number(input?.PuTf), mAlongLTfm:0, mAlongBTfm:0 }];
+    if (!Array.isArray(cases) || !cases.length) throw new RangeError('請至少輸入一組因數化載重。');
+    const issues = validateInput({ ...input, PuTf:cases[0]?.PuTf });
     if (issues.length) throw new RangeError(`invalid-foundation-input:${issues.join(',')}`);
     if (!Flexure || typeof Flexure.phiMnRect !== 'function' || typeof Flexure.designAsRect !== 'function') {
       throw new Error('foundation-flexure-dependency-missing');
@@ -152,7 +191,6 @@
     const dbY = Number(input.dbY);
     const AsXPerM = Number(input.AsXPerM);
     const AsYPerM = Number(input.AsYPerM);
-    const PuTf = Number(input.PuTf);
     const phiShear = Number(input.phiShear);
     const lambda = Number(input.lambda);
 
@@ -160,14 +198,20 @@
     const dY = hf - cover - dbY;
     const d = Math.min(dX, dY);
     const areaM2 = B * L / 1e4;
-    const quTfM2 = PuTf / areaM2;
-    const quKgfCm2 = quTfM2 / 10;
     const armX = (L - c1) / 2;
     const armY = (B - c2) / 2;
     const arm = Math.max(armX, armY);
 
-    const MuxKgfCm = quKgfCm2 * B * armX * armX / 2;
-    const MuyKgfCm = quKgfCm2 * L * armY * armY / 2;
+    const pressureCases = cases.map(item => pressureCase(item, L, B));
+    const pressureControl = maxBy(pressureCases, item => item.maxTfM2);
+    const quKgfCm2 = pressureControl.average;
+    const quTfM2 = quKgfCm2 * 10;
+    const pressureX = pressureCases.flatMap(item => stripDemands(item, 'X', L, B, armX, dX));
+    const pressureY = pressureCases.flatMap(item => stripDemands(item, 'Y', B, L, armY, dY));
+    const flexureControlX = maxBy(pressureX, item => item.momentKgfCm);
+    const flexureControlY = maxBy(pressureY, item => item.momentKgfCm);
+    const MuxKgfCm = flexureControlX.momentKgfCm;
+    const MuyKgfCm = flexureControlY.momentKgfCm;
     const MuxTfm = MuxKgfCm / 1e5;
     const MuyTfm = MuyKgfCm / 1e5;
 
@@ -200,15 +244,15 @@
     // 單向剪力：距柱面 d 之臨界斷面，X 向懸臂（臂長 armX）斷面寬 B、受拉筋為 X 向筋；
     // Y 向懸臂（臂長 armY）斷面寬 L、受拉筋為 Y 向筋。表 22.5.5.1(c)，λs = 1（13.2.6.2(a)），Nu = 0。
     const lambdaS1 = sizeEffectFactor(d, { waived: true });
-    const oneWayFor = (direction, armDir, width, depth, AsProv) => {
+    const oneWayFor = (direction, armDir, width, depth, AsProv, pressureSides) => {
       const v1ArmDir = Math.max(0, armDir - depth);
-      const VuKgf = quKgfCm2 * width * v1ArmDir;
+      const { caseId, side, shearKgf:VuKgf } = maxBy(pressureSides, item => item.shearKgf);
       const shear = oneWayShearNoStirrups({ fc, lambda, bw: width, d:depth, As: AsProv, lambdaS: lambdaS1, phi: phiShear });
       const ratio = shear.phiVc > 0 ? VuKgf / shear.phiVc : (VuKgf > 0 ? Infinity : 0);
-      return { direction, depth, arm: armDir, v1Arm: v1ArmDir, width, As: AsProv, VuKgf, ratio, ...shear };
+      return { direction, caseId, side, depth, arm: armDir, v1Arm: v1ArmDir, width, As: AsProv, VuKgf, ratio, ...shear };
     };
-    const oneWayX = oneWayFor('X', armX, B, dX, AsProvX);
-    const oneWayY = oneWayFor('Y', armY, L, dY, AsProvY);
+    const oneWayX = oneWayFor('X', armX, B, dX, AsProvX, pressureX);
+    const oneWayY = oneWayFor('Y', armY, L, dY, AsProvY, pressureY);
     const oneWay = oneWayX.ratio >= oneWayY.ratio ? oneWayX : oneWayY;
     const v1Arm = oneWay.v1Arm;
     const v1Width = oneWay.width;
@@ -222,9 +266,14 @@
 
     const c1d = c1 + d;
     const c2d = c2 + d;
+    if (c1d >= L || c2d >= B) throw new RangeError('柱周衝剪臨界面觸及基腳自由邊，須按實際周界另核。');
     const bo = 2 * (c1d + c2d);
     const criticalAreaM2 = c1d * c2d / 1e4;
-    const Vu2Kgf = (PuTf - quTfM2 * criticalAreaM2) * 1000;
+    const punchingAxialControl = maxBy(pressureCases, item => item.PuTf);
+    // The centred critical area integrates the mean pressure, even with linear gradients.
+    // This is the axial component only and cannot certify eccentric punching.
+    const Vu2Kgf = (punchingAxialControl.PuTf - punchingAxialControl.average * 10 * criticalAreaM2) * 1000;
+    const eccentricPunching = pressureCases.some(item => item.mAlongLTfm !== 0 || item.mAlongBTfm !== 0);
     const betaC = Math.max(c1, c2) / Math.min(c1, c2);
     const alphaS = 40;
     // 雙向衝剪：λs = 1（13.2.6.2(a)）
@@ -238,6 +287,8 @@
 
     return {
       dX, dY, d, areaM2, quTfM2, quKgfCm2, armX, armY, arm,
+      pressureCases, pressureControl, pressureX, pressureY, flexureControlX, flexureControlY,
+      punchingAxialControl, eccentricPunching,
       MuxKgfCm, MuyKgfCm, MuKgfCm, MuxTfm, MuyTfm, MuTfm,
       AsProvX, AsProvY, phiMnXTfm, phiMnYTfm, MuMode, phiMnTfm,
       AsMinPerM, flexuralAsX: designX.As, flexuralAsY: designY.As, AsReqX, AsReqY, AsReq,

@@ -89,4 +89,43 @@ assert.equal(wrongKey.converged, false, 'wrong flexure demand key fails closed')
 assert.ok(Number.isNaN(wrongKey.As), 'wrong flexure demand key cannot silently become zero reinforcement');
 assert.throws(() => FoundationIsolated.calculateStrength({ ...input, hf: 8 }), /invalid-foundation-input/, 'invalid effective depth is rejected');
 
+const biaxial = FoundationIsolated.calculateStrength({
+  ...input, L:400, B:300, c1:80, c2:60,
+  strengthCases:[
+    { id:'U1', PuTf:200, mAlongLTfm:-35, mAlongBTfm:10 },
+    { id:'U2', PuTf:170, mAlongLTfm:7, mAlongBTfm:35 }
+  ]
+});
+near(biaxial.pressureCases[0].minTfM2, 10.625, 1e-9, 'minimum biaxial corner pressure');
+near(biaxial.pressureCases[0].maxTfM2, 22.708333333333, 1e-9, 'maximum biaxial corner pressure');
+assert.equal(biaxial.pressureControl.id, 'U1');
+assert.equal(biaxial.flexureControlX.caseId, 'U1');
+assert.equal(biaxial.flexureControlX.side, '−');
+assert.equal(biaxial.flexureControlY.caseId, 'U2');
+assert.equal(biaxial.flexureControlY.side, '+');
+// Pressure at strip endpoints is obtained from the average of the two corners across its width.
+// First moment of the trapezoid = qFace*arm²/6 + qEdge*arm²/3, per unit perpendicular width.
+const qU1FaceL = 200 / 12 + 4.375 * 0.4 / 2;
+const qU1EdgeL = 200 / 12 + 4.375;
+near(biaxial.MuxTfm, 3 * 1.6 ** 2 * (qU1FaceL / 6 + qU1EdgeL / 3), 1e-9, 'minus-L critical face bending');
+const qU2FaceB = 170 / 12 + (35 / 6) * 0.3 / 1.5;
+const qU2EdgeB = 170 / 12 + 35 / 6;
+near(biaxial.MuyTfm, 4 * 1.2 ** 2 * (qU2FaceB / 6 + qU2EdgeB / 3), 1e-9, 'plus-B critical face bending under another case');
+const shearArm = 1.6 - 0.50278;
+const qAtShear = qU1EdgeL - 4.375 * shearArm / 2;
+near(biaxial.oneWayX.VuKgf / 1000, 3 * shearArm * (qAtShear + qU1EdgeL) / 2, 1e-9, 'minus-L shear from trapezoid area beyond d');
+assert.equal(biaxial.oneWayX.caseId, 'U1');
+assert.equal(biaxial.oneWayX.side, '−');
+near(biaxial.Vu2Kgf / 1000, 200 - (200 / 12) * 1.30278 * 1.10278, 1e-9, 'centred punching area integrates out biaxial gradients');
+assert.equal(biaxial.eccentricPunching, true);
+const atKern = { id:'U1', PuTf:120, mAlongLTfm:50, mAlongBTfm:0 };
+near(FoundationIsolated.calculateStrength({ ...input, strengthCases:[atKern] }).pressureCases[0].minTfM2, 0, 1e-9, 'exact kern boundary');
+assert.throws(() => FoundationIsolated.calculateStrength({ ...input,
+  strengthCases:[{ ...atKern, mAlongBTfm:0.01 }]
+}), /U1.*部分接觸分析/, 'strength case outside the biaxial kern must fail closed');
+assert.throws(() => FoundationIsolated.calculateStrength({ ...input,
+  strengthCases:[{ ...atKern, mAlongBTfm:undefined }]
+}), /零值也須填/, 'blank moment cannot silently become zero');
+assert.throws(() => FoundationIsolated.calculateStrength({ ...input, c1:210 }), /臨界面觸及基腳自由邊/);
+
 console.log('foundation isolated strength core tests passed.');

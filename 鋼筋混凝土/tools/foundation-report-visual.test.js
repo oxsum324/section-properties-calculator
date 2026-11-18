@@ -13,7 +13,7 @@ const CASES_PATH = path.join(__dirname, 'foundation-regression-cases.json');
 const OUT_DIR = path.resolve(process.env.FOUNDATION_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,combined_default,combined_pass_warn,mat_pass_warn,retain_earth_bridge,retain_counterfort_warn,pile_default,pile_lateral_distribution')
+const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,iso_factored_eccentric,iso_ecc_y_at_kern,combined_default,combined_pass_warn,mat_pass_warn,retain_earth_bridge,retain_counterfort_warn,pile_default,pile_lateral_distribution')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -40,6 +40,21 @@ const EXPECTED = {
       '握裹',
       'ℓd 可用 ≥ ℓd 需求',
     ],
+  },
+  iso_factored_eccentric: {
+    title: '基礎設計計算書 — 獨立基腳',
+    expectedSnapshot: '待確認',
+    minCheckGroups: 4,
+    fragments: [
+      '強度載重組合與反力', '10.63／22.71 tf/m²', 'U1、−L 側', 'U2、+B 側',
+      '待確認柱底彎矩傳遞與偏心衝剪',
+    ],
+  },
+  iso_ecc_y_at_kern: {
+    title: '基礎設計計算書 — 獨立基腳',
+    expectedSnapshot: '待確認',
+    minCheckGroups: 2,
+    fragments: ['使用性與穩定', '32.00 / 100', '基腳強度', '請補同一組合的因數化 Pu 與兩向有號彎矩'],
   },
   combined_default: {
     title: '基礎設計計算書 — 聯合基腳',
@@ -437,7 +452,7 @@ async function main() {
         caseKey: tc.key,
         label: `${tc.key} foundation report`,
         assert,
-        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.7'],
+        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.8'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {

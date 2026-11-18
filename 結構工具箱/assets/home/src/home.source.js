@@ -191,7 +191,7 @@
       '/rc-slab': '2026-11-13',
       '/rc-wall': '2026-11-13',
       '/rc-shear-wall': '2026-11-13',
-      '/rc-foundation': '2026-11-13',
+      '/rc-foundation': '2026-11-18',
       '/rc-foundation-deep-beam-stm': '2026-10-23',
       '/rc-pile-cap-3d-stm': '2026-11-13',
       '/rc-pile': '2026-11-13',
@@ -488,7 +488,7 @@
     },
     {
       title: 'RC 基礎',
-      version: 'V3.7',
+      version: 'V3.8',
       href: '/rc-foundation',
       aliases: ['spread footing', 'RC footing design'],
       categories: ['member'],

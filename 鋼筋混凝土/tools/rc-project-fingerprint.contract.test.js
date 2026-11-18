@@ -237,7 +237,7 @@ const pageContracts = [
   ['slab.html', 'collectSlabProjectData', 'projectSnapshot = collectSlabProjectData()', '板 Slab 設計／檢核', 'V3.3'],
   ['wall.html', 'collectWallProjectData', 'projectSnapshot = collectWallProjectData()', '牆 Wall 設計／檢核', 'V3.7'],
   ['shear-wall.html', 'collectShearWallProjectData', 'projectSnapshot = collectShearWallProjectData()', '剪力牆 Shear Wall 設計／檢核', 'V0.6'],
-  ['foundation.html', 'collectFoundationProjectData', 'projectSnapshot = collectFoundationProjectData()', '基礎 Foundation 設計／檢核', 'V3.7'],
+  ['foundation.html', 'collectFoundationProjectData', 'projectSnapshot = collectFoundationProjectData()', '基礎 Foundation 設計／檢核', 'V3.8'],
   ['single-pile-designer.html', 'buildProjectPayload', 'projectSnapshot = buildProjectPayload()', '單樁承載力設計器', 'V3.5'],
 ];
 

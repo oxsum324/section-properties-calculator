@@ -193,7 +193,7 @@ async function main() {
     for (const needle of [
       'RC 樁帽三維壓拉桿模型檢核計算書',
       '來源追溯',
-      '基礎 Foundation 設計／檢核 V3.7',
+      '基礎 Foundation 設計／檢核 V3.8',
       'rc-foundation-pile-cap-3d-stm.v2',
       sourcePayload.source.calculationFingerprint,
       '共用 LoadCombo LRFD',
