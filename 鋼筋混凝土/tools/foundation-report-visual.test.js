@@ -13,7 +13,7 @@ const CASES_PATH = path.join(__dirname, 'foundation-regression-cases.json');
 const OUT_DIR = path.resolve(process.env.FOUNDATION_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,iso_factored_eccentric,iso_seismic_reduced_compression,iso_ecc_y_at_kern,combined_default,combined_pass_warn,mat_pass_warn,retain_earth_bridge,retain_counterfort_warn,pile_default,pile_lateral_distribution')
+const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,iso_factored_eccentric,iso_seismic_reduced_compression,iso_partial_corner,iso_ecc_y_at_kern,combined_default,combined_pass_warn,mat_pass_warn,retain_earth_bridge,retain_counterfort_warn,pile_default,pile_lateral_distribution')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -61,6 +61,12 @@ const EXPECTED = {
     expectedSnapshot: 'NG',
     minCheckGroups: 4,
     fragments: ['D+L+E｜P=30.00 tf', '基底 M沿L=36.25 tf·m', '192.00 / 45', '0.75 / 1.2', 'D+L+E｜1.03'],
+  },
+  iso_partial_corner: {
+    title: '基礎設計計算書 — 獨立基腳',
+    expectedSnapshot: 'NG',
+    minCheckGroups: 4,
+    fragments: ['0.00／375.00 tf/m²', '承壓面積 0.240 m²', 'C 基底承壓區圖', '待確認柱底彎矩傳遞與偏心衝剪'],
   },
   combined_default: {
     title: '基礎設計計算書 — 聯合基腳',
@@ -458,7 +464,7 @@ async function main() {
         caseKey: tc.key,
         label: `${tc.key} foundation report`,
         assert,
-        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.9'],
+        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V4.0'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {

@@ -121,12 +121,45 @@ assert.equal(biaxial.eccentricPunching, true);
 const atKern = { id:'U1', PuTf:120, mAlongLTfm:50, mAlongBTfm:0 };
 near(FoundationIsolated.calculateStrength({ ...input, strengthCases:[atKern] }).pressureCases[0].minTfM2, 0, 1e-9, 'exact kern boundary');
 assert.throws(() => FoundationIsolated.calculateStrength({ ...input,
-  strengthCases:[{ ...atKern, mAlongBTfm:0.01 }]
-}), /U1.*部分接觸分析/, 'strength case outside the biaxial kern must fail closed');
+  strengthCases:[{ ...atKern, mAlongLTfm:150 }]
+}), /U1.*失去承壓平衡/, 'a resultant at the edge has no finite compression solution');
 assert.throws(() => FoundationIsolated.calculateStrength({ ...input,
   strengthCases:[{ ...atKern, mAlongBTfm:undefined }]
 }), /零值也須填/, 'blank moment cannot silently become zero');
 assert.throws(() => FoundationIsolated.calculateStrength({ ...input, c1:210 }), /臨界面觸及基腳自由邊/);
+
+// The corner pressure varies linearly over a right triangle with legs 0.8 m / 0.6 m.
+// P = 375 × 0.8 × 0.6 / 6 = 30 tf, centroid at a quarter of each leg from the peak.
+const cornerContact = FoundationIsolated.calculateStrength({
+  ...input, hf:64.722, strengthCases:[{ id:'C', PuTf:30, mAlongLTfm:31.5, mAlongBTfm:-33 }]
+});
+near(cornerContact.pressureControl.contactAreaM2, 0.24, 1e-8, 'corner triangle area');
+near(cornerContact.pressureControl.maxTfM2, 375, 1e-6, 'corner triangle peak pressure');
+near(cornerContact.MuxTfm, 22.5, 1e-7, 'corner X flexure from force and centroid');
+near(cornerContact.MuyTfm, 24, 1e-7, 'corner Y flexure from force and centroid');
+assert.equal(cornerContact.flexureControlY.side, '−', 'opposite sign mirrors the contact polygon');
+near(cornerContact.oneWayX.VuKgf / 1000, 26.25, 1e-7, 'corner X shear outside d');
+near(cornerContact.oneWayY.VuKgf / 1000, 260 / 9, 1e-7, 'corner Y shear outside d');
+near(cornerContact.Vu2Kgf / 1000, 30, 1e-7, 'no compressed area inside the punching perimeter');
+near(cornerContact.lambdaS1, Math.sqrt(2 / 3.2), 1e-9, 'partial contact retains the size effect');
+const mixedContact = FoundationIsolated.calculateStrength({
+  ...input, hf:64.722, strengthCases:[
+    { id:'G', PuTf:200, mAlongLTfm:0, mAlongBTfm:0 },
+    { id:'C', PuTf:30, mAlongLTfm:31.5, mAlongBTfm:-33 }
+  ]
+});
+assert.equal(mixedContact.oneWayY.caseId, 'C', 'smaller shear can govern once the contact-dependent capacity is applied');
+assert.ok(mixedContact.oneWayY.VuKgf < 32000);
+
+// For q = 24·max(0,1+x+y), x,y in [-1,1] m, clipping the negative triangle gives
+// P = 24·(4+1/6), each first moment = 24·(4/3−1/8), and 3.5 m² contact.
+const pentagon = FoundationIsolated.calculateStrength({
+  ...input, L:200, B:200, strengthCases:[{ id:'P', PuTf:100, mAlongLTfm:29, mAlongBTfm:29 }]
+});
+near(pentagon.pressureControl.contactAreaM2, 3.5, 1e-8, 'pentagon contact area');
+near(pentagon.pressureControl.maxTfM2, 72, 1e-7, 'pentagon peak pressure');
+near(pentagon.Vu2Kgf / 1000, 100 - 24 * (1.10278 ** 2 + 0.10278 ** 3 / 6), 1e-7,
+  'punching deducts only the compressed part inside the critical perimeter');
 
 const serviceInput = {
   B:250, L:250, hf:65, qa:45, Df:150, gammaSoil:1.8, mu:0.4,

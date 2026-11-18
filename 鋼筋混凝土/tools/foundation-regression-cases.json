@@ -612,8 +612,8 @@
       }
     },
     {
-      "key": "iso_biaxial_outside_kern_refused",
-      "label": "獨立基腳雙向偏心超出核心拒算",
+      "key": "iso_biaxial_outside_kern",
+      "label": "獨立基腳雙向偏心超出核心，求服務承壓區",
       "tab": "iso",
       "values": {
         "PD": 70,
@@ -632,8 +632,36 @@
       "expected": {
         "tab": "iso",
         "strengthPending": true,
-        "okQ": false,
+        "okQ": true,
         "qmin": 0
+      }
+    },
+    {
+      "key": "iso_partial_corner",
+      "label": "獨立基腳雙向角隅三角形承壓，服務與強度均可積分",
+      "tab": "iso",
+      "values": {
+        "hf": 64.722,
+        "PD": 30,
+        "PL": 0,
+        "MDL": 31.5,
+        "MDLy": -33,
+        "qa": 45,
+        "isoStrengthCases": "C,30,31.5,-33"
+      },
+      "expected": {
+        "tab": "iso",
+        "qmax": 375,
+        "qmin": 0,
+        "contactArea": 0.24,
+        "strengthContactArea": 0.24,
+        "Mux_tfm": 22.5,
+        "Muy_tfm": 24,
+        "Vu1_tf": 28.88888888888889,
+        "Vu2_tf": 30,
+        "okQ": false,
+        "okV2": null,
+        "attachmentStatus": "blocked"
       }
     },
     {

@@ -133,58 +133,155 @@
     return issues;
   }
 
+  const basePolygon = [[-1,-1], [1,-1], [1,1], [-1,1]];
+  const maxBy = (items, score) => items.reduce((control, item) => score(item) > score(control) ? item : control);
+
+  function clipPolygon(polygon, signedDistance) {
+    const clipped = [];
+    for (let i = 0; i < polygon.length; i++) {
+      const from = polygon[i], to = polygon[(i + 1) % polygon.length];
+      const a = signedDistance(from), b = signedDistance(to);
+      if (a >= 0) clipped.push(from);
+      if ((a > 0 && b < 0) || (a < 0 && b > 0)) {
+        const fraction = a / (a - b);
+        clipped.push(from.map((value, axis) => value + fraction * (to[axis] - value)));
+      }
+    }
+    return clipped;
+  }
+
+  // Integrate through degree two exactly: three barycentric points on each triangle.
+  function polygonMoments(polygon) {
+    const sums = [0, 0, 0, 0, 0, 0];
+    for (let i = 1; i + 1 < polygon.length; i++) {
+      const triangle = [polygon[0], polygon[i], polygon[i + 1]];
+      const [[ax, ay], [bx, by], [cx, cy]] = triangle;
+      const weight = Math.abs((bx - ax) * (cy - ay) - (by - ay) * (cx - ax)) / 24;
+      for (const [vx, vy] of triangle) {
+        const x = (ax + bx + cx + 3 * vx) / 6;
+        const y = (ay + by + cy + 3 * vy) / 6;
+        sums[0] += weight;
+        sums[1] += weight * x;
+        sums[2] += weight * y;
+        sums[3] += weight * x * x;
+        sums[4] += weight * x * y;
+        sums[5] += weight * y * y;
+      }
+    }
+    const [area, x, y, xx, xy, yy] = sums; // Divided by the normalised full area (4).
+    return [[area, x, y], [x, xx, xy], [y, xy, yy]];
+  }
+
+  const dot = (a, b) => a.reduce((sum, value, index) => sum + value * b[index], 0);
+
+  function solveThree(matrix, rhs) {
+    const rows = matrix.map((row, i) => [...row, rhs[i]]);
+    for (let k = 0; k < 3; k++) {
+      const pivot = maxBy(rows.slice(k), row => Math.abs(row[k]));
+      const index = rows.indexOf(pivot);
+      [rows[k], rows[index]] = [pivot, rows[k]];
+      const scale = pivot[k];
+      if (!Number.isFinite(scale) || Math.abs(scale) < 1e-19) return null;
+      rows[k] = pivot.map(value => value / scale);
+      for (let i = 0; i < 3; i++) {
+        if (i !== k) rows[i] = rows[i].map((value, j) => value - rows[i][k] * rows[k][j]);
+      }
+    }
+    return rows.map(row => row[3]);
+  }
+
+  function planeAt([offset, dx, dy], [x, y]) {
+    return offset + dx * x + dy * y;
+  }
+
+  function contactPlane(ex, ey) {
+    // q / (P/A) = max(0, a + b*x + c*y), x and y normalised to [-1, 1].
+    // The Jacobian is the integral of [1,x,y] ⊗ [1,x,y] over the compressed polygon.
+    const target = [1, ex, ey];
+    const evaluate = plane => {
+      const polygon = clipPolygon(basePolygon, point => planeAt(plane, point));
+      const jacobian = polygonMoments(polygon);
+      const residual = jacobian.map((row, i) => dot(row, plane) - target[i]);
+      return { plane, polygon, jacobian, residual, error:Math.hypot(...residual) };
+    };
+    const partial = 3 * (Math.abs(ex) + Math.abs(ey)) > 1 + 1e-12;
+    if (!partial) return { ...evaluate([1, 3 * ex, 3 * ey]), partial };
+    if (!ex || !ey) {
+      const relativeLength = 3 * (1 - Math.max(Math.abs(ex), Math.abs(ey)));
+      const slope = 4 / relativeLength ** 2;
+      return { ...evaluate([slope * (relativeLength - 1), Math.sign(ex) * slope, Math.sign(ey) * slope]), partial };
+    }
+    if (Math.abs(ex) >= 0.5 && Math.abs(ey) >= 0.5) {
+      // A triangular contact patch has its resultant one quarter of each leg from the loaded corner.
+      const legX = 4 * (1 - Math.abs(ex)), legY = 4 * (1 - Math.abs(ey));
+      const peak = 24 / (legX * legY);
+      const dx = peak / legX, dy = peak / legY;
+      return { ...evaluate([peak - dx - dy, Math.sign(ex) * dx, Math.sign(ey) * dy]), partial };
+    }
+
+    let state = evaluate([1, 3 * ex, 3 * ey]);
+    for (let i = 0; i < 100 && state.error > 2e-10; i++) {
+      const direction = solveThree(state.jacobian, state.residual);
+      if (!direction) break;
+      let improved = false;
+      for (let step = 1; step >= 2 ** -24; step /= 2) {
+        const next = evaluate(state.plane.map((value, index) => value - step * direction[index]));
+        if (next.error < state.error) {
+          state = next;
+          improved = true;
+          break;
+        }
+      }
+      if (!improved) break;
+    }
+    return { ...state, partial };
+  }
+
+  function soilContact(P, mx, my, length, width) {
+    const ex = P > 0 ? Math.abs(mx) / P : Infinity;
+    const ey = P > 0 ? Math.abs(my) / P : Infinity;
+    const kern = ex / length + ey / width;
+    const base = { ex, ey, kern, qmin:null, qmax:null, contactAreaM2:null };
+    if (ex >= length / 2 || ey >= width / 2) return { ...base, contact:'失去承壓平衡' };
+    const { plane, polygon, jacobian, error, partial } = contactPlane(2 * mx / (P * length), 2 * my / (P * width));
+    if (!(error <= 2e-10)) return { ...base, contact:'接觸反力未達平衡' };
+    const average = P / (length * width);
+    const corners = basePolygon.map(point => Math.max(0, planeAt(plane, point)) * average);
+    if (!corners.every(Number.isFinite)) return { ...base, contact:'接觸壓力超出可計算範圍' };
+    const contact = !partial ? '全底面接觸' : mx && my ? '雙向部分接觸' : '單向三角形';
+    return { ...base, contact, partial, plane, polygon, error, contactAreaM2:jacobian[0][0] * length * width,
+      qmin:Math.min(...corners), qmax:Math.max(...corners) };
+  }
+
   function pressureCase({ id, PuTf, mAlongLTfm, mAlongBTfm }, L, B) {
     if (!Number.isFinite(PuTf) || PuTf <= 0 || !Number.isFinite(mAlongLTfm) || !Number.isFinite(mAlongBTfm)) {
       throw new RangeError(`${id}：請填同一組合的正向壓力 Pu 與兩向有號彎矩（零值也須填）。`);
     }
-    // q(x,y) = average + gradientX*x + gradientY*y, x along L and y along B.
-    // Internally, q is in kgf/cm² and coordinates are in cm.
-    const average = PuTf * 1000 / (L * B);
-    const gradientX = 12 * mAlongLTfm * 1e5 / (B * L ** 3);
-    const gradientY = 12 * mAlongBTfm * 1e5 / (L * B ** 3);
-    const cornerVariation = Math.abs(gradientX) * L / 2 + Math.abs(gradientY) * B / 2;
-    if (cornerVariation > average * (1 + 1e-12)) {
-      throw new RangeError(`${id}：因數化基底反力出現拉應力，須先完成部分接觸分析。`);
-    }
-    return { id, PuTf, mAlongLTfm, mAlongBTfm, average, gradientX, gradientY,
-      minTfM2: 10 * Math.max(0, average - cornerVariation), maxTfM2: 10 * (average + cornerVariation) };
+    const reaction = soilContact(PuTf, mAlongLTfm, mAlongBTfm, L / 100, B / 100);
+    if (reaction.qmax === null) throw new RangeError(`${id}：${reaction.contact}，須另核基底反力。`);
+    return { ...reaction, id, PuTf, mAlongLTfm, mAlongBTfm, average:PuTf * 1000 / (L * B),
+      minTfM2:reaction.qmin, maxTfM2:reaction.qmax };
   }
 
-  function stripDemands(pressure, direction, span, width, arm, depth) {
-    const gradient = direction === 'X' ? pressure.gradientX : pressure.gradientY;
-    const face = span / 2 - arm;
-    const shearArm = Math.max(0, arm - depth);
-    // Integrating across the full perpendicular width cancels that direction's gradient.
-    // On each side, integrate q(t) or q(t)*t over the strip, measured from the cut.
+  function reactionIntegrals(pressure, polygon) {
+    // Scale normalised polygon integrals to kgf and kgf × normalised coordinate.
+    return polygonMoments(polygon).map(row => pressure.PuTf * 1000 * dot(row, pressure.plane));
+  }
+
+  function stripDemands(pressure, direction, span, arm, depth) {
+    const axis = direction === 'X' ? 0 : 1;
+    const face = 1 - 2 * arm / span;
     return [1, -1].map(sign => {
-      const qFace = pressure.average + sign * gradient * face;
-      const qCut = pressure.average + sign * gradient * (face + depth);
+      const cut = face + 2 * depth / span;
+      const faceZone = clipPolygon(pressure.polygon, point => sign * point[axis] - face);
+      const shearZone = clipPolygon(pressure.polygon, point => sign * point[axis] - cut);
+      const forceAndMoments = reactionIntegrals(pressure, faceZone);
+      const moment = span / 2 * (sign * forceAndMoments[axis + 1] - face * forceAndMoments[0]);
       return {
-        caseId: pressure.id,
-        side: sign === 1 ? '+' : '−',
-        momentKgfCm: width * (qFace * arm ** 2 / 2 + sign * gradient * arm ** 3 / 3),
-        shearKgf: width * shearArm * (qCut + sign * gradient * shearArm / 2)
+        caseId:pressure.id, side:sign === 1 ? '+' : '−', partial:pressure.partial,
+        momentKgfCm:Math.max(0, moment), shearKgf:Math.max(0, reactionIntegrals(pressure, shearZone)[0])
       };
     });
-  }
-
-  const maxBy = (items, score) => items.reduce((control, item) => score(item) > score(control) ? item : control);
-
-  function serviceContact(P, mx, my, length, width) {
-    const ex = P > 0 ? Math.abs(mx) / P : Infinity;
-    const ey = P > 0 ? Math.abs(my) / P : Infinity;
-    const kern = ex / length + ey / width;
-    if (ex >= length / 2 || ey >= width / 2) {
-      return { ex, ey, kern, contact:'失去承壓平衡', qmin:null, qmax:null };
-    }
-    if (kern <= 1 / 6 + 1e-12) {
-      const average = P / (length * width);
-      const variation = average * 6 * kern;
-      return { ex, ey, kern, contact:'全底面接觸', qmin:Math.max(0, average - variation), qmax:average + variation };
-    }
-    if (mx && my) return { ex, ey, kern, contact:'雙向部分接觸待分析', qmin:0, qmax:null };
-    const contactArea = 3 * (mx ? width * (length / 2 - ex) : length * (width / 2 - ey));
-    return { ex, ey, kern, contact:'單向三角形', qmin:0, qmax:2 * P / contactArea };
   }
 
   function calculateService({ B, L, hf, qa, Df, gammaSoil, mu, PD, PL, PE, MxDL, MyDL, MxE, MyE, HDL, HE }) {
@@ -203,7 +300,7 @@
       const { P, h, my } = load;
       // Signed H acts at the column/footing interface, positive toward the +L pressure side.
       const mxBase = load.mx + h * hf / 100;
-      const contact = serviceContact(P, mxBase, my, length, width);
+      const contact = soilContact(P, mxBase, my, length, width);
       const N = Math.max(0, P + Wsoil);
       const slide = h ? mu * N / Math.abs(h) : null;
       const overL = mxBase ? Math.max(0, P) * length / (2 * Math.abs(mxBase)) : null;
@@ -258,8 +355,8 @@
     const pressureControl = maxBy(pressureCases, item => item.maxTfM2);
     const quKgfCm2 = pressureControl.average;
     const quTfM2 = quKgfCm2 * 10;
-    const pressureX = pressureCases.flatMap(item => stripDemands(item, 'X', L, B, armX, dX));
-    const pressureY = pressureCases.flatMap(item => stripDemands(item, 'Y', B, L, armY, dY));
+    const pressureX = pressureCases.flatMap(item => stripDemands(item, 'X', L, armX, dX));
+    const pressureY = pressureCases.flatMap(item => stripDemands(item, 'Y', B, armY, dY));
     const flexureControlX = maxBy(pressureX, item => item.momentKgfCm);
     const flexureControlY = maxBy(pressureY, item => item.momentKgfCm);
     const MuxKgfCm = flexureControlX.momentKgfCm;
@@ -293,15 +390,16 @@
     const centerBandRatio = 2 / (betaRect + 1);
     const isRect = Math.abs(L - B) > 1;
 
-    // 單向剪力：距柱面 d 之臨界斷面，X 向懸臂（臂長 armX）斷面寬 B、受拉筋為 X 向筋；
-    // Y 向懸臂（臂長 armY）斷面寬 L、受拉筋為 Y 向筋。表 22.5.5.1(c)，λs = 1（13.2.6.2(a)），Nu = 0。
-    const lambdaS1 = sizeEffectFactor(d, { waived: true });
+    // Use the size factor for each case independently, then compare demand/capacity.
     const oneWayFor = (direction, armDir, width, depth, AsProv, pressureSides) => {
       const v1ArmDir = Math.max(0, armDir - depth);
-      const { caseId, side, shearKgf:VuKgf } = maxBy(pressureSides, item => item.shearKgf);
-      const shear = oneWayShearNoStirrups({ fc, lambda, bw: width, d:depth, As: AsProv, lambdaS: lambdaS1, phi: phiShear });
-      const ratio = shear.phiVc > 0 ? VuKgf / shear.phiVc : (VuKgf > 0 ? Infinity : 0);
-      return { direction, caseId, side, depth, arm: armDir, v1Arm: v1ArmDir, width, As: AsProv, VuKgf, ratio, ...shear };
+      const results = pressureSides.map(({ caseId, side, shearKgf:VuKgf, partial }) => {
+        const lambdaS = sizeEffectFactor(depth, { waived:!partial });
+        const shear = oneWayShearNoStirrups({ fc, lambda, bw:width, d:depth, As:AsProv, lambdaS, phi:phiShear });
+        const ratio = shear.phiVc > 0 ? VuKgf / shear.phiVc : (VuKgf > 0 ? Infinity : 0);
+        return { direction, caseId, side, partial, depth, arm:armDir, v1Arm:v1ArmDir, width, As:AsProv, VuKgf, ratio, ...shear };
+      });
+      return maxBy(results, item => item.ratio);
     };
     const oneWayX = oneWayFor('X', armX, B, dX, AsProvX, pressureX);
     const oneWayY = oneWayFor('Y', armY, L, dY, AsProvY, pressureY);
@@ -321,21 +419,25 @@
     if (c1d >= L || c2d >= B) throw new RangeError('柱周衝剪臨界面觸及基腳自由邊，須按實際周界另核。');
     const bo = 2 * (c1d + c2d);
     const criticalAreaM2 = c1d * c2d / 1e4;
-    const punchingAxialControl = maxBy(pressureCases, item => item.PuTf);
-    // The centred critical area integrates the mean pressure, even with linear gradients.
-    // This is the axial component only and cannot certify eccentric punching.
-    const Vu2Kgf = (punchingAxialControl.PuTf - punchingAxialControl.average * 10 * criticalAreaM2) * 1000;
     const eccentricPunching = pressureCases.some(item => item.mAlongLTfm !== 0 || item.mAlongBTfm !== 0);
     const betaC = Math.max(c1, c2) / Math.min(c1, c2);
     const alphaS = 40;
-    // 雙向衝剪：λs = 1（13.2.6.2(a)）
-    const lambdaS2 = sizeEffectFactor(d, { waived: true });
-    const twoWay = twoWayShearStressNoStirrups({ fc, lambda, lambdaS: lambdaS2, betaC, alphaS, bo, d });
-    const vcA = twoWay.vcA;
-    const vcB = twoWay.vcB;
-    const vcC = twoWay.vcC;
-    const vc2 = twoWay.vc;
-    const phiVc2Kgf = phiShear * vc2 * bo * d;
+    // Integrate the actual upward pressure inside the critical perimeter for each case.
+    const punchingCases = pressureCases.map(item => {
+      const critical = [1, -1].reduce((polygon, sign) => {
+        const withinX = clipPolygon(polygon, ([x]) => c1d / L + sign * x);
+        return clipPolygon(withinX, ([, y]) => c2d / B + sign * y);
+      }, item.polygon);
+      const upliftKgf = reactionIntegrals(item, critical)[0];
+      const Vu2Kgf = Math.max(0, item.PuTf * 1000 - upliftKgf);
+      const lambdaS = sizeEffectFactor(d, { waived:!item.partial });
+      const twoWay = twoWayShearStressNoStirrups({ fc, lambda, lambdaS, betaC, alphaS, bo, d });
+      const phiVc2Kgf = phiShear * twoWay.vc * bo * d;
+      return { ...item, ...twoWay, upliftKgf, Vu2Kgf, phiVc2Kgf };
+    });
+    const punchingAxialControl = maxBy(punchingCases, item => item.Vu2Kgf / item.phiVc2Kgf);
+    const { Vu2Kgf, phiVc2Kgf, vcA, vcB, vcC, vc:vc2, lambdaS:lambdaS2 } = punchingAxialControl;
+    const lambdaS1 = oneWay.lambdaS;
 
     return {
       dX, dY, d, areaM2, quTfM2, quKgfCm2, armX, armY, arm,
