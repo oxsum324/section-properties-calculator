@@ -440,9 +440,14 @@ async function exerciseIsoFactoredCases(page) {
     const partial = window.ftLast;
     window.applyFoundationProjectData(saved, { silent:true });
     const replay = window.collectFoundationProjectData();
+    const legacyWithStrength = window.RCReportFingerprint.withProjectCalculationFingerprint({
+      ...saved, appVersion:'V3.8', summary:{ ...saved.summary, banner:'舊版服務載重包絡' }
+    }, { ignoredKeys:['activeTab'], calculationContext:{ foundationTab:'iso' } });
+    window.applyFoundationProjectData(legacyWithStrength);
+    const migratedStrength = document.getElementById('isoStrengthCases').value;
     window.applyFoundationProjectData(legacyProject);
     return { missing, applied, review, invalid, cleared, partial, entered, saved, replay,
-      migrated:window.ftLast, legacyNote:document.getElementById('foundationProjectStatus').textContent };
+      migratedStrength, migrated:window.ftLast, legacyNote:document.getElementById('foundationProjectStatus').textContent };
   });
   assert(result.missing.strengthUnavailable.includes('請補同一組合'), 'strength input is required for known service moments', result.missing.strengthUnavailable);
   assert(Number.isFinite(result.missing.qmax), 'service pressure remains available', String(result.missing.qmax));
@@ -458,7 +463,8 @@ async function exerciseIsoFactoredCases(page) {
     'negative factored contact pressure cannot produce strength pass', result.partial.strengthUnavailable);
   assert(result.replay.fields.isoStrengthCases.value === result.entered &&
     result.replay.calculationFingerprint === result.saved.calculationFingerprint,
-    'V3.8 reopens factored load cases and recalculates fingerprint', result.replay.calculationFingerprint);
+    'V3.9 reopens factored load cases and recalculates fingerprint', result.replay.calculationFingerprint);
+  assert(result.migratedStrength === result.entered, 'V3.8 project preserves signed factored cases during service recalculation', result.migratedStrength);
   assert(result.migrated.strengthUnavailable.includes('請補同一組合') && result.legacyNote.includes('強度待補'),
     'legacy eccentric project is reopened without inheriting current cases or old acceptance', result.legacyNote);
 }
@@ -727,7 +733,7 @@ async function main() {
   assert(html.includes('id="mainTabs"'), 'foundation.html has section tabs', 'multi-foundation tab UI exists');
   assert(html.includes('id="bannerStatus"'), 'foundation.html has banner', 'summary banner exists');
   assert(html.includes('window.ftLast'), 'foundation.html exports ftLast', 'result snapshot exists for regression capture');
-  assert(html.includes('../shared/foundation-isolated.js?v=4') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
+  assert(html.includes('../shared/foundation-isolated.js?v=5') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
   assert(html.includes('../shared/foundation-pile.js?v=4') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
   assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
   assert(!/0\.53 \* lambda/.test(html) && !/0\.53 \* lambda/.test(pileCore), 'foundation one-way shear no longer uses the simplified 0.53λ√fc′ expression', 'Table 22.5.5.1(c) is required without shear reinforcement');
@@ -770,7 +776,7 @@ async function main() {
   assert(html.includes('PILE_PY_BRIDGE.inspectState'), 'foundation revalidates adopted p-y source against current model', 'fail-closed replay gate exists');
   assert(reportSrc.includes("group:'專項 p-y 分析結果'"), 'foundation report includes adopted p-y calculation results', 'formal report result group exists');
   assert(reportSrc.includes("label:'分析範圍 / Hx / Hy'") && reportSrc.includes("label:'來源表格換算'"), 'foundation report identifies p-y analysis scope and table provenance', 'formal report provenance exists');
-  assert(html.includes('pile-cap-3d-stm-bridge.js?v=6') && html.includes('id="btnOpenPileCap3DSTM"') && html.includes('id="btnDownloadPileCap3DSTM"'), 'foundation exposes versioned pile-cap 3D STM bridge', 'one-click and JSON fallback controls exist');
+  assert(html.includes('pile-cap-3d-stm-bridge.js?v=7') && html.includes('id="btnOpenPileCap3DSTM"') && html.includes('id="btnDownloadPileCap3DSTM"'), 'foundation exposes versioned pile-cap 3D STM bridge', 'one-click and JSON fallback controls exist');
   assert(html.includes('pile-cap-load-combinations.js?v=1') && html.includes('id="pileCap3DSTMCaseMode"') && html.includes('id="btnPreviewPileCap3DSTMCombos"'), 'foundation exposes automatic LRFD component-to-combination workflow', 'shared LoadCombo adapter, source mode and preview controls exist');
   assert(html.includes('PILE_CAP_LOAD_COMBINATIONS.generate') && html.includes("method:'LRFD'") && html.includes('loadCombinationSource = generated'), 'foundation generates traceable LRFD pile-cap cases from the shared load-combination core', 'automatic cases preserve component and schema provenance');
   assert(html.includes('loadcombo-components-v1') && html.includes('id="btnImportPileCapLoadComponents"') && html.includes('id="btnAdoptPileCapLoadComponents"') && html.includes('forces-receive.js'), 'foundation accepts common D/L/W/E component packages as review candidates', 'analysis JSON and ForcePicker candidates require explicit adoption');
@@ -845,6 +851,10 @@ async function main() {
         return {
           tab: r.tab,
           strengthPending: !!r.strengthUnavailable,
+          servicePressureCase:r.tab === 'iso' ? r.service.pressure.id : undefined,
+          serviceSlideCase:r.tab === 'iso' ? r.service.slide.id : undefined,
+          serviceOverCase:r.tab === 'iso' ? r.service.over.id : undefined,
+          attachmentStatus:window.lastFoundationAttachmentReadiness?.status,
           retainType: r.retainType,
           qmax: r.qmax,
           qmin: r.qmin,

@@ -170,6 +170,58 @@
 
   const maxBy = (items, score) => items.reduce((control, item) => score(item) > score(control) ? item : control);
 
+  function serviceContact(P, mx, my, length, width) {
+    const ex = P > 0 ? Math.abs(mx) / P : Infinity;
+    const ey = P > 0 ? Math.abs(my) / P : Infinity;
+    const kern = ex / length + ey / width;
+    if (ex >= length / 2 || ey >= width / 2) {
+      return { ex, ey, kern, contact:'失去承壓平衡', qmin:null, qmax:null };
+    }
+    if (kern <= 1 / 6 + 1e-12) {
+      const average = P / (length * width);
+      const variation = average * 6 * kern;
+      return { ex, ey, kern, contact:'全底面接觸', qmin:Math.max(0, average - variation), qmax:average + variation };
+    }
+    if (mx && my) return { ex, ey, kern, contact:'雙向部分接觸待分析', qmin:0, qmax:null };
+    const contactArea = 3 * (mx ? width * (length / 2 - ex) : length * (width / 2 - ey));
+    return { ex, ey, kern, contact:'單向三角形', qmin:0, qmax:2 * P / contactArea };
+  }
+
+  function calculateService({ B, L, hf, qa, Df, gammaSoil, mu, PD, PL, PE, MxDL, MyDL, MxE, MyE, HDL, HE }) {
+    const values = [B, L, hf, qa, Df, gammaSoil, mu, PD, PL, PE, MxDL, MyDL, MxE, MyE, HDL, HE];
+    if (!values.every(Number.isFinite) || Math.min(B, L, hf, qa) <= 0 || Math.min(Df, gammaSoil, mu) < 0) {
+      throw new RangeError('請核對基腳、土壤及服務載重資料。');
+    }
+    const length = L / 100;
+    const width = B / 100;
+    const Wsoil = Df / 100 * length * width * gammaSoil;
+    const loads = [{ id:'D+L', P:PD + PL, mx:MxDL, my:MyDL, h:HDL, slideMin:1.5 }];
+    if ([PE, MxE, MyE, HE].some(value => value !== 0)) {
+      loads.push({ id:'D+L+E', P:PD + PL + PE, mx:MxDL + MxE, my:MyDL + MyE, h:HDL + HE, slideMin:1.2 });
+    }
+    const cases = loads.map(load => {
+      const { P, h, my } = load;
+      // Signed H acts at the column/footing interface, positive toward the +L pressure side.
+      const mxBase = load.mx + h * hf / 100;
+      const contact = serviceContact(P, mxBase, my, length, width);
+      const N = Math.max(0, P + Wsoil);
+      const slide = h ? mu * N / Math.abs(h) : null;
+      const overL = mxBase ? Math.max(0, P) * length / (2 * Math.abs(mxBase)) : null;
+      const overB = my ? Math.max(0, P) * width / (2 * Math.abs(my)) : null;
+      const over = Math.min(overL ?? Infinity, overB ?? Infinity);
+      return { ...load, ...contact, mxBase, N, slide, overL, overB, over:Number.isFinite(over) ? over : null };
+    });
+    const pressure = maxBy(cases, item => item.qmax ?? Infinity);
+    const minPressure = cases.find(item => item.qmin === null) || maxBy(cases, item => -item.qmin);
+    const kern = maxBy(cases, item => item.kern);
+    const slide = maxBy(cases, item => item.slide === null ? -Infinity : -item.slide / item.slideMin);
+    const over = maxBy(cases, item => -(item.over ?? Infinity));
+    return { cases, Wsoil, pressure, minPressure, kern, slide, over,
+      okQ:pressure.qmax !== null && pressure.qmax <= qa,
+      okSlide:slide.slide === null ? null : slide.slide >= slide.slideMin,
+      okOver:over.over === null ? null : over.over >= 1.5 };
+  }
+
   function calculateStrength(input) {
     const cases = input?.strengthCases ?? [{ id:'軸力工況', PuTf:Number(input?.PuTf), mAlongLTfm:0, mAlongBTfm:0 }];
     if (!Array.isArray(cases) || !cases.length) throw new RangeError('請至少輸入一組因數化載重。');
@@ -305,6 +357,7 @@
     twoWayShearStressNoStirrups,
     requiredDepthOneWayNoStirrups,
     validateInput,
+    calculateService,
     calculateStrength
   };
 });

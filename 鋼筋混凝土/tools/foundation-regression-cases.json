@@ -473,6 +473,39 @@
       }
     },
     {
+      "key": "iso_seismic_reduced_compression",
+      "label": "獨立基腳地震減壓時三項服務檢核改判",
+      "tab": "iso",
+      "values": {
+        "hf": 65,
+        "qa": 45,
+        "PE": -110,
+        "MDL": 22,
+        "ME": -2,
+        "HDL": 5,
+        "HE": 20,
+        "barNoX": "#6",
+        "barNoY": "#6",
+        "barSpX": 16,
+        "barSpY": 16,
+        "isoStrengthCases": "U1,184,0,0"
+      },
+      "expected": {
+        "tab": "iso",
+        "qmin": 0,
+        "qmax": 192,
+        "okQ": false,
+        "okSlide": false,
+        "okOver": false,
+        "FS_slide": 0.75,
+        "FS_over": 1.0344827586206897,
+        "servicePressureCase": "D+L+E",
+        "serviceSlideCase": "D+L+E",
+        "serviceOverCase": "D+L+E",
+        "attachmentStatus": "blocked"
+      }
+    },
+    {
       "key": "iso_ecc_y_beyond_kern",
       "label": "獨立基腳 Y 向單向偏心超出核心（三角形部分接觸）",
       "tab": "iso",

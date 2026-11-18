@@ -128,4 +128,43 @@ assert.throws(() => FoundationIsolated.calculateStrength({ ...input,
 }), /零值也須填/, 'blank moment cannot silently become zero');
 assert.throws(() => FoundationIsolated.calculateStrength({ ...input, c1:210 }), /臨界面觸及基腳自由邊/);
 
+const serviceInput = {
+  B:250, L:250, hf:65, qa:45, Df:150, gammaSoil:1.8, mu:0.4,
+  PD:100, PL:40, PE:-110, MxDL:22, MyDL:0, MxE:-2, MyE:0, HDL:5, HE:20
+};
+const service = FoundationIsolated.calculateService(serviceInput);
+assert.equal(service.pressure.id, 'D+L+E');
+assert.equal(service.pressure.contact, '單向三角形');
+near(service.pressure.mxBase, 36.25, 1e-12, 'simultaneous base moment = 20 + 25 × 0.65');
+near(service.pressure.qmax, 192, 1e-9, 'reduced axial load produces triangular pressure over 0.125 m × 2.5 m');
+near(service.slide.slide, 0.75, 1e-9, 'sliding uses (30 + 16.875) tf / 25 tf');
+near(service.over.over, 37.5 / 36.25, 1e-9, 'overturning uses 30 tf times L/2');
+assert.equal(service.okQ, false);
+assert.equal(service.okSlide, false);
+assert.equal(service.okOver, false);
+
+const slideLimits = FoundationIsolated.calculateService({
+  ...serviceInput, Df:0, PD:70, PL:0, PE:-5, HDL:20, HE:0, MxDL:0, MxE:0
+});
+near(slideLimits.cases[0].slide, 1.4, 1e-9, 'long-term sliding factor');
+near(slideLimits.cases[1].slide, 1.3, 1e-9, 'seismic sliding factor');
+assert.equal(slideLimits.slide.id, 'D+L', 'sliding control follows the utilization against each case limit');
+assert.equal(slideLimits.okSlide, false);
+
+const uplift = FoundationIsolated.calculateService({ ...serviceInput, PE:-140, MxE:-22, HE:-5 });
+assert.equal(uplift.pressure.contact, '失去承壓平衡');
+assert.equal(uplift.pressure.qmax, null);
+assert.equal(uplift.okQ, false, 'zero net axial force cannot pass even with zero moment');
+const opposing = FoundationIsolated.calculateService({
+  ...serviceInput, hf:100, Df:0, PE:0, MxDL:10, MxE:0, HDL:-10, HE:0
+});
+near(opposing.pressure.qmax, 22.4, 1e-9, 'signed H can counteract the column moment at the base');
+assert.equal(opposing.okOver, null);
+const crossedAxes = FoundationIsolated.calculateService({
+  ...serviceInput, B:300, L:400, PD:120, PL:0, PE:0, MxDL:25, MyDL:0, MxE:-25, MyE:10, HDL:0, HE:0
+});
+near(crossedAxes.cases[0].qmax, 13.125, 1e-9, 'gravity case uses only its along-L moment');
+near(crossedAxes.cases[1].qmax, 11.666666666666667, 1e-9, 'seismic case uses only its along-B moment');
+assert.equal(crossedAxes.pressure.id, 'D+L', 'axes from separate cases cannot form a third load tuple');
+
 console.log('foundation isolated strength core tests passed.');

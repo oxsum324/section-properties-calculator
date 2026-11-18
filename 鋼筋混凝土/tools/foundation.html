@@ -18,7 +18,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>基礎設計 — RC 工具箱 V3.8</title>
+<title>基礎設計 — RC 工具箱 V3.9</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../shared/style.css">
@@ -285,7 +285,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>基礎 Foundation 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.8</span></h1>
+  <h1>基礎 Foundation 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.9</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ <a class="back" href="foundation-deep-beam-stm.html">基礎深梁二維 STM</a> ｜ <a class="back" href="pile-cap-3d-stm.html">樁帽三維 STM</a> ｜ 獨立基腳、聯合基腳、筏式基礎、樁基／樁帽、擋土牆、耐震繫材</p>
 </header>
 
@@ -388,7 +388,7 @@
         <div class="form-group"><label>地震引致軸力 PE (tf)</label><input type="number" id="PE" value="0"></div>
 
         <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">柱底彎矩與水平力</h3>
-        <p class="hint" style="margin-top:0;">Mx 繞 X 軸 → 沿 L 方向偏心；My 繞 Y 軸 → 沿 B 方向偏心</p>
+        <p class="hint" style="margin-top:0;">Mx 使沿 L 側壓力改變，My 使沿 B 側壓力改變。彎矩填柱底值，正值使 +L 或 +B 側增壓。H 作用在柱底，正值使 +L 側增壓，基底彎矩計入 H×hf。E 各分量須來自同一有號地震工況。</p>
         <div class="form-row">
           <div class="form-group"><label>Mx (D+L) (tf·m)</label><input type="number" id="MDL" value="0"></div>
           <div class="form-group"><label>My (D+L) (tf·m)</label><input type="number" id="MDLy" value="0"></div>
@@ -1071,7 +1071,7 @@
         <div class="results-grid">
           <div class="result-item rc-pending" id="c-q"><span class="label">qmax ≤ qa</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="c-ecc"><span class="label">偏心 e ≤ L/6 (全寬受壓)</span><span class="value">—</span></div>
-          <div class="result-item rc-pending" id="c-slide"><span class="label">抗滑 FS ≥ 1.5</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="c-slide"><span class="label">抗滑 FS ≥ 工況門檻</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="c-overturn"><span class="label">抗傾覆 FS ≥ 1.5</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="c-v1"><span class="label">φVc ≥ Vu (單向)</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="c-v2"><span class="label">φVc ≥ Vu (衝剪)</span><span class="value">—</span></div>
@@ -1340,13 +1340,13 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/foundation-isolated.js?v=4"></script>
+<script src="../shared/foundation-isolated.js?v=5"></script>
 <script src="../shared/foundation-pile.js?v=4"></script>
 <script src="../shared/retaining-base-demand.js?v=1"></script>
 <script src="../shared/pile-group-lateral.js?v=1"></script>
 <script src="../shared/pile-py-table-adapter.js?v=1"></script>
 <script src="../shared/pile-py-result-bridge.js?v=1"></script>
-<script src="../shared/pile-cap-3d-stm-bridge.js?v=6"></script>
+<script src="../shared/pile-cap-3d-stm-bridge.js?v=7"></script>
 <script src="../../結構工具箱/core/ui/report-utils.js"></script>
 <script src="../shared/report-utils.js"></script>
 <script src="../../結構工具箱/core/ui/report-docx.js"></script>
@@ -3240,7 +3240,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       schema: FOUNDATION_PROJECT_SCHEMA,
       tool: 'rc-foundation',
       toolTitle: '基礎 Foundation 設計／檢核',
-      appVersion: 'V3.8',
+      appVersion: 'V3.9',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: currentTab,
@@ -3476,7 +3476,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     return window.RCReportFingerprint.validateProjectCalculationSource(source, {
       expectedSchema: FOUNDATION_PROJECT_SCHEMA,
       expectedToolId: 'rc-foundation',
-      expectedVersion: ['V3.2','V3.3','V3.4','V3.5','V3.6','V3.7'].includes(normalizeProjectToolVersion(source?.appVersion)) ? source.appVersion : 'V3.8',
+      expectedVersion: ['V3.2','V3.3','V3.4','V3.5','V3.6','V3.7','V3.8'].includes(normalizeProjectToolVersion(source?.appVersion)) ? source.appVersion : 'V3.9',
       sourceKey: 'fields',
       fingerprintOptions: payload => ({
         ignoredKeys: ['activeTab'],
@@ -3493,9 +3493,10 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const payload = normalizeFoundationProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectFoundationProjectData();
     const sourceVersion = normalizeProjectToolVersion(payload.appVersion);
-    const legacy = sourceVersion !== 'V3.8';
+    const legacy = sourceVersion !== 'V3.9';
     const recalculateIso = legacy && payload.activeTab === 'iso';
-    const recalculated = recalculateIso || (legacy && sourceVersion !== 'V3.7' &&
+    const hasStrengthCaseFields = ['V3.8','V3.9'].includes(sourceVersion);
+    const recalculated = recalculateIso || (legacy && !hasStrengthCaseFields && sourceVersion !== 'V3.7' &&
       ((['V3.2','V3.3'].includes(sourceVersion) && payload.activeTab === 'mat') ||
       (sourceVersion !== 'V3.6' && payload.activeTab === 'pile') || payload.activeTab === 'combined'));
     $('mEdgeInward').value = 'y';
@@ -3524,8 +3525,8 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       try {
         let replay = collectFoundationProjectData();
         if (legacy) {
-          delete replay.fields.isoStrengthCases;
-          if (sourceVersion !== 'V3.7') delete replay.directionalResult;
+          if (!hasStrengthCaseFields) delete replay.fields.isoStrengthCases;
+          if (!hasStrengthCaseFields && sourceVersion !== 'V3.7') delete replay.directionalResult;
           if (recalculateIso) {
             if (payload.directionalResult) replay.directionalResult = payload.directionalResult;
             else delete replay.directionalResult;
@@ -3556,9 +3557,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
         const note = window.ftLast?.strengthUnavailable;
         showFoundationProjectStatus(note
           ? `已核對 ${sourceVersion} 原始輸入。強度待補：${note}`
-          : `已核對 ${sourceVersion} 原始輸入。獨立基腳已依 V3.8 重算。`, note ? 'warn' : undefined);
+          : `已核對 ${sourceVersion} 原始輸入。獨立基腳已依 V3.9 重算。`, note ? 'warn' : undefined);
       } else {
-        showFoundationProjectStatus(recalculated ? `已核對 ${sourceVersion} 原始輸入。${tab === 'mat' ? '邊柱沿舊圖採 +Y 向板內，請核對實際柱位。筏基條帶' : tab === 'pile' ? '地層阻力、樁反力與樁材沉陷' : '基腳雙向強度與控制方向'}已依 V3.8 重算。` : `已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
+        showFoundationProjectStatus(recalculated ? `已核對 ${sourceVersion} 原始輸入。${tab === 'mat' ? '邊柱沿舊圖採 +Y 向板內，請核對實際柱位。筏基條帶' : tab === 'pile' ? '地層阻力、樁反力與樁材沉陷' : '基腳雙向強度與控制方向'}已依 V3.9 重算。` : `已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
       }
     }
     return { payload, applied };
@@ -3843,95 +3844,36 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const AsY_per_m = (100 / spY) * abY;
     const Ag_m2 = (B * L) / 1e4;
 
-    // === 偏心土壓 (含雙向) ===
-    let Pservice = PD + PL;
-    let Mx_DL = MDL, Mx_E = ME;
-    let My_DL = MDLy, My_E = MEy;
-    const Pservice_E = Pservice + PE;
-    const Mxs = Math.max(Math.abs(Mx_DL), Math.abs(Mx_DL + Mx_E));
-    const Mys = Math.max(Math.abs(My_DL), Math.abs(My_DL + My_E));
-    const useE = (Math.abs(Mx_DL + Mx_E) > Math.abs(Mx_DL)) || (Math.abs(My_DL + My_E) > Math.abs(My_DL));
-    const Pforecc = useE ? Pservice_E : Pservice;
-    const L_m = L / 100, B_m = B / 100;
-    const ex_m = Pforecc > 0 ? Mxs / Pforecc : 0;
-    const ey_m = Pforecc > 0 ? Mys / Pforecc : 0;
-    const ex_cm = ex_m * 100, ey_cm = ey_m * 100;
-    const kernUtil = ex_m / L_m + ey_m / B_m;
-    const eLim = L / 6;
-    const eccOk = kernUtil <= 1/6 + 1e-9;
-    const ecc_cm = ex_cm;
-    let qmax, qmin;
-    let biaxialPartialUnsupported = false;
-    if (eccOk) {
-      const qAvg = Pforecc / Ag_m2;
-      const dqx = (6 * Pforecc * ex_m) / (B_m * L_m * L_m);
-      const dqy = (6 * Pforecc * ey_m) / (L_m * B_m * B_m);
-      const corners = [qAvg+dqx+dqy, qAvg+dqx-dqy, qAvg-dqx+dqy, qAvg-dqx-dqy];
-      qmax = Math.max(...corners);
-      qmin = Math.min(...corners);
-    } else if (ey_m < 1e-6) {
-      const denom = 3 * B_m * (L_m / 2 - ex_m);
-      qmax = denom > 0 ? (2 * Pforecc) / denom : Infinity;
-      qmin = 0;
-    } else if (ex_m < 1e-6) {
-      const denom = 3 * L_m * (B_m / 2 - ey_m);
-      qmax = denom > 0 ? (2 * Pforecc) / denom : Infinity;
-      qmin = 0;
-    } else {
-      // 雙向偏心且合力超出核心：部分接觸 qmax 須另行分析，拒算（不以估值放行）。
-      biaxialPartialUnsupported = true;
-      qmax = Infinity;
-      qmin = 0;
-    }
-    const okQ = qmax <= qa;
+    if (!(L > c1 && B > c2 && c1 > 0 && c2 > 0)) throw new RangeError('請核對基腳尺寸及柱斷面。');
+    const service = FoundationIsolated.calculateService({
+      B, L, hf, qa, Df, gammaSoil:gamma_s, mu:mu_f, PD, PL, PE,
+      MxDL:MDL, MyDL:MDLy, MxE:ME, MyE:MEy, HDL, HE
+    });
+    const { pressure, minPressure, kern, slide, over, okQ, okSlide, okOver } = service;
+    const { qmax } = pressure;
+    const { qmin } = minPressure;
+    const eccOk = kern.contact === '全底面接觸';
+    const Pservice = PD + PL;
 
-    // === 抗滑 ===
-    const W_soil = (Df / 100) * Ag_m2 * gamma_s;
-    const N_total = Pservice + W_soil;
-    const H_total = Math.max(Math.abs(HDL), Math.abs(HDL + HE));
-    const FS_slide = H_total > 0 ? (mu_f * N_total) / H_total : Infinity;
-    const okSlide = FS_slide >= 1.5;
-
-    // === 抗傾覆（X 向：Mx、H 對 L/2；Y 向：My 對 B/2，取較小 FS）===
-    const M_resist_x = Pservice * L_m / 2;
-    const M_over_DL = Math.abs(MDL) + Math.abs(HDL) * (hf / 100);
-    const M_over_E  = Math.abs(MDL + ME) + Math.abs(HDL + HE) * (hf / 100);
-    const M_overturn_x = Math.max(M_over_DL, M_over_E);
-    const M_resist_y = Pservice * B_m / 2;
-    const M_overturn_y = Math.max(Math.abs(MDLy), Math.abs(MDLy + MEy));
-    const FS_over_x = M_overturn_x > 0 ? M_resist_x / M_overturn_x : Infinity;
-    const FS_over_y = M_overturn_y > 0 ? M_resist_y / M_overturn_y : Infinity;
-    const overYGoverns = FS_over_y < FS_over_x;
-    const M_resist = overYGoverns ? M_resist_y : M_resist_x;
-    const M_overturn = overYGoverns ? M_overturn_y : M_overturn_x;
-    const FS_over = Math.min(FS_over_x, FS_over_y);
-    const okOver = FS_over >= 1.5;
-
-    // Service checks stay available while the factored load inputs are completed.
+    // The immediate settlement estimate uses long-term pressure from D+L.
     const soilEs = num('soilEs'), soilNu = num('soilNu'), soilIw = num('soilIw'), soilSa = num('soilSa');
     const q_serv = Pservice / Ag_m2;
-    const Si_m = soilEs > 0 ? (q_serv * B_m * (1 - soilNu*soilNu) * soilIw) / soilEs : Infinity;
-    const Si_cm = Si_m * 100;
+    const Si_cm = soilEs > 0 && q_serv > 0 ? q_serv * B * (1 - soilNu * soilNu) * soilIw / soilEs : Infinity;
     const okSettle = Si_cm <= soilSa;
     const serviceResult = {
       tab:'iso', fc, fy, B, L, hf, c1, c2, cover, qa, PD, PL, PE, SDS, mu_f, gamma_s, Df, Ag_m2,
-      MDL, MDLy, ME, MEy, HDL, HE, Mxs, Mys, ex_cm, ey_cm,
-      ecc_cm, eLim, eccOk, kernUtil, qmin, qmax, Pforecc, Pservice, okQ,
-      W_soil, N_total, H_total, FS_slide, okSlide, M_resist, M_overturn, FS_over, okOver,
-      FS_over_x, FS_over_y, biaxialPartialUnsupported, q_serv, Si_cm, soilEs, soilNu, soilIw, soilSa, okSettle
+      MDL, MDLy, ME, MEy, HDL, HE, service, qmin, qmax, Pservice, eccOk, okQ, okSlide, okOver,
+      FS_slide:slide.slide, FS_over:over.over, q_serv, Si_cm, soilEs, soilNu, soilIw, soilSa, okSettle
     };
-    if (!(L > c1 && B > c2 && c1 > 0 && c2 > 0 && hf > 0 && qa > 0)) {
-      throw new RangeError('請核對基腳尺寸、柱斷面、厚度及容許土壓。');
-    }
-    setResult('r-qmax', qmax, 'tf/m²', 2);
-    setResult('r-qmin', qmin, 'tf/m²', 2, qmin < 0 ? 'fail' : null);
-    setResult('r-Si', Si_cm, 'cm', 2, okSettle ? 'ok' : 'fail');
-    setCheck('r-ecc', eccOk, `${kernUtil.toFixed(4)} / ${(1/6).toFixed(4)} (ex=${ex_cm.toFixed(1)}, ey=${ey_cm.toFixed(1)} cm)`);
-    setCheck('c-q', okQ, `${qmax.toFixed(2)} / ${qa}`);
-    setCheck('c-ecc', eccOk, `ex/L+ey/B=${kernUtil.toFixed(4)} ≤ 1/6`);
-    setCheck('c-slide', H_total > 0 ? okSlide : null, H_total > 0 ? `FS=${FS_slide.toFixed(2)}` : '無水平力');
-    setCheck('c-overturn', M_overturn > 0 ? okOver : null, M_overturn > 0 ? `FS=${FS_over.toFixed(2)}` : '無傾覆力矩');
-    setCheck('c-settle', okSettle, `${Si_cm.toFixed(2)} / ${soilSa.toFixed(2)} cm`);
+    setResult('r-qmax', qmax, 'tf/m²', 2, okQ ? 'ok' : 'fail');
+    setResult('r-qmin', qmin, 'tf/m²', 2);
+    setResult('r-Si', Number.isFinite(Si_cm) ? Si_cm : null, 'cm', 2, okSettle ? 'ok' : 'fail');
+    setCheck('r-ecc', eccOk, `${kern.id}｜${kern.contact}｜ex/L+ey/B=${isoNumber(kern.kern, 4)}`);
+    setCheck('c-q', okQ, `${pressure.id}｜${qmax === null ? pressure.contact : qmax.toFixed(2) + ' / ' + qa}`);
+    setCheck('c-ecc', eccOk, `${kern.id}｜${kern.contact}，全底面接觸界線 1/6`);
+    setCheck('c-slide', okSlide, slide.slide === null ? '無水平力' : `${slide.id}｜FS=${slide.slide.toFixed(2)} / ${slide.slideMin.toFixed(1)}`);
+    setCheck('c-overturn', okOver, over.over === null ? '無傾覆力矩' : `${over.id}｜FS=${over.over.toFixed(2)} / 1.5`);
+    setCheck('c-settle', okSettle, `${isoNumber(Si_cm)} / ${soilSa.toFixed(2)} cm`);
 
     // === 獨立基腳強度（共用 production core） ===
     const hasMomentOrHorizontal = [MDL, MDLy, ME, MEy, HDL, HE].some(value => value !== 0);
@@ -3955,8 +3897,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       canvas.setAttribute('aria-label', '基礎強度工況待確認');
       $('stepsShallowBody').textContent = `強度工況待確認：${error.message}`;
       const banner = $('bannerStatus');
-      banner.className = 'banner-status warn';
-      banner.textContent = `⚠ 強度工況待確認：${error.message}`;
+      const serviceFails = [okQ, okSlide, okOver, okSettle].includes(false);
+      banner.className = 'banner-status ' + (serviceFails ? 'fail' : 'warn');
+      banner.textContent = `${serviceFails ? '✗ 服務檢核有不符。' : '⚠ '}強度工況待確認：${error.message}`;
       $('bannerKey').textContent = '';
       window.ftLast = { ...serviceResult, strengthUnavailable:error.message, reviewWarnings:[error.message] };
       return;
@@ -4023,7 +3966,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const okDev = devX.ok && devY.ok;
 
     // === 設計建議 (design mode) ===
-    const Breq_m = Math.sqrt(Pservice / qa);
+    const Breq_m = Math.sqrt(Math.max(0, Pservice) / qa);
     const Breq_cm = Math.ceil(Breq_m * 100 / 10) * 10;
     // 需求厚度估算（假設：各向實配 As 維持不變、λs = 1、Nu = 0），以表 22.5.5.1(c) 反算單向剪力所需 d
     const dReqFor = (armDir, AsPerM) => FoundationIsolated.requiredDepthOneWayNoStirrups({
@@ -4045,7 +3988,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       }
     }
     if (currentMode === 'design') {
-      $('heroSize').textContent = `${Breq_cm}×${Breq_cm} cm (目前 ${B}×${L})`;
+      $('heroSize').textContent = `${Breq_cm}×${Breq_cm} cm (D+L 均壓試估；目前 ${B}×${L})`;
       $('heroHf').textContent = `${hfReq} cm (目前 ${hf} cm；以最大角點反力估算單向剪力，實配 As 固定)`;
       $('heroAsReq').textContent = `${MuMode === 'X 向柱面懸臂' ? AsReqX.toFixed(2) : AsReqY.toFixed(2)} cm² (${MuMode})`;
       $('heroBarSugg').textContent = bestSugg;
@@ -4124,19 +4067,10 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const sb = $('stepsShallowBody');
     if (sb) {
       sb.innerHTML =
-`<span class="h">▸ 服務載重土壓</span>
-P_service = PD + PL = ${PD} + ${PL} = ${Pservice.toFixed(2)} tf
-Ag = B × L = ${B} × ${L} = ${(B*L).toFixed(0)} cm² = ${Ag_m2.toFixed(4)} m²
-ex = Mx/P = ${Mxs.toFixed(2)}/${Pforecc.toFixed(2)} = ${ex_m.toFixed(4)} m = ${ex_cm.toFixed(2)} cm
-ey = My/P = ${Mys.toFixed(2)}/${Pforecc.toFixed(2)} = ${ey_m.toFixed(4)} m = ${ey_cm.toFixed(2)} cm
-Kern: ex/L + ey/B = ${kernUtil.toFixed(4)}  ${eccOk ? '≤' : '>'} 1/6 = ${(1/6).toFixed(4)}  → ${eccOk ? '全寬受壓 ✓' : '部分浮起 ⚠'}
-qmax = ${qmax.toFixed(2)} tf/m²  ${okQ ? '≤' : '>'} qa = ${qa} tf/m²  → ${okQ ? '✓' : '✗'}${biaxialPartialUnsupported ? '\n⚠ 雙向偏心且合力超出核心：本工具不計算部分接觸 qmax，判定 NG，請另行分析' : ''}
-qmin = ${qmin.toFixed(2)} tf/m²
-
-<span class="h">▸ 抗滑 / 抗傾覆</span>
-W_soil = Df/100 × Ag × γs = ${(Df/100).toFixed(2)} × ${Ag_m2.toFixed(4)} × ${gamma_s} = ${W_soil.toFixed(2)} tf
-FS_slide = μ·N/H = ${mu_f}×${N_total.toFixed(2)}/${H_total.toFixed(2)} = ${isFinite(FS_slide)?FS_slide.toFixed(2):'∞'}  ${okSlide?'≥':'<'} 1.5
-FS_over = Mr/Mo = ${M_resist.toFixed(2)}/${M_overturn.toFixed(2)} = ${isFinite(FS_over)?FS_over.toFixed(2):'∞'}  ${okOver?'≥':'<'} 1.5 (${overYGoverns ? 'Y 向 My 控制' : 'X 向 Mx+H 控制'})
+`<span class="h">▸ 服務載重土壓與穩定</span>
+Ag = ${Ag_m2.toFixed(4)} m²；各工況 M沿L,基底 = 柱底 M沿L + H·hf，Wsoil = ${service.Wsoil.toFixed(2)} tf。
+${service.cases.map(item => isoServiceCaseLine(item)).join('\n')}
+qmax 控制：${pressure.id}；qmin 控制：${minPressure.id}。抗滑控制以 FS / 工況門檻取最小；抗傾覆取各工況沿 L、B 最小 FS。
 
 <span class="h">▸ 因數化載重</span>
 置中柱、全底面接觸，X 沿 L、Y 沿 B。依 §13.2.6.3～.4，逐組採線性基底反力 q(x,y) = Pu/(BL) + 12 M沿L·x/(BL³) + 12 M沿B·y/(LB³)，長度用 m，柱心為原點。
@@ -4180,11 +4114,11 @@ ${[devX, devY].map(dv => `${dv.dir} 向筋：${DevLength.CONDITION_LABELS[dv.con
   ℓd = (fy·ψt·ψe/(${dv.k}·λ·√fc′))·db = (${fy}×1.0×1.0/(${dv.k}×${lambda}×${Math.sqrt(fc).toFixed(3)}))×${dv.db.toFixed(3)} = ${dv.ld.toFixed(1)} cm（≥ 30 cm）；可用 = arm${dv.dir}−cover = ${dv.avail.toFixed(1)} cm → ${dv.ok ? '✓' : '✗'}`).join('\n')}
 
 <span class="h">▸ 沉陷</span>
-Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=${soilSa} cm → ${okSettle ? '✓' : '✗'}`;
+Si = q·B·(1−ν²)·Iw/Es = ${isoNumber(Si_cm)} cm  ${okSettle?'≤':'>'} Sa=${soilSa} cm → ${okSettle ? '✓' : '✗'}`;
     }
 
     updateBannerIso({
-      okQ, okV1, okV2, okFlex, okAsMin, okDev, okDMin, okSettle, punchingReview,
+      okQ, okV1, okV2, okFlex, okAsMin, okDev, okDMin, okSettle, punchingReview, okSlide, okOver,
       qmax, qa, Mu_tfm, phiMn_tfm,
       Vu1: Vu1/1000, phiVc1: phiVc1/1000,
       Vu2: Vu2/1000, phiVc2: phiVc2/1000,
@@ -5643,7 +5577,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
   function collectFoundationAttachmentChecks(r) {
     if (!r) return [];
     if (r.tab === 'iso' && r.strengthUnavailable) {
-      return [['qmax ≤ qa', r.okQ], ['抗滑 FS ≥ 1.5', r.okSlide],
+      return [['qmax ≤ qa', r.okQ], ['抗滑', r.okSlide],
         ['抗傾覆 FS ≥ 1.5', r.okOver], ['沉陷', r.okSettle]];
     }
     if (r.tab === 'iso') {
@@ -5656,6 +5590,8 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         ['ℓd', r.okDev],
         ['d ≥ 15', r.okDMin],
         ['沉陷', r.okSettle],
+        ['抗滑', r.okSlide],
+        ['抗傾覆', r.okOver],
       ];
     }
     if (r.tab === 'combined') {
@@ -5787,6 +5723,8 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       ['φMn ≥ Mu', r.okFlex], ['As ≥ As,min', r.okAsMin], ['ℓd', r.okDev],
       ['d ≥ 15', r.okDMin], ['沉陷', r.okSettle]
     ];
+    if (r.okSlide !== null) checks.push(['抗滑', r.okSlide]);
+    if (r.okOver !== null) checks.push(['抗傾覆', r.okOver]);
     const allOk = checks.every(c => c[1] === true);
     const anyFail = checks.some(c => c[1] === false);
     banner.className = 'banner-status ' + (anyFail ? 'fail' : allOk ? 'ok' : 'warn');
@@ -6192,6 +6130,42 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
   // ============================================================
   //  計算書
   // ============================================================
+  function isoNumber(value, digits = 2) {
+    return Number.isFinite(value) ? value.toFixed(digits) : '—';
+  }
+
+  function isoServiceCaseLine(item) {
+    return `${item.id}｜P=${isoNumber(item.P)} tf，柱底 M沿L／M沿B=${isoNumber(item.mx)}／${isoNumber(item.my)} tf·m，H=${isoNumber(item.h)} tf。` +
+      `基底 M沿L=${isoNumber(item.mxBase)} tf·m；${item.contact}，qmin／qmax=${isoNumber(item.qmin)}／${isoNumber(item.qmax)} tf/m²。` +
+      `抗滑 N=${isoNumber(item.N)} tf，FS／門檻=${isoNumber(item.slide)}／${item.slideMin.toFixed(1)}；抗傾覆 FS（沿 L／B）=${isoNumber(item.overL)}／${isoNumber(item.overB)}。`;
+  }
+
+  function isoServiceReport(r) {
+    const { service, qa, Si_cm, soilSa } = r;
+    const { pressure, minPressure, kern, slide, over } = service;
+    return {
+      group:'容許土壓 / 偏心 / 抗滑 / 抗傾覆',
+      items:[
+        { label:'qmax ≤ qa', value:`${isoNumber(pressure.qmax)} / ${qa}`, unit:'tf/m²', ok:r.okQ,
+          sub:`${pressure.id} 控制，${pressure.contact}。qmin = ${isoNumber(minPressure.qmin)} tf/m²（${minPressure.id}）。` },
+        { label:'全底面接觸', value:`${kern.id}｜ex/L + ey/B = ${isoNumber(kern.kern, 4)}，界線 1/6`, ok:r.eccOk },
+        { label:'抗滑 FS ≥ 工況門檻', value:slide.slide === null ? '無水平力' : `${slide.id}｜${isoNumber(slide.slide)} / ${slide.slideMin.toFixed(1)}`, ok:r.okSlide,
+          sub:'FS = μN/|H|，N 依該工況軸力及覆土計。長期 1.5，地震短期 1.2（基礎規範 §4.6.1）。' },
+        { label:'抗傾覆 FS ≥ 1.5', value:over.over === null ? '無傾覆力矩' : `${over.id}｜${isoNumber(over.over)}`, ok:r.okOver,
+          sub:'兩向分算並取最小值。1.5 為本頁比較基準。' },
+        { label:'沉陷 Si ≤ Sa（D+L）', value:`${isoNumber(Si_cm)} / ${soilSa.toFixed(2)}`, unit:'cm', ok:r.okSettle,
+          sub:`Si 依 q·B·(1−ν²)·Iw/Es，服務平均壓力 q = ${r.q_serv.toFixed(2)} tf/m²` }
+      ]
+    };
+  }
+
+  function isoServiceReportInputs(r) {
+    return { group:'服務載重組合', items:[
+      { label:'取值方式', value:'D+L 及輸入有號 E 的 D+L+E 分算。H 正值使 +L 側增壓，從柱底至基底的力臂採 hf。同一 qa 供上述工況比較。' },
+      ...r.service.cases.map(item => ({ label:item.id, value:isoServiceCaseLine(item) }))
+    ] };
+  }
+
   function buildFtReport() {
     const projectSnapshot = collectFoundationProjectData();
     if (!window.ftLast) return;
@@ -6215,8 +6189,6 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     };
 
     if (r.tab === 'iso' && r.strengthUnavailable) {
-      const finite = value => Number.isFinite(value) ? value.toFixed(2) : '待確認';
-      const safetyFactor = value => Number.isFinite(value) ? value.toFixed(2) : '無作用力';
       inputs = [
         { group:'基腳幾何與土壤參數', items:[
           { label:'基腳 B×L', value:`${r.B}×${r.L}`, unit:'cm' },
@@ -6230,26 +6202,11 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'靜載重 PD／活載重 PL／地震軸力 PE', value:`${r.PD}／${r.PL}／${r.PE}`, unit:'tf' },
           { label:'沿 L 偏心彎矩 (D+L)／E', value:`${r.MDL}／${r.ME}`, unit:'tf·m' },
           { label:'沿 B 偏心彎矩 (D+L)／E', value:`${r.MDLy}／${r.MEy}`, unit:'tf·m' },
-          { label:'水平力 H (D+L)／E', value:`${r.HDL}／${r.HE}`, unit:'tf' },
-          { label:'偏心檢核採用軸力 P', value:r.Pforecc, unit:'tf' },
-          { label:'採用彎矩絕對值（沿 L／沿 B）', value:`${r.Mxs.toFixed(2)}／${r.Mys.toFixed(2)}`, unit:'tf·m' }
-        ]}
-      ];
-      checks = [
-        { group:'使用性與穩定', items:[
-          { label:'qmax ≤ qa', value:`${finite(r.qmax)} / ${r.qa}`, unit:'tf/m²', ok:r.okQ,
-            sub:r.biaxialPartialUnsupported ? '雙向合力超出核心，請補部分接觸分析。' : `qmin = ${r.qmin.toFixed(2)} tf/m²` },
-          { label:'全底面接觸', value:`ex/L + ey/B = ${r.kernUtil.toFixed(4)}，界線 1/6`, ok:r.eccOk,
-            sub:`ex = ${r.ex_cm.toFixed(2)} cm、ey = ${r.ey_cm.toFixed(2)} cm` },
-          { label:'抗滑 FS ≥ 1.5', value:safetyFactor(r.FS_slide), ok:r.okSlide,
-            sub:`FS = μN/H，N = ${r.N_total.toFixed(2)} tf（含覆土），H = ${r.H_total.toFixed(2)} tf` },
-          { label:'抗傾覆 FS ≥ 1.5', value:safetyFactor(r.FS_over), ok:r.okOver,
-            sub:`沿 L／沿 B 的抗傾覆安全係數 = ${safetyFactor(r.FS_over_x)}／${safetyFactor(r.FS_over_y)}` },
-          { label:'沉陷 Si ≤ Sa', value:`${finite(r.Si_cm)} / ${r.soilSa.toFixed(2)}`, unit:'cm', ok:r.okSettle,
-            sub:`Si 依 q·B·(1−ν²)·Iw/Es，服務平均壓力 q = ${r.q_serv.toFixed(2)} tf/m²` }
+          { label:'水平力 H (D+L)／E', value:`${r.HDL}／${r.HE}`, unit:'tf' }
         ]},
-        { group:'基腳強度', items:[{ label:'待確認', value:r.strengthUnavailable, ok:null }] }
+        isoServiceReportInputs(r)
       ];
+      checks = [isoServiceReport(r), { group:'基腳強度', items:[{ label:'待確認', value:r.strengthUnavailable, ok:null }] }];
     } else if (r.tab === 'iso') {
       inputs = [
         { group:'幾何', items:[
@@ -6267,6 +6224,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'PL', value:r.PL, unit:'tf' },
           { label:'PE', value:r.PE, unit:'tf' }
         ]},
+        isoServiceReportInputs(r),
         { group:'強度載重組合與反力', items:[
           { label:'基底反力分布', value:'置中柱、底面全接觸。依 §13.2.6.3～.4 以各組 Pu、M沿L、M沿B 求線性基底反力。' },
           ...r.pressureCases.map(item => ({ label:item.id,
@@ -6280,12 +6238,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         ]}
       ];
       checks = [
-        { group:'容許土壓 / 偏心 / 抗滑 / 抗傾覆', items:[
-          { label:'qmax ≤ qa', value:`${r.qmax.toFixed(2)} / ${r.qa}`, unit:'tf/m²', ok:r.okQ },
-          { label:'偏心 e ≤ L/6', value:`kern=${r.kernUtil.toFixed(4)} / ${(1/6).toFixed(4)}`, ok:r.eccOk },
-          { label:'抗滑 FS ≥ 1.5', value:isFinite(r.FS_slide)?r.FS_slide.toFixed(2):'未控制', ok:r.okSlide },
-          { label:'抗傾覆 FS ≥ 1.5', value:isFinite(r.FS_over)?r.FS_over.toFixed(2):'未控制', ok:r.okOver }
-        ]},
+        isoServiceReport(r),
         { group:'板式配筋', items:[
           { label:'X/Y As ≥ As,min', value:`X ${r.AsX_per_m.toFixed(2)}；Y ${r.AsY_per_m.toFixed(2)} / ${r.AsMin_per_m.toFixed(2)}`, unit:'cm²/m', ok:r.okAsMin },
           { label:'X/Y 間距 ≤ smax', value:`${r.spX.toFixed(1)}、${r.spY.toFixed(1)} / ${r.sMax.toFixed(1)}`, unit:'cm', ok:r.okSpacing },
@@ -6605,7 +6558,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     openReport({
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
       textExport:true,
-      outputSource:{ tool:'基礎 Foundation 設計／檢核', version:'V3.8' },
+      outputSource:{ tool:'基礎 Foundation 設計／檢核', version:'V3.9' },
       subtitle: `112 年混凝土結構設計規範`,
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,
@@ -6660,7 +6613,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
   function attachFormulaTips() {
     if (!window.FormulaInfo) return;
     FormulaInfo.attach({
-      'r-qmax':       '4 角土壓 q = P/A ± 6Mx/(BL²) ± 6My/(LB²)',
+      'r-qmax':       '各服務工況同時計入軸力與兩向基底彎矩，顯示控制工況的最大接觸壓力',
       'r-qmin':       '若 qmin < 0 → 偏心過大',
       'r-ecc':        '偏心率 ex/L + ey/B；≤ 1/6 為小偏心',
       'r-qu':         'qu = Pu/A，列出最大角點反力工況的平均因數化土壓',

@@ -10,7 +10,7 @@
   const SCHEMA = 'rc-foundation-pile-cap-3d-stm.v2';
   const SUPPORTED_SCHEMAS = new Set([LEGACY_SCHEMA, SCHEMA]);
   const SOURCE_TOOL = 'rc-foundation';
-  const SOURCE_VERSION = 'V3.8';
+  const SOURCE_VERSION = 'V3.9';
   const TRANSFER_STORAGE_KEY = 'rc.foundation.pile-cap-3d-stm.transfer.v1';
   const MAX_BYTES = 1024 * 1024;
   const EPS = 1e-9;
@@ -156,7 +156,7 @@
     const sourceRaw = object(payload.source, '來源');
     const sourceTool = text(sourceRaw.tool, '來源工具');
     const sourceVersion = text(sourceRaw.version, '來源工具版本');
-    if (sourceTool !== SOURCE_TOOL || !['V3.2','V3.3','V3.4','V3.5','V3.6','V3.7',SOURCE_VERSION].includes(sourceVersion)) {
+    if (sourceTool !== SOURCE_TOOL || !['V3.2','V3.3','V3.4','V3.5','V3.6','V3.7','V3.8',SOURCE_VERSION].includes(sourceVersion)) {
       throw new Error(`來源工具須為 ${SOURCE_TOOL} V3.2～${SOURCE_VERSION}。`);
     }
     const calculationFingerprint = text(sourceRaw.calculationFingerprint, '來源計算指紋').toUpperCase();

@@ -90,8 +90,8 @@ const options = {
   legacy.source = { ...legacy.source, version:'V3.2' };
   const normalizedLegacy = Bridge.validatePayload(legacy);
   assert.equal(normalizedLegacy.source.version, 'V3.2');
-  assert.equal(Bridge.buildPayload(snapshot(), options).source.version, 'V3.8');
-  for (const version of ['V3.3','V3.4','V3.5','V3.6','V3.7']) {
+  assert.equal(Bridge.buildPayload(snapshot(), options).source.version, 'V3.9');
+  for (const version of ['V3.3','V3.4','V3.5','V3.6','V3.7','V3.8']) {
     assert.equal(Bridge.validatePayload({ ...legacy, source:{ ...legacy.source, version } }).source.version, version);
   }
   assert.equal(normalizedLegacy.schema, Bridge.legacySchema);
