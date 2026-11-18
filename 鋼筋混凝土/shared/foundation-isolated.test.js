@@ -117,7 +117,8 @@ near(biaxial.oneWayX.VuKgf / 1000, 3 * shearArm * (qAtShear + qU1EdgeL) / 2, 1e-
 assert.equal(biaxial.oneWayX.caseId, 'U1');
 assert.equal(biaxial.oneWayX.side, '−');
 near(biaxial.Vu2Kgf / 1000, 200 - (200 / 12) * 1.30278 * 1.10278, 1e-9, 'centred punching area integrates out biaxial gradients');
-assert.equal(biaxial.eccentricPunching, true);
+assert.equal(biaxial.okPunching, null, 'axial punching alone does not clear eccentric cases');
+assert.equal(biaxial.punchingPending.length, 2);
 const atKern = { id:'U1', PuTf:120, mAlongLTfm:50, mAlongBTfm:0 };
 near(FoundationIsolated.calculateStrength({ ...input, strengthCases:[atKern] }).pressureCases[0].minTfM2, 0, 1e-9, 'exact kern boundary');
 assert.throws(() => FoundationIsolated.calculateStrength({ ...input,
@@ -160,6 +161,38 @@ near(pentagon.pressureControl.contactAreaM2, 3.5, 1e-8, 'pentagon contact area')
 near(pentagon.pressureControl.maxTfM2, 72, 1e-7, 'pentagon peak pressure');
 near(pentagon.Vu2Kgf / 1000, 100 - 24 * (1.10278 ** 2 + 0.10278 ** 3 / 6), 1e-7,
   'punching deducts only the compressed part inside the critical perimeter');
+
+const eccentricInput = {
+  ...input, B:300, L:400, c1:60, c2:40, hf:64.722,
+  strengthCases:[{ id:'U', PuTf:200, mAlongLTfm:30, mAlongBTfm:-15 }]
+};
+const transfer = { id:'U', externalLTfm:30, externalBTfm:-15, availableLTfm:25, availableBTfm:15, reference:'S-03' };
+const eccentric = FoundationIsolated.calculateStrength({ ...eccentricInput, transferCases:[transfer] });
+const ctrl = eccentric.punchingControl;
+// Acrit=1.15×0.95 m². For the full pressure plane, each reaction moment is scaled
+// by the ratio of its interior area second moment to the entire base second moment.
+near(ctrl.alongL.MscTfm, 29.774245117187498, 1e-9, 'net unbalanced along-L moment');
+near(ctrl.alongB.MscTfm, -14.863058159722222, 1e-9, 'net unbalanced along-B moment');
+near(ctrl.alongL.Jc, 51680520.83333333, 1e-6, 'R8.4.4.2.3 Jc along L');
+near(ctrl.alongB.Jc, 39035104.166666664, 1e-6, 'R8.4.4.2.3 Jc along B');
+near(ctrl.alongL.flexureTfm, 17.175868870375737, 1e-8, 'along-L flexural transfer');
+near(ctrl.alongB.flexureTfm, 9.255116288333852, 1e-8, 'along-B flexural transfer');
+near(ctrl.alongL.effectiveWidth, 234.166, 1e-9, 'effective width along B for L moment');
+near(ctrl.peakStress, 9.953874941255519, 1e-9, 'direct stress plus both eccentric components');
+assert.equal(ctrl.peakCorner, '+L／−B');
+assert.equal(eccentric.okPunching, true);
+assert.equal(eccentric.okMomentTransfer, true);
+const shortTransfer = FoundationIsolated.calculateStrength({ ...eccentricInput, transferCases:[{ ...transfer, availableBTfm:0 }] });
+assert.equal(shortTransfer.okPunching, true);
+assert.equal(shortTransfer.okMomentTransfer, false);
+const overload = FoundationIsolated.calculateStrength({
+  ...eccentricInput,
+  strengthCases:[{ id:'U', PuTf:300, mAlongLTfm:80, mAlongBTfm:-20 }],
+  transferCases:[{ ...transfer, externalLTfm:80, externalBTfm:-20, availableLTfm:100, availableBTfm:100 }]
+});
+assert.ok(overload.punchingControl.directStress < overload.punchingControl.phiVcStress);
+assert.equal(overload.okPunching, false, 'eccentric stress can govern when direct stress passes');
+assert.throws(() => FoundationIsolated.calculateStrength({ ...eccentricInput, transferCases:[{ ...transfer, id:'other' }] }), /唯一強度組合/);
 
 const serviceInput = {
   B:250, L:250, hf:65, qa:45, Df:150, gammaSoil:1.8, mu:0.4,

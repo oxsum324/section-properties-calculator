@@ -319,6 +319,17 @@
       okOver:over.over === null ? null : over.over >= 1.5 };
   }
 
+  function punchingMomentAxis(span, transverseSpan, d, effectiveWidth, externalTfm, reactionTfm, availableTfm) {
+    const gammaF = 1 / (1 + (2 / 3) * Math.sqrt(span / transverseSpan));
+    const gammaV = 1 - gammaF;
+    const Jc = (d * span ** 3 + span * d ** 3) / 6 + d * transverseSpan * span ** 2 / 2;
+    const MscTfm = externalTfm - reactionTfm;
+    const stressAtPositiveEdge = gammaV * MscTfm * 1e5 * (span / 2) / Jc;
+    const flexureTfm = gammaF * Math.abs(MscTfm);
+    return { gammaF, gammaV, Jc, effectiveWidth, externalTfm, reactionTfm, MscTfm,
+      stressAtPositiveEdge, flexureTfm, availableTfm, ok:flexureTfm <= availableTfm };
+  }
+
   function calculateStrength(input) {
     const cases = input?.strengthCases ?? [{ id:'軸力工況', PuTf:Number(input?.PuTf), mAlongLTfm:0, mAlongBTfm:0 }];
     if (!Array.isArray(cases) || !cases.length) throw new RangeError('請至少輸入一組因數化載重。');
@@ -419,30 +430,66 @@
     if (c1d >= L || c2d >= B) throw new RangeError('柱周衝剪臨界面觸及基腳自由邊，須按實際周界另核。');
     const bo = 2 * (c1d + c2d);
     const criticalAreaM2 = c1d * c2d / 1e4;
-    const eccentricPunching = pressureCases.some(item => item.mAlongLTfm !== 0 || item.mAlongBTfm !== 0);
+    const transferByCase = new Map();
+    for (const row of input.transferCases ?? []) {
+      const { id, externalLTfm, externalBTfm, availableLTfm, availableBTfm, reference } = row;
+      if (!pressureCases.some(item => item.id === id) || transferByCase.has(id) ||
+          ![externalLTfm, externalBTfm, availableLTfm, availableBTfm].every(Number.isFinite) ||
+          Math.min(availableLTfm, availableBTfm) < 0 || typeof reference !== 'string' || !reference.trim()) {
+        throw new RangeError('偏心衝剪資料須對應唯一強度組合，並填兩向彎矩、非負有效板寬容量及依據。');
+      }
+      transferByCase.set(id, row);
+    }
     const betaC = Math.max(c1, c2) / Math.min(c1, c2);
     const alphaS = 40;
+    const transferWidthL = Math.min(B, c2 + 3 * hf);
+    const transferWidthB = Math.min(L, c1 + 3 * hf);
     // Integrate the actual upward pressure inside the critical perimeter for each case.
     const punchingCases = pressureCases.map(item => {
       const critical = [1, -1].reduce((polygon, sign) => {
         const withinX = clipPolygon(polygon, ([x]) => c1d / L + sign * x);
         return clipPolygon(withinX, ([, y]) => c2d / B + sign * y);
       }, item.polygon);
-      const upliftKgf = reactionIntegrals(item, critical)[0];
+      const [upliftKgf, momentX, momentY] = reactionIntegrals(item, critical);
       const Vu2Kgf = Math.max(0, item.PuTf * 1000 - upliftKgf);
       const lambdaS = sizeEffectFactor(d, { waived:!item.partial });
       const twoWay = twoWayShearStressNoStirrups({ fc, lambda, lambdaS, betaC, alphaS, bo, d });
       const phiVc2Kgf = phiShear * twoWay.vc * bo * d;
-      return { ...item, ...twoWay, upliftKgf, Vu2Kgf, phiVc2Kgf };
+      const phiVcStress = phiShear * twoWay.vc;
+      const directStress = Vu2Kgf / (bo * d);
+      const source = transferByCase.get(item.id);
+      const transferRequired = !!source || input.requireTransferEvidence === true || item.mAlongLTfm !== 0 || item.mAlongBTfm !== 0;
+      const alongL = source ? punchingMomentAxis(c1d, c2d, d, transferWidthL, source.externalLTfm,
+        momentX * L / 2 / 1e5, source.availableLTfm) : null;
+      const alongB = source ? punchingMomentAxis(c2d, c1d, d, transferWidthB, source.externalBTfm,
+        momentY * B / 2 / 1e5, source.availableBTfm) : null;
+      // For this closed symmetric perimeter, the maximum absolute combined stress is at a corner.
+      const stressL = alongL?.stressAtPositiveEdge ?? 0;
+      const stressB = alongB?.stressAtPositiveEdge ?? 0;
+      const peakStress = directStress + Math.abs(stressL) + Math.abs(stressB);
+      const peakCorner = source && peakStress > directStress
+        ? `${stressL >= 0 ? '+' : '−'}L／${stressB >= 0 ? '+' : '−'}B` : '均勻剪應力';
+      const pending = transferRequired && !source;
+      const okShear = peakStress > phiVcStress ? false : pending ? null : true;
+      const okTransfer = source ? alongL.ok && alongB.ok : null;
+      return { ...item, ...twoWay, upliftKgf, Vu2Kgf, phiVc2Kgf, phiVcStress, directStress, peakStress,
+        peakCorner, okShear, okTransfer, transferRequired, pending, alongL, alongB, reference:source?.reference };
     });
     const punchingAxialControl = maxBy(punchingCases, item => item.Vu2Kgf / item.phiVc2Kgf);
+    const punchingControl = maxBy(punchingCases, item => item.peakStress / item.phiVcStress);
+    const punchingPending = punchingCases.filter(item => item.pending);
+    const okPunching = punchingCases.some(item => item.okShear === false) ? false : punchingPending.length ? null : true;
+    const transfers = punchingCases.filter(item => item.transferRequired);
+    const okMomentTransfer = transfers.some(item => item.okTransfer === false) ? false :
+      transfers.length && !punchingPending.length ? true : null;
     const { Vu2Kgf, phiVc2Kgf, vcA, vcB, vcC, vc:vc2, lambdaS:lambdaS2 } = punchingAxialControl;
     const lambdaS1 = oneWay.lambdaS;
 
     return {
       dX, dY, d, areaM2, quTfM2, quKgfCm2, armX, armY, arm,
       pressureCases, pressureControl, pressureX, pressureY, flexureControlX, flexureControlY,
-      punchingAxialControl, eccentricPunching,
+      punchingAxialControl, punchingControl, punchingCases, punchingPending, okPunching, okMomentTransfer,
+      transferWidthL, transferWidthB,
       MuxKgfCm, MuyKgfCm, MuKgfCm, MuxTfm, MuyTfm, MuTfm,
       AsProvX, AsProvY, phiMnXTfm, phiMnYTfm, MuMode, phiMnTfm,
       AsMinPerM, flexuralAsX: designX.As, flexuralAsY: designY.As, AsReqX, AsReqY, AsReq,

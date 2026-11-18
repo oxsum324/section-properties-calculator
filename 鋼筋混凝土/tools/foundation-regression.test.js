@@ -424,6 +424,7 @@ async function exerciseIsoFactoredCases(page) {
     const legacy = window.collectFoundationProjectData();
     legacy.appVersion = 'V3.7';
     delete legacy.fields.isoStrengthCases;
+    delete legacy.fields.isoTransferCases;
     legacy.summary = { ...legacy.summary, banner:'舊版軸力均壓結果', reviewWarningCount:0 };
     const legacyProject = window.RCReportFingerprint.withProjectCalculationFingerprint(legacy, {
       ignoredKeys:['activeTab'], calculationContext:{ foundationTab:'iso' }
@@ -440,8 +441,9 @@ async function exerciseIsoFactoredCases(page) {
     const partial = window.ftLast;
     window.applyFoundationProjectData(saved, { silent:true });
     const replay = window.collectFoundationProjectData();
+    const { isoTransferCases:unused, ...priorFields } = saved.fields;
     const legacyWithStrength = window.RCReportFingerprint.withProjectCalculationFingerprint({
-      ...saved, appVersion:'V3.8', summary:{ ...saved.summary, banner:'舊版服務載重包絡' }
+      ...saved, fields:priorFields, appVersion:'V3.8', summary:{ ...saved.summary, banner:'舊版服務載重包絡' }
     }, { ignoredKeys:['activeTab'], calculationContext:{ foundationTab:'iso' } });
     window.applyFoundationProjectData(legacyWithStrength);
     const migratedStrength = document.getElementById('isoStrengthCases').value;
@@ -450,6 +452,7 @@ async function exerciseIsoFactoredCases(page) {
     rejectedInPriorVersion.appVersion = 'V3.9';
     rejectedInPriorVersion.summary.banner = '強度工況待確認';
     delete rejectedInPriorVersion.directionalResult;
+    delete rejectedInPriorVersion.fields.isoTransferCases;
     window.applyFoundationProjectData(window.RCReportFingerprint.withProjectCalculationFingerprint(rejectedInPriorVersion, {
       ignoredKeys:['activeTab'], calculationContext:{ foundationTab:'iso' }
     }));
@@ -472,11 +475,47 @@ async function exerciseIsoFactoredCases(page) {
     'factored resultant outside the base has no compression equilibrium', result.partial.strengthUnavailable);
   assert(result.replay.fields.isoStrengthCases.value === result.entered &&
     result.replay.calculationFingerprint === result.saved.calculationFingerprint,
-    'V4.0 reopens factored load cases and recalculates fingerprint', result.replay.calculationFingerprint);
+    'V4.1 reopens factored load cases and recalculates fingerprint', result.replay.calculationFingerprint);
   assert(result.migratedStrength === result.entered, 'V3.8 project preserves signed factored cases during service recalculation', result.migratedStrength);
   assert(result.migratedPartial === true, 'V3.9 source with partial contact is recalculated with the actual bearing region', String(result.migratedPartial));
   assert(result.migrated.strengthUnavailable.includes('請補同一組合') && result.legacyNote.includes('強度待補'),
     'legacy eccentric project is reopened without inheriting current cases or old acceptance', result.legacyNote);
+}
+
+async function exerciseIsoMomentTransfer(page, values) {
+  await page.goto(TOOL_URL, { waitUntil:'domcontentloaded' });
+  const result = await page.evaluate(fields => {
+    for (const [id, value] of Object.entries(fields)) document.getElementById(id).value = value;
+    const control = document.getElementById('isoTransferCases');
+    const setTransfer = value => {
+      control.value = value;
+      control.dispatchEvent(new Event('input', { bubbles:true }));
+    };
+    setTransfer(fields.isoTransferCases);
+    const saved = window.collectFoundationProjectData();
+    const capture = () => ({
+      shear:window.ftLast.okV2, transfer:window.ftLast.okMomentTransfer,
+      status:window.lastFoundationAttachmentReadiness.status,
+      peak:document.querySelector('#r-vuPeak .value').textContent
+    });
+    const complete = capture();
+    setTransfer('U,30,-15,25,0,S-03');
+    const insufficient = capture();
+    setTransfer('');
+    const pending = capture();
+    window.applyFoundationProjectData(saved, { silent:true });
+    const replay = capture();
+    const after = window.collectFoundationProjectData();
+    return { complete, insufficient, pending, replay, sameSource:after.calculationFingerprint === saved.calculationFingerprint };
+  }, values);
+  assert(result.complete.shear === true && result.complete.transfer === true && result.complete.peak === '9.95',
+    'transfer rows enable peak punching and flexure checks', JSON.stringify(result.complete));
+  assert(result.insufficient.shear === true && result.insufficient.transfer === false && result.insufficient.status === 'blocked',
+    'explicit zero available flexure is insufficient and blocks attachment readiness', JSON.stringify(result.insufficient));
+  assert(result.pending.shear === null && result.pending.transfer === null && result.pending.status === 'review' && result.pending.peak === '—',
+    'clearing a transfer row removes the previously computed peak and disposition', JSON.stringify(result.pending));
+  assert(result.sameSource && result.replay.shear === true && result.replay.transfer === true,
+    'V4.1 stores and replays transfer input and source fingerprint', JSON.stringify(result.replay));
 }
 
 async function exerciseEarthPressureBridge(page) {
@@ -743,7 +782,7 @@ async function main() {
   assert(html.includes('id="mainTabs"'), 'foundation.html has section tabs', 'multi-foundation tab UI exists');
   assert(html.includes('id="bannerStatus"'), 'foundation.html has banner', 'summary banner exists');
   assert(html.includes('window.ftLast'), 'foundation.html exports ftLast', 'result snapshot exists for regression capture');
-  assert(html.includes('../shared/foundation-isolated.js?v=6') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
+  assert(html.includes('../shared/foundation-isolated.js?v=7') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
   assert(html.includes('../shared/foundation-pile.js?v=4') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
   assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
   assert(!/0\.53 \* lambda/.test(html) && !/0\.53 \* lambda/.test(pileCore), 'foundation one-way shear no longer uses the simplified 0.53λ√fc′ expression', 'Table 22.5.5.1(c) is required without shear reinforcement');
@@ -786,7 +825,7 @@ async function main() {
   assert(html.includes('PILE_PY_BRIDGE.inspectState'), 'foundation revalidates adopted p-y source against current model', 'fail-closed replay gate exists');
   assert(reportSrc.includes("group:'專項 p-y 分析結果'"), 'foundation report includes adopted p-y calculation results', 'formal report result group exists');
   assert(reportSrc.includes("label:'分析範圍 / Hx / Hy'") && reportSrc.includes("label:'來源表格換算'"), 'foundation report identifies p-y analysis scope and table provenance', 'formal report provenance exists');
-  assert(html.includes('pile-cap-3d-stm-bridge.js?v=8') && html.includes('id="btnOpenPileCap3DSTM"') && html.includes('id="btnDownloadPileCap3DSTM"'), 'foundation exposes versioned pile-cap 3D STM bridge', 'one-click and JSON fallback controls exist');
+  assert(html.includes('pile-cap-3d-stm-bridge.js?v=9') && html.includes('id="btnOpenPileCap3DSTM"') && html.includes('id="btnDownloadPileCap3DSTM"'), 'foundation exposes versioned pile-cap 3D STM bridge', 'one-click and JSON fallback controls exist');
   assert(html.includes('pile-cap-load-combinations.js?v=1') && html.includes('id="pileCap3DSTMCaseMode"') && html.includes('id="btnPreviewPileCap3DSTMCombos"'), 'foundation exposes automatic LRFD component-to-combination workflow', 'shared LoadCombo adapter, source mode and preview controls exist');
   assert(html.includes('PILE_CAP_LOAD_COMBINATIONS.generate') && html.includes("method:'LRFD'") && html.includes('loadCombinationSource = generated'), 'foundation generates traceable LRFD pile-cap cases from the shared load-combination core', 'automatic cases preserve component and schema provenance');
   assert(html.includes('loadcombo-components-v1') && html.includes('id="btnImportPileCapLoadComponents"') && html.includes('id="btnAdoptPileCapLoadComponents"') && html.includes('forces-receive.js'), 'foundation accepts common D/L/W/E component packages as review candidates', 'analysis JSON and ForcePicker candidates require explicit adoption');
@@ -829,6 +868,7 @@ async function main() {
     await exerciseEarthPressureBridge(page);
     await exercisePilePyBridge(page);
     await exerciseIsoFactoredCases(page);
+    await exerciseIsoMomentTransfer(page, pack.cases.find(tc => tc.key === 'iso_punching_moment_transfer').values);
     for (const tc of pack.cases) {
       // A preceding load case must not supply moments, materials or reinforcement to the next one.
       await page.goto(TOOL_URL, { waitUntil: 'domcontentloaded' });
@@ -904,6 +944,8 @@ async function main() {
           okQ: r.okQ,
           okV1: r.okV1,
           okV2: r.okV2,
+          okMomentTransfer:r.okMomentTransfer,
+          peakPunchingStress:r.punchingCases ? Math.max(...r.punchingCases.map(item => item.peakStress)) : undefined,
           okFlex: r.okFlex,
           okShear: r.okShear,
           toeMu: r.baseDemand?.toe?.moment,

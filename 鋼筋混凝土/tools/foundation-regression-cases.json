@@ -473,6 +473,30 @@
       }
     },
     {
+      "key": "iso_punching_moment_transfer",
+      "label": "獨立基腳雙向偏心衝剪與有效板寬撓曲傳力",
+      "tab": "iso",
+      "values": {
+        "B": 300,
+        "L": 400,
+        "c1": 60,
+        "c2": 40,
+        "hf": 64.722,
+        "qa": 45,
+        "MDL": 20,
+        "MDLy": -10,
+        "isoStrengthCases": "U,200,30,-15",
+        "isoTransferCases": "U\t30\t-15\t25\t15\tS-03 計算書第 8 頁"
+      },
+      "expected": {
+        "tab": "iso",
+        "okV2": true,
+        "okMomentTransfer": true,
+        "peakPunchingStress": 9.953874941255519,
+        "attachmentStatus": "ready"
+      }
+    },
+    {
       "key": "iso_seismic_reduced_compression",
       "label": "獨立基腳地震減壓時三項服務檢核改判",
       "tab": "iso",
