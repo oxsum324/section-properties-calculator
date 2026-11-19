@@ -60,6 +60,9 @@ tool-page-a11y.js text eol=lf
 "結構工具箱/tools/風力/wind-shared-profile.js" text eol=lf
 "鋼筋混凝土/shared/src/common.source.js" text eol=lf
 "鋼筋混凝土/shared/common.js" text eol=lf
+"鋼筋混凝土/shared/beam-rebar-designer.js" text eol=lf
+"鋼筋混凝土/shared/pile-cap-3d-stm-bridge.js" text eol=lf
+"覆工板/shared/h-section-table.js" text eol=lf
 "石材固定/vendor/loads/seismic-zones.js" text eol=lf
 
 鋼構工具/src/app.source.js text eol=lf
