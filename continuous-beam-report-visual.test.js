@@ -131,10 +131,21 @@ async function verifyDeflectionReview(page) {
   await calculate();
   assert(!(await button.isVisible()) && !(await page.locator('#saveStatus').textContent()).includes('核對原報告'),
     'current input keeps comparison available on demand', 'comparison starts collapsed');
-  await load('v17-beam.json', { ...saved, tool: { ...saved.tool, pageVersion: 'V1.7' } });
+  const precedingTool = { ...saved.tool, pageVersion: 'V1.8', calculationEngine: 'continuous-beam.inline.v1.5.0' };
+  await load('v18-uniform-beam.json', { ...saved, tool: precedingTool });
   await calculate();
   assert(!(await button.isVisible()) && !(await page.locator('#saveStatus').textContent()).includes('核對原報告'),
-    'V1.7 projects using the current engine remain recognized', 'no ambiguous-version prompt');
+    'V1.8 uniform-load projects remain recognized', 'no ambiguous-version prompt');
+  const descending = { ...data, model: { ...data.model, loads: [[{ type: 'trapezoid', w1: 10, w2: 5 }]] } };
+  await load('v18-descending-beam.json', { ...saved, tool: precedingTool, data: descending });
+  await calculate();
+  assert(await button.isVisible() && (await panel.locator('#deflectionReviewSource').textContent()).includes('遞減梯形等效載重'),
+    'V1.8 descending-load projects prompt a review', 'prior trapezoid direction');
+  const descendingReview = await download('continuous-beam-descending-review.json', () => button.click());
+  assert(descendingReview.legacyMethod.includes('跨內載重特解') &&
+    Math.abs(descendingReview.spans[0].legacy.signedDeflection - (-0.002068023216352544)) < 1e-15,
+    'V1.8 review reproduces the previous descending-load peak', JSON.stringify(descendingReview.spans[0].legacy));
+  await load('current-beam.json', saved);
 }
 
 async function verifyUnitRoundTrips(page) {

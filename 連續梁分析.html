@@ -849,7 +849,7 @@ function beamStiffness(EI, L) {
   return [[12*c,6*L*c,-12*c,6*L*c],[6*L*c,4*L2*c,-6*L*c,2*L2*c],[-12*c,-6*L*c,12*c,-6*L*c],[6*L*c,2*L2*c,-6*L*c,4*L2*c]];
 }
 
-function fixedEndForces(load, L) {
+function fixedEndForces(load, L, legacyTrapezoid = false) {
   const t = load.type;
   if (t === 'udl') {
     const w = load.w;
@@ -861,8 +861,12 @@ function fixedEndForces(load, L) {
     const wt = w2 - w1;
     let fT = [0,0,0,0];
     if (Math.abs(wt) > 1e-12) {
-      if (wt > 0) { fT = [3*wt*L/20, wt*L*L/30, 7*wt*L/20, -wt*L*L/20]; }
-      else { const ww=-wt; fT = [-7*ww*L/20, -ww*L*L/20, -3*ww*L/20, ww*L*L/30]; }
+      // 從左端均布 w1 疊加有號的 0 → (w2 − w1) 三角形，兩端強度依原位置。
+      fT = [3*wt*L/20, wt*L*L/30, 7*wt*L/20, -wt*L*L/20];
+      if (legacyTrapezoid && wt < 0) {
+        // 僅供舊案撓度比對重現修正前的端點位移與轉角。
+        fT = [7*wt*L/20, wt*L*L/20, 3*wt*L/20, -wt*L*L/30];
+      }
     }
     return [fU[0]+fT[0], fU[1]+fT[1], fU[2]+fT[2], fU[3]+fT[3]];
   }
@@ -955,7 +959,7 @@ function buildTopology(mdl) {
   return { nodes, elems, suppNodeIdx, nDof: dofCount, baseEI };
 }
 
-function solve(mdl, eiOverride) {
+function solve(mdl, eiOverride, legacyTrapezoid = false) {
   const topo = buildTopology(mdl);
   if (eiOverride) { for (const e of topo.elems) { const sp = mdl.spans[e.spanIdx]; e.EI = eiOverride * (sp.eiMul||1); } }
   const nDof = topo.nDof;
@@ -971,7 +975,7 @@ function solve(mdl, eiOverride) {
       const ldEnriched = ld.type==='trapezoid' ? Object.assign({_spanL: spanLfull}, ld) : ld;
       const subLd = clipLoadToRange(ldEnriched, e.x1, e.x2);
       if (!subLd) continue;
-      const fef = fixedEndForces(subLd, e.L);
+      const fef = fixedEndForces(subLd, e.L, legacyTrapezoid);
       for (let r=0;r<4;r++) F[e.dofs[r]] -= fef[r];
     }
   }
@@ -1029,7 +1033,7 @@ function solve(mdl, eiOverride) {
       const ldEnriched = ld.type==='trapezoid' ? Object.assign({_spanL: spanLfull}, ld) : ld;
       const subLd = clipLoadToRange(ldEnriched, e.x1, e.x2);
       if (!subLd) continue;
-      const fef = fixedEndForces(subLd, e.L);
+      const fef = fixedEndForces(subLd, e.L, legacyTrapezoid);
       for (let r=0;r<4;r++) f[r] += fef[r];
     }
     e.endForces = { V1:f[0], M1:f[1], V2:f[2], M2:f[3] };
@@ -1091,7 +1095,7 @@ function evalSectionState(x, L, ef, loads, side) {
 }
 
 // ==================== DIAGRAM COMPUTATION ====================
-function computeDiagrams(mdl, sol) {
+function computeDiagrams(mdl, sol, legacySol = sol, legacyIncludesLoad = false) {
   const result = { spans: [] };
   const topo = sol.topo;
   // Span offsets along total length
@@ -1105,14 +1109,21 @@ function computeDiagrams(mdl, sol) {
 
   // Iterate sub-elements; sample each
   const nPtsSub = 24;
-  for (const e of topo.elems) {
+  for (const [elementIndex, e] of topo.elems.entries()) {
     const L = e.L, ef = e.endForces;
     const spanLfull = mdl.spans[e.spanIdx].L;
     const loads = (mdl.loads[e.spanIdx]||[]).map(ld => ld.type==='trapezoid' ? Object.assign({_spanL: spanLfull}, ld) : ld)
                                             .map(ld => clipLoadToRange(ld, e.x1, e.x2)).filter(Boolean);
     const sp = result.spans[e.spanIdx];
     const curve = elementDeflectionCurve(e, loads);
-    const [v1, t1, v2, t2] = e.dispLocal;
+    const legacyElement = legacySol.topo.elems[elementIndex];
+    const [v1, t1, v2, t2] = legacyElement.dispLocal;
+    if (legacyIncludesLoad) {
+      const { peak } = elementDeflectionCurve(legacyElement, loads);
+      if (!sp.legacyPeakDeflection || Math.abs(peak.value) > Math.abs(sp.legacyPeakDeflection.value)) {
+        sp.legacyPeakDeflection = { x: e.x1 + peak.x, value: peak.value };
+      }
+    }
     if (!sp.peakDeflection || Math.abs(curve.peak.value) > Math.abs(sp.peakDeflection.value)) {
       sp.peakDeflection = { x:e.x1 + curve.peak.x, value:curve.peak.value };
     }
@@ -1143,7 +1154,7 @@ function computeDiagrams(mdl, sol) {
         const right = evalSectionState(x, L, ef, loads, 'right');
         sp.xs.push(xGlobal); sp.vs.push(right.V); sp.ms.push(right.M); sp.ds.push(defl);
       }
-      if (appendLeft || hasJump) {
+      if (!legacyIncludesLoad && (appendLeft || hasJump)) {
         // Reproduce the historical plot samples, which used only nodal displacement and rotation.
         const xi2 = xi * xi, xi3 = xi2 * xi;
         const value = (1-3*xi2+2*xi3)*v1 + L*(xi-2*xi2+xi3)*t1 + (3*xi2-2*xi3)*v2 + L*(-xi2+xi3)*t2;
@@ -1615,21 +1626,33 @@ function compareSpanDeflection(span, index) {
   return { span: index + 1, spanLength: span.L, legacy, current, magnitudeDifference: current.magnitude - legacy.magnitude };
 }
 
+function hasDescendingTrapezoid(mdl) {
+  return mdl.loads.some(loads => loads.some(load => load.type === 'trapezoid' && load.w1 - load.w2 > 1e-12));
+}
+
+function usesPriorPeakMethod(source) {
+  return source?.calculationEngine === 'continuous-beam.inline.v1.5.0' &&
+    ['V1.5', 'V1.6', 'V1.7', 'V1.8'].includes(source.pageVersion);
+}
+
 function needsDeflectionReview(source) {
-  return !!source && !(source.calculationEngine === CONTINUOUS_BEAM_CALCULATION_ENGINE &&
-    ['V1.5', 'V1.6', 'V1.7', CONTINUOUS_BEAM_PUBLIC_VERSION].includes(source.pageVersion));
+  if (!source) return false;
+  if (source.calculationEngine === CONTINUOUS_BEAM_CALCULATION_ENGINE &&
+      source.pageVersion === CONTINUOUS_BEAM_PUBLIC_VERSION) return false;
+  return !(usesPriorPeakMethod(source) && !hasDescendingTrapezoid(model));
 }
 
 function showDeflectionReview(diag, lengthUnit) {
   const source = deflectionReviewSource;
   const sourceLabel = document.getElementById('deflectionReviewSource');
-  sourceLabel.hidden = !source;
   let message = '';
   if (source) {
     message = `原輸入版號 ${source.pageVersion || '未記錄'}。`;
     if (source.pageVersion === 'V1.4') message += ' V1.4 在撓度修正前後共用版號，請對照原報告。';
-    else if (needsDeflectionReview(source)) message += ' 無法由來源資料確認原報告的撓度算法。';
+    else if (!usesPriorPeakMethod(source) && needsDeflectionReview(source)) message += ' 無法由來源資料確認原報告的撓度算法。';
   }
+  if (hasDescendingTrapezoid(model)) message += ' 舊法重現修正前的遞減梯形等效載重，請對照原報告。';
+  sourceLabel.hidden = !message;
   sourceLabel.textContent = message;
   const mmPerUnit = lengthUnit === 'cm' ? 10 : 1000;
   const displayMm = value => {
@@ -1882,7 +1905,12 @@ function runAnalysis() {
     return;
   }
 
-  diagrams = computeDiagrams(model, solution);
+  const legacySol = (hasDescendingTrapezoid(model) && solve(model, undefined, true)) || solution;
+  const legacyTrapezoid = legacySol !== solution;
+  const legacyIncludesLoad = legacyTrapezoid && usesPriorPeakMethod(deflectionReviewSource);
+  diagrams = computeDiagrams(model, solution, legacySol, legacyIncludesLoad);
+  const legacyCurve = legacyIncludesLoad ? '含跨內載重特解，逐區間求撓度極值' : '端點位移及轉角三次內插，採修正前的曲線取樣位置';
+  diagrams.legacyMethod = legacyTrapezoid ? legacyCurve + '，採修正前的遞減梯形等效載重' : legacyCurve;
   diagrams.sourceUnits = getUnitKey();
   diagrams.sourceModelJson = JSON.stringify([CONTINUOUS_BEAM_CALCULATION_ENGINE, model, getEI(), diagrams.sourceUnits]);
   const u = getUnit();
@@ -2421,7 +2449,7 @@ document.getElementById('downloadDeflectionReview').addEventListener('click', ()
     modelFingerprint: StructReportUtils.sha256Text(diagrams.sourceModelJson),
     unitSystem: diagrams.sourceUnits,
     lengthUnit: window.getUnit().length,
-    legacyMethod: '端點位移及轉角三次內插，採修正前的曲線取樣位置',
+    legacyMethod: diagrams.legacyMethod,
     currentMethod: '含跨內載重特解，逐區間求撓度極值',
     spans: diagrams.spans.map(compareSpanDeflection),
   });

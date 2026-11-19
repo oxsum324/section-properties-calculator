@@ -1157,6 +1157,14 @@ function runDeflectionClosedFormChecks(ctx) {
     assertDeflectionClosedForm(ctx, 0, tri(10), 'deflection: simply supported triangle 0→10 at all stations');
     setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[{ type: 'trapezoid', w1: 4, w2: 10 }]] });
     assertDeflectionClosedForm(ctx, 0, x => ssUdl(4)(x) + tri(6)(x), 'deflection: simply supported trapezoid 4→10 at all stations');
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[{ type: 'trapezoid', w1: 10, w2: 5 }]] });
+    assertNear(ctx.solution.reactions[0].Ry, 25, 1e-10, 'descending trapezoid left reaction', 'moment about the right support');
+    assertNear(ctx.solution.reactions[1].Ry, 20, 1e-10, 'descending trapezoid right reaction', 'moment about the left support');
+    assertNear(ctx.solution.reactions[1].Ry * L, 120, 1e-10, 'descending trapezoid moment equilibrium', 'integral of xq(x)');
+    assertDeflectionClosedForm(ctx, 0, x => ssUdl(5)(x) + tri(5)(L - x), 'deflection: simply supported trapezoid 10→5 at all stations');
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[{ type: 'trapezoid', w1: 5, w2: 10 }]] });
+    assertNear(ctx.solution.reactions[0].Ry, 20, 1e-10, 'ascending trapezoid left reaction', 'moment about the right support');
+    assertNear(ctx.solution.reactions[1].Ry, 25, 1e-10, 'ascending trapezoid right reaction', 'moment about the left support');
     // 兩端固定三角形 0→w0：R_A = 3w0L/20、M_A = w0L²/30 → δ = w0 x² (L − x)² (2L + x) / 120EIL
     setupBeam(ctx, { supports: ['fixed', 'fixed'], spans: [{ L }], loads: [[{ type: 'trapezoid', w1: 0, w2: 10 }]] });
     assertDeflectionClosedForm(ctx, 0, x => 10 * x * x * (L - x) ** 2 * (2 * L + x) / (120 * EI * L), 'deflection: fixed-fixed triangle 0→10 at all stations');
@@ -1242,14 +1250,14 @@ function internalForceSnapshotCases() {
   ];
 }
 
-function internalForceSnapshot(ctx) {
-  return internalForceSnapshotCases().map(spec => {
-    setupBeam(ctx, spec);
-    return {
-      reactions: (ctx.solution?.reactions || []).map(r => [r?.Ry ?? null, r?.Mr ?? null]),
-      spans: (ctx.diagrams?.spans || []).map(sp => ({ xs: sp.xs, vs: sp.vs, ms: sp.ms })),
-    };
-  });
+function internalForceSnapshot(ctx, spec, historical = false) {
+  setupBeam(ctx, spec);
+  const solution = historical ? ctx.solve(ctx.model, undefined, true) : ctx.solution;
+  const diagrams = historical ? ctx.computeDiagrams(ctx.model, solution) : ctx.diagrams;
+  return {
+    reactions: (solution?.reactions || []).map(r => [r?.Ry ?? null, r?.Mr ?? null]),
+    spans: (diagrams?.spans || []).map(sp => ({ xs: sp.xs, vs: sp.vs, ms: sp.ms })),
+  };
 }
 
 // 以 /workspace/連續梁分析_改前備份_2026-10-29.html（origin/master a2c4e97e 之原始檔）產生；
@@ -1267,15 +1275,30 @@ const ORIGINAL_INTERNAL_FORCE_CASE_SHA256 = [
 ];
 
 function runInternalForceSnapshotCheck(ctx) {
-  const snapshot = internalForceSnapshot(ctx);
+  const cases = internalForceSnapshotCases();
+  const snapshot = cases.map(spec => internalForceSnapshot(ctx, spec));
   if (process.env.CONTINUOUS_BEAM_PRINT_FORCE_SNAPSHOT === '1') {
     console.log('FORCE_SNAPSHOT_ALL=' + stableSha256(snapshot));
     console.log('FORCE_SNAPSHOT_CASES=' + JSON.stringify(snapshot.map(stableSha256)));
   }
+  const descendingIndex = 6;
   snapshot.forEach((item, i) => {
+    if (i === descendingIndex) return;
     assert(stableSha256(item) === ORIGINAL_INTERNAL_FORCE_CASE_SHA256[i], `internal-force snapshot case ${i + 1} bitwise identical to original`, stableSha256(item));
   });
-  assert(stableSha256(snapshot) === ORIGINAL_INTERNAL_FORCE_SNAPSHOT_SHA256, 'reactions / shear / moment arrays bitwise identical to original file', stableSha256(snapshot));
+  const affected = snapshot[descendingIndex];
+  const reactionStations = [0, 5.5, 12.75, 16.75];
+  // Trapezoids integrate to L(w1+w2)/2 and L²(w1+2w2)/6 about the span start.
+  const totalLoad = 52.25 + 37 + 43.5 + 30;
+  const appliedMoment = 166.375 - 9.5 + 37 * 7.7 + 43.5 * 9.125 + 30 * 12.75 + 48;
+  assertNear(affected.reactions.reduce((sum, [ry]) => sum + ry, 0), totalLoad, 1e-9,
+    'mixed-load snapshot vertical balance', 'includes a descending trapezoid');
+  assertNear(affected.reactions.reduce((sum, [ry, mr], i) => sum + ry * reactionStations[i] + mr, 0), appliedMoment, 1e-9,
+    'mixed-load snapshot moment balance', 'includes a descending trapezoid');
+  const historical = snapshot.slice();
+  historical[descendingIndex] = internalForceSnapshot(ctx, cases[descendingIndex], true);
+  assert(stableSha256(historical) === ORIGINAL_INTERNAL_FORCE_SNAPSHOT_SHA256,
+    'historical reactions / shear / moment arrays retain the original file snapshot', stableSha256(historical));
 }
 
 main();
