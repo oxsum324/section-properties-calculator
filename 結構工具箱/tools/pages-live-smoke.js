@@ -15,7 +15,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: 'field-survey/sketch.js', needles: ['createSketcher', 'sketchImage', '未按比例'] },
   {
     path: '鋼筋混凝土/',
-    needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '../結構工具箱/audit-dashboard.html', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', 'RC 工具箱入口列印已封鎖', '明確核可後可作為正式附件', 'V1.8'],
+    needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '../結構工具箱/audit-dashboard.html', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', 'RC 工具箱入口列印已封鎖', '明確核可後可作為正式附件'],
     forbidden: ['最後改版日期', 'ver-draft', 'badge-new', '>NEW<', '僅供初步設計與檢算參考']
   },
   {
@@ -55,8 +55,8 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '結構工具箱/tools/local-quick-tool-metadata.js', needles: ["'foundation-local':", "version: 'V0.6'", "'equipment-load':", "version: 'V0.4'", "'earth-pressure':", "governance: 'local-quick-contract'"] },
   { path: '結構工具箱/tools/analysis-section-tool-metadata.js', needles: ["'continuous-beam':", "route: '/beam-analysis'", "'frame-analysis':", "route: '/frame-analysis'", "version: 'V2.0'", "calculationEngine: 'plane-frame.inline.v1.0.0'", "state: 'formal'", "calculationEngine: 'section-properties.inline.v2.3.0'", "'composite-section':"] },
   { path: '結構工具箱/tools/風力/wind-force.html', needles: ['矩形建物 MWFRS', '建築物耐風設計', '../formal-tool-metadata.js', "FormalToolMetadata['wind-force'].version", '../../core/direct-print-boundary.css', 'formal-tool-output-page', '正式工具主頁列印已封鎖'] },
-  { path: '結構工具箱/tools/風力/wind-object-solid.html', needles: ['實體標示物風力', '表 2.10', '../formal-tool-metadata.js', 'version: PUBLIC_TOOL_VERSION', 'calculationEngine: TOOL_VERSION', '<b>計算引擎</b>', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '此頁是操作介面，不是計算書'] },
-  { path: '結構工具箱/tools/地震力/seismic-force.html', needles: ['等值靜力分析', '建築物耐震設計', '../formal-tool-metadata.js', 'version: PUBLIC_TOOL_VERSION', 'calculationEngine: TOOL_VERSION', '<b>計算引擎</b>', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },
+  { path: '結構工具箱/tools/風力/wind-object-solid.html', needles: ['實體標示物風力', '表 2.10', '../formal-tool-metadata.js', 'version: PUBLIC_TOOL_VERSION', 'function buildSolidObjectReportTrace(result, engine = TOOL_VERSION)', 'calculationEngine: engine', '<b>計算引擎</b>', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '此頁是操作介面，不是計算書'] },
+  { path: '結構工具箱/tools/地震力/seismic-force.html', needles: ['等值靜力分析', '建築物耐震設計', '../formal-tool-metadata.js', 'version: PUBLIC_TOOL_VERSION', 'function buildSeismicReportTrace(engineVersion = TOOL_VERSION)', 'calculationEngine: engineVersion', '<b>計算引擎</b>', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },
   { path: '結構工具箱/tools/foundation/foundation-local.html', needles: ['基礎局部檢核', '../local-quick-tool-metadata.js', "LocalQuickToolMetadata['foundation-local'].version", 'calculationEngine: Core.version', '計算引擎：${escapeHtml(Core.version)}', '../../core/direct-print-boundary.css', 'local-quick-output-page', '局部快算主頁列印已封鎖'] },
   { path: '結構工具箱/tools/equipment/equipment-load.html', needles: ['設備局部荷重', '../local-quick-tool-metadata.js', "LocalQuickToolMetadata['equipment-load'].version", 'calculationEngine: Core.version', '計算引擎：${escapeHtml(Core.version)}', '../../core/direct-print-boundary.css', 'local-quick-output-page', '此頁是操作介面，不是計算書'] },
   { path: '結構工具箱/tools/earth/earth-pressure.html', needles: ['擋土土壓局部檢核', '../local-quick-tool-metadata.js', "LocalQuickToolMetadata['earth-pressure'].version", 'calculationEngine: Core.version', '計算引擎：${escapeHtml(Core.version)}', '../../core/direct-print-boundary.css', 'local-quick-output-page', '本頁不得作為附件'] }
@@ -492,7 +492,9 @@ function assertNoLocalWorkspaceLeak(text, label) {
   assert.equal(/C:\\Users\\|Desktop\\AI\\|小工具製作/.test(text), false, `${label} must not expose local workspace paths`);
 }
 
-async function assertPublicRouteSamples(base) {
+async function assertPublicRouteSamples(base, homeJs) {
+  const retrofitCard = homeJs.match(/\bversion:\s*(['"])(V\d+(?:\.\d+)*)\1,\s*href:\s*(['"])\/rc-retrofit-section\3/);
+  assert.ok(retrofitCard, 'public homepage identifies the RC retrofit section version');
   for (const sample of PUBLIC_ROUTE_SAMPLES) {
     const pageUrl = liveUrl(base, sample.path);
     const html = await fetchText(pageUrl);
@@ -507,6 +509,10 @@ async function assertPublicRouteSamples(base) {
     }
     for (const pattern of sample.forbiddenPatterns || []) {
       assert.doesNotMatch(html, new RegExp(pattern), `${sample.path} contains forbidden stale claim: ${pattern}`);
+    }
+    if (sample.path === '鋼筋混凝土/') {
+      assert.ok(html.includes(`<h3>RC 補強斷面 <span class="ver ver-ok">${retrofitCard[2]}</span></h3>`),
+        'RC family card and public homepage identify the same retrofit section version');
     }
     assertNoLocalWorkspaceLeak(html, sample.path);
     if (sample.checkAssets) await assertPublicAssets(html, pageUrl, sample.path);
@@ -992,7 +998,7 @@ async function main() {
     'report readiness preflight sourcePath'
   );
 
-  await assertPublicRouteSamples(base);
+  await assertPublicRouteSamples(base, homeJs);
   await assertCleanRouteSamples(base);
   const cleanRouteCounts = await assertAllHomeCleanRoutes(base, homeJs);
   if (!allowLocalOutput()) {
