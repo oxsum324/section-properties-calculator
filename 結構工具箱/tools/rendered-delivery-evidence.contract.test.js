@@ -242,10 +242,18 @@ for (const [relativePath, expectedPrintLayouts] of [
   if (['結構工具箱/core/ui/report.js', '鋼構工具/core/ui/report.js', '鋼筋混凝土/shared/report.js'].includes(relativePath)) {
     assert.ok(source.includes("root.querySelectorAll('.rep-window-status')"), `${relativePath} clears transient report-window messages before sealed HTML serialization`);
   }
-  const footerSafeMargins = source.match(/@page\s*\{[^}]*margin:\s*18mm\s+14mm\s+18mm\s*;?\s*\}/g) || [];
-  const flowingPrintFooters = source.match(/\.rep-footer\s*\{\s*position:static;\s*width:auto;\s*(?:clear:both;\s*)?padding:(?:0|1mm 0 0);\s*margin-top:(?:4|8)mm;\s*break-before:avoid-page;\s*page-break-before:avoid;\s*break-inside:avoid;\s*\}/g) || [];
-  assert.ok(footerSafeMargins.length >= expectedPrintLayouts, `${relativePath} reserves footer-safe A4 bottom margin`);
-  assert.ok(flowingPrintFooters.length >= expectedPrintLayouts, `${relativePath} keeps the print footer in document flow`);
+  const printStyles = relativePath.endsWith('/wind-report.source.js')
+    ? [...source.matchAll(/<style>\s*\$\{reportHeaderStyles\}([\s\S]*?)<\/style>/g)].map(template => {
+      const sharedStyles = source.match(/const reportHeaderStyles = `([^`]+)`;/);
+      assert.ok(sharedStyles, `${relativePath} defines the shared report styles`);
+      return sharedStyles[1] + template[1];
+    })
+    : [source];
+  assert.equal(printStyles.length, expectedPrintLayouts, `${relativePath} exposes every print layout`);
+  for (const styles of printStyles) {
+    assert.match(styles, /@page\s*\{[^}]*margin:\s*18mm\s+14mm\s+18mm\s*;?\s*\}/, `${relativePath} reserves footer-safe A4 bottom margin`);
+    assert.match(styles, /\.rep-footer\s*\{\s*position:static;\s*width:auto;\s*(?:clear:both;\s*)?padding:(?:0|1mm 0 0);\s*margin-top:(?:4|8)mm;\s*break-before:avoid-page;\s*page-break-before:avoid;\s*break-inside:avoid;\s*\}/, `${relativePath} keeps the print footer in document flow`);
+  }
 }
 
 for (const relativePath of [

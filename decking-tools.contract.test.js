@@ -66,6 +66,8 @@ function renderDeckingReportRuntime(source, fixture, filename) {
     functionSource(source, 'buildReport'),
   ].join('\n');
   vm.createContext(context);
+  const sectionTablePath = path.join(path.dirname(filename), 'shared', 'h-section-table.js');
+  vm.runInContext(fs.readFileSync(sectionTablePath, 'utf8'), context, { filename: sectionTablePath });
   vm.runInContext(runtimeSource, context, { filename });
   assert(typeof context.buildReport === 'function', 'decking runtime exposes buildReport', 'buildReport');
   context.buildReport();

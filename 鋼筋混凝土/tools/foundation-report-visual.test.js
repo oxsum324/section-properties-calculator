@@ -13,7 +13,18 @@ const CASES_PATH = path.join(__dirname, 'foundation-regression-cases.json');
 const OUT_DIR = path.resolve(process.env.FOUNDATION_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,iso_factored_eccentric,iso_punching_moment_transfer,iso_seismic_reduced_compression,iso_partial_corner,iso_ecc_y_at_kern,combined_default,combined_pass_warn,mat_pass_warn,retain_earth_bridge,retain_counterfort_warn,pile_default,pile_lateral_distribution')
+const RELEASE_CASES = [
+  'iso_default', 'combined_default', 'combined_pass_warn', 'mat_pass_warn',
+  'retain_earth_bridge', 'retain_counterfort_warn', 'pile_default', 'pile_lateral_distribution',
+];
+const SUPPLEMENTAL_CASES = [
+  'iso_factored_eccentric', 'iso_punching_moment_transfer', 'iso_seismic_reduced_compression',
+  'iso_partial_corner', 'iso_ecc_y_at_kern',
+];
+const SUPPLEMENTAL_DIR = process.env.PREFLIGHT_RUN_DIR && !process.env.FOUNDATION_REPORT_OUT
+  ? path.resolve(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-foundation-supplemental')
+  : null;
+const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || [...RELEASE_CASES, ...SUPPLEMENTAL_CASES].join(','))
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -365,6 +376,7 @@ async function reportMetrics(report) {
 
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
+  if (SUPPLEMENTAL_DIR) fs.mkdirSync(SUPPLEMENTAL_DIR, { recursive: true });
   const pack = JSON.parse(fs.readFileSync(CASES_PATH, 'utf8'));
   const cases = CASE_KEYS.map(key => {
     const tc = pack.cases.find(c => c.key === key);
@@ -389,6 +401,7 @@ async function main() {
 
   try {
     for (const tc of cases) {
+      const caseOutputDir = SUPPLEMENTAL_DIR && SUPPLEMENTAL_CASES.includes(tc.key) ? SUPPLEMENTAL_DIR : OUT_DIR;
       const page = await browser.newPage({ viewport: { width: 1320, height: 980 }, deviceScaleFactor: 1 });
       attachPageGuards(page, guard, `${tc.key}:tool`);
 
@@ -447,8 +460,8 @@ async function main() {
       await report.setViewportSize({ width: 980, height: 1300 });
       await report.waitForTimeout(500);
 
-      const screenshotPath = path.join(OUT_DIR, `foundation-report-${tc.key}.png`);
-      const pdfPath = path.join(OUT_DIR, `foundation-report-${tc.key}.pdf`);
+      const screenshotPath = path.join(caseOutputDir, `foundation-report-${tc.key}.png`);
+      const pdfPath = path.join(caseOutputDir, `foundation-report-${tc.key}.pdf`);
       await report.screenshot({ path: screenshotPath, fullPage: true });
       await report.emulateMedia({ media: 'print' });
       const printMetrics = await report.evaluate(() => ({
@@ -465,7 +478,7 @@ async function main() {
       const metrics = await reportMetrics(report);
       const expected = EXPECTED[tc.key] || {};
       const textDownload = await captureReportTextDownload(report, {
-        outputDir: OUT_DIR,
+        outputDir: caseOutputDir,
         filePrefix: 'foundation',
         caseKey: tc.key,
         label: `${tc.key} foundation report`,
@@ -532,7 +545,7 @@ async function main() {
       assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], `${tc.key} screenshot written`);
       assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} pdf written`);
 
-      const portableHtml = await assertPortableFormalHtml(report, `${tc.key} report`, assert, { outputDir: OUT_DIR, sourceSnapshot: sourceReplay.sourceSnapshot });
+      const portableHtml = await assertPortableFormalHtml(report, `${tc.key} report`, assert, { outputDir: caseOutputDir, sourceSnapshot: sourceReplay.sourceSnapshot });
       results[results.length - 1].portableHtml = portableHtml;
       await report.close();
       await page.close();
@@ -543,14 +556,20 @@ async function main() {
   }
 
   const auditPath = path.join(OUT_DIR, 'foundation-report-visual-audit.json');
-  fs.writeFileSync(auditPath, JSON.stringify({
+  const auditSummary = {
     generatedAt: new Date().toISOString(),
     toolUrl,
-    results,
     consoleErrors: guard.consoleErrors,
     pageErrors: guard.pageErrors,
     failedResponses: guard.failedResponses,
-  }, null, 2), 'utf8');
+  };
+  const writeAudit = (file, records) => fs.writeFileSync(file, JSON.stringify({ ...auditSummary, results: records }, null, 2), 'utf8');
+  if (SUPPLEMENTAL_DIR) {
+    writeAudit(auditPath, results.filter(record => !SUPPLEMENTAL_CASES.includes(record.key)));
+    writeAudit(path.join(SUPPLEMENTAL_DIR, path.basename(auditPath)), results.filter(record => SUPPLEMENTAL_CASES.includes(record.key)));
+  } else {
+    writeAudit(auditPath, results);
+  }
 
   assert(guard.consoleErrors.length === 0, 'browser console errors', guard.consoleErrors.map(item => `${item.label}: ${item.text}`).join(' / ') || 'none');
   assert(guard.pageErrors.length === 0, 'browser page errors', guard.pageErrors.map(item => `${item.label}: ${item.text}`).join(' / ') || 'none');
