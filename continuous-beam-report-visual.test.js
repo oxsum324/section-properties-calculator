@@ -109,6 +109,9 @@ async function verifyDeflectionReview(page) {
     Math.abs(span.legacy.magnitude - 4 * expectedDifference) < 1e-15 && Math.abs(span.current.magnitude - 5 * expectedDifference) < 1e-15 &&
     Math.abs(span.magnitudeDifference - expectedDifference) < 1e-15,
     'review export matches simple-span closed form', JSON.stringify(span));
+  const reviewRow = await panel.locator('tbody tr').innerText();
+  assert(reviewRow.includes('2.206') && reviewRow.includes('2.757') && reviewRow.includes('0.551') &&
+    (await panel.locator('caption').innerText()).includes('量差（mm）'), 'review table shows directly readable deflection millimetres', reviewRow);
   const narrowLayout = await panel.evaluate(element => element.getBoundingClientRect().right <= window.innerWidth);
   assert(narrowLayout, 'review panel fits the 390 px viewport', 'mobile layout');
   await panel.screenshot({ path: path.join(OUT_DIR, 'continuous-beam-deflection-review-390.png') });
@@ -128,6 +131,52 @@ async function verifyDeflectionReview(page) {
   await calculate();
   assert(!(await button.isVisible()) && !(await page.locator('#saveStatus').textContent()).includes('核對原報告'),
     'current input keeps comparison available on demand', 'comparison starts collapsed');
+  await load('v17-beam.json', { ...saved, tool: { ...saved.tool, pageVersion: 'V1.7' } });
+  await calculate();
+  assert(!(await button.isVisible()) && !(await page.locator('#saveStatus').textContent()).includes('核對原報告'),
+    'V1.7 projects using the current engine remain recognized', 'no ambiguous-version prompt');
+}
+
+async function verifyUnitRoundTrips(page) {
+  const unit = page.locator('#unitSystem');
+  const material = page.locator('#matSelect');
+  const fc = page.locator('#fcVal');
+  const readResult = units => page.evaluate(({ length, force, elasticity, strength }) => ({
+    E: Number(document.querySelector('#eVal').value) * elasticity,
+    fc: Number(document.querySelector('#fcVal').value) * strength,
+    reaction: window.solution.reactions[0].Ry * force,
+    peak: window.diagrams.spans[0].peakDeflection.value * length,
+  }), units);
+  const scales = {
+    'kN-m': { length: 1, force: 1, elasticity: 1, strength: 1 },
+    'tf-m': { length: 1, force: 9.80665, elasticity: 9.80665, strength: 0.0980665 },
+    'kgf-cm': { length: 0.01, force: 0.00980665, elasticity: 98.0665, strength: 0.0980665 },
+  };
+  assert(Math.abs(Number(await fc.inputValue()) - 27.45862) < 1e-10, 'new-model concrete strength starts at the same physical default', '280 kgf/cm² = 27.45862 MPa');
+  for (const key of ['steel', 'custom', 'concrete']) {
+    await material.selectOption(key);
+    const edited = key === 'custom' ? page.locator('#eVal') : fc;
+    if (key !== 'steel') {
+      await edited.fill(key === 'custom' ? '173000000' : '28');
+      await edited.blur();
+    }
+    await page.locator('.btn-calc').click();
+    const original = await readResult(scales['kN-m']);
+    for (const next of ['tf-m', 'kgf-cm', 'kN-m']) {
+      await unit.selectOption(next);
+      assert(await page.locator('#resultsCard').isHidden(), `${key} unit change invalidates the prior display`, next);
+      await page.locator('.btn-calc').click();
+      const actual = await readResult(scales[next]);
+      for (const [quantity, value] of Object.entries(original)) {
+        assert(Math.abs(actual[quantity] - value) / Math.abs(value) < 2e-7, `${key} unit conversion preserves physical ${quantity}`, `${next}: ${actual[quantity]} vs ${value}`);
+      }
+    }
+  }
+  await fc.fill('');
+  await fc.blur();
+  await page.locator('.btn-calc').click();
+  assert(await page.locator('#resultsCard').isHidden() && (await page.locator('#errorMsg').textContent()).includes('混凝土強度'),
+    'clearing concrete strength requires the user to provide it before solving', 'analysis remains unavailable');
 }
 
 async function main() {
@@ -201,6 +250,7 @@ async function main() {
     });
     await report.close();
     await verifyDeflectionReview(page);
+    await verifyUnitRoundTrips(page);
 
     const summary = {
       generatedAt: new Date().toISOString(),

@@ -8,7 +8,7 @@
     'continuous-beam': define({
       route: '/beam-analysis',
       discipline: 'analysis',
-      version: 'V1.7',
+      version: 'V1.8',
       calculationEngine: 'continuous-beam.inline.v1.5.0',
       state: 'assist',
       governance: 'continuous-beam',

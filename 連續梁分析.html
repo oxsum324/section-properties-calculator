@@ -224,14 +224,14 @@
       <div class="form-group">
         <label>材料 E 值</label>
         <select id="matSelect" onchange="onMatChange()">
-          <option value="steel">鋼材 (2.04×10⁶)</option>
+          <option value="steel">鋼材</option>
           <option value="concrete">混凝土 (由 fc' 計算)</option>
           <option value="custom">自訂</option>
         </select>
       </div>
       <div class="form-group" id="fcGroup" style="display:none;">
         <label>fc' (<span class="unit-stress">kgf/cm²</span>)</label>
-        <input type="number" id="fcVal" value="280" step="any" onchange="calcEc()">
+        <input type="number" id="fcVal" step="any" onchange="calcEc()">
       </div>
       <div class="form-group">
         <label>E (<span class="unit-E"></span>)</label>
@@ -345,7 +345,7 @@
       <details id="deflectionReview" class="page-only-report-status">
         <summary>舊案撓度比對</summary>
         <p id="deflectionReviewSource"></p>
-        <p>以本次輸入並列修正前的曲線取樣峰值與現版極值。請核對原報告的模型、單位及撓度數字，確認引用情形。</p>
+        <p>以本次輸入並列修正前的曲線取樣峰值與現版極值。請核對原報告的模型、單位及撓度數字。JSON 採案件原單位。</p>
         <div id="deflectionReviewTable"></div>
         <button type="button" class="btn btn-accent btn-sm" id="downloadDeflectionReview">下載撓度比對 JSON</button>
       </details>
@@ -389,13 +389,24 @@ function convFactor(fromKey, toKey, a, b) {
   return Math.pow(p.F/q.F, a) * Math.pow(p.L/q.L, b);
 }
 
+function concreteStrengthFactor(fromKey, toKey) {
+  const mpaPerKgfCm2 = convFactor('kgf-cm', 'kN-m', 1, -2) / 1000;
+  const toMpa = unitKey => UNITS[unitKey].stress === 'MPa' ? 1 : mpaPerKgfCm2;
+  return toMpa(fromKey) / toMpa(toKey);
+}
+
+function defaultConcreteStrength(unitKey) {
+  return Number((280 * concreteStrengthFactor('kgf-cm', unitKey)).toPrecision(12));
+}
+
 var _prevUnitKey = null;
 function onUnitChange() {
   const u = getUnit();
   const uk = getUnitKey();
   const prev = _prevUnitKey;
+  const converting = Boolean(prev && prev !== uk);
   // 先做數值換算 (若有前一組單位且不同)
-  if (prev && prev !== uk) {
+  if (converting) {
     const fL  = convFactor(prev, uk, 0, 1);   // 長度
     const fI  = convFactor(prev, uk, 0, 4);   // 慣性矩
     const fF  = convFactor(prev, uk, 1, 0);   // 力
@@ -419,12 +430,11 @@ function onUnitChange() {
     // 全域 I
     const giEl = document.getElementById('globalI');
     if (giEl && giEl.value !== '') giEl.value = +(parseFloat(giEl.value) * fI).toPrecision(8);
-    // E (僅自訂模式才換算; steel/concrete 由 onMatChange/calcEc 重新產生)
-    const matSel = document.getElementById('matSelect');
-    if (matSel && matSel.value === 'custom') {
-      const eEl = document.getElementById('eVal');
-      if (eEl && eEl.value !== '') eEl.value = +(parseFloat(eEl.value) * fE).toPrecision(8);
-    }
+    // 切換單位沿用案件現有的材料參數。
+    const eEl = document.getElementById('eVal');
+    if (eEl.value !== '') eEl.value = +(parseFloat(eEl.value) * fE).toPrecision(12);
+    const fcEl = document.getElementById('fcVal');
+    if (fcEl.value !== '') fcEl.value = +(parseFloat(fcEl.value) * concreteStrengthFactor(prev, uk)).toPrecision(12);
     // 影響線位置參數 (若為 shear/moment 類型則為長度)
     const ilTypeEl = document.getElementById('ilType');
     const ilParamEl = document.getElementById('ilParam');
@@ -442,8 +452,7 @@ function onUnitChange() {
   document.querySelectorAll('.unit-stress').forEach(el => el.textContent = u.stress);
   document.querySelectorAll('.unit-E').forEach(el => el.textContent = u.E);
   document.querySelectorAll('.unit-I').forEach(el => el.textContent = u.I);
-  // 更新 E (若為 steel/concrete 由此路徑重算)
-  onMatChange();
+  onMatChange(!converting);
   // 重新渲染以反映換算後數值
   invalidateAnalysis();
   renderSpanInputs();
@@ -451,7 +460,7 @@ function onUnitChange() {
   drawSchematic();
 }
 
-function onMatChange() {
+function onMatChange(recomputeE = true) {
   const mat = document.getElementById('matSelect').value;
   const u = getUnit();
   const uk = getUnitKey();
@@ -460,14 +469,16 @@ function onMatChange() {
 
   if (mat === 'steel') {
     fcGroup.style.display = 'none';
-    if (uk === 'kN-m') eInput.value = 2.04e8;
-    else if (uk === 'tf-m') eInput.value = (2.04e6 * 100 / 9.80665).toFixed(0); // ~2.08e7
-    else eInput.value = 2.04e6;
+    if (recomputeE) {
+      if (uk === 'kN-m') eInput.value = 2.04e8;
+      else if (uk === 'tf-m') eInput.value = (2.04e6 * 100 / 9.80665).toFixed(0); // ~2.08e7
+      else eInput.value = 2.04e6;
+    }
     eInput.readOnly = true; eInput.style.background = '#f1f5f9';
   } else if (mat === 'concrete') {
     fcGroup.style.display = 'block';
     eInput.readOnly = true; eInput.style.background = '#f1f5f9';
-    calcEc();
+    if (recomputeE) calcEc();
   } else {
     fcGroup.style.display = 'none';
     eInput.readOnly = false; eInput.style.background = '';
@@ -478,8 +489,14 @@ function onMatChange() {
 
 function calcEc() {
   // 新法規 (土木 401-11X 以後): Ec = 12000·√fc' (kgf/cm²)  取代舊式 15000√fc'
-  const fc = parseFloat(document.getElementById('fcVal').value) || 280;
   const uk = getUnitKey();
+  const fc = parseFloat(document.getElementById('fcVal').value);
+  const eInput = document.getElementById('eVal');
+  if (!Number.isFinite(fc) || fc <= 0) {
+    eInput.value = '';
+    invalidateAnalysis();
+    return;
+  }
   let Ec;
   if (uk === 'kgf-cm') {
     Ec = 12000 * Math.sqrt(fc); // kgf/cm²
@@ -491,7 +508,7 @@ function calcEc() {
     //   Ec(MPa) = 0.0981 × 12000 × √(fc'(MPa)×10.197) ≈ 3760·√fc'(MPa)
     Ec = 3760 * Math.sqrt(fc) * 1000; // kN/m²
   }
-  document.getElementById('eVal').value = Math.round(Ec);
+  eInput.value = Math.round(Ec);
   invalidateAnalysis();
 }
 
@@ -1600,25 +1617,32 @@ function compareSpanDeflection(span, index) {
 
 function needsDeflectionReview(source) {
   return !!source && !(source.calculationEngine === CONTINUOUS_BEAM_CALCULATION_ENGINE &&
-    ['V1.5', 'V1.6', CONTINUOUS_BEAM_PUBLIC_VERSION].includes(source.pageVersion));
+    ['V1.5', 'V1.6', 'V1.7', CONTINUOUS_BEAM_PUBLIC_VERSION].includes(source.pageVersion));
 }
 
 function showDeflectionReview(diag, lengthUnit) {
   const source = deflectionReviewSource;
-  let message = '目前使用頁面內的模型。';
+  const sourceLabel = document.getElementById('deflectionReviewSource');
+  sourceLabel.hidden = !source;
+  let message = '';
   if (source) {
     message = `原輸入版號 ${source.pageVersion || '未記錄'}。`;
     if (source.pageVersion === 'V1.4') message += ' V1.4 在撓度修正前後共用版號，請對照原報告。';
     else if (needsDeflectionReview(source)) message += ' 無法由來源資料確認原報告的撓度算法。';
   }
-  document.getElementById('deflectionReviewSource').textContent = message;
-  const peakCell = peak => `${fmtVal(peak.magnitude)}<br><small>x ${peak.stationFromLeft === null ? '—' : fmtVal(peak.stationFromLeft)}</small>`;
+  sourceLabel.textContent = message;
+  const mmPerUnit = lengthUnit === 'cm' ? 10 : 1000;
+  const displayMm = value => {
+    const mm = value * mmPerUnit;
+    return mm === 0 || Math.abs(mm) >= 0.001 ? mm.toFixed(3) : fmtVal(mm);
+  };
+  const peakCell = peak => `${displayMm(peak.magnitude)}<br><small>x ${peak.stationFromLeft === null ? '—' : fmtVal(peak.stationFromLeft)}</small>`;
   const rows = diag.spans.map((span, index) => {
     const row = compareSpanDeflection(span, index);
-    return `<tr><th scope="row">${row.span}</th><td>${peakCell(row.legacy)}</td><td>${peakCell(row.current)}</td><td>${fmtVal(row.magnitudeDifference)}</td></tr>`;
+    return `<tr><th scope="row">${row.span}</th><td>${peakCell(row.legacy)}</td><td>${peakCell(row.current)}</td><td>${displayMm(row.magnitudeDifference)}</td></tr>`;
   }).join('');
   document.getElementById('deflectionReviewTable').innerHTML = `<table class="results-table">
-    <caption>撓度及距跨左端位置 x（${lengthUnit}）</caption>
+    <caption>撓度與量差（mm），距跨左端 x（${lengthUnit}）</caption>
     <thead><tr><th scope="col">跨</th><th scope="col">舊法峰值</th><th scope="col">現版峰值</th><th scope="col">峰值量差（現版－舊法）</th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
@@ -1787,6 +1811,10 @@ function validateModelInputs(mdl) {
   const u = getUnit();
   const E = parseFloat(document.getElementById('eVal').value);
   const I = parseFloat(document.getElementById('globalI').value);
+  if (document.getElementById('matSelect').value === 'concrete') {
+    const fc = parseFloat(document.getElementById('fcVal').value);
+    if (!Number.isFinite(fc) || fc <= 0) return `混凝土強度 fc′ 必須大於 0 ${u.stress}`;
+  }
   if (!isFinite(E) || E <= 0) return `材料 E 值必須大於 0`;
   if (document.getElementById('iMode').value === 'direct' && (!isFinite(I) || I <= 0)) return `I 值必須大於 0`;
   for (let i=0;i<mdl.numSpans;i++) {
@@ -2191,6 +2219,7 @@ function init() {
   model.loads[1] = [{type:'udl',w:10}];
   // Set initial E
   const uk = getUnitKey();
+  document.getElementById('fcVal').value = defaultConcreteStrength(uk);
   if (uk==='kN-m') document.getElementById('eVal').value = 2.04e8;
   else if (uk==='tf-m') document.getElementById('eVal').value = 20800000;
   else document.getElementById('eVal').value = 2040000;
@@ -2420,6 +2449,7 @@ function restoreLocalPayload(payload, label) {
 
 function validateContinuousBeamSaveData(d) {
   if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('案例內容不是有效物件。');
+  if (d.unitSystem && !Object.hasOwn(UNITS, d.unitSystem)) throw new Error('案例單位系統不受支援。');
   const savedModel = d.model;
   if (!savedModel || typeof savedModel !== 'object' || Array.isArray(savedModel)) throw new Error('案例缺少梁模型。');
   const spanCount = Number(savedModel.numSpans);
@@ -2457,7 +2487,7 @@ function restoreFromData(d, sourceTool) {
   document.getElementById('matSelect').value = d.matSelect || 'steel';
   document.getElementById('iMode').value = d.iMode || 'direct';
   window.onIModeChange();
-  document.getElementById('fcVal').value = d.fcVal || '280';
+  document.getElementById('fcVal').value = d.fcVal ?? defaultConcreteStrength(window.getUnitKey());
   window.onMatChange();
   document.getElementById('eVal').value = d.eVal;
   document.getElementById('globalI').value = d.globalI;

@@ -329,7 +329,7 @@
     },
     {
       title: '連續梁分析',
-      version: 'V1.7',
+      version: 'V1.8',
       href: '/beam-analysis',
       aliases: ['Continuous beam', '多跨梁分析'],
       categories: ['analysis'],

@@ -826,6 +826,15 @@ function main() {
   assert(rejectedModelMessage.includes('支承資料與跨數不一致'), 'malformed model topology is rejected before restore', rejectedModelMessage);
   assert(stableSha256(ctx.collectSaveData()) === stateBeforeRejectedImport, 'rejected malformed model leaves the active case unchanged', stateBeforeRejectedImport);
 
+  let rejectedUnitsMessage = '';
+  try {
+    ctx.restoreLocalPayload({ ...sourcePayload, data: { ...sourcePayload.data, unitSystem: 'unsupported' } }, 'invalid-units.json');
+  } catch (error) {
+    rejectedUnitsMessage = error.message;
+  }
+  assert(rejectedUnitsMessage.includes('案例單位系統不受支援'), 'unknown case units are rejected before restore', rejectedUnitsMessage);
+  assert(stableSha256(ctx.collectSaveData()) === stateBeforeRejectedImport, 'rejected units leave the active case unchanged', stateBeforeRejectedImport);
+
   resetToSingleSpan(ctx);
   ctx.model.loads[0] = [{ type: 'udl', w: 10 }];
   ctx.renderLoadInputs();
