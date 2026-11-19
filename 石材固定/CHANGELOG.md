@@ -2,6 +2,13 @@
 
 本檔記錄石材固定計算書工具的主要版本變更。正式修改工具前後，請同步更新此檔、`APP_VERSION`、`SERVER_VERSION`，必要時也更新 `TEMPLATE_CATALOG_VERSION` 與回歸測試基準值。
 
+## V3.2 - 2026-11-13
+
+版本同步採 `APP_VERSION = V3.2`、`SERVER_VERSION = 3.2`，規範版計算核心為 `2026.11.13-spec-core12`。
+
+- 分開風壓載重係數與角鋼、伸縮片的彎曲容許應力係數 `kFb`。`kFb` 採 1 為基準，調整時須記錄適用材料、載重組合與條款或專案依據。
+- 舊案只有風壓載重係數時，保留原風壓計算，彎曲容許應力按基準值列示並標為待確認。V3.2 規範參數另存快照，供案件追溯。
+
 ## V3.1.1 - 2026-10-23
 
 版本同步：`APP_VERSION = V3.1.1`；`SERVER_VERSION = 3.1.1`。`calculator.spec.js` 之 `VERSION` 與 profile archive（V3.1.0 快照）不變。
