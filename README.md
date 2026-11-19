@@ -202,6 +202,8 @@ T47：混凝土強度非破壞檢測推估新增同測區配對覆蓋摘要；�
 正式預檢在來源乾淨並取得 release 鎖後，先檢查石材工具所需的 Python 匯入鏈、自我檢查與完整報告契約；失敗即停止於平台／慢速稽核前，收據留在 ignored `output/preflight/environment-precheck/`，不建立正式 run 證據。`STRUCTURAL_TOOLS_PYTHON` 僅讀取目前程序環境，指定值無效即失敗，不安裝套件。只有 `run-preflight-tools-release.bat` 固定使用 Windows PowerShell 5.1；70 個正式預檢 keys、順序、命令與 3 個後置檢查不變。此早檢本身不代表正式預檢通過或發布。
 <!-- T51-REGISTRATION-END -->
 
+正式預檢也在平台稽核前執行 Pages 暫存成品早檢。此步驟沿用正式成品的檔案篩選、私有內容掃描及公開頁路由檢查，並在 `environment-precheck` 收據記錄執行結果。可用 `node "結構工具箱/tools/pages-live-smoke.js" --staged-precheck` 單獨重現。公開部署後的 HTTP、檔案雜湊與瀏覽器檢查仍按原流程執行。
+
 <!-- T52-REGISTRATION-START -->
 ## 2026-10-18：T52 NDT 報表鍵名可讀顯示
 

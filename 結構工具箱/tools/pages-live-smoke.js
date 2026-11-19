@@ -1,6 +1,7 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const publicEvidenceSchema = require('../assets/status/public-evidence-schema.js');
 
@@ -299,8 +300,8 @@ async function fetchResponse(url, options = {}, fetchImpl = globalThis.fetch, re
   }, { attempts, delayMs, sleep, onRetry });
 }
 
-async function fetchText(url) {
-  const response = await fetchResponse(url, { redirect: 'manual', cache: 'no-store' });
+async function fetchText(url, request = fetchResponse) {
+  const response = await request(url, { redirect: 'manual', cache: 'no-store' });
   assert.equal(response.status, 200, `${url} expected HTTP 200, got ${response.status}`);
   return response.text();
 }
@@ -318,11 +319,11 @@ function localAssetUrls(html, pageUrl) {
   return [...new Set(urls)];
 }
 
-async function assertPublicAssets(html, pageUrl, label) {
+async function assertPublicAssets(html, pageUrl, label, request = fetchResponse) {
   const assetUrls = localAssetUrls(html, pageUrl);
   assert.ok(assetUrls.length > 0, `${label} should reference public assets`);
   for (const assetUrl of assetUrls) {
-    const response = await fetchResponse(assetUrl, { redirect: 'manual', cache: 'no-store' });
+    const response = await request(assetUrl, { redirect: 'manual', cache: 'no-store' });
     assert.equal(response.status, 200, `${assetUrl} expected HTTP 200, got ${response.status}`);
     const body = await response.arrayBuffer();
     assert.ok(body.byteLength > 0, `${assetUrl} should not be empty`);
@@ -492,12 +493,12 @@ function assertNoLocalWorkspaceLeak(text, label) {
   assert.equal(/C:\\Users\\|Desktop\\AI\\|小工具製作/.test(text), false, `${label} must not expose local workspace paths`);
 }
 
-async function assertPublicRouteSamples(base, homeJs) {
+async function assertPublicRouteSamples(base, homeJs, request) {
   const retrofitCard = homeJs.match(/\bversion:\s*(['"])(V\d+(?:\.\d+)*)\1,\s*href:\s*(['"])\/rc-retrofit-section\3/);
   assert.ok(retrofitCard, 'public homepage identifies the RC retrofit section version');
   for (const sample of PUBLIC_ROUTE_SAMPLES) {
     const pageUrl = liveUrl(base, sample.path);
-    const html = await fetchText(pageUrl);
+    const html = await fetchText(pageUrl, request);
     for (const needle of sample.needles) {
       assert.ok(html.includes(needle), `${sample.path} missing public page marker: ${needle}`);
     }
@@ -515,13 +516,13 @@ async function assertPublicRouteSamples(base, homeJs) {
         'RC family card and public homepage identify the same retrofit section version');
     }
     assertNoLocalWorkspaceLeak(html, sample.path);
-    if (sample.checkAssets) await assertPublicAssets(html, pageUrl, sample.path);
+    if (sample.checkAssets) await assertPublicAssets(html, pageUrl, sample.path, request);
   }
 }
 
-async function assertCleanRouteSamples(base) {
+async function assertCleanRouteSamples(base, request) {
   for (const sample of CLEAN_ROUTE_SAMPLES) {
-    const html = await fetchText(liveUrl(base, sample.path));
+    const html = await fetchText(liveUrl(base, sample.path), request);
     assert.ok(html.includes('generated-by: build-pages-clean-routes.js'), `${sample.path} missing generated clean-route marker`);
     assert.ok(html.includes(`content="${sample.source}"`), `${sample.path} missing clean-route source marker`);
     assert.ok(html.includes(sample.targetNeedle), `${sample.path} missing clean-route destination marker`);
@@ -538,13 +539,13 @@ function homeCleanRoutes(homeJs) {
   return uniqueRoutes;
 }
 
-async function assertAllHomeCleanRoutes(base, homeJs) {
+async function assertAllHomeCleanRoutes(base, homeJs, request) {
   const routes = homeCleanRoutes(homeJs);
   let generatedCount = 0;
   let directCount = 0;
   for (const source of routes) {
     const path = `${source.replace(/^\/+/, '')}/`;
-    const html = await fetchText(liveUrl(base, path));
+    const html = await fetchText(liveUrl(base, path), request);
     if (html.includes('generated-by: build-pages-clean-routes.js')) {
       generatedCount += 1;
       assert.ok(html.includes(`content="${source}"`), `${path} missing clean-route source marker`);
@@ -561,15 +562,62 @@ async function assertAllHomeCleanRoutes(base, homeJs) {
   return { total: routes.length, generated: generatedCount, direct: directCount };
 }
 
-async function assertPrivateBoundary(base) {
+async function assertPrivateBoundary(base, request = fetchResponse) {
   for (const path of PRIVATE_PATHS) {
     const url = liveUrl(base, path);
-    const response = await fetchResponse(url, { redirect: 'manual', cache: 'no-store' });
+    const response = await request(url, { redirect: 'manual', cache: 'no-store' });
     if (REAL_CASE_G1_EXACT_404_PATHS.has(path)) {
       assert.equal(response.status, 404, `${path} must return the exact private-boundary 404`);
     } else {
       assert.notEqual(response.status, 200, `${path} should not be published to Pages`);
     }
+  }
+}
+
+async function assertRouteCoverage(base, homeJs, request) {
+  await assertPublicRouteSamples(base, homeJs, request);
+  await assertCleanRouteSamples(base, request);
+  return assertAllHomeCleanRoutes(base, homeJs, request);
+}
+
+async function checkStagedRoutes(siteRoot) {
+  const root = fs.realpathSync(siteRoot);
+  const base = 'https://staged-pages.invalid/';
+  const stagedResponse = (url) => {
+    const parsed = new URL(url);
+    assert.equal(parsed.origin, new URL(base).origin, 'staged route probes stay in the staged site');
+    const pathname = decodeURIComponent(parsed.pathname);
+    const relative = pathname.slice(1) + (pathname.endsWith('/') ? 'index.html' : '');
+    const file = path.resolve(root, relative);
+    const safeRelative = path.relative(root, file);
+    assert.ok(safeRelative && safeRelative !== '..' && !safeRelative.startsWith(`..${path.sep}`) && !path.isAbsolute(safeRelative), `staged route escapes artifact: ${pathname}`);
+    if (!fs.statSync(file, { throwIfNoEntry: false })?.isFile()) return new Response(null, { status: 404 });
+    return new Response(fs.readFileSync(file));
+  };
+  const homeJs = await fetchText(liveUrl(base, '結構工具箱/assets/home/home.js'), stagedResponse);
+  const routeCounts = await assertRouteCoverage(base, homeJs, stagedResponse);
+  await assertPrivateBoundary(base, stagedResponse);
+  return routeCounts;
+}
+
+async function runStagedPrecheck() {
+  const { stagePagesArtifact } = require('./build-pages-artifact');
+  const { buildPagesCleanRoutes } = require('./build-pages-clean-routes');
+  const repoRoot = path.resolve(__dirname, '../..');
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'structural-pages-precheck-'));
+  try {
+    const siteRoot = path.join(tempRoot, '_site');
+    const staged = stagePagesArtifact({ repoRoot, siteRoot });
+    assert.equal(staged.missingCount, 0, 'no tracked public inputs are missing from the staging workspace');
+    const config = JSON.parse(fs.readFileSync(path.join(repoRoot, 'vercel.json'), 'utf8'));
+    const cleanRoutes = buildPagesCleanRoutes({ siteRoot, config });
+    const counts = await checkStagedRoutes(siteRoot);
+    console.log(JSON.stringify({ kind: 'pages-stage-precheck', pass: true, filesCopied: staged.publishedCount,
+      privateContentScanned: staged.privateContentScan.scannedFileCount, privateContentFindings: staged.privateContentScan.findingCount,
+      cleanRoutesGenerated: cleanRoutes.generated.length, routesChecked: counts.total, sampleRoutesChecked: PUBLIC_ROUTE_SAMPLES.length,
+      privatePathsChecked: PRIVATE_PATHS.length }));
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 }
 
@@ -998,9 +1046,7 @@ async function main() {
     'report readiness preflight sourcePath'
   );
 
-  await assertPublicRouteSamples(base, homeJs);
-  await assertCleanRouteSamples(base);
-  const cleanRouteCounts = await assertAllHomeCleanRoutes(base, homeJs);
+  const cleanRouteCounts = await assertRouteCoverage(base, homeJs);
   if (!allowLocalOutput()) {
     await assertOldOutputNotRequired(base);
   }
@@ -1053,7 +1099,7 @@ async function runCli() {
 }
 
 if (require.main === module) {
-  runCli().catch(error => {
+  (hasArg('--staged-precheck') ? runStagedPrecheck() : runCli()).catch(error => {
     console.error(error);
     process.exitCode = 1;
   });
@@ -1072,6 +1118,7 @@ module.exports = {
   validateDeploymentReleaseEvidence,
   validatePublishedFileContent,
   assertPublishedArtifact,
+  checkStagedRoutes,
   main,
   runCli,
 };

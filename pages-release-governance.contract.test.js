@@ -1271,7 +1271,30 @@ async function testPagesHttpRetryBoundary() {
   assert.deepEqual(counted, { result: 'verified', attemptCount: 3 }, 'successful HTTP smoke reports the actual attempt count');
 }
 
-testPagesHttpRetryBoundary().then(() => {
+async function testStagedRoutePrecheck() {
+  const { stagePagesArtifact } = require('./結構工具箱/tools/build-pages-artifact');
+  const { buildPagesCleanRoutes } = require('./結構工具箱/tools/build-pages-clean-routes');
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-route-precheck-'));
+  try {
+    const siteRoot = path.join(temporary, '_site');
+    stagePagesArtifact({ repoRoot, siteRoot });
+    buildPagesCleanRoutes({ siteRoot, config: readJson('vercel.json') });
+    const routeCounts = await PagesLiveSmoke.checkStagedRoutes(siteRoot);
+    const publishedHome = fs.readFileSync(path.join(siteRoot, '結構工具箱/assets/home/home.js'), 'utf8');
+    const currentVersion = publishedHome.match(/\bversion:\s*['"](V\d+(?:\.\d+)*)['"],\s*href:\s*['"]\/rc-retrofit-section['"]/)[1];
+    assert.ok(routeCounts.total >= 40);
+    const cardPath = path.join(siteRoot, '鋼筋混凝土', 'index.html');
+    const card = fs.readFileSync(cardPath, 'utf8');
+    const cardTitle = `RC 補強斷面 <span class="ver ver-ok">${currentVersion}</span>`;
+    assert.ok(card.includes(cardTitle), 'staged RC family card records the published version');
+    fs.writeFileSync(cardPath, card.replace(cardTitle, 'RC 補強斷面 <span class="ver ver-ok">V0.0</span>'), 'utf8');
+    await assert.rejects(() => PagesLiveSmoke.checkStagedRoutes(siteRoot), /RC family card and public homepage identify the same retrofit section version/);
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+Promise.all([testPagesHttpRetryBoundary(), testStagedRoutePrecheck()]).then(() => {
   console.log('pages release governance contract OK');
 }).catch(error => {
   console.error(error);

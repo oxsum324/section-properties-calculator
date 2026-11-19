@@ -235,6 +235,7 @@ function createPreflightFixture(parent, stoneMode = 'pass') {
   fs.mkdirSync(fixtureRoot);
   copyTrackedRepositoryFiles(fixtureRoot);
   fs.writeFileSync(path.join(fixtureRoot, '石材固定', 'stone-report.contract.test.js'), fixtureStoneContract(), 'utf8');
+  installFixturePagesPrecheck(fixtureRoot);
   installPreflightFixtureOverrides(fixtureRoot);
   initializeFixtureGit(fixtureRoot);
   const dispatchPath = path.join(parent, 'actual dispatch list.jsonl');
@@ -297,8 +298,22 @@ function createFixture() {
   copyTrackedStoneFiles(fixtureRoot);
   const stoneContractPath = path.join(fixtureRoot, '石材固定', 'stone-report.contract.test.js');
   fs.writeFileSync(stoneContractPath, fixtureStoneContract(), 'utf8');
+  installFixturePagesPrecheck(fixtureRoot);
   initializeFixtureGit(fixtureRoot);
   return { parent, fixtureRoot };
+}
+
+function installFixturePagesPrecheck(fixtureRoot) {
+  fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'tools', 'pages-live-smoke.js'), `
+    const assert = require('node:assert/strict');
+    assert.deepEqual(process.argv.slice(2), ['--staged-precheck']);
+    assert.equal(process.env.PREFLIGHT_CHECK_KEY, 'environment-precheck');
+    if (process.env.RELEASE_ENV_CONTRACT_PAGES_MODE === 'fail') {
+      console.error('fixture staged Pages marker mismatch');
+      process.exit(3);
+    }
+    console.log(JSON.stringify({ kind: 'pages-stage-precheck', pass: true }));
+  `, 'utf8');
 }
 
 function makeVenv(parent, label, systemSitePackages = true) {
@@ -566,7 +581,8 @@ async function main() {
       assert.ok(Object.hasOwn(receipt, 'artifactSummary'), 'receipt schema reserves private artifact measurement summary');
       assert.equal(path.resolve(receipt.pythonExecutable), path.resolve(healthy.executable));
       assert.equal(path.resolve(receipt.environment.python.executable), path.resolve(healthy.executable));
-      assert.equal(receipt.commands.length, 4, 'Python identity, probe, stone self-check, and full stone report contract all run');
+      assert.deepEqual(receipt.commands.map(command => command.name), ['python_identity', 'env_probe', 'self_check', 'stone_contract', 'pages_stage']);
+      assert.equal(receipt.pagesStage.pass, true, 'the staged route checks have a private passing receipt');
       const contractCommand = receipt.commands.find(command => command.name === 'stone_contract');
       assert.ok(contractCommand, 'receipt identifies the full stone report contract command');
       const contractOutput = fs.readFileSync(contractCommand.stdout, 'utf8');
@@ -669,14 +685,28 @@ async function main() {
     assert.equal(readJsonLines(formalFixture.dispatchPath).length, 0, 'failed precheck launches zero expensive checks');
     assertCanAcquireFixtureLock(formalFixture);
 
+    const failedPages = runFormalPreflight(formalFixture, {
+      ...process.env,
+      STRUCTURAL_TOOLS_PYTHON: healthy.executable,
+      RELEASE_ENV_CONTRACT_STONE_MODE: 'pass',
+      RELEASE_ENV_CONTRACT_PAGES_MODE: 'fail',
+    }, 300000, '09-pages-stage-failure-skips-dispatch');
+    assert.notEqual(failedPages.result.status, 0);
+    const pagesFailure = failedPages.receipts.at(-1).value;
+    assert.equal(pagesFailure.commands.at(-1).name, 'pages_stage');
+    assert.equal(pagesFailure.commands.at(-1).exitCode, 3);
+    assert.match(commandText(pagesFailure, 'pages_stage'), /fixture staged Pages marker mismatch/);
+    assert.deepEqual(readJsonLines(formalFixture.dispatchPath), [], 'a staged Pages failure stops before platform audit');
+    assertCanAcquireFixtureLock(formalFixture);
+
     // The successful run uses the real precheck, lock, unmodified key/command list, loop, and three post-checks.
     const succeeded = runFormalPreflight(formalFixture, {
       ...process.env,
       STRUCTURAL_TOOLS_PYTHON: healthy.executable,
       RELEASE_ENV_CONTRACT_STONE_MODE: 'pass',
-    }, 480000, '09-successful-71-plus-3-real-loop-dispatch');
+    }, 480000, '10-successful-71-plus-3-real-loop-dispatch');
     assert.equal(succeeded.result.status, 0, succeeded.result.stderr || succeeded.result.stdout);
-    assert.equal(succeeded.receipts.length, 2, 'the failed attempt remains alongside the successful private attempt receipt');
+    assert.equal(succeeded.receipts.length, 3, 'the two failed attempts remain alongside the successful private attempt receipt');
     const successfulReceipt = succeeded.receipts.map(item => item.value).find(item => item.pass === true);
     assert.ok(successfulReceipt, 'successful formal precheck writes pass=true receipt');
     const expectedChecks = JSON.parse(fs.readFileSync(formalFixture.expectedPath, 'utf8'));
@@ -705,7 +735,7 @@ async function main() {
       'formal child PREFLIGHT_* values point to its own formal run, never the private environment-precheck directory');
     assert.ok(dispatched.every(record => record.command && record.key), 'all dispatched records preserve their actual command/key inputs');
     assert.ok(succeeded.receipts.every(item => item.path.includes(path.join('output', 'preflight', 'environment-precheck'))),
-      'both successful and failed receipts stay under private output/preflight/environment-precheck');
+      'successful and failed receipts stay under private output/preflight/environment-precheck');
     const fixtureReceipt = JSON.parse(fs.readFileSync(formalFixture.fixtureReceiptPath, 'utf8'));
     assert.match(fixtureReceipt.processSafety, /shadows Get-Process with an empty result/);
     assert.ok(fs.existsSync(formalFixture.dispatchPath), 'fixture receipt points to a retained actual dispatch list');

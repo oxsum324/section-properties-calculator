@@ -16,7 +16,7 @@
   $receipt = [ordered]@{ attemptId=$attemptId; sourceCommitSha=$SourceCommitSha;
     sourceBranch=$SourceBranch; sourceDirty=$sourceDirty; startedAt=$started.ToUniversalTime().ToString('o');
     powerShellVersion=$PSVersionTable.PSVersion.ToString(); pass=$false; exitCode=1;
-    pythonExecutable=$null; environment=$null; artifactSummary=$null; commands=@(); error=$null; durationSeconds=0 }
+    pythonExecutable=$null; environment=$null; artifactSummary=$null; pagesStage=$null; commands=@(); error=$null; durationSeconds=0 }
   $oldPath = $env:PATH
   $isolatedNames = @('PREFLIGHT_RUN_DIR','PREFLIGHT_CHECK_KEY','PREFLIGHT_RELEASE','STONE_RENDERED_EVIDENCE_DIR')
   $saved = @{}
@@ -91,6 +91,9 @@
     if (Test-Path -LiteralPath $artifactSummaryPath -PathType Leaf) {
       $receipt.artifactSummary=[IO.File]::ReadAllText($artifactSummaryPath,[Text.Encoding]::UTF8) | ConvertFrom-Json
     }
+    $pagesSmoke=Join-Path $WorkspaceRoot '結構工具箱\tools\pages-live-smoke.js'
+    $receipt.pagesStage=Invoke-EnvironmentCommand 'pages_stage' $node @($pagesSmoke,'--staged-precheck') $WorkspaceRoot 60 | ConvertFrom-Json
+    if ($receipt.pagesStage.kind -ne 'pages-stage-precheck' -or $receipt.pagesStage.pass -ne $true) { throw 'Pages staged precheck did not return a passing receipt.' }
     $receipt.pass=$true; $receipt.exitCode=0; $succeeded=$true
   } catch { $receipt.error=$_.Exception.Message; throw } finally {
     foreach ($name in $isolatedNames) { [Environment]::SetEnvironmentVariable($name,$saved[$name],'Process') }
