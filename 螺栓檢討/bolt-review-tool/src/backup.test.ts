@@ -8,7 +8,7 @@ import {
   WORKSPACE_BACKUP_VERSION,
 } from './backup'
 import { defaultProducts, defaultProject } from './defaults'
-import { evaluateProject } from './calc'
+import { evaluateProjectBatch } from './calc'
 
 describe('workspace backup helpers', () => {
   it('builds and parses a portable backup payload', async () => {
@@ -233,8 +233,11 @@ describe('workspace backup helpers', () => {
     Object.assign(project.loads, {
       tensionKn: 29.243861573448196, shearXKn: -56.719390943756586, shearYKn: 0,
     })
+    const activeLoadCase = project.loadCases?.find((item) => item.id === project.activeLoadCaseId)
+    if (!activeLoadCase) throw new Error('Missing active load case')
+    activeLoadCase.loads = { ...project.loads }
     const payload = await buildWorkspaceBackup(defaultProducts, [project], [])
-    const oldFingerprint = '6b4c5eb04033774b688679876b4a4e4dab820b8eb3a6f4d8a48507a76af7db80'
+    const oldFingerprint = 'f288badc7b1272e331d1c4076bd6b5e579a669bfed3a5c882e1970e53adf5945'
     expect(payload.caseReplay[0].fingerprint).not.toBe(oldFingerprint)
     payload.caseReplay[0].fingerprint = oldFingerprint
     const parsed = parseWorkspaceBackup(JSON.stringify(payload))
@@ -243,8 +246,10 @@ describe('workspace backup helpers', () => {
     })
     const product = defaultProducts.find((item) => item.id === parsed.projects[0].selectedProductId)
     if (!product) throw new Error('Missing cast-in M20 test product')
-    expect(evaluateProject(parsed.projects[0], product).summary.overallStatus).toBe('fail')
-    parsed.projects[0].loads.tensionKn += 0.01
+    expect(evaluateProjectBatch(parsed.projects[0], product).summary.overallStatus).toBe('fail')
+    const importedLoadCase = parsed.projects[0].loadCases?.[0]
+    if (!importedLoadCase) throw new Error('Missing archived load case')
+    importedLoadCase.loads.tensionKn += 0.01
     await expect(verifyWorkspaceBackupReplay(parsed)).rejects.toThrow(/重新計算後指紋不符/)
   })
 
