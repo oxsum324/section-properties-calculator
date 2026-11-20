@@ -2,13 +2,13 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-11-21 01:22:03",
-  "runId": "20261121-004211",
+  "generatedAt": "2026-11-21 03:53:35",
+  "runId": "20261121-031239",
   "quick": false,
   "forcePlatformAudit": true,
   "forceSlowChecks": true,
-  "sourceCommitSha": "fed0cb3b45f7c142732b785b185e8c81fda366d5",
-  "sourceBranch": "codex/structural-tools-next-20261120",
+  "sourceCommitSha": "18f5a9439ffaab2ae07c0b00144db2e599eb8d4b",
+  "sourceBranch": "codex/wind-directional-frequency-20261121",
   "sourceDirty": false,
   "pass": true,
   "failureCount": 0,
@@ -18,109 +18,18 @@
   "platformAuditReused": false,
   "recordsCount": 71,
   "passedCount": 71,
-  "totalSeconds": 2298.8,
+  "totalSeconds": 2361.7,
   "slowestKey": "platform-audit",
-  "slowestSeconds": 1032.9,
+  "slowestSeconds": 1057.2,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20261121-004211/preflight-summary.json",
-  "sourceHash": "a81524781171fcfd0d5c110522e764f45ec92ea0987f64986600b3132a59a9d0",
+  "sourcePath": "output/preflight/history/20261121-031239/preflight-summary.json",
+  "sourceHash": "11f9a0dbf38c6d0e18bf8be419974fa443bbfce766e828ce8a3515b2fb2d5091",
   "releaseHistory": {
     "schemaVersion": 2,
     "limit": 8,
     "entries": [
-      {
-        "runId": "20261111-145850",
-        "generatedAt": "2026-11-11 15:49:16",
-        "sourceCommitSha": "1e7725bf1724499013289c4c58836c8bfa5e324f",
-        "records": {
-          "passed": 71,
-          "required": 71
-        },
-        "postChecks": {
-          "passed": 3,
-          "required": 3
-        },
-        "dimensions": [
-          {
-            "id": "release",
-            "pass": true
-          },
-          {
-            "id": "steel",
-            "pass": true
-          },
-          {
-            "id": "rc",
-            "pass": true
-          },
-          {
-            "id": "delivery",
-            "pass": true
-          }
-        ],
-        "metrics": [
-          {
-            "id": "steelResult",
-            "complete": 9,
-            "required": 9
-          },
-          {
-            "id": "steelContentSeal",
-            "complete": 9,
-            "required": 9
-          },
-          {
-            "id": "steelApprovalSeal",
-            "complete": 9,
-            "required": 9
-          },
-          {
-            "id": "rcResult",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPrint",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPackage",
-            "complete": 32,
-            "required": 32
-          },
-          {
-            "id": "formalResult",
-            "complete": 14,
-            "required": 14
-          },
-          {
-            "id": "localQuickResult",
-            "complete": 6,
-            "required": 6
-          },
-          {
-            "id": "rendered",
-            "complete": 40,
-            "required": 40
-          },
-          {
-            "id": "delivery",
-            "complete": 179,
-            "required": 179
-          }
-        ],
-        "change": {
-          "policyVersion": 1,
-          "classification": "baseline",
-          "increases": [],
-          "reductions": [],
-          "reasonCode": "",
-          "reason": ""
-        }
-      },
       {
         "runId": "20261111-194646",
         "generatedAt": "2026-11-11 20:36:15",
@@ -205,7 +114,7 @@
         ],
         "change": {
           "policyVersion": 1,
-          "classification": "unchanged",
+          "classification": "baseline",
           "increases": [],
           "reductions": [],
           "reasonCode": "",
@@ -774,6 +683,97 @@
               "to": 183
             }
           ],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
+      },
+      {
+        "runId": "20261121-031239",
+        "generatedAt": "2026-11-21 03:53:35",
+        "sourceCommitSha": "18f5a9439ffaab2ae07c0b00144db2e599eb8d4b",
+        "records": {
+          "passed": 71,
+          "required": 71
+        },
+        "postChecks": {
+          "passed": 3,
+          "required": 3
+        },
+        "dimensions": [
+          {
+            "id": "release",
+            "pass": true
+          },
+          {
+            "id": "steel",
+            "pass": true
+          },
+          {
+            "id": "rc",
+            "pass": true
+          },
+          {
+            "id": "delivery",
+            "pass": true
+          }
+        ],
+        "metrics": [
+          {
+            "id": "steelResult",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "steelContentSeal",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "steelApprovalSeal",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "rcResult",
+            "complete": 36,
+            "required": 36
+          },
+          {
+            "id": "rcPrint",
+            "complete": 36,
+            "required": 36
+          },
+          {
+            "id": "rcPackage",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "formalResult",
+            "complete": 14,
+            "required": 14
+          },
+          {
+            "id": "localQuickResult",
+            "complete": 6,
+            "required": 6
+          },
+          {
+            "id": "rendered",
+            "complete": 40,
+            "required": 40
+          },
+          {
+            "id": "delivery",
+            "complete": 183,
+            "required": 183
+          }
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "unchanged",
+          "increases": [],
           "reductions": [],
           "reasonCode": "",
           "reason": ""
