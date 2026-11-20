@@ -443,7 +443,7 @@
     },
     {
       title: 'RC 板',
-      version: 'V3.3',
+      version: 'V3.4',
       href: '/rc-slab',
       aliases: ['RC slab design', '單向板配筋'],
       categories: ['member'],
@@ -451,9 +451,9 @@
       state: 'formal',
       governance: 'rc-audit',
       output: 'RC 板設計、配筋與檢核摘要',
-      summary: '單向連續板係數法、簡化二向條帶初估、衝剪與自動配筋。',
+      summary: '單向連續板係數法、簡化二向條帶初估與無梁板內柱偏心衝剪。',
       fit: '常規單向板設計，以及雙向板與無梁板的初步配置比較。',
-      limit: '雙向板並非完整 8.10 DDM；邊柱、角柱及不平衡彎矩須以專案分析補充確認。',
+      limit: '雙向板採條帶初估。內柱偏心衝剪須供同組合分析內力，邊柱與角柱須另行核算。',
       capabilities: ['單向板核算', '雙向初估']
     },
     {
