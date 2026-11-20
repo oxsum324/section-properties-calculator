@@ -327,12 +327,15 @@ export function useProjectLibrary(deps: {
       const replayMessage = parsed.legacyUnverified
         ? `舊版 v1 備份無來源指紋，${replay.legacyProjects} 個案例已標記待複核`
         : `已重新計算並驗證 ${replay.verifiedProjects} 個案例`
+      const legacyRoundingMessage = replay.legacyRoundedProjects
+        ? `；其中 ${replay.legacyRoundedProjects} 個案例已核對原引擎指紋，畫面使用目前引擎重算`
+        : ''
       const auditMessage =
         merged.invalidatedAuditEntries > 0
           ? `；已撤銷 ${merged.invalidatedAuditEntries} 筆因匯入識別重編而失效的舊留痕`
           : ''
       setSaveMessage(
-        `已匯入 ${merged.importedProjects} 個案例 / ${merged.importedProducts} 個產品 / ${merged.importedFiles} 份附件；${replayMessage}${auditMessage}`,
+        `已匯入 ${merged.importedProjects} 個案例 / ${merged.importedProducts} 個產品 / ${merged.importedFiles} 份附件；${replayMessage}${legacyRoundingMessage}${auditMessage}`,
       )
     } catch (error) {
       const message =

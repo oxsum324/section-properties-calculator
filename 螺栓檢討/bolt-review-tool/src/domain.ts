@@ -40,7 +40,7 @@ export type SeismicInputMode = 'total_design' | 'static_plus_earthquake'
  * - linear_strict：保守線性，N/(φNn) + V/(φVn) ≤ 1.0（無 1.2 放大餘裕）
  * - power：ACI 318-19 §17.8.3 5/3 次方，(N/(φNn))^5/3 + (V/(φVn))^5/3 ≤ 1.0
  *
- * 所有型式均受 17.8.1 / 17.8.2 的 0.2 門檻例外約束：
+ * 所有型式均適用 17.8.2(a)/(b) 的 0.2 門檻例外：
  * 若 V ≤ 0.2·φVn → 全 N 可用；若 N ≤ 0.2·φNn → 全 V 可用。
  */
 export type InteractionEquation = 'linear' | 'linear_strict' | 'power'

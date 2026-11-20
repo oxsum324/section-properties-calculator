@@ -1297,7 +1297,7 @@ function getConcreteBreakoutTension(
     designStrengthKn: round(designStrengthKn),
     nominalStrengthKn: round(selectedNominalStrengthKn),
     demandKn: round(demandKn),
-    dcr: round(dcr, 3),
+    dcr,
     formal: breakoutFormal,
     edgeDistanceSource: 'code',
     factors: [
@@ -1366,7 +1366,7 @@ function getSteelTensionResult(
     designStrengthKn: round(singleDesignStrengthKn),
     nominalStrengthKn: round(singleNominalStrengthKn),
     demandKn: round(demandKn),
-    dcr: round(dcr, 3),
+    dcr,
     formal,
     factors: [
       factor('φ', '強度折減因子', profile.phi.steelTension),
@@ -1482,7 +1482,7 @@ function getPulloutResult(
         controlsSingle ? singleNominalStrengthKn : groupNominalStrengthKn,
       ),
       demandKn: round(controlsSingle ? maxAnchorDemandKn : demandKn),
-      dcr: round(dcr, 3),
+      dcr,
       formal: true,
       factors: [
         factor('φ', '強度折減因子', phi, phiSelection.label),
@@ -1567,7 +1567,7 @@ function getPulloutResult(
         controlsSingle ? singleNominalStrengthKn : groupNominalStrengthKn,
       ),
       demandKn: round(controlsSingle ? maxAnchorDemandKn : demandKn),
-      dcr: round(dcr, 3),
+      dcr,
       formal: expansionFormal,
       edgeDistanceSource: product.evaluation.crackedPulloutStrengthKn ? 'product' : 'code_fallback',
       factors: [
@@ -1691,7 +1691,7 @@ function getPulloutResult(
       designStrengthKn: round(designStrengthKn),
       nominalStrengthKn: round(nominalStrengthKn),
       demandKn: round(demandKn),
-      dcr: round(dcr, 3),
+      dcr,
       formal: bondFormal,
       edgeDistanceSource: product.evaluation.criticalEdgeDistanceMm
         ? 'product'
@@ -1849,7 +1849,7 @@ function getSideFaceBlowoutResult(
     designStrengthKn: round(designStrengthKn),
     nominalStrengthKn: round(nominalStrengthKn),
     demandKn: round(demandKn),
-    dcr: round(dcr, 3),
+    dcr,
     formal,
     factors: [
       factor('c_a1', '控制自由邊邊距', critical.ca1),
@@ -2439,7 +2439,7 @@ function getSteelShearResult(
     designStrengthKn: round(designStrengthKn),
     nominalStrengthKn: round(nominalStrengthKn),
     demandKn: round(demandKn),
-    dcr: round(dcr, 3),
+    dcr,
     formal,
     factors: [
       factor('φ', '強度折減因子', profile.phi.steelShear),
@@ -2926,7 +2926,7 @@ function getConcreteShearBreakoutResult(
           : concreteDesignStrength,
     ),
     demandKn: round(demandKn),
-    dcr: round(selectedDcr, 3),
+    dcr: selectedDcr,
     formal: useAnchorReinforcement ? formal && anchorReinforcement!.formal : formal,
     factors: [
       ...shearBreakoutDirectionalFactors('x', directionalX),
@@ -3004,7 +3004,7 @@ function getPryoutResult(
     designStrengthKn: round(designStrengthKn),
     nominalStrengthKn: round(nominalStrengthKn),
     demandKn: round(demandKn),
-    dcr: round(dcr, 3),
+    dcr,
     formal: pryoutFormal,
     factors: [
       factor('k_cp', '撬出係數', kcp),
@@ -3021,10 +3021,24 @@ function getInteractionResult(
   tensionResult: CheckResult,
   shearResult: CheckResult,
   formal: boolean,
+  legacyInteractionRounding: boolean,
 ): CheckResult {
   // Nu / (φNn)、Vu / (φVn) 即各自 DCR（ratio ≥ 0）
   const tensionRatio = Math.max(0, tensionResult.dcr)
   const shearRatio = Math.max(0, shearResult.dcr)
+  const ratioSum = tensionRatio + shearRatio
+  // 除法與加法在理論等值時可能差數個浮點刻度，僅忽略該運算尾差。
+  const roundoff = (limit: number) => legacyInteractionRounding ? 0 : 4 * Number.EPSILON * Math.max(1, Math.abs(limit))
+  const tensionExempt = tensionRatio - 0.2 <= roundoff(0.2)
+  const shearExempt = shearRatio - 0.2 <= roundoff(0.2)
+  const detailedRatios = [tensionRatio, shearRatio].some((ratio) => [0.2, 1].includes(round(ratio, 3))) ||
+    [1, 1.2].includes(round(ratioSum, 3))
+  const formatAtLimit = (value: number, limit: number) => {
+    const rounded = round(value, detailedRatios ? 6 : 3)
+    return String(rounded === limit && Math.abs(value - limit) > roundoff(limit) ? value : rounded)
+  }
+  const tensionText = formatAtLimit(tensionRatio, 0.2)
+  const shearText = formatAtLimit(shearRatio, 0.2)
   const interactionMethod = project.loads.interactionEquation ?? 'linear'
 
   let demand = 0
@@ -3033,15 +3047,19 @@ function getInteractionResult(
   let note = ''
   let methodLabel = ''
 
-  // 17.8.1：V ≤ 0.2·φVn → 全 N 可用 → 只需 N ≤ φNn
-  // 17.8.2：N ≤ 0.2·φNn → 全 V 可用 → 只需 V ≤ φVn
-  if (tensionRatio <= 0.2 || shearRatio <= 0.2) {
+  // 17.8.2(a)/(b)：任一比值 ≤ 0.2 時得免作互制，分別核對拉力及剪力。
+  if (tensionExempt || shearExempt) {
     // 任一 ratio ≤ 0.2 時，只以較大 ratio 當 DCR（= max(T, V)）
     dcr = Math.max(tensionRatio, shearRatio)
     demand = round(dcr, 3)
     capacity = 1
-    methodLabel = tensionRatio <= 0.2 ? '17.8.2 例外' : '17.8.1 例外'
-    note = `${tensionRatio <= 0.2 ? 'N/φNn' : 'V/φVn'} ≤ 0.2，依 ${methodLabel} 免作 17.8.3 互制，僅以 max(N/φNn, V/φVn) = ${round(dcr, 3)} 檢核。`
+    if (legacyInteractionRounding) {
+      methodLabel = tensionExempt ? '17.8.2 例外' : '17.8.1 例外'
+      note = `${tensionExempt ? 'N/φNn' : 'V/φVn'} ≤ 0.2，依 ${methodLabel} 免作 17.8.3 互制，僅以 max(N/φNn, V/φVn) = ${round(dcr, 3)} 檢核。`
+    } else {
+      methodLabel = tensionExempt ? '17.8.2(a) 例外' : '17.8.2(b) 例外'
+      note = `${tensionExempt ? 'N/φNn' : 'V/φVn'} ≤ 0.2，依 ${methodLabel} 免作 17.8.3 互制，僅以 max(${tensionText}, ${shearText}) = ${formatAtLimit(dcr, 1)} 檢核。`
+    }
   } else if (interactionMethod === 'power') {
     // (N/φNn)^5/3 + (V/φVn)^5/3 ≤ 1.0
     const sumPower =
@@ -3050,27 +3068,31 @@ function getInteractionResult(
     demand = round(sumPower, 3)
     capacity = 1
     methodLabel = '17.8.3 5/3 次方'
-    note = `(N/φNn)^5/3 + (V/φVn)^5/3 = ${round(tensionRatio ** (5 / 3), 3)} + ${round(shearRatio ** (5 / 3), 3)} = ${round(sumPower, 3)} ≤ 1.0`
+    note = legacyInteractionRounding
+      ? `(N/φNn)^5/3 + (V/φVn)^5/3 = ${round(tensionRatio ** (5 / 3), 3)} + ${round(shearRatio ** (5 / 3), 3)} = ${round(sumPower, 3)} ≤ 1.0`
+      : `(N/φNn)^5/3 + (V/φVn)^5/3 = ${formatAtLimit(sumPower, 1)}，檢核條件 ≤ 1.0。`
   } else if (interactionMethod === 'linear_strict') {
     // 保守線性：sum ≤ 1.0（無 1.2 放大）
-    const sum = tensionRatio + shearRatio
-    dcr = sum
-    demand = round(sum, 3)
+    dcr = ratioSum
+    demand = round(ratioSum, 3)
     capacity = 1
     methodLabel = '保守線性（≤ 1.0）'
-    note = `保守型式：N/φNn + V/φVn = ${round(tensionRatio, 3)} + ${round(shearRatio, 3)} = ${round(sum, 3)} ≤ 1.0（無 1.2 放大餘裕）`
+    note = legacyInteractionRounding
+      ? `保守型式：N/φNn + V/φVn = ${round(tensionRatio, 3)} + ${round(shearRatio, 3)} = ${round(ratioSum, 3)} ≤ 1.0（無 1.2 放大餘裕）`
+      : `保守型式：N/φNn + V/φVn = ${tensionText} + ${shearText}，合計 ${formatAtLimit(ratioSum, 1)}，檢核條件 ≤ 1.0。`
   } else {
     // 預設 linear：ACI 17.8.3 三折線上限，sum ≤ 1.2
-    const sum = tensionRatio + shearRatio
-    dcr = sum / 1.2
-    demand = round(sum, 3)
+    dcr = ratioSum / 1.2
+    demand = round(ratioSum, 3)
     capacity = 1.2
     methodLabel = '17.8.3 線性（≤ 1.2）'
-    note = `ACI/規範式：N/φNn + V/φVn = ${round(tensionRatio, 3)} + ${round(shearRatio, 3)} = ${round(sum, 3)} ≤ 1.2（DCR = ${round(dcr, 3)}）`
+    note = legacyInteractionRounding
+      ? `ACI/規範式：N/φNn + V/φVn = ${round(tensionRatio, 3)} + ${round(shearRatio, 3)} = ${round(ratioSum, 3)} ≤ 1.2（DCR = ${round(dcr, 3)}）`
+      : `ACI/規範式：N/φNn + V/φVn = ${tensionText} + ${shearText}，合計 ${formatAtLimit(ratioSum, 1.2)}，檢核條件 ≤ 1.2（DCR = ${formatAtLimit(dcr, 1)}）。`
   }
 
   let status: ReviewStatus
-  if (dcr > 1) {
+  if (dcr - 1 > roundoff(1)) {
     status = 'fail'
   } else if (
     tensionResult.status === 'incomplete' ||
@@ -3101,13 +3123,13 @@ function getInteractionResult(
     designStrengthKn: capacity,
     nominalStrengthKn: capacity,
     demandKn: demand,
-    dcr: round(dcr, 3),
+    dcr: legacyInteractionRounding ? round(dcr, 3) : dcr,
     formal: formal && tensionResult.formal && shearResult.formal,
     presentation: 'ratio',
     factors: [
       factor('Eq.', '互制方程', methodLabel),
-      factor('N/φNn', '拉力比', round(tensionRatio, 3)),
-      factor('V/φVn', '剪力比', round(shearRatio, 3)),
+      factor('N/φNn', '拉力比', legacyInteractionRounding ? round(tensionRatio, 3) : tensionText),
+      factor('V/φVn', '剪力比', legacyInteractionRounding ? round(shearRatio, 3) : shearText),
       factor('T mode', '控制拉力模式', tensionResult.mode),
       factor('V mode', '控制剪力模式', shearResult.mode),
     ],
@@ -3700,6 +3722,7 @@ export function evaluateProject(
   project: ProjectCase,
   product: AnchorProduct,
   profile: RuleProfile = getRuleProfileById(project.ruleProfileId),
+  legacyInteractionRounding = false,
 ): ReviewResult {
   const effectiveProjectBundle = buildEffectiveProjectForChecks(project)
   const analysisProject = effectiveProjectBundle.project
@@ -3769,6 +3792,10 @@ export function evaluateProject(
   if (pryout) {
     results.push(pryout)
   }
+  // 舊備份以當時的中間精度、控制模式與說明文字產生指紋。
+  if (legacyInteractionRounding) {
+    results.forEach((result) => { result.dcr = round(result.dcr, 3) })
+  }
 
   const governingTension =
     [tensionSteel, tensionConcreteBreakout, pullout, sideFaceBlowout]
@@ -3786,6 +3813,7 @@ export function evaluateProject(
       governingTension,
       governingShear,
       completeness.formal,
+      legacyInteractionRounding,
     ),
   )
 
@@ -3833,7 +3861,8 @@ export function evaluateProject(
       tensionDemand,
     ),
     dimensionChecks,
-    results,
+    // 保留既有輸出精度。控制模式與門檻判定使用計算時的完整比值。
+    results: results.map((result) => ({ ...result, dcr: round(result.dcr, 3) })),
     summary: buildSummary(
       product,
       completeness,
@@ -3848,6 +3877,7 @@ export function evaluateProjectBatch(
   project: ProjectCase,
   product: AnchorProduct,
   profile: RuleProfile = getRuleProfileById(project.ruleProfileId),
+  legacyInteractionRounding = false,
 ): ReviewBatchResult {
   const loadCases = getProjectLoadCases(project)
   const loadCaseReviews = loadCases.map((loadCase) => ({
@@ -3860,6 +3890,7 @@ export function evaluateProjectBatch(
       },
       product,
       profile,
+      legacyInteractionRounding,
     ),
   }))
 

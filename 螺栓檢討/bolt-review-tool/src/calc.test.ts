@@ -1143,6 +1143,48 @@ describe('Taiwan Chapter 17 review engine', () => {
     expect(interaction?.designStrengthKn).toBe(1.2)
   })
 
+  it.each([
+    { tensionRatio: 0.1996, shearRatio: 0.9998, status: 'pass', interactionLimit: 1 },
+    { tensionRatio: 0.2, shearRatio: 0.9998, status: 'pass', interactionLimit: 1 },
+    { tensionRatio: 0.2004, shearRatio: 0.9998, status: 'fail', interactionLimit: 1.2 },
+    { tensionRatio: 0.9998, shearRatio: 0.1996, status: 'pass', interactionLimit: 1 },
+    { tensionRatio: 0.9998, shearRatio: 0.2, status: 'pass', interactionLimit: 1 },
+    { tensionRatio: 0.9998, shearRatio: 0.2004, status: 'fail', interactionLimit: 1.2 },
+    { tensionRatio: 0.5, shearRatio: 0.7, status: 'pass', interactionLimit: 1.2 },
+    { tensionRatio: 0.5002, shearRatio: 0.7001, status: 'fail', interactionLimit: 1.2 },
+  ])('checks interaction using the unrounded $tensionRatio / $shearRatio ratios', ({
+    tensionRatio, shearRatio, status, interactionLimit,
+  }) => {
+    const project = cloneProject(defaultProject)
+    Object.assign(project.layout, {
+      spacingXmm: 170, spacingYmm: 210,
+      edgeLeftMm: 250, edgeRightMm: 320, edgeBottomMm: 280, edgeTopMm: 360,
+      concreteWidthMm: 740, concreteHeightMm: 850, thicknessMm: 700,
+    })
+    // 第 17 章獨立值。此配置由混凝土拉破及左向混凝土剪破控制。
+    const tensionCapacityKn = 0.7 * (650 * 690) / (9 * 160 ** 2) * 10 * Math.sqrt(28) * 160 ** 1.5 / 1000
+    const shearProjectedRatio = (210 + 280 + 360) * 375 / (4.5 * 250 ** 2)
+    const shearEdgeFactor = 0.7 + 0.3 * 280 / 375
+    const basicShearKn = Math.min(0.6 * 8 ** 0.2 * Math.sqrt(20), 3.7) * Math.sqrt(28) * 250 ** 1.5 / 1000
+    const leftShearCapacityKn = 0.7 * shearProjectedRatio * shearEdgeFactor * basicShearKn
+    Object.assign(project.loads, {
+      tensionKn: tensionRatio * tensionCapacityKn,
+      shearXKn: -shearRatio * leftShearCapacityKn,
+      shearYKn: 0,
+    })
+    const castIn = defaultProducts.find((product) => product.id === 'generic-cast-m20')
+    if (!castIn) throw new Error('Missing cast-in M20 test product')
+    const review = evaluateProject(project, castIn)
+    const result = review.results.find((item) => item.id === 'interaction')
+    expect(review.summary.governingTensionMode).toBe('混凝土拉破強度')
+    expect(review.summary.governingShearMode).toBe('混凝土剪破強度')
+    expect(result?.status).toBe(status)
+    expect(result?.designStrengthKn).toBe(interactionLimit)
+    expect(result?.note).toContain(String(tensionRatio))
+    expect(result?.note).toContain(String(shearRatio))
+    expect(review.summary.overallStatus).toBe(status)
+  })
+
   it('allows opting into the 5/3 interaction equation', () => {
     const project = cloneProject(defaultProject)
     project.loads.tensionKn = 120

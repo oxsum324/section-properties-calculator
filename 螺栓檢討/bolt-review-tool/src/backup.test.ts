@@ -8,6 +8,7 @@ import {
   WORKSPACE_BACKUP_VERSION,
 } from './backup'
 import { defaultProducts, defaultProject } from './defaults'
+import { evaluateProject } from './calc'
 
 describe('workspace backup helpers', () => {
   it('builds and parses a portable backup payload', async () => {
@@ -218,6 +219,33 @@ describe('workspace backup helpers', () => {
     await expect(verifyWorkspaceBackupReplay(parsed)).rejects.toThrow(
       /重新計算後指紋不符.*已保留原工作區/,
     )
+  })
+
+  it('verifies a pre-fix v2 fingerprint and uses the repaired interaction for current review', async () => {
+    const project = structuredClone(defaultProject)
+    project.calcEngineVersion = '18f5a943'
+    project.updatedAt = '2026-11-21T03:09:00.000Z'
+    Object.assign(project.layout, {
+      spacingXmm: 170, spacingYmm: 210,
+      edgeLeftMm: 250, edgeRightMm: 320, edgeBottomMm: 280, edgeTopMm: 360,
+      concreteWidthMm: 740, concreteHeightMm: 850, thicknessMm: 700,
+    })
+    Object.assign(project.loads, {
+      tensionKn: 29.243861573448196, shearXKn: -56.719390943756586, shearYKn: 0,
+    })
+    const payload = await buildWorkspaceBackup(defaultProducts, [project], [])
+    const oldFingerprint = '6b4c5eb04033774b688679876b4a4e4dab820b8eb3a6f4d8a48507a76af7db80'
+    expect(payload.caseReplay[0].fingerprint).not.toBe(oldFingerprint)
+    payload.caseReplay[0].fingerprint = oldFingerprint
+    const parsed = parseWorkspaceBackup(JSON.stringify(payload))
+    await expect(verifyWorkspaceBackupReplay(parsed)).resolves.toEqual({
+      verifiedProjects: 1, legacyProjects: 0, legacyRoundedProjects: 1,
+    })
+    const product = defaultProducts.find((item) => item.id === parsed.projects[0].selectedProductId)
+    if (!product) throw new Error('Missing cast-in M20 test product')
+    expect(evaluateProject(parsed.projects[0], product).summary.overallStatus).toBe('fail')
+    parsed.projects[0].loads.tensionKn += 0.01
+    await expect(verifyWorkspaceBackupReplay(parsed)).rejects.toThrow(/重新計算後指紋不符/)
   })
 
   it('keeps legacy v1 data recoverable but marks it unverified and clears audits', async () => {

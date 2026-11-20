@@ -4761,8 +4761,9 @@ function anchorCastInOracle(i) {
 
   const tensionBreakoutDcr = round(tensionBreakoutDcrRaw, 3);
   const shearBreakoutDcr = round(shearBreakoutDcrRaw, 3);
-  const interactionDemand = round(tensionBreakoutDcr + shearBreakoutDcr, 3);
-  const interactionDcr = round((tensionBreakoutDcr + shearBreakoutDcr) / 1.2, 3);
+  const interactionSum = tensionBreakoutDcrRaw + shearBreakoutDcrRaw;
+  const interactionDemand = round(interactionSum, 3);
+  const interactionDcr = round(interactionSum / 1.2, 3);
   return {
     anchorCount,
     maxAnchorTension:round(maxAnchorTension, 3),
@@ -4798,8 +4799,8 @@ function anchorCastInOracle(i) {
     interactionControls:1,
     governingDcr:interactionDcr,
     maxDcr:interactionDcr,
-    overallPass:interactionDcr <= 1 ? 1 : 0,
-    formalPass:interactionDcr <= 1 ? 1 : 0,
+    overallPass:interactionSum <= 1.2 ? 1 : 0,
+    formalPass:interactionSum <= 1.2 ? 1 : 0,
     ...thinMemberShearOutputs
   };
 }

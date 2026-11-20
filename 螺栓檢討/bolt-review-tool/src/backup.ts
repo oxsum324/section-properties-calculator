@@ -101,6 +101,7 @@ function stripProjectForReplay(project: ProjectCase) {
 export async function buildWorkspaceCaseReplay(
   products: AnchorProduct[],
   projects: ProjectCase[],
+  legacyInteractionRounding = false,
 ): Promise<WorkspaceCaseReplay[]> {
   return Promise.all(
     projects.map(async (project) => {
@@ -121,7 +122,7 @@ export async function buildWorkspaceCaseReplay(
         calcEngineVersion,
         project: stripProjectForReplay(project),
         selectedProduct: cloneBackupProduct(selectedProduct),
-        calculation: evaluateProjectBatch(project, selectedProduct),
+        calculation: evaluateProjectBatch(project, selectedProduct, undefined, legacyInteractionRounding),
       })
 
       return {
@@ -160,7 +161,8 @@ export async function verifyWorkspaceBackupReplay(backup: WorkspaceBackup) {
     backup.products,
     backup.projects,
   )
-  recalculated.forEach((record) => {
+  let legacyRoundedProjects = 0
+  for (const [index, record] of recalculated.entries()) {
     const source = recordByProjectId.get(record.projectId)
     if (!source) {
       throw new Error(
@@ -178,15 +180,20 @@ export async function verifyWorkspaceBackupReplay(backup: WorkspaceBackup) {
       )
     }
     if (source.fingerprint !== record.fingerprint) {
-      throw new Error(
-        `案例「${record.projectId}」重新計算後指紋不符，已保留原工作區。`,
-      )
+      const [previous] = await buildWorkspaceCaseReplay(backup.products, [backup.projects[index]], true)
+      if (source.fingerprint !== previous.fingerprint) {
+        throw new Error(
+          `案例「${record.projectId}」重新計算後指紋不符，已保留原工作區。`,
+        )
+      }
+      legacyRoundedProjects += 1
     }
-  })
+  }
 
   return {
     verifiedProjects: recalculated.length,
     legacyProjects: 0,
+    ...(legacyRoundedProjects > 0 ? { legacyRoundedProjects } : {}),
   }
 }
 
