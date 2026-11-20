@@ -115,6 +115,26 @@ class StagedWallTests(unittest.TestCase):
         self.assertEqual(s["force_kn"],0)
         self.assertTrue(s["gap"])
 
+    def test_preload_then_lock_uses_equilibrium_of_installation_stage(self):
+        self.data.update(stages=self.data["stages"][:3], comparisons=[])
+        for stage, factor in zip(self.data["stages"], (0, 0, 1), strict=True):
+            stage.update(cut=12, water_factor=0, earth_factor=factor)
+        for layer in self.data["layers"]:
+            layer.update(pressure_top=10, pressure_bottom=10)
+        self.data["supports"][0].update(remove=None, law="compression", installation="preload_then_lock")
+        _, installed, loaded = self.solve()
+        # Cantilever fixed at the toe. The support is 10 m from the toe.
+        x, length, ei = 10, 12, 210000
+        flexibility = x**3/(3*ei)
+        install_deflection = -45*flexibility
+        free_change = 10*x**2*(6*length**2-4*length*x+x**2)/(24*ei)
+        change = free_change/(1+36000*flexibility/2)
+
+        self.assertAlmostEqual(installed["supports"][0]["force_kn"], 90, places=8)
+        self.assertAlmostEqual(installed["supports"][0]["reference_mm"], 1000*install_deflection, places=6)
+        self.assertAlmostEqual(loaded["supports"][0]["force_kn"], 90+36000*change, places=6)
+        self.assertAlmostEqual(loaded["supports"][0]["reference_mm"], 1000*install_deflection, places=6)
+
     def test_external_measurement_side_and_missing_reaction(self):
         def rec(st,q,unit,val,z=2,side="below",support=None):
             return dict(stage=st,depth=z,kind="measurement",quantity=q,unit=unit,value=val,side=side,support=support,source="合成測點 P")

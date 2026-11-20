@@ -1,11 +1,11 @@
 (() => {
   'use strict';
-  const VERSION='staged-wall.eb.v2',$=id=>document.getElementById(id);
+  const VERSION='staged-wall.eb.v3',$=id=>document.getElementById(id);
   const headers={
     layers:['層底_m','kh_kN/m³','層頂有效_kPa','層底有效_kPa','反力下限_kPa','反力上限_kPa','來源'],
     stages:['階段','挖深_m','外水深_m','內水深_m','有效側壓倍率','水壓倍率','來源'],
     water_profiles:['階段','側別','深度_m','水壓_kPa','來源'],
-    supports:['支撐','深度_m','間距_m','水平勁度_kN/m','水平預力_kN','安裝階','拆除階','型式','來源'],
+    supports:['支撐','深度_m','間距_m','水平勁度_kN/m','水平預力_kN','安裝階','拆除階','型式','來源','安裝方式'],
     comparisons:['階段','深度_m','來源類別','量','單位','數值','側別','支撐','來源與正向依據']
   };
   const keys=['case_id','basis','length','ei','water_weight','step','toe','soil_law',...Object.keys(headers)];
@@ -25,7 +25,8 @@
   }
   function rows(v,key){
     const lines=String(v[key]).replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').split('\n'),cols=lines.shift().split('\t');
-    if(cols.length!==headers[key].length||headers[key].some((h,i)=>h!==cols[i].trim()))throw Error('請保留「'+headers[key][0]+'」表格的欄位與表頭順序。');
+    const expected=key==='supports'&&cols.length===headers.supports.length-1?headers.supports.slice(0,-1):headers[key];
+    if(cols.length!==expected.length||expected.some((h,i)=>h!==cols[i].trim()))throw Error('請保留「'+headers[key][0]+'」表格的欄位與表頭順序。');
     return lines.filter(l=>l.trim()).map((l,i)=>{
       const r=l.split('\t').map(c=>c.trim());
       if(r.length!==cols.length)throw Error(headers[key][0]+'資料第 '+(i+1)+' 列欄數不足。');return r;
@@ -51,7 +52,11 @@
     }
     return {...rest,layers:rows(v,'layers').map(([bottom,kh,pressure_top,pressure_bottom,lower,upper,basis])=>({bottom,kh,pressure_top,pressure_bottom,lower:lower||null,upper:upper||null,basis})),
       stages,
-      supports:rows(v,'supports').map(([id,depth,spacing,stiffness,preload,install,remove,law,basis])=>({id,depth,spacing,stiffness,preload,install,remove:remove||null,law:lookup(law,{'雙向':'bilateral','只受壓':'compression'},'支撐型式'),basis})),
+      supports:rows(v,'supports').map(([id,depth,spacing,stiffness,preload,install,remove,law,basis,installation])=>({
+        id,depth,spacing,stiffness,preload,install,remove:remove||null,
+        law:lookup(law,{'雙向':'bilateral','只受壓':'compression'},'支撐型式'),basis,
+        installation:lookup(installation||'前階平衡',{'前階平衡':'previous_equilibrium','預力後鎖定':'preload_then_lock'},'安裝方式')
+      })),
       comparisons:rows(v,'comparisons').map(([stage,depth,kind,quantity,unit,value,side,support,source])=>({stage,depth,kind:lookup(kind,{'外部':'external','監測':'measurement'},'比較來源'),quantity,unit,value,side:lookup(side,{'上':'above','下':'below'},'站位側別'),support:support||null,source}))};
   }
   function table(id,head,data){
@@ -85,7 +90,10 @@
     const i=$('stage').selectedIndex,s=result.stages[i],c=result.coarse[i],p=peak(s.wall),b=s.balance;
     $('title').textContent='階段 '+s.id+' ｜ 壁頂深度 0，壁趾深度 '+input.length+' m';
     $('summary').textContent='最大絕對位移所在節點 z＝'+fmt(p.z)+' m，有號位移 '+fmt(p.u_mm,5)+' mm；粗網格 '+fmt(peak(c.wall).u_mm,5)+' mm。總水平力殘差 '+b.force_error.toExponential(2)+' kN/m，對地表力矩殘差 '+b.moment_error.toExponential(2)+' kN·m/m。';
-    table('struts',['支撐','深度 m','安裝前位移 mm','每支水平力 kN','每米牆反力 kN/m','狀態'],s.supports.map(v=>[v.id,fmt(v.z),fmt(v.reference_mm,5),fmt(v.force_kn,5),fmt(v.per_m,5),v.gap?'脫離':'作用']));
+    table('struts',['支撐','深度 m','安裝方式','位移基準 mm','每支水平力 kN','每米牆反力 kN/m','狀態'],s.supports.map(v=>[
+      v.id,fmt(v.z),v.installation==='preload_then_lock'?'預力後鎖定':'前階平衡',
+      fmt(v.reference_mm,5),fmt(v.force_kn,5),fmt(v.per_m,5),v.applying_preload?'本階施力並鎖定':v.gap?'脫離':'作用'
+    ]));
     const units={u:'mm',M:'kN·m/m',V:'kN/m',R:'kN'};
     table('comparison',['來源','深度／側別','量','來源值','模型值','模型−來源（同單位）','來源與正向依據'],s.comparisons.map(v=>[v.kind==='external'?'外部解':'監測',fmt(v.depth)+' m／'+(v.side==='above'?'上':'下'),v.quantity+(v.support?' '+v.support:''),fmt(v.value)+' '+v.unit,v.calc==null?'該階未啟用':fmt(v.calc,5)+' '+units[v.quantity],fmt(v.delta,5)+' '+units[v.quantity],v.source]));
     table('profile',['深度 m','位移 mm','轉角 rad','M 上／下 kN·m/m','V 上／下 kN/m'],s.wall.map(v=>[fmt(v.z),fmt(v.u_mm,5),fmt(v.rotation,7),fmt(v.M_above,5)+'／'+fmt(v.M_below,5),fmt(v.V_above,5)+'／'+fmt(v.V_below,5)]));
@@ -131,7 +139,7 @@
     set({case_id:'合成壁段 W1',basis:'地表 GL 0；合成分層、固定趾基準',length:12,ei:210000,water_weight:9.81,step:.5,toe:'fixed',soil_law:'linear',
       layers:tsv([headers.layers,[6,6200,8,26,'','','上層合成 8＋3z'],[12,12500,26,44,'','','下層合成 8＋3z']]),
       stages:tsv([headers.stages,...[['S1',3,2,3,1,1,'挖至 3 m'],['S2',3,2,3,1,1,'安裝與預力'],['S3',6,2,6,1,1,'降水續挖'],['S4',6,2,6,1,1,'拆撐'],['S5',6,2,6,.65,.65,'合成等比例卸載']]]),
-      supports:tsv([headers.supports,['B1',2,2,36000,90,'S2','S4','雙向','合成總水平剛度／預力；每米牆半數']]),
+      supports:tsv([headers.supports,['B1',2,2,36000,90,'S2','S4','雙向','合成總水平剛度／預力；每米牆半數','前階平衡']]),
       comparisons:tsv([headers.comparisons,['S3',0,'外部','u','mm',18.645,'下','','獨立矩陣指數，正向開挖側'],['S3',2,'外部','R','kN',198.8468,'下','B1','獨立梁解每米反力 ×2 m'],['S3',0,'監測','u','cm',1.90,'下','','合成觀測 3，供單位與對欄演練']])});
   };
   $('bring').onclick=async()=>{
@@ -166,7 +174,7 @@
   };
   $('file').onchange=async e=>{
     const file=e.target.files[0];if(!file)return;
-    try{const d=JSON.parse(await file.text());if(![VERSION,'staged-wall.eb.v1'].includes(d.version)||!d.form)throw Error('無法辨識紀錄。');
+    try{const d=JSON.parse(await file.text());if(![VERSION,'staged-wall.eb.v2','staged-wall.eb.v1'].includes(d.version)||!d.form)throw Error('無法辨識紀錄。');
       request(d.form);if(!await allowReplace())return;
       await run(d.form,d.stage,()=>{writeForm(d.form);source=d.source??null;});
     }catch(err){msg(err.message);}finally{e.target.value='';}

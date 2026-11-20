@@ -18,7 +18,7 @@
 <label for="water_profiles">分段水壓控制點（選填）</label><textarea id="water_profiles" rows="4" wrap="off" aria-describedby="waterProfileHelp"></textarea>
 <p class="note" id="waterProfileHelp">階段名稱須與上表相同，側別填「外」或「內」，壓力填 kPa。同階同側依深度由淺到深填寫，最後一點填至壁趾。首點若在地表下，該點壓力須為零。每階請貼完整控制點，同一側各點填相同來源。</p>
 <label for="supports">支撐與預力（可只保留表頭）</label><textarea id="supports" rows="4" wrap="off"></textarea>
-<p class="note">每支撐垂直壁面的水平勁度用 kN/m，水平預力用 kN/支，依沿牆間距換為每米牆反力。型式填「雙向」或「只受壓」。安裝時採上一步平衡位移作為零變形基準，預力為初始力；拆撐階從方程中移除。斜撐須先依其方向換算水平分量。</p>
+<p class="note">每支撐垂直壁面的水平勁度用 kN/m，水平預力用 kN/支，依沿牆間距換為每米牆反力。型式填「雙向」或「只受壓」。安裝方式填「前階平衡」時，以前階平衡位移為基準，空白沿用此方式。填「預力後鎖定」時，安裝階施加指定預力，待本階平衡後以當下位移鎖定；支撐勁度自下一階生效。拆撐階移除。斜撐須先依方向換算水平分量。</p>
 <label for="comparisons">外部解與監測比較（可只保留表頭）</label><textarea id="comparisons" rows="4" wrap="off"></textarea>
 <p class="note">來源類別填「外部」或「監測」。量填 u、M、V、R；位移 mm／cm／m、彎矩 kN·m/m／tf·m/m、剪力 kN/m／tf/m、單支水平反力 kN／tf。側別填「上」或「下」，支撐站的剪力分兩側取值。數值須先按本表正向換號，來源填檔號或儀器、時間及換號依據。</p>
 <button id="run" class="primary">計算全部施工階段</button><span id="status" role="status" class="status"></span></section></div>

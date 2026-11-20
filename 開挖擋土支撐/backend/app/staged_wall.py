@@ -54,6 +54,7 @@ class Support(Input):
     remove: str | None = None
     law: Literal["bilateral", "compression"]
     basis: str = Field(min_length=1)
+    installation: Literal["previous_equilibrium", "preload_then_lock"] = "previous_equilibrium"
 
 
 class Comparison(Input):
@@ -83,7 +84,7 @@ class WallCase(Input):
     comparisons: list[Comparison]
 
 
-VERSION = "staged-wall.eb.v2"
+VERSION = "staged-wall.eb.v3"
 GAUSS = ((-.8611363115940526, .3478548451374538), (-.3399810435848563, .6521451548625461),
          (.3399810435848563, .6521451548625461), (.8611363115940526, .3478548451374538))
 # Multipliers convert the observation to the intrinsic result units: mm, kN·m/m, kN/m, kN per strut.
@@ -230,6 +231,14 @@ def band_solve(k,b,locked):
     return [v/s for v,s in zip(b,scales)]
 
 
+def support_force(support, displacement, reference, applying_preload=False):
+    force = support.preload
+    if not applying_preload:
+        force += support.stiffness*(displacement-reference)
+    released = support.law == "compression" and force < 0
+    return (0. if released else force),released
+
+
 def solve_mesh(case,step):
     mesh=grid(case,step); elems=elements(case,mesh); n=len(mesh)*2
     node={z:i for i,z in enumerate(mesh)}
@@ -241,11 +250,14 @@ def solve_mesh(case,step):
             [net_water_pressure(z,case.water_weight,st)*st.water_factor for z,_,_,_ in points]
             for _,_,_,points in elems
         ]
+        applying_preload = set()
         for s in case.supports:
             if s.remove==st.id:
                 active.pop(s.id)
             if s.install==st.id:
                 active[s.id]=(s,2*node[s.depth],u[2*node[s.depth]])
+                if s.installation=="preload_then_lock":
+                    applying_preload.add(s.id)
         def assemble(v,tangent=False,details=False):
             k=[[0.]*4 for _ in range(n)] if tangent else None
             residual=[0.]*n;ends=[];states=[];struts=[];applied=reaction=applied_m=soil_m=water_force=water_moment=0.
@@ -280,13 +292,13 @@ def solve_mesh(case,step):
                 for i in range(4): residual[offset+i]+=force[i]
                 if details: ends.append(force);states.append(updated)
             for s,d,u0 in active.values():
-                force=s.preload+s.stiffness*(v[d]-u0)
-                open_gap=s.law=="compression" and force<0
-                if open_gap:force=0.
+                controlled=s.id in applying_preload
+                force,open_gap=support_force(s,v[d],u0,controlled)
                 residual[d]+=force/s.spacing
-                if tangent and not open_gap:k[d][0]+=s.stiffness/s.spacing
-                if details:struts.append(dict(id=s.id,z=s.depth,reference_mm=1000*u0,force_kn=force,
-                                              per_m=force/s.spacing,gap=open_gap))
+                if tangent and not controlled and not open_gap:k[d][0]+=s.stiffness/s.spacing
+                if details:struts.append(dict(id=s.id,z=s.depth,reference_mm=1000*(v[d] if controlled else u0),
+                                              force_kn=force,per_m=force/s.spacing,gap=open_gap,
+                                              installation=s.installation,applying_preload=controlled))
             return k,residual,ends,states,struts,(applied,reaction,applied_m,soil_m,water_force,water_moment)
         def norm(residual):
             return max((abs(v) for i,v in enumerate(residual) if i not in fixed),default=0.)
@@ -310,6 +322,9 @@ def solve_mesh(case,step):
         except ValueError as ex:
             raise ValueError(st.id+"："+str(ex)) from ex
         _,r,ends,states,struts,(applied,reaction,applied_m,soil_m,water_force,water_moment)=assemble(u,details=True)
+        for key in applying_preload:
+            s,d,_=active[key]
+            active[key]=(s,d,u[d])
         committed=[[pt["plastic_m"] for pt in pts] for pts in states]
         wall=[]
         for i,z in enumerate(mesh):
