@@ -1447,7 +1447,19 @@ for (const tool of inventory.tools) {
 }
 const rcHtmlInventory = inventory.tools.filter(tool => ['rc-formal', 'rc-retrofit'].includes(tool.family));
 assert.equal(rcHtmlInventory.length, 8, 'rendered delivery inventory maps all eight RC HTML attachment families');
-assert.equal(rcHtmlInventory.reduce((sum, tool) => sum + tool.htmlExpected, 0), 34, 'rendered delivery inventory declares 34 expected RC HTML attachments');
+const requiredRcHtml = rcHtmlInventory.reduce((sum, tool) => {
+  assert.ok(Number.isInteger(tool.htmlExpected) && tool.htmlExpected > 0, `${tool.title} declares its RC HTML attachment count`);
+  if (tool.evidenceCases) {
+    assert.equal(tool.evidenceCases.length, tool.htmlExpected, `${tool.title} declares every report case`);
+    assert.equal(new Set(tool.evidenceCases).size, tool.htmlExpected, `${tool.title} report cases are unique`);
+  }
+  return sum + tool.htmlExpected;
+}, 0);
+const requiredRcSourcePackages = rcHtmlInventory
+  .filter(tool => tool.family === 'rc-formal')
+  .reduce((sum, tool) => sum + tool.htmlExpected, 0);
+// Each RC formal case has a PDF and PNG. The retrofit audit designates one canonical visual pair.
+const requiredRcVisualArtifacts = 2 * (requiredRcSourcePackages + 1);
 assert.equal(inventory.rcSupplementalAttachments?.length, 3, 'rendered delivery inventory declares three RC STM dedicated formal-entry attachments');
 assert.equal(new Set(inventory.rcSupplementalAttachments.map(item => item.key)).size, 3, 'RC STM dedicated formal-entry attachment identities are unique');
 for (const item of inventory.rcSupplementalAttachments) {
@@ -1951,6 +1963,10 @@ for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) 
   const auditPayload = readJson(auditPath);
   const auditRecords = Array.isArray(auditPayload) ? auditPayload : auditPayload.results;
   assert.ok(Array.isArray(auditRecords) && auditRecords.length > 0, `${tool.title} report audit has records`);
+  if (tool.evidenceCases) {
+    assert.deepEqual(auditRecords.map(record => record.key).sort(), [...tool.evidenceCases].sort(),
+      `${tool.title} audit covers every inventoried report case`);
+  }
   const rcReconciliations = auditRecords.map(record => validateRcResultReconciliationRecord(record, `${tool.title} ${record.key || ''}`));
   rcResultReconciliationRecords.push(...rcReconciliations.map(reconciliation => ({ href: tool.href, ...reconciliation })));
   const portableRecords = auditRecords.map(record => record.portableHtml).filter(Boolean);
@@ -2916,10 +2932,10 @@ const rcVisualArtifacts = records
 const rcVisualArtifactIntegrity = {
   schemaVersion: 1,
   scope: 'rc-rendered-pdf-png',
-  required: 66,
+  required: requiredRcVisualArtifacts,
   verified: rcVisualArtifacts.length,
-  issueCount: Math.max(0, 66 - rcVisualArtifacts.length),
-  pass: rcVisualArtifacts.length === 66,
+  issueCount: Math.max(0, requiredRcVisualArtifacts - rcVisualArtifacts.length),
+  pass: rcVisualArtifacts.length === requiredRcVisualArtifacts,
   setSha256: integritySetHash(rcVisualArtifacts),
   artifacts: rcVisualArtifacts,
 };
@@ -3011,15 +3027,15 @@ assert.equal(localQuickResultReconciliation.pass, true, 'release rendered eviden
 const rcResultReconciliation = {
   schemaVersion: 1,
   scope: 'rc-source-replay-to-report-fingerprint',
-  required: 34,
+  required: requiredRcHtml,
   complete: rcResultReconciliationRecords.length,
-  issueCount: Math.max(0, 34 - rcResultReconciliationRecords.length),
-  pass: rcResultReconciliationRecords.length === 34,
+  issueCount: Math.max(0, requiredRcHtml - rcResultReconciliationRecords.length),
+  pass: rcResultReconciliationRecords.length === requiredRcHtml,
   setSha256: rcResultReconciliationSetHash(rcResultReconciliationRecords),
   records: rcResultReconciliationRecords,
 };
 assert.equal(new Set(rcResultReconciliationRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcResultReconciliationRecords.length, 'release rendered evidence RC result reconciliation identities are unique');
-assert.equal(rcResultReconciliation.complete, rcResultReconciliation.required, 'release rendered evidence reconciles all 34 RC design and retrofit results to report fingerprints');
+assert.equal(rcResultReconciliation.complete, rcResultReconciliation.required, 'release rendered evidence reconciles every RC design and retrofit result to its report fingerprint');
 assert.equal(rcResultReconciliation.pass, true, 'release rendered evidence passes RC result reconciliation');
 const rcSourceReportPackageRecords = rcResultReconciliationRecords
   .filter(record => record.strategy === 'rc-project-replay-to-report-fingerprint')
@@ -3027,54 +3043,54 @@ const rcSourceReportPackageRecords = rcResultReconciliationRecords
 const rcSourceReportPackage = {
   schemaVersion: 1,
   scope: 'rc-real-source-json-to-formal-html-package-check',
-  required: 32,
+  required: requiredRcSourcePackages,
   complete: rcSourceReportPackageRecords.length,
-  issueCount: Math.max(0, 32 - rcSourceReportPackageRecords.length),
-  pass: rcSourceReportPackageRecords.length === 32,
+  issueCount: Math.max(0, requiredRcSourcePackages - rcSourceReportPackageRecords.length),
+  pass: rcSourceReportPackageRecords.length === requiredRcSourcePackages,
   setSha256: rcSourceReportPackageSetHash(rcSourceReportPackageRecords),
   records: rcSourceReportPackageRecords,
 };
 assert.equal(new Set(rcSourceReportPackageRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcSourceReportPackageRecords.length, 'release rendered evidence RC source/report package identities are unique');
-assert.equal(rcSourceReportPackage.complete, rcSourceReportPackage.required, 'release rendered evidence verifies all 32 RC project JSON and formal HTML packages');
+assert.equal(rcSourceReportPackage.complete, rcSourceReportPackage.required, 'release rendered evidence verifies every RC project JSON and formal HTML package');
 assert.equal(rcSourceReportPackage.pass, true, 'release rendered evidence passes RC source/report package verification');
 const rcStandaloneFormalHtmlPrint = {
   schemaVersion: 1,
   scope: 'rc-approved-standalone-html-to-validated-pdf',
-  required: 34,
+  required: requiredRcHtml,
   complete: rcStandaloneFormalHtmlPrintRecords.length,
-  issueCount: Math.max(0, 34 - rcStandaloneFormalHtmlPrintRecords.length),
-  pass: rcStandaloneFormalHtmlPrintRecords.length === 34,
+  issueCount: Math.max(0, requiredRcHtml - rcStandaloneFormalHtmlPrintRecords.length),
+  pass: rcStandaloneFormalHtmlPrintRecords.length === requiredRcHtml,
   setSha256: rcStandaloneFormalHtmlPrintSetHash(rcStandaloneFormalHtmlPrintRecords),
   records: rcStandaloneFormalHtmlPrintRecords,
 };
 assert.equal(new Set(rcStandaloneFormalHtmlPrintRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcStandaloneFormalHtmlPrintRecords.length, 'release rendered evidence RC standalone formal HTML print identities are unique');
-assert.equal(rcStandaloneFormalHtmlPrint.complete, rcStandaloneFormalHtmlPrint.required, 'release rendered evidence reopens and prints all 34 RC approved standalone HTML reports');
+assert.equal(rcStandaloneFormalHtmlPrint.complete, rcStandaloneFormalHtmlPrint.required, 'release rendered evidence reopens and prints every RC approved standalone HTML report');
 assert.equal(rcStandaloneFormalHtmlPrint.pass, true, 'release rendered evidence passes RC standalone formal HTML print verification');
 const rcFormalHtmlContentSeal = {
   schemaVersion: 1,
   scope: 'rc-formal-html-reproducible-content-sha256',
-  required: 34,
+  required: requiredRcHtml,
   complete: rcFormalHtmlContentSealRecords.length,
-  issueCount: Math.max(0, 34 - rcFormalHtmlContentSealRecords.length),
-  pass: rcFormalHtmlContentSealRecords.length === 34,
+  issueCount: Math.max(0, requiredRcHtml - rcFormalHtmlContentSealRecords.length),
+  pass: rcFormalHtmlContentSealRecords.length === requiredRcHtml,
   setSha256: rcFormalHtmlContentSealSetHash(rcFormalHtmlContentSealRecords),
   records: rcFormalHtmlContentSealRecords,
 };
 assert.equal(new Set(rcFormalHtmlContentSealRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcFormalHtmlContentSealRecords.length, 'release rendered evidence RC formal HTML content seal identities are unique');
-assert.equal(rcFormalHtmlContentSeal.complete, rcFormalHtmlContentSeal.required, 'release rendered evidence independently verifies all 34 RC formal HTML content seals');
+assert.equal(rcFormalHtmlContentSeal.complete, rcFormalHtmlContentSeal.required, 'release rendered evidence independently verifies every RC formal HTML content seal');
 assert.equal(rcFormalHtmlContentSeal.pass, true, 'release rendered evidence passes RC formal HTML content seal verification');
 const rcFormalHtmlApprovalSeal = {
   schemaVersion: 1,
   scope: 'rc-formal-html-reproducible-approval-sha256',
-  required: 34,
+  required: requiredRcHtml,
   complete: rcFormalHtmlApprovalSealRecords.length,
-  issueCount: Math.max(0, 34 - rcFormalHtmlApprovalSealRecords.length),
-  pass: rcFormalHtmlApprovalSealRecords.length === 34,
+  issueCount: Math.max(0, requiredRcHtml - rcFormalHtmlApprovalSealRecords.length),
+  pass: rcFormalHtmlApprovalSealRecords.length === requiredRcHtml,
   setSha256: rcFormalHtmlApprovalSealSetHash(rcFormalHtmlApprovalSealRecords),
   records: rcFormalHtmlApprovalSealRecords,
 };
 assert.equal(new Set(rcFormalHtmlApprovalSealRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcFormalHtmlApprovalSealRecords.length, 'release rendered evidence RC formal HTML approval seal identities are unique');
-assert.equal(rcFormalHtmlApprovalSeal.complete, rcFormalHtmlApprovalSeal.required, 'release rendered evidence independently verifies all 34 RC formal HTML approval seals');
+assert.equal(rcFormalHtmlApprovalSeal.complete, rcFormalHtmlApprovalSeal.required, 'release rendered evidence independently verifies every RC formal HTML approval seal');
 assert.equal(rcFormalHtmlApprovalSeal.pass, true, 'release rendered evidence passes RC formal HTML approval seal verification');
 const formalHtmlContentSeal = {
   schemaVersion: 1,
@@ -3254,11 +3270,11 @@ assert.equal(excavationResultReconciliation.complete, excavationResultReconcilia
 assert.equal(excavationResultReconciliation.pass, true, 'release rendered evidence passes excavation result reconciliation');
 assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, `release rendered evidence verifies all ${canonicalArtifactIntegrityRequired} canonical PDF and evidence files`);
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
-assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 66 RC PDF and PNG visual artifacts');
+assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies every inventoried RC PDF and PNG visual artifact');
 assert.equal(rcVisualArtifactIntegrity.pass, true, 'release rendered evidence passes RC PDF and PNG visual artifact integrity');
 assert.equal(mixedArtifactIntegrity.verified, mixedArtifactIntegrity.required, 'release rendered evidence verifies all 17 mixed-format artifacts');
 assert.equal(mixedArtifactIntegrity.pass, true, 'release rendered evidence passes mixed-format artifact integrity');
-assert.equal(attachmentIntegrity.required, 34, 'release rendered evidence expects 34 RC HTML attachments');
+assert.equal(attachmentIntegrity.required, requiredRcHtml, 'release rendered evidence expects the inventoried RC HTML attachments');
 assert.equal(attachmentIntegrity.actual, attachmentIntegrity.required, 'release rendered evidence keeps every expected RC HTML attachment');
 assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'release rendered evidence verifies every RC HTML attachment');
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
@@ -3386,7 +3402,7 @@ assert.equal(reshoreCapacityFormalAttachment.artifactVerified, reshoreCapacityFo
 assert.equal(reshoreCapacityFormalAttachment.issueCount, 0, 'release rendered evidence has no RSC/RSB attachment integrity issue');
 assert.equal(reshoreCapacityFormalAttachment.pass, true, 'release rendered evidence passes RSC/RSB attachment verification');
 const aggregate = {
-  schemaVersion: 35,
+  schemaVersion: 36,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),

@@ -2176,6 +2176,13 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const expectedDocxPackageIntegrityCount = reshoreCapacityFormalAttachmentDeclared ? 5 : 4;
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
+  const slabTransferRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 36;
+  const expectedRcHtmlCount = slabTransferRcEvidenceDeclared ? 36 : 34;
+  const expectedRcSourcePackageCount = expectedRcHtmlCount - 2;
+  const expectedRcResultCount = slabTransferRcEvidenceDeclared ? expectedRcHtmlCount
+    : pileGroupLateralRcEvidenceDeclared ? 34 : earthBridgeRcEvidenceDeclared ? 33 : expandedRcResultReconciliationDeclared ? 32 : 30;
+  const expectedRcVisualCount = slabTransferRcEvidenceDeclared ? 70
+    : pileGroupLateralRcEvidenceDeclared ? 66 : earthBridgeRcEvidenceDeclared ? 64 : 62;
   const rcSourceReportPackageDeclared = Number(evidence?.schemaVersion) >= 15;
   const rcStandaloneFormalHtmlPrintDeclared = Number(evidence?.schemaVersion) >= 16;
   const rcFormalHtmlContentSealDeclared = Number(evidence?.schemaVersion) >= 17;
@@ -2206,6 +2213,11 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
     && (!attachmentIntegrityDeclared || (
       evidence.attachmentIntegrity?.pass === true
       && Number.isInteger(evidence.attachmentIntegrity.required)
+      && (!slabTransferRcEvidenceDeclared || (
+        evidence.attachmentIntegrity.required === expectedRcHtmlCount
+        && Array.isArray(evidence.attachmentIntegrity.groups)
+        && evidence.attachmentIntegrity.groups.find(group => group?.href === '/rc-slab')?.expected === 7
+      ))
       && evidence.attachmentIntegrity.actual === evidence.attachmentIntegrity.required
       && evidence.attachmentIntegrity.verified === evidence.attachmentIntegrity.required
       && evidence.attachmentIntegrity.issueCount === 0
@@ -2219,8 +2231,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.mixedArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.mixedArtifactIntegrity.setSha256 || ''))
       && evidence.rcVisualArtifactIntegrity?.scope === 'rc-rendered-pdf-png'
-      && evidence.rcVisualArtifactIntegrity.required === (pileGroupLateralRcEvidenceDeclared ? 66 : earthBridgeRcEvidenceDeclared ? 64 : 62)
-      && evidence.rcVisualArtifactIntegrity.verified === (pileGroupLateralRcEvidenceDeclared ? 66 : earthBridgeRcEvidenceDeclared ? 64 : 62)
+      && evidence.rcVisualArtifactIntegrity.required === expectedRcVisualCount
+      && evidence.rcVisualArtifactIntegrity.verified === expectedRcVisualCount
       && evidence.rcVisualArtifactIntegrity.issueCount === 0
       && evidence.rcVisualArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcVisualArtifactIntegrity.setSha256 || ''))
@@ -2326,40 +2338,40 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       evidence.rcResultReconciliation?.scope === (expandedRcResultReconciliationDeclared
         ? 'rc-source-replay-to-report-fingerprint'
         : 'rc-project-replay-to-report-fingerprint')
-      && evidence.rcResultReconciliation.required === (pileGroupLateralRcEvidenceDeclared ? 34 : earthBridgeRcEvidenceDeclared ? 33 : expandedRcResultReconciliationDeclared ? 32 : 30)
-      && evidence.rcResultReconciliation.complete === (pileGroupLateralRcEvidenceDeclared ? 34 : earthBridgeRcEvidenceDeclared ? 33 : expandedRcResultReconciliationDeclared ? 32 : 30)
+      && evidence.rcResultReconciliation.required === expectedRcResultCount
+      && evidence.rcResultReconciliation.complete === expectedRcResultCount
       && evidence.rcResultReconciliation.issueCount === 0
       && evidence.rcResultReconciliation.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcResultReconciliation.setSha256 || ''))
     ))
     && (!rcSourceReportPackageDeclared || (
       evidence.rcSourceReportPackage?.scope === 'rc-real-source-json-to-formal-html-package-check'
-      && evidence.rcSourceReportPackage.required === 32
-      && evidence.rcSourceReportPackage.complete === 32
+      && evidence.rcSourceReportPackage.required === expectedRcSourcePackageCount
+      && evidence.rcSourceReportPackage.complete === expectedRcSourcePackageCount
       && evidence.rcSourceReportPackage.issueCount === 0
       && evidence.rcSourceReportPackage.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcSourceReportPackage.setSha256 || ''))
     ))
     && (!rcStandaloneFormalHtmlPrintDeclared || (
       evidence.rcStandaloneFormalHtmlPrint?.scope === 'rc-approved-standalone-html-to-validated-pdf'
-      && evidence.rcStandaloneFormalHtmlPrint.required === 34
-      && evidence.rcStandaloneFormalHtmlPrint.complete === 34
+      && evidence.rcStandaloneFormalHtmlPrint.required === expectedRcHtmlCount
+      && evidence.rcStandaloneFormalHtmlPrint.complete === expectedRcHtmlCount
       && evidence.rcStandaloneFormalHtmlPrint.issueCount === 0
       && evidence.rcStandaloneFormalHtmlPrint.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcStandaloneFormalHtmlPrint.setSha256 || ''))
     ))
     && (!rcFormalHtmlContentSealDeclared || (
       evidence.rcFormalHtmlContentSeal?.scope === 'rc-formal-html-reproducible-content-sha256'
-      && evidence.rcFormalHtmlContentSeal.required === 34
-      && evidence.rcFormalHtmlContentSeal.complete === 34
+      && evidence.rcFormalHtmlContentSeal.required === expectedRcHtmlCount
+      && evidence.rcFormalHtmlContentSeal.complete === expectedRcHtmlCount
       && evidence.rcFormalHtmlContentSeal.issueCount === 0
       && evidence.rcFormalHtmlContentSeal.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcFormalHtmlContentSeal.setSha256 || ''))
     ))
     && (!rcFormalHtmlApprovalSealDeclared || (
       evidence.rcFormalHtmlApprovalSeal?.scope === 'rc-formal-html-reproducible-approval-sha256'
-      && evidence.rcFormalHtmlApprovalSeal.required === 34
-      && evidence.rcFormalHtmlApprovalSeal.complete === 34
+      && evidence.rcFormalHtmlApprovalSeal.required === expectedRcHtmlCount
+      && evidence.rcFormalHtmlApprovalSeal.complete === expectedRcHtmlCount
       && evidence.rcFormalHtmlApprovalSeal.issueCount === 0
       && evidence.rcFormalHtmlApprovalSeal.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcFormalHtmlApprovalSeal.setSha256 || ''))

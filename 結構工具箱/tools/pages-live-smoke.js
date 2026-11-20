@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const publicEvidenceSchema = require('../assets/status/public-evidence-schema.js');
+const renderedDeliveryInventory = require('./rendered-delivery-evidence.inventory.json');
 
 const DEFAULT_BASE_URL = 'https://oxsum324.github.io/section-properties-calculator/';
 const TRANSIENT_NETWORK_ERROR_CODES = new Set([
@@ -822,6 +823,12 @@ async function main() {
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
   const deliveryFileIntegrityJson = JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown);
   const reportReadinessJson = JSON.stringify(reportReadinessStatus);
+  const rcInventory = renderedDeliveryInventory.tools.filter(tool => ['rc-formal', 'rc-retrofit'].includes(tool.family));
+  const currentRcHtmlCount = rcInventory.reduce((sum, tool) => sum + tool.htmlExpected, 0);
+  const rcHtmlCount = reportReadinessStatus.attachmentIntegrityRequired;
+  // The published snapshot may predate the two added slab cases.
+  assert.ok([34, currentRcHtmlCount].includes(rcHtmlCount), 'report readiness declares a supported RC HTML inventory');
+  const rcRetrofit = rcInventory.find(tool => tool.family === 'rc-retrofit');
   assert.equal(/sha256|artifact|filename|bytes/i.test(deliveryFileIntegrityJson), false, 'report readiness redacted delivery integrity omits private artifact evidence');
   assert.equal(/canonicalArtifactIntegrity|rcVisualArtifactIntegrity|mixedArtifactIntegrity/.test(JSON.stringify(reportReadinessStatus)), false, 'report readiness does not publish private aggregate property names');
   const schemaV35DeliveryDeclared = reportReadinessStatus.deliveryFileIntegrityRequired === 179;
@@ -883,31 +890,31 @@ async function main() {
   }
   assert.equal(reportReadinessJson.includes('"frameResultReconciliation":'), false, 'report readiness omits the private frame reconciliation aggregate');
   assert.equal(/frame-source-replay-to-report-fingerprint|frame-analysis-html-reproducible-(?:content|approval)-sha256|sourceSnapshotSha256/.test(reportReadinessJson), false, 'report readiness omits private frame scopes, source hashes and seal values');
-  assert.equal(reportReadinessStatus.rcResultReconciliationRequired, 34, 'report readiness expects 34 RC design and retrofit result reconciliations');
+  assert.equal(reportReadinessStatus.rcResultReconciliationRequired, rcHtmlCount, 'report readiness expects a reconciliation for every RC HTML attachment');
   assert.equal(reportReadinessStatus.rcResultReconciliationComplete, reportReadinessStatus.rcResultReconciliationRequired, 'report readiness completes every RC result reconciliation');
   assert.equal(reportReadinessStatus.rcResultReconciliationIssueCount, 0, 'report readiness RC result reconciliation issues empty');
   assert.equal(reportReadinessStatus.rcResultReconciliationPass, true, 'report readiness RC result reconciliation passes');
   assert.equal(reportReadinessJson.includes('"rcResultReconciliation":'), false, 'report readiness omits the private RC reconciliation aggregate');
   assert.equal(/rc-(?:project|source|form)-replay-to-report-fingerprint|sourceSnapshotSha256|"caseId"/.test(reportReadinessJson), false, 'report readiness omits private RC reconciliation scope, case identity and source snapshot hashes');
-  assert.equal(reportReadinessStatus.rcSourceReportPackageRequired, 32, 'report readiness expects 32 RC real source/report package checks');
+  assert.equal(reportReadinessStatus.rcSourceReportPackageRequired, rcHtmlCount - rcRetrofit.htmlExpected, 'report readiness expects an RC source/report package check for every RC design case');
   assert.equal(reportReadinessStatus.rcSourceReportPackageComplete, reportReadinessStatus.rcSourceReportPackageRequired, 'report readiness completes every RC source/report package check');
   assert.equal(reportReadinessStatus.rcSourceReportPackageIssueCount, 0, 'report readiness RC source/report package issues empty');
   assert.equal(reportReadinessStatus.rcSourceReportPackagePass, true, 'report readiness RC source/report package checks pass');
   assert.equal(reportReadinessJson.includes('"rcSourceReportPackage":'), false, 'report readiness omits the private RC source/report package aggregate');
   assert.equal(/rc-real-source-json-to-formal-html-package-check|fingerprintLinkCount|"fingerprint"/.test(reportReadinessJson), false, 'report readiness omits private RC source/report package scope and fingerprints');
-  assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintRequired, 34, 'report readiness expects 34 RC standalone formal HTML print checks');
+  assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintRequired, rcHtmlCount, 'report readiness expects a print check for every RC HTML attachment');
   assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintComplete, reportReadinessStatus.rcStandaloneFormalHtmlPrintRequired, 'report readiness completes every RC standalone formal HTML print check');
   assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintIssueCount, 0, 'report readiness RC standalone formal HTML print issues empty');
   assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintPass, true, 'report readiness RC standalone formal HTML print checks pass');
   assert.equal(reportReadinessJson.includes('"rcStandaloneFormalHtmlPrint":'), false, 'report readiness omits the private RC standalone formal HTML print aggregate');
   assert.equal(/rc-approved-standalone-html-to-validated-pdf|externalRequestCount|standalonePrintArtifacts/.test(reportReadinessJson), false, 'report readiness omits private RC standalone formal HTML print scope and artifact details');
-  assert.equal(reportReadinessStatus.rcFormalHtmlContentSealRequired, 34, 'report readiness expects 34 RC formal HTML content seal checks');
+  assert.equal(reportReadinessStatus.rcFormalHtmlContentSealRequired, rcHtmlCount, 'report readiness expects a content seal for every RC HTML attachment');
   assert.equal(reportReadinessStatus.rcFormalHtmlContentSealComplete, reportReadinessStatus.rcFormalHtmlContentSealRequired, 'report readiness completes every RC formal HTML content seal check');
   assert.equal(reportReadinessStatus.rcFormalHtmlContentSealIssueCount, 0, 'report readiness RC formal HTML content seal issues empty');
   assert.equal(reportReadinessStatus.rcFormalHtmlContentSealPass, true, 'report readiness RC formal HTML content seal checks pass');
   assert.equal(reportReadinessJson.includes('"rcFormalHtmlContentSeal":'), false, 'report readiness omits the private RC formal HTML content seal aggregate');
   assert.equal(/rc-formal-html-reproducible-content-sha256|"contentSha256"|contentSealArtifacts/.test(reportReadinessJson), false, 'report readiness omits private RC formal HTML content seal scope and artifact details');
-  assert.equal(reportReadinessStatus.rcFormalHtmlApprovalSealRequired, 34, 'report readiness expects 34 RC formal HTML approval seal checks');
+  assert.equal(reportReadinessStatus.rcFormalHtmlApprovalSealRequired, rcHtmlCount, 'report readiness expects an approval seal for every RC HTML attachment');
   assert.equal(reportReadinessStatus.rcFormalHtmlApprovalSealComplete, reportReadinessStatus.rcFormalHtmlApprovalSealRequired, 'report readiness completes every RC formal HTML approval seal check');
   assert.equal(reportReadinessStatus.rcFormalHtmlApprovalSealIssueCount, 0, 'report readiness RC formal HTML approval seal issues empty');
   assert.equal(reportReadinessStatus.rcFormalHtmlApprovalSealPass, true, 'report readiness RC formal HTML approval seal checks pass');
@@ -993,7 +1000,6 @@ async function main() {
       assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('補充報告 / 服務成品'), 'report readiness rendered delivery summary includes supplemental report and service evidence');
     }
   }
-  assert.equal(reportReadinessStatus.attachmentIntegrityRequired, 34, 'report readiness expects 34 RC HTML attachments');
   assert.equal(reportReadinessStatus.attachmentIntegrityActual, reportReadinessStatus.attachmentIntegrityRequired, 'report readiness keeps every RC HTML attachment');
   assert.equal(reportReadinessStatus.attachmentIntegrityVerified, reportReadinessStatus.attachmentIntegrityRequired, 'report readiness verifies every RC HTML attachment');
   assert.equal(reportReadinessStatus.attachmentIntegrityIssueCount, 0, 'report readiness attachment integrity issues empty');
@@ -1001,7 +1007,12 @@ async function main() {
   assert.equal(Object.prototype.hasOwnProperty.call(reportReadinessStatus, 'attachmentIntegrityScope'), false, 'report readiness omits private attachment integrity scope');
   assert.equal(Object.prototype.hasOwnProperty.call(reportReadinessStatus, 'attachmentIntegritySetSha256'), false, 'report readiness omits private attachment integrity set hash');
   assert.equal(reportReadinessStatus.attachmentIntegrityGroups.length, 8, 'report readiness exposes eight RC attachment groups');
-  assert.equal(reportReadinessStatus.attachmentIntegrityGroups.reduce((sum, group) => sum + group.expected, 0), 34, 'report readiness attachment group expectations total 34');
+  assert.equal(reportReadinessStatus.attachmentIntegrityGroups.reduce((sum, group) => sum + group.expected, 0), rcHtmlCount, 'report readiness attachment groups sum to the declared RC HTML inventory');
+  for (const tool of rcInventory) {
+    const group = reportReadinessStatus.attachmentIntegrityGroups.find(item => item.href === tool.href);
+    const expected = tool.href === '/rc-slab' && rcHtmlCount === 34 ? 5 : tool.htmlExpected;
+    assert.equal(group?.expected, expected, `${tool.title} keeps the report count for its snapshot`);
+  }
   assert.ok(reportReadinessStatus.attachmentIntegrityGroups.every(group => group.pass && group.actual === group.expected && group.verified === group.expected), 'report readiness attachment groups all pass');
   assert.ok(reportReadinessStatus.attachmentIntegrityGroups.every(group => !Object.prototype.hasOwnProperty.call(group, 'setSha256') && !Object.prototype.hasOwnProperty.call(group, 'artifacts')), 'report readiness attachment groups omit hashes and artifact lists');
   assert.equal(/"(?:artifact|artifacts|bytes|sha256|setSha256)"\s*:/.test(JSON.stringify(reportReadinessStatus)), false, 'report readiness snapshot omits private attachment integrity details');
