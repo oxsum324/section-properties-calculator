@@ -71,7 +71,7 @@
     });
   }
 
-  function getCurrentReportTrace({ engine, omitInputIds } = {}) {
+  function getCurrentReportTrace({ engine, omitInputIds, gust = engine === undefined ? global.getWindForceGustTrace?.() : null } = {}) {
     const title = textFrom(document.querySelector('header h1')) || '耐風計算書';
     const subtitle = textFrom(document.querySelector('header p'));
     return buildWindReportTrace({
@@ -81,7 +81,7 @@
       summary: collectSummary(),
       inputGroups: collectInputGroups(omitInputIds),
       engine,
-      gust: engine === undefined ? global.getWindForceGustTrace?.() : null,
+      gust,
     });
   }
 

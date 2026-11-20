@@ -825,7 +825,10 @@ for (const tool of tools) {
     assertIncludes(html, `expectedToolId: '${tool.key}'`, `${tool.key} requires the current tool identity`);
     if (tool.previousCaseEngine) {
       assertIncludes(html, `const PREVIOUS_ENGINE = '${tool.previousCaseEngine}'`, `${tool.key} names the verified previous engine`);
-      assertIncludes(html, 'const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION', `${tool.key} limits replay to its current or verified previous engine`);
+      const verifiedEngineSelection = tool.key === 'wind-force'
+        ? 'const replayEngine = [PREVIOUS_ENGINE, SHARED_FREQUENCY_ENGINE].includes(sourceEngine) ? sourceEngine : TOOL_VERSION'
+        : 'const replayEngine = payload?.tool?.version === PREVIOUS_ENGINE ? PREVIOUS_ENGINE : TOOL_VERSION';
+      assertIncludes(html, verifiedEngineSelection, `${tool.key} limits replay to the current and verified historical engines`);
       assertIncludes(html, 'expectedVersion: replayEngine', `${tool.key} validates the selected case version`);
     } else {
       assertIncludes(html, 'expectedVersion: TOOL_VERSION', `${tool.key} requires the current tool version`);
@@ -991,6 +994,12 @@ for (const inlineValidationPage of [
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-force page-only report readiness hidden from print');
   assertIncludes(html, '../../core/loads/wind.js', 'wind-force page loads the production wind core covered by the independent benchmark');
   assert.ok(/const r = W\.calcBuildingWind\([\s\S]*const rY = W\.calcBuildingWind\(/.test(html), 'wind-force page calculates both directions through the production MWFRS core');
+  assertIncludes(html, "const SHARED_FREQUENCY_ENGINE = 'wind-force.v1.2.0'", 'wind-force verifies the original shared-frequency engine fingerprint');
+  for (const result of ['rY', 'rHalfY']) {
+    const call = html.match(new RegExp(`const ${result} = W\\.calcBuildingWind\\(\\{([^}]+)\\}\\)`));
+    assert.match(call?.[1] ?? '', /\bfn: fnY\b/, `${result} uses the selected Y-direction frequency`);
+  }
+  assertIncludes(html, 'accelY = W.calcCornerPeakAcceleration({ fn: fnY,', 'wind-force uses the same Y-direction frequency for the displacement-based acceleration');
 
   const windReport = readText(toolboxFile('core/src/wind-report.source.js'));
   assertIncludes(windReport, 'function isProjectMetaMissing', 'wind report shared project meta helper');
