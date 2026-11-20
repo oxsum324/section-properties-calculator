@@ -223,7 +223,7 @@
       '/seismic-appendage': '2026-11-13',
       '/seismic-misc': '2026-11-13',
       '/anchor': '2026-10-26',
-      '/stone-fixing': '2026-11-13',
+      '/stone-fixing': '2026-11-20',
       '/foundation-local': '2026-10-23',
       '/equipment-load': '2026-10-23',
       '/earth-pressure': '2026-11-12',
