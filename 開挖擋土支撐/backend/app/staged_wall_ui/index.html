@@ -4,17 +4,27 @@
 @media(max-width:700px){main{padding:6px}section{padding:10px}.grid{grid-template-columns:1fr 1fr}.wide{grid-column:1/-1}table{min-width:40rem}}
 @media print{@page{margin:12mm}body{background:white;font-size:10pt}main,section{padding:0;border:0}.no-print,dialog,details:not([open]){display:none!important}.print-only{display:block}.scroll{max-height:none;overflow:visible}table{min-width:0}thead{display:table-header-group}th{position:static}tr,canvas{break-inside:avoid}h2,h3{break-after:avoid}canvas{max-width:142mm}body:has(#result[hidden]):after{content:'尚無可列印的逐階結果。'}}
 </style></head><body><main>
-<div class="no-print"><h1>逐階壁體與土彈簧</h1><p>以一公尺寬牆帶計算。地表深度 z＝0，向下為正；壁體往開挖側的位移為正，M＝EI u″，V＝dM/dz。</p>
-<section><div class="actions"><button id="example">載入五階合成例</button><label for="file">讀取工作紀錄 JSON</label><input id="file" type="file" accept=".json,application/json"></div>
+<div class="no-print"><h1>逐階壁體與土彈簧</h1><p>以一公尺寬牆帶計算。地表深度向下為正，壁體往開挖側的位移為正。M＝EI u″。計入二階作用時，剪力 V＝dM/dz＋N u′，N 向下為正。</p>
+<section><div class="actions"><button id="example">載入五階合成例</button><button id="twoSideExample">載入雙側合成例</button><label for="file">讀取工作紀錄 JSON</label><input id="file" type="file" accept=".json,application/json"></div>
 <div class="actions"><label for="externalSide">已儲存案件的外部來源</label><select id="externalSide"><option value="top_analysis_source">上側</option><option value="bottom_analysis_source">下側</option><option value="analysis_import">原共用匯入紀錄</option></select><button id="bring" disabled>帶入階段供核對</button><span id="sourceName"></span></div>
 <div class="grid"><label class="wide">案件／壁段識別<input id="case_id"></label><label class="wide">高程零點、EI、壁趾及材料依據<input id="basis"></label>
 <label>壁長 (m)<input id="length" type="number" step="any"></label><label>壁剛度 EI (kN·m²/m)<input id="ei" type="number" step="any"></label><label>水單位重 (kN/m³)<input id="water_weight" type="number" step="any"></label><label>粗網格最大步距 (m)<input id="step" type="number" step="any"></label>
 <label class="wide">壁趾條件<select id="toe"><option value="">請指定</option><option value="fixed">固定平移及轉動</option><option value="pinned">固定平移，轉動自由</option><option value="free">平移與轉動均自由</option></select></label>
-<label class="wide">土彈簧路徑<select id="soil_law"><option value="">請指定</option><option value="linear">雙向線彈性，加卸載同斜率</option><option value="plastic">彈性完全塑性，卸載保留塑性位移</option></select></label></div></section>
+<label class="wide">土壓模型<select id="soil_law"><option value="">請指定</option><option value="linear">淨驅動壓力與線彈性彈簧</option><option value="plastic">淨驅動壓力與彈塑性彈簧</option><option value="two_sided">雙側有效土壓與各側卸載歷程</option></select></label></div></section>
 <section><h2>土層、階段與支撐</h2>
-<p class="note">各表可由 Excel 複製並保留表頭。土層有效側壓是案件另算的「淨驅動壓力」，在層內線性變化；水壓差另加。kh 為開挖側剩餘地盤的增量反力模數，挖除部分停用。彈塑性上下限為此彈簧反力的有號界限，無法直接以總土壓代入。</p>
+<p class="note">各表可由 Excel 複製並保留表頭。</p>
+<div id="legacySoilInputs">
 <label for="layers">土層與有效側壓</label><textarea id="layers" rows="4" wrap="off"></textarea>
-<label for="stages">施工階段（檔案順序）</label><textarea id="stages" rows="5" wrap="off"></textarea><p class="note">每階填有效側壓倍率與水壓倍率。各側可填水位深度，或使用下表的分段水壓。填了分段水壓的一側以該表為準。</p>
+<p class="note">淨驅動壓力在各層內線性變化，水壓差另加。kh 為開挖側剩餘地盤的反力模數。彈塑性上下限填彈簧反力的有號界限。</p>
+</div>
+<div id="twoSideSoilInputs" hidden>
+<label for="sided_layers">雙側土層</label><textarea id="sided_layers" rows="6" wrap="off" aria-describedby="sideLayerHelp"></textarea>
+<p class="note" id="sideLayerHelp">外、內兩側各自依深度排序並填至壁趾。填土的總單位重，水下總單位重留空時沿用總單位重。Ka、K0、Kp 乘以有效覆土與超載。主動修正填非正值，被動修正填非負值。被動壁面摩擦角以度數填寫。</p>
+<label class="wide" for="geometric">壁體垂直力的二階作用<select id="geometric"><option value="">請指定</option><option value="yes">計入二階作用</option><option value="no">只計一階內力</option></select></label>
+<label for="surcharges">各階雙側超載（選填）</label><textarea id="surcharges" rows="4" wrap="off" aria-describedby="surchargeHelp"></textarea>
+<p class="note" id="surchargeHelp">側別填「外」或「內」。型式填「均佈」時，深度及兩個距離欄留空。型式填「帶狀」時填載重所在深度、距壁的近緣及遠緣。各階以該表完整列示當階超載。</p>
+</div>
+<label for="stages">施工階段（檔案順序）</label><textarea id="stages" rows="5" wrap="off"></textarea><p class="note">雙側土壓的有效側壓倍率填 1。水壓倍率同時用於水壓及雙側有效覆土。各側可填水位深度，或以下表指定分段水壓。</p>
 <label for="water_profiles">分段水壓控制點（選填）</label><textarea id="water_profiles" rows="4" wrap="off" aria-describedby="waterProfileHelp"></textarea>
 <p class="note" id="waterProfileHelp">階段名稱須與上表相同，側別填「外」或「內」，壓力填 kPa。同階同側依深度由淺到深填寫，最後一點填至壁趾。首點若在地表下，該點壓力須為零。每階請貼完整控制點，同一側各點填相同來源。</p>
 <label for="supports">支撐與預力（可只保留表頭）</label><textarea id="supports" rows="4" wrap="off"></textarea>
@@ -23,12 +33,12 @@
 <p class="note">來源類別填「外部」或「監測」。量填 u、M、V、R；位移 mm／cm／m、彎矩 kN·m/m／tf·m/m、剪力 kN/m／tf/m、單支水平反力 kN／tf。側別填「上」或「下」，支撐站的剪力分兩側取值。數值須先按本表正向換號，來源填檔號或儀器、時間及換號依據。</p>
 <button id="run" class="primary">計算全部施工階段</button><span id="status" role="status" class="status"></span></section></div>
 <section id="result" hidden><h2>逐階壁體分析紀錄</h2><p id="context"></p><div id="stageTable"></div>
-<div class="actions no-print"><label for="stage">顯示階段</label><select id="stage"></select><button id="save">下載全部階段 JSON</button><button id="print">列印本階與總覽</button></div>
+<div class="actions no-print"><label for="stage">顯示階段</label><select id="stage"></select><label id="meshViewLabel" for="meshView" hidden>結果網格</label><select id="meshView" hidden><option value="fine">細網格</option><option value="coarse">粗網格</option></select><button id="save">下載全部階段 JSON</button><button id="print">列印本階與總覽</button></div>
 <h3 id="title"></h3><p class="summary" id="summary"></p><canvas id="plot" width="760" height="360" aria-label="位移、彎矩及剪力隨深度變化圖，詳細數值見下表"></canvas>
 <p class="note">深度由上向下，水平虛線為當階開挖面；各圖橫軸以中線為零，左右為負／正。</p><h3>當階支撐</h3><div id="struts"></div><h3>同階／同深度之對照</h3><div id="comparison"></div>
 <h3>當階牆體與內力</h3><div id="profile"></div>
 <h3>當階水壓</h3><p id="waterBalance"></p><div id="waterProfileResult" hidden><div id="waterProfileTable"></div></div>
-<details id="springDetails"><summary>土彈簧積分點與塑性位移</summary><div id="springs"></div></details>
+<details id="springDetails"><summary id="springTitle">土彈簧積分點與塑性位移</summary><div id="springs"></div></details>
 <p id="assumptions"></p><p class="note">本紀錄用於內部模型核對。鄰地沉陷、管湧、底部隆起、支撐構件強度及施工安全另核。工作紀錄保存所有階段、原輸入與殘差。</p></section>
 <dialog id="replace"><form method="dialog"><p>以新資料取代目前壁段與分析？</p><div class="actions"><button autofocus value="keep">保留目前資料</button><button value="yes">取代資料</button></div></form></dialog></main>
 <script src="./workspace.js"></script></body></html>

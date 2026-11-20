@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from bisect import bisect_right
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,6 +19,43 @@ class Layer(Input):
     pressure_bottom: float
     lower: float | None = Field(default=None, le=0)
     upper: float | None = Field(default=None, ge=0)
+    basis: str = Field(min_length=1)
+
+
+class SideLayer(Input):
+    bottom: float = Field(gt=0)
+    unit_weight: float = Field(gt=0)
+    saturated_unit_weight: float | None = Field(default=None, gt=0)
+    kh: float = Field(gt=0)
+    ka: float = Field(ge=0)
+    k0: float = Field(ge=0)
+    kp: float = Field(gt=0)
+    active_offset: float = Field(le=0)
+    passive_offset: float = Field(ge=0)
+    passive_friction_deg: float = Field(ge=0, lt=90)
+    basis: str = Field(min_length=1)
+
+
+class TwoSidedSoil(Input):
+    outside: list[SideLayer] = Field(min_length=1)
+    inside: list[SideLayer] = Field(min_length=1)
+    geometric: bool
+
+
+class UniformSurcharge(Input):
+    side: Literal["outside", "inside"]
+    kind: Literal["uniform"]
+    pressure: float = Field(ge=0)
+    basis: str = Field(min_length=1)
+
+
+class StripSurcharge(Input):
+    side: Literal["outside", "inside"]
+    kind: Literal["strip"]
+    pressure: float = Field(ge=0)
+    depth: float = Field(ge=0)
+    near: float = Field(ge=0)
+    far: float = Field(gt=0)
     basis: str = Field(min_length=1)
 
 
@@ -42,6 +79,7 @@ class Stage(Input):
     basis: str = Field(min_length=1)
     outside_water_profile: WaterProfile | None = None
     inside_water_profile: WaterProfile | None = None
+    surcharges: list[Annotated[UniformSurcharge | StripSurcharge, Field(discriminator="kind")]] = Field(default_factory=list)
 
 
 class Support(Input):
@@ -77,14 +115,15 @@ class WallCase(Input):
     water_weight: float = Field(gt=0)
     step: float = Field(gt=0)
     toe: Literal["fixed", "pinned", "free"]
-    soil_law: Literal["linear", "plastic"]
-    layers: list[Layer] = Field(min_length=1)
+    soil_law: Literal["linear", "plastic", "two_sided"]
+    layers: list[Layer]
+    two_sided: TwoSidedSoil | None = None
     stages: list[Stage] = Field(min_length=1)
     supports: list[Support]
     comparisons: list[Comparison]
 
 
-VERSION = "staged-wall.eb.v3"
+VERSION = "staged-wall.eb.v4"
 GAUSS = ((-.8611363115940526, .3478548451374538), (-.3399810435848563, .6521451548625461),
          (.3399810435848563, .6521451548625461), (.8611363115940526, .3478548451374538))
 # Multipliers convert the observation to the intrinsic result units: mm, kN·m/m, kN/m, kN per strut.
@@ -92,12 +131,24 @@ UNITS = {"u": {"mm": 1., "m": 1000., "cm": 10.}, "M": {"kN·m/m": 1., "tf·m/m":
          "V": {"kN/m": 1., "tf/m": 9.80665}, "R": {"kN": 1., "tf": 9.80665}}
 
 
+def validate_layers(layers, length, label):
+    if not layers or abs(layers[-1].bottom-length) > 1e-9 or any(a.bottom >= b.bottom for a,b in zip(layers,layers[1:])):
+        raise ValueError(f"{label}土層底深須遞增，且最後一層達壁趾。")
+
+
 def validate(case):
     stages = [s.id for s in case.stages]
     if len(set(stages)) != len(stages):
         raise ValueError("階段識別不可重複，外部檔的同號事件請分列。")
-    if abs(case.layers[-1].bottom-case.length) > 1e-9 or any(a.bottom >= b.bottom for a,b in zip(case.layers,case.layers[1:])):
-        raise ValueError("土層底深須遞增且最後一層達壁趾。")
+    if case.soil_law == "two_sided":
+        if case.two_sided is None or case.layers:
+            raise ValueError("雙側土壓請填外側及內側土層，淨驅動壓力表只保留表頭。")
+        validate_layers(case.two_sided.outside,case.length,"外側")
+        validate_layers(case.two_sided.inside,case.length,"內側")
+    else:
+        if case.two_sided is not None or any(s.surcharges for s in case.stages):
+            raise ValueError("分側土層與施工超載用於雙側土壓模式。")
+        validate_layers(case.layers,case.length,"")
     if case.soil_law == "plastic" and any(a.lower is None or a.upper is None or a.lower >= a.upper for a in case.layers):
         raise ValueError("彈塑性模型各層需負向／正向兩個相異反力界限（含零）。")
     if case.soil_law == "linear" and any(a.lower is not None or a.upper is not None for a in case.layers):
@@ -105,6 +156,13 @@ def validate(case):
     if any(s.cut>case.length for s in case.stages) or any(a.cut>b.cut for a,b in zip(case.stages,case.stages[1:])):
         raise ValueError("開挖深度須在壁長內並依序不減；回填另建材料與啟用基準。")
     for stage in case.stages:
+        if case.soil_law == "two_sided" and stage.earth_factor != 1:
+            raise ValueError(f"{stage.id} 雙側土壓由有效覆土及超載求得，有效側壓倍率須為 1。")
+        for load in stage.surcharges:
+            if isinstance(load,StripSurcharge):
+                surface = stage.cut if load.side == "inside" else 0.
+                if load.near >= load.far or not surface <= load.depth < case.length:
+                    raise ValueError(f"{stage.id} 帶狀超載須在現存土體內，且外緣距離大於內緣。")
         for side, head, profile in (
             ("外", stage.outside_water, stage.outside_water_profile),
             ("內", stage.inside_water, stage.inside_water_profile),
@@ -140,8 +198,11 @@ def grid(case,step):
     marks.update(s.bottom for s in case.layers)
     marks.update(s.depth for s in case.supports)
     marks.update(s.depth for s in case.comparisons)
+    if case.two_sided is not None:
+        marks.update(l.bottom for l in case.two_sided.outside+case.two_sided.inside if l.bottom<case.length)
     for s in case.stages:
         marks.add(s.cut)
+        marks.update(load.depth for load in s.surcharges if isinstance(load,StripSurcharge))
         for head, profile in ((s.outside_water, s.outside_water_profile), (s.inside_water, s.inside_water_profile)):
             if profile is not None:
                 marks.update(p.depth for p in profile.points)
@@ -151,6 +212,8 @@ def grid(case,step):
     mesh=[0.]
     for a,b in zip(cuts,cuts[1:]):
         count=max(1,math.ceil((b-a)/step-1e-10))
+        if case.soil_law == "two_sided":
+            count=1 << (count-1).bit_length()
         if len(mesh)+count>3000:
             raise ValueError("單一網格超過 3,000 節點，請用較大步距或離線模型。")
         mesh.extend(a+(b-a)*i/count for i in range(1,count))
@@ -180,6 +243,18 @@ def net_water_pressure(depth, weight, stage):
     )
 
 
+def bending_stiffness(ei,h):
+    coeff=ei/h**3
+    return [[coeff*v for v in row] for row in ((12,6*h,-12,6*h),(6*h,4*h*h,-6*h,2*h*h),
+                                               (-12,-6*h,12,-6*h),(6*h,2*h*h,-6*h,4*h*h))]
+
+
+def bending_action(kb,local,h):
+    # Remove rigid translation/rotation before forming beam actions.
+    relative=(0.,0.,local[2]-local[0]-local[1]*h,local[3]-local[1])
+    return [sum(a*b for a,b in zip(row,relative)) for row in kb]
+
+
 def elements(case,mesh):
     elements=[]
     layer_index=0
@@ -189,9 +264,7 @@ def elements(case,mesh):
         layer=case.layers[layer_index]
         top=case.layers[layer_index-1].bottom if layer_index else 0.
         h=b-a
-        coeff=case.ei/h**3
-        kb=[[coeff*v for v in row] for row in ((12,6*h,-12,6*h),(6*h,4*h*h,-6*h,2*h*h),
-                                                (-12,-6*h,12,-6*h),(6*h,2*h*h,-6*h,4*h*h))]
+        kb=bending_stiffness(case.ei,h)
         points=[]
         for g,w in GAUSS:
             t=(g+1)/2; z=a+h*t; t2=t*t; t3=t2*t
@@ -263,10 +336,8 @@ def solve_mesh(case,step):
             residual=[0.]*n;ends=[];states=[];struts=[];applied=reaction=applied_m=soil_m=water_force=water_moment=0.
             for e,(offset,kb,layer,points) in enumerate(elems):
                 local=v[offset:offset+4]
-                # Remove rigid translation/rotation before forming beam actions.
                 h=mesh[e+1]-mesh[e]
-                rel=(0.,0.,local[2]-local[0]-local[1]*h,local[3]-local[1])
-                force=[sum(a*b for a,b in zip(row,rel)) for row in kb]
+                force=bending_action(kb,local,h)
                 if tangent:
                     for i in range(4):
                         for j in range(i+1):k[offset+i][i-j]+=kb[i][j]
@@ -352,7 +423,13 @@ def solve_mesh(case,step):
 
 def calculate(case: WallCase):
     validate(case)
-    coarse=solve_mesh(case,case.step)
-    fine=solve_mesh(case,case.step/2)
+    solver=solve_mesh
+    if case.soil_law == "two_sided":
+        from .staged_wall_two_sided import solve_two_sided_mesh
+        solver=solve_two_sided_mesh
+    coarse=solver(case,case.step)
+    fine=solver(case,case.step/2)
+    if case.soil_law != "two_sided":
+        coarse=[dict(id=s["id"],wall=s["wall"],supports=s["supports"],balance=s["balance"]) for s in coarse]
     return {"version":VERSION,"coarse_step":case.step,"fine_step":case.step/2,"stages":fine,
-            "coarse":[dict(id=s["id"],wall=s["wall"],supports=s["supports"],balance=s["balance"]) for s in coarse]}
+            "coarse":coarse}

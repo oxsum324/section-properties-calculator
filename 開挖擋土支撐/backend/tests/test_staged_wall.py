@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 from pathlib import Path
 import unittest
 
@@ -39,6 +40,43 @@ class StagedWallTests(unittest.TestCase):
         self.assertAlmostEqual(s["wall"][-1]["V_above"],120,delta=1e-5)
         self.data["toe"]="free"
         with self.assertRaisesRegex(ValueError,"失穩|剛度"):
+            self.solve()
+
+    def test_two_side_overburden_reactions_match_triangular_cantilever(self):
+        soil = dict(bottom=12,unit_weight=20,ka=.5,k0=.5,kp=.5,kh=5000,
+                    active_offset=0,passive_offset=0,passive_friction_deg=0,basis="等值壓力界限解析例")
+        self.data.update(soil_law="two_sided",layers=[],supports=[],comparisons=[],
+                         two_sided=dict(outside=[soil],inside=[soil],geometric=True),
+                         stages=self.data["stages"][:1])
+        self.data["stages"][0].update(cut=12,earth_factor=1,water_factor=1,outside_water=12,inside_water=12)
+        stage = self.solve()[0]
+        self.assertAlmostEqual(stage["wall"][0]["u_mm"],1000*10*12**5/(30*210000),delta=1e-5)
+        self.assertAlmostEqual(stage["wall"][-1]["M_above"],2880,delta=1e-5)
+        self.assertAlmostEqual(stage["wall"][-1]["V_above"],720,delta=1e-5)
+        self.assertAlmostEqual(stage["balance"]["soil_outside"],720,places=8)
+        self.assertAlmostEqual(stage["balance"]["soil_inside"],0,places=8)
+        self.assertAlmostEqual(stage["balance"]["moment_error"],0,delta=1e-5)
+        self.assertIn("soil_pressures",calculate(WallCase.model_validate(self.data))["coarse"][0])
+        soil.update(k0=.4,passive_friction_deg=30)
+        second_order=self.solve()[0]
+        self.assertAlmostEqual(second_order["balance"]["vertical_toe"],-720*math.tan(math.pi/6),places=8)
+        self.assertLess(second_order["wall"][0]["u_mm"],stage["wall"][0]["u_mm"])
+        self.assertAlmostEqual(second_order["balance"]["moment_error"],0,delta=1e-5)
+        self.data["two_sided"]["geometric"]=False
+        first_order=self.solve()[0]
+        self.assertAlmostEqual(first_order["wall"][0]["u_mm"],stage["wall"][0]["u_mm"],delta=1e-5)
+        self.assertEqual(first_order["balance"]["vertical_toe"],second_order["balance"]["vertical_toe"])
+
+    def test_two_sided_rejects_strip_removed_by_excavation(self):
+        soil = dict(bottom=12,unit_weight=20,ka=.3,k0=.5,kp=3,kh=5000,
+                    active_offset=0,passive_offset=0,passive_friction_deg=0,basis="合成砂土")
+        self.data.update(soil_law="two_sided",layers=[],supports=[],comparisons=[],
+                         two_sided=dict(outside=[soil],inside=[soil],geometric=True),
+                         stages=self.data["stages"][:1])
+        self.data["stages"][0].update(surcharges=[
+            dict(side="inside",kind="strip",depth=1,near=0,far=5,pressure=15,basis="合成")
+        ])
+        with self.assertRaisesRegex(ValueError,"帶狀超載須在現存土體"):
             self.solve()
 
     def test_staged_water_profiles_drive_load_and_toe_reactions(self):
