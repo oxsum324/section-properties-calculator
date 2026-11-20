@@ -31,7 +31,21 @@ assert.ok(workflow.includes('uses: actions/setup-node@v6') && workflow.includes(
 assert.ok(workflow.includes('package-manager-cache: false'), 'PR validation does not enable an unused package-manager cache');
 assert.ok(workflow.includes('uses: actions/setup-python@v6') && workflow.includes("python-version: '3.14'"), 'PR validation pins Python 3.14');
 assert.ok(workflow.includes('shell: cmd') && workflow.includes('call run-preflight-tools-ci.bat'), 'PR validation calls the clean-checkout CI wrapper');
-assert.match(workflow, /python -m pip install [^\n]*pydantic==\d+\.\d+\.\d+[^\n]*openpyxl==\d+\.\d+\.\d+/, 'PR validation installs pinned Python packages for the excavation backend handoff replay');
+const requirementsPath = '開挖擋土支撐/backend/requirements.txt';
+const requirements = readText(requirementsPath);
+const pythonInstall = workflow.split('Install preflight Python dependencies')[1]?.split('- name:')[0] || '';
+assert.ok(pythonInstall.includes('python -m pip install') && pythonInstall.includes(`-r "${requirementsPath}"`),
+  'PR validation installs the excavation backend requirements');
+assert.match(requirements, /^openpyxl==\d+\.\d+\.\d+\r?$/m, 'excavation backend pins the workbook reader used in CI');
+for (const name of ['pydantic','python-docx','httpx','numpy']) {
+  assert.match(pythonInstall, new RegExp(`\\b${name}==\\d+\\.\\d+\\.\\d+\\b`), `PR validation pins ${name}`);
+}
+assert.match(workflow, /https:\/\/raw\.githubusercontent\.com\/google\/fonts\/[\da-f]{40}\/ofl\/notosanstc\//i,
+  'PR validation pins the embedded CJK font source to a revision');
+assert.match(workflow, /Get-FileHash[\s\S]*?\$hash -ne '[\da-f]{64}'[\s\S]*?STRUT_TEST_CJK_FONT=/i,
+  'PR validation verifies the CJK font digest before selecting it for the tests');
+assert.match(preflight, /\$excavationBackendQuickRunner = if \(\$CI\) \{ 'backend\.tests\.ci_reference_inputs' \} else \{ 'unittest' \}/,
+  'CI uses synthetic reference inputs and local preflight uses the original references');
 for (const project of ['開挖擋土支撐/frontend', '螺栓檢討/bolt-review-tool']) {
   assert.ok(workflow.includes(`npm ci --prefix ${project} --ignore-scripts`), `PR validation installs ${project} from its lockfile without install scripts`);
 }
