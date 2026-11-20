@@ -1910,6 +1910,16 @@
       card.meta || reportReadinessOverview.meta
     );
     elements.reportReadinessStatus.dataset.statusSource = payload && payload.kind === 'report-readiness-status' ? 'snapshot' : 'static';
+    const releaseSamples = document.getElementById('releaseSamplesStatus');
+    if (releaseSamples) {
+      const hasCounts = payload && [
+        payload.independentBenchmarkVerified, payload.independentBenchmarkEligible,
+        payload.renderedDeliveryEvidenceComplete, payload.renderedDeliveryEvidenceRequired,
+      ].every(Number.isSafeInteger);
+      releaseSamples.textContent = hasCounts
+        ? `獨立工程代表算例 ${payload.independentBenchmarkVerified}/${payload.independentBenchmarkEligible}，成品渲染抽驗 ${payload.renderedDeliveryEvidenceComplete}/${payload.renderedDeliveryEvidenceRequired}。收據 ${payload.runId || '待登錄'}，產出 ${payload.generatedAt || '日期待登錄'}。`
+        : '目前無可讀的工程與成品收據。';
+    }
     // 完整狀態專頁（platform-status.html）另列報告閱讀狀態完整說明；首頁沒有這個節點。
     if (elements.reportReadinessDetails) {
       const items = [card.summary, ...(Array.isArray(card.details) ? card.details : [])]

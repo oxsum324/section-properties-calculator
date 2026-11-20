@@ -317,6 +317,7 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
         preflight: (document.getElementById('preflightStatus')?.innerText || '').replace(/\s+/g, ' ').trim(),
         details: document.querySelectorAll('#reportReadinessDetails li').length,
         pilot: document.getElementById('pilotStatusTitle')?.textContent,
+        releaseSamples: document.getElementById('releaseSamplesStatus')?.textContent,
         innerWidth, scrollWidth: document.documentElement.scrollWidth
       };
     });
@@ -324,7 +325,8 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
       && statusPage.cards.map(card => card.id).join(',') === 'platformStatus,preflightStatus,reportReadinessStatus'
       && [...statusPage.cards, statusPage.publication].every(card =>
         card?.role === 'status' && card.live === 'polite' && card.atomic === 'true');
-    check(checks, 'pages-prefix-platform-status-page', statusResponse?.status() === 200 && statusPage.path === '/my-classroom-tools/結構工具箱/platform-status.html' && !statusPage.hasToolGrid && liveCards && statusPage.platform.includes('runId ') && statusPage.preflight.includes('runId ') && statusPage.details > 0 && statusPage.pilot === '實案試辦' && statusPage.scrollWidth <= statusPage.innerWidth && !errors.pageErrors.length, { status: statusResponse?.status(), ...statusPage, pageErrors: errors.pageErrors });
+    const sampleCounts = /獨立工程代表算例 \d+\/\d+，成品渲染抽驗 \d+\/\d+。收據 .+，產出 .+。/.test(statusPage.releaseSamples);
+    check(checks, 'pages-prefix-platform-status-page', statusResponse?.status() === 200 && statusPage.path === '/my-classroom-tools/結構工具箱/platform-status.html' && !statusPage.hasToolGrid && liveCards && statusPage.platform.includes('runId ') && statusPage.preflight.includes('runId ') && statusPage.details > 0 && statusPage.pilot === '實案試辦' && sampleCounts && statusPage.scrollWidth <= statusPage.innerWidth && !errors.pageErrors.length, { status: statusResponse?.status(), ...statusPage, pageErrors: errors.pageErrors });
   } finally { await pagesContext.close(); }
   flow.serverRequests = pagesFixture.requests; flow.completedAt = new Date().toISOString();
   writeJson(path.join(out, 'interactions.json'), flow);
