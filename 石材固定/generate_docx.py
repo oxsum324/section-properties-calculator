@@ -1127,6 +1127,7 @@ def build_case_appendix(doc, cd, res, n, inp, review_notes=None, case_index=0):
         '',
         f'每點垂直力　V = S ÷ N = {res["S"]:.2f} ÷ {N} = {res["V"]:.2f} kgf',
         f'每點水平力　T = P ÷ N = {res["P"]:.2f} ÷ {N} = {res["T"]:.2f} kgf',
+        '各方向按有效點數均分。若有滑動支承、各點勁度不同或受力不均，請按核定構造另核各方向與各點反力。',
     ]
 
     for line in load_lines:

@@ -1948,6 +1948,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
             <input id="ca_{ID}_h12" type="text" value="3.4, 3.6" placeholder="h1, h2" oninput="save();render()"></div>
         </div>
         <div class="sub-hd">▸ 固定點位置（mm）</div>
+        <p class="calc-note-sm">{POINT_LOAD_SCOPE}</p>
         <div class="row">
           <div class="field"><label>側邊距 fx</label>
             <input id="ca_{ID}_fx" type="number" value="150" oninput="save();render()"></div>
@@ -7722,13 +7723,16 @@ function syncStoneGradeControls(){
 /* ══════════════════ CASES ══════════════════════ */
 let _batchAnalysisReport = null;
 
+const POINT_LOAD_SCOPE = '各方向按有效點數均分。若有滑動支承、各點勁度不同或受力不均，請按核定構造另核各方向與各點反力。';
+
 function addCase(data){
   const requestedId = Number.isFinite(Number(data?.id)) ? Number(data.id) : null;
   const id = requestedId !== null && !cases.includes(requestedId) ? requestedId : caseIdCounter++;
   caseIdCounter = Math.max(caseIdCounter, id + 1);
   cases.push(id);
   const tpl = document.getElementById('case-tpl').innerHTML
-    .replace(/{ID}/g, id).replace(/{N}/g, cases.length);
+    .replace(/{ID}/g, id).replace(/{N}/g, cases.length)
+    .replace('{POINT_LOAD_SCOPE}', POINT_LOAD_SCOPE);
   const wrap = document.createElement('div');
   wrap.innerHTML = tpl;
   document.getElementById('cases-list').appendChild(wrap.firstElementChild);
@@ -12209,6 +12213,7 @@ ${inp.sp_wind_dir_on
 <div class="calc">${pointInfo.usesHalf ? '每有效受力點' : '每接合點'}彎矩力　T<sub>b</sub> = H<sub>push</sub> ÷ ${pointSymbol} = ${Hpush.toFixed(2)} ÷ ${pointCountText(pointInfo.effective)} = <span class="highlight">${Tb.toFixed(2)}</span> kgf</div>`
   : `<div class="calc" style="margin-top:5px">${pointInfo.usesHalf ? '每有效受力點' : '每接合點'}水平力　T = P ÷ ${pointSymbol} = ${P.toFixed(2)} ÷ ${pointCountText(pointInfo.effective)} = <span class="highlight">${T.toFixed(2)}</span> kgf</div>`}
 <div class="calc">${pointInfo.usesHalf ? '每有效受力點' : '每接合點'}垂直力　V = S ÷ ${pointSymbol} = ${S.toFixed(2)} ÷ ${pointCountText(pointInfo.effective)} = <span class="highlight">${V.toFixed(2)}</span> kgf</div>
+<div class="calc calc-note">${POINT_LOAD_SCOPE}</div>
 </div>`;
   const specSectionHtml = appendixSpecSummaryEnabled(inp) ? `
 <div class="sec">
@@ -14592,6 +14597,7 @@ const specAnnotations = appendixSpecSummaryNotes(inp, r, cd);
     ['控制水平力 P', `MAX(PE, PW-, PW+) = ${r.P.toFixed(2)} kgf（${r.govWind ? '風力控制' : '地震控制'}）`],
     [pointForceLabel(pointInfo, windDirectional), windDirectional ? `T / Tb = ${(r.design?.tensionPerPoint ?? r.T).toFixed(2)} / ${(r.design?.bendingPerPoint ?? r.T).toFixed(2)} kgf（${pointCountFormulaSymbol(pointInfo)} = ${pointCountText(pointInfo.effective)}）` : `${(r.design?.tensionPerPoint ?? r.T).toFixed(2)} kgf（${pointCountFormulaSymbol(pointInfo)} = ${pointCountText(pointInfo.effective)}）`],
     [pointVerticalLabel(pointInfo), `${r.V.toFixed(2)} kgf（${pointCountFormulaSymbol(pointInfo)} = ${pointCountText(pointInfo.effective)}）`],
+    ['支承適用條件', POINT_LOAD_SCOPE],
   ];
 
   const page1 = wordPage(`
@@ -15840,6 +15846,7 @@ const specAnnotations = appendixSpecSummaryNotes(inp, r, cd);
     ['控制水平力 P', `MAX(PE, PW-, PW+) = ${r.P.toFixed(2)} kgf（${r.govWind ? '風力控制' : '地震控制'}）`],
     [pointForceLabel(pointInfo, windDirectional), windDirectional ? `T / Tb = ${(r.design?.tensionPerPoint ?? r.T).toFixed(2)} / ${(r.design?.bendingPerPoint ?? r.T).toFixed(2)} kgf（${pointCountFormulaSymbol(pointInfo)} = ${pointCountText(pointInfo.effective)}）` : `${(r.design?.tensionPerPoint ?? r.T).toFixed(2)} kgf（${pointCountFormulaSymbol(pointInfo)} = ${pointCountText(pointInfo.effective)}）`],
     [pointVerticalLabel(pointInfo), `${r.V.toFixed(2)} kgf（${pointCountFormulaSymbol(pointInfo)} = ${pointCountText(pointInfo.effective)}）`],
+    ['支承適用條件', POINT_LOAD_SCOPE],
   ];
   const section1Children = [
     docxHeaderTable(inp, `附件 ${annN}　${cd.name || `形式 ${annN}`}`),
