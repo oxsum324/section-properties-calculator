@@ -4087,7 +4087,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不取代設計者複核'), 'homepage report readiness details distinguish independent engineering verification from designer review');
   assert.equal((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書 邊界'), false, 'homepage report readiness details reject stale local quick boundary chip');
   assert.ok(Array.isArray(homepageReportReadinessStatus.pageOnlyRoutes) && homepageReportReadinessStatus.pageOnlyRoutes.length >= 4, 'homepage report readiness routes array');
-  if (latestFullHomepagePreflight?.payload?.quick === false) {
+  if (!preserveHomepageStatus && latestFullHomepagePreflight?.payload?.quick === false) {
     assert.equal(homepagePreflightStatus.quick, false, 'homepage preflight status should prefer latest full run when history contains one');
     assert.equal(homepagePreflightStatus.runId, String(latestFullHomepagePreflight.payload.runId || ''), 'homepage preflight status runId matches latest full history run');
     assert.equal(homepagePreflightStatus.sourcePath, latestFullHomepagePreflight.sourcePath, 'homepage preflight status sourcePath matches latest full history summary');

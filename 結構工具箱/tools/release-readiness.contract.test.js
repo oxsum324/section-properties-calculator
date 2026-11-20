@@ -913,6 +913,7 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   'expectedLocalQuickResultReconciliationCount',
   'evidence.localQuickResultReconciliation.required === expectedLocalQuickResultReconciliationCount',
   'function resolveRenderedDeliveryEvidenceSource',
+  'if (!preserveHomepageStatus && latestFullHomepagePreflight?.payload?.quick === false)',
   'function resolveHomepagePreflightSource',
   'isCompleteFormalPreflight(latestSummary)',
   'latestReleaseSummary = readJsonIfExists(preflightSummarySourcePath)',
