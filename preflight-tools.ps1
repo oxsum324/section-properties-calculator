@@ -1084,6 +1084,7 @@ if ($ForcePlatformAudit) {
   $platformAuditArgs = "$platformAuditArgs -Force"
 }
 $platformAuditCommand = "& '$platformAuditPreflight' $platformAuditArgs"
+$excavationBackendQuickRunner = if ($CI) { 'backend.tests.ci_reference_inputs' } else { 'unittest' }
 
 $windPathCommand = @'
 $bad = Get-ChildItem -LiteralPath '結構工具箱\tools\風力' -Filter '*.html' | Where-Object {
@@ -2715,7 +2716,7 @@ $checks = @(
     key = "excavation-backend-quick"
     label = "Excavation parser/import/store/staged-wall/receiver-capacity/attachment smoke"
     workdir = (Join-Path $root "開挖擋土支撐")
-    command = 'python -m unittest backend.tests.test_parsers backend.tests.test_import_flow backend.tests.test_project_store backend.tests.test_staged_wall backend.tests.test_receiver_capacity backend.tests.test_removal_transfer_handoff backend.tests.test_receiver_capacity_attachment'
+    command = "python -m $excavationBackendQuickRunner backend.tests.test_parsers backend.tests.test_import_flow backend.tests.test_project_store backend.tests.test_staged_wall backend.tests.test_receiver_capacity backend.tests.test_removal_transfer_handoff backend.tests.test_receiver_capacity_attachment"
     slow = $false
   },
   [pscustomobject]@{

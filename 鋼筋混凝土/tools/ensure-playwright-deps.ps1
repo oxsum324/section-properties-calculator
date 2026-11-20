@@ -39,8 +39,10 @@ if (-not $playwrightRoot) {
     New-Item -ItemType Directory -Path $depRoot | Out-Null
   }
 
-  npm init -y --prefix $depRoot | Out-Null
   npm install --prefix $depRoot playwright --silent
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $depRoot 'node_modules\playwright\package.json'))) {
+    throw "Playwright dependency installation failed: $depRoot"
+  }
   $playwrightRoot = $depRoot
 }
 

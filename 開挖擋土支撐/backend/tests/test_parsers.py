@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from collections import Counter
 import unittest
-from pathlib import Path
+import os
 
 from backend.app.parsers import parse_analysis_file
-from backend.app.config import get_settings
+from backend.tests.ci_reference_inputs import FIXTURE_ENV, SYNTHETIC_TITLE, analysis_sample_path
 
 
 class ParserTests(unittest.TestCase):
     def test_parse_lst_file(self) -> None:
-        settings = get_settings()
-        path = settings.root_dir / "1141015D6.LST"
+        path = analysis_sample_path("1141015D6.LST")
         content = path.read_text(encoding="utf-8", errors="ignore")
         result = parse_analysis_file(path.name, content)
         self.assertGreaterEqual(len(result.stages), 2)
@@ -43,8 +42,7 @@ class ParserTests(unittest.TestCase):
         self.assertIsNone(s.es_t_per_m2)
 
     def test_parse_o_file(self) -> None:
-        settings = get_settings()
-        path = settings.root_dir / "1150317.o"
+        path = analysis_sample_path("1150317.o")
         content = path.read_text(encoding="utf-8", errors="ignore")
         result = parse_analysis_file(path.name, content)
         self.assertGreaterEqual(len(result.stages), 2)
@@ -52,13 +50,13 @@ class ParserTests(unittest.TestCase):
         self.assertIsNotNone(result.ground_water_level_m)
 
     def test_parse_annotated_o_file_distinguishes_support_floor_and_remove_events(self) -> None:
-        settings = get_settings()
-        path = settings.root_dir / "1120105.o"
+        path = analysis_sample_path("1120105.o")
         content = path.read_text(encoding="utf-8", errors="ignore")
         result = parse_analysis_file(path.name, content)
         counts = Counter(event.classification for event in result.events)
 
-        self.assertEqual(result.project_title, "岡山大鵬九村")
+        expected_title = SYNTHETIC_TITLE if os.environ.get(FIXTURE_ENV) else "岡山大鵬九村"
+        self.assertEqual(result.project_title, expected_title)
         self.assertEqual(len(result.stages), 11)
         self.assertEqual(counts["support"], 3)
         self.assertEqual(counts["floor"], 3)

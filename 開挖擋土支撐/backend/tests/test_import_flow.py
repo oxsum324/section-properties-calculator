@@ -3,9 +3,9 @@ from __future__ import annotations
 import importlib.util
 import unittest
 
-from backend.app.config import get_settings
 from backend.app.parsers import parse_analysis_file
 from backend.app.workbook_loader import load_default_project
+from backend.tests.ci_reference_inputs import analysis_sample_path
 
 if importlib.util.find_spec("fastapi"):
     from backend.app.main import (
@@ -51,8 +51,7 @@ class ImportFlowTests(unittest.TestCase):
         )
 
     def test_apply_import_to_top_side_only_updates_top_rows(self) -> None:
-        settings = get_settings()
-        path = settings.root_dir / "1120105.o"
+        path = analysis_sample_path("1120105.o")
         content = path.read_text(encoding="utf-8", errors="ignore")
         parsed = parse_analysis_file(path.name, content)
         _annotate_import_result(parsed)
@@ -106,9 +105,8 @@ class ImportFlowTests(unittest.TestCase):
         self.assertTrue(any("拆撐" in warning for warning in parsed.warnings))
 
     def test_merge_analysis_sources_keeps_both_side_labels(self) -> None:
-        settings = get_settings()
-        top_path = settings.root_dir / "1141015D6.LST"
-        bottom_path = settings.root_dir / "1150317.o"
+        top_path = analysis_sample_path("1141015D6.LST")
+        bottom_path = analysis_sample_path("1150317.o")
         top_parsed = parse_analysis_file(top_path.name, top_path.read_text(encoding="utf-8", errors="ignore"))
         bottom_parsed = parse_analysis_file(
             bottom_path.name,

@@ -36,10 +36,23 @@ jobs:
         with:
           python-version: '3.14'
 
-      # construction-stage-load-handoff replays the excavation backend
-      # (backend.app.calculations -> pydantic schemas + openpyxl workbook loader).
       - name: Install preflight Python dependencies
-        run: python -m pip install --disable-pip-version-check pydantic==2.12.5 openpyxl==3.1.5
+        run: >-
+          python -m pip install --disable-pip-version-check
+          -r "開挖擋土支撐/backend/requirements.txt"
+          pydantic==2.12.5 python-docx==1.2.0 httpx==0.28.1 numpy==2.3.5
+
+      - name: Prepare the CJK font for excavation attachment tests
+        shell: pwsh
+        run: |
+          $font = Join-Path $env:RUNNER_TEMP 'NotoSansTC-CI.ttf'
+          $url = 'https://raw.githubusercontent.com/google/fonts/869789e84da92782c144d83d69b64cec54905b5f/ofl/notosanstc/NotoSansTC%5Bwght%5D.ttf'
+          Invoke-WebRequest -Uri $url -OutFile $font -TimeoutSec 60
+          $hash = (Get-FileHash -LiteralPath $font -Algorithm SHA256).Hash
+          if ($hash -ne '864727D210D54F2537BBE23B3A839436C3992AF72DE9322AF5270897246BD44F') {
+            throw 'Unexpected SHA-256 for the pinned Noto Sans TC test font.'
+          }
+          "STRUT_TEST_CJK_FONT=$font" >> $env:GITHUB_ENV
 
       # excavation-traceability-contract and independent-engineering-benchmarks
       # load TypeScript from these projects' own locked node_modules.
