@@ -95,6 +95,29 @@ async function main() {
     assert.match(await page.locator('#statusBanner').innerText(), /數值檢核與模型採用確認完成/);
     assert.equal(await page.locator('#attachmentReadiness').getAttribute('data-attachment-status'), 'ready');
 
+    const validReactions = await page.locator('#pileReactions').inputValue();
+    const outsideModel = [
+      { reactions:validReactions.replace('P3, -150', 'P3, -100').replace('P4, 150', 'P4, 200'), reason:/完整矩形正交樁群/ },
+      { reactions:validReactions.replace('P1, -150, -150, 90', 'P1, -150, -150, -90'), reason:/非正向反力/ },
+    ];
+    for (const { reactions, reason } of outsideModel) {
+      await page.fill('#pileReactions', reactions);
+      await page.click('#btnCalc');
+      assert.match(await page.locator('#statusBanner').innerText(), reason);
+      assert.deepEqual({
+        state:await page.locator('#attachmentReadiness').getAttribute('data-attachment-status'),
+        values:await page.locator('[id^="res"] .value').allTextContents(),
+        diagrams:await page.locator('#planDiagram svg, #isoDiagram svg').count(),
+        rows:await page.locator('#checkRows tr').count(),
+      }, { state:'blocked', values:Array(8).fill('—'), diagrams:0, rows:0 });
+      await page.click('#btnReport');
+      assert.match(await page.locator('#pageStatus').innerText(), /尚不能產生計算書/);
+      await page.fill('#pileReactions', validReactions);
+      await page.click('#btnCalc');
+      assert.equal(await page.locator('#attachmentReadiness').getAttribute('data-attachment-status'), 'ready');
+      assert.equal(await page.locator('#resReaction .value').innerText(), '400.00');
+    }
+
     const screenshotPath = path.join(OUT_SCREEN, 'pile-cap-3d-stm-page.png');
     await page.screenshot({ path:screenshotPath, fullPage:true });
     assert.ok(fs.statSync(screenshotPath).size > 15000);
