@@ -115,28 +115,6 @@ try {
   );
   assert.throws(() => assistant.parseArgs(['--reason', reason]), /only accepted/, 'reason without write action is rejected');
   assert.throws(() => assistant.parseArgs(['--unknown']), /unknown argument/, 'unknown CLI arguments fail closed');
-  const baselinePreflightPath = path.join(repoRoot, 'output', 'preflight', 'history', baseline.runId, 'preflight-summary.json');
-  if (fs.existsSync(baselinePreflightPath)) {
-    assert.throws(
-      () => assistant.candidateFromCurrentOutput(repoRoot, {
-        preflightFile: `output/preflight/history/${baseline.runId}/preflight-summary.json`,
-        renderedEvidenceFile: 'output/definitely-missing-evidence.json',
-      }),
-      /rendered delivery evidence is missing/,
-      'explicit candidate evidence cannot silently fall back to another release',
-    );
-  }
-  const latestOutputPath = path.join(repoRoot, 'output', 'preflight', 'preflight-summary.json');
-  if (fs.existsSync(latestOutputPath)) {
-    const latestOutput = readJson(latestOutputPath);
-    if (latestOutput.quick === true) {
-      assert.throws(
-        () => assistant.candidateFromCurrentOutput(repoRoot, { preflightFile: 'output/preflight/preflight-summary.json' }),
-        /quick evidence cannot predict formal thresholds/,
-        'explicit quick preflight remains ineligible for threshold authorization',
-      );
-    }
-  }
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 }
@@ -212,19 +190,83 @@ try {
   fs.rmSync(resetRoot, { recursive: true, force: true });
 }
 
-const authorizationPath = path.join(repoRoot, '.github', 'public-release-reduction-authorization.json');
-const authorizationHashBefore = fs.readFileSync(authorizationPath, 'utf8');
-const latestOutputPath = path.join(repoRoot, 'output', 'preflight', 'preflight-summary.json');
-let liveReadOnly = 0;
-if (fs.existsSync(latestOutputPath)) {
-  const livePreview = JSON.parse(childProcess.execFileSync(process.execPath, [__filename.replace(/\.test\.js$/, '.js'), '--json'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  }));
-  assert.equal(livePreview.classification, 'unchanged', 'default CLI previews current formal evidence read-only');
-  assert.equal(livePreview.authorizationRequired, false, 'current unchanged release needs no approval');
-  assert.equal(fs.readFileSync(authorizationPath, 'utf8'), authorizationHashBefore, 'default CLI never mutates tracked authorization');
-  liveReadOnly = 1;
+const cliRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'public-release-change-cli-'));
+try {
+  const statusPath = path.join(cliRoot, '結構工具箱', 'assets', 'status');
+  writeJson(path.join(statusPath, 'platform-status.json'), baseBundle.platformStatus);
+  writeJson(path.join(statusPath, 'preflight-summary.json'), baseBundle.preflightStatus);
+  writeJson(path.join(statusPath, 'report-readiness-status.json'), baseBundle.reportReadinessStatus);
+  const authorizationPath = path.join(cliRoot, assistant.AUTHORIZATION_FILE);
+  writeJson(authorizationPath, inactiveAuthorization);
+  const authorizationBefore = fs.readFileSync(authorizationPath, 'utf8');
+  const publicFormal = baseBundle.preflightStatus.sourcePath;
+  const latest = 'output/preflight/preflight-summary.json';
+  const runCli = (...args) => {
+    const result = childProcess.spawnSync(process.execPath, [
+      path.join(__dirname, 'public-release-change-assistant.js'), '--repo-root', cliRoot, '--json', ...args,
+    ], { encoding: 'utf8' });
+    assert.ifError(result.error);
+    return result;
+  };
+
+  writeJson(path.join(cliRoot, latest), { ...successfulFormalFixture, quick: true });
+  const explicitQuick = runCli('--candidate-preflight', latest);
+  assert.equal(explicitQuick.status, 1);
+  assert.match(explicitQuick.stderr, /quick evidence cannot predict formal thresholds/);
+  const missingFormal = runCli();
+  assert.equal(missingFormal.status, 1);
+  assert.match(missingFormal.stderr, /tracked formal preflight summary is missing/);
+
+  writeJson(path.join(cliRoot, publicFormal), {
+    ...successfulFormalFixture,
+    runId: baseline.runId,
+    recordsCount: baseline.records.required,
+    passedCount: baseline.records.required,
+    postCheckCount: baseline.postChecks.required,
+    postChecksPassedCount: baseline.postChecks.required,
+  });
+  const missingRendered = runCli('--candidate-preflight', publicFormal, '--candidate-evidence', 'output/missing-evidence.json');
+  assert.equal(missingRendered.status, 1);
+  assert.match(missingRendered.stderr, /candidate rendered delivery evidence is missing/);
+
+  const evidencePath = path.posix.join(path.posix.dirname(publicFormal), 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
+  const metric = (scope, required) => ({ scope, required, complete: required, verified: required, pass: true });
+  // The threshold-only fixture lives outside the checkout and never enters release evidence.
+  const evidence = {
+    schemaVersion: 20,
+    runId: baseline.runId,
+    required: baselineMetrics.rendered,
+    complete: baselineMetrics.rendered,
+    pass: true,
+    steelResultReconciliation: metric('steel-source-replay-to-report-fingerprint', baselineMetrics.steelResult),
+    steelHtmlContentSeal: metric('steel-formal-html-reproducible-content-sha256', baselineMetrics.steelContentSeal),
+    steelHtmlApprovalSeal: metric('steel-formal-html-reproducible-approval-sha256', baselineMetrics.steelApprovalSeal),
+    rcResultReconciliation: metric('rc-source-replay-to-report-fingerprint', baselineMetrics.rcResult),
+    rcStandaloneFormalHtmlPrint: metric('rc-approved-standalone-html-to-validated-pdf', baselineMetrics.rcPrint),
+    rcSourceReportPackage: metric('rc-real-source-json-to-formal-html-package-check', baselineMetrics.rcPackage),
+    formalResultReconciliation: metric('formal-golden-result-to-report-fingerprint', baselineMetrics.formalResult),
+    localQuickResultReconciliation: metric('local-quick-json-replay-to-pdf-hash', baselineMetrics.localQuickResult),
+    canonicalArtifactIntegrity: metric('canonical-rendered-pdf-evidence', baselineMetrics.delivery),
+    rcVisualArtifactIntegrity: metric('rc-rendered-pdf-png', 0),
+    mixedArtifactIntegrity: metric('mixed-format-release-artifacts', 0),
+  };
+  writeJson(path.join(cliRoot, evidencePath), { ...evidence, runId: successfulFormalFixture.runId });
+  const mismatchedRendered = runCli();
+  assert.equal(mismatchedRendered.status, 1);
+  assert.match(mismatchedRendered.stderr, /rendered delivery evidence runId does not match/);
+
+  writeJson(path.join(cliRoot, evidencePath), evidence);
+  const result = runCli();
+  assert.equal(result.status, 0, result.stderr);
+  const preview = JSON.parse(result.stdout);
+  assert.equal(preview.classification, 'unchanged', 'default preview uses the complete formal run after a quick run');
+  assert.equal(preview.authorizationRequired, false, 'unchanged release needs no approval');
+  assert.equal(preview.baselineRunId, baseline.runId);
+  assert.equal(preview.candidateRunId, baseline.runId);
+  assert.deepEqual(preview.sources, { preflight: publicFormal, renderedEvidence: evidencePath });
+  assert.equal(fs.readFileSync(authorizationPath, 'utf8'), authorizationBefore, 'CLI previews do not write authorization');
+} finally {
+  fs.rmSync(cliRoot, { recursive: true, force: true });
 }
 
-console.log(`public release change assistant OK (preview=3, writeGuards=7, resetGuards=5, evidenceGuards=2, liveReadOnly=${liveReadOnly})`);
+console.log('public release change assistant OK (preview=3, writeGuards=7, resetGuards=5, evidenceGuards=4, cliReadOnly=1)');
