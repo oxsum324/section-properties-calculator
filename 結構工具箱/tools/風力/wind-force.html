@@ -594,6 +594,11 @@
       <tbody></tbody>
     </table>
     <div class="legend" id="comboNote"></div>
+    <div class="case-actions">
+      <button type="button" id="btnExportFloorLoads" aria-describedby="floorLoadExchangeNote floorLoadExportStatus">下載逐層風力 TSV</button>
+    </div>
+    <div class="legend" id="floorLoadExchangeNote">交接表保留未四捨五入的順風力、橫風力與扭矩，並列迎風面積與取壓標高。標高從第一層底起算。X／Y 代表來風方向。採用前請在分析模型核對全域軸向、正負號、施力點及組合。</div>
+    <div class="case-status" id="floorLoadExportStatus" role="status"></div>
   </div>
 
   <div class="card">
@@ -683,6 +688,7 @@ const TOOL_VERSION = 'wind-force.v1.3.0';
 const SHARED_FREQUENCY_ENGINE = 'wind-force.v1.2.0';
 const PREVIOUS_ENGINE = 'wind-force.v1.1.0';
 const CASE_SCHEMA_VERSION = 'wind-force.case.v1';
+const FLOOR_LOAD_SCHEMA_VERSION = 'wind-force.floor-loads.v1';
 const CASE_VALUE_IDS = [
   'city', 'Vcustom', 'terrain', 'impClass', 'encl', 'roofSlope', 'roofType', 'ridgeAxis',
   'archMode', 'archRiseRatio', 'sawtoothFaceCode', 'Kzt', 'B', 'L', 'N', 'h', 'he', 'hp',
@@ -916,26 +922,76 @@ function applyCaseInputs(payload) {
     calc();
   }
 }
-function exportCaseJson() {
-  if (calc() === false) return;
-  const payload = {
-    schema: CASE_SCHEMA_VERSION,
-    tool: { id: 'wind-force', name: '矩形建物 MWFRS', version: TOOL_VERSION },
-    generatedAt: new Date().toISOString(),
-    calculationFingerprint: window.WindReport.getCurrentReportTrace().calculationFingerprint,
-    ...readCaseInputs(),
-    result: readExportResultSummary()
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+function downloadWindForceFile(contents, mimeType, filename) {
+  const blob = new Blob([contents], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `CATII-WindForce-${Date.now()}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  setCaseStatus('已匯出矩形建物 MWFRS 案件 JSON；可回讀輸入、逐層樓高與計算摘要。');
+}
+
+function readFloorLoadExchange(calculationFingerprint) {
+  return {
+    schema: FLOOR_LOAD_SCHEMA_VERSION,
+    engine: TOOL_VERSION,
+    calculationFingerprint,
+    adoptionStatus: 'tool-calculated',
+    componentBasis: 'relative-to-wind-direction',
+    elevationDatum: 'bottom-of-first-story',
+    areaMethod: 'projected-width-times-story-height',
+    pressureHeightMethod: 'story-midpoint-with-minimum-height',
+    rows: lastWindForceReportState.floorLoads
+  };
+}
+
+function assertFloorLoadReplay(source, calculationFingerprint) {
+  const { rows, ...metadata } = readFloorLoadExchange(calculationFingerprint);
+  if (Object.entries(metadata).some(([name, value]) => source?.[name] !== value) ||
+      !Array.isArray(source.rows) || source.rows.length !== rows.length) {
+    throw new Error('逐層風力交接資料的來源、計算方式或筆數與重算不符。');
+  }
+  const sameCell = (value, stored) => {
+    if (typeof value !== 'number') return value === stored;
+    // 保留數字型別，僅容許瀏覽器數值函式的浮點尾差。
+    return Number.isFinite(stored) && Math.abs(stored - value) <= 1e-12 * Math.max(1, Math.abs(value));
+  };
+  rows.forEach((row, index) => {
+    const stored = source.rows[index];
+    if (Object.entries(row).some(([name, value]) => !sameCell(value, stored?.[name]))) {
+      throw new Error(`逐層風力交接資料 ${row.floorId} ${row.windDirection} 來風與重算不符。`);
+    }
+  });
+}
+
+function exportCaseJson() {
+  if (calc() === false) return;
+  const { calculationFingerprint } = window.WindReport.getCurrentReportTrace();
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: 'wind-force', name: '矩形建物 MWFRS', version: TOOL_VERSION },
+    generatedAt: new Date().toISOString(),
+    calculationFingerprint,
+    ...readCaseInputs(),
+    result: { ...readExportResultSummary(), floorLoads: readFloorLoadExchange(calculationFingerprint) }
+  };
+  downloadWindForceFile(JSON.stringify(payload, null, 2), 'application/json;charset=utf-8', `CATII-WindForce-${Date.now()}.json`);
+  setCaseStatus('已匯出矩形建物 MWFRS 案件 JSON，含逐層樓高、計算摘要及逐向風力交接資料。');
+}
+
+function exportFloorLoadsTsv() {
+  const status = document.getElementById('floorLoadExportStatus');
+  if (calc() === false) return;
+  const { calculationFingerprint } = window.WindReport.getCurrentReportTrace();
+  const { rows, ...metadata } = readFloorLoadExchange(calculationFingerprint);
+  const header = [...Object.keys(metadata), ...Object.keys(rows[0])];
+  const lines = [header.join('\t'), ...rows.map(row => [...Object.values(metadata), ...Object.values(row)].join('\t'))];
+  downloadWindForceFile('\uFEFF' + lines.join('\r\n') + '\r\n', 'text/tab-separated-values;charset=utf-8',
+    `CATII-WindForce-FloorLoads-${calculationFingerprint}.tsv`);
+  status.textContent = `已下載 ${rows.length} 筆逐層風力。空白表示該分量無計算值。指紋 ${calculationFingerprint}。`;
 }
 
 const CASE_BROWSER_DRAFT_KEY = 'toolCaseDraft:' + location.pathname + ':' + (typeof CASE_SCHEMA_VERSION !== 'undefined' ? CASE_SCHEMA_VERSION : 'v1');
@@ -980,7 +1036,14 @@ function importCaseJsonFile(file) {
           return true;
         },
         getFingerprint: () => {
-          if (replayEngine === TOOL_VERSION) return window.WindReport.getCurrentReportTrace().calculationFingerprint;
+          if (replayEngine === TOOL_VERSION) {
+            const { calculationFingerprint } = window.WindReport.getCurrentReportTrace();
+            if (calculationFingerprint === payload.calculationFingerprint &&
+                Object.prototype.hasOwnProperty.call(payload.result || {}, 'floorLoads')) {
+              assertFloorLoadReplay(payload.result.floorLoads, calculationFingerprint);
+            }
+            return calculationFingerprint;
+          }
           // 舊版指紋只含當時可見的輸入。另以原檔的四組結果摘要核對重新計算的載重。
           const current = readExportResultSummary();
           if (['banner','comboSummary','controlTable','directionTable'].some(key => payload.result?.[key] !== current[key])) {
@@ -1181,6 +1244,7 @@ document.getElementById('btnStoryApply').addEventListener('click', () => {
 });
 
 document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
+document.getElementById('btnExportFloorLoads').addEventListener('click', exportFloorLoadsTsv);
 document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
 document.getElementById('btnSaveCaseDraft').addEventListener('click', saveCaseDraft);
 document.getElementById('btnLoadCaseDraft').addEventListener('click', loadCaseDraft);
@@ -1206,6 +1270,7 @@ document.getElementById('reportMode').addEventListener('change', () => renderWin
 document.getElementById('btnCalc').addEventListener('click', calc);
 
 function calc(forcedStoryHeights) {
+  document.getElementById('floorLoadExportStatus').textContent = '';
   const cityV = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
   const Vcustom = parseFloat(document.getElementById('Vcustom').value);
   const V = (isFinite(Vcustom) && Vcustom > 0) ? Vcustom : cityV;
@@ -1798,29 +1863,37 @@ Eq 2.6: q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup><br>
   document.getElementById('storyNote').innerHTML =
     `表中 p<sub>w</sub>、p<sub>l</sub> 為外壓；MWFRS 內壓組合另列於上方。迎風 p<sub>w</sub> = q(z)·G·C<sub>pw</sub>，背風 p<sub>l</sub> = q(h)·G·C<sub>pl</sub>，p<sub>net</sub> = p<sub>w</sub>−p<sub>l</sub>。本次逐層樓高 = ${storyH.map(v => fmt(v,2)).join(' / ')} m。`;
 
+  const floorLoads = [];
   const comboTbody = document.querySelector('#comboTable tbody');
   comboTbody.innerHTML = '';
   r.stories.slice().reverse().forEach(s => {
-    const wl = r.crossWind ? r.crossWind.find(item => item.i === s.i)?.WL : null;
-    const mt = r.torsion ? r.torsion.find(item => item.i === s.i)?.MT : null;
     const sy = rY.stories.find(item => item.i === s.i);
-    const wly = rY.crossWind ? rY.crossWind.find(item => item.i === s.i)?.WL : null;
-    const mty = rY.torsion ? rY.torsion.find(item => item.i === s.i)?.MT : null;
+    const pair = [[s, r, B, 'X'], [sy, rY, L, 'Y']].map(([story, directionResult, width, windDirection]) => ({
+      floorId: `${story.i}F`,
+      windDirection,
+      storyHeightM: story.h,
+      floorTopM: story.zTop,
+      projectedWidthM: width,
+      projectedAreaM2: story.A,
+      storyMidpointM: story.zMid,
+      effectivePressureHeightM: Math.max(story.zMid, W.KZ_MIN_HEIGHT),
+      velocityPressureKgfPerM2: story.qz,
+      alongwindKgf: story.F,
+      crosswindKgf: directionResult.crossWind?.find(item => item.i === story.i)?.WL ?? null,
+      torsionKgfM: directionResult.torsion?.find(item => item.i === story.i)?.MT ?? null
+    }));
+    floorLoads.push(...pair);
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="idx">${s.i}F</td>
-      <td>${fmt(s.F,0)}</td>
-      <td>${wl == null ? '—' : fmt(wl,0)}</td>
-      <td>${mt == null ? '—' : fmt(mt,0)}</td>
-      <td>${fmt(sy ? sy.F : null,0)}</td>
-      <td>${wly == null ? '—' : fmt(wly,0)}</td>
-      <td>${mty == null ? '—' : fmt(mty,0)}</td>
+      ${pair.map(row => `<td>${fmt(row.alongwindKgf,0)}</td><td>${fmt(row.crosswindKgf,0)}</td><td>${fmt(row.torsionKgfM,0)}</td>`).join('')}
     `;
     comboTbody.appendChild(tr);
   });
   document.getElementById('comboNote').innerHTML =
     `本表同步列出 X / Y 兩主風向之逐層設計風力。W<sub>D,z</sub> 為順風向樓層風力，W<sub>L,z</sub> 為橫風向樓層風力，M<sub>T,z</sub> 為該層扭轉向風力。構件設計若需依 2.12 組合結構效應，應於結構分析模型中對 X / Y 兩風向分別建立載重組合。`;
   lastWindForceReportState = {
+    floorLoads,
     V,
     customWindSpeed: isFinite(Vcustom) && Vcustom > 0,
     terrain,
