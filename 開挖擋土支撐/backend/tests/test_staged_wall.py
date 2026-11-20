@@ -41,6 +41,53 @@ class StagedWallTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"失穩|剛度"):
             self.solve()
 
+    def test_staged_water_profiles_drive_load_and_toe_reactions(self):
+        self.data.update(supports=[], comparisons=[], step=2.9, stages=self.data["stages"][:2])
+        outside = dict(basis="外側合成壓力", points=[
+            dict(depth=2, pressure=0), dict(depth=5, pressure=30), dict(depth=12, pressure=44),
+        ])
+        inside = dict(basis="內側合成壓力", points=[
+            dict(depth=4, pressure=0), dict(depth=7, pressure=24), dict(depth=12, pressure=50),
+        ])
+        self.data["stages"][0].update(cut=12, outside_water=None, inside_water=None, earth_factor=0,
+                                    water_factor=.75, outside_water_profile=outside, inside_water_profile=inside)
+        self.data["stages"][1].update(cut=12, outside_water=None, inside_water=4, earth_factor=0,
+                                    water_factor=1, outside_water_profile=outside)
+        case = WallCase.model_validate(self.data)
+        result = calculate(case)
+        for stage in (result["stages"][0], result["coarse"][0]):
+            self.assertTrue({2, 4, 5, 7, 12} <= {point["z"] for point in stage["wall"]})
+            # Net pressures at the breakpoints are 0, 20, 22, 10, -6 kPa before scaling.
+            self.assertAlmostEqual(stage["balance"]["water_force"], 62.25, places=8)
+            self.assertAlmostEqual(stage["balance"]["water_moment_at_ground"], 308.25, places=8)
+            self.assertAlmostEqual(stage["wall"][-1]["M_above"], 438.75, places=6)
+            self.assertAlmostEqual(stage["wall"][-1]["V_above"], 62.25, places=6)
+        mixed = result["stages"][1]
+        self.assertAlmostEqual(mixed["balance"]["water_force"], -9.92, places=8)
+        self.assertAlmostEqual(mixed["balance"]["water_moment_at_ground"], -491.2533333333, places=8)
+        self.assertAlmostEqual(mixed["balance"]["applied"], -9.92, places=8)
+
+    def test_invalid_water_profiles_fail_before_solving(self):
+        stage = self.data["stages"][0]
+        for points in (
+            [(2, 1), (12, 30)],
+            [(2, 0), (2, 10), (12, 30)],
+            [(2, 0), (8, 30)],
+            [(2, 0), (13, 30)],
+            [(2, 0), (12, -1)],
+            [(2, 0), (12, float("nan"))],
+        ):
+            with self.subTest(points=points):
+                stage["outside_water_profile"] = dict(
+                    basis="測試", points=[dict(depth=z, pressure=p) for z, p in points]
+                )
+                with self.assertRaises(ValueError):
+                    self.solve()
+        del stage["outside_water_profile"]
+        stage["outside_water"] = None
+        with self.assertRaisesRegex(ValueError, "外側水位"):
+            self.solve()
+
     def test_plastic_history_and_reversal(self):
         self.data["soil_law"]="plastic"
         for l in self.data["layers"]:l.update(lower=-35,upper=55)

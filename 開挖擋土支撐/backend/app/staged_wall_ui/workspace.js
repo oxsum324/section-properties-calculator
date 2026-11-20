@@ -1,9 +1,10 @@
 (() => {
   'use strict';
-  const VERSION='staged-wall.eb.v1',$=id=>document.getElementById(id);
+  const VERSION='staged-wall.eb.v2',$=id=>document.getElementById(id);
   const headers={
     layers:['層底_m','kh_kN/m³','層頂有效_kPa','層底有效_kPa','反力下限_kPa','反力上限_kPa','來源'],
     stages:['階段','挖深_m','外水深_m','內水深_m','有效側壓倍率','水壓倍率','來源'],
+    water_profiles:['階段','側別','深度_m','水壓_kPa','來源'],
     supports:['支撐','深度_m','間距_m','水平勁度_kN/m','水平預力_kN','安裝階','拆除階','型式','來源'],
     comparisons:['階段','深度_m','來源類別','量','單位','數值','側別','支撐','來源與正向依據']
   };
@@ -16,9 +17,11 @@
   function invalidate(note){
     serial++;if(controller)controller.abort();controller=null;result=null;input=null;$('result').hidden=true;$('run').disabled=false;msg(note);
   }
-  function set(v,attachment=null){
-    invalidate('請核對資料後計算。');source=attachment;
+  function writeForm(v){
     for(const k of keys)$(k).value=v[k]??(headers[k]?tsv([headers[k]])+'\n':'');
+  }
+  function set(v,attachment=null){
+    invalidate('請核對資料後計算。');source=attachment;writeForm(v);
   }
   function rows(v,key){
     const lines=String(v[key]).replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').split('\n'),cols=lines.shift().split('\t');
@@ -30,8 +33,24 @@
   }
   const lookup=(value,map,label)=>{if(!Object.hasOwn(map,value))throw Error(label+'無法辨識：'+value);return map[value];};
   function request(v){
-    return {...v,layers:rows(v,'layers').map(([bottom,kh,pressure_top,pressure_bottom,lower,upper,basis])=>({bottom,kh,pressure_top,pressure_bottom,lower:lower||null,upper:upper||null,basis})),
-      stages:rows(v,'stages').map(([id,cut,outside_water,inside_water,earth_factor,water_factor,basis])=>({id,cut,outside_water,inside_water,earth_factor,water_factor,basis})),
+    const {water_profiles,...rest}=v;
+    const stages=rows(v,'stages').map(([id,cut,outside_water,inside_water,earth_factor,water_factor,basis])=>({
+      id,cut,outside_water:outside_water||null,inside_water:inside_water||null,earth_factor,water_factor,basis
+    }));
+    const byStage=new Map(stages.map(stage=>[stage.id,stage]));
+    if(byStage.size!==stages.length)throw Error('施工階段名稱不可重複。');
+    if(water_profiles?.trim()){
+      for(const [id,side,depth,pressure,basis] of rows(v,'water_profiles')){
+        const stage=byStage.get(id);
+        if(!stage)throw Error('分段水壓找不到施工階段 '+id+'。');
+        const field=lookup(side,{'外':'outside_water_profile','內':'inside_water_profile'},'水壓側別');
+        const profile=stage[field]??(stage[field]={basis,points:[]});
+        if(profile.basis!==basis)throw Error(id+' '+side+'側分段水壓請填寫同一來源。');
+        profile.points.push({depth,pressure});
+      }
+    }
+    return {...rest,layers:rows(v,'layers').map(([bottom,kh,pressure_top,pressure_bottom,lower,upper,basis])=>({bottom,kh,pressure_top,pressure_bottom,lower:lower||null,upper:upper||null,basis})),
+      stages,
       supports:rows(v,'supports').map(([id,depth,spacing,stiffness,preload,install,remove,law,basis])=>({id,depth,spacing,stiffness,preload,install,remove:remove||null,law:lookup(law,{'雙向':'bilateral','只受壓':'compression'},'支撐型式'),basis})),
       comparisons:rows(v,'comparisons').map(([stage,depth,kind,quantity,unit,value,side,support,source])=>({stage,depth,kind:lookup(kind,{'外部':'external','監測':'measurement'},'比較來源'),quantity,unit,value,side:lookup(side,{'上':'above','下':'below'},'站位側別'),support:support||null,source}))};
   }
@@ -72,7 +91,14 @@
     table('profile',['深度 m','位移 mm','轉角 rad','M 上／下 kN·m/m','V 上／下 kN/m'],s.wall.map(v=>[fmt(v.z),fmt(v.u_mm,5),fmt(v.rotation,7),fmt(v.M_above,5)+'／'+fmt(v.M_below,5),fmt(v.V_above,5)+'／'+fmt(v.V_below,5)]));
     if($('springDetails').open)table('springs',['深度 m','有效驅動 kPa','淨水壓 kPa','土反力 kPa','塑性位移 mm','狀態'],s.springs.flat().map(v=>[fmt(v.z),fmt(v.effective_kpa),fmt(v.water_kpa),fmt(v.spring_kpa),fmt(v.plastic_m*1000,5),v.active?'作用':'無彈簧']));
     const st=input.stages[i];
-    $('assumptions').textContent=st.basis+' ｜ 外／內水深 '+st.outside_water+'／'+st.inside_water+' m，開挖 '+st.cut+' m。合外力 '+fmt(b.applied)+'、合土反力 '+fmt(b.soil)+'、壁趾有號水平反力 '+fmt(b.toe_force)+' kN/m，壁趾反力矩 '+fmt(b.toe_moment)+' kN·m/m。';
+    const waterSides=[['外',st.outside_water,st.outside_water_profile],['內',st.inside_water,st.inside_water_profile]];
+    const waterBasis=waterSides.map(([side,head,profile])=>profile?side+'側分段水壓':side+'側靜水位深度 '+head+' m');
+    const waterRows=waterSides.flatMap(([side,_,profile])=>profile?.points.map(p=>[side,fmt(p.depth),fmt(p.pressure),profile.basis])??[]);
+    $('waterProfileResult').hidden=!waterRows.length;
+    if(waterRows.length)table('waterProfileTable',['側別','深度 m','水壓 kPa','來源'],waterRows);
+    $('waterBalance').textContent=waterBasis.join('、')+'。水壓倍率 '+st.water_factor+
+      '，淨水壓合力 '+fmt(b.water_force,6)+' kN/m，對壁頂矩 '+fmt(b.water_moment_at_ground,6)+' kN·m/m。';
+    $('assumptions').textContent=st.basis+' ｜ 開挖 '+st.cut+' m。合外力 '+fmt(b.applied)+'、合土反力 '+fmt(b.soil)+'、壁趾有號水平反力 '+fmt(b.toe_force)+' kN/m，壁趾反力矩 '+fmt(b.toe_moment)+' kN·m/m。';
     diagram(s);
   }
   function display(r,body,selected){
@@ -140,9 +166,9 @@
   };
   $('file').onchange=async e=>{
     const file=e.target.files[0];if(!file)return;
-    try{const d=JSON.parse(await file.text());if(d.version!==VERSION||!d.form)throw Error('無法辨識紀錄。');
+    try{const d=JSON.parse(await file.text());if(![VERSION,'staged-wall.eb.v1'].includes(d.version)||!d.form)throw Error('無法辨識紀錄。');
       request(d.form);if(!await allowReplace())return;
-      await run(d.form,d.stage,()=>{for(const k of keys)$(k).value=d.form[k]??'';source=d.source??null;});
+      await run(d.form,d.stage,()=>{writeForm(d.form);source=d.source??null;});
     }catch(err){msg(err.message);}finally{e.target.value='';}
   };
   set({});msg('請輸入案件參數或載入合成例。');

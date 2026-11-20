@@ -14,7 +14,9 @@
 <section><h2>土層、階段與支撐</h2>
 <p class="note">各表可由 Excel 複製並保留表頭。土層有效側壓是案件另算的「淨驅動壓力」，在層內線性變化；水壓差另加。kh 為開挖側剩餘地盤的增量反力模數，挖除部分停用。彈塑性上下限為此彈簧反力的有號界限，無法直接以總土壓代入。</p>
 <label for="layers">土層與有效側壓</label><textarea id="layers" rows="4" wrap="off"></textarea>
-<label for="stages">施工階段（檔案順序）</label><textarea id="stages" rows="5" wrap="off"></textarea><p class="note">每階填完整水位深度及兩個倍率。有效側壓、水壓分開乘倍率；靜水壓差依內外水頭。零水壓應填相同水位或給定有據倍率。</p>
+<label for="stages">施工階段（檔案順序）</label><textarea id="stages" rows="5" wrap="off"></textarea><p class="note">每階填有效側壓倍率與水壓倍率。各側可填水位深度，或使用下表的分段水壓。填了分段水壓的一側以該表為準。</p>
+<label for="water_profiles">分段水壓控制點（選填）</label><textarea id="water_profiles" rows="4" wrap="off" aria-describedby="waterProfileHelp"></textarea>
+<p class="note" id="waterProfileHelp">階段名稱須與上表相同，側別填「外」或「內」，壓力填 kPa。同階同側依深度由淺到深填寫，最後一點填至壁趾。首點若在地表下，該點壓力須為零。每階請貼完整控制點，同一側各點填相同來源。</p>
 <label for="supports">支撐與預力（可只保留表頭）</label><textarea id="supports" rows="4" wrap="off"></textarea>
 <p class="note">每支撐垂直壁面的水平勁度用 kN/m，水平預力用 kN/支，依沿牆間距換為每米牆反力。型式填「雙向」或「只受壓」。安裝時採上一步平衡位移作為零變形基準，預力為初始力；拆撐階從方程中移除。斜撐須先依其方向換算水平分量。</p>
 <label for="comparisons">外部解與監測比較（可只保留表頭）</label><textarea id="comparisons" rows="4" wrap="off"></textarea>
@@ -25,6 +27,7 @@
 <h3 id="title"></h3><p class="summary" id="summary"></p><canvas id="plot" width="760" height="360" aria-label="位移、彎矩及剪力隨深度變化圖，詳細數值見下表"></canvas>
 <p class="note">深度由上向下，水平虛線為當階開挖面；各圖橫軸以中線為零，左右為負／正。</p><h3>當階支撐</h3><div id="struts"></div><h3>同階／同深度之對照</h3><div id="comparison"></div>
 <h3>當階牆體與內力</h3><div id="profile"></div>
+<h3>當階水壓</h3><p id="waterBalance"></p><div id="waterProfileResult" hidden><div id="waterProfileTable"></div></div>
 <details id="springDetails"><summary>土彈簧積分點與塑性位移</summary><div id="springs"></div></details>
 <p id="assumptions"></p><p class="note">本紀錄用於內部模型核對。鄰地沉陷、管湧、底部隆起、支撐構件強度及施工安全另核。工作紀錄保存所有階段、原輸入與殘差。</p></section>
 <dialog id="replace"><form method="dialog"><p>以新資料取代目前壁段與分析？</p><div class="actions"><button autofocus value="keep">保留目前資料</button><button value="yes">取代資料</button></div></form></dialog></main>

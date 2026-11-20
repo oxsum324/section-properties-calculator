@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+from bisect import bisect_right
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -21,14 +22,26 @@ class Layer(Input):
     basis: str = Field(min_length=1)
 
 
+class WaterPoint(Input):
+    depth: float = Field(ge=0)
+    pressure: float = Field(ge=0)
+
+
+class WaterProfile(Input):
+    basis: str = Field(min_length=1)
+    points: list[WaterPoint] = Field(min_length=2)
+
+
 class Stage(Input):
     id: str = Field(min_length=1)
     cut: float = Field(ge=0)
-    outside_water: float = Field(ge=0)
-    inside_water: float = Field(ge=0)
+    outside_water: float | None = Field(default=None, ge=0)
+    inside_water: float | None = Field(default=None, ge=0)
     earth_factor: float = Field(ge=0)
     water_factor: float = Field(ge=0)
     basis: str = Field(min_length=1)
+    outside_water_profile: WaterProfile | None = None
+    inside_water_profile: WaterProfile | None = None
 
 
 class Support(Input):
@@ -70,7 +83,7 @@ class WallCase(Input):
     comparisons: list[Comparison]
 
 
-VERSION = "staged-wall.eb.v1"
+VERSION = "staged-wall.eb.v2"
 GAUSS = ((-.8611363115940526, .3478548451374538), (-.3399810435848563, .6521451548625461),
          (.3399810435848563, .6521451548625461), (.8611363115940526, .3478548451374538))
 # Multipliers convert the observation to the intrinsic result units: mm, kN·m/m, kN/m, kN per strut.
@@ -90,6 +103,21 @@ def validate(case):
         raise ValueError("線彈性模型不使用限值；請移除上下限或選彈塑性。")
     if any(s.cut>case.length for s in case.stages) or any(a.cut>b.cut for a,b in zip(case.stages,case.stages[1:])):
         raise ValueError("開挖深度須在壁長內並依序不減；回填另建材料與啟用基準。")
+    for stage in case.stages:
+        for side, head, profile in (
+            ("外", stage.outside_water, stage.outside_water_profile),
+            ("內", stage.inside_water, stage.inside_water_profile),
+        ):
+            label = f"{stage.id} {side}側"
+            if profile is None:
+                if head is None:
+                    raise ValueError(f"{label}水位或分段水壓必須填寫。")
+                continue
+            points = profile.points
+            if points[-1].depth != case.length or any(a.depth >= b.depth for a,b in zip(points,points[1:])):
+                raise ValueError(f"{label}分段水壓的深度須嚴格遞增，且最後一點須等於壁趾深度。")
+            if points[0].depth > 0 and points[0].pressure != 0:
+                raise ValueError(f"{label}分段水壓的第一點在地表以下時，須從零壓力開始。")
     supports = {s.id:s for s in case.supports}
     if len(supports)!=len(case.supports):
         raise ValueError("支撐識別重複。")
@@ -112,7 +140,12 @@ def grid(case,step):
     marks.update(s.depth for s in case.supports)
     marks.update(s.depth for s in case.comparisons)
     for s in case.stages:
-        marks.update(v for v in (s.cut,s.inside_water,s.outside_water) if 0<v<case.length)
+        marks.add(s.cut)
+        for head, profile in ((s.outside_water, s.outside_water_profile), (s.inside_water, s.inside_water_profile)):
+            if profile is not None:
+                marks.update(p.depth for p in profile.points)
+            elif head is not None and 0 < head < case.length:
+                marks.add(head)
     cuts=sorted(marks)
     mesh=[0.]
     for a,b in zip(cuts,cuts[1:]):
@@ -122,6 +155,28 @@ def grid(case,step):
         mesh.extend(a+(b-a)*i/count for i in range(1,count))
         mesh.append(b)
     return mesh
+
+
+def water_pressure(depth, weight, head, profile):
+    if profile is None:
+        return weight * max(0., depth-head)
+    points = profile.points
+    i = bisect_right(points, depth, key=lambda point: point.depth)
+    if i == 0:
+        return 0.
+    if i == len(points):
+        return points[-1].pressure
+    a,b = points[i-1:i+1]
+    return a.pressure + (b.pressure-a.pressure) * ((depth-a.depth)/(b.depth-a.depth))
+
+
+def net_water_pressure(depth, weight, stage):
+    if stage.outside_water_profile is None and stage.inside_water_profile is None:
+        return weight*(max(0.,depth-stage.outside_water)-max(0.,depth-stage.inside_water))
+    return (
+        water_pressure(depth,weight,stage.outside_water,stage.outside_water_profile)
+        - water_pressure(depth,weight,stage.inside_water,stage.inside_water_profile)
+    )
 
 
 def elements(case,mesh):
@@ -182,6 +237,10 @@ def solve_mesh(case,step):
     u=[0.]*n; committed=[[0.]*4 for _ in elems]
     active={}; results=[]
     for st in case.stages:
+        water_by_element = [
+            [net_water_pressure(z,case.water_weight,st)*st.water_factor for z,_,_,_ in points]
+            for _,_,_,points in elems
+        ]
         for s in case.supports:
             if s.remove==st.id:
                 active.pop(s.id)
@@ -189,7 +248,7 @@ def solve_mesh(case,step):
                 active[s.id]=(s,2*node[s.depth],u[2*node[s.depth]])
         def assemble(v,tangent=False,details=False):
             k=[[0.]*4 for _ in range(n)] if tangent else None
-            residual=[0.]*n;ends=[];states=[];struts=[];applied=reaction=applied_m=soil_m=0.
+            residual=[0.]*n;ends=[];states=[];struts=[];applied=reaction=applied_m=soil_m=water_force=water_moment=0.
             for e,(offset,kb,layer,points) in enumerate(elems):
                 local=v[offset:offset+4]
                 # Remove rigid translation/rotation before forming beam actions.
@@ -201,8 +260,8 @@ def solve_mesh(case,step):
                         for j in range(i+1):k[offset+i][i-j]+=kb[i][j]
                 updated=[]
                 for j,(z,weight,N,earth) in enumerate(points):
-                    water=case.water_weight*(max(0.,z-st.outside_water)-max(0.,z-st.inside_water))
-                    q=earth*st.earth_factor+water*st.water_factor
+                    water=water_by_element[e][j]
+                    q=earth*st.earth_factor+water
                     disp=sum(a*b for a,b in zip(N,local)); plastic=committed[e][j]
                     kh=layer.kh if z>=st.cut else 0.
                     trial=kh*(disp-plastic);r=trial;kt=kh
@@ -211,8 +270,9 @@ def solve_mesh(case,step):
                         if r!=trial:kt=0.;plastic=disp-r/kh
                     if details:
                         updated.append(dict(z=z,u_m=disp,spring_kpa=r,plastic_m=plastic,active=bool(kh),
-                                            effective_kpa=earth*st.earth_factor,water_kpa=water*st.water_factor))
+                                            effective_kpa=earth*st.earth_factor,water_kpa=water))
                         applied+=weight*q;reaction+=weight*r;applied_m+=weight*z*q;soil_m+=weight*z*r
+                        water_force+=weight*water;water_moment+=weight*z*water
                     for i in range(4):
                         force[i]+=N[i]*weight*(r-q)
                         if tangent:
@@ -227,7 +287,7 @@ def solve_mesh(case,step):
                 if tangent and not open_gap:k[d][0]+=s.stiffness/s.spacing
                 if details:struts.append(dict(id=s.id,z=s.depth,reference_mm=1000*u0,force_kn=force,
                                               per_m=force/s.spacing,gap=open_gap))
-            return k,residual,ends,states,struts,(applied,reaction,applied_m,soil_m)
+            return k,residual,ends,states,struts,(applied,reaction,applied_m,soil_m,water_force,water_moment)
         def norm(residual):
             return max((abs(v) for i,v in enumerate(residual) if i not in fixed),default=0.)
         try:
@@ -249,7 +309,7 @@ def solve_mesh(case,step):
             else:raise ValueError("分階迭代未收斂。")
         except ValueError as ex:
             raise ValueError(st.id+"："+str(ex)) from ex
-        _,r,ends,states,struts,(applied,reaction,applied_m,soil_m)=assemble(u,details=True)
+        _,r,ends,states,struts,(applied,reaction,applied_m,soil_m,water_force,water_moment)=assemble(u,details=True)
         committed=[[pt["plastic_m"] for pt in pts] for pts in states]
         wall=[]
         for i,z in enumerate(mesh):
@@ -270,6 +330,7 @@ def solve_mesh(case,step):
             compare.append({**item.model_dump(),"converted":given,"calc":calc,"delta":calc-given if calc is not None else None})
         results.append(dict(id=st.id,wall=wall,springs=states,supports=struts,comparisons=compare,iterations=iteration,
                             balance=dict(applied=applied,soil=reaction,toe_force=toe_force,toe_moment=toe_m,
+                                         water_force=water_force,water_moment_at_ground=water_moment,
                                          force_error=balance,moment_error=balance_m,nodal_error=norm(r))))
     return results
 
