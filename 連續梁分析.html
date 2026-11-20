@@ -20,7 +20,7 @@
   .container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
   .top-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: end; }
   .top-bar .form-group { margin: 0; }
-  .main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+  .main-layout { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 20px; align-items: start; }
   .diagrams-section { margin-top: 16px; }
   .card { padding: 20px; margin-bottom: 16px; }
   .card h2 { margin-bottom: 12px; padding-bottom: 8px; }
@@ -36,10 +36,13 @@
   .right-panel { display: flex; flex-direction: column; }
   .canvas-wrap { display: flex; justify-content: center; align-items: center; min-height: 160px; overflow-x: auto; }
   canvas { display: block; max-width: 100%; }
+  .canvas-wrap[data-scroll-diagram] { justify-content: flex-start; }
+  .canvas-wrap[data-scroll-diagram] canvas { flex: none; max-width: none; }
   .span-row { display: grid; grid-template-columns: auto 1fr 1fr 1.4fr; gap: 6px; align-items: end; margin-bottom: 4px; padding: 5px 8px; }
   .support-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: end; margin-bottom: 3px; }
   .load-item { padding: 8px 10px; margin-bottom: 6px; }
   .load-item .load-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  #reactionTable, #extremeTable { overflow-x: auto; }
   .results-table { width: 100%; }
   .results-table th, .results-table td { padding: 6px 8px; text-align: center; }
   #deflectionReview { margin-top: 1rem; }
@@ -54,11 +57,11 @@
   .link-btn { padding: 4px 8px; cursor: pointer; white-space: nowrap; }
   @media (max-width: 1024px) {
     .container { max-width: 100%; padding: 0 16px; margin: 16px auto; }
-    .main-layout { grid-template-columns: 320px 1fr; gap: 14px; }
+    .main-layout { grid-template-columns: 320px minmax(0, 1fr); gap: 14px; }
     header { padding: 16px 20px; }
   }
   @media (max-width: 900px) {
-    .main-layout { grid-template-columns: 1fr; }
+    .main-layout { grid-template-columns: minmax(0, 1fr); }
     .right-panel { min-width: 0; }
     .canvas-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   }
@@ -214,12 +217,8 @@
         </select>
       </div>
       <div class="form-group">
-        <label>跨數</label>
-        <select id="numSpans" onchange="onSpanCountChange()">
-          <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
-          <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-          <option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
-        </select>
+        <label for="numSpans">跨數</label>
+        <select id="numSpans" onchange="onSpanCountChange()"></select>
       </div>
       <div class="form-group">
         <label>材料 E 值</label>
@@ -347,9 +346,9 @@
         <div id="stationTransferBody"></div>
       </details>
       <h3>支承反力</h3>
-      <div id="reactionTable"></div>
+      <div id="reactionTable" role="region" aria-label="支承反力"></div>
       <h3>各跨極值</h3>
-      <div id="extremeTable"></div>
+      <div id="extremeTable" role="region" aria-label="各跨極值"></div>
       <details id="deflectionReview" class="page-only-report-status">
         <summary>舊案撓度比對</summary>
         <p id="deflectionReviewSource"></p>
@@ -582,6 +581,7 @@ window.addEventListener('message', (ev) => {
 });
 
 // ==================== DATA MODEL ====================
+const MAX_BEAM_SPANS = 20;
 var model = { numSpans: 2, spans: [], supports: [], loads: [] };
 var solution = null;
 var diagrams = null;
@@ -1220,7 +1220,17 @@ function setupCanvas(id, minW) {
   const c = document.getElementById(id), wrap = c.parentElement;
   const isNarrow = window.innerWidth <= 640;
   const defaultMin = isNarrow ? 320 : 500;
-  const w = Math.max(wrap.clientWidth-20, minW||defaultMin);
+  const needsWideDiagram = model.numSpans > 10;
+  const diagramMin = needsWideDiagram ? 80 + model.numSpans * 90 : defaultMin;
+  const w = Math.max(wrap.clientWidth-20, minW || diagramMin);
+  wrap.toggleAttribute?.('data-scroll-diagram', needsWideDiagram);
+  if (needsWideDiagram) {
+    wrap.setAttribute?.('tabindex', '0');
+    wrap.setAttribute?.('aria-label', wrap.previousElementSibling?.textContent.trim() || '分析圖');
+    wrap.setAttribute?.('role', 'region');
+  } else {
+    for (const attr of ['tabindex','aria-label','role']) wrap.removeAttribute?.(attr);
+  }
   const h = id==='schematicCanvas' ? (isNarrow?180:200) : (isNarrow?220:240);
   c.width=w; c.height=h;
   const ctx = c.getContext('2d');
@@ -2279,6 +2289,11 @@ function exportPDF() {
 
 // ==================== INIT ====================
 function init() {
+  const spanSelect = document.getElementById('numSpans');
+  spanSelect.innerHTML = Array.from({length:MAX_BEAM_SPANS}, (_, i) =>
+    '<option value="' + (i + 1) + '">' + (i + 1) + '</option>'
+  ).join('');
+  spanSelect.value = '2';
   initModel(2);
   model.loads[0] = [{type:'udl',w:10}];
   model.loads[1] = [{type:'udl',w:10}];
@@ -2520,7 +2535,9 @@ function validateContinuousBeamSaveData(d) {
   const savedModel = d.model;
   if (!savedModel || typeof savedModel !== 'object' || Array.isArray(savedModel)) throw new Error('案例缺少梁模型。');
   const spanCount = Number(savedModel.numSpans);
-  if (!Number.isInteger(spanCount) || spanCount < 1 || spanCount > 10) throw new Error('案例跨數必須是 1 至 10 的整數。');
+  if (!Number.isInteger(spanCount) || spanCount < 1 || spanCount > MAX_BEAM_SPANS) {
+    throw new Error('案例跨數必須是 1 至 ' + MAX_BEAM_SPANS + ' 的整數。');
+  }
   if (!Array.isArray(savedModel.spans) || savedModel.spans.length !== spanCount) throw new Error('案例跨度資料與跨數不一致。');
   if (!Array.isArray(savedModel.supports) || savedModel.supports.length !== spanCount + 1) throw new Error('案例支承資料與跨數不一致。');
   if (!Array.isArray(savedModel.loads) || savedModel.loads.length !== spanCount || savedModel.loads.some(loads => !Array.isArray(loads))) {

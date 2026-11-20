@@ -848,6 +848,34 @@ function main() {
   assert(rejectedUnitsMessage.includes('案例單位系統不受支援'), 'unknown case units are rejected before restore', rejectedUnitsMessage);
   assert(stableSha256(ctx.collectSaveData()) === stateBeforeRejectedImport, 'rejected units leave the active case unchanged', stateBeforeRejectedImport);
 
+  const longPayload = JSON.parse(JSON.stringify(sourcePayload));
+  const shape = longPayload.data.model;
+  shape.numSpans = 20;
+  shape.spans = Array.from({ length:20 }, () => ({ L:5, eiMul:1, hinges:[] }));
+  shape.supports = Array.from({ length:21 }, (_, i) => ({ type:i === 0 ? 'pin' : 'roller' }));
+  shape.loads = Array.from({ length:20 }, () => [{ type:'udl', w:10 }]);
+  ctx.restoreLocalPayload(longPayload, 'twenty-span.json');
+  ctx.runAnalysis();
+  assert(ctx.document.getElementById('numSpans').value == 20, 'restoring a 20-span case sets the span selector');
+  assert(ctx.solution.reactions.length === 21 && ctx.diagrams.spans.length === 20,
+    'the 20-span case publishes all 21 support reactions and 20 span curves');
+  const longResult = JSON.parse(JSON.stringify(ctx.collectSaveData().model));
+  assert(stableSha256(longResult) === stableSha256(shape), '20-span local save preserves every support and load');
+  const total = ctx.solution.reactions.reduce((sum, r) => sum + r.Ry, 0);
+  assertNear(total, 1000, 1e-7, '20-span load and reaction balance');
+  const moment = ctx.solution.reactions.reduce((sum, r, i) => sum + r.Ry * i * 5 + r.Mr, 0);
+  assertNear(moment, 50000, 1e-6, '20-span moment balance');
+  const oversized = JSON.parse(JSON.stringify(longPayload));
+  oversized.data.model.numSpans = 21;
+  let oversizedMessage = '';
+  try {
+    ctx.restoreLocalPayload(oversized, 'over-limit.json');
+  } catch (error) {
+    oversizedMessage = error.message;
+  }
+  assert(oversizedMessage.includes('1 至 20'), '21 spans are rejected with the supported capacity', oversizedMessage);
+  assert(stableSha256(ctx.collectSaveData().model) === stableSha256(longResult), 'rejected long-beam import retains the active model');
+
   resetToSingleSpan(ctx);
   ctx.model.loads[0] = [{ type: 'udl', w: 10 }];
   ctx.renderLoadInputs();
