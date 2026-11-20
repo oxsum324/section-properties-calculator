@@ -1221,7 +1221,7 @@ function setupCanvas(id, minW) {
   const isNarrow = window.innerWidth <= 640;
   const defaultMin = isNarrow ? 320 : 500;
   const needsWideDiagram = model.numSpans > 10;
-  const diagramMin = needsWideDiagram ? 80 + model.numSpans * 90 : defaultMin;
+  const diagramMin = needsWideDiagram ? 80 + model.numSpans * 130 : defaultMin;
   const w = Math.max(wrap.clientWidth-20, minW || diagramMin);
   wrap.toggleAttribute?.('data-scroll-diagram', needsWideDiagram);
   if (needsWideDiagram) {
@@ -1266,8 +1266,10 @@ function drawSchematic() {
       ctx.beginPath(); ctx.moveTo(x1,dimY-4); ctx.lineTo(x1,dimY+4); ctx.moveTo(x2,dimY-4); ctx.lineTo(x2,dimY+4); ctx.stroke();
       ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='middle';
       const _lt=`${L} ${u.length}`, _lm=ctx.measureText(_lt);
-      ctx.fillStyle='#fff'; ctx.fillRect(mid-_lm.width/2-3,dimY-9,_lm.width+6,18);
-      ctx.fillStyle='#000'; ctx.fillText(_lt,mid,dimY);
+      if (model.numSpans <= 10 || _lm.width + 8 <= x2 - x1) {
+        ctx.fillStyle='#fff'; ctx.fillRect(mid-_lm.width/2-3,dimY-9,_lm.width+6,18);
+        ctx.fillStyle='#000'; ctx.fillText(_lt,mid,dimY);
+      }
       ctx.textBaseline='alphabetic';
       xOff+=L;
     }
@@ -1356,6 +1358,7 @@ function udlOffsetAt(ranges, px) {
 }
 
 function drawLoadSymbol(ctx,mL,xOff,L,sx,beamY,ld,u,lift) {
+  const fitLabels = model.numSpans > 10;
   ctx.save();
   lift = lift || 0;
   const x1=mL+xOff*sx, x2=mL+(xOff+L)*sx;
@@ -1368,8 +1371,10 @@ function drawLoadSymbol(ctx,mL,xOff,L,sx,beamY,ld,u,lift) {
     for (let k=0;k<=nA;k++) { const ax=x1+k*(x2-x1)/nA; ctx.beginPath(); ctx.moveTo(ax,beamY-ah); ctx.lineTo(ax,beamY-2); ctx.stroke(); drawAH(ctx,ax,beamY-2,'down','#dc2626'); }
     ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='bottom';
     const _wt=`w=${ld.w} ${u.dist}`, _wm=ctx.measureText(_wt), _wtx=(x1+x2)/2, _wty=beamY-ah-5;
-    ctx.fillStyle='#fff'; ctx.fillRect(_wtx-_wm.width/2-2,_wty-14,_wm.width+4,16);
-    ctx.fillStyle='#000'; ctx.fillText(_wt,_wtx,_wty);
+    if (!fitLabels || _wm.width + 8 <= x2 - x1) {
+      ctx.fillStyle='#fff'; ctx.fillRect(_wtx-_wm.width/2-2,_wty-14,_wm.width+4,16);
+      ctx.fillStyle='#000'; ctx.fillText(_wt,_wtx,_wty);
+    }
     ctx.textBaseline='alphabetic';
   } else if (ld.type==='trapezoid') {
     const mW=Math.max(Math.abs(ld.w1),Math.abs(ld.w2),1);
@@ -1380,11 +1385,13 @@ function drawLoadSymbol(ctx,mL,xOff,L,sx,beamY,ld,u,lift) {
     ctx.beginPath(); ctx.moveTo(x1,beamY-h1); ctx.lineTo(x2,beamY-h2); ctx.stroke();
     ctx.font='bold 12px Segoe UI'; ctx.textBaseline='bottom';
     const _t1=`${ld.w1} ${u.dist}`, _m1=ctx.measureText(_t1);
-    ctx.fillStyle='#fff'; ctx.fillRect(x1+1,beamY-h1-20,_m1.width+4,16);
-    ctx.fillStyle='#000'; ctx.textAlign='left'; ctx.fillText(_t1,x1+3,beamY-h1-5);
     const _t2=`${ld.w2} ${u.dist}`, _m2=ctx.measureText(_t2);
-    ctx.fillStyle='#fff'; ctx.fillRect(x2-_m2.width-5,beamY-h2-20,_m2.width+4,16);
-    ctx.fillStyle='#000'; ctx.textAlign='right'; ctx.fillText(_t2,x2-3,beamY-h2-5);
+    if (!fitLabels || _m1.width + _m2.width + 14 <= x2 - x1) {
+      ctx.fillStyle='#fff'; ctx.fillRect(x1+1,beamY-h1-20,_m1.width+4,16);
+      ctx.fillStyle='#000'; ctx.textAlign='left'; ctx.fillText(_t1,x1+3,beamY-h1-5);
+      ctx.fillStyle='#fff'; ctx.fillRect(x2-_m2.width-5,beamY-h2-20,_m2.width+4,16);
+      ctx.fillStyle='#000'; ctx.textAlign='right'; ctx.fillText(_t2,x2-3,beamY-h2-5);
+    }
     ctx.textBaseline='alphabetic';
   } else if (ld.type==='point') {
     // 若位置上方有 UDL 填色，往上抬 (lift+6) 像素，避開覆蓋
