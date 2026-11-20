@@ -65,8 +65,12 @@ assert.equal(profile.building.height, 42);
 assert.deepEqual(WindSharedProfile.toOverviewParams(profile), legacy);
 
 const storage = memoryStorage();
-WindSharedProfile.save(profile, storage);
-assert.deepEqual(WindSharedProfile.load(storage), profile);
+const savedProfile = WindSharedProfile.save(profile, storage);
+assert.match(savedProfile.source.revision, /^[a-f0-9]{24}$/);
+assert.deepEqual(savedProfile, { ...profile, source:{...profile.source, revision:savedProfile.source.revision} });
+assert.deepEqual(WindSharedProfile.load(storage), savedProfile);
+const newerProfile = WindSharedProfile.save(profile, storage);
+assert.notEqual(newerProfile.source.revision, savedProfile.source.revision);
 
 const forceMapping = Object.fromEntries(
   WindSharedProfile.resolveMapping(profile, 'wind-force').map(item => [item.target, item.value])
@@ -155,6 +159,10 @@ assert.equal(kztApplied.applied.length, 4, 'Kzt 預填筆數不得包含頁面�
 assert.equal(WindSharedProfile.buildDispatchUrl('wind-force.html'), 'wind-force.html?windProfile=latest');
 assert.equal(WindSharedProfile.buildDispatchUrl('wind-force.html?foo=1'), 'wind-force.html?foo=1&windProfile=latest');
 assert.equal(WindSharedProfile.buildDispatchUrl('wind-force.html?windProfile=old'), 'wind-force.html?windProfile=latest');
+assert.equal(
+  WindSharedProfile.buildDispatchUrl('wind-force.html?windProfile=old&windProfileRevision=old#result', savedProfile.source.revision),
+  `wind-force.html?windProfile=latest&windProfileRevision=${savedProfile.source.revision}#result`,
+);
 
 const windDir = path.join(__dirname, '風力');
 for (const toolId of WindSharedProfile.SUPPORTED_TOOL_IDS) {

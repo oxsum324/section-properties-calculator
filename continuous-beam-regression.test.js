@@ -140,6 +140,19 @@ assert(!forcePickerSource.includes("'steel-column':"), 'ForcePicker exposes no g
   const preserved = JSON.parse(storedPayload);
   assert(preserved.meta.loadBasis === 'unconfirmed', 'ForcePicker runtime keeps load-basis status', JSON.stringify(preserved.meta));
   assert(preserved.member.spanCm === 600, 'ForcePicker runtime keeps candidate span', JSON.stringify(preserved.member));
+  const envelopeReference = {
+    method:'whole-beam-envelope', toolId:'continuous-beam', toolVersion:'V1.8.1',
+    calculationEngine:'continuous-beam.inline.v1.5.1', projectNo:'DEMO',
+    modelFingerprint:'a'.repeat(64), unitSystem:'tf-m',
+    values:{positiveMoment:10.0003,negativeMoment:-12,absoluteShear:5,maxSpan:6},
+  };
+  const incoming = { target:'beam', meta:{sourceReference:envelopeReference}, forces:{M:10,MNeg:12,V:5} };
+  const linked = forcePickerContext.window.ForcePicker.stash(incoming);
+  assert(linked.meta.sourceReference?.modelFingerprint === envelopeReference.modelFingerprint
+    && linked.meta.sourceReference?.values.positiveMoment === 10.0003,
+    'ForcePicker keeps agreeing raw envelope values and source reference', JSON.stringify(linked.meta));
+  const conflicting = forcePickerContext.window.ForcePicker.stash({...incoming,forces:{M:11,MNeg:12,V:5}});
+  assert(!conflicting.meta.sourceReference, 'ForcePicker excludes mismatched envelope reference', JSON.stringify(conflicting.meta));
 }
 
 function bootForceReceiver({ mode = 'candidate', payload }) {

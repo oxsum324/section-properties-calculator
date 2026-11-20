@@ -1953,7 +1953,7 @@ function runAnalysis() {
 // 路由表：連續梁結果只可送往梁設計；柱設計需要獨立的軸力與構架背景。
 const DESIGN_ROUTES = {
   concrete: {
-    beam: { url: '鋼筋混凝土/tools/beam.html?import=1', label: '→ RC 梁設計', color: '#0f766e', target: 'beam' },
+    beam: { url: '鋼筋混凝土/tools/beam.html?import=1', label: '全梁包絡 → RC 梁設計', color: '#0f766e', target: 'beam' },
   },
   steel: {
     beam: { url: '鋼構工具/steel-beam-formal.html?import=1', label: '全梁包絡 → 鋼梁正式檢核', color: '#2563eb', target: 'steel-beam' },
@@ -2051,6 +2051,7 @@ function _envelopeForDesign() {
     M:    +Math.max(Mpos, Mneg).toFixed(3),
     V:    +V.toFixed(3),
     Lcm:  Math.round(Lcm),
+    raw: { positiveMoment:MposMax, negativeMoment:-MnegMax, absoluteShear:VabsMax, maxSpan:LmaxSpan },
   };
 }
 
@@ -2091,6 +2092,13 @@ function dispatchDesign(target) {
     caseName: '全梁包絡（正負彎矩、剪力及最大跨長分別取值）',
     factored: false,
     loadBasis: 'unconfirmed',
+    sourceReference: {
+      method:'whole-beam-envelope', toolId:'continuous-beam',
+      toolVersion:CONTINUOUS_BEAM_PUBLIC_VERSION, calculationEngine:CONTINUOUS_BEAM_CALCULATION_ENGINE,
+      projectNo:getProjectFieldValue('projNo'),
+      modelFingerprint:StructReportUtils.sha256Text(diagrams.sourceModelJson),
+      unitSystem:diagrams.sourceUnits, values:env.raw,
+    },
   };
   ForcePicker.sendTo(target, {
     meta: transferMeta,

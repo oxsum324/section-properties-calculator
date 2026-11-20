@@ -676,6 +676,9 @@
         <p class="force-candidate-summary" id="beamForceCandidateSummary"></p>
         <div class="force-candidate-list" id="beamForceCandidateList"></div>
         <label class="force-candidate-confirm"><input type="checkbox" id="beamForceCandidateConfirm">我已確認載重組合、正負號、單位，以及這些資料可作為本梁的係數化設計外力。</label>
+        <label id="beamEnvelopeBasisGroup" hidden>全梁包絡之工程採用依據
+          <input id="beamEnvelopeBasis" type="text" maxlength="160" placeholder="因數化載重表、模型組合或圖號">
+        </label>
         <div class="force-candidate-actions">
           <button class="btn-secondary" type="button" id="beamForceCandidateApply" disabled>套用至正式輸入</button>
           <button class="btn-secondary" type="button" id="beamForceCandidateDiscard">捨棄候選值</button>
@@ -1099,7 +1102,7 @@
 
   const BEAM_PROJECT_SCHEMA = 'rc-beam-project-v1';
   const BEAM_PROJECT_STORAGE_KEY = 'rc.beam.project.draft';
-  const BEAM_PROJECT_EXCLUDED_IDS = new Set(['beamProjectFile']);
+  const BEAM_PROJECT_EXCLUDED_IDS = new Set(['beamProjectFile', 'beamEnvelopeBasis']);
   const beamProjectStorage = window.RCProjectStorage.createManager({
     documentRef: document,
     storageKey: BEAM_PROJECT_STORAGE_KEY,
@@ -3369,7 +3372,19 @@ ${layerBars.map(L => {
     if (!card || !summary || !list || !confirm || !apply || !discard) return;
 
     const meta = payload.meta || {};
-    summary.textContent = `來源：${meta.source || '—'}｜工況：${meta.caseName || '—'}｜資料基準：${describeForceImportBasis(meta)}`;
+    const reference = meta.sourceReference;
+    const basisField = $('beamEnvelopeBasis');
+    $('beamEnvelopeBasisGroup').hidden = !reference;
+    $('beamEnvelopeBasisGroup').style.display = reference ? '' : 'none';
+    basisField.value = '';
+    function refresh() {
+      const targetProject = $('projNo').value.trim();
+      const mismatch = reference?.projectNo && targetProject && reference.projectNo !== targetProject;
+      summary.textContent = `來源：${meta.source || '—'}｜工況：${meta.caseName || '—'}｜資料基準：${describeForceImportBasis(meta)}`
+        + (reference ? `｜全梁獨立極值｜案號：${reference.projectNo || '待補'}｜${reference.toolVersion}｜來源指紋 ${reference.modelFingerprint}` : '')
+        + (mismatch ? '｜來源與本頁案號不同，請先核對。' : '');
+      apply.disabled = !confirm.checked || !!mismatch || (!!reference && (!basisField.value.trim() || meta.loadBasis === 'unfactored'));
+    }
     list.replaceChildren();
     candidates.forEach(field => {
       const item = document.createElement('div');
@@ -3384,18 +3399,22 @@ ${layerBars.map(L => {
       list.appendChild(item);
     });
     confirm.checked = false;
-    apply.disabled = true;
-    confirm.onchange = () => { apply.disabled = !confirm.checked; };
+    confirm.onchange = basisField.oninput = refresh;
+    $('projNo').removeEventListener('input', $('projNo').beamEnvelopeRefresh);
+    $('projNo').addEventListener('input', refresh);
+    $('projNo').beamEnvelopeRefresh = refresh;
+    refresh();
     discard.onclick = () => {
       window.ForcePickerReceive?.discardPending();
       card.style.display = 'none';
     };
     apply.onclick = () => {
-      if (!confirm.checked) return;
+      refresh();
+      if (apply.disabled) return;
       const result = window.ForcePickerReceive?.applyPending({ forceKeys: candidates.map(field => field.key) });
       if (!result?.payload) return;
       adoptedBeamForceImport = {
-        meta: { ...(result.payload.meta || {}) },
+        meta: { ...(result.payload.meta || {}), ...(reference ? {adoptionNote:basisField.value.trim()} : {}) },
         fields: candidates.map(field => ({ ...field })),
         adoptionBasis: 'factored',
         adoptedAt: new Date().toISOString()
@@ -3450,6 +3469,7 @@ ${layerBars.map(L => {
     const current = { M: r.MuPos_in, MNeg: r.MuNeg_in, V: r.Vu_in, P: r.Pu_in, T: r.Tu_in };
     const adjusted = adoptedBeamForceImport.fields.some(field => Math.abs(field.value - Number(current[field.key])) > 1e-9);
     const meta = adoptedBeamForceImport.meta || {};
+    const reference = meta.sourceReference?.values ? meta.sourceReference : null;
     const adoptedAt = new Date(adoptedBeamForceImport.adoptedAt).toLocaleString('zh-TW');
     const combination = meta.combination || {};
     const tuplePreserved = combination.validationStatus === 'verified' &&
@@ -3473,6 +3493,11 @@ ${layerBars.map(L => {
         { label: '來源', value: meta.source || '—' },
         { label: '工況', value: meta.caseName || '—' },
         { label: '上游資料基準', value: describeForceImportBasis(meta) },
+        ...(reference ? [
+          { label:'全梁包絡來源', value:`${reference.projectNo || '案號待補'}｜${reference.toolVersion}｜${reference.calculationEngine}｜${reference.modelFingerprint}` },
+          { label:'原始包絡與單位', value:`${reference.unitSystem}｜M+ ${reference.values.positiveMoment}；M− ${reference.values.negativeMoment}；|V| ${reference.values.absoluteShear}；Lmax ${reference.values.maxSpan}` },
+          { label:'因數化及工程採用依據', value:meta.adoptionNote || '依據待補' },
+        ] : []),
         { label: '來源驗證狀態', value: tuplePreserved ? '已驗證來源（同一載重組合）' : '未驗證來源' },
         ...(tuplePreserved ? [
           { label: '設計方法', value: combination.method || '—' },

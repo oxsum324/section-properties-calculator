@@ -225,11 +225,37 @@
     return global.LoadCombo.normalizeComponentPackage(value);
   }
 
+  function normalizeSourceReference(reference, forces) {
+    if (reference?.method !== 'whole-beam-envelope' || reference.toolId !== 'continuous-beam'
+        || !/^[a-f0-9]{64}$/i.test(reference.modelFingerprint || '')) return null;
+    if (![reference.toolVersion, reference.calculationEngine, reference.projectNo].every(value =>
+      typeof value === 'string' && value.length <= 120 && value.trim() === value)) return null;
+    if (!reference.toolVersion || !reference.calculationEngine || !['tf-m','kN-m','kgf-cm'].includes(reference.unitSystem)) return null;
+    const envelope = reference.values;
+    if (![envelope?.positiveMoment, envelope?.negativeMoment, envelope?.absoluteShear, envelope?.maxSpan].every(Number.isFinite)
+        || envelope.positiveMoment < 0 || envelope.negativeMoment > 0 || envelope.absoluteShear < 0 || envelope.maxSpan <= 0) return null;
+    const divisor = { 'tf-m':[1,1], 'kN-m':[9.80665,9.80665], 'kgf-cm':[1e5,1000] }[reference.unitSystem];
+    const base = [
+      ['M', envelope.positiveMoment, divisor[0]],
+      ['MNeg', -envelope.negativeMoment, divisor[0]],
+      ['V', envelope.absoluteShear, divisor[1]],
+    ];
+    if (base.some(([key,value,scale]) => forces[key] !== +(value / scale).toFixed(3))) return null;
+    return {
+      method:reference.method, toolId:reference.toolId, toolVersion:reference.toolVersion,
+      calculationEngine:reference.calculationEngine, projectNo:reference.projectNo,
+      modelFingerprint:reference.modelFingerprint, unitSystem:reference.unitSystem,
+      values:{positiveMoment:envelope.positiveMoment, negativeMoment:envelope.negativeMoment,
+        absoluteShear:envelope.absoluteShear, maxSpan:envelope.maxSpan},
+    };
+  }
+
   /**
    * 暫存內力到 localStorage
    */
   function stashInternal(payload, validationForces) {
     const rawForces = normalizeNumericMap(validationForces) || {};
+    const sourceReference = normalizeSourceReference(payload.meta?.sourceReference, rawForces);
     const safe = {
       meta: {
         source:    payload.meta?.source    || '未指定',
@@ -237,6 +263,7 @@
         factored:  !!payload.meta?.factored,
         loadBasis: payload.meta?.loadBasis || (payload.meta?.factored ? 'factored' : 'unconfirmed'),
         combination: validateCombination(payload.meta?.combination, rawForces),
+        ...(sourceReference ? { sourceReference } : {}),
         timestamp: new Date().toISOString(),
       },
       forces: normalizeNumericMap(payload.forces) || {},

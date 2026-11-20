@@ -11,6 +11,7 @@
   const STORAGE_KEY = 'windSharedProfile:latest.v1';
   const QUERY_KEY = 'windProfile';
   const QUERY_VALUE = 'latest';
+  const REVISION_QUERY_KEY = 'windProfileRevision';
 
   const COMMON_MAPPING = Object.freeze([
     { path: 'project.name', target: 'projName', label: '計畫名稱' },
@@ -86,6 +87,7 @@
   function buildProfile(params) {
     const source = params || {};
     const savedAt = normalizeText(source.savedAt) || new Date().toISOString();
+    const revision = /^[a-f0-9]{24}$/.test(source.revision || '') ? source.revision : '';
     return {
       schema: SCHEMA,
       profileVersion: PROFILE_VERSION,
@@ -93,6 +95,7 @@
         toolId: 'wind-overview',
         toolVersion: normalizeText(source.toolVersion) || 'V1',
         savedAt,
+        ...(revision ? { revision } : {}),
       },
       project: {
         name: normalizeText(source.projName ?? source.project?.name),
@@ -120,6 +123,7 @@
     return buildProfile(payload.schema === SCHEMA ? {
       savedAt: payload.source?.savedAt,
       toolVersion: payload.source?.toolVersion,
+      revision: payload.source?.revision,
       project: payload.project,
       site: payload.site,
       building: payload.building,
@@ -148,6 +152,8 @@
     const profile = normalizeProfile(payload);
     const target = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
     if (!target) throw new Error('瀏覽器儲存空間不可用。');
+    const bytes = globalThis.crypto?.getRandomValues(new Uint8Array(12));
+    if (bytes) profile.source.revision = [...bytes].map(byte => byte.toString(16).padStart(2,'0')).join('');
     target.setItem(STORAGE_KEY, JSON.stringify(profile));
     return profile;
   }
@@ -277,12 +283,22 @@
         announce(rootWindow, '尚未找到耐風案件總覽的共用資料，畫面維持原值。', 'warn');
         return null;
       }
+      const expectedRevision = new URLSearchParams(rootWindow.location.search).get(REVISION_QUERY_KEY);
+      if (expectedRevision && expectedRevision !== profile.source.revision) {
+        announce(rootWindow, '此連結的耐風案件已換版。請從案件總覽重新開啟，畫面維持原值。', 'warn');
+        return null;
+      }
+      const receivingProject = normalizeText(rootWindow.document.getElementById('projNo')?.value);
+      if (receivingProject && profile.project.no && receivingProject !== profile.project.no) {
+        announce(rootWindow, '共用資料案號與本頁不同。請先核對案件，畫面維持原值。', 'warn');
+        return null;
+      }
       const result = applyToDocument(rootWindow.document, profile, toolId);
       rootWindow.__windSharedProfileApply = result;
       rootWindow.document.documentElement.dataset.windProfileApplied = 'true';
       const labels = result.applied.map(item => item.label).join('、');
       const suffix = labels ? `：${labels}` : '';
-      announce(rootWindow, `已從耐風案件總覽自動預填 ${result.applied.length} 項${suffix}。請確認本工具專用幾何與規範路線。`, result.applied.length ? 'ok' : 'warn');
+      announce(rootWindow, `已從耐風案件總覽 ${profile.source.toolVersion} 自動預填 ${result.applied.length} 項${suffix}。請確認本工具專用幾何與規範路線。`, result.applied.length ? 'ok' : 'warn');
       return result;
     } catch (error) {
       rootWindow.__windSharedProfileApply = { toolId, error: String(error?.message || error) };
@@ -291,15 +307,18 @@
     }
   }
 
-  function buildDispatchUrl(href) {
+  function buildDispatchUrl(href, revision = '') {
     const text = String(href || '');
     const hashIndex = text.indexOf('#');
     const hash = hashIndex >= 0 ? text.slice(hashIndex) : '';
     const base = hashIndex >= 0 ? text.slice(0, hashIndex) : text;
-    const cleaned = base
-      .replace(new RegExp(`([?&])${QUERY_KEY}=[^&#]*&?`, 'g'), '$1')
-      .replace(/[?&]$/, '');
-    return `${cleaned}${cleaned.includes('?') ? '&' : '?'}${QUERY_KEY}=${QUERY_VALUE}${hash}`;
+    const queryIndex = base.indexOf('?');
+    const page = queryIndex < 0 ? base : base.slice(0,queryIndex);
+    const query = new URLSearchParams(queryIndex < 0 ? '' : base.slice(queryIndex+1));
+    query.set(QUERY_KEY, QUERY_VALUE);
+    if (/^[a-f0-9]{24}$/.test(revision)) query.set(REVISION_QUERY_KEY, revision);
+    else query.delete(REVISION_QUERY_KEY);
+    return `${page}?${query}${hash}`;
   }
 
   function toolIdFromHref(href) {
@@ -313,7 +332,7 @@
     Array.from(doc?.querySelectorAll?.('a.tool-link[href]') || []).forEach(link => {
       const toolId = toolIdFromHref(link.getAttribute('href'));
       if (!SUPPORTED_TOOL_IDS.includes(toolId)) return;
-      link.setAttribute('href', buildDispatchUrl(link.getAttribute('href')));
+      link.setAttribute('href', buildDispatchUrl(link.getAttribute('href'), profile.source.revision));
       link.dataset.windProfileDispatch = 'true';
       let note = link.querySelector('[data-wind-profile-dispatch-note]');
       if (!note) {
