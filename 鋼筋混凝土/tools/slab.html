@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>板設計 — RC 工具箱 V3.4</title>
+<title>板設計 — RC 工具箱 V3.5</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
@@ -57,7 +57,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>板 Slab 設計／檢核 <span data-ui="version">V3.4</span></h1>
+  <h1>板 Slab 設計／檢核 <span data-ui="version">V3.5</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 單向板 + 簡化二向板初步設計、自動配筋</p>
 </header>
 
@@ -387,6 +387,27 @@
             <div class="form-group"><label for="punchMscY">繞 Y 軸 Msc,y (tf·m)</label><input type="number" id="punchMscY" step="any"></div>
           </div>
           <p class="hint">Vu 填同組合經臨界斷面的淨剪力，並依分析扣除周界內的載重效應。彎矩以斷面中心為準，+Mx 增加 +Y 側，+My 增加 −X 側的剪應力。c1 對應 X、c2 對應 Y。無彎矩請填 0。</p>
+          <details id="punchTransferInputs">
+            <summary>有效板寬撓曲傳遞</summary>
+            <p class="hint">輸入柱面至四方板緣的距離。依同一組合及實際受拉面，填有效板寬內已核對伸展的設計強度 φMn。繞 X 軸採沿 Y 受拉筋，繞 Y 軸採沿 X 受拉筋。</p>
+            <div class="form-row">
+              <div class="form-group"><label for="punchEdgeXM">−X 柱面至板緣 (cm)</label><input id="punchEdgeXM" type="number" min="0" step="any"></div>
+              <div class="form-group"><label for="punchEdgeXP">+X 柱面至板緣 (cm)</label><input id="punchEdgeXP" type="number" min="0" step="any"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label for="punchEdgeYM">−Y 柱面至板緣 (cm)</label><input id="punchEdgeYM" type="number" min="0" step="any"></div>
+              <div class="form-group"><label for="punchEdgeYP">+Y 柱面至板緣 (cm)</label><input id="punchEdgeYP" type="number" min="0" step="any"></div>
+            </div>
+            <div class="form-group"><label for="punchTransferSource">有效寬度內配筋、伸展與設計強度依據</label><input id="punchTransferSource" type="text" maxlength="160"></div>
+            <div class="form-row">
+              <div class="form-group"><label for="punchFaceX">繞 X 軸實際受拉面</label><select id="punchFaceX"><option value="">請選擇</option><option value="top">頂面</option><option value="bottom">底面</option></select></div>
+              <div class="form-group"><label for="punchTransferX">繞 X 軸可用 φMn (tf·m)</label><input id="punchTransferX" type="number" min="0" step="any"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label for="punchFaceY">繞 Y 軸實際受拉面</label><select id="punchFaceY"><option value="">請選擇</option><option value="top">頂面</option><option value="bottom">底面</option></select></div>
+              <div class="form-group"><label for="punchTransferY">繞 Y 軸可用 φMn (tf·m)</label><input id="punchTransferY" type="number" min="0" step="any"></div>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -473,6 +494,7 @@
           <div class="result-item" id="c-puSp"><span class="label">衝剪筋徑向間距 ≤ 上限</span><span class="value">—</span></div>
         </div>
         <p class="hint" id="punchSectionResult" role="status" hidden></p>
+        <p class="hint" id="punchTransferResult" role="status" hidden></p>
       </div>
 
       <!-- 5b. 剪力鋼筋補強 (Vs，選用) -->
@@ -616,7 +638,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/slab-evaluator.js?v=3"></script>
+<script src="../shared/slab-evaluator.js?v=4"></script>
 <script src="../../結構工具箱/core/ui/report-utils.js"></script>
 <script src="../shared/report-utils.js"></script>
 <script src="../../結構工具箱/core/ui/report-docx.js"></script>
@@ -630,9 +652,11 @@
   const num = id => parseFloat($(id)?.value) || 0;
   let currentMode = 'design', loadMode = 'simple';
   const SLAB_PROJECT_SCHEMA = 'rc-slab-project-v1';
-  const SLAB_VERSION = 'V3.4';
-  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2', 'V3.3']);
+  const SLAB_VERSION = 'V3.5';
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2', 'V3.3', 'V3.4']);
   const PUNCH_SECTION_FIELDS = ['punchSectionConfirmed', 'punchLoadSource', 'punchNetVu', 'punchMscX', 'punchMscY'];
+  const PUNCH_TRANSFER_FIELDS = ['punchEdgeXM', 'punchEdgeXP', 'punchEdgeYM', 'punchEdgeYP', 'punchTransferSource',
+    'punchFaceX', 'punchTransferX', 'punchFaceY', 'punchTransferY'];
   const SLAB_PROJECT_STORAGE_KEY = 'rc.slab.project.draft';
   const SLAB_PROJECT_EXCLUDED_IDS = new Set(['slabProjectFile', 'caseJson', 'compareCaseJson', 'baselineReport']);
 
@@ -759,6 +783,7 @@
     if ($('slabType').value !== 'two' || !$('slabEdgeType').value) delete fields.slabEdgeType;
     if (fields.slabEdgeType?.value !== 'discontinuous' || !$('slabEdgeAlpha').value) delete fields.slabEdgeAlpha;
     if (!window.slabLast?.punchData?.usesSectionLoads) PUNCH_SECTION_FIELDS.forEach(id => delete fields[id]);
+    if (!window.slabLast?.punchData?.transferEvidence) PUNCH_TRANSFER_FIELDS.forEach(id => delete fields[id]);
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
       schema: SLAB_PROJECT_SCHEMA,
@@ -817,6 +842,8 @@
   function clearPunchSectionInputs() {
     $('punchSectionConfirmed').checked = false;
     PUNCH_SECTION_FIELDS.slice(1).forEach(id => { $(id).value = ''; });
+    PUNCH_TRANSFER_FIELDS.forEach(id => { $(id).value = ''; });
+    $('punchTransferInputs').open = false;
   }
   function applySlabProjectData(raw, options = {}) {
     const payload = normalizeSlabProjectPayload(raw);
@@ -832,6 +859,7 @@
     if (payload.loadMode) setLoadMode(payload.loadMode);
     updateSelfWt();
     updatePunchModeHint();
+    $('punchTransferInputs').open = PUNCH_TRANSFER_FIELDS.some(id => $(id).value.trim());
     syncVsInputs();
     syncDesignFields();
     syncDetailHelp();
@@ -1030,7 +1058,8 @@
         barNoXTop: $('barNoXTop').value, barNoYTop: $('barNoYTop').value,
         c1: num('c1'), c2: num('c2'), colPos: $('colPos').value, punchMode: $('punchMode').value,
         ...(snap.punchData?.usesSectionLoads ? Object.fromEntries(PUNCH_SECTION_FIELDS.map(id => [id,
-          id === 'punchSectionConfirmed' ? $(id).checked : $(id).value])) : {})
+          id === 'punchSectionConfirmed' ? $(id).checked : $(id).value])) : {}),
+        ...(snap.punchData?.transferEvidence ? Object.fromEntries(PUNCH_TRANSFER_FIELDS.map(id => [id, $(id).value])) : {})
       },
       snapshot: {
         stype: snap.stype || $('slabType').value,
@@ -1045,6 +1074,7 @@
         punchPhiVc: snap.punchData?.phiVc2 ?? null,
         punchAmp: snap.punchData?.punchAmp ?? 1,
         ...(snap.punchData?.usesSectionLoads ? { punchStressRatio: snap.punchData.sectionCheck?.ratio ?? null } : {}),
+        ...(snap.punchData?.transferEvidence ? { punchTransfer: slabPunchingSnapshot(snap.punchData) } : {}),
         methodLabel: snap.methodLabel || '',
         allOk: snap.allOk ?? null
       }
@@ -1075,6 +1105,7 @@
       if (data.mode) setLoadMode(data.mode);
       updateSelfWt();
       updatePunchModeHint();
+      $('punchTransferInputs').open = PUNCH_TRANSFER_FIELDS.some(id => $(id).value);
       $('testCaseSelect').value = '';
       $('testCaseHint').textContent = `已匯入 JSON 案例：${data.label || '自訂案例'}。`;
       scheduleCalc();
@@ -1108,7 +1139,12 @@
         ['支承 Y', 'supportY'],
         ['載重模式', null],
         ['衝剪模式', 'punchMode'], ['分析來源與組合', 'punchLoadSource'], ['淨 Vu', 'punchNetVu'],
-        ['Msc,x', 'punchMscX'], ['Msc,y', 'punchMscY'], ['內柱適用條件已核對', 'punchSectionConfirmed']
+        ['Msc,x', 'punchMscX'], ['Msc,y', 'punchMscY'], ['內柱適用條件已核對', 'punchSectionConfirmed'],
+        ['柱面至板緣 X−', 'punchEdgeXM'], ['柱面至板緣 X+', 'punchEdgeXP'],
+        ['柱面至板緣 Y−', 'punchEdgeYM'], ['柱面至板緣 Y+', 'punchEdgeYP'],
+        ['強度、配置與錨定來源', 'punchTransferSource'],
+        ['X 軸受拉面', 'punchFaceX'], ['X 軸 φMn', 'punchTransferX'],
+        ['Y 軸受拉面', 'punchFaceY'], ['Y 軸 φMn', 'punchTransferY']
       ];
       lines.push('輸入差異:');
       inputKeys.forEach(([label, key]) => {
@@ -1386,10 +1422,48 @@
           : '';
     return { source, netShearTf, mxTfm, myTfm, reason };
   }
+  function readSlabTransferEvidence(c1, c2, h, d) {
+    if (!PUNCH_TRANSFER_FIELDS.some(id => $(id).value.trim() || $(id).validity.badInput)) return null;
+    const distances = {
+      xMinus:$('punchEdgeXM').valueAsNumber, xPlus:$('punchEdgeXP').valueAsNumber,
+      yMinus:$('punchEdgeYM').valueAsNumber, yPlus:$('punchEdgeYP').valueAsNumber,
+    };
+    return {
+      hasEdgeInputs:['punchEdgeXM', 'punchEdgeXP', 'punchEdgeYM', 'punchEdgeYP'].some(id => $(id).value || $(id).validity.badInput),
+      distances,
+      geometry:SlabEvaluator.slabTransferGeometry({ c1, c2, h, d, ...distances }),
+      source:$('punchTransferSource').value.trim(),
+      x:{ face:$('punchFaceX').value, available:$('punchTransferX').valueAsNumber },
+      y:{ face:$('punchFaceY').value, available:$('punchTransferY').valueAsNumber },
+    };
+  }
+  function slabTransferPerimeterNote(geometry) {
+    return `四邊候選 ${geometry.closed.toFixed(2)} cm，${geometry.shortest.type}候選 ${geometry.shortest.bo.toFixed(2)} cm。請依板緣重核周界與彎矩分配。`;
+  }
+  function slabTransferGeometryText(evidence) {
+    const { geometry, distances: { xMinus, xPlus, yMinus, yPlus } } = evidence;
+    if (!geometry) return '請補齊四個非負柱面至板緣距離（cm）。';
+    return `柱面至板緣 X−/X+ ${xMinus}/${xPlus} cm，Y−/Y+ ${yMinus}/${yPlus} cm；有效板寬 X ${geometry.widthX.toFixed(2)} cm、Y ${geometry.widthY.toFixed(2)} cm。`;
+  }
+  function slabTransferAxisText(axis, result) {
+    if (result.demand === 0) return `${axis} 軸無彎矩傳遞需求。`;
+    const face = ({ top:'頂面', bottom:'底面' })[result.face] || '待填';
+    const capacity = result.capacity === null ? '待填' : `${result.capacity.toFixed(3)} tf·m`;
+    const status = result.ok === true ? '通過' : result.ok === false ? '不足' : '待補';
+    return `${axis} 軸 γf Msc = ${result.moment.toFixed(3)} tf·m，需求 ${result.demand.toFixed(3)} tf·m，受拉面 ${face}，φMn ${capacity}（${status}）。`;
+  }
+  function slabTransferResultText(evidence, check) {
+    const lines = [slabTransferGeometryText(evidence)];
+    if (check) lines.push(slabTransferAxisText('X', check.x), slabTransferAxisText('Y', check.y));
+    else lines.push('撓曲傳遞待確認，請先完成適用的臨界斷面及同組合內力核對。');
+    lines.push(evidence.source ? `強度、配置與錨定來源：${evidence.source}` : '請補強度、配置與錨定來源。');
+    return lines;
+  }
   function slabPunchingSnapshot(punch) {
     const { sectionCheck } = punch;
     return { mode: punch.punchMode, dCm: punch.dPunch, boCm: punch.bo,
-      vuTf: punch.VuPunch, phiVcTf: punch.phiVc2, ratio: sectionCheck?.ratio ?? null, ok: punch.ok };
+      vuTf: punch.VuPunch, phiVcTf: punch.phiVc2, ratio: sectionCheck?.ratio ?? null, ok: punch.ok,
+      ...(punch.transferEvidence ? { transfer: punch.transferCheck, transferGeometry: punch.transferEvidence.geometry } : {}) };
   }
   // === 單向板剪力鋼筋 Vs (規範 22.5) — 選用 ===
   // 板條帶 b=100cm；Av = (b/st)·nLeg·Ab (一向間距 s 內、橫向間距 st、每組 nLeg 肢)
@@ -1561,6 +1635,8 @@
   // ─── 主計算 ────────────────────────────────────
   function calcSlab() {
     markAllResultsPending();
+    $('punchSectionResult').hidden = true;
+    $('punchTransferResult').hidden = true;
     updateSelfWt();
 
     // — A. 幾何
@@ -2070,7 +2146,6 @@
 
     // 衝剪 (僅 flat)
     let punchData = null;
-    $('punchSectionResult').hidden = true;
     if (isFlat) {
       const c1 = num('c1'), c2 = num('c2');
       const punchMode = $('punchMode').value;
@@ -2092,11 +2167,20 @@
         ? ({ interior:1.15, edge:1.30, corner:1.50 })[colPos] || 1.15
         : 1.0;
       const sectionLoads = usesSectionLoads ? readPunchSectionLoads({ stype, colPos, puOn }) : null;
-      const sectionCheck = sectionLoads && !sectionLoads.reason ? SlabEvaluator.interiorPunchingStress({
+      const transferEvidence = usesSectionLoads ? readSlabTransferEvidence(c1, c2, h, dPunch) : null;
+      const transferGeometry = transferEvidence?.geometry;
+      const perimeterReason = transferGeometry && !transferGeometry.interior
+        ? slabTransferPerimeterNote(transferGeometry)
+        : transferEvidence?.hasEdgeInputs && !transferGeometry ? '請核對四個柱面至板緣距離，再判定是否適用四側臨界斷面。' : '';
+      const sectionCheck = sectionLoads && !sectionLoads.reason && !perimeterReason ? SlabEvaluator.interiorPunchingStress({
         c1, c2, d: dPunch, phiVc: PHI.shear * vc, ...sectionLoads
       }) : null;
       const sectionReason = sectionLoads && !sectionCheck
-        ? sectionLoads.reason || '柱斷面、有效深度、材料、或內力超出可計算範圍。' : '';
+        ? sectionLoads.reason || perimeterReason || '柱斷面、有效深度、材料、或內力超出可計算範圍。' : '';
+      const transferCheck = transferEvidence ? SlabEvaluator.slabFlexuralTransfer({ stress:sectionCheck, ...transferEvidence }) : null;
+      const transferWarning = !transferEvidence
+        ? '內柱四角應力為局部衝剪檢核；γf Msc 的有效板寬撓曲強度須另行核對（8.5.1.1(b)）。'
+        : transferCheck?.ok === null ? '有效板寬撓曲傳遞待補，請核對四個板緣距離、各控制方向的受拉面、設計撓曲強度及來源。' : '';
       const VuPunch = usesSectionLoads ? (sectionCheck ? sectionLoads.netShearTf : null) : VuPunchBase * punchAmp;
       // 衝剪鋼筋 Vs (規範 22.6，選用；停用時 phiVnPunch=phiVc2 與既有行為相同)
       let punchVs = null, phiVnPunch = phiVc2;
@@ -2115,8 +2199,13 @@
       if (sectionLoads) {
         $('punchSectionResult').hidden = false;
         $('punchSectionResult').textContent = sectionCheck
-          ? `控制：${sectionCheck.governingCorners.map(corner => corner.label).join('；')}。需求／容量：${(sectionCheck.ratio * 100).toFixed(2)}%。γf Msc 的有效板寬撓曲強度須另行核對。`
+          ? `控制：${sectionCheck.governingCorners.map(corner => corner.label).join('；')}。需求／容量：${(sectionCheck.ratio * 100).toFixed(2)}%。`
+            + (transferEvidence ? '' : 'γf Msc 的有效板寬撓曲強度須另行核對。')
           : sectionReason;
+      }
+      if (transferEvidence) {
+        $('punchTransferResult').hidden = false;
+        $('punchTransferResult').textContent = slabTransferResultText(transferEvidence, transferCheck).join(' ');
       }
       if (punchVs) {
         setResult('r-vsPunch', punchVs.vs, 'kgf/cm²', 2);
@@ -2127,9 +2216,9 @@
       $('punchCard').style.display = '';
       punchData = {
         c1, c2, bo, punchArea, punchGeometry, vc, phiVc2, phiVnPunch, punchVs, puOn, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
-        lambdaS: punchVc.lambdaS, rootFc: punchVc.rootFc, dPunch, usesSectionLoads, sectionLoads, sectionCheck, sectionReason,
+        lambdaS: punchVc.lambdaS, rootFc: punchVc.rootFc, dPunch, usesSectionLoads, sectionLoads, sectionCheck, sectionReason, transferEvidence, transferCheck,
         warning: usesSectionLoads
-          ? (sectionReason || '內柱四角應力為局部衝剪檢核；γf Msc 的有效板寬撓曲強度須另行核對（8.5.1.1(b)）。')
+          ? (sectionReason || transferWarning)
           : punchMode === 'conservative'
           ? `Vu 先以 tributary-area 初估，再依柱位保守放大 ${punchAmp.toFixed(2)} 倍；仍未納入 unbalanced moment transfer，僅供偏安全初估。`
           : 'Vu 目前採 tributary-area 初估，未納入 unbalanced moment transfer；邊柱、角柱、偏心受力與不規則格局不可直接視為正式衝剪檢核。',
@@ -2229,7 +2318,8 @@
     const allFlexOk = flexRows.length === 0 || flexRows.every(r => r.ok);
     const shearOk = (shearX.phiVn >= VuX) && (isOneWay || shearY.phiVn >= VuY);
     const punchOk = punchData ? punchData.ok : true;
-    const numericalOk = (h >= hmin) && allFlexOk && shearOk && punchOk && clearOk;
+    const transferFailed = punchData?.transferCheck?.ok === false;
+    const numericalOk = (h >= hmin) && allFlexOk && shearOk && punchOk && !transferFailed && clearOk;
     const reviewWarnings = [];
     if (!shearOk) {
       reviewWarnings.push(swOn
@@ -2245,7 +2335,7 @@
       reviewWarnings.push('無梁板主體採簡化二向條帶初估，尚未執行完整 8.10 DDM / EFM 分析，不可列為正式 OK 結論。');
     }
     if (punchData) {
-      reviewWarnings.push(punchData.usesSectionLoads ? punchData.warning
+      if (punchData.warning) reviewWarnings.push(punchData.usesSectionLoads ? punchData.warning
         : '柱衝剪 Vu 採 tributary-area 初估或保守放大，尚未納入 unbalanced moment transfer 與偏心剪力正式分布。');
       if (punchData.punchVs) {
         reviewWarnings.push('已計入衝剪鋼筋 Vs（規範 22.6）：混凝土項已折減、vn 上限已套用；配置須延伸至 vu ≤ φ·0.53λs√fc′ 之外圍臨界面，首排距柱面 ≤ d/2、徑向間距 ≤（閉合箍 0.5d／剪力釘 0.75d），並確認端部錨定。');
@@ -2259,6 +2349,7 @@
     if (!allFlexOk) attachmentFailures.push('撓曲鋼筋不足');
     if (!shearOk) attachmentFailures.push(isOneWay ? '單向剪力不足' : '剪力初估不足');
     if (punchOk === false) attachmentFailures.push('雙向衝剪不足');
+    if (transferFailed) attachmentFailures.push('有效板寬撓曲傳遞強度不足');
     if (!clearOk) attachmentFailures.push('鋼筋淨距不足');
     const attachmentReviewItems = [...reviewWarnings];
     const hasReviewWarnings = reviewWarnings.length > 0;
@@ -2322,7 +2413,13 @@
   // ─── 計算書 ────────────────────────────────────
   function punchSectionReportItems(punch) {
     const check = punch.sectionCheck;
-    if (!check) return [{ label:'內柱偏心剪應力', sub:punch.sectionReason, value:'待確認', ok:null }];
+    const transfer = punch.transferEvidence ? [{
+      label:'有效板寬撓曲傳遞', formula:'beff = c + Σ min(1.5h, 板緣距離)；φMn ≥ |γf Msc|（8.4.2.2.3、8.5.1.1(b)）',
+      sub:slabTransferResultText(punch.transferEvidence, punch.transferCheck).join('\n'),
+      value:punch.transferCheck?.ok === true ? '通過' : punch.transferCheck?.ok === false ? '不足' : '待確認',
+      ok:punch.transferCheck?.ok ?? null,
+    }] : [];
+    if (!check) return [{ label:'內柱偏心剪應力', sub:punch.sectionReason, value:'待確認', ok:null }, ...transfer];
     const { source, netShearTf, mxTfm, myTfm } = punch.sectionLoads;
     return [
       { label:'同組合分析內力', formula:'vuv = Vu/(bo·d)',
@@ -2335,9 +2432,9 @@
       { label:'最大 |vu| ≤ φvc', formula:'φvc 依表 22.6.5.2',
         sub:`控制：${check.governingCorners.map(corner => corner.label).join('；')}\nφvc = ${check.phiVc.toFixed(3)} kgf/cm²\n需求／容量 = ${(check.ratio * 100).toFixed(2)}%`,
         value:`${check.maximumStress.toFixed(3)} / ${check.phiVc.toFixed(3)}`, unit:'kgf/cm²', ok:check.ok },
-      { label:'撓曲傳遞需求', formula:'γf Msc（8.4.2.2、8.5.1.1(b)）',
+      ...(transfer.length ? transfer : [{ label:'撓曲傳遞需求', formula:'γf Msc（8.4.2.2、8.5.1.1(b)）',
         sub:`X 軸 ${check.x.flexuralMoment.toFixed(3)} tf·m；Y 軸 ${check.y.flexuralMoment.toFixed(3)} tf·m\n須另行核對有效板寬及撓曲強度。`,
-        value:'待複核', ok:null }
+        value:'待複核', ok:null }])
     ];
   }
 
@@ -2647,6 +2744,9 @@
       }
       if (r.punchData?.usesSectionLoads && !r.punchData.sectionCheck) {
         shearLines.push(`內柱偏心衝剪待確認：${r.punchData.sectionReason}`);
+        if (r.punchData.transferEvidence) {
+          shearLines.push(...slabTransferResultText(r.punchData.transferEvidence, r.punchData.transferCheck));
+        }
       } else if (r.punchData) {
         shearLines.push('');
         shearLines.push(`衝剪 ${r.punchData.punchGeometry.formula} = ${fmtStep(r.punchData.bo,1)} cm；${r.punchData.punchGeometry.basis}`);
@@ -2660,13 +2760,13 @@
           shearLines.push(`Vu,base=${fmtStep(r.punchData.VuPunchBase,2)} tf；放大係數=${fmtStep(r.punchData.punchAmp,2)}`);
           shearLines.push(`φVn=${fmtStep(r.punchData.phiVnPunch,2)} tf；Vu=${fmtStep(r.punchData.VuPunch,2)} tf → ${r.punchData.ok ? 'OK' : 'NG'}`);
         }
-        shearLines.push(r.punchData.warning);
+        if (r.punchData.warning) shearLines.push(r.punchData.warning);
       }
       stepsArr.push({ group:'剪力與衝剪', body:shearLines.join('\n') });
     }
     return openReport({
       title: isDesignMode ? '板初步設計計算書' : '板初步檢核計算書',
-      outputSource:{ tool:'板 Slab 設計／檢核', version:'V3.4' },
+      outputSource:{ tool:'板 Slab 設計／檢核', version:'V3.5' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode
