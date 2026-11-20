@@ -93,6 +93,11 @@ tool-nav.manifest.js text eol=lf
 tool-chrome.css text eol=lf
 
 # Formal core hashes must survive fresh checkouts.
+螺栓檢討/bolt-review-tool/src/** text=auto eol=lf
+螺栓檢討/bolt-review-tool/public/** text=auto eol=lf
+螺栓檢討/bolt-review-tool/*.json text eol=lf
+螺栓檢討/bolt-review-tool/*.ts text eol=lf
+螺栓檢討/bolt-review-tool/*.js text eol=lf
 結構工具箱/core/materials/steel.js text eol=lf
 結構工具箱/core/ui/report.js text eol=lf
 結構工具箱/core/ui/report-utils.js text eol=lf

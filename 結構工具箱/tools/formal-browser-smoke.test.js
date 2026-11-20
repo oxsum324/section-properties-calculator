@@ -2759,7 +2759,7 @@ function assertWindOverviewDispatchState(state, label) {
   });
 }
 
-function assertWindSharedProfileTargetState(state, label) {
+function assertWindSharedProfileTargetState(state, label, toolVersion) {
   assert.equal(state.applied, 'true', `${label} profile applied marker`);
   assert.equal(state.name, '耐風共用派送案', `${label} project name`);
   assert.equal(state.no, 'WIND-DISPATCH-001', `${label} project number`);
@@ -2772,7 +2772,8 @@ function assertWindSharedProfileTargetState(state, label) {
   assert.equal(Number(state.L), 36, `${label} along-wind length`);
   assert.equal(Number(state.floors), 12, `${label} floors`);
   assert.equal(Number(state.storyHeight), 4, `${label} derived uniform story height`);
-  assert.ok(state.status.includes('已從耐風案件總覽自動預填 11 項'), `${label} visible applied status`);
+  assert.ok(toolVersion, `${label} dispatch source version`);
+  assert.ok(state.status.includes(`已從耐風案件總覽 ${toolVersion} 自動預填 11 項`), `${label} visible applied status: ${state.status}`);
   ['projName', 'projNo', 'projDesigner', 'city', 'terrain', 'impClass', 'Kzt', 'B', 'L', 'N', 'h']
     .forEach(target => assert.ok(state.targets.includes(target), `${label} applied target ${target}`));
 }
@@ -3105,7 +3106,7 @@ async function main() {
         const targetLabel = `${viewport.key} wind-force shared profile`;
         const targetErrors = await navigate(client, sessionId, `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/tools/風力/wind-force.html')}?windProfile=latest`, viewport);
         const targetState = await evaluate(client, sessionId, windSharedProfileTargetExpression());
-        assertWindSharedProfileTargetState(targetState, targetLabel);
+        assertWindSharedProfileTargetState(targetState, targetLabel, dispatchState.profile.source.toolVersion);
         targetErrors.unsubscribe();
         assertNoPageErrors(targetErrors.errors, targetLabel);
       }

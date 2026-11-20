@@ -222,7 +222,7 @@
       '/seismic-dynamic': '2026-11-13',
       '/seismic-appendage': '2026-11-13',
       '/seismic-misc': '2026-11-13',
-      '/anchor': '2026-10-26',
+      '/anchor': '2026-11-20',
       '/stone-fixing': '2026-11-20',
       '/foundation-local': '2026-10-23',
       '/equipment-load': '2026-10-23',
