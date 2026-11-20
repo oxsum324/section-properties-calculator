@@ -181,7 +181,7 @@
     routes: {
       '/condition-survey': '2026-11-12',
       '/beam-analysis': '2026-11-20',
-      '/frame-analysis': '2026-11-19',
+      '/frame-analysis': '2026-11-20',
       '/struct-dx': '2026-08-13',
       '/section': '2026-11-19',
       '/composite-section': '2026-11-19',

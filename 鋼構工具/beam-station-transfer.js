@@ -20,9 +20,22 @@ const display = n => String(Number(n.toPrecision(8)));
 const cleanText = value => typeof value === 'string' && value.length <= 100 && value.trim() === value;
 
 function analysisFields(source) {
-  return [source.pageVersion, source.engine, source.material, source.elasticModulus,
+  const fields = [source.pageVersion, source.engine, source.material, source.elasticModulus,
     source.elasticModulusUnit, source.elasticModulusBasis, source.inertia, source.inertiaUnit,
     source.inertiaBasis, source.sectionBasis];
+  if (source.frame) {
+    const f = source.frame;
+    fields.push([f.i, f.j, f.cosine, f.sine, f.releaseI, f.releaseJ, f.maxAbsAxialTf]);
+  }
+  return fields;
+}
+
+function validFrameSource(frame, unitKey) {
+  return frame && unitKey === 'tf-m' && [frame.i, frame.j].every(id => Number.isSafeInteger(id) && id > 0)
+    && frame.i !== frame.j && [frame.cosine, frame.sine, frame.maxAbsAxialTf].every(Number.isFinite)
+    && Math.abs(Math.hypot(frame.cosine, frame.sine) - 1) < 1e-8
+    && frame.maxAbsAxialTf >= 0 && frame.maxAbsAxialTf <= 1e-8
+    && [frame.releaseI, frame.releaseJ].every(value => typeof value === 'boolean');
 }
 
 function validAnalysis(source, unitKey) {
@@ -33,6 +46,7 @@ function validAnalysis(source, unitKey) {
     && Object.hasOwn(materialLabels, source.material)
     && [source.elasticModulus, source.inertia].every(value => Number.isFinite(value) && value > 0)
     && source.elasticModulusUnit === eUnit && source.inertiaUnit === iUnit
+    && (!Object.hasOwn(source, 'frame') || validFrameSource(source.frame, unitKey))
     && [source.elasticModulusBasis, source.inertiaBasis, source.sectionBasis].every(cleanBasis);
 }
 
@@ -65,12 +79,16 @@ function identity(p) {
 
 export function stationText(p) {
   const u = units[p.units];
-  const station = `${identity(p)}｜第 ${p.span} 跨 x = ${display(p.x)} ${u.l}（${sideLabels[p.side]}）｜M = ${display(p.moment)} ${u.m}、V = ${display(p.shear)} ${u.v}｜${basisLabels[p.basis]}｜來源指紋 ${p.fingerprint}`;
+  const anchor = p.analysis?.frame ? '桿件 i 端起算' : `第 ${p.span} 跨`;
+  const station = `${identity(p)}｜${anchor} x = ${display(p.x)} ${u.l}（${sideLabels[p.side]}）｜M = ${display(p.moment)} ${u.m}、V = ${display(p.shear)} ${u.v}｜${basisLabels[p.basis]}｜來源指紋 ${p.fingerprint}`;
   if (!p.analysis) return station;
   const a = p.analysis;
   const inertiaBasis = [a.sectionBasis, a.inertiaBasis].filter(Boolean).join('／') || '依據待補';
-  return station + `｜連續梁 ${a.pageVersion}（${a.engine}）｜${materialLabels[a.material]} E = ${display(a.elasticModulus)} ${a.elasticModulusUnit}`
-    + `（${a.elasticModulusBasis || '依據待補'}）｜基準 I = ${display(a.inertia)} ${a.inertiaUnit}（${inertiaBasis}）`;
+  const tool = a.frame ? '平面剛架' : '連續梁';
+  const frameDetails = a.frame ? `｜局部正 x：N${a.frame.i} → N${a.frame.j}（cos θ=${display(a.frame.cosine)}，sin θ=${display(a.frame.sine)}）`
+    + `｜端部彎矩釋放 i=${a.frame.releaseI ? '有' : '無'}、j=${a.frame.releaseJ ? '有' : '無'}｜桿件 |N| 最大 ${display(a.frame.maxAbsAxialTf)} tf` : '';
+  return station + `｜${tool} ${a.pageVersion}（${a.engine}）｜${materialLabels[a.material]} E = ${display(a.elasticModulus)} ${a.elasticModulusUnit}`
+    + `（${a.elasticModulusBasis || '依據待補'}）｜基準 I = ${display(a.inertia)} ${a.inertiaUnit}（${inertiaBasis}）` + frameDetails;
 }
 
 function station(span, index) {
@@ -106,11 +124,20 @@ export function showSender(host, model) {
     f.project.value = model.project;
     form.dataset.project = model.project;
   }
+  if (model.member) {
+    f.member.value = model.member;
+    f.member.readOnly = true;
+  }
+  if (model.combination) {
+    f.caseName.value = model.combination.name;
+    f.combination.value = model.combination.id;
+    f.caseName.readOnly = f.combination.readOnly = true;
+  }
   function resetReceipt() { link.hidden = true; status.textContent = ''; }
   form.oninput = resetReceipt;
   resetReceipt();
   const oldSpan = f.span.selectedIndex;
-  f.span.replaceChildren(...model.spans.map((_, i) => new Option('第 ' + (i + 1) + ' 跨', i)));
+  f.span.replaceChildren(...model.spans.map((_, i) => new Option(model.member || ('第 ' + (i + 1) + ' 跨'), i)));
   f.span.selectedIndex = oldSpan >= 0 && oldSpan < model.spans.length ? oldSpan : 0;
   function sections() {
     const sp = model.spans[f.span.selectedIndex];
@@ -122,7 +149,7 @@ export function showSender(host, model) {
   }
   sections();
   let panel = host.querySelector('.brace-panel');
-  if (!panel) {
+  if (!panel && !model.analysis?.frame) {
     panel = document.createElement('details'); panel.className = 'brace-panel';
     panel.innerHTML = '<summary>選取未側撐段與 Cb 計算方法</summary><div class="brace-sender"></div>';
     host.append(panel);
@@ -132,8 +159,10 @@ export function showSender(host, model) {
     const transfer = await import('./beam-brace-transfer.js');
     if(model.isCurrent() && panel.open) transfer.showBraceSender(panel.lastElementChild,model,form);
   };
-  panel.ontoggle = setupBrace;
-  if(panel.open)setupBrace();
+  if (panel) {
+    panel.ontoggle = setupBrace;
+    if(panel.open)setupBrace();
+  }
   f.span.onchange = sections;
   form.onsubmit = e => {
     e.preventDefault();
@@ -201,7 +230,8 @@ export function openReceiver(host, scope, api) {
     const current = api.current();
     const demandText = v => `|M| ${display(v.moment)} tf·m，|V| ${display(v.shear)} tf，L ${display(v.spanCm)} cm`;
     el('stationCurrent').textContent = '正式輸入　' + demandText(current) + '｜' + current.source;
-    el('stationIncoming').textContent = p ? '候選　' + stationText(p) + '｜' + demandText(designValues(p)) + '｜P 未提供' : '';
+    el('stationIncoming').textContent = p ? '候選　' + stationText(p) + '｜' + demandText(designValues(p))
+      + (p.analysis?.frame ? '｜接收 M/V' : '｜P 未提供') : '';
     let message = p ? revisionStatus(p, rows) : '目前沒有此構件的站位候選。';
     if (message === '有效修次') {
       if (current.project && current.project !== p.project) message = '正式案號與候選案號不同。';

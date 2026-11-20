@@ -365,6 +365,15 @@
       <div class="card diag-card">
         <div class="diag-title"><h2>彎矩圖 M</h2><span class="legend">紅 = 正彎矩 (內側張力), 藍 = 負彎矩</span></div>
         <div class="canvas-wrap"><canvas id="momCanvas" width="800" height="400"></canvas></div>
+        <details id="frameStationTransfer" ontoggle="if (this.open) renderFrameStationTransfer()">
+          <summary>同站內力交接到鋼梁</summary>
+          <div class="flex-row">
+            <label for="frameStationMember">桿件</label>
+            <select id="frameStationMember" onchange="showFrameStationCandidate()"></select>
+          </div>
+          <p id="frameStationStatus" class="hint" role="status"></p>
+          <div id="frameStationBody"></div>
+        </details>
       </div>
 
       <div class="card diag-card">
@@ -1843,13 +1852,10 @@ function analyze(loadFactorOverride = null) {
     const xs = Array.from(xset).sort((u, v) => u - v);
     const Ns = [], Vs = [], Ms = [];
     for (const x of xs) {
-      let sumPx = 0, sumPy = 0, sumMom = 0;
-      for (const p of e.ptLocal) {
-        if (p.a <= x + 1e-9) { sumPx += p.Pxl; sumPy += p.Pyl; sumMom += p.Pyl * (x - p.a); }
-      }
-      Ns.push(-e.qLocal[0] - e.qxLocal * x - sumPx);
-      Vs.push(e.qLocal[1] + e.wLocal * x + sumPy);
-      Ms.push(-e.qLocal[2] + e.qLocal[1] * x + 0.5 * e.wLocal * x * x + sumMom);
+      const { axial, shear, moment } = frameStationForces(e, x);
+      Ns.push(axial);
+      Vs.push(shear);
+      Ms.push(moment);
     }
     e.diag = { xs, Ns, Vs, Ms };
     const [vi, ti, vj, tj] = [dFull[1], dFull[2], dFull[4], dFull[5]];
@@ -3360,6 +3366,89 @@ function invalidateAnalysisState() {
 // ============================================================
 // 執行分析
 // ============================================================
+function frameStationForces(element, x, side = 'right') {
+  let sumPx = 0, sumPy = 0, sumMom = 0;
+  for (const p of element.ptLocal) {
+    const included = side === 'left' ? p.a < x - 1e-9 : p.a <= x + 1e-9;
+    if (!included) continue;
+    sumPx += p.Pxl;
+    sumPy += p.Pyl;
+    sumMom += p.Pyl * (x - p.a);
+  }
+  const [axialI, shearI, momentI] = element.qLocal;
+  return {
+    axial: -axialI - element.qxLocal * x - sumPx,
+    shear: shearI + element.wLocal * x + sumPy,
+    moment: -momentI + shearI * x + 0.5 * element.wLocal * x * x + sumMom,
+  };
+}
+
+function renderFrameStationTransfer() {
+  const selection = document.getElementById('frameStationMember');
+  const before = selection.value;
+  selection.replaceChildren(...(state.solution?.elems || []).map(e => new Option('M' + e.m.id, e.m.id)));
+  if ([...selection.options].some(option => option.value === before)) selection.value = before;
+  showFrameStationCandidate();
+}
+
+async function showFrameStationCandidate() {
+  const host = document.getElementById('frameStationBody');
+  const status = document.getElementById('frameStationStatus');
+  const selection = document.getElementById('frameStationMember');
+  const solution = state.solution;
+  const element = solution?.elems.find(e => String(e.m.id) === selection.value);
+  host.hidden = true;
+  if (!element || !solution.solverDiagnostics?.passed || !solution.equilibrium?.ok) {
+    status.textContent = '請先完成可供核對的分析。';
+    return;
+  }
+  const maxAbsAxialTf = Math.max(...element.diag.Ns.map(Math.abs));
+  if (maxAbsAxialTf > 1e-8) {
+    status.textContent = '此桿件含軸力，請用能檢核軸力互制的構件流程。';
+    return;
+  }
+  const combo = currentLoadCombination();
+  const m = element.m;
+  const model = frameCalculationModelSnapshot();
+  const serializedModel = JSON.stringify(model);
+  const isCurrent = () => state.solution === solution && String(m.id) === selection.value
+    && currentLoadCombination().id === combo.id
+    && JSON.stringify(frameCalculationModelSnapshot()) === serializedModel;
+  const positions = element.diag.xs.filter(x => x === 0 || x === element.L
+    || !element.ptLocal.some(p => p.a !== x && Math.abs(p.a - x) <= 2e-6));
+  const span = { L:element.L, xStart:0, xs:[], ms:[], vs:[] };
+  for (const x of positions) {
+    const pointLoad = element.ptLocal.some(p => p.a === x);
+    const sides = x === element.L ? ['left'] : (pointLoad && x !== 0 ? ['left', 'right'] : ['right']);
+    for (const side of sides) {
+      const forces = frameStationForces(element, x, side);
+      span.xs.push(x);
+      span.ms.push(forces.moment);
+      span.vs.push(forces.shear);
+    }
+  }
+  try {
+    const transfer = await import('../鋼構工具/beam-station-transfer.js');
+    if (!isCurrent()) return;
+    transfer.showSender(host, {
+      spans:[span], units:'tf-m', member:'M'+m.id, project:getFrameProjectInfo().no,
+      combination:{ id:String(combo.id), name:combo.name },
+      fingerprint:StructReportUtils.sha256Text(JSON.stringify([FRAME_CALCULATION_ENGINE, model, combo.id])),
+      analysis:{
+        pageVersion:FRAME_PUBLIC_VERSION, engine:FRAME_CALCULATION_ENGINE, material:'custom',
+        elasticModulus:m.E*1e4, elasticModulusUnit:'tf/m²', elasticModulusBasis:'本案桿件 E 欄（tf/cm²）',
+        inertia:m.I/1e8, inertiaUnit:'m⁴', inertiaBasis:'本案桿件 I 欄（cm⁴）', sectionBasis:'',
+        frame:{i:m.i,j:m.j,cosine:element.c,sine:element.s,releaseI:m.relI,releaseJ:m.relJ,maxAbsAxialTf},
+      },
+      isCurrent, route:'../鋼構工具/steel-beam-formal.html',
+    });
+    status.textContent = '核對桿件局部方向、端部釋放與目前載重組合，再送出同站 M/V。';
+    host.hidden = false;
+  } catch (error) {
+    status.textContent = '同站交接無法開啟：' + error.message;
+  }
+}
+
 function runAnalysis() {
   const err = document.getElementById('errorMsg');
   const warn = document.getElementById('warnMsg');
@@ -3376,11 +3465,13 @@ function runAnalysis() {
     drawDiagram('shearCanvas', d => d.Vs, '#fed7aa', '#ddd6fe', 'tf');
     drawDiagram('axialCanvas', d => d.Ns, '#fecaca', '#bfdbfe', 'tf');
     renderResults();
+    if (document.getElementById('frameStationTransfer')?.open) renderFrameStationTransfer();
     renderModelChecks(state.solution);
     renderFrameReportReadiness(state.solution.validation);
     renderFrameBenchmarkPanel();
   } catch (e) {
     state.solution = null;
+    if (document.getElementById('frameStationTransfer')?.open) renderFrameStationTransfer();
     err.textContent = '錯誤: ' + e.message;
     err.style.display = 'block';
     const validation = { checks: [{ level: 'error', text: e.message }], hasErrors: true };

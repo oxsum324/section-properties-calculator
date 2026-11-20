@@ -61,6 +61,7 @@ const solverFunctionNames = [
   'invSmall',
   'condenseReleases',
   'solveLinear',
+  'frameStationForces',
   'analyze',
 ];
 const extractedSolverSource = solverFunctionNames.map(extractFunctionDeclaration).join('\n\n');

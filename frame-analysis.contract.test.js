@@ -341,7 +341,7 @@ function createFrameAnalysisContext(source) {
     'formatCombinationFactors', 'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
     'computeAppliedResultant', 'validateModel', 'zeros', 'matmul', 'matvec',
     'transpose', 'subtractMat', 'invSmall', 'condenseReleases', 'solveLinear',
-    'analyze', 'frameStoryResponseModel', 'frameCombinationAnalysisSet', 'frameStoryCombinationEnvelopeModel', 'frameNodeEnvelopeComponents', 'frameNodeCombinationEnvelopeModel', 'frameMemberEnvelopeComponents', 'frameMemberCombinationEnvelopeModel', 'formatFrameStoryRatio', 'hasAnySpring', 'activeFrameLoadCount', 'getFrameProjectInfo', 'missingFrameProjectFields', 'frameReportReadinessModel', 'getFrameBenchmarkDefinition',
+    'frameStationForces', 'analyze', 'frameStoryResponseModel', 'frameCombinationAnalysisSet', 'frameStoryCombinationEnvelopeModel', 'frameNodeEnvelopeComponents', 'frameNodeCombinationEnvelopeModel', 'frameMemberEnvelopeComponents', 'frameMemberCombinationEnvelopeModel', 'formatFrameStoryRatio', 'hasAnySpring', 'activeFrameLoadCount', 'getFrameProjectInfo', 'missingFrameProjectFields', 'frameReportReadinessModel', 'getFrameBenchmarkDefinition',
     'frameBenchmarkProjectData', 'resolveFrameBenchmarkMetric', 'frameBenchmarkResultModel',
     'setReportStatus', 'resetAll', 'validateFrameProjectData', 'updateNode', 'frameCalculationModelSnapshot', 'frameSolutionTraceSnapshot',
     'frameCalculationResultSnapshot', 'buildFrameCalculationTrace', 'buildFrameCasePayload',
@@ -2308,5 +2308,14 @@ assert(
   'rigid frame blocks a component package that would omit configured self weight from D',
   misplacedSelfWeightError,
 );
+
+// Statically determinate 6 m member with 2 tf/m and 6 tf at x=2 m.
+// Independent equilibrium gives the i reaction as 10 tf.
+const exactStationElement = { qLocal:[0,10,0,0,8,0], qxLocal:0, wLocal:-2,
+  ptLocal:[{a:2,Pxl:0,Pyl:-6}] };
+const leftStation = foundationTransferRuntime.context.frameStationForces(exactStationElement,2,'left');
+const rightStation = foundationTransferRuntime.context.frameStationForces(exactStationElement,2,'right');
+assert(leftStation.shear === 6 && rightStation.shear === 0 && leftStation.moment === 16 && rightStation.moment === 16,
+  'rigid frame preserves exact same-station members at a load jump', JSON.stringify({leftStation,rightStation}));
 
 console.log('\nFrame analysis contract checks passed.');
