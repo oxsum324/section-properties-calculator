@@ -193,7 +193,7 @@
       '/rc-shear-wall': '2026-11-18',
       '/rc-foundation': '2026-11-18',
       '/rc-foundation-deep-beam-stm': '2026-10-23',
-      '/rc-pile-cap-3d-stm': '2026-11-18',
+      '/rc-pile-cap-3d-stm': '2026-11-20',
       '/rc-pile': '2026-11-13',
       '/rc-retrofit-section': '2026-11-13',
       '/rc-column-cover-deviation': '2026-11-20',
