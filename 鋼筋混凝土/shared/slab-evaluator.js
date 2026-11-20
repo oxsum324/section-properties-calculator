@@ -189,6 +189,33 @@
     return { lambdaS, rhoW:rho, vc, Vc, phiVc, phiVn:phiVc, Vs:0 };
   }
 
+  function interiorPunchingStress({ c1, c2, d, netShearTf, mxTfm, myTfm, phiVc }) {
+    if (![c1, c2, d, phiVc].every(value => Number.isFinite(value) && value > 0)
+        || ![netShearTf, mxTfm, myTfm].every(Number.isFinite) || netShearTf < 0) return null;
+    const widthX = c1 + d, widthY = c2 + d;
+    const area = 2 * (widthX + widthY) * d;
+    const direct = netShearTf * 1000 / area;
+    function transfer(span, transverse, moment) {
+      const gammaF = 1 / (1 + 2 / 3 * Math.sqrt(span / transverse));
+      const gammaV = 1 - gammaF;
+      // R8.4.4.2.3, with the span measured in the direction of the stress gradient.
+      const jc = (d * span ** 3 + span * d ** 3) / 6 + d * transverse * span ** 2 / 2;
+      return { gammaF, gammaV, jc, flexuralMoment: gammaF * moment,
+        edgeStress: gammaV * moment * 100000 * span / (2 * jc) };
+    }
+    const x = transfer(widthY, widthX, mxTfm);
+    const y = transfer(widthX, widthY, myTfm);
+    const corners = [[1, 1], [-1, 1], [-1, -1], [1, -1]].map(([sx, sy]) => ({
+      label: `${sx > 0 ? '+' : '−'}X、${sy > 0 ? '+' : '−'}Y`,
+      stress: direct + sy * x.edgeStress - sx * y.edgeStress,
+    }));
+    const maximumStress = Math.max(...corners.map(corner => Math.abs(corner.stress)));
+    if (!Number.isFinite(maximumStress) || !Number.isFinite(maximumStress / phiVc)) return null;
+    const governingCorners = corners.filter(corner => Math.abs(corner.stress) === maximumStress);
+    return { area, direct, x, y, corners, governingCorners, maximumStress, phiVc,
+      ratio: maximumStress / phiVc, ok: maximumStress <= phiVc };
+  }
+
   // 112 年版 24.4.3.2：收縮與溫度竹節鋼筋比不小於 0.0018，與 fyt 無關
   // （解說：舊版 fy > 4,200 之折減已取消）；fyt 仍用於伸展與錨定
   function temperatureRatio(fyT) {
@@ -196,7 +223,7 @@
     return { rho:0.0018, branch:'fixed-0.0018' };
   }
 
-  const api = { getCoefficients, getShearFactor, flatThicknessRatio, minimumThickness, stripMoment, analyzeStripMoments, sizeEffectLambda, oneWayShearNoReinf, temperatureRatio };
+  const api = { getCoefficients, getShearFactor, flatThicknessRatio, minimumThickness, stripMoment, analyzeStripMoments, sizeEffectLambda, oneWayShearNoReinf, interiorPunchingStress, temperatureRatio };
   globalScope.SlabEvaluator = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

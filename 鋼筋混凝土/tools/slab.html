@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>板設計 — RC 工具箱 V3.3</title>
+<title>板設計 — RC 工具箱 V3.4</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
@@ -57,7 +57,7 @@
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>板 Slab 設計／檢核 <span data-ui="version">V3.3</span></h1>
+  <h1>板 Slab 設計／檢核 <span data-ui="version">V3.4</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 單向板 + 簡化二向板初步設計、自動配筋</p>
 </header>
 
@@ -366,13 +366,28 @@
           </select>
         </div>
         <div class="form-group">
-          <label>衝剪需求模式</label>
+          <label for="punchMode">衝剪需求模式</label>
           <select id="punchMode">
             <option value="prelim" selected>初估模式</option>
             <option value="conservative">保守放大模式</option>
+            <option value="section-loads">內柱偏心｜輸入分析內力</option>
           </select>
         </div>
         <p class="hint detail-help" id="punchModeHint">柱反力 Vu 由 tributary area 自動估算。保守放大模式會依柱位加乘需求剪力，但仍未納入不平衡彎矩正式分布。</p>
+        <div id="punchSectionInputs" hidden>
+          <p class="hint" id="punchSectionHelp">限非預力、等厚無梁板的矩形內柱，並採柱上頂筋受拉。須確認完整四邊臨界周界，且無影響周界的開孔、柱頭板或衝剪補強。</p>
+          <label><input type="checkbox" id="punchSectionConfirmed" aria-describedby="punchSectionHelp"> 已核對上述條件與柱的局部 X／Y 軸</label>
+          <div class="form-group">
+            <label for="punchLoadSource">分析來源與載重組合</label>
+            <input type="text" id="punchLoadSource" maxlength="160" placeholder="例如：樓板分析 R02／組合 U3">
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label for="punchNetVu">斷面淨 Vu (tf)</label><input type="number" id="punchNetVu" min="0" step="any"></div>
+            <div class="form-group"><label for="punchMscX">繞 X 軸 Msc,x (tf·m)</label><input type="number" id="punchMscX" step="any"></div>
+            <div class="form-group"><label for="punchMscY">繞 Y 軸 Msc,y (tf·m)</label><input type="number" id="punchMscY" step="any"></div>
+          </div>
+          <p class="hint">Vu 填同組合經臨界斷面的淨剪力，並依分析扣除周界內的載重效應。彎矩以斷面中心為準，+Mx 增加 +Y 側，+My 增加 −X 側的剪應力。c1 對應 X、c2 對應 Y。無彎矩請填 0。</p>
+        </div>
       </div>
 
     </div>
@@ -457,6 +472,7 @@
           <div class="result-item" id="c-vn2Max"><span class="label">vn ≤ 上限 (衝剪)</span><span class="value">—</span></div>
           <div class="result-item" id="c-puSp"><span class="label">衝剪筋徑向間距 ≤ 上限</span><span class="value">—</span></div>
         </div>
+        <p class="hint" id="punchSectionResult" role="status" hidden></p>
       </div>
 
       <!-- 5b. 剪力鋼筋補強 (Vs，選用) -->
@@ -600,7 +616,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/slab-evaluator.js?v=2"></script>
+<script src="../shared/slab-evaluator.js?v=3"></script>
 <script src="../../結構工具箱/core/ui/report-utils.js"></script>
 <script src="../shared/report-utils.js"></script>
 <script src="../../結構工具箱/core/ui/report-docx.js"></script>
@@ -614,7 +630,9 @@
   const num = id => parseFloat($(id)?.value) || 0;
   let currentMode = 'design', loadMode = 'simple';
   const SLAB_PROJECT_SCHEMA = 'rc-slab-project-v1';
-  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2']);
+  const SLAB_VERSION = 'V3.4';
+  const LEGACY_REPLAY_VERSIONS = Object.freeze(['V3.1', 'V3.2', 'V3.3']);
+  const PUNCH_SECTION_FIELDS = ['punchSectionConfirmed', 'punchLoadSource', 'punchNetVu', 'punchMscX', 'punchMscY'];
   const SLAB_PROJECT_STORAGE_KEY = 'rc.slab.project.draft';
   const SLAB_PROJECT_EXCLUDED_IDS = new Set(['slabProjectFile', 'caseJson', 'compareCaseJson', 'baselineReport']);
 
@@ -740,12 +758,13 @@
     const fields = slabProjectStorage.collectFields();
     if ($('slabType').value !== 'two' || !$('slabEdgeType').value) delete fields.slabEdgeType;
     if (fields.slabEdgeType?.value !== 'discontinuous' || !$('slabEdgeAlpha').value) delete fields.slabEdgeAlpha;
+    if (!window.slabLast?.punchData?.usesSectionLoads) PUNCH_SECTION_FIELDS.forEach(id => delete fields[id]);
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
       schema: SLAB_PROJECT_SCHEMA,
       tool: 'rc-slab',
       toolTitle: '板 Slab 設計／檢核',
-      appVersion: 'V3.3',
+      appVersion: SLAB_VERSION,
       savedAt: new Date().toISOString(),
       mode: currentMode,
       loadMode,
@@ -757,7 +776,8 @@
       fields,
       summary: {
         banner: bannerText,
-        reviewWarningCount: window.slabLast?.reviewWarnings?.length ?? 0
+        reviewWarningCount: window.slabLast?.reviewWarnings?.length ?? 0,
+        ...(window.slabLast?.punchData ? { punching: slabPunchingSnapshot(window.slabLast.punchData) } : {})
       }
     };
     return window.RCReportFingerprint.withProjectCalculationFingerprint(payload);
@@ -778,11 +798,11 @@
     }
   }
   function normalizeSlabProjectPayload(raw) {
-    // V3.1、V3.2 舊檔：以原版本驗證存檔指紋後依 V3.3 重新計算；版本正規化與舊版判定見 shared/project-replay.js
+    // 先以原版本驗證存檔指紋，再使用現行引擎重算。
     return window.RCProjectReplay.validateLegacyProjectSource(raw, {
       expectedSchema: SLAB_PROJECT_SCHEMA,
       expectedToolId: 'rc-slab',
-      expectedVersion: 'V3.3',
+      expectedVersion: SLAB_VERSION,
       legacyVersions: LEGACY_REPLAY_VERSIONS,
       sourceKey: 'fields'
     });
@@ -794,6 +814,10 @@
     $('slabEdgeType').value = '';
     $('slabEdgeAlpha').value = '';
   }
+  function clearPunchSectionInputs() {
+    $('punchSectionConfirmed').checked = false;
+    PUNCH_SECTION_FIELDS.slice(1).forEach(id => { $(id).value = ''; });
+  }
   function applySlabProjectData(raw, options = {}) {
     const payload = normalizeSlabProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectSlabProjectData();
@@ -801,6 +825,7 @@
     if (payload.loadMode) setLoadMode(payload.loadMode);
     let applied = 0;
     clearSlabEdgeInputs();
+    clearPunchSectionInputs();
     Object.entries(payload.fields).forEach(([id, saved]) => {
       if (setSlabProjectControl(id, saved)) applied += 1;
     });
@@ -815,7 +840,7 @@
     let replay = null;
     if (!options.skipReplayCheck) {
       try {
-        // 現行版嚴格比對指紋；舊版須輸入逐欄重現，僅結果不同時以 V3.3 結果接受並揭露
+        // 舊版逐欄重現輸入並揭露重算結果差異。
         replay = window.RCProjectReplay.reconcileProjectCalculationReplay(payload, collectSlabProjectData(), {
           legacyVersions: LEGACY_REPLAY_VERSIONS,
           sourceKey: 'fields'
@@ -830,7 +855,10 @@
         sourceLabel: options.sourceLabel || '板專案檔',
         applied
       });
-      showSlabProjectStatus(notice.message, notice.status);
+      const currentPunch = window.slabLast?.punchData;
+      const punchUpdate = replay.resultChange?.changedKeys.includes('punching') && currentPunch
+        ? `｜衝剪重算：d = ${currentPunch.dPunch.toFixed(3)} cm，φVc = ${currentPunch.phiVc2.toFixed(2)} tf。` : '';
+      showSlabProjectStatus(notice.message + punchUpdate, notice.status);
     }
     return { payload, applied, replay };
   }
@@ -964,6 +992,7 @@
     const tc = SLAB_TEST_CASES[caseKey];
     if (!tc) return;
     clearSlabEdgeInputs();
+    clearPunchSectionInputs();
     Object.entries(tc.values).forEach(([id, value]) => {
       const el = $(id);
       if (!el) return;
@@ -978,6 +1007,7 @@
     scheduleCalc();
   }
   function collectSlabCasePayload() {
+    calcSlab();
     const snap = window.slabLast || {};
     return {
       schema: 'slab-case-v1',
@@ -998,7 +1028,9 @@
         layerMode: $('layerMode').value,
         barNoXBot: $('barNoXBot').value, barNoYBot: $('barNoYBot').value,
         barNoXTop: $('barNoXTop').value, barNoYTop: $('barNoYTop').value,
-        c1: num('c1'), c2: num('c2'), colPos: $('colPos').value, punchMode: $('punchMode').value
+        c1: num('c1'), c2: num('c2'), colPos: $('colPos').value, punchMode: $('punchMode').value,
+        ...(snap.punchData?.usesSectionLoads ? Object.fromEntries(PUNCH_SECTION_FIELDS.map(id => [id,
+          id === 'punchSectionConfirmed' ? $(id).checked : $(id).value])) : {})
       },
       snapshot: {
         stype: snap.stype || $('slabType').value,
@@ -1012,6 +1044,7 @@
         punchVu: snap.punchData?.VuPunch ?? null,
         punchPhiVc: snap.punchData?.phiVc2 ?? null,
         punchAmp: snap.punchData?.punchAmp ?? 1,
+        ...(snap.punchData?.usesSectionLoads ? { punchStressRatio: snap.punchData.sectionCheck?.ratio ?? null } : {}),
         methodLabel: snap.methodLabel || '',
         allOk: snap.allOk ?? null
       }
@@ -1032,10 +1065,12 @@
       const data = JSON.parse(raw);
       if (data.schema !== 'slab-case-v1' || !data.values) throw new Error('schema mismatch');
       clearSlabEdgeInputs();
+      clearPunchSectionInputs();
       Object.entries(data.values).forEach(([id, value]) => {
         const el = $(id);
         if (!el || value === undefined || value === null || value === '') return;
-        el.value = String(value);
+        if (id === 'punchSectionConfirmed') el.checked = value === true;
+        else el.value = String(value);
       });
       if (data.mode) setLoadMode(data.mode);
       updateSelfWt();
@@ -1072,7 +1107,8 @@
         ['支承 X', 'supportX'],
         ['支承 Y', 'supportY'],
         ['載重模式', null],
-        ['衝剪模式', 'punchMode']
+        ['衝剪模式', 'punchMode'], ['分析來源與組合', 'punchLoadSource'], ['淨 Vu', 'punchNetVu'],
+        ['Msc,x', 'punchMscX'], ['Msc,y', 'punchMscY'], ['內柱適用條件已核對', 'punchSectionConfirmed']
       ];
       lines.push('輸入差異:');
       inputKeys.forEach(([label, key]) => {
@@ -1089,7 +1125,7 @@
         ['長向 φVc', 'phiVc1Y'],
         ['衝剪 Vu', 'punchVu'],
         ['衝剪 φVc', 'punchPhiVc'],
-        ['衝剪放大係數', 'punchAmp']
+        ['衝剪放大係數', 'punchAmp'], ['衝剪應力利用率', 'punchStressRatio']
       ];
       lines.push('');
       lines.push('結果差異:');
@@ -1130,6 +1166,10 @@
     lines.push(`wuManual = ${payload.values.wuManual}`);
     lines.push(`wuCombo = ${payload.values.wuCombo}`);
     lines.push(`punchMode = ${payload.values.punchMode}`);
+    if (payload.values.punchMode === 'section-loads') {
+      PUNCH_SECTION_FIELDS.forEach(id => lines.push(`${id} = ${payload.values[id] ?? '—'}`));
+      lines.push(`punchStressRatio = ${fmtCaseVal(s.punchStressRatio)}`);
+    }
     lines.push('');
     lines.push('[Snapshot]');
     lines.push(`method = ${s.methodLabel || '—'}`);
@@ -1155,6 +1195,11 @@
   }
   function updatePunchModeHint() {
     const mode = $('punchMode')?.value || 'prelim';
+    $('punchSectionInputs').hidden = mode !== 'section-loads';
+    if (mode === 'section-loads') {
+      $('punchModeHint').textContent = '依同一載重組合的 Vu 與雙軸 Msc 核算內柱臨界周界的剪應力。';
+      return;
+    }
     const colPos = $('colPos')?.value || 'interior';
     const amp = ({ interior:1.15, edge:1.30, corner:1.50 })[colPos] || 1.15;
     const colName = ({ interior:'內柱', edge:'邊柱', corner:'角柱' })[colPos] || colPos;
@@ -1323,12 +1368,28 @@
   }
   function calcPunchVcNoShearReinf({ fc, lambda, d, bo, beta_c, alpha_s }) {
     const lambdaS = sizeEffectLambda(d);
-    const vc = Math.min(
-      1.06 * lambdaS * lambda * Math.sqrt(fc),
-      0.53 * (1 + 2 / beta_c) * lambdaS * lambda * Math.sqrt(fc),
-      0.265 * (alpha_s * d / bo + 2) * lambdaS * lambda * Math.sqrt(fc)
-    );
-    return { lambdaS, vc };
+    const rootFc = Math.min(Math.sqrt(fc), 26.5); // §22.6.3.1 (kgf/cm²)
+    const vc = Math.min(1.06, 0.53 * (1 + 2 / beta_c), 0.265 * (alpha_s * d / bo + 2)) * lambdaS * lambda * rootFc;
+    return { lambdaS, vc, rootFc };
+  }
+  function readPunchSectionLoads({ stype, colPos, puOn }) {
+    const source = $('punchLoadSource').value.trim();
+    const netShearTf = $('punchNetVu').valueAsNumber;
+    const mxTfm = $('punchMscX').valueAsNumber;
+    const myTfm = $('punchMscY').valueAsNumber;
+    const reason = stype !== 'flat' || colPos !== 'interior' || puOn
+      ? '此模式限等厚無梁板內柱且無衝剪補強。'
+      : !$('punchSectionConfirmed').checked
+        ? '請核對內柱適用條件與局部軸向。'
+        : !source || ![netShearTf, mxTfm, myTfm].every(Number.isFinite) || netShearTf < 0
+          ? '請填來源與組合、非負淨 Vu 及雙軸有號 Msc。'
+          : '';
+    return { source, netShearTf, mxTfm, myTfm, reason };
+  }
+  function slabPunchingSnapshot(punch) {
+    const { sectionCheck } = punch;
+    return { mode: punch.punchMode, dCm: punch.dPunch, boCm: punch.bo,
+      vuTf: punch.VuPunch, phiVcTf: punch.phiVc2, ratio: sectionCheck?.ratio ?? null, ok: punch.ok };
   }
   // === 單向板剪力鋼筋 Vs (規範 22.5) — 選用 ===
   // 板條帶 b=100cm；Av = (b/st)·nLeg·Ab (一向間距 s 內、橫向間距 st、每組 nLeg 肢)
@@ -1347,7 +1408,7 @@
   // type: 'stirrup'(閉合箍) | 'stud'(剪力釘)；Av_line = nLeg·Ab (一周長線上剪力鋼筋面積)
   function calcPunchVs({ type, fc, lambda, lambdaS, d, bo, fyt, Ab, nLeg, s }) {
     const isStud = type === 'stud';
-    const vc = (isStud ? 0.79 : 0.53) * lambdaS * lambda * Math.sqrt(fc);  // 折減後混凝土項 (22.6.6.2/.3)
+    const vc = (isStud ? 0.79 : 0.53) * lambdaS * lambda * Math.min(Math.sqrt(fc), 26.5);  // 折減後混凝土項 (22.6.3.1、22.6.6.2/.3)
     const vnMax = (isStud ? 2.12 : 1.59) * lambda * Math.sqrt(fc);          // vn 上限 (22.6.6.3)
     const sMax = (isStud ? 0.75 : 0.5) * d;                                 // 徑向間距上限 (8.7.7)
     if (!(s > 0) || !(Ab > 0) || !(bo > 0) || !(d > 0) || !(fyt > 0)) {
@@ -2009,11 +2070,14 @@
 
     // 衝剪 (僅 flat)
     let punchData = null;
+    $('punchSectionResult').hidden = true;
     if (isFlat) {
       const c1 = num('c1'), c2 = num('c2');
       const punchMode = $('punchMode').value;
-      const dPunch = Math.min(dX, dY);
+      const usesSectionLoads = punchMode === 'section-loads';
+      const dPunch = (dXTop + dYTop) / 2; // 柱上頂筋，兩垂直向平均（22.6.2.1）
       const colPos = $('colPos').value;
+      const puOn = $('puEnable')?.checked;
       const punchGeometry = calcPunchCriticalGeometry({ c1, c2, d: dPunch, colPos });
       const bo = punchGeometry.bo;
       const beta_c = Math.max(c1,c2) / Math.max(Math.min(c1,c2), 0.01);
@@ -2023,23 +2087,38 @@
       const phiVc2 = PHI.shear * vc * bo * dPunch / 1000;
       const punchArea = punchGeometry.areaCm2 / 1e4;
       const tribArea = lnX * lnY;
-      const VuPunchBase = wu * (tribArea - punchArea);
+      const VuPunchBase = usesSectionLoads ? null : wu * (tribArea - punchArea);
       const punchAmp = (punchMode === 'conservative')
         ? ({ interior:1.15, edge:1.30, corner:1.50 })[colPos] || 1.15
         : 1.0;
-      const VuPunch = VuPunchBase * punchAmp;
+      const sectionLoads = usesSectionLoads ? readPunchSectionLoads({ stype, colPos, puOn }) : null;
+      const sectionCheck = sectionLoads && !sectionLoads.reason ? SlabEvaluator.interiorPunchingStress({
+        c1, c2, d: dPunch, phiVc: PHI.shear * vc, ...sectionLoads
+      }) : null;
+      const sectionReason = sectionLoads && !sectionCheck
+        ? sectionLoads.reason || '柱斷面、有效深度、材料、或內力超出可計算範圍。' : '';
+      const VuPunch = usesSectionLoads ? (sectionCheck ? sectionLoads.netShearTf : null) : VuPunchBase * punchAmp;
       // 衝剪鋼筋 Vs (規範 22.6，選用；停用時 phiVnPunch=phiVc2 與既有行為相同)
-      const puOn = $('puEnable')?.checked;
       let punchVs = null, phiVnPunch = phiVc2;
-      if (puOn) {
+      if (puOn && !usesSectionLoads) {
         const AbPu = (window.REBAR_TABLE && REBAR_TABLE[$('puBar').value]) ? REBAR_TABLE[$('puBar').value].area : 1.267;
         punchVs = calcPunchVs({ type: $('puType').value, fc, lambda, lambdaS: punchVc.lambdaS, d: dPunch, bo, fyt: num('puFyt') || 2800, Ab: AbPu, nLeg: Math.max(1, Math.round(num('puLeg')) || 8), s: num('puS') });
         phiVnPunch = punchVs.phiVn;
       }
+      const punchOk = usesSectionLoads ? (sectionCheck?.ok ?? null) : phiVnPunch >= VuPunch;
       setResult('r-VuPunch', VuPunch, 'tf', 2);
-      setResult('r-phiVc2', phiVc2, 'tf', 2);
-      setCheck('c-v2', phiVnPunch >= VuPunch, `${phiVnPunch.toFixed(1)} / ${VuPunch.toFixed(1)}`);
-      if (puOn) {
+      setResult('r-phiVc2', usesSectionLoads && !sectionCheck ? null : phiVc2, 'tf', 2);
+      $('c-v2').querySelector('.label').textContent = usesSectionLoads ? '最大 |vu| ≤ φvc (kgf/cm²)' : 'φVn ≥ Vu (衝剪)';
+      setCheck('c-v2', punchOk, usesSectionLoads
+        ? (sectionCheck ? `${sectionCheck.maximumStress.toFixed(3)} / ${sectionCheck.phiVc.toFixed(3)}` : '待確認')
+        : `${phiVnPunch.toFixed(1)} / ${VuPunch.toFixed(1)}`);
+      if (sectionLoads) {
+        $('punchSectionResult').hidden = false;
+        $('punchSectionResult').textContent = sectionCheck
+          ? `控制：${sectionCheck.governingCorners.map(corner => corner.label).join('；')}。需求／容量：${(sectionCheck.ratio * 100).toFixed(2)}%。γf Msc 的有效板寬撓曲強度須另行核對。`
+          : sectionReason;
+      }
+      if (punchVs) {
         setResult('r-vsPunch', punchVs.vs, 'kgf/cm²', 2);
         setResult('r-phiVn2', phiVnPunch, 'tf', 2);
         setCheck('c-vn2Max', punchVs.vnMaxOk, `vn=${punchVs.vnRaw.toFixed(1)} ≤ ${punchVs.vnMax.toFixed(1)}`);
@@ -2048,11 +2127,13 @@
       $('punchCard').style.display = '';
       punchData = {
         c1, c2, bo, punchArea, punchGeometry, vc, phiVc2, phiVnPunch, punchVs, puOn, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
-        lambdaS: punchVc.lambdaS, dPunch,
-        warning: punchMode === 'conservative'
+        lambdaS: punchVc.lambdaS, rootFc: punchVc.rootFc, dPunch, usesSectionLoads, sectionLoads, sectionCheck, sectionReason,
+        warning: usesSectionLoads
+          ? (sectionReason || '內柱四角應力為局部衝剪檢核；γf Msc 的有效板寬撓曲強度須另行核對（8.5.1.1(b)）。')
+          : punchMode === 'conservative'
           ? `Vu 先以 tributary-area 初估，再依柱位保守放大 ${punchAmp.toFixed(2)} 倍；仍未納入 unbalanced moment transfer，僅供偏安全初估。`
           : 'Vu 目前採 tributary-area 初估，未納入 unbalanced moment transfer；邊柱、角柱、偏心受力與不規則格局不可直接視為正式衝剪檢核。',
-        ok: phiVnPunch >= VuPunch
+        ok: punchOk
       };
     } else {
       $('punchCard').style.display = 'none';
@@ -2136,17 +2217,18 @@
     $('supportModelText').textContent = `短向：${getSupportName(supX)}；${getSupportModelNote(supX)}  長向：${getSupportName(supY)}；${getSupportModelNote(supY)}`;
     renderSupportSketch('supportModelSketch', isOneWay ? supX : supX, isOneWay ? 'X' : `X = ${getSupportName(supX)} / Y = ${getSupportName(supY)}`);
 
-    $('shearTitle').textContent = isFlat ? '5. 剪力初估與衝剪初估' : (isOneWay ? '5. 剪力檢核' : '5. 剪力初估');
+    $('shearTitle').textContent = isFlat ? '5. 剪力初估與衝剪' : (isOneWay ? '5. 剪力檢核' : '5. 剪力初估');
     $('shearDesc').textContent = isOneWay
       ? '單向板依 1 m 條帶進行剪力檢核。'
       : (isFlat
-          ? `雙向 / 無梁板之 Vu 目前為簡化條帶反力估算；柱衝剪 Vu 為 ${$('punchMode').value === 'conservative' ? 'tributary-area 保守放大估算' : 'tributary-area 初估'}，未納入不平衡彎矩轉移。`
+          ? (punchData.usesSectionLoads ? '板條帶剪力為初估。內柱偏心衝剪使用同一組合的斷面淨剪力與雙軸彎矩。'
+            : `雙向 / 無梁板之 Vu 目前為簡化條帶反力估算；柱衝剪 Vu 為 ${punchData.punchMode === 'conservative' ? 'tributary-area 保守放大估算' : 'tributary-area 初估'}，未納入不平衡彎矩轉移。`)
           : '雙向板之 Vu 目前為簡化條帶反力估算，供初步尺寸與配筋比對，不作正式二向剪力設計依據。');
 
     // — banner
     const allFlexOk = flexRows.length === 0 || flexRows.every(r => r.ok);
     const shearOk = (shearX.phiVn >= VuX) && (isOneWay || shearY.phiVn >= VuY);
-    const punchOk = !punchData || punchData.ok;
+    const punchOk = punchData ? punchData.ok : true;
     const numericalOk = (h >= hmin) && allFlexOk && shearOk && punchOk && clearOk;
     const reviewWarnings = [];
     if (!shearOk) {
@@ -2163,8 +2245,9 @@
       reviewWarnings.push('無梁板主體採簡化二向條帶初估，尚未執行完整 8.10 DDM / EFM 分析，不可列為正式 OK 結論。');
     }
     if (punchData) {
-      reviewWarnings.push('柱衝剪 Vu 採 tributary-area 初估或保守放大，尚未納入 unbalanced moment transfer 與偏心剪力正式分布。');
-      if (punchData.puOn) {
+      reviewWarnings.push(punchData.usesSectionLoads ? punchData.warning
+        : '柱衝剪 Vu 採 tributary-area 初估或保守放大，尚未納入 unbalanced moment transfer 與偏心剪力正式分布。');
+      if (punchData.punchVs) {
         reviewWarnings.push('已計入衝剪鋼筋 Vs（規範 22.6）：混凝土項已折減、vn 上限已套用；配置須延伸至 vu ≤ φ·0.53λs√fc′ 之外圍臨界面，首排距柱面 ≤ d/2、徑向間距 ≤（閉合箍 0.5d／剪力釘 0.75d），並確認端部錨定。');
       }
       if (punchData.colPos !== 'interior') {
@@ -2175,11 +2258,12 @@
     if (h < hmin) attachmentFailures.push('板厚 h < hmin');
     if (!allFlexOk) attachmentFailures.push('撓曲鋼筋不足');
     if (!shearOk) attachmentFailures.push(isOneWay ? '單向剪力不足' : '剪力初估不足');
-    if (punchData && !punchOk) attachmentFailures.push('雙向衝剪不足');
+    if (punchOk === false) attachmentFailures.push('雙向衝剪不足');
     if (!clearOk) attachmentFailures.push('鋼筋淨距不足');
     const attachmentReviewItems = [...reviewWarnings];
     const hasReviewWarnings = reviewWarnings.length > 0;
-    const summaryOk = numericalOk ? (hasReviewWarnings ? null : true) : false;
+    const onlyPunchPending = punchOk === null && attachmentFailures.length === 0;
+    const summaryOk = !numericalOk && !onlyPunchPending ? false : hasReviewWarnings ? null : true;
     const summaryText = summaryOk === true
       ? '✓ OK — 初步檢查通過'
       : (summaryOk === false ? '✗ NG — 部分項目未通過' : `⚠ 待確認 — ${reviewWarnings.length} 項需正式分析確認`);
@@ -2188,11 +2272,11 @@
     banner.innerHTML = summaryText
       + `<div data-ui="banner-detail">`
       + `${h>=hmin?'✓':'✗'} 板厚 ｜ ${allFlexOk?'✓':'✗'} 撓曲 ｜ ${shearOk?'✓':'✗'} ${isOneWay ? '剪力' : '剪力初估'}`
-      + (punchData ? ` ｜ ${punchOk?'✓':'✗'} 雙向衝剪` : '')
+      + (punchData ? ` ｜ ${punchOk === null ? '⚠' : punchOk ? '✓' : '✗'} 雙向衝剪` : '')
       + ` ｜ ${clearOk?'✓':'✗'} 鋼筋淨距`
       + `</div>`;
     if (summaryOk === null) {
-      banner.innerHTML += `<div data-ui="banner-warning">⚠ 數值檢核通過，但仍須正式二向板 / DDM / 衝剪分布複核，不可列為最終 OK。</div>`;
+      banner.innerHTML += `<div data-ui="banner-warning">⚠ ${punchOk === null ? '雙向衝剪待確認；請核對適用條件及分析內力。' : '數值檢核通過，但仍須正式二向板 / DDM / 衝剪分布複核，不可列為最終 OK。'}</div>`;
     }
     if (upgrades.length) {
       const upTxt = upgrades.map(u =>
@@ -2236,6 +2320,27 @@
   }
 
   // ─── 計算書 ────────────────────────────────────
+  function punchSectionReportItems(punch) {
+    const check = punch.sectionCheck;
+    if (!check) return [{ label:'內柱偏心剪應力', sub:punch.sectionReason, value:'待確認', ok:null }];
+    const { source, netShearTf, mxTfm, myTfm } = punch.sectionLoads;
+    return [
+      { label:'同組合分析內力', formula:'vuv = Vu/(bo·d)',
+        sub:`${source}\nVu = ${netShearTf} tf\nMsc,x = ${mxTfm} tf·m；Msc,y = ${myTfm} tf·m\nbo·d = ${check.area.toFixed(2)} cm²`,
+        value:check.direct.toFixed(3), unit:'kgf/cm²', ok:null },
+      { label:'偏心剪力傳遞', formula:'γv = 1 − γf；vu = vuv + Δvx + Δvy（8.4.4.2）',
+        sub:`γv,x = ${check.x.gammaV.toFixed(4)}；Jc,x = ${check.x.jc.toFixed(1)} cm⁴\nγv,y = ${check.y.gammaV.toFixed(4)}；Jc,y = ${check.y.jc.toFixed(1)} cm⁴\n`
+          + check.corners.map(corner => `${corner.label}：${corner.stress.toFixed(3)}`).join('\n'),
+        value:check.maximumStress.toFixed(3), unit:'kgf/cm²', ok:null },
+      { label:'最大 |vu| ≤ φvc', formula:'φvc 依表 22.6.5.2',
+        sub:`控制：${check.governingCorners.map(corner => corner.label).join('；')}\nφvc = ${check.phiVc.toFixed(3)} kgf/cm²\n需求／容量 = ${(check.ratio * 100).toFixed(2)}%`,
+        value:`${check.maximumStress.toFixed(3)} / ${check.phiVc.toFixed(3)}`, unit:'kgf/cm²', ok:check.ok },
+      { label:'撓曲傳遞需求', formula:'γf Msc（8.4.2.2、8.5.1.1(b)）',
+        sub:`X 軸 ${check.x.flexuralMoment.toFixed(3)} tf·m；Y 軸 ${check.y.flexuralMoment.toFixed(3)} tf·m\n須另行核對有效板寬及撓曲強度。`,
+        value:'待複核', ok:null }
+    ];
+  }
+
   function buildSlabReport(options = {}) {
     const projectSnapshot = collectSlabProjectData();
     const r = window.slabLast;
@@ -2264,7 +2369,7 @@
           ...(Number.isFinite(r.edgeAlpha) && r.edgeAlpha >= 0 ? [{ label:'不連續板緣最低 α_f', value:r.edgeAlpha }] : [])] : []),
         ...(r.panelPos ? [{ label:'無梁版位置', value: ({interior:'內版',extWithBeam:'外版(有邊梁)',extNoBeam:'外版(無邊梁)'})[r.panelPos] }] : []),
         ...(r.punchData ? [{ label:'衝剪柱位', value: ({interior:'內柱',edge:'邊柱',corner:'角柱'})[r.punchData.colPos] || r.punchData.colPos }] : []),
-        ...(r.punchMode ? [{ label:'衝剪需求模式', value: ({prelim:'初估模式', conservative:'保守放大模式'})[r.punchMode] || r.punchMode }] : []),
+        ...(r.punchMode ? [{ label:'衝剪需求模式', value: ({prelim:'初估模式', conservative:'保守放大模式', 'section-loads':'內柱偏心｜輸入分析內力'})[r.punchMode] || r.punchMode }] : []),
         { label:'底層 短向有效深 dX', value: r.dXBot.toFixed(2), unit:'cm' },
         { label:'底層 長向有效深 dY', value: r.dYBot.toFixed(2), unit:'cm' },
         ...(r.isThick ? [
@@ -2403,14 +2508,18 @@
         ])
       ]},
       ...(r.punchData ? [{ group:'雙向衝剪', items:[
+        ...(r.punchData.usesSectionLoads && !r.punchData.sectionCheck ? [] : [
         { label:'臨界周長 bo', formula:r.punchData.punchGeometry.formula,
-          sub:`bo = ${r.punchData.bo.toFixed(1)} cm\n${r.punchData.punchGeometry.basis}\n臨界斷面內面積 = ${(r.punchData.punchArea * 1e4).toFixed(1)} cm²`,
-          value:`${r.punchData.bo.toFixed(1)}`, unit:'cm', ok:null },
+          sub:`bo = ${r.punchData.bo.toFixed(1)} cm\n${r.punchData.punchGeometry.basis}\n臨界斷面內面積 = ${(r.punchData.punchArea * 1e4).toFixed(1)} cm²`
+            + (r.punchData.usesSectionLoads ? `\n頂筋平均 d = ${r.punchData.dPunch.toFixed(3)} cm（22.6.2.1）` : ''),
+          value:`${r.punchData.bo.toFixed(1)}`, unit:'cm', ok:null }]),
+        ...(r.punchData.usesSectionLoads ? punchSectionReportItems(r.punchData) : [
         { label:`φVn ≥ Vu (衝剪)${r.punchData.puOn?'（含 Vs，規範 22.6）':'（Vs=0）'}`,
           formula: r.punchData.puOn
             ? 'vn = vc(折減) + vs，vs = Av·fyt/(bo·s)，vn ≤ 上限'
             : 'vc = min(1.06λs√fc, 0.53(1+2/βc)λs√fc, 0.265(αs·d/bo+2)λs√fc)',
-          sub:`d = ${r.punchData.dPunch.toFixed(2)} cm，λs = ${r.punchData.lambdaS.toFixed(3)}`
+          sub:`平均 d = ${r.punchData.dPunch.toFixed(2)} cm，λs = ${r.punchData.lambdaS.toFixed(3)}`
+            + (Math.sqrt(r.fc) > r.punchData.rootFc ? '\n√f′c 採上限 26.5（22.6.3.1）' : '')
             + `\nφVc（混凝土單獨）= ${r.punchData.phiVc2.toFixed(2)} tf`
             + (r.punchData.puOn && r.punchData.punchVs
                 ? `\n衝剪鋼筋(${r.punchData.punchVs.type==='stud'?'剪力釘':'閉合箍'})：vc折減=${r.punchData.punchVs.vc.toFixed(2)}、vs=${r.punchData.punchVs.vs.toFixed(2)}、vn=${r.punchData.punchVs.vn.toFixed(2)} ≤ 上限 ${r.punchData.punchVs.vnMax.toFixed(2)} kgf/cm²`
@@ -2419,7 +2528,7 @@
             + (r.punchData.punchAmp > 1 ? `\n保守放大 = ${r.punchData.punchAmp.toFixed(2)} × Vu,base = ${r.punchData.VuPunch.toFixed(2)} tf` : '')
             + `\n${r.punchData.warning}`,
           value:`${r.punchData.phiVnPunch.toFixed(2)} / ${r.punchData.VuPunch.toFixed(2)}`,
-          unit:'tf', ok:r.punchData.ok }
+          unit:'tf', ok:r.punchData.ok }])
       ]}] : []),
       // ─── 溫度收縮筋檢核 (規範 24.4.3) ───
       // 對每一層 × 每一向比較實際 As 與 As,min,t；單向板長向僅靠此檢核
@@ -2536,22 +2645,28 @@
           + ((r.shearY.Vs||0)>0 ? `；Vs=${fmtStep(r.shearY.Vs,3)} → φVn=${fmtStep(r.shearY.phiVn,3)} tf/m` : '')
           + `；VuY = ${fmtStep(r.VuY,3)} tf/m → ${r.shearY.phiVn >= r.VuY ? 'OK' : 'NG'}`);
       }
-      if (r.punchData) {
+      if (r.punchData?.usesSectionLoads && !r.punchData.sectionCheck) {
+        shearLines.push(`內柱偏心衝剪待確認：${r.punchData.sectionReason}`);
+      } else if (r.punchData) {
         shearLines.push('');
         shearLines.push(`衝剪 ${r.punchData.punchGeometry.formula} = ${fmtStep(r.punchData.bo,1)} cm；${r.punchData.punchGeometry.basis}`);
         shearLines.push(`臨界斷面內面積=${fmtStep(r.punchData.punchArea * 1e4,1)} cm²；λs=${fmtStep(r.punchData.lambdaS,3)}；φVc(混凝土單獨)=${fmtStep(r.punchData.phiVc2,2)} tf`);
         if (r.punchData.puOn && r.punchData.punchVs) {
           shearLines.push(`衝剪鋼筋(${r.punchData.punchVs.type==='stud'?'剪力釘':'閉合箍'})：vc折減=${fmtStep(r.punchData.punchVs.vc,2)}、vs=${fmtStep(r.punchData.punchVs.vs,2)}、vn=${fmtStep(r.punchData.punchVs.vn,2)} ≤ 上限 ${fmtStep(r.punchData.punchVs.vnMax,2)} kgf/cm²`);
         }
-        shearLines.push(`Vu,base=${fmtStep(r.punchData.VuPunchBase,2)} tf；放大係數=${fmtStep(r.punchData.punchAmp,2)}`);
-        shearLines.push(`φVn=${fmtStep(r.punchData.phiVnPunch,2)} tf；Vu=${fmtStep(r.punchData.VuPunch,2)} tf → ${r.punchData.ok ? 'OK' : 'NG'}`);
+        if (r.punchData.usesSectionLoads) {
+          punchSectionReportItems(r.punchData).forEach(item => shearLines.push(`${item.label}\n${item.sub}`));
+        } else {
+          shearLines.push(`Vu,base=${fmtStep(r.punchData.VuPunchBase,2)} tf；放大係數=${fmtStep(r.punchData.punchAmp,2)}`);
+          shearLines.push(`φVn=${fmtStep(r.punchData.phiVnPunch,2)} tf；Vu=${fmtStep(r.punchData.VuPunch,2)} tf → ${r.punchData.ok ? 'OK' : 'NG'}`);
+        }
         shearLines.push(r.punchData.warning);
       }
       stepsArr.push({ group:'剪力與衝剪', body:shearLines.join('\n') });
     }
     return openReport({
       title: isDesignMode ? '板初步設計計算書' : '板初步檢核計算書',
-      outputSource:{ tool:'板 Slab 設計／檢核', version:'V3.3' },
+      outputSource:{ tool:'板 Slab 設計／檢核', version:'V3.4' },
       textExport:true,
       autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode

@@ -120,14 +120,14 @@
         "VuY": 3.00625,
         "phiVc1": 8.46954239641744,
         "phiVc1Y": 7.983157073258674,
-        "punchVu": 77.20031390406001,
-        "punchPhiVc": 73.44425645538206,
+        "punchVu": 77.17901044736,
+        "punchPhiVc": 77.69699706927338,
         "punchAmp": 1,
-        "punchBo": 288.472,
-        "punchAreaCm2": 5201.005923999999,
+        "punchBo": 291.648,
+        "punchAreaCm2": 5316.159744,
         "punchGeometryFormula": "bo = 2(c1+c2+2d)",
         "methodLabel": "無梁板：簡化二向條帶初估",
-        "allOk": false
+        "allOk": null
       }
     },
     {
@@ -168,8 +168,8 @@
         "summaryOk": null,
         "summaryText": "⚠ 待確認 — 2 項需正式分析確認",
         "reviewWarningCount": 2,
-        "punchBo": 312.472,
-        "punchAreaCm2": 6102.421923999998,
+        "punchBo": 315.648,
+        "punchAreaCm2": 6227.103744,
         "punchGeometryFormula": "bo = 2(c1+c2+2d)",
         "allOk": null
       }
@@ -211,11 +211,11 @@
         "VuY": 2.124858115777525,
         "phiVc1": 9.062961451722167,
         "phiVc1Y": 8.59345151869503,
-        "punchVu": 112.729478033133,
-        "punchPhiVc": 59.210594407794474,
+        "punchVu": 112.708441358448,
+        "punchPhiVc": 62.139992488106266,
         "punchAmp": 1.3,
-        "punchBo": 208.236,
-        "punchAreaCm2": 5307.778961999999,
+        "punchBo": 209.824,
+        "punchAreaCm2": 5390.763872,
         "punchGeometryFormula": "bo = min(c1+2c2+2d, 2c1+c2+2d)",
         "methodLabel": "無梁板：簡化二向條帶初估",
         "allOk": false
@@ -258,11 +258,11 @@
         "VuY": 2.443586833144154,
         "phiVc1": 9.062961451722167,
         "phiVc1Y": 8.59345151869503,
-        "punchVu": 130.2390020643075,
-        "punchPhiVc": 39.557326652565116,
+        "punchVu": 130.22280123372,
+        "punchPhiVc": 41.43534881136535,
         "punchAmp": 1.5,
-        "punchBo": 139.118,
-        "punchAreaCm2": 4738.454481,
+        "punchBo": 139.912,
+        "punchAreaCm2": 4793.841936,
         "punchGeometryFormula": "bo = c1+c2+d",
         "methodLabel": "無梁板：簡化二向條帶初估",
         "allOk": false

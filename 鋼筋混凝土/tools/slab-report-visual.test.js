@@ -11,7 +11,7 @@ const PORT = Number(process.env.SLAB_REPORT_PORT || 0);
 const OUT_DIR = path.resolve(process.env.SLAB_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.SLAB_REPORT_CASES || 'one_basic,two_basic,flat_interior_pass_warn,flat_edge_cons,flat_corner_cons')
+const CASE_KEYS = (process.env.SLAB_REPORT_CASES || 'one_basic,two_basic,flat_interior_pass_warn,flat_edge_cons,flat_corner_cons,flat_interior_eccentric')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -60,7 +60,7 @@ const EXPECTED = {
       '雙向衝剪',
       'bo = c1+c2+d',
       '角柱二邊連續；臨界周長延伸至兩側板邊緣。',
-      '臨界斷面內面積 = 4738.5 cm²',
+      '臨界斷面內面積 = 4793.8 cm²',
       '保守放大 = 1.50',
       'unbalanced moment transfer',
     ],
@@ -97,6 +97,19 @@ const EXPECTED = {
       '非完整 8.10 DDM',
       'unbalanced moment transfer',
       '板 1 m 寬條帶斷面配筋示意',
+    ],
+  },
+  flat_interior_eccentric: {
+    title: '板初步設計計算書',
+    minCheckGroups: 7,
+    fragments: [
+      '合成樓板分析 R02／U3',
+      'Msc,x = 30 tf·m；Msc,y = -20 tf·m',
+      '頂筋平均 d = 23.912 cm',
+      '控制：+X、+Y',
+      '15.916 / 14.873',
+      '107.01%',
+      '撓曲傳遞需求',
     ],
   },
 };
@@ -193,7 +206,7 @@ function attachPageGuards(page, bucket, label) {
 }
 
 async function applyCase(page, key) {
-  const factoryCase = key === 'two_exterior_edge' ? 'two_basic' : key;
+  const factoryCase = ({two_exterior_edge:'two_basic', flat_interior_eccentric:'flat_interior_pass_warn'})[key] || key;
   await page.evaluate(caseKey => {
     const selector = document.getElementById('testCaseSelect');
     if (selector) selector.value = caseKey;
@@ -217,6 +230,13 @@ async function applyCase(page, key) {
       for (const [id,value] of Object.entries(values)) document.getElementById(id).value = String(value);
       window.calcSlab();
     });
+  }
+  if (key === 'flat_interior_eccentric') {
+    await page.selectOption('#punchMode', 'section-loads');
+    await page.check('#punchSectionConfirmed');
+    for (const [id, value] of Object.entries({ punchLoadSource:'合成樓板分析 R02／U3',
+      punchNetVu:'45.8', punchMscX:'30', punchMscY:'-20' })) await page.fill(`#${id}`, value);
+    await page.waitForFunction(() => window.slabLast?.punchData?.sectionCheck?.ok === false);
   }
 }
 
@@ -396,7 +416,7 @@ async function main() {
         '文件用途：文字備查版（不作為正式附件）',
         '來源文件狀態：',
         '產出工具：板 Slab 設計／檢核',
-        '工具版本：V3.3',
+        '工具版本：V3.4',
         '計算指紋：CF-',
         '[幾何]',
         '文字版限制：不含可列印圖形',
