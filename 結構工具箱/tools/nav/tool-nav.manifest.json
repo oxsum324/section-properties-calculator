@@ -166,7 +166,7 @@
       "route": "/rc-slab",
       "file": "鋼筋混凝土/tools/slab.html",
       "title": "RC 板",
-      "version": "V3.4",
+      "version": "V3.5",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "rc",

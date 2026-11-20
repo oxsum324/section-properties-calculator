@@ -216,6 +216,45 @@
       ratio: maximumStress / phiVc, ok: maximumStress <= phiVc };
   }
 
+  function slabTransferGeometry({ c1, c2, h, d, xMinus, xPlus, yMinus, yPlus }) {
+    if (![c1, c2, h, d].every(value => Number.isFinite(value) && value > 0)
+        || ![xMinus, xPlus, yMinus, yPlus].every(value => Number.isFinite(value) && value >= 0)) return null;
+    const closed = 2 * (c1 + c2 + 2 * d);
+    const xEdge = Math.min(xMinus, xPlus);
+    const yEdge = Math.min(yMinus, yPlus);
+    const candidates = [
+      { type:'單側 X 板緣', bo:c2 + d + 2 * (c1 + d / 2 + xEdge) },
+      { type:'單側 Y 板緣', bo:c1 + d + 2 * (c2 + d / 2 + yEdge) },
+      { type:'相鄰兩側板緣', bo:c1 + c2 + d + xEdge + yEdge },
+      { type:'相對兩側 X 板緣', bo:2 * (c1 + xMinus + xPlus) },
+      { type:'相對兩側 Y 板緣', bo:2 * (c2 + yMinus + yPlus) },
+    ];
+    const shortest = candidates.reduce((a, b) => a.bo <= b.bo ? a : b);
+    if (!Number.isFinite(closed) || !Number.isFinite(shortest.bo)) return null;
+    return {
+      widthX:c1 + Math.min(1.5 * h, xMinus) + Math.min(1.5 * h, xPlus),
+      widthY:c2 + Math.min(1.5 * h, yMinus) + Math.min(1.5 * h, yPlus),
+      closed, shortest, interior:Math.min(xEdge, yEdge) >= d / 2 && shortest.bo > closed,
+    };
+  }
+
+  function slabFlexuralTransfer({ stress, geometry, source, x, y }) {
+    if (!stress) return null;
+    function check(moment, width, { available, face }) {
+      const demand = Math.abs(moment);
+      const capacity = Number.isFinite(available) && available >= 0 ? available : null;
+      const ready = geometry?.interior && source && (face === 'top' || face === 'bottom') && capacity !== null;
+      // Keep mathematically equal values equal after the γf multiplication.
+      const rounding = 2 * Number.EPSILON * demand;
+      return { moment, width:width ?? null, demand, capacity, face,
+        ok:demand === 0 ? true : ready ? demand - capacity <= rounding : null };
+    }
+    const xAxis = check(stress.x.flexuralMoment, geometry?.widthX, x);
+    const yAxis = check(stress.y.flexuralMoment, geometry?.widthY, y);
+    return { source, x:xAxis, y:yAxis,
+      ok:xAxis.ok === false || yAxis.ok === false ? false : geometry?.interior && xAxis.ok === true && yAxis.ok === true ? true : null };
+  }
+
   // 112 年版 24.4.3.2：收縮與溫度竹節鋼筋比不小於 0.0018，與 fyt 無關
   // （解說：舊版 fy > 4,200 之折減已取消）；fyt 仍用於伸展與錨定
   function temperatureRatio(fyT) {
@@ -223,7 +262,7 @@
     return { rho:0.0018, branch:'fixed-0.0018' };
   }
 
-  const api = { getCoefficients, getShearFactor, flatThicknessRatio, minimumThickness, stripMoment, analyzeStripMoments, sizeEffectLambda, oneWayShearNoReinf, interiorPunchingStress, temperatureRatio };
+  const api = { getCoefficients, getShearFactor, flatThicknessRatio, minimumThickness, stripMoment, analyzeStripMoments, sizeEffectLambda, oneWayShearNoReinf, interiorPunchingStress, slabTransferGeometry, slabFlexuralTransfer, temperatureRatio };
   globalScope.SlabEvaluator = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

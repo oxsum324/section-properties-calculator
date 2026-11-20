@@ -77,4 +77,39 @@ assert.throws(() => SlabEvaluator.minimumThickness({ stype:'one', Lx:0, Ly:500, 
   close(SlabEvaluator.minimumThickness({ ...input, edgeAlpha:0.79, alphaFm:2.1 }).hmin, (660 / 46.8) * 1.1, 1e-10, 'exterior high-alpha edge');
   close(SlabEvaluator.minimumThickness({ ...input, edgeAlpha:0.79, alphaFm:0.2 }).hmin, 20, 1e-10, 'low alpha uses flat slab table');
 }
+// §8.4.2.2.3 / §8.5.1.1(b): independently checked 55 × 55 cm column, h=28 cm.
+{
+  const dimensions = { c1:55, c2:55, h:28, d:23.91, xMinus:200, xPlus:200, yMinus:200, yPlus:200 };
+  const geometry = SlabEvaluator.slabTransferGeometry(dimensions);
+  close(geometry.widthX, 139, 1e-12, 'interior X strip width');
+  close(geometry.widthY, 139, 1e-12, 'interior Y strip width');
+  assert.equal(geometry.interior, true);
+  assert.equal(SlabEvaluator.slabTransferGeometry({ ...dimensions, xMinus:-1 }), null);
+  const edge = SlabEvaluator.slabTransferGeometry({ ...dimensions, xMinus:20 });
+  close(edge.widthX, 117, 1e-12, 'X strip clipped at free edge');
+  close(edge.shortest.bo, 252.82, 1e-12, 'shorter one-edge perimeter');
+  assert.equal(edge.interior, false);
+  const adjacent = SlabEvaluator.slabTransferGeometry({ ...dimensions, xMinus:20, yMinus:22 });
+  close(adjacent.shortest.bo, 175.91, 1e-12, 'shorter corner perimeter');
+  assert.equal(adjacent.interior, false);
+  const narrow = SlabEvaluator.slabTransferGeometry({ ...dimensions, xMinus:45, xPlus:45 });
+  close(narrow.shortest.bo, 290, 1e-12, 'shorter opposite-edge perimeter');
+  assert.equal(narrow.interior, false);
+
+  const stress = SlabEvaluator.interiorPunchingStress({ ...dimensions, netShearTf:45.8, mxTfm:30, myTfm:-20, phiVc:14.873 });
+  const input = { stress, geometry, source:'合成配筋與錨定核對',
+    x:{ face:'top', available:18.122 }, y:{ face:'bottom', available:12 } };
+  const bothPass = SlabEvaluator.slabFlexuralTransfer(input);
+  close(bothPass.x.demand, 18, 1e-12, 'signed X demand');
+  close(bothPass.y.moment, -12, 1e-12, 'signed Y moment');
+  assert.equal(bothPass.ok, true);
+  assert.equal(stress.ok, false, 'shear result is independent of flexure');
+  for (const available of [8.463, 16.55, 0]) {
+    assert.equal(SlabEvaluator.slabFlexuralTransfer({ ...input, x:{ ...input.x, available } }).ok, false);
+  }
+  assert.equal(SlabEvaluator.slabFlexuralTransfer({ ...input, x:{ ...input.x, available:null } }).ok, null);
+  assert.equal(SlabEvaluator.slabFlexuralTransfer({ ...input, y:{ ...input.y, face:'' } }).ok, null);
+  assert.equal(SlabEvaluator.slabFlexuralTransfer({ ...input, source:'' }).ok, null);
+  assert.equal(SlabEvaluator.slabFlexuralTransfer({ ...input, geometry:edge }).ok, null);
+}
 console.log('slab-evaluator.test.js: PASS');

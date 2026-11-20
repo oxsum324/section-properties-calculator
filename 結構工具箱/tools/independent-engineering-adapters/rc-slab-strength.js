@@ -7,7 +7,7 @@ const SlabEvaluator = require('../../../鋼筋混凝土/shared/slab-evaluator.js
 const Flexure = require('../../../鋼筋混凝土/shared/flexure.js');
 
 for (const token of [
-  '<script src="../shared/slab-evaluator.js?v=3"></script>',
+  '<script src="../shared/slab-evaluator.js?v=4"></script>',
   'SlabEvaluator.minimumThickness({',
   'SlabEvaluator.analyzeStripMoments({',
   'SlabEvaluator.temperatureRatio(fyT)',

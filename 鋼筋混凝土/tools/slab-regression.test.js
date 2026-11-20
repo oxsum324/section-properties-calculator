@@ -215,7 +215,7 @@ async function exerciseSlabProjectStorage(page) {
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(legacySlabProject), 'utf8')
   });
-  await page.waitForFunction(() => document.getElementById('slabProjectStatus')?.textContent?.includes('原為 V3.1 專案檔，已依 V3.4 重新計算'));
+  await page.waitForFunction(() => document.getElementById('slabProjectStatus')?.textContent?.includes('原為 V3.1 專案檔，已依 V3.5 重新計算'));
   const legacyImport = await page.evaluate(() => ({
     projectName: document.getElementById('projName')?.value,
     Lx: document.getElementById('Lx')?.value,
@@ -223,15 +223,15 @@ async function exerciseSlabProjectStorage(page) {
     appVersion: window.collectSlabProjectData()?.appVersion
   }));
   assert(legacyImport.projectName === '板專案存讀檔測試' && legacyImport.Lx === '620', 'slab accepts V3.1 project inputs for recalculation', JSON.stringify(legacyImport));
-  assert(legacyImport.appVersion === 'V3.4', 'slab upgrades replayed project provenance to V3.4', JSON.stringify(legacyImport));
-  assert(legacyImport.status.includes('請另存 V3.4 專案檔'), 'slab discloses V3.1 calculation migration', legacyImport.status);
+  assert(legacyImport.appVersion === 'V3.5', 'slab upgrades replayed project provenance to V3.5', JSON.stringify(legacyImport));
+  assert(legacyImport.status.includes('請另存 V3.5 專案檔'), 'slab discloses V3.1 calculation migration', legacyImport.status);
   // V3.2（E1 前上線版）舊檔與 V3.1 走同一遷移分支；fixture 由 a2054691 之 V3.2 頁面以上方同一組輸入另存
   await page.setInputFiles('#slabProjectFile', {
     name: 'rc-slab-project-v3.2.json',
     mimeType: 'application/json',
     buffer: fs.readFileSync(path.join(__dirname, 'tests', 'fixtures', 'slab-project-v3.2.json'))
   });
-  await page.waitForFunction(() => document.getElementById('slabProjectStatus')?.textContent?.includes('原為 V3.2 專案檔，已依 V3.4 重新計算'));
+  await page.waitForFunction(() => document.getElementById('slabProjectStatus')?.textContent?.includes('原為 V3.2 專案檔，已依 V3.5 重新計算'));
   const legacyV32Import = await page.evaluate(() => ({
     projectName: document.getElementById('projName')?.value,
     Lx: document.getElementById('Lx')?.value,
@@ -239,7 +239,7 @@ async function exerciseSlabProjectStorage(page) {
     appVersion: window.collectSlabProjectData()?.appVersion
   }));
   assert(legacyV32Import.projectName === '板專案存讀檔測試' && legacyV32Import.Lx === '620', 'slab accepts V3.2 project inputs for recalculation', JSON.stringify(legacyV32Import));
-  assert(legacyV32Import.appVersion === 'V3.4' && legacyV32Import.status.includes('請另存 V3.4 專案檔'), 'slab migrates V3.2 projects like V3.1', legacyV32Import.status);
+  assert(legacyV32Import.appVersion === 'V3.5' && legacyV32Import.status.includes('請另存 V3.5 專案檔'), 'slab migrates V3.2 projects like V3.1', legacyV32Import.status);
   assert(legacyV32Import.status.includes('判定維持') && legacyV32Import.status.includes('衝剪重算：d ='), 'slab discloses the revised punching calculation even if the overall verdict is unchanged', legacyV32Import.status);
   await page.setInputFiles('#slabProjectFile', {
     name: 'rc-slab-project.json',
@@ -319,16 +319,16 @@ async function exerciseSlabLegacyResultFlip(page) {
 
   const accepted = await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.2-shear-flip.json', flipFixture);
   const newBanner = accepted.current.summary.banner;
-  assert(newBanner !== flipFixture.summary.banner && newBanner.startsWith('✗ NG') && newBanner.includes('✗ 剪力'), 'slab V3.4 recalculation flips the V3.2 verdict', newBanner);
-  assert(accepted.recalculated && accepted.banner === newBanner && accepted.summaryText.startsWith('✗ NG'), 'slab flip import recalculates under V3.4', JSON.stringify({ banner: accepted.banner, summaryText: accepted.summaryText }));
+  assert(newBanner !== flipFixture.summary.banner && newBanner.startsWith('✗ NG') && newBanner.includes('✗ 剪力'), 'slab V3.5 recalculation flips the V3.2 verdict', newBanner);
+  assert(accepted.recalculated && accepted.banner === newBanner && accepted.summaryText.startsWith('✗ NG'), 'slab flip import recalculates under V3.5', JSON.stringify({ banner: accepted.banner, summaryText: accepted.summaryText }));
   const mismatched = slabFieldMismatches(flipFixture.fields, accepted.current.fields);
   assert(mismatched.length === 0 && Object.keys(accepted.current.fields).length === Object.keys(flipFixture.fields).length, 'slab flip import reproduces every saved input field', `fields=${Object.keys(flipFixture.fields).length} mismatched=${JSON.stringify(mismatched)}`);
   assert(accepted.current.mode === flipFixture.mode && accepted.current.loadMode === flipFixture.loadMode, 'slab flip import reproduces mode and load mode', `${accepted.current.mode}/${accepted.current.loadMode}`);
-  const expectedDisclosure = `原為 V3.2 專案檔，已依 V3.4 重新計算；判定由「${flipFixture.summary.banner}」改為「${newBanner}」（審查警示 ${flipFixture.summary.reviewWarningCount}→${accepted.current.summary.reviewWarningCount} 項），請另存 V3.4 專案檔`;
-  assert(accepted.status.includes(expectedDisclosure), 'slab discloses the V3.2 to V3.4 verdict change and asks for a V3.4 save', accepted.status);
-  assert(accepted.status.startsWith('已讀取板專案檔並依 V3.4 重新計算：板判定翻轉測試') && !accepted.status.includes('並重現計算'), 'slab flip status does not claim the saved result was reproduced', accepted.status);
-  assert(accepted.status.includes(`計算指紋 ${flipFixture.calculationFingerprint}（V3.2 存檔）→ ${accepted.current.calculationFingerprint}（V3.4 重算）`) && accepted.current.calculationFingerprint !== flipFixture.calculationFingerprint, 'slab flip status traces old and new calculation fingerprints', accepted.status);
-  assert(accepted.statusTone === 'warn' && accepted.current.appVersion === 'V3.4', 'slab flip status uses the warning style and V3.4 provenance', `${accepted.statusTone} ${accepted.current.appVersion}`);
+  const expectedDisclosure = `原為 V3.2 專案檔，已依 V3.5 重新計算；判定由「${flipFixture.summary.banner}」改為「${newBanner}」（審查警示 ${flipFixture.summary.reviewWarningCount}→${accepted.current.summary.reviewWarningCount} 項），請另存 V3.5 專案檔`;
+  assert(accepted.status.includes(expectedDisclosure), 'slab discloses the V3.2 to V3.5 verdict change and asks for a V3.5 save', accepted.status);
+  assert(accepted.status.startsWith('已讀取板專案檔並依 V3.5 重新計算：板判定翻轉測試') && !accepted.status.includes('並重現計算'), 'slab flip status does not claim the saved result was reproduced', accepted.status);
+  assert(accepted.status.includes(`計算指紋 ${flipFixture.calculationFingerprint}（V3.2 存檔）→ ${accepted.current.calculationFingerprint}（V3.5 重算）`) && accepted.current.calculationFingerprint !== flipFixture.calculationFingerprint, 'slab flip status traces old and new calculation fingerprints', accepted.status);
+  assert(accepted.statusTone === 'warn' && accepted.current.appVersion === 'V3.5', 'slab flip status uses the warning style and V3.5 provenance', `${accepted.statusTone} ${accepted.current.appVersion}`);
 
   // 版本字串變體：驗證與提示讀同一組欄位、同一正規化
   const pageVersionOnly = JSON.parse(JSON.stringify(flipFixture));
@@ -371,11 +371,11 @@ async function exerciseSlabLegacyResultFlip(page) {
     await markBeforeImport();
     const result = await importSlabProjectThroughFileInput(page, `rc-slab-project-${label.replace(/\s+/g, '-')}.json`, signed);
     const guard = await readGuarded();
-    assert(result.status.includes('已保留原輸入') && result.status.includes('原為 V3.2 專案檔，下列輸入無法於 V3.4 逐欄重現，未載入') && result.status.includes(needle), `slab rejects a legacy project whose ${label} cannot be reproduced and names it`, result.status);
+    assert(result.status.includes('已保留原輸入') && result.status.includes('原為 V3.2 專案檔，下列輸入無法於 V3.5 逐欄重現，未載入') && result.status.includes(needle), `slab rejects a legacy project whose ${label} cannot be reproduced and names it`, result.status);
     assert(guard.projectName === '匯入前' && guard.Lx === '111', `slab keeps current inputs after ${label} rejection`, JSON.stringify(guard));
   }
 
-  // 現行版 V3.4 檔維持嚴格比對：結果不符（重簽）仍拒收
+  // 現行版 V3.5 檔維持嚴格比對：結果不符（重簽）仍拒收
   await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.2-shear-flip.json', flipFixture);
   const currentMismatch = await page.evaluate(() => {
     const payload = window.collectSlabProjectData();
@@ -385,8 +385,8 @@ async function exerciseSlabLegacyResultFlip(page) {
   await markBeforeImport();
   const currentResult = await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.4-mismatch.json', currentMismatch);
   const currentGuard = await readGuarded();
-  assert(currentResult.status.includes('已保留原輸入') && currentResult.status.includes('專案 JSON 重現失敗') && currentResult.status.includes('存檔結果與重算結果不同'), 'slab still rejects a V3.4 project whose saved result differs', currentResult.status);
-  assert(currentGuard.projectName === '匯入前' && currentGuard.Lx === '111', 'slab keeps current inputs after V3.4 mismatch rejection', JSON.stringify(currentGuard));
+  assert(currentResult.status.includes('已保留原輸入') && currentResult.status.includes('專案 JSON 重現失敗') && currentResult.status.includes('存檔結果與重算結果不同'), 'slab still rejects a V3.5 project whose saved result differs', currentResult.status);
+  assert(currentGuard.projectName === '匯入前' && currentGuard.Lx === '111', 'slab keeps current inputs after V3.5 mismatch rejection', JSON.stringify(currentGuard));
 }
 
 async function exerciseSlabReportOutputActions(page) {
@@ -488,9 +488,74 @@ async function exerciseInteriorPunching(page) {
   await page.selectOption('#slabType', 'flat');
   await page.check('#puEnable');
   assert((await read()).punch.ok === null, 'enabled punching reinforcement blocks the concrete-only branch', 'punching reinforcement');
-  const loaded = await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.4-eccentric.json', saved);
+  const loaded = await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.5-eccentric.json', saved);
   assert(loaded.current.calculationFingerprint === saved.calculationFingerprint && (await read()).punch.ok === false,
     'eccentric inputs and stress result survive a project JSON replay', loaded.status);
+}
+
+async function exerciseSlabFlexuralTransfer(page) {
+  const original = await page.evaluate(() => {
+    const payload = window.collectSlabProjectData();
+    return window.RCReportFingerprint.withProjectCalculationFingerprint({ ...payload, appVersion:'V3.4' });
+  });
+  const read = () => page.evaluate(() => {
+    window.calcSlab();
+    const { punchData, attachmentFailures } = window.slabLast;
+    return { transfer:punchData.transferCheck, shear:punchData.ok, attachmentFailures,
+      text:document.querySelector('#punchTransferResult').textContent,
+      perimeter:document.querySelector('#punchSectionResult').textContent };
+  });
+  await page.click('#punchTransferInputs summary');
+  await page.fill('#punchEdgeXM', '200');
+  let result = await read();
+  assert(result.shear === null && result.transfer === null && result.perimeter.includes('四個'),
+    'partial edge distances hold both critical-section results for review', result.perimeter);
+  for (const id of ['punchEdgeXP', 'punchEdgeYM', 'punchEdgeYP']) await page.fill(`#${id}`, '200');
+  await page.fill('#punchMscY', '0');
+  result = await read();
+  assert(result.shear === true && result.transfer.ok === null && result.transfer.y.ok === true,
+    'unfilled strength makes flexure pending even when shear passes', result.text);
+  await page.fill('#punchTransferSource', '合成 55×55 柱配筋與錨定核對');
+  await page.selectOption('#punchFaceX', 'top');
+  await page.fill('#punchTransferX', '16.55');
+  result = await read();
+  assert(result.shear === true && result.transfer.ok === false && result.attachmentFailures.includes('有效板寬撓曲傳遞強度不足'),
+    'available 16.55 tf·m cannot resist 18 tf·m', result.text);
+  await page.fill('#punchTransferX', '18.122');
+  await page.fill('#punchMscY', '-20');
+  await page.selectOption('#punchFaceY', 'bottom');
+  await page.fill('#punchTransferY', '12');
+  result = await read();
+  assert(result.shear === false && result.transfer.ok === true && result.transfer.x.width === 139
+    && result.transfer.y.moment < 0 && result.text.includes('底面'),
+  'flexural pass remains visible with shear failure and signed Y demand', result.text);
+
+  const saved = await page.evaluate(() => window.collectSlabProjectData());
+  await page.evaluate(installReportPopupFixture);
+  const report = await page.evaluate(async () => {
+    const fixture = window.__t23ReportPopupFixture;
+    try {
+      window.buildSlabReport();
+      await fixture.waitForLoads();
+      return fixture.lastHtml;
+    } finally {
+      fixture.restore();
+    }
+  });
+  assert(['有效板寬撓曲傳遞', '139.00', '18.122', '合成 55×55 柱配筋與錨定核對', 'V3.5'].every(value => report.includes(value)),
+    'calculation book includes widths, available strength, source and version', 'rendered report HTML');
+  await page.fill('#punchEdgeXM', '20');
+  result = await read();
+  assert(result.shear === null && result.transfer === null && result.perimeter.includes('252.82') && result.text.includes('117.00'),
+    'an open perimeter governs the near-edge example', `${result.perimeter} ${result.text}`);
+
+  const loaded = await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.5-transfer.json', saved);
+  assert(loaded.current.calculationFingerprint === saved.calculationFingerprint && (await read()).transfer.ok === true,
+    'V3.5 writes and restores calculation fingerprint and transfer results', loaded.status);
+  const legacy = await importSlabProjectThroughFileInput(page, 'rc-slab-project-v3.4-eccentric.json', original);
+  assert(legacy.status.includes('原為 V3.4 專案檔，已依 V3.5 重新計算') && (await read()).transfer === null
+    && await page.locator('#punchEdgeXM').inputValue() === '' && !await page.locator('#punchTransferResult').isVisible(),
+  'V3.4 replays and clears all V3.5 transfer inputs', legacy.status);
 }
 
 async function main() {
@@ -508,7 +573,7 @@ async function main() {
   assert(slabHtml.includes('btnSaveSlabProject'), 'slab.html has save project button', 'local JSON export control exists');
   assert(slabHtml.includes('btnLoadSlabProject'), 'slab.html has load project button', 'local JSON import control exists');
   assert(slabHtml.includes('rc.slab.project.draft'), 'slab.html has browser draft storage key', 'browser-local draft storage exists');
-  assert(slabHtml.includes('../shared/slab-evaluator.js?v=3'), 'slab.html loads shared slab evaluator', 'formal page and independent benchmark share the production slab core');
+  assert(slabHtml.includes('../shared/slab-evaluator.js?v=4'), 'slab.html loads shared slab evaluator', 'formal page and independent benchmark share the production slab core');
   assert(slabHtml.includes('SlabEvaluator.minimumThickness({'), 'slab.html delegates thickness calculation', 'minimum thickness uses production slab core');
   assert(slabHtml.includes('SlabEvaluator.analyzeStripMoments({'), 'slab.html delegates strip actions', 'strip moments and shear demand use production slab core');
   assert(slabHtml.includes('SlabEvaluator.temperatureRatio(fyT)'), 'slab.html delegates temperature ratio', 'temperature reinforcement minimum uses production slab core');
@@ -552,6 +617,7 @@ async function main() {
     await exerciseSlabProjectStorage(page);
     await exerciseSlabLegacyResultFlip(page);
     await exerciseInteriorPunching(page);
+    await exerciseSlabFlexuralTransfer(page);
     assert(pageErrors.length === 0, 'slab project storage workflow', 'no page errors during project save/load checks');
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
     await wait(250);

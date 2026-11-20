@@ -443,7 +443,7 @@
     },
     {
       title: 'RC 板',
-      version: 'V3.4',
+      version: 'V3.5',
       href: '/rc-slab',
       aliases: ['RC slab design', '單向板配筋'],
       categories: ['member'],
