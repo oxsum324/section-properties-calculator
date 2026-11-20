@@ -1091,11 +1091,12 @@ assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').in
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
 assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
 if (Number.isInteger(reportReadinessStatus.deliveryFileIntegrityRequired)) {
-  assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173, 179].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness supports historical and current delivery-file counts');
+  assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173, 179, 183].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness supports historical and current delivery-file counts');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery-file issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery-file integrity passes');
   const deliveryCounts = reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.required, item.verified]);
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityBreakdown.reduce((sum, item) => sum + item.required, 0), reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness total matches its delivery integrity groups');
   assert.ok([
     [[60, 60], [62, 62], [13, 13]],
     [[60, 60], [64, 64], [13, 13]],
@@ -1111,10 +1112,11 @@ if (Number.isInteger(reportReadinessStatus.deliveryFileIntegrityRequired)) {
     [[90, 90], [66, 66], [13, 13]],
     [[94, 94], [66, 66], [13, 13]],
     [[96, 96], [66, 66], [17, 17]],
+    [[96, 96], [70, 70], [17, 17]],
   ].some(expected => JSON.stringify(expected) === JSON.stringify(deliveryCounts)), 'report readiness supports historical and current redacted delivery breakdowns');
 }
-const schemaV35DeliveryDeclared = reportReadinessStatus.deliveryFileIntegrityRequired === 179;
-if (schemaV35DeliveryDeclared || Number.isInteger(reportReadinessStatus.reshoreCapacityFormalAttachmentRequired)) {
+const hasReshoreDeliveryEvidence = reportReadinessStatus.deliveryFileIntegrityRequired >= 179;
+if (hasReshoreDeliveryEvidence || Number.isInteger(reportReadinessStatus.reshoreCapacityFormalAttachmentRequired)) {
   assert.equal(reportReadinessStatus.reshoreCapacityFormalAttachmentRequired, 1, 'report readiness expects one RSC v4 / RSB v1 formal attachment');
   assert.equal(reportReadinessStatus.reshoreCapacityFormalAttachmentComplete, 1, 'report readiness completes the RSC v4 / RSB v1 formal attachment');
   assert.equal(reportReadinessStatus.reshoreCapacityFormalAttachmentArtifactRequired, 6, 'report readiness expects six RSC/RSB release artifacts');
@@ -1127,7 +1129,7 @@ if (schemaV35DeliveryDeclared || Number.isInteger(reportReadinessStatus.reshoreC
   assert.equal(/"(?:rsc|rsb)CalculationFingerprint"/.test(readinessJson), false, 'report readiness omits private RSC/RSB calculation fingerprints');
 }
 if (Number.isInteger(reportReadinessStatus.docxPackageIntegrityRequired)) {
-  assert.equal(reportReadinessStatus.docxPackageIntegrityRequired, schemaV35DeliveryDeclared ? 5 : 4, 'report readiness expects the schema-governed formal DOCX package checks');
+  assert.equal(reportReadinessStatus.docxPackageIntegrityRequired, hasReshoreDeliveryEvidence ? 5 : 4, 'report readiness expects the schema-governed formal DOCX package checks');
   assert.equal(reportReadinessStatus.docxPackageIntegrityComplete, reportReadinessStatus.docxPackageIntegrityRequired, 'report readiness completes every formal DOCX package check');
   assert.equal(reportReadinessStatus.docxPackageIntegrityIssueCount, 0, 'report readiness formal DOCX package issues empty');
   assert.equal(reportReadinessStatus.docxPackageIntegrityPass, true, 'report readiness formal DOCX package checks pass');

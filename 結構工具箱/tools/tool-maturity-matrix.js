@@ -3882,7 +3882,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
-    assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173, 179].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
+    assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173, 179, 183].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');
@@ -3892,6 +3892,7 @@ function checkMatrix(payload, markdown, options = {}) {
       'homepage report readiness exposes only the expected redacted delivery integrity groups'
     );
     const homepageDeliveryCounts = homepageReportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.required, item.verified]);
+    assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityBreakdown.reduce((sum, item) => sum + item.required, 0), homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness total matches its delivery integrity groups');
     assert.ok(
       [
         [[60, 60], [62, 62], [13, 13]],
@@ -3908,6 +3909,7 @@ function checkMatrix(payload, markdown, options = {}) {
         [[90, 90], [66, 66], [13, 13]],
         [[94, 94], [66, 66], [13, 13]],
         [[96, 96], [66, 66], [17, 17]],
+        [[96, 96], [70, 70], [17, 17]],
       ].some(expected => JSON.stringify(expected) === JSON.stringify(homepageDeliveryCounts)),
       'homepage report readiness preserves supported redacted delivery counts'
     );
@@ -3940,7 +3942,7 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('平面剛架正式附件結果鏈與雙封印'), 'homepage report readiness explains frame formal evidence');
   }
   if (Number.isInteger(homepageReportReadinessStatus.rcResultReconciliationRequired)) {
-    assert.ok([30, 32, 33, 34].includes(homepageReportReadinessStatus.rcResultReconciliationRequired), 'homepage report readiness expects a supported RC result reconciliation transition count');
+    assert.ok([30, 32, 33, 34, 36].includes(homepageReportReadinessStatus.rcResultReconciliationRequired), 'homepage report readiness expects a supported RC result reconciliation transition count');
     assert.equal(homepageReportReadinessStatus.rcResultReconciliationComplete, homepageReportReadinessStatus.rcResultReconciliationRequired, 'homepage report readiness completes every RC result reconciliation');
     assert.equal(homepageReportReadinessStatus.rcResultReconciliationIssueCount, 0, 'homepage report readiness RC result reconciliation issues empty');
     assert.equal(homepageReportReadinessStatus.rcResultReconciliationPass, true, 'homepage report readiness RC result reconciliation passes');
@@ -3999,8 +4001,8 @@ function checkMatrix(payload, markdown, options = {}) {
       assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('補充報告 / 服務成品'), 'homepage report readiness rendered delivery summary includes supplemental report and service evidence');
     }
   }
-  const v35PublicDeliveryDeclared = homepageReportReadinessStatus.deliveryFileIntegrityRequired === 179;
-  if (v35PublicDeliveryDeclared || Number.isInteger(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentRequired)) {
+  const hasReshoreDeliveryEvidence = homepageReportReadinessStatus.deliveryFileIntegrityRequired >= 179;
+  if (hasReshoreDeliveryEvidence || Number.isInteger(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentRequired)) {
     assert.equal(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentRequired, 1, 'homepage report readiness expects one RSC v4 / RSB v1 formal attachment');
     assert.equal(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentComplete, 1, 'homepage report readiness completes the RSC v4 / RSB v1 formal attachment');
     assert.equal(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentArtifactRequired, 6, 'homepage report readiness expects all six RSC/RSB release artifacts');
@@ -4012,7 +4014,7 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開檔名、SHA-256、計算指紋或逐檔 records'), 'homepage report readiness explains the private RSC/RSB attachment evidence boundary');
   }
   if (Number.isInteger(homepageReportReadinessStatus.attachmentIntegrityRequired)) {
-    assert.ok([32, 33, 34].includes(homepageReportReadinessStatus.attachmentIntegrityRequired), 'homepage report readiness expects a supported RC HTML attachment transition count');
+    assert.ok([32, 33, 34, 36].includes(homepageReportReadinessStatus.attachmentIntegrityRequired), 'homepage report readiness expects a supported RC HTML attachment transition count');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityActual, homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness keeps every RC HTML attachment');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityVerified, homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness verifies every RC HTML attachment');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityIssueCount, 0, 'homepage report readiness attachment integrity issues empty');
@@ -4033,7 +4035,7 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('RC 正式附件 HTML 完整性'), 'homepage report readiness details include RC HTML attachment integrity');
   }
   if (Number.isInteger(homepageReportReadinessStatus.docxPackageIntegrityRequired)) {
-    assert.equal(homepageReportReadinessStatus.docxPackageIntegrityRequired, v35PublicDeliveryDeclared ? 5 : 4, 'homepage report readiness expects the schema-governed formal DOCX package checks');
+    assert.equal(homepageReportReadinessStatus.docxPackageIntegrityRequired, hasReshoreDeliveryEvidence ? 5 : 4, 'homepage report readiness expects the schema-governed formal DOCX package checks');
     assert.equal(homepageReportReadinessStatus.docxPackageIntegrityComplete, homepageReportReadinessStatus.docxPackageIntegrityRequired, 'homepage report readiness completes every formal DOCX package check');
     assert.equal(homepageReportReadinessStatus.docxPackageIntegrityIssueCount, 0, 'homepage report readiness DOCX package issues empty');
     assert.equal(homepageReportReadinessStatus.docxPackageIntegrityPass, true, 'homepage report readiness DOCX package checks pass');

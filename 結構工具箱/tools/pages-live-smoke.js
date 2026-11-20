@@ -804,7 +804,7 @@ async function main() {
   assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
-  assert.ok([143, 145, 151, 157, 163, 165, 167, 169, 173, 179].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
+  assert.ok([143, 145, 151, 157, 163, 165, 167, 169, 173, 179, 183].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every redacted delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery file integrity issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery file integrity passes');
@@ -819,8 +819,10 @@ async function main() {
     JSON.stringify([['formalPdfEvidence', 90, 90], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
     JSON.stringify([['formalPdfEvidence', 94, 94], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
     JSON.stringify([['formalPdfEvidence', 96, 96], ['rcRenderedVisual', 66, 66], ['mixedFormat', 17, 17]]),
+    JSON.stringify([['formalPdfEvidence', 96, 96], ['rcRenderedVisual', 70, 70], ['mixedFormat', 17, 17]]),
   ].includes(JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]))), 'report readiness exposes the three redacted delivery integrity groups');
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityBreakdown.reduce((sum, item) => sum + item.required, 0), reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness total matches its delivery integrity groups');
   const deliveryFileIntegrityJson = JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown);
   const reportReadinessJson = JSON.stringify(reportReadinessStatus);
   const rcInventory = renderedDeliveryInventory.tools.filter(tool => ['rc-formal', 'rc-retrofit'].includes(tool.family));
@@ -831,8 +833,8 @@ async function main() {
   const rcRetrofit = rcInventory.find(tool => tool.family === 'rc-retrofit');
   assert.equal(/sha256|artifact|filename|bytes/i.test(deliveryFileIntegrityJson), false, 'report readiness redacted delivery integrity omits private artifact evidence');
   assert.equal(/canonicalArtifactIntegrity|rcVisualArtifactIntegrity|mixedArtifactIntegrity/.test(JSON.stringify(reportReadinessStatus)), false, 'report readiness does not publish private aggregate property names');
-  const schemaV35DeliveryDeclared = reportReadinessStatus.deliveryFileIntegrityRequired === 179;
-  if (schemaV35DeliveryDeclared || Number.isInteger(reportReadinessStatus.reshoreCapacityFormalAttachmentRequired)) {
+  const hasReshoreDeliveryEvidence = reportReadinessStatus.deliveryFileIntegrityRequired >= 179;
+  if (hasReshoreDeliveryEvidence || Number.isInteger(reportReadinessStatus.reshoreCapacityFormalAttachmentRequired)) {
     assert.equal(reportReadinessStatus.reshoreCapacityFormalAttachmentRequired, 1, 'report readiness expects one RSC v4 / RSB v1 formal attachment');
     assert.equal(reportReadinessStatus.reshoreCapacityFormalAttachmentComplete, 1, 'report readiness completes the RSC v4 / RSB v1 formal attachment');
     assert.equal(reportReadinessStatus.reshoreCapacityFormalAttachmentArtifactRequired, 6, 'report readiness expects six RSC/RSB release artifacts');
@@ -843,7 +845,7 @@ async function main() {
     assert.equal(reportReadinessJson.includes('reshoreCapacityFormalAttachmentRecords'), false, 'report readiness omits private RSC/RSB attachment records');
     assert.equal(/"(?:rsc|rsb)CalculationFingerprint"/.test(reportReadinessJson), false, 'report readiness omits private RSC/RSB calculation fingerprints');
   }
-  assert.equal(reportReadinessStatus.docxPackageIntegrityRequired, schemaV35DeliveryDeclared ? 5 : 4, 'report readiness expects the schema-governed formal DOCX package checks');
+  assert.equal(reportReadinessStatus.docxPackageIntegrityRequired, hasReshoreDeliveryEvidence ? 5 : 4, 'report readiness expects the schema-governed formal DOCX package checks');
   assert.equal(reportReadinessStatus.docxPackageIntegrityComplete, reportReadinessStatus.docxPackageIntegrityRequired, 'report readiness completes every formal DOCX package check');
   assert.equal(reportReadinessStatus.docxPackageIntegrityIssueCount, 0, 'report readiness formal DOCX package issues empty');
   assert.equal(reportReadinessStatus.docxPackageIntegrityPass, true, 'report readiness formal DOCX package checks pass');
@@ -1024,7 +1026,7 @@ async function main() {
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式放行實際交付物渲染佐證'), 'report readiness status exposes actual rendered delivery evidence');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式交付檔案完整性'), 'report readiness status exposes redacted delivery file integrity');
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開檔名、逐檔雜湊或完整性集合'), 'report readiness status explains the private evidence boundary');
-  if (schemaV35DeliveryDeclared) {
+  if (hasReshoreDeliveryEvidence) {
     assert.ok(reportReadinessStatus.details.join(' ').includes('RSC v4／RSB v1 接收端正式附件'), 'report readiness status exposes the redacted RSC/RSB formal attachment gate');
     assert.ok(reportReadinessStatus.details.join(' ').includes('不公開檔名、SHA-256、計算指紋或逐檔 records'), 'report readiness status explains the private RSC/RSB artifact boundary');
   }

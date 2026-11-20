@@ -687,7 +687,7 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
-assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173, 179].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
+assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173, 179, 183].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityVerified, reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked report readiness snapshot verifies every delivery file');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityIssueCount, 0, 'tracked report readiness snapshot delivery file integrity issues empty');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityPass, true, 'tracked report readiness snapshot delivery file integrity passes');
@@ -697,6 +697,7 @@ assert.deepEqual(
   'tracked report readiness snapshot exposes only redacted delivery integrity groups'
 );
 const trackedDeliveryCounts = reportReadinessStatusSnapshot.deliveryFileIntegrityBreakdown.map(item => [item.required, item.verified]);
+assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityBreakdown.reduce((sum, item) => sum + item.required, 0), reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked readiness total matches its delivery integrity groups');
 assert.ok(
   [
     [[60, 60], [62, 62], [13, 13]],
@@ -713,12 +714,13 @@ assert.ok(
     [[90, 90], [66, 66], [13, 13]],
     [[94, 94], [66, 66], [13, 13]],
     [[96, 96], [66, 66], [17, 17]],
+    [[96, 96], [70, 70], [17, 17]],
   ].some(expected => JSON.stringify(expected) === JSON.stringify(trackedDeliveryCounts)),
   'tracked report readiness snapshot preserves supported redacted delivery counts'
 );
 assert.equal(/sha256|artifact|filename|bytes/i.test(JSON.stringify(reportReadinessStatusSnapshot.deliveryFileIntegrityBreakdown)), false, 'tracked report readiness delivery file counts omit private evidence');
-const trackedSchemaV35DeliveryDeclared = reportReadinessStatusSnapshot.deliveryFileIntegrityRequired === 179;
-if (trackedSchemaV35DeliveryDeclared || Number.isInteger(reportReadinessStatusSnapshot.reshoreCapacityFormalAttachmentRequired)) {
+const trackedHasReshoreDeliveryEvidence = reportReadinessStatusSnapshot.deliveryFileIntegrityRequired >= 179;
+if (trackedHasReshoreDeliveryEvidence || Number.isInteger(reportReadinessStatusSnapshot.reshoreCapacityFormalAttachmentRequired)) {
   assert.equal(reportReadinessStatusSnapshot.reshoreCapacityFormalAttachmentRequired, 1, 'tracked report readiness snapshot expects one RSC v4 / RSB v1 formal attachment');
   assert.equal(reportReadinessStatusSnapshot.reshoreCapacityFormalAttachmentComplete, 1, 'tracked report readiness snapshot completes the RSC v4 / RSB v1 formal attachment');
   assert.equal(reportReadinessStatusSnapshot.reshoreCapacityFormalAttachmentArtifactRequired, 6, 'tracked report readiness snapshot expects six RSC/RSB release artifacts');
@@ -731,7 +733,7 @@ if (trackedSchemaV35DeliveryDeclared || Number.isInteger(reportReadinessStatusSn
   assert.equal(/"(?:rsc|rsb)CalculationFingerprint"/.test(trackedReadinessJson), false, 'tracked report readiness snapshot omits private RSC/RSB calculation fingerprints');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.docxPackageIntegrityRequired)) {
-  assert.equal(reportReadinessStatusSnapshot.docxPackageIntegrityRequired, trackedSchemaV35DeliveryDeclared ? 5 : 4, 'tracked report readiness snapshot expects the schema-governed formal DOCX package checks');
+  assert.equal(reportReadinessStatusSnapshot.docxPackageIntegrityRequired, trackedHasReshoreDeliveryEvidence ? 5 : 4, 'tracked report readiness snapshot expects the schema-governed formal DOCX package checks');
   assert.equal(reportReadinessStatusSnapshot.docxPackageIntegrityComplete, reportReadinessStatusSnapshot.docxPackageIntegrityRequired, 'tracked report readiness snapshot completes every formal DOCX package check');
   assert.equal(reportReadinessStatusSnapshot.docxPackageIntegrityIssueCount, 0, 'tracked report readiness snapshot formal DOCX package issues empty');
   assert.equal(reportReadinessStatusSnapshot.docxPackageIntegrityPass, true, 'tracked report readiness snapshot formal DOCX package checks pass');
@@ -757,25 +759,25 @@ if (Number.isInteger(reportReadinessStatusSnapshot.frameResultReconciliationRequ
   assert.equal(reportReadinessStatusSnapshot.frameHtmlApprovalSealPass, true, 'tracked report readiness snapshot frame approval seal passes');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.rcResultReconciliationRequired)) {
-  assert.ok([30, 32, 33, 34].includes(reportReadinessStatusSnapshot.rcResultReconciliationRequired), 'tracked report readiness snapshot expects a supported RC result reconciliation transition count');
+  assert.ok([30, 32, 33, 34, 36].includes(reportReadinessStatusSnapshot.rcResultReconciliationRequired), 'tracked report readiness snapshot expects a supported RC result reconciliation transition count');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationComplete, reportReadinessStatusSnapshot.rcResultReconciliationRequired, 'tracked report readiness snapshot completes every RC result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationIssueCount, 0, 'tracked report readiness snapshot RC result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationPass, true, 'tracked report readiness snapshot RC result reconciliation passes');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.rcSourceReportPackageRequired)) {
-  assert.equal(reportReadinessStatusSnapshot.rcSourceReportPackageRequired, 32, 'tracked report readiness snapshot expects 32 RC source/report package checks');
+  assert.ok([32, 34].includes(reportReadinessStatusSnapshot.rcSourceReportPackageRequired), 'tracked report readiness supports the two RC source/report inventories');
   assert.equal(reportReadinessStatusSnapshot.rcSourceReportPackageComplete, reportReadinessStatusSnapshot.rcSourceReportPackageRequired, 'tracked report readiness snapshot completes every RC source/report package check');
   assert.equal(reportReadinessStatusSnapshot.rcSourceReportPackageIssueCount, 0, 'tracked report readiness snapshot RC source/report package issues empty');
   assert.equal(reportReadinessStatusSnapshot.rcSourceReportPackagePass, true, 'tracked report readiness snapshot RC source/report package checks pass');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintRequired)) {
-  assert.equal(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintRequired, 34, 'tracked report readiness snapshot expects 34 RC standalone formal HTML print checks');
+  assert.ok([34, 36].includes(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintRequired), 'tracked report readiness supports the two RC standalone print inventories');
   assert.equal(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintComplete, reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintRequired, 'tracked report readiness snapshot completes every RC standalone formal HTML print check');
   assert.equal(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintIssueCount, 0, 'tracked report readiness snapshot RC standalone formal HTML print issues empty');
   assert.equal(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintPass, true, 'tracked report readiness snapshot RC standalone formal HTML print checks pass');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.rcFormalHtmlContentSealRequired)) {
-  assert.equal(reportReadinessStatusSnapshot.rcFormalHtmlContentSealRequired, 34, 'tracked report readiness snapshot expects 34 RC formal HTML content seal checks');
+  assert.ok([34, 36].includes(reportReadinessStatusSnapshot.rcFormalHtmlContentSealRequired), 'tracked report readiness supports the two RC content seal inventories');
   assert.equal(reportReadinessStatusSnapshot.rcFormalHtmlContentSealComplete, reportReadinessStatusSnapshot.rcFormalHtmlContentSealRequired, 'tracked report readiness snapshot completes every RC formal HTML content seal check');
   assert.equal(reportReadinessStatusSnapshot.rcFormalHtmlContentSealIssueCount, 0, 'tracked report readiness snapshot RC formal HTML content seal issues empty');
   assert.equal(reportReadinessStatusSnapshot.rcFormalHtmlContentSealPass, true, 'tracked report readiness snapshot RC formal HTML content seal checks pass');

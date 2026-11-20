@@ -236,6 +236,27 @@ assert(passingSchemaV35Transition.deliveryFileIntegrityRequired === 179 && passi
 assert(passingSchemaV35Transition.docxPackageIntegrityRequired === 5 && passingSchemaV35Transition.docxPackageIntegrityComplete === 5, 'Schema v35 public readiness exposes five clean DOCX packages');
 assert(passingSchemaV35Transition.reshoreCapacityFormalAttachmentRequired === 1 && passingSchemaV35Transition.reshoreCapacityFormalAttachmentComplete === 1, 'Schema v35 public readiness exposes the RSC/RSB attachment 1 / 1');
 assert(passingSchemaV35Transition.reshoreCapacityFormalAttachmentArtifactRequired === 6 && passingSchemaV35Transition.reshoreCapacityFormalAttachmentArtifactVerified === 6, 'Schema v35 public readiness exposes six of six RSC/RSB release artifacts');
+const schemaV36TransitionEvidence = {
+  ...schemaV35TransitionEvidence,
+  payload: {
+    ...schemaV35TransitionEvidence.payload,
+    schemaVersion: 36,
+    rcVisualArtifactIntegrity: {
+      ...schemaV35TransitionEvidence.payload.rcVisualArtifactIntegrity,
+      required: 70,
+      verified: 70,
+    },
+  },
+};
+const passingSchemaV36Transition = maturityMatrixApi.buildHomepageReportReadinessStatus(
+  publicTransitionMatrix,
+  'c'.repeat(64),
+  publicTransitionPreflightStatus,
+  publicTransitionPreflightPayload,
+  schemaV36TransitionEvidence,
+);
+assert(passingSchemaV36Transition.pass && passingSchemaV36Transition.deliveryFileIntegrityRequired === 183 && passingSchemaV36Transition.deliveryFileIntegrityVerified === 183, 'Schema v36 public readiness exposes all 183 delivery files');
+assert(passingSchemaV36Transition.deliveryFileIntegrityBreakdown.find(group => group.key === 'rcRenderedVisual')?.verified === 70, 'Schema v36 public readiness exposes all 70 RC visual files');
 const schemaV35PublicJson = JSON.stringify(passingSchemaV35Transition);
 for (const privateNeedle of ['private-1.bin', '0123456789ABCDEF0123', 'reshoreCapacityFormalAttachmentSetSha256', 'reshoreCapacityFormalAttachmentRecords']) {
   assert(!schemaV35PublicJson.includes(privateNeedle), `Schema v35 public readiness omits private RSC/RSB evidence: ${privateNeedle}`);
@@ -769,7 +790,8 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   { label: 'Pages release governance', source: pagesReleaseGovernanceContract, steelTransitionCount: 3 },
   { label: 'toolbox entrypoints', source: toolboxEntrypointsContract, steelTransitionCount: 3 },
 ].forEach(({ label, source, steelTransitionCount }) => {
-  assertIncludes(source, '173, 179]', `${label} accepts the Schema v35 public delivery count while retaining v34`);
+  assertIncludes(source, '173, 179, 183]', `${label} accepts the Schema v36 public delivery count while retaining v34 and v35`);
+  assertIncludes(source, '70, 70', `${label} accepts the Schema v36 RC delivery breakdown`);
   assertIncludes(source, '94, 94', `${label} accepts the Schema v34 canonical delivery breakdown`);
   assertIncludes(source, '96, 96', `${label} accepts the Schema v35 canonical delivery breakdown`);
   assertIncludes(source, '17, 17', `${label} accepts the Schema v35 mixed-format delivery breakdown`);
