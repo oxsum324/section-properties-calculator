@@ -66,4 +66,15 @@ assert.throws(() => SlabEvaluator.minimumThickness({ stype:'one', Lx:0, Ly:500, 
   const ext = SlabEvaluator.minimumThickness({ stype:'flatDrop', Lx:720, Ly:600, fy:2800, supW:60, panelPos:'extNoBeam' });
   close(ext.hmin, 660 / 36, 1e-9, 'flat drop extNoBeam fy2800 hmin');
 }
+// 112 年版第 8.3.1.2.1。600 cm 長淨跨、β=1.2、fy=4200。
+{
+  const input = { stype:'two', Lx:520, Ly:620, supW:20, fy:4200,
+    alphaFm:1, edgeType:'discontinuous' };
+  const base = 660 / 40.8;
+  close(SlabEvaluator.minimumThickness({ ...input, edgeAlpha:0.79 }).hmin, base * 1.1, 1e-10, 'exterior edge adds ten percent');
+  close(SlabEvaluator.minimumThickness({ ...input, edgeAlpha:0.8 }).hmin, base, 1e-10, 'edge stiffness threshold');
+  close(SlabEvaluator.minimumThickness(input).hmin, base, 1e-10, 'missing edge stiffness retains base value for review');
+  close(SlabEvaluator.minimumThickness({ ...input, edgeAlpha:0.79, alphaFm:2.1 }).hmin, (660 / 46.8) * 1.1, 1e-10, 'exterior high-alpha edge');
+  close(SlabEvaluator.minimumThickness({ ...input, edgeAlpha:0.79, alphaFm:0.2 }).hmin, 20, 1e-10, 'low alpha uses flat slab table');
+}
 console.log('slab-evaluator.test.js: PASS');

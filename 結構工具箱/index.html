@@ -6,7 +6,7 @@
 <title>結構工具箱</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="assets/hy/colors_and_type.css?v=20261004">
-<link rel="stylesheet" href="assets/home/home.css?v=20261023">
+<link rel="stylesheet" href="assets/home/home.css?v=20261120">
 <link rel="preload" as="image" href="assets/home/hero-art.webp?v=20261004" type="image/webp" fetchpriority="high">
 <script src="assets/home/home.js?v=20261023" defer></script>
 </head>
@@ -30,6 +30,27 @@
   </header>
 
   <main class="home-shell" data-home-app>
+    <section class="home-task-links" aria-labelledby="taskLinksTitle">
+      <h2 id="taskLinksTitle">依工作找工具</h2>
+      <div class="home-task-links__groups">
+        <div>
+          <h3>構件核算</h3>
+          <a href="tools/rc/column-cover-deviation.html?workflow=batch">柱保護層批次檢核</a>
+          <a href="../連續梁分析.html#stationTransfer">連續梁分析與鋼梁交接</a>
+        </div>
+        <div>
+          <h3 id="fieldLinksTitle">現場與案件</h3>
+          <a href="../field-survey/recorder.html">現況鑑定紀錄</a>
+          <a href="https://oxsum324.github.io/level-survey-recorder/">水準測量紀錄</a>
+          <a href="https://oxsum324.github.io/tilt-survey-recorder/">傾斜測量紀錄</a>
+        </div>
+        <div>
+          <h3>覆核與舊案</h3>
+          <a href="platform-status.html">查看驗算與成品紀錄</a>
+          <a href="tools/鋼構/steel-beam.html">鋼梁舊案延續頁</a>
+        </div>
+      </div>
+    </section>
     <section class="category-strip" aria-labelledby="categoryTitle">
       <div class="section-head">
         <div>
@@ -81,13 +102,6 @@
       </section>
     </section>
 
-    <section class="status-section" aria-labelledby="fieldLinksTitle">
-      <h2 id="fieldLinksTitle">現場測量紀錄</h2>
-      <div class="status-actions">
-        <a href="https://oxsum324.github.io/level-survey-recorder/">水準測量紀錄</a>
-        <a href="https://oxsum324.github.io/tilt-survey-recorder/">傾斜測量紀錄</a>
-      </div>
-    </section>
     <!-- 平台狀態降級為頁尾精簡摘要：DOM 與 id 不變、不收合；完整內容見 platform-status.html。 -->
     <section id="platformStatusSection" class="status-section status-section--compact" aria-labelledby="platformStatusTitle">
       <div class="status-strip">

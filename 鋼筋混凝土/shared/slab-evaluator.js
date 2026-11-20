@@ -50,7 +50,7 @@
     })[support] || support;
   }
 
-  function minimumThickness(input) {
+  function baseMinimumThickness(input) {
     const Lx = finitePositive(input.Lx, 'Lx');
     const Ly = finitePositive(input.Ly, 'Ly');
     const fy = finitePositive(input.fy, 'fy');
@@ -119,6 +119,21 @@
       formula:`${positionName}${hasDrop?'·有柱頭板':'·無柱頭板'}: 表 8.3.1.1 fy=${fy} 線性內插 k=${factor.toFixed(2)}${tbl.extrapolated?' (fy>5600 外插)':''}; max(ℓn/k, ${absoluteMinimum})\n  = max(${lnLong.toFixed(1)}/${factor.toFixed(2)}, ${absoluteMinimum})`,
       reference:`規範 8.3.1.1 (${positionName}${hasDrop?'，有柱頭板':'，無柱頭板'})`,
       branch:hasDrop ? 'flat-drop' : 'flat',
+    };
+  }
+
+  function minimumThickness(input) {
+    const result = baseMinimumThickness(input);
+    if (input.stype !== 'two' || input.edgeType !== 'discontinuous') return result;
+    if (!Number.isFinite(input.edgeAlpha) || input.edgeAlpha < 0 || input.edgeAlpha >= 0.8) return result;
+    if (!['two-way-mid-alpha', 'two-way-high-alpha'].includes(result.branch)) return result;
+    // §8.3.1.2.1 increases the formula result in Table 8.3.1.2(b) or (d).
+    const baseFormula = result.lnLong * (0.8 + Number(input.fy) / 14000) / result.denominator;
+    const floor = result.branch === 'two-way-mid-alpha' ? 12.5 : 9;
+    const hmin = Math.max(1.1 * baseFormula, floor);
+    return { ...result, hmin, edgeIncrease: true,
+      formula: result.formula + `\n不連續板緣最低 α_f = ${input.edgeAlpha} < 0.8；max(1.10 × ${baseFormula.toFixed(3)}, ${floor}) = ${hmin.toFixed(3)} cm`,
+      reference: result.reference + '、8.3.1.2.1',
     };
   }
 

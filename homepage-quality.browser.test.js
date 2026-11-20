@@ -304,8 +304,27 @@ async function runInteractions(baseUrl, pagesFixture, out, summary) {
     const statusHref = await page.locator('#platformStatusSection a[href="platform-status.html"]').getAttribute('href');
     const statusResponse = await page.goto(new URL(statusHref, page.url()).toString(), { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForFunction(() => ['platformStatus', 'preflightStatus'].every(id => !(document.getElementById(id)?.innerText || '').includes('讀取中')) && document.getElementById('reportReadinessStatus')?.dataset.statusSource === 'snapshot', null, { timeout: 30000 });
-    const statusPage = await page.evaluate(() => ({ path: decodeURIComponent(location.pathname), hasToolGrid: !!document.getElementById('toolGrid'), cards: [...document.querySelectorAll('#platformStatusSection .status-card')].map(card => ({ id: card.id, role: card.getAttribute('role'), live: card.getAttribute('aria-live'), atomic: card.getAttribute('aria-atomic') })), platform: (document.getElementById('platformStatus')?.innerText || '').replace(/\s+/g, ' ').trim(), preflight: (document.getElementById('preflightStatus')?.innerText || '').replace(/\s+/g, ' ').trim(), details: document.querySelectorAll('#reportReadinessDetails li').length, innerWidth, scrollWidth: document.documentElement.scrollWidth }));
-    check(checks, 'pages-prefix-platform-status-page', statusResponse?.status() === 200 && statusPage.path === '/my-classroom-tools/結構工具箱/platform-status.html' && !statusPage.hasToolGrid && statusPage.cards.length === 3 && statusPage.cards.every(card => card.role === 'status' && card.live === 'polite' && card.atomic === 'true') && statusPage.platform.includes('runId ') && statusPage.preflight.includes('runId ') && statusPage.details > 0 && statusPage.scrollWidth <= statusPage.innerWidth && !errors.pageErrors.length, { status: statusResponse?.status(), ...statusPage, pageErrors: errors.pageErrors });
+    const statusPage = await page.evaluate(() => {
+      const summaryCards = [...document.querySelectorAll('#platformStatusSection .status-card')];
+      const services = summaryCards.filter(card => !card.querySelector('#publicationState'));
+      const liveAttributes = status => ({ id: status.id, role: status.getAttribute('role'),
+        live: status.getAttribute('aria-live'), atomic: status.getAttribute('aria-atomic') });
+      const publication = document.querySelector('.status-card #publicationState');
+      return {
+        path: decodeURIComponent(location.pathname), hasToolGrid: !!document.getElementById('toolGrid'),
+        cards: services.map(liveAttributes), publication: publication && liveAttributes(publication),
+        platform: (document.getElementById('platformStatus')?.innerText || '').replace(/\s+/g, ' ').trim(),
+        preflight: (document.getElementById('preflightStatus')?.innerText || '').replace(/\s+/g, ' ').trim(),
+        details: document.querySelectorAll('#reportReadinessDetails li').length,
+        pilot: document.getElementById('pilotStatusTitle')?.textContent,
+        innerWidth, scrollWidth: document.documentElement.scrollWidth
+      };
+    });
+    const liveCards = statusPage.cards.length === 3
+      && statusPage.cards.map(card => card.id).join(',') === 'platformStatus,preflightStatus,reportReadinessStatus'
+      && [...statusPage.cards, statusPage.publication].every(card =>
+        card?.role === 'status' && card.live === 'polite' && card.atomic === 'true');
+    check(checks, 'pages-prefix-platform-status-page', statusResponse?.status() === 200 && statusPage.path === '/my-classroom-tools/結構工具箱/platform-status.html' && !statusPage.hasToolGrid && liveCards && statusPage.platform.includes('runId ') && statusPage.preflight.includes('runId ') && statusPage.details > 0 && statusPage.pilot === '實案試辦' && statusPage.scrollWidth <= statusPage.innerWidth && !errors.pageErrors.length, { status: statusResponse?.status(), ...statusPage, pageErrors: errors.pageErrors });
   } finally { await pagesContext.close(); }
   flow.serverRequests = pagesFixture.requests; flow.completedAt = new Date().toISOString();
   writeJson(path.join(out, 'interactions.json'), flow);

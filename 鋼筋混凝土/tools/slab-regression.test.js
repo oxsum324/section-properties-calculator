@@ -540,6 +540,35 @@ async function main() {
       console.log(JSON.stringify(captured, null, 2));
     }
 
+    const edge = await page.evaluate(() => {
+      const $ = id => document.getElementById(id);
+      Object.entries({slabType:'two', Lx:520,Ly:620,h:17,supW:20,fy:4200,alphaFm:1,
+        supportX:'oneEnd', supportY:'bothEnd'}).forEach(([id,value])=>{ $(id).value=String(value); });
+      $('slabEdgeType').value = '';
+      $('slabEdgeAlpha').value = '';
+      const legacy = window.collectSlabProjectData();
+      $('slabEdgeType').value = 'discontinuous';
+      window.calcSlab();
+      const missing = $('c-h').textContent;
+      $('slabEdgeAlpha').value = '0.79';
+      const revised = window.collectSlabProjectData();
+      const checked = { hmin:window.slabLast.hmin, note:$('slabEdgeNote').textContent,
+        formula:window.slabLast.hminFormula, fields:revised.fields };
+      window.applySlabProjectData(legacy, {silent:true});
+      const restoredLegacy = {hmin:window.slabLast.hmin, edge:$('slabEdgeType').value,
+        fingerprint:window.collectSlabProjectData().calculationFingerprint};
+      window.applySlabProjectData(revised, {silent:true});
+      return { missing, checked, restoredLegacy, legacyFingerprint:legacy.calculationFingerprint,
+        replayedFingerprint:window.collectSlabProjectData().calculationFingerprint, revisedFingerprint:revised.calculationFingerprint };
+    });
+    assert(edge.missing.includes('板緣待確認'), 'missing edge stiffness', edge.missing);
+    assert(nearlyEqual(edge.checked.hmin, 1.1 * 660 / 40.8, 1e-10), 'exterior edge independent thickness', edge.checked.hmin);
+    assert(edge.checked.note.includes('8.3.1.2.1') && edge.checked.formula.includes('0.79') && edge.checked.fields.slabEdgeAlpha.value === '0.79',
+      'checked edge source and formula', edge.checked.note);
+    assert(!edge.restoredLegacy.edge && edge.restoredLegacy.fingerprint === edge.legacyFingerprint
+      && nearlyEqual(edge.restoredLegacy.hmin,660/40.8,1e-10), 'legacy source clears new edge inputs', edge.restoredLegacy.fingerprint);
+    assert(edge.replayedFingerprint === edge.revisedFingerprint, 'edge case project replay', edge.replayedFingerprint);
+
     console.log('\nAll slab regression checks passed.');
   } finally {
     await browser.close();

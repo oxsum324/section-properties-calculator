@@ -766,3 +766,33 @@ a { color: inherit; text-decoration: none; }
   .tool-family__head h3 { font-size: var(--fs-md); }
   .status-strip { padding: 10px 12px; }
 }
+.home-task-links {
+  padding: clamp(16px, 2.25vw, 28px) 0;
+}
+.home-task-links h2 {
+  margin: 0 0 12px;
+  font-size: clamp(1.16rem, 2vw, 1.42rem);
+}
+.home-task-links__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 12px;
+}
+.home-task-links__groups > div {
+  padding: 12px 16px;
+  border: 1px solid #cdd8dd;
+  border-radius: 12px;
+  background: #fff;
+}
+.home-task-links h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+.home-task-links a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  width: fit-content;
+  color: #174971;
+  text-underline-offset: .22em;
+}

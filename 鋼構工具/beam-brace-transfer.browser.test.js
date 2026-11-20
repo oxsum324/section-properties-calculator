@@ -137,7 +137,16 @@ async function main(){
     const previous=JSON.parse(fs.readFileSync(path.join(root,'tests/fixtures/steel-beam-v121.source.json'),'utf8'));
     assert.equal(previous.tool.version,'v1.2.1');
     const now=await context.newPage();await now.goto(new URL('/steel-beam-formal',url).href);await importSource(now,previous);
-    assert.match(await now.locator('#beamInputStatus').innerText(),/已核對 V1.2.1/);assert.equal((await raw(now)).calculationFingerprint,previous.calculationFingerprint);
+    const replayStatus = await now.locator('#beamInputStatus').innerText();
+    const updatedSource = await raw(now);
+    assert.ok(replayStatus.includes(`已核對 V1.2.1 原始計算 ${previous.calculationFingerprint}`), replayStatus);
+    assert.ok(replayStatus.endsWith(`｜${updatedSource.calculationFingerprint}`), replayStatus);
+    assert.notEqual(updatedSource.tool.version, previous.tool.version);
+    assert.notEqual(updatedSource.calculationFingerprint, previous.calculationFingerprint);
+    assert.equal(updatedSource.fields.inMu.value, previous.fields.inMu.value);
+    assert.equal(updatedSource.fields.inVu.value, previous.fields.inVu.value);
+    await importSource(now,updatedSource);
+    assert.equal((await raw(now)).calculationFingerprint,updatedSource.calculationFingerprint);
     await now.close();assert.deepEqual(errors,[]);
     if(out)fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify({head:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),clean:!execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim(),accepted,linked:linked.calculationFingerprint,cases},null,2));
     console.log('PASS 段端選圖、跨頁採用與需求隔離、三種單位、來源回讀、人工更動、舊修次、組合衝突及解析極值');

@@ -206,6 +206,21 @@
             </select>
           </div>
         </div>
+        <div class="form-row" id="slabEdgeGroup" hidden>
+          <div class="form-group">
+            <label for="slabEdgeType">有梁雙向板的不連續板緣</label>
+            <select id="slabEdgeType">
+              <option value="">待確認</option>
+              <option value="continuous">無不連續板緣</option>
+              <option value="discontinuous">有不連續板緣</option>
+            </select>
+          </div>
+          <div class="form-group" id="slabEdgeAlphaGroup" hidden>
+            <label for="slabEdgeAlpha">不連續板緣的最低邊梁 α_f</label>
+            <input type="number" id="slabEdgeAlpha" min="0" step="any" placeholder="無邊梁輸入 0">
+          </div>
+          <p id="slabEdgeNote" class="hint" role="status" style="grid-column:1/-1;"></p>
+        </div>
       </div>
 
       <!-- B. 載重 -->
@@ -723,6 +738,8 @@
   function collectSlabProjectData() {
     if (typeof calcSlab === 'function') calcSlab();
     const fields = slabProjectStorage.collectFields();
+    if ($('slabType').value !== 'two' || !$('slabEdgeType').value) delete fields.slabEdgeType;
+    if (fields.slabEdgeType?.value !== 'discontinuous' || !$('slabEdgeAlpha').value) delete fields.slabEdgeAlpha;
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
       schema: SLAB_PROJECT_SCHEMA,
@@ -773,12 +790,17 @@
   function setSlabProjectControl(id, saved) {
     return slabProjectStorage.setControl(id, saved);
   }
+  function clearSlabEdgeInputs() {
+    $('slabEdgeType').value = '';
+    $('slabEdgeAlpha').value = '';
+  }
   function applySlabProjectData(raw, options = {}) {
     const payload = normalizeSlabProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectSlabProjectData();
     setSlabMode(payload.mode, { recalculate: false });
     if (payload.loadMode) setLoadMode(payload.loadMode);
     let applied = 0;
+    clearSlabEdgeInputs();
     Object.entries(payload.fields).forEach(([id, saved]) => {
       if (setSlabProjectControl(id, saved)) applied += 1;
     });
@@ -941,6 +963,7 @@
   function applySlabTestCase(caseKey) {
     const tc = SLAB_TEST_CASES[caseKey];
     if (!tc) return;
+    clearSlabEdgeInputs();
     Object.entries(tc.values).forEach(([id, value]) => {
       const el = $(id);
       if (!el) return;
@@ -967,6 +990,10 @@
         fc: num('fc'), fy: num('fy'), fyT: $('fyT').value,
         supportX: $('supportX').value, supportY: $('supportY').value,
         supW: num('supW'), alphaFm: num('alphaFm'), panelPos: $('panelPos').value,
+        ...($('slabType').value === 'two' && $('slabEdgeType').value ? {
+          slabEdgeType: $('slabEdgeType').value,
+          ...($('slabEdgeType').value === 'discontinuous' && $('slabEdgeAlpha').value ? {slabEdgeAlpha: $('slabEdgeAlpha').value} : {})
+        } : {}),
         wuManual: num('wuManual'), dlSDL: num('dlSDL'), llVal: num('llVal'), wuCombo: num('wuCombo'),
         layerMode: $('layerMode').value,
         barNoXBot: $('barNoXBot').value, barNoYBot: $('barNoYBot').value,
@@ -1004,6 +1031,7 @@
     try {
       const data = JSON.parse(raw);
       if (data.schema !== 'slab-case-v1' || !data.values) throw new Error('schema mismatch');
+      clearSlabEdgeInputs();
       Object.entries(data.values).forEach(([id, value]) => {
         const el = $(id);
         if (!el || value === undefined || value === null || value === '') return;
@@ -1525,21 +1553,36 @@
     $('alphaFmGroup').style.display = (stype === 'two') ? '' : 'none';
     $('panelPosGroup').style.display = (isFlat) ? '' : 'none';
 
+    const edgeType = stype === 'two' ? $('slabEdgeType').value : '';
+    const edgeAlpha = edgeType === 'discontinuous' ? parseFloat($('slabEdgeAlpha').value) : NaN;
+    const edgeAlphaValid = Number.isFinite(edgeAlpha) && edgeAlpha >= 0;
+    const edgePending = stype === 'two' && (!edgeType || (edgeType === 'discontinuous' && !edgeAlphaValid));
+    $('slabEdgeGroup').hidden = stype !== 'two';
+    $('slabEdgeGroup').style.display = stype === 'two' ? '' : 'none';
+    $('slabEdgeAlphaGroup').hidden = edgeType !== 'discontinuous';
     const supW = num('supW') || 0;                              // 支承寬 c (cm)
     const lnX_cm = Math.max(Lx - supW, 0);                      // 短向淨跨 (cm)
     const lnY_cm = Math.max(Ly - supW, 0);                      // 長向淨跨 (cm)
     const hminResult = SlabEvaluator.minimumThickness({
       stype, Lx, Ly, fy, supW, supportX: supX,
-      alphaFm: num('alphaFm'), panelPos: $('panelPos').value,
+      alphaFm: num('alphaFm'), panelPos: $('panelPos').value, edgeType, edgeAlpha,
     });
     const hmin = hminResult.hmin;
     const hminFormula = hminResult.formula;
     const hminRef = hminResult.reference;
+    const edgeNote = !edgeType ? '板緣條件待確認，顯示未考慮板緣加厚的基準板厚。'
+      : edgeType === 'continuous' ? '已確認無不連續板緣。'
+      : !edgeAlphaValid ? '請輸入不連續板緣的最低 α_f。缺值時僅顯示基準板厚。'
+      : hminResult.edgeIncrease ? '依 8.3.1.2.1 加厚。'
+      : num('alphaFm') <= 0.2 ? 'α_fm ≤ 0.2，沿用表 8.3.1.1 外格板無邊梁路徑。'
+      : '不連續板緣的最低 α_f ≥ 0.8，採表列板厚。';
+    $('slabEdgeNote').textContent = stype === 'two' ? edgeNote : '';
     // 暴露給計算書使用
     window.__slab_hmin = { hmin, hminFormula, hminRef };
     setResult('r-hmin', hmin, 'cm', 1);
     setResult('r-h', h, 'cm', 1);
-    setCheck('c-h', h >= hmin, `${h.toFixed(1)} / ${hmin.toFixed(1)}`);
+    setCheck('c-h', edgePending ? null : h >= hmin,
+      edgePending ? '板緣待確認' : `${h.toFixed(1)} / ${hmin.toFixed(1)}`);
 
     // — 層數判定 (薄 / 厚)
     const layerMode = $('layerMode').value;
@@ -2171,6 +2214,7 @@
       wuSource, wuManual, wuDlll, wuCombo,
       supW: num('supW'), lnX_cm, lnY_cm,
       alphaFm: (stype==='two' ? num('alphaFm') : NaN),
+      edgeType, edgeAlpha, edgeNote,
       panelPos: (isFlat ? $('panelPos').value : ''),
       punchMode: (isFlat ? $('punchMode').value : ''),
       testCaseKey: $('testCaseSelect')?.value || '',
@@ -2216,6 +2260,8 @@
         { label:'短向淨跨 ℓnx', value: r.lnX_cm.toFixed(1), unit:'cm' },
         { label:'長向淨跨 ℓny', value: r.lnY_cm.toFixed(1), unit:'cm' },
         ...(r.stype==='two' ? [{ label:'α_fm', value: r.alphaFm.toFixed(2) }] : []),
+        ...(r.stype==='two' ? [{ label:'板緣與最小板厚', value: r.edgeNote },
+          ...(Number.isFinite(r.edgeAlpha) && r.edgeAlpha >= 0 ? [{ label:'不連續板緣最低 α_f', value:r.edgeAlpha }] : [])] : []),
         ...(r.panelPos ? [{ label:'無梁版位置', value: ({interior:'內版',extWithBeam:'外版(有邊梁)',extNoBeam:'外版(無邊梁)'})[r.panelPos] }] : []),
         ...(r.punchData ? [{ label:'衝剪柱位', value: ({interior:'內柱',edge:'邊柱',corner:'角柱'})[r.punchData.colPos] || r.punchData.colPos }] : []),
         ...(r.punchMode ? [{ label:'衝剪需求模式', value: ({prelim:'初估模式', conservative:'保守放大模式'})[r.punchMode] || r.punchMode }] : []),

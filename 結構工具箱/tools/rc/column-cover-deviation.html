@@ -188,6 +188,9 @@
       if (!frame.hasAttribute('src')) frame.src = 'column-cover-batch.html';
       document.getElementById('coverBatchDialog').showModal();
     };
+    if (new URLSearchParams(location.search).get('workflow') === 'batch') {
+      document.getElementById('openCoverBatch').click();
+    }
   </script>
   <script>
   (function () {

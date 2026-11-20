@@ -32,7 +32,7 @@ async function main() {
         const data = { unitSystem: units, matSelect: 'steel', eVal: 2.04e8, globalI: 0.0003, projNo: '', model: {
           numSpans: 1, supports: [{ type: 'pin' }, { type: 'roller' }], spans: [{ L: 6, eiMul: 1, hinges: [] }],
           loads: [[{ type: 'udl', w: 2 }, { type: 'point', P: load, a: 2 }]],
-        } };
+        }, elasticModulusBasis: '材料規格 E-01', inertiaBasis: '斷面圖 I-02' };
         await window._localImportFile({ files: [new File([JSON.stringify(data)], 'beam.json')] });
         runAnalysis();
       }, { load, units });
@@ -75,10 +75,24 @@ async function main() {
     assert.equal(p.combination, 'U1');
     assert.equal(p.span, 1);
     assert.equal(p.x, 2);
+    assert.deepEqual(p.analysis, {
+      pageVersion: adopted.adoptedBeamImport.station.analysis.pageVersion,
+      engine: 'continuous-beam.inline.v1.5.1',
+      material: 'steel',
+      elasticModulus: 2.04e8,
+      elasticModulusUnit: 'kN/m²',
+      elasticModulusBasis: '材料規格 E-01',
+      inertia: 0.0003,
+      inertiaUnit: 'm⁴',
+      inertiaBasis: '斷面圖 I-02',
+      sectionBasis: '',
+    });
+    assert.match(p.analysis.pageVersion, /^V\d+\.\d+/);
     assert.ok(Math.abs(Number(adopted.fields.inMu.value) - 24 / 9.80665) < 1e-12);
     assert.ok(Math.abs(Number(adopted.fields.inVu.value) - 2 / 9.80665) < 1e-12);
     assert.equal(adopted.fields.inL.value, '600');
     assert.match(JSON.stringify(adopted.report.inputs), /V = -2 kN/);
+    assert.match(JSON.stringify(adopted.report.inputs), /斷面圖 I-02/);
     assert.doesNotMatch(JSON.stringify(adopted.report.inputs), /套用後經人工調整/);
     await send('P2-A', 1, '左側');
     await a.waitForFunction(() => document.querySelector('#stationCandidate').length === 2);
@@ -136,6 +150,24 @@ async function main() {
     const restored = await snapshot(replay);
     assert.equal(restored.calculationFingerprint, adopted.calculationFingerprint);
     assert.equal(restored.adoptedBeamImport.station.id, p.id);
+    assert.deepEqual(restored.adoptedBeamImport.station.analysis, p.analysis);
+    const packetChecks = await replay.evaluate(async source => {
+      const transfer = await import('./beam-station-transfer.js');
+      const { analysis, ...legacy } = source;
+      legacy.id = StructReportUtils.sha256Text(JSON.stringify([legacy.project, legacy.member, legacy.revision,
+        legacy.caseName, legacy.combination, legacy.basis, legacy.fingerprint, legacy.units, legacy.span, legacy.x,
+        legacy.side, legacy.length, legacy.moment, legacy.shear]));
+      return {
+        legacyRead: transfer.validPacket(legacy),
+        legacyText: transfer.stationText(legacy),
+        tamperedRead: transfer.validPacket({ ...source, analysis: { ...analysis, inertiaBasis: '替換值' } }),
+        alternateBasisRevision: transfer.revisionStatus(source, [{ ...source, analysis: { ...analysis, inertiaBasis: '不同來源' } }]),
+      };
+    }, p);
+    assert.equal(packetChecks.legacyRead, true);
+    assert.doesNotMatch(packetChecks.legacyText, /基準 I/);
+    assert.equal(packetChecks.tamperedRead, false);
+    assert.match(packetChecks.alternateBasisRevision, /同修次來源衝突/);
     assert.deepEqual(errors, []);
     console.log('PASS 同站左右側、三種單位、人工採用、兩案隔離、新舊修次、同修次衝突、重整、JSON 指紋重播');
   } finally {

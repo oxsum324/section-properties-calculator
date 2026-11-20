@@ -76,6 +76,17 @@ const EXPECTED = {
       '板 1 m 寬條帶斷面配筋示意',
     ],
   },
+  two_exterior_edge: {
+    title: '板初步設計計算書',
+    minCheckGroups: 6,
+    fragments: [
+      '不連續板緣最低 α_f',
+      '0.79',
+      '8.3.1.2.1',
+      '17.794 cm',
+      '簡化二向條帶法',
+    ],
+  },
   flat_interior_pass_warn: {
     title: '板初步設計計算書',
     minCheckGroups: 7,
@@ -182,6 +193,7 @@ function attachPageGuards(page, bucket, label) {
 }
 
 async function applyCase(page, key) {
+  const factoryCase = key === 'two_exterior_edge' ? 'two_basic' : key;
   await page.evaluate(caseKey => {
     const selector = document.getElementById('testCaseSelect');
     if (selector) selector.value = caseKey;
@@ -193,11 +205,19 @@ async function applyCase(page, key) {
       showSteps.dispatchEvent(new Event('change', { bubbles: true }));
     }
     if (typeof window.calcSlab === 'function') window.calcSlab();
-  }, key);
+  }, factoryCase);
   await page.waitForFunction(caseKey => window.slabLast && (
     window.slabLast.testCaseKey === caseKey ||
     document.getElementById('testCaseSelect')?.value === caseKey
-  ), key, { timeout: 10000 });
+  ), factoryCase, { timeout: 10000 });
+  if (key === 'two_exterior_edge') {
+    await page.evaluate(() => {
+      const values = { Lx:520,Ly:620,h:17,supW:20,fy:4200,alphaFm:1,
+        supportX:'oneEnd',slabEdgeType:'discontinuous',slabEdgeAlpha:0.79 };
+      for (const [id,value] of Object.entries(values)) document.getElementById(id).value = String(value);
+      window.calcSlab();
+    });
+  }
 }
 
 async function reportMetrics(report) {

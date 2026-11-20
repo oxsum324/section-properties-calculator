@@ -8,14 +8,39 @@ const units = {
 };
 const basisLabels = { factored: '已因數化', unfactored: '未因數化', unconfirmed: '未確認' };
 const sideLabels = { left: '左側', right: '右側', continuous: '連續截面' };
+const analysisUnits = {
+  'kN-m': ['kN/m²', 'm⁴'],
+  'tf-m': ['tf/m²', 'm⁴'],
+  'kgf-cm': ['kgf/cm²', 'cm⁴'],
+};
+const materialLabels = { steel: '鋼材', concrete: '混凝土', custom: '自訂' };
 const digest = value => globalThis.StructReportUtils.sha256Text(JSON.stringify(value));
 export const scopeOf = p => digest([p.project, p.member]);
 const display = n => String(Number(n.toPrecision(8)));
 const cleanText = value => typeof value === 'string' && value.length <= 100 && value.trim() === value;
 
+function analysisFields(source) {
+  return [source.pageVersion, source.engine, source.material, source.elasticModulus,
+    source.elasticModulusUnit, source.elasticModulusBasis, source.inertia, source.inertiaUnit,
+    source.inertiaBasis, source.sectionBasis];
+}
+
+function validAnalysis(source, unitKey) {
+  if (!source || typeof source !== 'object') return false;
+  const [eUnit, iUnit] = analysisUnits[unitKey];
+  const cleanBasis = text => typeof text === 'string' && text.length <= 160 && text.trim() === text;
+  return cleanText(source.pageVersion) && !!source.pageVersion && cleanText(source.engine) && !!source.engine
+    && Object.hasOwn(materialLabels, source.material)
+    && [source.elasticModulus, source.inertia].every(value => Number.isFinite(value) && value > 0)
+    && source.elasticModulusUnit === eUnit && source.inertiaUnit === iUnit
+    && [source.elasticModulusBasis, source.inertiaBasis, source.sectionBasis].every(cleanBasis);
+}
+
 function packetId(p) {
-  return digest([p.project, p.member, p.revision, p.caseName, p.combination, p.basis, p.fingerprint,
-    p.units, p.span, p.x, p.side, p.length, p.moment, p.shear]);
+  const fields = [p.project, p.member, p.revision, p.caseName, p.combination, p.basis, p.fingerprint,
+    p.units, p.span, p.x, p.side, p.length, p.moment, p.shear];
+  if (p.analysis) fields.push(analysisFields(p.analysis));
+  return digest(fields);
 }
 
 export function validPacket(p) {
@@ -25,6 +50,7 @@ export function validPacket(p) {
     && Object.hasOwn(units, p.units) && Object.hasOwn(basisLabels, p.basis) && Object.hasOwn(sideLabels, p.side)
     && Number.isSafeInteger(p.revision) && p.revision > 0 && Number.isSafeInteger(p.span) && p.span > 0
     && [p.x, p.length, p.moment, p.shear].every(Number.isFinite) && p.length > 0 && p.x >= 0 && p.x <= p.length
+    && (!Object.hasOwn(p, 'analysis') || validAnalysis(p.analysis, p.units))
     && p.id === packetId(p));
 }
 
@@ -39,7 +65,12 @@ function identity(p) {
 
 export function stationText(p) {
   const u = units[p.units];
-  return `${identity(p)}｜第 ${p.span} 跨 x = ${display(p.x)} ${u.l}（${sideLabels[p.side]}）｜M = ${display(p.moment)} ${u.m}、V = ${display(p.shear)} ${u.v}｜${basisLabels[p.basis]}｜來源指紋 ${p.fingerprint}`;
+  const station = `${identity(p)}｜第 ${p.span} 跨 x = ${display(p.x)} ${u.l}（${sideLabels[p.side]}）｜M = ${display(p.moment)} ${u.m}、V = ${display(p.shear)} ${u.v}｜${basisLabels[p.basis]}｜來源指紋 ${p.fingerprint}`;
+  if (!p.analysis) return station;
+  const a = p.analysis;
+  const inertiaBasis = [a.sectionBasis, a.inertiaBasis].filter(Boolean).join('／') || '依據待補';
+  return station + `｜連續梁 ${a.pageVersion}（${a.engine}）｜${materialLabels[a.material]} E = ${display(a.elasticModulus)} ${a.elasticModulusUnit}`
+    + `（${a.elasticModulusBasis || '依據待補'}）｜基準 I = ${display(a.inertia)} ${a.inertiaUnit}（${inertiaBasis}）`;
 }
 
 function station(span, index) {
@@ -112,9 +143,10 @@ export function showSender(host, model) {
     const p = { kind: 'beam-station-v1', project: f.project.value.trim(), member: f.member.value.trim(),
       caseName: f.caseName.value.trim(), combination: f.combination.value.trim(), revision: Number(f.revision.value),
       basis: f.basis.value, units: model.units, fingerprint: model.fingerprint, span: spanIndex + 1,
+      analysis: model.analysis,
       ...station(model.spans[spanIndex], f.section.selectedIndex) };
     p.id = packetId(p);
-    if (!validPacket(p)) { status.textContent = '請確認案號、構件、修次、案例與站位數值。'; return; }
+    if (!validPacket(p)) { status.textContent = '請確認案號、構件、修次、案例、站位數值與正值 E、I。'; return; }
     const scope = scopeOf(p);
     try { localStorage.setItem(prefix + scope + '.' + p.id, JSON.stringify(p)); }
     catch { status.textContent = '瀏覽器無法儲存候選。請確認同源儲存空間或容量。'; return; }
@@ -142,7 +174,9 @@ export function readPackets(scope) {
 export function revisionStatus(p, rows) {
   const series = rows.filter(r => r.caseName === p.caseName && r.combination === p.combination);
   if (series.some(r => r.revision > p.revision)) return '舊修次';
-  if (series.some(r => r.revision === p.revision && (r.fingerprint !== p.fingerprint || r.basis !== p.basis))) return '同修次來源衝突，請增加修次重送';
+  const analysis = p.analysis && digest(analysisFields(p.analysis));
+  if (series.some(r => r.revision === p.revision && (r.fingerprint !== p.fingerprint || r.basis !== p.basis
+      || (analysis && r.analysis && analysis !== digest(analysisFields(r.analysis)))))) return '同修次來源衝突，請增加修次重送';
   return '有效修次';
 }
 

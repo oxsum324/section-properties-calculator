@@ -256,6 +256,14 @@
       <strong>已選定斷面：</strong><span id="pickedSectionText">—</span>
       <button class="link-btn" onclick="clearPickedSection()">✕ 清除</button>
     </div>
+    <div class="form-group form-row">
+      <label>E 採用依據（選填）
+        <input id="elasticModulusBasis" maxlength="160" onchange="invalidateAnalysis()" placeholder="例如材料規格或試驗紀錄">
+      </label>
+      <label>I 採用依據（選填）
+        <input id="inertiaBasis" maxlength="160" onchange="invalidateAnalysis()" placeholder="例如斷面型號、圖號或計算書">
+      </label>
+    </div>
   </div>
 
   <div class="card" data-ui-panel="project">
@@ -1990,6 +1998,7 @@ async function openStationTransfer() {
       spans: solved.spans, units: solved.sourceUnits, project: getProjectFieldValue('projNo'),
       fingerprint: StructReportUtils.sha256Text(solved.sourceModelJson),
       engine: CONTINUOUS_BEAM_CALCULATION_ENGINE,
+      analysis: stationAnalysisSource(),
       buildProfile: async () => {
         const {makeMomentProfile} = await import('./鋼構工具/beam-brace-segment.js');
         if(diagrams !== solved || !solution) throw new Error('來源已變更，請重新分析。');
@@ -2001,6 +2010,26 @@ async function openStationTransfer() {
   } catch (error) {
     host.textContent = '站位交接無法開啟。請由本機啟動器或網站開啟頁面。' + error.message;
   }
+}
+
+function stationAnalysisSource() {
+  const u = getUnit();
+  const inertia = Number(document.getElementById('globalI').value);
+  const pickedInertia = pickedSection?.Ix_cm4 * convFactor('kgf-cm', getUnitKey(), 0, 4);
+  const sectionBasis = Math.abs(inertia - pickedInertia) <= Math.abs(pickedInertia) * 1e-9
+    ? (pickedSection.title || '斷面性質工具') : '';
+  return {
+    pageVersion: CONTINUOUS_BEAM_PUBLIC_VERSION,
+    engine: CONTINUOUS_BEAM_CALCULATION_ENGINE,
+    material: document.getElementById('matSelect').value,
+    elasticModulus: Number(document.getElementById('eVal').value),
+    elasticModulusUnit: u.E,
+    elasticModulusBasis: document.getElementById('elasticModulusBasis').value.trim(),
+    inertia,
+    inertiaUnit: u.I,
+    inertiaBasis: document.getElementById('inertiaBasis').value.trim(),
+    sectionBasis: sectionBasis.trim().slice(0, 160),
+  };
 }
 
 // 各極值分別取自全梁，不賦予共同站位。
@@ -2401,6 +2430,8 @@ function collectSaveData() {
     matSelect: document.getElementById('matSelect').value,
     eVal: document.getElementById('eVal').value,
     globalI: document.getElementById('globalI').value,
+    elasticModulusBasis: document.getElementById('elasticModulusBasis').value.trim(),
+    inertiaBasis: document.getElementById('inertiaBasis').value.trim(),
     iMode: document.getElementById('iMode').value,
     fcVal: document.getElementById('fcVal').value,
     ilEnabled: document.getElementById('ilEnabled').checked,
@@ -2519,6 +2550,8 @@ function restoreFromData(d, sourceTool) {
   window.onMatChange();
   document.getElementById('eVal').value = d.eVal;
   document.getElementById('globalI').value = d.globalI;
+  document.getElementById('elasticModulusBasis').value = typeof d.elasticModulusBasis === 'string' ? d.elasticModulusBasis.slice(0, 160) : '';
+  document.getElementById('inertiaBasis').value = typeof d.inertiaBasis === 'string' ? d.inertiaBasis.slice(0, 160) : '';
   document.getElementById('ilEnabled').checked = d.ilEnabled || false;
   window.toggleIL();
   document.getElementById('ilType').value = d.ilType || 'reaction';
