@@ -2319,7 +2319,7 @@ function init() {
   drawSchematic();
 }
 
-window.addEventListener('load', init);
+window.addEventListener('load', redrawAll, { once: true });
 let _resizeTimer = null;
 function redrawAll() {
   drawSchematic();
@@ -2338,6 +2338,8 @@ window.addEventListener('resize', () => {
   _resizeTimer = setTimeout(redrawAll, 120);
 });
 window.addEventListener('orientationchange', () => setTimeout(redrawAll, 200));
+
+init();
 </script>
 <script type="module">
 // ==================== FIREBASE CLOUD SAVE ====================

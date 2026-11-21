@@ -5,6 +5,56 @@ const readline = require('node:readline');
 const root = path.resolve(__dirname, '..');
 const { chromium } = require(path.join(root, 'output/playwright/phase2-quality-deps/node_modules/playwright'));
 
+function simpleBeamInput(load = 12, units = 'kN-m') {
+  return { unitSystem: units, matSelect: 'steel', eVal: 2.04e8, globalI: 0.0003, projNo: '', model: {
+    numSpans: 1,
+    supports: [{ type: 'pin' }, { type: 'roller' }],
+    spans: [{ L: 6, eiMul: 1, hinges: [] }],
+    loads: [[{ type: 'udl', w: 2 }, { type: 'point', P: load, a: 2 }]],
+  }, elasticModulusBasis: '材料規格 E-01', inertiaBasis: '斷面圖 I-02' };
+}
+
+async function checkEarlyLocalImport(browser, url) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const release = Promise.withResolvers();
+  try {
+    // Keep the load event pending while the real file input and Calculate button are usable.
+    await page.route('**/tool-chrome.js', async route => {
+      await release.promise;
+      await route.continue();
+    });
+    const pendingScript = page.waitForRequest('**/tool-chrome.js');
+    await page.goto(url, { waitUntil: 'commit' });
+    await pendingScript;
+    await page.waitForFunction(() => typeof window._localImportFile === 'function');
+    const data = simpleBeamInput();
+    await page.locator('#localJsonFile').setInputFiles({
+      name: 'early-synthetic-beam.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(data)),
+    });
+    await page.locator('#saveStatus').filter({ hasText: '已讀取本地檔：early-synthetic-beam.json' }).waitFor();
+    assert.notEqual(await page.evaluate(() => document.readyState), 'complete');
+    await page.locator('.btn-calc').click();
+    const read = () => page.evaluate(() => ({
+      model: window.model,
+      reactions: window.solution?.reactions.map(item => item.Ry),
+      canSendStation: !document.getElementById('stationTransfer').hidden,
+    }));
+    const early = await read();
+    assert.deepEqual(early.model, data.model);
+    assert.deepEqual(early.reactions.map(value => Number(value.toFixed(9))), [14, 10]);
+    assert.equal(early.canSendStation, true);
+    release.resolve();
+    await page.waitForLoadState('load');
+    assert.deepEqual(await read(), early, 'Late page load must preserve the imported model, solution, and transfer controls');
+  } finally {
+    release.resolve();
+    await context.close();
+  }
+}
+
 async function main() {
   const server = spawn(process.execPath, ['serve-local.js', '--no-open', '--route', '/beam-analysis'],
     { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'inherit'] });
@@ -20,6 +70,7 @@ async function main() {
       server.once('exit', () => reject(new Error('local server stopped')));
     });
     browser = await chromium.launch({ headless: true, channel: process.platform === 'win32' ? 'msedge' : undefined });
+    await checkEarlyLocalImport(browser, url);
     const context = await browser.newContext();
     const errors = [];
     context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
@@ -28,14 +79,10 @@ async function main() {
     await beam.waitForFunction(() => typeof runAnalysis === 'function');
     const form = beam.locator('#stationTransferBody form');
     async function solve(load = 12, units = 'kN-m') {
-      await beam.evaluate(async ({ load, units }) => {
-        const data = { unitSystem: units, matSelect: 'steel', eVal: 2.04e8, globalI: 0.0003, projNo: '', model: {
-          numSpans: 1, supports: [{ type: 'pin' }, { type: 'roller' }], spans: [{ L: 6, eiMul: 1, hinges: [] }],
-          loads: [[{ type: 'udl', w: 2 }, { type: 'point', P: load, a: 2 }]],
-        }, elasticModulusBasis: '材料規格 E-01', inertiaBasis: '斷面圖 I-02' };
+      await beam.evaluate(async data => {
         await window._localImportFile({ files: [new File([JSON.stringify(data)], 'beam.json')] });
         runAnalysis();
-      }, { load, units });
+      }, simpleBeamInput(load, units));
       if (!await beam.locator('#stationTransfer').evaluate(e => e.open)) await beam.locator('#stationTransfer summary').click();
       await form.waitFor();
     }

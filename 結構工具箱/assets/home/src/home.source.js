@@ -180,7 +180,7 @@
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
       '/condition-survey': '2026-11-12',
-      '/beam-analysis': '2026-11-20',
+      '/beam-analysis': '2026-11-21',
       '/frame-analysis': '2026-11-20',
       '/struct-dx': '2026-08-13',
       '/section': '2026-11-19',

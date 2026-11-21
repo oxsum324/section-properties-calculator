@@ -596,7 +596,6 @@ function bootPage() {
     (listeners[type] || []).forEach(handler => handler(event));
   };
 
-  context.init();
   return context;
 }
 
