@@ -520,12 +520,12 @@
         </div>
         <div class="checkbox-row" data-ui-space="section">
           <input type="checkbox" id="puEnable">
-          <label for="puEnable">配置衝剪鋼筋（平版柱位，計入 Vs，規範 22.6）</label>
+          <label for="puEnable">配置衝剪鋼筋（柱旁強度試算）</label>
         </div>
         <div id="puInputs" style="display:none;">
           <div class="form-row">
             <div class="form-group"><label>型式</label>
-              <select id="puType"><option value="stirrup" selected>閉合箍 (vc=0.53λs√fc, vn≤1.59√fc)</option><option value="stud">剪力釘 stud (vc=0.79λs√fc, vn≤2.12√fc)</option></select>
+              <select id="puType"><option value="stirrup" selected>閉合箍筋</option><option value="stud">剪力釘（須核對專案依據）</option></select>
             </div>
             <div class="form-group"><label>箍筋／釘 號數</label>
               <select id="puBar"><option>#3</option><option selected>#4</option><option>#5</option></select>
@@ -1495,6 +1495,26 @@
     const phiVn = PHI.shear * vn * bo * d / 1000;                           // tf
     return { type, vc, vs, vnRaw, vn, vnMax, sMax, AvLine, phiVn, vnMaxOk: vnRaw <= vnMax + 1e-9, sOk: s <= sMax + 1e-9, valid: true };
   }
+  function describePunchReinforcement({ capacity, demand, depth, barDiameter, legCount, fyt }) {
+    const complete = capacity.valid && Number.isFinite(barDiameter)
+      && Number.isInteger(legCount) && legCount > 0 && Number.isFinite(fyt) && fyt > 0;
+    const notes = [complete
+      ? (capacity.phiVn >= demand ? '柱旁試算強度達需求。' : '柱旁試算強度低於需求。')
+      : '柱旁試算輸入待補，請核對筋徑、有效肢數、fyt 與間距。'];
+    if (capacity.type === 'stud') {
+      notes.push('剪力釘的強度、間距及錨定須核對專案採用依據。');
+    } else if (Number.isFinite(barDiameter)) {
+      const minimumDepth = Math.max(15, 16 * barDiameter);
+      if (depth < minimumDepth) {
+        notes.push(`閉合箍筋的有效深度 ${depth.toFixed(3)} cm 小於規範下限 ${minimumDepth.toFixed(3)} cm（22.6.7.1）。`);
+      }
+      if (capacity.valid && !capacity.sOk) {
+        notes.push(`徑向間距超過 d/2 上限 ${capacity.sMax.toFixed(3)} cm（表 8.7.6.3）。`);
+      }
+    }
+    notes.push('外側臨界周界待核（22.6.4.2）。請核對首排位置、逐肢配置及錨定，並驗算最外圈外 d/2 的剪應力。');
+    return notes.join(' ');
+  }
   function renderSupportSketch(targetId, support, axisLabel) {
     const left = (support === 'simple' || support === 'cantilever') ? 'pin' : 'cont';
     const right = (support === 'simple') ? 'pin' : (support === 'cantilever' ? 'free' : 'cont');
@@ -2183,17 +2203,21 @@
         : transferCheck?.ok === null ? '有效板寬撓曲傳遞待補，請核對四個板緣距離、各控制方向的受拉面、設計撓曲強度及來源。' : '';
       const VuPunch = usesSectionLoads ? (sectionCheck ? sectionLoads.netShearTf : null) : VuPunchBase * punchAmp;
       // 衝剪鋼筋 Vs (規範 22.6，選用；停用時 phiVnPunch=phiVc2 與既有行為相同)
-      let punchVs = null, phiVnPunch = phiVc2;
+      let punchVs = null, reinforcementReview = '', phiVnPunch = phiVc2;
       if (puOn && !usesSectionLoads) {
-        const AbPu = (window.REBAR_TABLE && REBAR_TABLE[$('puBar').value]) ? REBAR_TABLE[$('puBar').value].area : 1.267;
+        const bar = window.REBAR_TABLE?.[$('puBar').value];
+        const AbPu = bar?.area ?? 1.267;
         punchVs = calcPunchVs({ type: $('puType').value, fc, lambda, lambdaS: punchVc.lambdaS, d: dPunch, bo, fyt: num('puFyt') || 2800, Ab: AbPu, nLeg: Math.max(1, Math.round(num('puLeg')) || 8), s: num('puS') });
         phiVnPunch = punchVs.phiVn;
+        reinforcementReview = describePunchReinforcement({ capacity:punchVs, demand:VuPunch,
+          depth:dPunch, barDiameter:bar?.db, legCount:$('puLeg').valueAsNumber, fyt:$('puFyt').valueAsNumber });
       }
       const punchOk = usesSectionLoads ? (sectionCheck?.ok ?? null) : phiVnPunch >= VuPunch;
       setResult('r-VuPunch', VuPunch, 'tf', 2);
       setResult('r-phiVc2', usesSectionLoads && !sectionCheck ? null : phiVc2, 'tf', 2);
-      $('c-v2').querySelector('.label').textContent = usesSectionLoads ? '最大 |vu| ≤ φvc (kgf/cm²)' : 'φVn ≥ Vu (衝剪)';
-      setCheck('c-v2', punchOk, usesSectionLoads
+      $('c-v2').querySelector('.label').textContent = usesSectionLoads ? '最大 |vu| ≤ φvc (kgf/cm²)'
+        : punchVs ? '柱旁試算 φVn / Vu (tf)' : 'φVn ≥ Vu (衝剪)';
+      setCheck('c-v2', punchVs ? null : punchOk, usesSectionLoads
         ? (sectionCheck ? `${sectionCheck.maximumStress.toFixed(3)} / ${sectionCheck.phiVc.toFixed(3)}` : '待確認')
         : `${phiVnPunch.toFixed(1)} / ${VuPunch.toFixed(1)}`);
       if (sectionLoads) {
@@ -2208,6 +2232,8 @@
         $('punchTransferResult').textContent = slabTransferResultText(transferEvidence, transferCheck).join(' ');
       }
       if (punchVs) {
+        $('punchSectionResult').hidden = false;
+        $('punchSectionResult').textContent = reinforcementReview;
         setResult('r-vsPunch', punchVs.vs, 'kgf/cm²', 2);
         setResult('r-phiVn2', phiVnPunch, 'tf', 2);
         setCheck('c-vn2Max', punchVs.vnMaxOk, `vn=${punchVs.vnRaw.toFixed(1)} ≤ ${punchVs.vnMax.toFixed(1)}`);
@@ -2215,7 +2241,7 @@
       }
       $('punchCard').style.display = '';
       punchData = {
-        c1, c2, bo, punchArea, punchGeometry, vc, phiVc2, phiVnPunch, punchVs, puOn, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
+        c1, c2, bo, punchArea, punchGeometry, vc, phiVc2, phiVnPunch, punchVs, reinforcementReview, puOn, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
         lambdaS: punchVc.lambdaS, rootFc: punchVc.rootFc, dPunch, usesSectionLoads, sectionLoads, sectionCheck, sectionReason, transferEvidence, transferCheck,
         warning: usesSectionLoads
           ? (sectionReason || transferWarning)
@@ -2338,7 +2364,7 @@
       if (punchData.warning) reviewWarnings.push(punchData.usesSectionLoads ? punchData.warning
         : '柱衝剪 Vu 採 tributary-area 初估或保守放大，尚未納入 unbalanced moment transfer 與偏心剪力正式分布。');
       if (punchData.punchVs) {
-        reviewWarnings.push('已計入衝剪鋼筋 Vs（規範 22.6）：混凝土項已折減、vn 上限已套用；配置須延伸至 vu ≤ φ·0.53λs√fc′ 之外圍臨界面，首排距柱面 ≤ d/2、徑向間距 ≤（閉合箍 0.5d／剪力釘 0.75d），並確認端部錨定。');
+        reviewWarnings.push(punchData.reinforcementReview);
       }
       if (punchData.colPos !== 'interior') {
         reviewWarnings.push('邊柱 / 角柱衝剪與邊界條件需以專案樓板模型或正式手算補充確認。');
@@ -2611,7 +2637,7 @@
             + (r.punchData.usesSectionLoads ? `\n頂筋平均 d = ${r.punchData.dPunch.toFixed(3)} cm（22.6.2.1）` : ''),
           value:`${r.punchData.bo.toFixed(1)}`, unit:'cm', ok:null }]),
         ...(r.punchData.usesSectionLoads ? punchSectionReportItems(r.punchData) : [
-        { label:`φVn ≥ Vu (衝剪)${r.punchData.puOn?'（含 Vs，規範 22.6）':'（Vs=0）'}`,
+        { label:r.punchData.punchVs ? '柱旁補強試算 φVn / Vu' : 'φVn ≥ Vu (衝剪)（Vs=0）',
           formula: r.punchData.puOn
             ? 'vn = vc(折減) + vs，vs = Av·fyt/(bo·s)，vn ≤ 上限'
             : 'vc = min(1.06λs√fc, 0.53(1+2/βc)λs√fc, 0.265(αs·d/bo+2)λs√fc)',
@@ -2623,9 +2649,10 @@
                   + `\n→ φVn = φ(Vc+Vs) = ${r.punchData.phiVnPunch.toFixed(2)} tf` : '')
             + `\nVu,base = ${r.punchData.VuPunchBase.toFixed(2)} tf`
             + (r.punchData.punchAmp > 1 ? `\n保守放大 = ${r.punchData.punchAmp.toFixed(2)} × Vu,base = ${r.punchData.VuPunch.toFixed(2)} tf` : '')
-            + `\n${r.punchData.warning}`,
+            + `\n${r.punchData.warning}`
+            + (r.punchData.reinforcementReview ? `\n${r.punchData.reinforcementReview}` : ''),
           value:`${r.punchData.phiVnPunch.toFixed(2)} / ${r.punchData.VuPunch.toFixed(2)}`,
-          unit:'tf', ok:r.punchData.ok }])
+          unit:'tf', ok:r.punchData.punchVs ? null : r.punchData.ok }])
       ]}] : []),
       // ─── 溫度收縮筋檢核 (規範 24.4.3) ───
       // 對每一層 × 每一向比較實際 As 與 As,min,t；單向板長向僅靠此檢核
@@ -2758,7 +2785,10 @@
           punchSectionReportItems(r.punchData).forEach(item => shearLines.push(`${item.label}\n${item.sub}`));
         } else {
           shearLines.push(`Vu,base=${fmtStep(r.punchData.VuPunchBase,2)} tf；放大係數=${fmtStep(r.punchData.punchAmp,2)}`);
-          shearLines.push(`φVn=${fmtStep(r.punchData.phiVnPunch,2)} tf；Vu=${fmtStep(r.punchData.VuPunch,2)} tf → ${r.punchData.ok ? 'OK' : 'NG'}`);
+          const comparison = `φVn=${fmtStep(r.punchData.phiVnPunch,2)} tf；Vu=${fmtStep(r.punchData.VuPunch,2)} tf`;
+          shearLines.push(r.punchData.punchVs
+            ? `柱旁試算 ${comparison}。 ${r.punchData.reinforcementReview}`
+            : `${comparison} → ${r.punchData.ok ? 'OK' : 'NG'}`);
         }
         if (r.punchData.warning) shearLines.push(r.punchData.warning);
       }

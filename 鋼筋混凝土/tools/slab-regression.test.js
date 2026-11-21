@@ -558,6 +558,60 @@ async function exerciseSlabFlexuralTransfer(page) {
   'V3.4 replays and clears all V3.5 transfer inputs', legacy.status);
 }
 
+async function exercisePunchReinforcementReview(page) {
+  await page.selectOption('#testCaseSelect', 'flat_interior_pass_warn');
+  await page.click('#btnApplyCase');
+  await page.selectOption('#punchMode', 'prelim');
+  await page.check('#puEnable');
+  await page.selectOption('#puType', 'stirrup');
+  await page.selectOption('#puBar', '#4');
+  await page.fill('#puLeg', '12');
+  await page.fill('#puFyt', '2800');
+  await page.fill('#puS', '8');
+  const result = page.locator('#punchSectionResult');
+  const comparison = page.locator('#c-v2');
+  const refresh = () => page.evaluate(() => window.calcSlab());
+  await refresh();
+  assert((await comparison.getAttribute('class')).includes('warn')
+    && (await comparison.innerText()).includes('柱旁試算') && (await result.innerText()).includes('外側臨界周界待核'),
+  'reinforcement capacity stays a provisional inner-section result', await result.innerText());
+
+  await page.fill('#h', '24');
+  await refresh();
+  assert((await result.innerText()).includes('小於規範下限 20.320 cm'),
+    'shallow closed stirrups expose the minimum effective depth', await result.innerText());
+  await page.fill('#h', '28');
+  await page.fill('#puS', '12');
+  await refresh();
+  assert((await result.innerText()).includes('徑向間距超過 d/2') && (await result.innerText()).includes('外側臨界周界待核'),
+    'radial spacing and unverified outer section are visible together', await result.innerText());
+  await page.fill('#puFyt', '');
+  await refresh();
+  assert((await result.innerText()).includes('輸入待補'),
+    'clearing a reinforcement strength field exposes missing input', await result.innerText());
+  await page.fill('#puFyt', '2800');
+  await page.selectOption('#puType', 'stud');
+  await refresh();
+  assert((await result.innerText()).includes('須核對專案採用依據'), 'stud estimate requires project basis', await result.innerText());
+
+  const [report] = await Promise.all([page.waitForEvent('popup'), page.click('#btnReport')]);
+  try {
+    const [download] = await Promise.all([
+      report.waitForEvent('download'), report.getByRole('button', { name:/下載文字計算書 TXT/ }).click()
+    ]);
+    const text = fs.readFileSync(await download.path(), 'utf8');
+    assert(text.includes('柱旁補強試算') && text.includes('外側臨界周界待核') && text.includes('剪力釘的強度、間距及錨定'),
+      'calculation book carries the same reinforcement scope', 'downloaded report TXT');
+    assert(!/φVn=[^\n]*Vu=[^\n]*→ OK/.test(text), 'reinforcement comparison has no stand-alone OK verdict', 'downloaded report TXT');
+  } finally {
+    await report.close();
+  }
+  await page.uncheck('#puEnable');
+  await refresh();
+  assert(!await result.isVisible() && !(await comparison.innerText()).includes('柱旁試算'),
+    'standard preliminary branch clears the reinforcement messages', 'reinforcement disabled');
+}
+
 async function main() {
   const slabHtml = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
@@ -618,6 +672,7 @@ async function main() {
     await exerciseSlabLegacyResultFlip(page);
     await exerciseInteriorPunching(page);
     await exerciseSlabFlexuralTransfer(page);
+    await exercisePunchReinforcementReview(page);
     assert(pageErrors.length === 0, 'slab project storage workflow', 'no page errors during project save/load checks');
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
     await wait(250);
