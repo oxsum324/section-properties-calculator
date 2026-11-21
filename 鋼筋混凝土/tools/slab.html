@@ -17,6 +17,7 @@
   .moment-table tr.ok td { background:var(--hy-success-100); }
   .moment-table tr.ng td { background:var(--hy-danger-100); }
   .moment-table tr.info td { background:var(--bg-subtle); color:var(--hy-slate-500); font-style:italic; }
+  .table-wrap { overflow-x:auto; }
   .load-tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
   .load-tabs button { flex:1 1 120px; padding:8px 12px; border:1px solid var(--border-strong);
                        background:var(--bg-surface); cursor:pointer; border-radius: var(--radius-lg);
@@ -459,11 +460,13 @@
 
       <!-- 4. 撓曲鋼筋檢核 -->
       <div class="card">
-        <h2>4. 撓曲鋼筋檢核</h2>
-        <table class="moment-table" id="flexTable">
-          <thead><tr><th>層／位置</th><th>Mu</th><th>bar</th><th>s (cm)</th><th>As 需求</th><th>As 配置</th><th>φMn</th><th>OK</th></tr></thead>
-          <tbody><tr class="info"><td colspan="8">輸入後自動計算</td></tr></tbody>
-        </table>
+        <h2 id="flexCheckHeading">4. 撓曲鋼筋檢核</h2>
+        <div class="table-wrap" role="region" aria-labelledby="flexCheckHeading" tabindex="0">
+          <table class="moment-table" id="flexTable">
+            <thead><tr><th>層／位置</th><th>Mu</th><th>bar</th><th>s (cm)</th><th>As 需求</th><th>As 配置</th><th>φMn</th><th>OK</th></tr></thead>
+            <tbody><tr class="info"><td colspan="8">輸入後自動計算</td></tr></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- 5. 剪力 -->
