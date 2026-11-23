@@ -21,7 +21,7 @@
   .top-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: end; }
   .top-bar .form-group { margin: 0; }
   .main-layout { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 20px; align-items: start; }
-  .diagrams-section { margin-top: 16px; }
+  .diagrams-section { margin-top: 0; }
   .card { padding: 20px; margin-bottom: 16px; }
   .card h2 { margin-bottom: 12px; padding-bottom: 8px; }
   .card h3 { margin: 12px 0 8px; }
@@ -99,8 +99,6 @@
   .save-bar .btn { display: inline-flex; align-items: center; gap: 4px; }
   .save-bar .current-file { margin-left: 8px; }
   .save-bar .status-msg { flex-basis: 100%; }
-  dialog.modal-box { margin: auto; border: 1px solid var(--border); color: inherit; }
-  dialog.modal-box::backdrop { background: rgb(15 23 42 / 55%); }
   .status-msg { display: none; padding: 6px 10px; line-height: 1.45; }
   .status-msg.ok { display: block; }
   .status-msg.warn { display: block; }
@@ -121,6 +119,8 @@
   .modal-box .form-group label { margin-bottom: 4px; display: block; }
   .modal-box .form-group input { width: 100%; padding: 8px 10px; outline: none; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  dialog.modal-box { margin: auto; border: 1px solid var(--border); color: inherit; }
+  dialog.modal-box::backdrop { background: rgb(15 23 42 / 55%); }
   .load-list { list-style: none; padding: 0; margin: 0; }
   .load-list li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 10px 12px; gap: 6px; }
   .load-list .li-info { flex: 1; min-width: 0; }
@@ -211,7 +211,7 @@
   <p id="copySpanLoadsImpact"></p>
   <form method="dialog" class="modal-actions">
     <button type="submit" class="btn btn-outline" value="cancel" autofocus>取消</button>
-    <button type="submit" class="btn btn-danger" value="apply">確認套用</button>
+    <button type="submit" class="btn btn-danger" id="copySpanLoadsApply" value="apply">確認套用</button>
   </form>
 </dialog>
 
@@ -266,42 +266,68 @@
       <strong>已選定斷面：</strong><span id="pickedSectionText">—</span>
       <button class="link-btn" onclick="clearPickedSection()">✕ 清除</button>
     </div>
-    <div class="form-group form-row">
-      <label>E 採用依據（選填）
-        <input id="elasticModulusBasis" maxlength="160" onchange="invalidateAnalysis()" placeholder="例如材料規格或試驗紀錄">
-      </label>
-      <label>I 採用依據（選填）
-        <input id="inertiaBasis" maxlength="160" onchange="invalidateAnalysis()" placeholder="例如斷面型號、圖號或計算書">
-      </label>
-    </div>
+    <details class="collapsible-details" id="basisDetails">
+      <summary>
+        <span class="details-title">E／I 採用依據（選填）</span>
+        <span class="details-summary-badge" id="basisSummaryBadge">未填寫</span>
+      </summary>
+      <div class="details-body">
+        <div class="form-group form-row">
+          <label>E 採用依據（選填）
+            <input id="elasticModulusBasis" maxlength="160" oninput="updateBasisDetailsSummary()" onchange="invalidateAnalysis()" placeholder="例如材料規格或試驗紀錄">
+          </label>
+          <label>I 採用依據（選填）
+            <input id="inertiaBasis" maxlength="160" oninput="updateBasisDetailsSummary()" onchange="invalidateAnalysis()" placeholder="例如斷面型號、圖號或計算書">
+          </label>
+        </div>
+      </div>
+    </details>
   </div>
 
   <div class="card" data-ui-panel="project">
-    <div>附件識別資料（選填，可由主文承接）</div>
-    <div class="form-row">
-      <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 大樓新建工程"></div>
-      <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
-      <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
-      <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—"></div>
-    </div>
+    <details class="collapsible-details" id="projectDetails">
+      <summary>
+        <span class="details-title">附件識別資料（選填，可由主文承接）</span>
+        <span class="details-summary-badge" id="projectSummaryBadge">未填欄位由主文承接</span>
+      </summary>
+      <div class="details-body">
+        <div class="form-row">
+          <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" oninput="updateProjectDetailsSummary()" onchange="renderContinuousBeamReadiness()" placeholder="例：XX 大樓新建工程"></div>
+          <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" oninput="updateProjectDetailsSummary()" onchange="renderContinuousBeamReadiness()" placeholder="—"></div>
+          <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" oninput="updateProjectDetailsSummary()" onchange="renderContinuousBeamReadiness()" placeholder="—"></div>
+          <div class="form-group"><label>備註</label><input type="text" id="projNote" oninput="updateProjectDetailsSummary()" placeholder="—"></div>
+        </div>
+      </div>
+    </details>
   </div>
 
   <div class="main-layout">
     <!-- Left Panel -->
     <div>
       <div class="card" id="input-panel">
-        <h2>跨度與支承</h2>
+        <div class="section-header-bar">
+          <h2>跨度與支承</h2>
+          <div class="section-header-actions">
+            <button type="button" class="btn btn-outline btn-sm" onclick="applyFirstSpanLengthToAll()" data-ui-action="same-first-span" title="將跨 1 的長度 L 套用至全部跨度">同首跨長</button>
+            <label class="toggle-chip"><input type="checkbox" id="showAdvSpanToggle" onchange="toggleAdvSpanSettings(this.checked)"> 進階設定 (EI/內絞)</label>
+          </div>
+        </div>
         <div id="spanInputs"></div>
 
         <div class="section-divider"></div>
-        <h3>載重輸入</h3>
+        <div class="section-header-bar">
+          <h3>載重輸入</h3>
+        </div>
+        <div id="spanPillTabs" class="span-pill-bar" role="group" aria-label="快速切換載重編輯跨度"></div>
         <div class="form-group">
           <label>選擇跨度</label>
-          <select id="loadSpanSelect" onchange="renderLoadInputs()"></select>
+          <select id="loadSpanSelect" onchange="renderLoadInputs(); drawSchematic();"></select>
         </div>
         <div id="loadInputs"></div>
-        <button class="btn btn-accent btn-sm" onclick="addLoad()" data-ui-action="add-load">+ 新增載重</button>
-        <button type="button" class="btn btn-outline btn-sm" onclick="copyCurrentSpanLoadsToAll()" data-ui-action="copy-loads-all" title="將目前所選跨度的載重複製到所有跨度">套用本跨載重至全跨</button>
+        <div class="load-action-bar">
+          <button type="button" class="btn btn-accent btn-sm" onclick="addLoad()" data-ui-action="add-load">+ 新增載重</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="copyCurrentSpanLoadsToAll()" data-ui-action="copy-loads-all" title="將目前所選跨度的載重複製到所有跨度">套用本跨載重至全跨</button>
+        </div>
 
         <div class="section-divider"></div>
         <h3>影響線設定</h3>
@@ -324,6 +350,28 @@
             </div>
           </div>
           <p class="hint">反力: 輸入支承編號(0起); 剪力/彎矩: 輸入距左端距離</p>
+          <div class="moving-load-section">
+            <div class="form-group">
+              <label class="toggle-chip"><input type="checkbox" id="movingLoadEnabled" onchange="toggleMovingLoad()"> 🚚 移動車型載重極值分析（利用影響線）</label>
+            </div>
+            <div id="movingLoadControls" hidden>
+              <div class="form-group">
+                <label>車型範本</label>
+                <select id="vehiclePreset" onchange="onVehiclePresetChange()">
+                  <option value="truck3" selected>三軸示範車</option>
+                  <option value="truck2">雙軸示範車</option>
+                  <option value="custom">自訂軸列</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>軸列設定（軸重 <span class="unit-force">kN</span> @ 距首軸距離 <span class="unit-length">m</span>，逗號分隔）</label>
+                <input type="text" id="vehicleAxlesInput" value="35@0, 142@4.3, 142@8.6" placeholder="例: 35@0, 142@4.3, 142@8.6" oninput="onVehicleAxlesManualInput()" onchange="invalidateInfluenceLine()">
+              </div>
+              <div class="form-group">
+                <label class="toggle-chip"><input type="checkbox" id="vehicleBidirectional" checked onchange="invalidateInfluenceLine()"> 雙向行駛檢核（含車頭調頭反向）</label>
+              </div>
+            </div>
+          </div>
         </div>
 
         <button class="btn-calc" onclick="runAnalysis()">計 算</button>
@@ -332,42 +380,87 @@
       </div>
     </div>
 
-    <!-- Right Panel (schematic only) -->
-    <div>
-      <div class="card"><h2>梁示意圖</h2><div class="canvas-wrap"><canvas id="schematicCanvas"></canvas></div></div>
-    </div>
-  </div>
+    <!-- Right Panel (schematic + diagrams + results unified) -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="schematic-card-head">
+          <h2>梁示意圖</h2>
+          <span class="schematic-hint">💡 點擊示意圖跨度可直接切換左側載重編輯區</span>
+        </div>
+        <div class="canvas-wrap"><canvas id="schematicCanvas"></canvas></div>
+      </div>
 
-  <!-- Diagrams Section (full width, below grid) -->
-  <div class="diagrams-section">
-    <div class="card" id="sfdCard" style="display:none;"><h2>剪力圖 (SFD)</h2><div class="canvas-wrap"><canvas id="sfdCanvas"></canvas></div></div>
-    <div class="card" id="bmdCard" style="display:none;"><h2>彎矩圖 (BMD)</h2><div class="canvas-wrap"><canvas id="bmdCanvas"></canvas></div></div>
-    <div class="card" id="deflCard" style="display:none;"><h2>撓度曲線</h2><div class="canvas-wrap"><canvas id="deflCanvas"></canvas></div></div>
-    <div class="card" id="ilCard" style="display:none;"><h2 id="ilTitle">影響線</h2><div class="canvas-wrap"><canvas id="ilCanvas"></canvas></div></div>
-    <div class="card" id="resultsCard" style="display:none;">
-      <div data-ui-part="result-heading">
-        <span>分析結果</span>
-        <div>
-          <button class="btn btn-accent btn-sm" onclick="exportJPG()">JPG</button>
-          <button class="btn btn-danger btn-sm" onclick="exportPDF()">📄 計算書</button>
-          <span id="designBtns"></span>
+      <!-- Diagrams & Results Section (tightly integrated below schematic) -->
+      <div class="card empty-analysis-card page-only-report-status" id="emptyAnalysisCard">
+        <div class="empty-analysis-inner">
+          <span>確認左側跨度與載重後，點擊右側按鈕即可在此同步檢視<strong>剪力圖、彎矩圖、撓度曲線与反力極值表</strong>。</span>
+          <button type="button" class="btn btn-primary btn-sm" onclick="runAnalysis()">▶ 立即計算</button>
         </div>
       </div>
-      <details id="stationTransfer" hidden ontoggle="if (this.open) openStationTransfer()">
-        <summary>傳送同站彎矩、剪力或未側撐段 Cb 至鋼梁</summary>
-        <div id="stationTransferBody"></div>
-      </details>
-      <h3>支承反力</h3>
-      <div id="reactionTable" role="region" aria-label="支承反力"></div>
-      <h3>各跨極值</h3>
-      <div id="extremeTable" role="region" aria-label="各跨極值"></div>
-      <details id="deflectionReview" class="page-only-report-status">
-        <summary>舊案撓度比對</summary>
-        <p id="deflectionReviewSource"></p>
-        <p>以本次輸入並列修正前的曲線取樣峰值與現版極值。請核對原報告的模型、單位及撓度數字。JSON 採案件原單位。</p>
-        <div id="deflectionReviewTable"></div>
-        <button type="button" class="btn btn-accent btn-sm" id="downloadDeflectionReview">下載撓度比對 JSON</button>
-      </details>
+      <div class="diagrams-section" id="diagramsSection" data-view-mode="tabs">
+        <div class="diagram-toolbar page-only-report-status" id="diagramToolbar" hidden>
+          <div class="diagram-view-switch" role="group" aria-label="內力圖檢視模式">
+            <button type="button" class="diagram-tab-btn active" id="viewModeTabsBtn" onclick="setDiagramViewMode('tabs')">分頁檢視</button>
+            <button type="button" class="diagram-tab-btn" id="viewModeAllBtn" onclick="setDiagramViewMode('all')">全部展開</button>
+          </div>
+          <div class="diagram-tab-bar" id="diagramTabBar" role="group" aria-label="選擇顯示圖表">
+            <button type="button" class="diagram-tab-btn active" data-diag-tab="sfdCard" onclick="selectDiagramTab('sfdCard')">剪力圖 (SFD)</button>
+            <button type="button" class="diagram-tab-btn" data-diag-tab="bmdCard" onclick="selectDiagramTab('bmdCard')">彎矩圖 (BMD)</button>
+            <button type="button" class="diagram-tab-btn" data-diag-tab="deflCard" onclick="selectDiagramTab('deflCard')">撓度曲線</button>
+            <button type="button" class="diagram-tab-btn" data-diag-tab="ilCard" id="diagTabIlBtn" onclick="selectDiagramTab('ilCard')" hidden>影響線</button>
+          </div>
+        </div>
+        <div class="station-inspector-bar page-only-report-status" id="stationInspectorBar" hidden>
+          <div class="inspector-controls">
+            <span class="inspector-title">🎯 斷面查詢</span>
+            <label class="inspector-field">跨度
+              <select id="inspectorSpanSelect" onchange="onInspectorSpanChange()"></select>
+            </label>
+            <label class="inspector-field">距跨左端 x (<span class="unit-length">m</span>)
+              <input type="number" id="inspectorLocalX" value="0" min="0" step="any" oninput="onInspectorInputX(this.value)" onchange="onInspectorInputX(this.value)">
+            </label>
+            <div class="inspector-quick-btns" role="group" aria-label="常用斷面位置快捷鍵">
+              <button type="button" class="btn-quick-x" onclick="setInspectorQuickRatio(0)">0</button>
+              <button type="button" class="btn-quick-x" onclick="setInspectorQuickRatio(0.25)">L/4</button>
+              <button type="button" class="btn-quick-x" onclick="setInspectorQuickRatio(0.5)">L/2</button>
+              <button type="button" class="btn-quick-x" onclick="setInspectorQuickRatio(0.75)">3L/4</button>
+              <button type="button" class="btn-quick-x" onclick="setInspectorQuickRatio(1)">L</button>
+            </div>
+            <button type="button" class="btn-quick-x inspector-pin-btn" id="inspectorPinBtn" onclick="toggleInspectorPin()" hidden>📌 已鎖定 (點擊解除)</button>
+            <span class="inspector-hint" id="inspectorHint">滑鼠移過圖面即時讀值，點擊圖面可鎖定斷面</span>
+          </div>
+          <div class="inspector-readouts" id="inspectorReadouts"></div>
+        </div>
+        <div class="card diagram-panel-card" id="sfdCard" style="display:none;"><h2>剪力圖 (SFD)</h2><div class="canvas-wrap"><canvas id="sfdCanvas"></canvas></div></div>
+        <div class="card diagram-panel-card" id="bmdCard" style="display:none;"><h2>彎矩圖 (BMD)</h2><div class="canvas-wrap"><canvas id="bmdCanvas"></canvas></div></div>
+        <div class="card diagram-panel-card" id="deflCard" style="display:none;"><h2>撓度曲線</h2><div class="canvas-wrap"><canvas id="deflCanvas"></canvas></div></div>
+        <div class="card diagram-panel-card" id="ilCard" style="display:none;"><h2 id="ilTitle">影響線</h2><div class="canvas-wrap"><canvas id="ilCanvas"></canvas></div><div id="movingLoadResultPanel" class="moving-load-result-panel" hidden></div></div>
+        <div class="card" id="resultsCard" style="display:none;">
+          <div data-ui-part="result-heading">
+            <span>分析結果</span>
+            <div>
+              <button class="btn btn-accent btn-sm" onclick="exportJPG()">JPG</button>
+              <button class="btn btn-danger btn-sm" onclick="exportPDF()">📄 計算書</button>
+              <span id="designBtns"></span>
+            </div>
+          </div>
+          <details id="stationTransfer" hidden ontoggle="if (this.open) openStationTransfer()">
+            <summary>傳送同站彎矩、剪力或未側撐段 Cb 至鋼梁</summary>
+            <div id="stationTransferBody"></div>
+          </details>
+          <h3>支承反力</h3>
+          <div id="reactionTable" role="region" aria-label="支承反力"></div>
+          <h3>各跨極值</h3>
+          <div id="extremeTable" role="region" aria-label="各跨極值"></div>
+          <details id="deflectionReview" class="page-only-report-status">
+            <summary>舊案撓度比對</summary>
+            <p id="deflectionReviewSource"></p>
+            <p>以本次輸入並列修正前的曲線取樣峰值與現版極值。請核對原報告的模型、單位及撓度數字。JSON 採案件原單位。</p>
+            <div id="deflectionReviewTable"></div>
+            <button type="button" class="btn btn-accent btn-sm" id="downloadDeflectionReview">下載撓度比對 JSON</button>
+          </details>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -437,6 +530,11 @@ function onUnitChange() {
       sp.L = +(sp.L * fL).toPrecision(8);
       if (sp.hinges) sp.hinges = sp.hinges.map(h => +(h*fL).toPrecision(8));
     }
+    // 支承彈簧勁度
+    for (const sup of model.supports) {
+      if (isFinite(sup.kv)) sup.kv = +(sup.kv * fW).toPrecision(8);
+      if (isFinite(sup.kr)) sup.kr = +(sup.kr * fM).toPrecision(8);
+    }
     // 各跨載重
     for (const arr of model.loads) {
       for (const ld of arr) {
@@ -459,6 +557,12 @@ function onUnitChange() {
     const ilParamEl = document.getElementById('ilParam');
     if (ilTypeEl && ilParamEl && (ilTypeEl.value === 'shear' || ilTypeEl.value === 'moment') && ilParamEl.value !== '') {
       ilParamEl.value = +(parseFloat(ilParamEl.value) * fL).toPrecision(8);
+    }
+    // 移動車型載重軸列設定
+    const axlesEl = document.getElementById('vehicleAxlesInput');
+    if (axlesEl && axlesEl.value.trim()) {
+      const convertedAxles = parseVehicleAxlesString(axlesEl.value).map(ax => `${+(ax.P * fF).toPrecision(6)}@${+(ax.d * fL).toPrecision(6)}`);
+      if (convertedAxles.length) axlesEl.value = convertedAxles.join(', ');
     }
   }
   _prevUnitKey = uk;
@@ -603,17 +707,103 @@ let deflectionReviewSource = null;
 function hideAnalysisCards() {
   ['sfdCard','bmdCard','deflCard','ilCard','resultsCard'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
+    if (el) {
+      el.style.display = 'none';
+      el.classList.remove('tab-hidden');
+    }
   });
+  const toolbar = document.getElementById('diagramToolbar');
+  if (toolbar) toolbar.hidden = true;
+  const inspector = document.getElementById('stationInspectorBar');
+  if (inspector) inspector.hidden = true;
+  const emptyCard = document.getElementById('emptyAnalysisCard');
+  if (emptyCard) emptyCard.hidden = false;
 }
 
-function invalidateAnalysis(opts = {}) {
-  solution = null;
-  diagrams = null;
-  influenceLineState = null;
-  hideAnalysisCards();
-  renderContinuousBeamReadiness();
-  if (!opts.keepError) showError('');
+// ==================== 介面輕量化與快捷互動 ====================
+let _advSpanExpanded = false;
+let _diagramViewMode = 'tabs';
+let _activeDiagramTab = 'sfdCard';
+let _suppressInspectorOverlay = false;
+let _inspectorState = { globalX: null, spanIdx: 0, localX: 0, pinned: false };
+
+function updateBasisDetailsSummary(autoExpand = false) {
+  const eBasis = (document.getElementById('elasticModulusBasis')?.value || '').trim();
+  const iBasis = (document.getElementById('inertiaBasis')?.value || '').trim();
+  const badge = document.getElementById('basisSummaryBadge');
+  const details = document.getElementById('basisDetails');
+  if (!badge) return;
+  const parts = [];
+  if (eBasis) parts.push(`E: ${eBasis}`);
+  if (iBasis) parts.push(`I: ${iBasis}`);
+  badge.textContent = parts.length ? parts.join(' ｜ ') : '未填寫';
+  if (autoExpand && details && parts.length) details.open = true;
+}
+
+function updateProjectDetailsSummary(autoExpand = false) {
+  const name = getProjectFieldValue('projName');
+  const no = getProjectFieldValue('projNo');
+  const designer = getProjectFieldValue('projDesigner');
+  const note = (document.getElementById('projNote')?.value || '').trim();
+  const badge = document.getElementById('projectSummaryBadge');
+  const details = document.getElementById('projectDetails');
+  if (!badge) return;
+  const parts = [no, name, designer, note].filter(Boolean);
+  badge.textContent = parts.length ? parts.join(' ｜ ') : '未填欄位由主文承接';
+  if (autoExpand && details && parts.length) details.open = true;
+}
+
+function hasAdvancedSpanConfig() {
+  return (model.spans || []).some(sp => Math.abs((sp.eiMul ?? 1) - 1) > 1e-9 || (sp.hinges && sp.hinges.length > 0));
+}
+
+function syncAdvSpanUI(forceAutoCheck = false) {
+  if (forceAutoCheck && hasAdvancedSpanConfig()) _advSpanExpanded = true;
+  const toggle = document.getElementById('showAdvSpanToggle');
+  if (toggle) toggle.checked = _advSpanExpanded;
+  const container = document.getElementById('spanInputs');
+  if (container) {
+    if (_advSpanExpanded) container.classList.add('show-adv-span');
+    else container.classList.remove('show-adv-span');
+  }
+}
+
+function toggleAdvSpanSettings(checked) {
+  _advSpanExpanded = Boolean(checked);
+  syncAdvSpanUI(false);
+}
+
+function applyFirstSpanLengthToAll() {
+  if (!model.spans || !model.spans.length) return;
+  const firstL = model.spans[0].L;
+  if (!isFinite(firstL) || firstL <= 0) return;
+  const affected = model.spans.slice(1).filter(span => span.L !== firstL).length;
+  if (!affected) return;
+  if (model.spans.slice(1).some(span => span.hinges?.some(x => x >= firstL))) {
+    showError('預計套用的跨長會使部分內鉸點超出跨度。請先調整內鉸點。');
+    return;
+  }
+  confirmBeamOverwrite('套用首跨長度', `將取代其他 ${affected} 跨的長度。超出新跨長的集中力與集中彎矩會移到該跨右端。`, '確認套用',
+    () => replaceSpanLengths(firstL));
+}
+
+function replaceSpanLengths(firstL) {
+  for (let i = 1; i < model.numSpans; i++) {
+    model.spans[i].L = firstL;
+    const loads = model.loads[i] || [];
+    for (const ld of loads) {
+      if ((ld.type === 'point' || ld.type === 'moment') && ld.a > firstL) {
+        ld.a = +firstL.toPrecision(8);
+      }
+    }
+  }
+  invalidateAnalysis();
+  renderSpanInputs();
+  renderLoadInputs();
+  drawSchematic();
+  if (typeof window.setSaveStatus === 'function') {
+    window.setSaveStatus(`已將首跨長度 (${firstL} ${getUnit().length}) 套用至全部 ${model.numSpans} 跨。`, 'ok');
+  }
 }
 
 function copyCurrentSpanLoadsToAll() {
@@ -623,12 +813,19 @@ function copyCurrentSpanLoadsToAll() {
     applySpanLoadsToAll(si);
     return;
   }
-  document.getElementById('copySpanLoadsImpact').textContent = model.loads[si]?.length
+  const message = model.loads[si]?.length
     ? `將用跨 ${si + 1} 的載重取代其他 ${occupiedTargets} 跨的既有載重。`
     : `跨 ${si + 1} 沒有載重，套用將清除其他 ${occupiedTargets} 跨的既有載重。`;
+  confirmBeamOverwrite('套用載重至其他跨', message, '確認套用', () => applySpanLoadsToAll(si));
+}
+
+function confirmBeamOverwrite(title, message, label, apply) {
+  document.getElementById('copySpanLoadsTitle').textContent = title;
+  document.getElementById('copySpanLoadsImpact').textContent = message;
+  document.getElementById('copySpanLoadsApply').textContent = label;
   const dialog = document.getElementById('copySpanLoadsDialog');
   dialog.querySelector('form').onsubmit = event => {
-    if (event.submitter?.value === 'apply') applySpanLoadsToAll(si);
+    if (event.submitter?.value === 'apply') apply();
   };
   dialog.showModal();
 }
@@ -654,6 +851,84 @@ function applySpanLoadsToAll(si) {
   }
 }
 
+function selectLoadSpan(si) {
+  const idx = Math.min(Math.max(parseInt(si) || 0, 0), Math.max(0, model.numSpans - 1));
+  const sel = document.getElementById('loadSpanSelect');
+  if (sel) sel.value = String(idx);
+  renderLoadInputs();
+  syncActiveSpanHighlight();
+  drawSchematic();
+}
+
+function syncActiveSpanHighlight() {
+  const activeSi = parseInt(document.getElementById('loadSpanSelect')?.value) || 0;
+  const rows = document.getElementById('spanInputs')?.querySelectorAll?.('.span-row') || [];
+  rows.forEach((row, idx) => {
+    if (idx === activeSi) row.classList.add('active-span');
+    else row.classList.remove('active-span');
+  });
+}
+
+function renderSpanPillTabs() {
+  const bar = document.getElementById('spanPillTabs');
+  if (!bar) return;
+  const activeSi = parseInt(document.getElementById('loadSpanSelect')?.value) || 0;
+  let html = '';
+  for (let i = 0; i < model.numSpans; i++) {
+    const count = (model.loads[i] || []).length;
+    const isActive = i === activeSi;
+    html += `<button type="button" class="span-pill${isActive ? ' active' : ''}" aria-pressed="${isActive}" onclick="selectLoadSpan(${i})">跨 ${i + 1} <span class="pill-badge">${count}</span></button>`;
+  }
+  bar.innerHTML = html;
+  syncActiveSpanHighlight();
+}
+
+function setDiagramViewMode(mode) {
+  _diagramViewMode = mode === 'tabs' ? 'tabs' : 'all';
+  const sec = document.getElementById('diagramsSection');
+  if (sec) sec.dataset.viewMode = _diagramViewMode;
+  const allBtn = document.getElementById('viewModeAllBtn');
+  const tabsBtn = document.getElementById('viewModeTabsBtn');
+  const tabBar = document.getElementById('diagramTabBar');
+  if (allBtn) allBtn.classList.toggle('active', _diagramViewMode === 'all');
+  if (tabsBtn) tabsBtn.classList.toggle('active', _diagramViewMode === 'tabs');
+  if (tabBar) tabBar.hidden = _diagramViewMode !== 'tabs';
+  applyDiagramTabVisibility();
+}
+
+function selectDiagramTab(cardId) {
+  _activeDiagramTab = cardId;
+  applyDiagramTabVisibility();
+}
+
+function applyDiagramTabVisibility() {
+  const ilEnabled = Boolean(document.getElementById('ilEnabled')?.checked && influenceLineState);
+  const ilBtn = document.getElementById('diagTabIlBtn');
+  if (ilBtn) ilBtn.hidden = !ilEnabled;
+  if (_activeDiagramTab === 'ilCard' && !ilEnabled) _activeDiagramTab = 'sfdCard';
+  const cards = ['sfdCard', 'bmdCard', 'deflCard', 'ilCard'];
+  cards.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (_diagramViewMode === 'tabs' && id !== _activeDiagramTab) el.classList.add('tab-hidden');
+    else el.classList.remove('tab-hidden');
+  });
+  const tabBtns = document.getElementById('diagramTabBar')?.querySelectorAll?.('[data-diag-tab]') || [];
+  tabBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.diagTab === _activeDiagramTab);
+  });
+  if (diagrams) redrawAll();
+}
+
+function invalidateAnalysis(opts = {}) {
+  solution = null;
+  diagrams = null;
+  influenceLineState = null;
+  hideAnalysisCards();
+  renderContinuousBeamReadiness();
+  if (!opts.keepError) showError('');
+}
+
 function initModel(n) {
   model.numSpans = n;
   const old = { spans: model.spans.slice(), supports: model.supports.slice(), loads: model.loads.slice() };
@@ -669,8 +944,30 @@ function initModel(n) {
   }
 }
 
+function defaultSupportSpringStiffness(type, unitKey) {
+  const uk = unitKey || getUnitKey();
+  if (type === 'vspring') {
+    return uk === 'tf-m' ? 1000 : 10000;
+  }
+  if (type === 'rspring') {
+    return uk === 'tf-m' ? 2000 : uk === 'kgf-cm' ? 2e8 : 20000;
+  }
+  return 0;
+}
+
 function setSupportType(i, value) {
-  model.supports[i].type = value;
+  const sup = model.supports[i];
+  sup.type = value;
+  if (value === 'vspring' && !(sup.kv > 0)) sup.kv = defaultSupportSpringStiffness('vspring');
+  if (value === 'rspring' && !(sup.kr > 0)) sup.kr = defaultSupportSpringStiffness('rspring');
+  invalidateAnalysis();
+  renderSpanInputs();
+  drawSchematic();
+}
+
+function setSupportStiffness(i, key, input) {
+  const v = parseFloat(input.value);
+  model.supports[i][key] = isFinite(v) ? v : 0;
   invalidateAnalysis();
   drawSchematic();
 }
@@ -722,39 +1019,62 @@ function onSpanCountChange() {
 function renderSpanInputs() {
   const u = getUnit();
   const div = document.getElementById('spanInputs');
+  const activeSi = parseInt(document.getElementById('loadSpanSelect')?.value) || 0;
   let html = '';
   for (let i = 0; i <= model.numSpans; i++) {
+    const sup = model.supports[i];
+    const st = sup.type;
     html += `<div class="support-row">
       <span>支承${i}</span>
-      <div class="form-group">
-        <select onchange="setSupportType(${i},this.value)">
-          <option value="pin" ${model.supports[i].type==='pin'?'selected':''}>鉸支</option>
-          <option value="roller" ${model.supports[i].type==='roller'?'selected':''}>滾支</option>
-          <option value="fixed" ${model.supports[i].type==='fixed'?'selected':''}>固定端</option>
-          <option value="free" ${model.supports[i].type==='free'?'selected':''}>自由端</option>
-        </select>
-      </div>
+      <div class="support-controls-wrap">
+        <div class="form-group">
+          <select onchange="setSupportType(${i},this.value)">
+            <option value="pin" ${st==='pin'?'selected':''}>鉸支</option>
+            <option value="roller" ${st==='roller'?'selected':''}>滾支</option>
+            <option value="fixed" ${st==='fixed'?'selected':''}>固定端</option>
+            <option value="free" ${st==='free'?'selected':''}>自由端</option>
+            <option value="guided" ${st==='guided'?'selected':''}>定向支承</option>
+            <option value="vspring" ${st==='vspring'?'selected':''}>垂直彈簧</option>
+            <option value="rspring" ${st==='rspring'?'selected':''}>鉸支+旋轉彈簧</option>
+          </select>
+        </div>`;
+    if (st === 'vspring') {
+      const kvVal = Number.isFinite(sup.kv) ? sup.kv : '';
+      html += `<div class="form-group support-spring-field"><label>kv (${u.dist})</label>
+        <input type="number" value="${kvVal}" min="0" step="any" onchange="setSupportStiffness(${i},'kv',this)"></div>`;
+    } else if (st === 'rspring') {
+      const krVal = Number.isFinite(sup.kr) ? sup.kr : '';
+      html += `<div class="form-group support-spring-field"><label>kr (${u.moment}/rad)</label>
+        <input type="number" value="${krVal}" min="0" step="any" onchange="setSupportStiffness(${i},'kr',this)"></div>`;
+    }
+    html += `</div>
     </div>`;
     if (i < model.numSpans) {
-      html += `<div class="span-row">
-        <span>跨${i+1}</span>
+      const sp = model.spans[i];
+      const hasAdv = Math.abs((sp.eiMul ?? 1) - 1) > 1e-9 || (sp.hinges && sp.hinges.length > 0);
+      html += `<div class="span-row${i === activeSi ? ' active-span' : ''}" data-span-index="${i}">
+        <span>跨${i+1}${hasAdv ? '<small class="span-adv-badge">EI/絞</small>' : ''}</span>
         <div class="form-group"><label>L (${u.length})</label>
-          <input type="number" value="${model.spans[i].L}" step="any" onchange="setSpanLength(${i},this)"></div>
-        <div class="form-group"><label>EI 倍率</label>
-          <input type="number" value="${model.spans[i].eiMul}" step="any" onchange="setSpanEiMultiplier(${i},this)"></div>
-        <div class="form-group"><label>內絞點位置 (${u.length}, 逗號分隔)</label>
-          <input type="text" value="${(model.spans[i].hinges||[]).join(',')}" placeholder="例: 2,4" onchange="updateHinges(${i},this.value)"></div>
+          <input type="number" value="${sp.L}" step="any" onchange="setSpanLength(${i},this)"></div>
+        <div class="form-group span-adv-field"><label>EI 倍率</label>
+          <input type="number" value="${sp.eiMul}" step="any" onchange="setSpanEiMultiplier(${i},this)"></div>
+        <div class="form-group span-adv-field"><label>內絞點位置 (${u.length}, 逗號分隔)</label>
+          <input type="text" value="${(sp.hinges||[]).join(',')}" placeholder="例: 2,4" onchange="updateHinges(${i},this.value)"></div>
       </div>`;
     }
   }
   div.innerHTML = html;
+  syncAdvSpanUI(true);
 }
 
 function renderLoadSpanSelect() {
   const sel = document.getElementById('loadSpanSelect');
+  const prev = parseInt(sel.value) || 0;
   let html = '';
   for (let i = 0; i < model.numSpans; i++) html += `<option value="${i}">跨 ${i+1}</option>`;
   sel.innerHTML = html;
+  sel.value = String(Math.min(prev, Math.max(0, model.numSpans - 1)));
+  renderSpanPillTabs();
 }
 
 function renderLoadInputs() {
@@ -762,6 +1082,7 @@ function renderLoadInputs() {
   const si = parseInt(document.getElementById('loadSpanSelect').value) || 0;
   const loads = model.loads[si] || [];
   const div = document.getElementById('loadInputs');
+  renderSpanPillTabs();
   if (!loads.length) { div.innerHTML = '<p class="hint">尚未新增載重</p>'; return; }
   let html = '';
   loads.forEach((ld, li) => {
@@ -824,6 +1145,8 @@ function invalidateInfluenceLine() {
   influenceLineState = null;
   const card = document.getElementById('ilCard');
   if (card) card.style.display = 'none';
+  const mlPanel = document.getElementById('movingLoadResultPanel');
+  if (mlPanel) { mlPanel.hidden = true; mlPanel.innerHTML = ''; }
 }
 function changeLoadType(si, li, t) {
   const L = model.spans[si].L;
@@ -847,6 +1170,246 @@ function onILTypeChange() {
   input.max = t === 'reaction' ? String(model.numSpans) : String(totalL);
   input.value = t === 'reaction' ? '0' : (totalL/2).toFixed(1);
   invalidateInfluenceLine();
+}
+
+// ==================== 動態移動車型載重 (Moving Vehicle / Axle Train Load) ====================
+const VEHICLE_PRESETS_KN_M = {
+  truck3: [{ P: 35, d: 0 }, { P: 142, d: 4.3 }, { P: 142, d: 8.6 }],
+  truck2: [{ P: 60, d: 0 }, { P: 140, d: 4.0 }],
+};
+let _movingLoadDisplayCase = 'abs'; // 'abs' | 'pos' | 'neg'
+
+function toggleMovingLoad() {
+  const enabled = Boolean(document.getElementById('movingLoadEnabled')?.checked);
+  const ctrl = document.getElementById('movingLoadControls');
+  if (ctrl) ctrl.hidden = !enabled;
+  invalidateInfluenceLine();
+}
+
+function formatPresetAxlesForUnit(presetKey, unitKey) {
+  const base = VEHICLE_PRESETS_KN_M[presetKey];
+  if (!base) return '';
+  const uk = unitKey || getUnitKey();
+  const fF = convFactor('kN-m', uk, 1, 0);
+  const fL = convFactor('kN-m', uk, 0, 1);
+  return base.map(ax => `${+(ax.P * fF).toPrecision(6)}@${+(ax.d * fL).toPrecision(6)}`).join(', ');
+}
+
+function onVehiclePresetChange() {
+  const preset = document.getElementById('vehiclePreset')?.value || 'truck3';
+  const inp = document.getElementById('vehicleAxlesInput');
+  if (inp && preset !== 'custom') {
+    inp.value = formatPresetAxlesForUnit(preset, getUnitKey());
+  }
+  invalidateInfluenceLine();
+}
+
+function onVehicleAxlesManualInput() {
+  const sel = document.getElementById('vehiclePreset');
+  if (sel) sel.value = 'custom';
+}
+
+function parseVehicleAxlesString(str) {
+  const raw = String(str || '').trim();
+  if (!raw) return [];
+  const tokens = raw.split(/[,，;；]+/).map(s => s.trim()).filter(Boolean);
+  const axles = [];
+  for (const tk of tokens) {
+    const parts = tk.split('@').map(part => part.trim());
+    if (parts.length !== 2 || parts.some(part => !part)) return [];
+    const [P, d] = parts.map(Number);
+    if (!isFinite(P) || P <= 0 || !isFinite(d) || d < -1e-9) return [];
+    axles.push({ P, d: Math.max(0, d) });
+  }
+  axles.sort((a, b) => a.d - b.d);
+  return axles;
+}
+
+function computeMovingLoadEnvelope(ilData, axles, bidirectional = true) {
+  if (!ilData || !Array.isArray(ilData.positions) || !ilData.positions.length || !Array.isArray(axles) || !axles.length) return null;
+  const xs = ilData.positions;
+  const ys = ilData.values;
+  const n = xs.length;
+  const totalL = xs[n - 1];
+  if (!(totalL > 0)) return null;
+
+  function evalIL(x) {
+    if (x < -1e-9 || x > totalL + 1e-9) return 0;
+    const xc = Math.max(0, Math.min(totalL, x));
+    let lo = 0, hi = n - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (xs[mid] <= xc) lo = mid;
+      else hi = mid;
+    }
+    const x1 = xs[lo], x2 = xs[hi];
+    const y1 = ys[lo], y2 = ys[hi];
+    if (Math.abs(x2 - x1) < 1e-12) return Math.abs(y1) >= Math.abs(y2) ? y1 : y2;
+    const t = (xc - x1) / (x2 - x1);
+    return y1 + t * (y2 - y1);
+  }
+
+  const maxD = Math.max(...axles.map(a => a.d), 0);
+  const dirs = bidirectional ? [1, -1] : [1];
+  const criticalPoints = new Set(xs);
+  let acc = 0;
+  criticalPoints.add(0);
+  for (const sp of (model.spans || [])) {
+    for (const h of (sp.hinges || [])) criticalPoints.add(acc + h);
+    acc += sp.L;
+    criticalPoints.add(acc);
+  }
+
+  let maxPos = { value: -Infinity, leadX: 0, dir: 1, wheelPositions: [] };
+  let maxNeg = { value: Infinity, leadX: 0, dir: 1, wheelPositions: [] };
+
+  for (const dir of dirs) {
+    // dir = +1: 首軸在 leadX，第 k 軸在 x_k = leadX - d_k（車往右開）
+    // dir = -1: 首軸在 leadX，第 k 軸在 x_k = leadX + d_k（車頭調頭往左開）
+    const candidateSet = new Set();
+    const minLead = dir === 1 ? 0 : -maxD;
+    const maxLead = dir === 1 ? totalL + maxD : totalL;
+    const nSteps = 400;
+    for (let s = 0; s <= nSteps; s++) {
+      candidateSet.add(minLead + (maxLead - minLead) * (s / nSteps));
+    }
+    for (const xp of criticalPoints) {
+      for (const ax of axles) {
+        candidateSet.add(dir === 1 ? xp + ax.d : xp - ax.d);
+      }
+    }
+
+    const candidates = Array.from(candidateSet).sort((a, b) => a - b);
+    for (const leadX of candidates) {
+      let effect = 0;
+      const wheels = [];
+      for (let k = 0; k < axles.length; k++) {
+        const ax = axles[k];
+        const wx = dir === 1 ? leadX - ax.d : leadX + ax.d;
+        const onBeam = wx >= -1e-9 && wx <= totalL + 1e-9;
+        const eta = onBeam ? evalIL(wx) : 0;
+        effect += ax.P * eta;
+        if (onBeam) {
+          wheels.push({ axleIndex: k + 1, x: Math.max(0, Math.min(totalL, wx)), P: ax.P, eta });
+        }
+      }
+      if (!wheels.length) continue;
+      if (effect > maxPos.value) {
+        maxPos = { value: effect, leadX, dir, wheelPositions: wheels };
+      }
+      if (effect < maxNeg.value) {
+        maxNeg = { value: effect, leadX, dir, wheelPositions: wheels };
+      }
+    }
+  }
+
+  if (!isFinite(maxPos.value)) maxPos = { value: 0, leadX: 0, dir: 1, wheelPositions: [] };
+  if (!isFinite(maxNeg.value)) maxNeg = { value: 0, leadX: 0, dir: 1, wheelPositions: [] };
+  const totalWeight = axles.reduce((s, a) => s + a.P, 0);
+  return { axles, bidirectional, totalWeight, maxPos, maxNeg };
+}
+
+function setMovingLoadDisplayCase(mode) {
+  _movingLoadDisplayCase = mode;
+  renderMovingLoadResultPanel();
+  if (influenceLineState?.data) {
+    drawILDiagram('ilCanvas', influenceLineState.data, influenceLineState.title);
+  }
+}
+
+function getActiveMovingLoadCase(env) {
+  if (!env) return null;
+  if (_movingLoadDisplayCase === 'pos') return { kind: 'pos', label: '最大正值車位', data: env.maxPos };
+  if (_movingLoadDisplayCase === 'neg') return { kind: 'neg', label: '最大負值車位', data: env.maxNeg };
+  return Math.abs(env.maxPos.value) >= Math.abs(env.maxNeg.value)
+    ? { kind: 'pos', label: '控制正值車位', data: env.maxPos }
+    : { kind: 'neg', label: '控制負值車位', data: env.maxNeg };
+}
+
+function renderMovingLoadResultPanel() {
+  const panel = document.getElementById('movingLoadResultPanel');
+  if (!panel) return;
+  const env = influenceLineState?.movingLoad;
+  if (!env) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+    return;
+  }
+  const u = getUnit();
+  const ilType = document.getElementById('ilType')?.value || 'reaction';
+  const effectUnit = ilType === 'moment' ? u.moment : u.force;
+  const dirLabel = d => d === 1 ? '正向 →' : '反向 ←';
+  const formatWheels = wheels => wheels.length
+    ? wheels.map(w => `P${w.axleIndex}=${fmtVal(w.P)}@x=${fmtVal(w.x)}${u.length}`).join('、')
+    : '無車輪於梁上';
+  const activeCase = getActiveMovingLoadCase(env);
+
+  panel.hidden = false;
+  panel.innerHTML = `
+    <div class="moving-load-head">
+      <strong>🚚 移動車型載重影響線極值包絡</strong>
+      <span class="moving-load-meta">${env.axles.length} 軸 ｜ 總車重 ΣP = ${fmtVal(env.totalWeight)} ${u.force}</span>
+    </div>
+    <p class="hint">以影響線取樣及線性內插估算。示範車型請依案件調整，採用車位後以集中力重算。</p>
+    <div class="moving-load-grid">
+      <div class="moving-load-box pos${activeCase?.kind === 'pos' ? ' active' : ''}" onclick="setMovingLoadDisplayCase('pos')">
+        <div class="ml-box-title">最大正效應 (${dirLabel(env.maxPos.dir)})</div>
+        <div class="ml-box-val">+${fmtVal(Math.max(0, env.maxPos.value))} <small>${effectUnit}</small></div>
+        <div class="ml-box-sub">首軸 X = ${fmtVal(env.maxPos.leadX)} ${u.length} ｜ 梁上軸位：${formatWheels(env.maxPos.wheelPositions)}</div>
+      </div>
+      <div class="moving-load-box neg${activeCase?.kind === 'neg' ? ' active' : ''}" onclick="setMovingLoadDisplayCase('neg')">
+        <div class="ml-box-title">最大負效應 (${dirLabel(env.maxNeg.dir)})</div>
+        <div class="ml-box-val">${fmtVal(Math.min(0, env.maxNeg.value))} <small>${effectUnit}</small></div>
+        <div class="ml-box-sub">首軸 X = ${fmtVal(env.maxNeg.leadX)} ${u.length} ｜ 梁上軸位：${formatWheels(env.maxNeg.wheelPositions)}</div>
+      </div>
+    </div>
+    <div class="moving-load-actions">
+      <button type="button" class="btn btn-primary btn-sm" onclick="applyMovingLoadToSpans('pos')">⚡ 帶入最大正值車位至跨度載重</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="applyMovingLoadToSpans('neg')">⚡ 帶入最大負值車位至跨度載重</button>
+    </div>
+  `;
+}
+
+function applyMovingLoadToSpans(which) {
+  const env = influenceLineState?.movingLoad;
+  if (!env) return;
+  const target = which === 'neg' ? env.maxNeg : env.maxPos;
+  const wheels = target?.wheelPositions || [];
+  if (!wheels.length) return;
+  if (model.loads.some(loads => loads.length)) {
+    confirmBeamOverwrite('採用移動載重車位', '這個車位會清除全梁的既有載重並改用各車軸的集中力。', '確認採用',
+      () => replaceLoadsWithVehicle(which, wheels));
+    return;
+  }
+  replaceLoadsWithVehicle(which, wheels);
+}
+
+function replaceLoadsWithVehicle(which, wheels) {
+  for (let i = 0; i < model.numSpans; i++) model.loads[i] = [];
+  let spanOffsets = [];
+  let acc = 0;
+  for (let i = 0; i < model.numSpans; i++) {
+    spanOffsets.push({ start: acc, end: acc + model.spans[i].L, L: model.spans[i].L });
+    acc += model.spans[i].L;
+  }
+  for (const w of wheels) {
+    let si = 0;
+    for (let i = 0; i < spanOffsets.length; i++) {
+      if (w.x <= spanOffsets[i].end + 1e-9 || i === spanOffsets.length - 1) {
+        si = i;
+        break;
+      }
+    }
+    const localA = +Math.max(0, Math.min(spanOffsets[si].L, w.x - spanOffsets[si].start)).toPrecision(12);
+    model.loads[si].push({ type: 'point', P: w.P, a: localA });
+  }
+  _movingLoadDisplayCase = which === 'neg' ? 'neg' : 'pos';
+  renderLoadInputs();
+  runAnalysis();
+  if (typeof window.setSaveStatus === 'function') {
+    const label = which === 'neg' ? '最大負效應' : '最大正效應';
+    window.setSaveStatus(`已將移動車載重「${label}」臨界車位（共 ${wheels.length} 軸）帶入跨度集中力並完成分析。`, 'ok');
+  }
 }
 
 // ==================== MATRIX UTILITIES ====================
@@ -1042,7 +1605,8 @@ function solve(mdl, eiOverride, legacyTrapezoid = false) {
   const freeDofs = [], constrainedV = new Set();
   for (let i = 0; i <= mdl.numSpans; i++) {
     const nd = topo.nodes[topo.suppNodeIdx[i]];
-    const st = mdl.supports[i].type;
+    const sup = mdl.supports[i];
+    const st = sup.type;
     if (st === 'free') {
       // both v and theta free
     } else if (st === 'fixed') {
@@ -1050,6 +1614,20 @@ function solve(mdl, eiOverride, legacyTrapezoid = false) {
       // also fix rotations at this support
       if (nd.leftThetaDof >= 0) constrainedV.add(nd.leftThetaDof);
       if (nd.rightThetaDof >= 0 && nd.rightThetaDof !== nd.leftThetaDof) constrainedV.add(nd.rightThetaDof);
+    } else if (st === 'guided') {
+      // restrain rotation, leave vertical displacement free
+      if (nd.leftThetaDof >= 0) constrainedV.add(nd.leftThetaDof);
+      if (nd.rightThetaDof >= 0 && nd.rightThetaDof !== nd.leftThetaDof) constrainedV.add(nd.rightThetaDof);
+    } else if (st === 'vspring') {
+      // both v and theta free; add vertical spring stiffness kv to vDof
+      const kv = Number(sup.kv);
+      if (isFinite(kv) && kv > 0) K[nd.vDof][nd.vDof] += kv;
+    } else if (st === 'rspring') {
+      // restrain vertical displacement, add rotational spring stiffness kr to theta DOF
+      constrainedV.add(nd.vDof);
+      const td = nd.leftThetaDof >= 0 ? nd.leftThetaDof : nd.rightThetaDof;
+      const kr = Number(sup.kr);
+      if (td >= 0 && isFinite(kr) && kr > 0) K[td][td] += kr;
     } else { // pin or roller: restrain v only
       constrainedV.add(nd.vDof);
     }
@@ -1070,11 +1648,26 @@ function solve(mdl, eiOverride, legacyTrapezoid = false) {
   const reactions = []; // per support: {Ry, Mr}
   for (let i = 0; i <= mdl.numSpans; i++) {
     const nd = topo.nodes[topo.suppNodeIdx[i]];
-    let Ry = 0; for (let j=0;j<nDof;j++) Ry += K[nd.vDof][j]*disp[j]; Ry -= F[nd.vDof];
+    const sup = mdl.supports[i];
+    const st = sup.type;
+    let Ry = 0;
+    if (st === 'vspring') {
+      const kv = Number(sup.kv);
+      Ry = (isFinite(kv) && kv > 0) ? -kv * disp[nd.vDof] : 0;
+    } else if (st === 'guided') {
+      Ry = 0;
+    } else {
+      for (let j=0;j<nDof;j++) Ry += K[nd.vDof][j]*disp[j];
+      Ry -= F[nd.vDof];
+    }
     let Mr = 0;
-    if (mdl.supports[i].type === 'fixed') {
+    if (st === 'fixed' || st === 'guided') {
       const td = nd.leftThetaDof >= 0 ? nd.leftThetaDof : nd.rightThetaDof;
       if (td >= 0) { for (let j=0;j<nDof;j++) Mr += K[td][j]*disp[j]; Mr -= F[td]; }
+    } else if (st === 'rspring') {
+      const td = nd.leftThetaDof >= 0 ? nd.leftThetaDof : nd.rightThetaDof;
+      const kr = Number(sup.kr);
+      if (td >= 0 && isFinite(kr) && kr > 0) Mr = -kr * disp[td];
     }
     reactions.push({ Ry, Mr });
   }
@@ -1116,13 +1709,12 @@ function clipLoadToRange(ld, x1, x2) {
     const wB = ld.w1 + (ld.w2 - ld.w1) * x2 / Ls;
     return { type:'trapezoid', w1: wA, w2: wB };
   }
-  if (ld.type === 'point') {
-    if (ld.a >= x1 - 1e-9 && ld.a <= x2 + 1e-9) return { type:'point', P: ld.P, a: Math.max(0, Math.min(subL, ld.a - x1)) };
-    return null;
-  }
-  if (ld.type === 'moment') {
-    if (ld.a >= x1 - 1e-9 && ld.a <= x2 + 1e-9) return { type:'moment', M: ld.M, a: Math.max(0, Math.min(subL, ld.a - x1)) };
-    return null;
+  if (ld.type === 'point' || ld.type === 'moment') {
+    // A load at an internal boundary belongs to the element on its left.
+    const startsHere = x1 === 0 ? ld.a >= -1e-9 : ld.a > x1 + 1e-9;
+    if (startsHere && ld.a <= x2 + 1e-9) {
+      return { ...ld, a: Math.max(0, Math.min(subL, ld.a - x1)) };
+    }
   }
   return null;
 }
@@ -1227,22 +1819,45 @@ function computeDiagrams(mdl, sol, legacySol = sol, legacyIncludesLoad = false) 
 }
 
 // ==================== INFLUENCE LINE ====================
+function locateBeamPosition(mdl, x) {
+  let start = 0;
+  for (let i = 0; i < mdl.spans.length; i++) {
+    const length = Number(mdl.spans[i].L);
+    if (x <= start + length + 1e-10 || i === mdl.spans.length - 1) {
+      return { span: i, localX: Math.max(0, Math.min(length, x - start)) };
+    }
+    start += length;
+  }
+}
+
 function computeInfluenceLine(mdl, type, param) {
-  const totalL = mdl.spans.reduce((s,sp)=>s+sp.L,0);
-  const nPos = 200, positions = [], values = [];
+  const totalL = mdl.spans.reduce((sum, span) => sum + Number(span.L), 0);
+  const target = type === 'reaction' ? null : locateBeamPosition(mdl, param);
+  const loadPositions = new Set(Array.from({ length: 201 }, (_, i) => i * totalL / 200));
+  let spanStart = 0;
+  for (const span of mdl.spans) {
+    for (const hinge of span.hinges || []) loadPositions.add(spanStart + Number(hinge));
+    spanStart += Number(span.L);
+    loadPositions.add(spanStart);
+  }
+  if (target) {
+    loadPositions.add(Math.max(0, Math.min(totalL, param)));
+    if (type === 'shear') {
+      // Sample both sides to confine the discontinuity to the requested station.
+      const step = Math.max(1e-7, totalL * 1e-8);
+      loadPositions.add(Math.max(0, param - step));
+      loadPositions.add(Math.min(totalL, param + step));
+    }
+  }
+  const positions = [...loadPositions].sort((a, b) => a - b);
+  const values = [];
   const baseEI = getEI();
   const reactionIdx = type === 'reaction' ? Math.round(param) : -1;
-  for (let k = 0; k <= nPos; k++) {
-    const xPos = k*totalL/nPos;
-    positions.push(xPos);
-    let cumL=0, spanIdx=-1, localX=0;
-    for (let i = 0; i < mdl.numSpans; i++) {
-      if (xPos <= cumL+mdl.spans[i].L+1e-10) { spanIdx=i; localX=xPos-cumL; break; }
-      cumL += mdl.spans[i].L;
-    }
-    if (spanIdx<0) { spanIdx=mdl.numSpans-1; localX=mdl.spans[spanIdx].L; }
+  for (const xPos of positions) {
+    const { span, localX } = locateBeamPosition(mdl, xPos);
     const tmp = { numSpans:mdl.numSpans, spans:mdl.spans, supports:mdl.supports, loads:mdl.spans.map(()=>[]) };
-    tmp.loads[spanIdx] = [{type:'point',P:1,a:localX}];
+    const unitLoad = { type:'point', P:1, a:localX };
+    tmp.loads[span] = [unitLoad];
     const sol = solve(tmp, baseEI);
     if (!sol) { values.push(0); continue; }
     let val = 0;
@@ -1252,13 +1867,11 @@ function computeInfluenceLine(mdl, type, param) {
       val = reaction.Ry;
     }
     else {
-      const diag = computeDiagrams(tmp, sol);
-      let best=0, bestD=Infinity;
-      for (const sp of diag.spans) for (let j=0;j<sp.xs.length;j++) {
-        const d=Math.abs(sp.xs[j]-param);
-        if (d<bestD) { bestD=d; best = type==='shear'?sp.vs[j]:sp.ms[j]; }
-      }
-      val = best;
+      const element = sol.topo.elems.find(e => e.spanIdx === target.span && target.localX <= e.x2 + 1e-9);
+      const point = span === target.span ? clipLoadToRange(unitLoad, element.x1, element.x2) : null;
+      const x = Math.max(0, Math.min(element.L, target.localX - element.x1));
+      const section = evalSectionState(x, element.L, element.endForces, point ? [point] : [], 'right');
+      val = type === 'shear' ? section.V : section.M;
     }
     values.push(val);
   }
@@ -1266,13 +1879,16 @@ function computeInfluenceLine(mdl, type, param) {
 }
 
 // ==================== CANVAS DRAWING ====================
+const CANVAS_FONT_SANS = '"Segoe UI", "Microsoft JhengHei", Arial, sans-serif';
+
 function setupCanvas(id, minW) {
   const c = document.getElementById(id), wrap = c.parentElement;
   const isNarrow = window.innerWidth <= 640;
   const defaultMin = isNarrow ? 320 : 500;
   const needsWideDiagram = model.numSpans > 10;
   const diagramMin = needsWideDiagram ? 80 + model.numSpans * 130 : defaultMin;
-  const w = Math.max(wrap.clientWidth-20, minW || diagramMin);
+  const refWrap = (wrap && wrap.clientWidth > 0) ? wrap : (document.getElementById('schematicCanvas')?.parentElement || wrap);
+  const w = Math.max((refWrap?.clientWidth || 0) - 20, minW || diagramMin);
   wrap.toggleAttribute?.('data-scroll-diagram', needsWideDiagram);
   if (needsWideDiagram) {
     wrap.setAttribute?.('tabindex', '0');
@@ -1281,103 +1897,432 @@ function setupCanvas(id, minW) {
   } else {
     for (const attr of ['tabindex','aria-label','role']) wrap.removeAttribute?.(attr);
   }
-  const h = id==='schematicCanvas' ? (isNarrow?180:200) : (isNarrow?220:240);
-  c.width=w; c.height=h;
+  // 依跨內最大載重數動態增加梁示意圖上方淨空高度，確保 2~4 組複合載重與標籤絕不擁擠或截斷
+  const maxLoadsInSpan = Math.max(1, ...(model.loads || []).map(arr => (arr || []).length));
+  const extraSchematicH = Math.min(64, Math.max(0, (maxLoadsInSpan - 1) * 24));
+  const h = id==='schematicCanvas' ? ((isNarrow?195:215) + extraSchematicH) : (isNarrow?235:256);
   const ctx = c.getContext('2d');
+  const canScale = typeof ctx?.scale === 'function';
+  const dpr = canScale ? Math.max(2, Math.min(3, Math.ceil((typeof window !== 'undefined' && window.devicePixelRatio) || 2))) : 1;
+  c._logicalWidth = w;
+  c._logicalHeight = h;
+  c.width = Math.round(w * dpr);
+  c.height = Math.round(h * dpr);
+  if (canScale && c.style) {
+    c.style.width = w + 'px';
+    c.style.height = h + 'px';
+    ctx.scale(dpr, dpr);
+  }
   ctx.clearRect(0,0,w,h);
   return {ctx,w,h};
 }
 
 function getScale(totalL, cw, m) { return (cw-m.left-m.right)/totalL; }
 
-function drawSchematic() {
+let _schematicSpanHitRegions = [];
+
+function drawSchematic(forExport = false) {
   const {ctx,w,h} = setupCanvas('schematicCanvas');
   const u = getUnit();
   const totalL = model.spans.reduce((s,sp)=>s+sp.L,0);
-  if (totalL<=0) return;
-  const margin={left:50,right:30,top:35,bottom:60};
-  const sx = getScale(totalL,w,margin), beamY=h/2-10;
+  if (totalL<=0) { _schematicSpanHitRegions = []; return; }
+  const margin={left:58,right:26,top:40,bottom:66};
+  // 固定梁軸線距畫布底緣 74px，將動態擴充之畫布空間全數留給梁上方複合載重分層排布
+  const sx = getScale(totalL,w,margin), beamY=Math.round(h - 74);
+  const activeSi = parseInt(document.getElementById('loadSpanSelect')?.value) || 0;
 
-  ctx.strokeStyle='#1e293b'; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(margin.left,beamY); ctx.lineTo(margin.left+totalL*sx,beamY); ctx.stroke();
+  // 白底與細緻工程圖框背景
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+
+  // 記錄各跨點擊熱區；僅於操作介面 (forExport === false) 顯示低干擾選取底色，正式計算書與匯出圖完全排除
+  _schematicSpanHitRegions = [];
+  let hitOff = 0;
+  for (let i=0; i<model.numSpans; i++) {
+    const L = model.spans[i].L;
+    const x1 = margin.left + hitOff * sx;
+    const x2 = margin.left + (hitOff + L) * sx;
+    _schematicSpanHitRegions.push({ index: i, x1, x2 });
+    if (!forExport && i === activeSi) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(37, 99, 235, 0.04)';
+      ctx.fillRect(Math.round(x1), 8, Math.round(Math.max(0, x2 - x1)), h - 16);
+      ctx.strokeStyle = 'rgba(37, 99, 235, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x1), 8); ctx.lineTo(Math.round(x1), h - 8);
+      ctx.moveTo(Math.round(x2), 8); ctx.lineTo(Math.round(x2), h - 8);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    hitOff += L;
+  }
+
+  // ==================== 多載重防碰撞三階段分層渲染引擎 ====================
+  // Pass A：繪製分佈載重（UDL / 梯形）並支援同跨多組分佈載重逐層向上疊加 (Tiered Stacking)
+  // Pass B：繪製集中力／集中彎矩向量（箭頭尖端落地對齊載重頂面，箭桿依水平間距階梯錯高 Staggered Shafts）
+  // Pass C：全域 2D 標籤碰撞盒與箭桿穿字避讓，統一於最頂層渲染所有載重數值標籤
+  const labelQueue = [];
+  const verticalShafts = [];
+  const fitLabels = model.numSpans > 10;
+  const distPalette = [
+    { stroke: '#dc2626', fill: 'rgba(220,38,38,0.08)', text: '#991b1b' },
+    { stroke: '#ea580c', fill: 'rgba(234,88,12,0.08)', text: '#9a3412' },
+    { stroke: '#b91c1c', fill: 'rgba(185,28,28,0.08)', text: '#7f1d1d' },
+  ];
 
   let xOff=0;
+  for (let i=0;i<model.numSpans;i++) {
+    const L=model.spans[i].L;
+    const spanLoads = model.loads[i]||[];
+    const x1 = margin.left + xOff * sx, x2 = margin.left + (xOff + L) * sx;
+    const spanW = Math.max(1, x2 - x1);
+    const beamTopY = beamY - 3;
+
+    const distLoads = spanLoads.filter(ld => ld.type === 'udl' || ld.type === 'trapezoid');
+    const ptLoads = spanLoads
+      .map((ld, idx) => ({ld, idx}))
+      .filter(x => x.ld.type === 'point' || x.ld.type === 'moment')
+      .sort((a,b) => (a.ld.a||0) - (b.ld.a||0));
+    const ptXs = ptLoads.map(p => x1 + (p.ld.a || 0) * sx);
+
+    // 追蹤跨內任意位置 px 的累積分佈載重高度函數
+    const tierTopFns = [() => 0];
+    const tierMaxH = distLoads.length > 1 ? 18 : 24;
+    const tierMinH = distLoads.length > 1 ? 12 : 14;
+
+    distLoads.forEach((ld, dIdx) => {
+      const pal = distPalette[dIdx % distPalette.length];
+      const prevTopFn = tierTopFns[tierTopFns.length - 1];
+      const tierGap = dIdx === 0 ? 0 : 3;
+      ctx.save();
+      if (ld.type === 'udl') {
+        const ah = Math.min(tierMaxH, Math.max(tierMinH, Math.abs(ld.w) * 1.3));
+        const baseOff = prevTopFn((x1 + x2) / 2) + tierGap;
+        const yBot = beamTopY - baseOff;
+        const yTop = yBot - ah;
+        ctx.fillStyle = pal.fill;
+        ctx.fillRect(x1, yTop, spanW, ah);
+        ctx.strokeStyle = pal.stroke;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(x1, yTop); ctx.lineTo(x2, yTop); ctx.stroke();
+        if (dIdx > 0) {
+          ctx.strokeStyle = 'rgba(220,38,38,0.35)'; ctx.lineWidth = 0.9;
+          ctx.beginPath(); ctx.moveTo(x1, yBot); ctx.lineTo(x2, yBot); ctx.stroke();
+        }
+        const nA = Math.max(3, Math.floor(spanW / 20));
+        ctx.strokeStyle = pal.stroke; ctx.lineWidth = 1.15;
+        for (let k=0; k<=nA; k++) {
+          const ax = x1 + k * spanW / nA;
+          ctx.beginPath(); ctx.moveTo(ax, yTop); ctx.lineTo(ax, yBot - 1); ctx.stroke();
+          drawAH(ctx, ax, yBot - 1, 'down', pal.stroke);
+        }
+        tierTopFns.push(px => prevTopFn(px) + tierGap + ah);
+
+        // 智慧選擇 UDL 文字水平位置：自動避開集中力箭桿 x 座標與鄰層 UDL 標籤
+        const _wt = `w = ${ld.w} ${u.dist}`;
+        ctx.font = `700 13px ${CANVAS_FONT_SANS}`;
+        const tw = ctx.measureText(_wt).width + 10;
+        if (!fitLabels || tw + 4 <= spanW) {
+          const candidates = distLoads.length > 1
+            ? (dIdx % 2 === 0 ? [0.28, 0.5, 0.72] : [0.72, 0.28, 0.5])
+            : [0.5, 0.26, 0.74, 0.35, 0.65];
+          let bestX = (x1 + x2) / 2, bestClearance = -Infinity;
+          for (const ratio of candidates) {
+            const cx = x1 + ratio * spanW;
+            if (cx - tw/2 < x1 + 2 || cx + tw/2 > x2 - 2) continue;
+            const minDistToShaft = ptXs.length ? Math.min(...ptXs.map(px => Math.abs(px - cx))) : 999;
+            if (minDistToShaft > bestClearance) { bestClearance = minDistToShaft; bestX = cx; }
+          }
+          labelQueue.push({
+            text: _wt, cx: bestX, cy: yTop - 11, color: pal.text, align: 'center',
+            minX: x1 + 2, maxX: x2 - 2, kind: 'dist'
+          });
+        }
+      } else if (ld.type === 'trapezoid') {
+        const mW = Math.max(Math.abs(ld.w1), Math.abs(ld.w2), 1);
+        const h1 = Math.max(4, Math.abs(ld.w1) / mW * tierMaxH);
+        const h2 = Math.max(4, Math.abs(ld.w2) / mW * tierMaxH);
+        const b1 = prevTopFn(x1) + tierGap, b2 = prevTopFn(x2) + tierGap;
+        const yBot1 = beamTopY - b1, yBot2 = beamTopY - b2;
+        const yTop1 = yBot1 - h1, yTop2 = yBot2 - h2;
+        ctx.fillStyle = pal.fill;
+        ctx.beginPath();
+        ctx.moveTo(x1, yBot1); ctx.lineTo(x1, yTop1); ctx.lineTo(x2, yTop2); ctx.lineTo(x2, yBot2);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = pal.stroke; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(x1, yTop1); ctx.lineTo(x2, yTop2); ctx.stroke();
+        const nA = Math.max(3, Math.floor(spanW / 20));
+        ctx.lineWidth = 1.1;
+        for (let k=0; k<=nA; k++) {
+          const r = k / nA, ax = x1 + r * spanW;
+          const yb = yBot1 + r * (yBot2 - yBot1), yt = yTop1 + r * (yTop2 - yTop1);
+          if (yb - yt > 3) {
+            ctx.beginPath(); ctx.moveTo(ax, yt); ctx.lineTo(ax, yb - 1); ctx.stroke();
+            drawAH(ctx, ax, yb - 1, 'down', pal.stroke);
+          }
+        }
+        tierTopFns.push(px => {
+          const r = Math.max(0, Math.min(1, (px - x1) / spanW));
+          return prevTopFn(px) + tierGap + h1 + r * (h2 - h1);
+        });
+        const _t1 = `${ld.w1} ${u.dist}`, _t2 = `${ld.w2} ${u.dist}`;
+        ctx.font = `700 12.5px ${CANVAS_FONT_SANS}`;
+        if (!fitLabels || ctx.measureText(_t1).width + ctx.measureText(_t2).width + 20 <= spanW) {
+          labelQueue.push({ text: _t1, cx: x1 + 3, cy: yTop1 - 11, color: pal.text, align: 'left', minX: x1, maxX: x2, kind: 'dist' });
+          labelQueue.push({ text: _t2, cx: x2 - 3, cy: yTop2 - 11, color: pal.text, align: 'right', minX: x1, maxX: x2, kind: 'dist' });
+        }
+      }
+      ctx.restore();
+    });
+
+    const totalDistHeightAt = px => tierTopFns[tierTopFns.length - 1](px);
+
+    // Pass B：集中力與集中彎矩（箭頭尖端貼齊分佈載重頂面／梁頂，鄰近載重自動拉長箭桿階梯錯高）
+    const placedPt = [];
+    for (const {ld} of ptLoads) {
+      const px = x1 + (ld.a || 0) * sx;
+      const localDistH = totalDistHeightAt(px);
+      let tier = 0;
+      for (const p of placedPt) {
+        if (Math.abs(p.px - px) < 76) tier = Math.max(tier, p.tier + 1);
+      }
+      placedPt.push({ px, tier });
+
+      ctx.save();
+      if (ld.type === 'point') {
+        // 箭頭尖端落地貼齊分佈載重頂面（或梁面），僅將箭尾隨 tier 往上拉高，物理施力點清楚且文字不打架
+        const tipY = beamTopY - localDistH - 1;
+        const shaftLen = 30 + tier * 22 + (distLoads.length > 0 ? 14 : 0);
+        const tailY = Math.max(22, tipY - shaftLen);
+        ctx.strokeStyle = '#b91c1c'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(px, tailY); ctx.lineTo(px, tipY); ctx.stroke();
+        drawAH(ctx, px, tipY, 'down', '#b91c1c', 4.2);
+        verticalShafts.push({ x: px, yTop: tailY, yBot: tipY });
+        labelQueue.push({
+          text: `P = ${ld.P} ${u.force}`, cx: px, cy: tailY - 11, color: '#991b1b', align: 'center',
+          minX: margin.left - 10, maxX: w - margin.right + 10, kind: 'point', anchorX: px, anchorY: tailY
+        });
+      } else if (ld.type === 'moment') {
+        const baseOff = localDistH > 0 ? localDistH + 16 : 0;
+        const cy = Math.max(30, beamTopY - 14 - baseOff - tier * 24);
+        if (beamTopY - cy > 18) {
+          ctx.strokeStyle = 'rgba(109,40,217,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([2,2]);
+          ctx.beginPath(); ctx.moveTo(px, cy + 9); ctx.lineTo(px, beamTopY); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        ctx.strokeStyle = '#6d28d9'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.arc(px, cy, 9, 0.45, Math.PI * 1.55); ctx.stroke();
+        verticalShafts.push({ x: px, yTop: cy - 10, yBot: beamTopY });
+        labelQueue.push({
+          text: `M = ${ld.M} ${u.moment}`, cx: px, cy: cy - 20, color: '#5b21b6', align: 'center',
+          minX: margin.left - 10, maxX: w - margin.right + 10, kind: 'moment', anchorX: px, anchorY: cy - 9
+        });
+      }
+      ctx.restore();
+    }
+    xOff += L;
+  }
+
+  // Pass C：全域 2D 標籤碰撞盒解算與最上層文字渲染（確保任何箭桿或符號絕不遮掩文字）
+  const placedBoxes = [];
+  const boxesOverlap = (a, b, pad = 3) =>
+    a.x < b.x + b.w + pad && a.x + a.w + pad > b.x &&
+    a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
+  const shaftHitsBox = (sh, box) =>
+    sh.x >= box.x - 2 && sh.x <= box.x + box.w + 2 &&
+    sh.yTop < box.y + box.h && sh.yBot > box.y;
+
+  ctx.font = `700 13px ${CANVAS_FONT_SANS}`;
+  for (const item of labelQueue) {
+    const m = ctx.measureText(item.text);
+    const pw = Math.round(m.width + 10), ph = 18;
+    let bx = Math.round(item.cx - pw / 2);
+    if (item.align === 'left') bx = Math.round(item.cx);
+    else if (item.align === 'right') bx = Math.round(item.cx - pw);
+    bx = Math.max(Math.round(item.minX ?? 4), Math.min(Math.round((item.maxX ?? (w - 4)) - pw), bx));
+    let by = Math.round(item.cy - ph / 2);
+
+    // 若與已放置標籤重疊、或被其他集中力垂直箭桿穿過，自動往上微調避開
+    let guard = 0;
+    while (guard < 8) {
+      const box = { x: bx, y: by, w: pw, h: ph };
+      const hitBox = placedBoxes.some(pb => boxesOverlap(box, pb, 3));
+      const hitShaft = verticalShafts.some(sh => (item.anchorX === undefined || Math.abs(sh.x - item.anchorX) > 2) && shaftHitsBox(sh, box));
+      if (!hitBox && !hitShaft) break;
+      by -= 19;
+      guard++;
+    }
+    by = Math.max(3, by);
+    const finalBox = { x: bx, y: by, w: pw, h: ph };
+    placedBoxes.push(finalBox);
+
+    // 若集中力／彎矩標籤因避讓而上移，自動補繪細引出線連結箭尾
+    if (item.anchorY !== undefined && item.anchorY - (by + ph) > 4) {
+      ctx.save();
+      ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+      ctx.beginPath(); ctx.moveTo(item.anchorX, item.anchorY); ctx.lineTo(Math.round(bx + pw / 2), by + ph); ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fillRect(bx, by, pw, ph);
+    ctx.fillStyle = item.color || '#991b1b';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.text, Math.round(bx + pw / 2), Math.round(by + ph / 2));
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // 工程雙翼緣結構梁本體 (Structural Beam Section Bar)
+  const beamX1 = margin.left, beamX2 = margin.left + totalL * sx, beamH = 6;
+  ctx.fillStyle = '#cbd5e1';
+  ctx.fillRect(beamX1, beamY - beamH/2, beamX2 - beamX1, beamH);
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(beamX1, beamY - beamH/2); ctx.lineTo(beamX2, beamY - beamH/2);
+  ctx.moveTo(beamX1, beamY + beamH/2); ctx.lineTo(beamX2, beamY + beamH/2);
+  ctx.stroke();
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(beamX1, beamY - beamH/2); ctx.lineTo(beamX1, beamY + beamH/2);
+  ctx.moveTo(beamX2, beamY - beamH/2); ctx.lineTo(beamX2, beamY + beamH/2);
+  ctx.stroke();
+
+  // 內絞點 (Internal Hinges)
+  xOff = 0;
+  for (let i=0;i<model.numSpans;i++) {
+    const L = model.spans[i].L;
+    for (const hPos of (model.spans[i].hinges||[])) {
+      const px = margin.left + (xOff + hPos)*sx;
+      ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.arc(px, beamY, 4.8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    xOff += L;
+  }
+
+  // 支承與工程尺寸標註線 (Supports & Engineering Dimension Lines)
+  xOff=0;
   for (let i=0;i<=model.numSpans;i++) {
-    const px=margin.left+xOff*sx;
-    drawSupport(ctx,px,beamY,model.supports[i].type);
-    ctx.fillStyle='#000'; ctx.font='bold 13px Segoe UI'; ctx.textAlign='center';
-    ctx.fillText(`${i}`,px,beamY+42);
+    const px=Math.round(margin.left+xOff*sx);
+    drawSupport(ctx,px,beamY+beamH/2,model.supports[i].type);
+    // 支承編號標籤（乾淨無襯線工程字體 12.5px）
+    ctx.fillStyle='#1e293b'; ctx.font=`700 12.5px ${CANVAS_FONT_SANS}`; ctx.textAlign='center';
+    ctx.fillText(`支承 ${i}`,px,beamY+42);
     if (i<model.numSpans) {
-      const L=model.spans[i].L, mid=margin.left+(xOff+L/2)*sx;
-      const x1=margin.left+xOff*sx+5, x2=margin.left+(xOff+L)*sx-5;
-      const dimY = beamY+56;
-      ctx.strokeStyle='#64748b'; ctx.lineWidth=1;
+      const sp = model.spans[i];
+      const L = sp.L, mid = Math.round(margin.left+(xOff+L/2)*sx);
+      const x1 = Math.round(margin.left+xOff*sx), x2 = Math.round(margin.left+(xOff+L)*sx);
+      const dimY = beamY+58;
+      // 尺寸延伸線 (Extension lines)
+      ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(x1, beamY+46); ctx.lineTo(x1, dimY+5);
+      ctx.moveTo(x2, beamY+46); ctx.lineTo(x2, dimY+5);
+      ctx.stroke();
+      // 尺寸主線與 45° 工程斜刻 (Dimension line & architectural ticks)
+      ctx.strokeStyle='#475569'; ctx.lineWidth=1.1;
       ctx.beginPath(); ctx.moveTo(x1,dimY); ctx.lineTo(x2,dimY); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x1,dimY-4); ctx.lineTo(x1,dimY+4); ctx.moveTo(x2,dimY-4); ctx.lineTo(x2,dimY+4); ctx.stroke();
-      ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      const _lt=`${L} ${u.length}`, _lm=ctx.measureText(_lt);
-      if (model.numSpans <= 10 || _lm.width + 8 <= x2 - x1) {
-        ctx.fillStyle='#fff'; ctx.fillRect(mid-_lm.width/2-3,dimY-9,_lm.width+6,18);
-        ctx.fillStyle='#000'; ctx.fillText(_lt,mid,dimY);
+      ctx.lineWidth=1.6;
+      ctx.beginPath();
+      ctx.moveTo(x1-3.5,dimY+3.5); ctx.lineTo(x1+3.5,dimY-3.5);
+      ctx.moveTo(x2-3.5,dimY+3.5); ctx.lineTo(x2+3.5,dimY-3.5);
+      ctx.stroke();
+      // 跨度與跨長文字 (含非 1 之 EI 倍率) — 放大至 13px 清晰字體
+      const isSelected = !forExport && i === activeSi;
+      const eiTag = (sp.eiMul && Math.abs(sp.eiMul - 1) > 1e-6) ? ` (${fmtVal(sp.eiMul)}EI)` : '';
+      const fullTxt = `S${i+1}：${L} ${u.length}${eiTag}`;
+      const shortTxt = `${L} ${u.length}`;
+      ctx.font=`700 13px ${CANVAS_FONT_SANS}`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      const useTxt = (ctx.measureText(fullTxt).width + 16 <= x2 - x1) ? fullTxt : shortTxt;
+      const _lm = ctx.measureText(useTxt);
+      if (model.numSpans <= 10 || _lm.width + 10 <= x2 - x1) {
+        const bw = Math.round(_lm.width + 12), bh = 20;
+        ctx.fillStyle = isSelected ? '#eff6ff' : '#ffffff';
+        ctx.fillRect(mid - Math.round(bw/2), dimY - bh/2, bw, bh);
+        if (isSelected) {
+          ctx.strokeStyle = '#2563eb';
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(mid - Math.round(bw/2), dimY - bh/2, bw, bh);
+        }
+        ctx.fillStyle = isSelected ? '#1d4ed8' : '#0f172a';
+        ctx.fillText(useTxt, mid, dimY);
       }
       ctx.textBaseline='alphabetic';
       xOff+=L;
     }
   }
-  xOff=0;
-  for (let i=0;i<model.numSpans;i++) {
-    const L=model.spans[i].L;
-    const spanLoads = model.loads[i]||[];
-    // 兩階段繪製，避免後畫的 UDL 覆蓋先畫的集中力
-    // Pass 1：先畫分布載重 (UDL / 梯形) 為背景
-    // Pass 2：再畫集中力 / 集中彎矩，並依底層 UDL 高度自動上抬
-    const udlRanges = collectUdlRanges(margin.left,xOff,L,sx,spanLoads);
-    for (const ld of spanLoads) {
-      if (ld.type==='udl' || ld.type==='trapezoid') drawLoadSymbol(ctx,margin.left,xOff,L,sx,beamY,ld,u,0);
-    }
-    // 集中力 / 集中彎矩：依水平位置排序，並對標籤過近者額外往上堆疊
-    const ptLoads = spanLoads
-      .map((ld, idx) => ({ld, idx}))
-      .filter(x => x.ld.type==='point' || x.ld.type==='moment')
-      .sort((a,b) => (a.ld.a||0) - (b.ld.a||0));
-    const placed=[];  // {px, top}
-    for (const {ld} of ptLoads) {
-      const px = margin.left + (xOff + ld.a)*sx;
-      let lift = udlOffsetAt(udlRanges, px);
-      // 若鄰近 ±60px 範圍內已有標籤，再往上堆疊 18px 一層
-      let stack=0;
-      for (const p of placed) {
-        if (Math.abs(p.px - px) < 60) stack = Math.max(stack, p.stack+1);
-      }
-      lift += stack * 18;
-      placed.push({px, stack});
-      drawLoadSymbol(ctx,margin.left,xOff,L,sx,beamY,ld,u,lift);
-    }
-    // Internal hinges
-    for (const h of (model.spans[i].hinges||[])) {
-      const px = margin.left + (xOff + h)*sx;
-      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#ea580c'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(px, beamY, 4.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-    }
-    xOff+=L;
-  }
 }
 
 function drawSupport(ctx,x,y,type) {
   ctx.save();
+  const drawGroundHatch = (yBase, halfW) => {
+    ctx.strokeStyle='#334155'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(x-halfW,yBase); ctx.lineTo(x+halfW,yBase); ctx.stroke();
+    ctx.strokeStyle='#64748b'; ctx.lineWidth=1;
+    for (let gx = x - halfW + 3; gx <= x + halfW - 1; gx += 4.5) {
+      ctx.beginPath(); ctx.moveTo(gx, yBase); ctx.lineTo(gx - 3.5, yBase + 4.5); ctx.stroke();
+    }
+  };
   if (type==='pin') {
-    ctx.strokeStyle='#1e293b'; ctx.fillStyle='#fff'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-9,y+16); ctx.lineTo(x+9,y+16); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x-13,y+18); ctx.lineTo(x+13,y+18); ctx.stroke();
+    ctx.strokeStyle='#0f172a'; ctx.fillStyle='#f8fafc'; ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-9,y+15); ctx.lineTo(x+9,y+15); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath(); ctx.arc(x,y+1.5,2.2,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    drawGroundHatch(y+16, 13);
   } else if (type==='roller') {
-    ctx.strokeStyle='#1e293b'; ctx.fillStyle='#fff'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-9,y+12); ctx.lineTo(x+9,y+12); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(x,y+16,3.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x-13,y+21); ctx.lineTo(x+13,y+21); ctx.stroke();
+    ctx.strokeStyle='#0f172a'; ctx.fillStyle='#f8fafc'; ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-8.5,y+11.5); ctx.lineTo(x+8.5,y+11.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath(); ctx.arc(x-4.2,y+15,2.6,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x+4.2,y+15,2.6,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    drawGroundHatch(y+18.5, 13);
   } else if (type==='fixed') {
-    ctx.strokeStyle='#1e293b'; ctx.fillStyle='#cbd5e1'; ctx.lineWidth=2;
-    ctx.fillRect(x-5,y-10,10,20); ctx.strokeRect(x-5,y-10,10,20);
-    ctx.lineWidth=1; for (let d=-8;d<=8;d+=4) { ctx.beginPath(); ctx.moveTo(x-5,y+d); ctx.lineTo(x-11,y+d+5); ctx.stroke(); }
+    ctx.strokeStyle='#0f172a'; ctx.fillStyle='#e2e8f0'; ctx.lineWidth=1.8;
+    ctx.fillRect(x-4.5,y-14,9,24); ctx.strokeRect(x-4.5,y-14,9,24);
+    ctx.strokeStyle='#475569'; ctx.lineWidth=1;
+    for (let d=-11;d<=9;d+=4.5) { ctx.beginPath(); ctx.moveTo(x-4.5,y+d); ctx.lineTo(x-10,y+d+4.5); ctx.stroke(); }
+  } else if (type==='guided') {
+    // 定向支承：垂直雙平行導板＋滾珠＋接地斜線（限制旋轉但允許垂直滑動）
+    ctx.strokeStyle='#0f172a'; ctx.lineWidth=1.8;
+    ctx.beginPath();
+    ctx.moveTo(x-2.5, y-12); ctx.lineTo(x-2.5, y+10);
+    ctx.moveTo(x-7.5, y-12); ctx.lineTo(x-7.5, y+10);
+    ctx.stroke();
+    ctx.fillStyle='#ffffff'; ctx.lineWidth=1.3;
+    [-6.5, -1, 4.5].forEach(dy => {
+      ctx.beginPath(); ctx.arc(x-5, y+dy, 2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    });
+    ctx.strokeStyle='#475569'; ctx.lineWidth=1;
+    for (let d=-10; d<=8; d+=4.5) {
+      ctx.beginPath(); ctx.moveTo(x-7.5, y+d); ctx.lineTo(x-12, y+d+4); ctx.stroke();
+    }
+  } else if (type==='vspring') {
+    // 垂直彈簧支承：垂直鋸齒螺旋彈簧＋底部接地斜線
+    ctx.strokeStyle='#0284c7'; ctx.lineWidth=1.7;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y+3);
+    ctx.lineTo(x-6, y+5.5);
+    ctx.lineTo(x+6, y+8.5);
+    ctx.lineTo(x-6, y+11.5);
+    ctx.lineTo(x+6, y+14.5);
+    ctx.lineTo(x, y+16.5);
+    ctx.lineTo(x, y+19);
+    ctx.stroke();
+    drawGroundHatch(y+19, 12);
+  } else if (type==='rspring') {
+    // 鉸支＋旋轉彈簧：鉸支三角形＋節點處渦卷／圓弧旋轉彈簧標記
+    ctx.strokeStyle='#0f172a'; ctx.fillStyle='#f8fafc'; ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-9,y+15); ctx.lineTo(x+9,y+15); ctx.closePath(); ctx.fill(); ctx.stroke();
+    drawGroundHatch(y+16, 13);
+    ctx.strokeStyle='#d97706'; ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.arc(x, y, 6.2, -Math.PI*0.85, Math.PI*0.75); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, 3.2, -Math.PI*0.5, Math.PI*0.95); ctx.stroke();
   }
   ctx.restore();
 }
@@ -1389,11 +2334,11 @@ function collectUdlRanges(mL,xOff,L,sx,loads) {
   const ranges=[];
   for (const ld of loads) {
     if (ld.type==='udl') {
-      const ah=Math.min(28,Math.max(14,Math.abs(ld.w)*1.5));
+      const ah=Math.min(26,Math.max(14,Math.abs(ld.w)*1.4));
       ranges.push({x1, x2, h: () => ah});
     } else if (ld.type==='trapezoid') {
       const mW=Math.max(Math.abs(ld.w1),Math.abs(ld.w2),1);
-      const h1=Math.abs(ld.w1)/mW*28, h2=Math.abs(ld.w2)/mW*28;
+      const h1=Math.abs(ld.w1)/mW*26, h2=Math.abs(ld.w2)/mW*26;
       ranges.push({x1, x2, h: (px) => h1 + (h2-h1)*((px-x1)/(x2-x1 || 1))});
     }
   }
@@ -1407,76 +2352,92 @@ function udlOffsetAt(ranges, px) {
   return max;
 }
 
+// 乾淨無框線干擾的白底載重標籤（放大至 13px 清晰字體，整數像素對齊避免模糊）
+function drawLoadTag(ctx, text, cx, cy, _borderColor, textColor, align = 'center') {
+  ctx.font = `700 13px ${CANVAS_FONT_SANS}`;
+  const m = ctx.measureText(text);
+  const pw = Math.round(m.width + 10), ph = 18;
+  let bx = Math.round(cx - pw / 2);
+  if (align === 'left') bx = Math.round(cx);
+  else if (align === 'right') bx = Math.round(cx - pw);
+  const by = Math.round(cy - ph / 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.94)';
+  ctx.fillRect(bx, by, pw, ph);
+  ctx.fillStyle = textColor || '#991b1b';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, Math.round(bx + pw / 2), Math.round(by + ph / 2));
+  ctx.textBaseline = 'alphabetic';
+}
+
 function drawLoadSymbol(ctx,mL,xOff,L,sx,beamY,ld,u,lift) {
   const fitLabels = model.numSpans > 10;
   ctx.save();
   lift = lift || 0;
   const x1=mL+xOff*sx, x2=mL+(xOff+L)*sx;
   if (ld.type==='udl') {
-    const ah=Math.min(28,Math.max(14,Math.abs(ld.w)*1.5));
-    ctx.fillStyle='rgba(220,38,38,0.12)'; ctx.fillRect(x1,beamY-ah,x2-x1,ah);
-    ctx.strokeStyle='#dc2626'; ctx.lineWidth=1.2;
+    const ah=Math.min(26,Math.max(14,Math.abs(ld.w)*1.4));
+    ctx.fillStyle='rgba(220,38,38,0.08)'; ctx.fillRect(x1,beamY-ah,x2-x1,ah);
+    ctx.strokeStyle='#dc2626'; ctx.lineWidth=1.4;
     ctx.beginPath(); ctx.moveTo(x1,beamY-ah); ctx.lineTo(x2,beamY-ah); ctx.stroke();
     const nA=Math.max(3,Math.floor((x2-x1)/20));
-    for (let k=0;k<=nA;k++) { const ax=x1+k*(x2-x1)/nA; ctx.beginPath(); ctx.moveTo(ax,beamY-ah); ctx.lineTo(ax,beamY-2); ctx.stroke(); drawAH(ctx,ax,beamY-2,'down','#dc2626'); }
-    ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='bottom';
-    const _wt=`w=${ld.w} ${u.dist}`, _wm=ctx.measureText(_wt), _wtx=(x1+x2)/2, _wty=beamY-ah-5;
-    if (!fitLabels || _wm.width + 8 <= x2 - x1) {
-      ctx.fillStyle='#fff'; ctx.fillRect(_wtx-_wm.width/2-2,_wty-14,_wm.width+4,16);
-      ctx.fillStyle='#000'; ctx.fillText(_wt,_wtx,_wty);
+    ctx.lineWidth=1.15;
+    for (let k=0;k<=nA;k++) {
+      const ax=x1+k*(x2-x1)/nA;
+      ctx.beginPath(); ctx.moveTo(ax,beamY-ah); ctx.lineTo(ax,beamY-1); ctx.stroke();
+      drawAH(ctx,ax,beamY-1,'down','#dc2626');
     }
-    ctx.textBaseline='alphabetic';
+    const _wt=`w = ${ld.w} ${u.dist}`;
+    ctx.font=`700 13px ${CANVAS_FONT_SANS}`;
+    if (!fitLabels || ctx.measureText(_wt).width + 12 <= x2 - x1) {
+      drawLoadTag(ctx, _wt, (x1+x2)/2, beamY-ah-11, null, '#991b1b', 'center');
+    }
   } else if (ld.type==='trapezoid') {
     const mW=Math.max(Math.abs(ld.w1),Math.abs(ld.w2),1);
-    const h1=Math.abs(ld.w1)/mW*28, h2=Math.abs(ld.w2)/mW*28;
-    ctx.fillStyle='rgba(220,38,38,0.1)'; ctx.beginPath();
+    const h1=Math.abs(ld.w1)/mW*26, h2=Math.abs(ld.w2)/mW*26;
+    ctx.fillStyle='rgba(220,38,38,0.08)'; ctx.beginPath();
     ctx.moveTo(x1,beamY); ctx.lineTo(x1,beamY-h1); ctx.lineTo(x2,beamY-h2); ctx.lineTo(x2,beamY); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle='#dc2626'; ctx.lineWidth=1.2;
+    ctx.strokeStyle='#dc2626'; ctx.lineWidth=1.4;
     ctx.beginPath(); ctx.moveTo(x1,beamY-h1); ctx.lineTo(x2,beamY-h2); ctx.stroke();
-    ctx.font='bold 12px Segoe UI'; ctx.textBaseline='bottom';
-    const _t1=`${ld.w1} ${u.dist}`, _m1=ctx.measureText(_t1);
-    const _t2=`${ld.w2} ${u.dist}`, _m2=ctx.measureText(_t2);
-    if (!fitLabels || _m1.width + _m2.width + 14 <= x2 - x1) {
-      ctx.fillStyle='#fff'; ctx.fillRect(x1+1,beamY-h1-20,_m1.width+4,16);
-      ctx.fillStyle='#000'; ctx.textAlign='left'; ctx.fillText(_t1,x1+3,beamY-h1-5);
-      ctx.fillStyle='#fff'; ctx.fillRect(x2-_m2.width-5,beamY-h2-20,_m2.width+4,16);
-      ctx.fillStyle='#000'; ctx.textAlign='right'; ctx.fillText(_t2,x2-3,beamY-h2-5);
+    const nA=Math.max(3,Math.floor((x2-x1)/20));
+    ctx.lineWidth=1.1;
+    for (let k=0;k<=nA;k++) {
+      const ratio = k/nA, ax = x1 + ratio*(x2-x1), ah = h1 + ratio*(h2-h1);
+      if (ah > 3) {
+        ctx.beginPath(); ctx.moveTo(ax,beamY-ah); ctx.lineTo(ax,beamY-1); ctx.stroke();
+        drawAH(ctx,ax,beamY-1,'down','#dc2626');
+      }
     }
-    ctx.textBaseline='alphabetic';
+    const _t1=`${ld.w1} ${u.dist}`, _t2=`${ld.w2} ${u.dist}`;
+    ctx.font=`700 12.5px ${CANVAS_FONT_SANS}`;
+    if (!fitLabels || ctx.measureText(_t1).width + ctx.measureText(_t2).width + 20 <= x2 - x1) {
+      drawLoadTag(ctx, _t1, x1+2, beamY-h1-11, null, '#991b1b', 'left');
+      drawLoadTag(ctx, _t2, x2-2, beamY-h2-11, null, '#991b1b', 'right');
+    }
   } else if (ld.type==='point') {
-    // 若位置上方有 UDL 填色，往上抬 (lift+6) 像素，避開覆蓋
     const off = lift > 0 ? lift + 6 : 0;
     const px=mL+(xOff+ld.a)*sx;
-    const tipY = beamY - 2 - off;
-    const tailY = beamY - 32 - off;
-    ctx.strokeStyle='#dc2626'; ctx.lineWidth=2;
+    const tipY = beamY - 1 - off;
+    const tailY = beamY - 30 - off;
+    ctx.strokeStyle='#b91c1c'; ctx.lineWidth=2.2;
     ctx.beginPath(); ctx.moveTo(px,tailY); ctx.lineTo(px,tipY); ctx.stroke();
-    drawAH(ctx,px,tipY,'down','#dc2626');
-    ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='bottom';
-    const _pt=`P=${ld.P} ${u.force}`, _pm=ctx.measureText(_pt);
-    const labelTop = tailY - 18;
-    ctx.fillStyle='#fff'; ctx.fillRect(px-_pm.width/2-2,labelTop,_pm.width+4,16);
-    ctx.fillStyle='#000'; ctx.fillText(_pt,px,labelTop+13);
-    ctx.textBaseline='alphabetic';
+    drawAH(ctx,px,tipY,'down','#b91c1c', 4.2);
+    drawLoadTag(ctx, `P = ${ld.P} ${u.force}`, px, tailY - 11, null, '#991b1b', 'center');
   } else if (ld.type==='moment') {
     const off = lift > 0 ? lift + 6 : 0;
     const px=mL+(xOff+ld.a)*sx;
     const cy = beamY - 14 - off;
-    ctx.strokeStyle='#9333ea'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(px,cy,9,0.5,Math.PI*1.5); ctx.stroke();
-    ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='bottom';
-    const _mt=`M=${ld.M} ${u.moment}`, _mm=ctx.measureText(_mt);
-    const labelTop = cy - 30;
-    ctx.fillStyle='#fff'; ctx.fillRect(px-_mm.width/2-2,labelTop,_mm.width+4,16);
-    ctx.fillStyle='#000'; ctx.fillText(_mt,px,labelTop+13);
-    ctx.textBaseline='alphabetic';
+    ctx.strokeStyle='#6d28d9'; ctx.lineWidth=2.1;
+    ctx.beginPath(); ctx.arc(px,cy,9,0.45,Math.PI*1.55); ctx.stroke();
+    drawLoadTag(ctx, `M = ${ld.M} ${u.moment}`, px, cy - 20, null, '#5b21b6', 'center');
   }
   ctx.restore();
 }
 
-function drawAH(ctx,x,y,dir,color) {
+function drawAH(ctx,x,y,dir,color,sz) {
+  const s = sz || 3.4;
   ctx.fillStyle=color||'#1e293b'; ctx.beginPath();
-  if (dir==='down') { ctx.moveTo(x,y); ctx.lineTo(x-3,y-5); ctx.lineTo(x+3,y-5); }
+  if (dir==='down') { ctx.moveTo(x,y); ctx.lineTo(x-s,y-s*1.7); ctx.lineTo(x+s,y-s*1.7); }
   ctx.closePath(); ctx.fill();
 }
 
@@ -1484,64 +2445,103 @@ function drawDiagramFill(canvasId, diag, key, color, label, flipSign) {
   const {ctx,w,h} = setupCanvas(canvasId);
   const totalL = diag.totalLength;
   if (totalL<=0) return;
-  const margin={left:55,right:25,top:40,bottom:42};
+  const margin={left:66,right:26,top:46,bottom:48};
   const sx = getScale(totalL,w,margin);
+  const plotW = w-margin.left-margin.right;
   const plotH = h-margin.top-margin.bottom;
-  const baseY = margin.top+plotH/2;
+  const baseY = Math.round(margin.top+plotH/2);
+
+  // 白底與繪圖區微灰底
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(margin.left, margin.top, plotW, plotH);
 
   let allVals=[];
   for (const sp of diag.spans) { const a=key==='v'?sp.vs:key==='m'?sp.ms:sp.ds; allVals=allVals.concat(Array.from(a)); }
   if (flipSign) allVals=allVals.map(v=>-v);
   let maxAbs=Math.max(...allVals.map(Math.abs));
-  if (!isFinite(maxAbs) || maxAbs < Number.MIN_VALUE*10) maxAbs = 1; // 全部為 0 時避免除零
-  const sy=(plotH/2-5)/maxAbs;
+  if (!isFinite(maxAbs) || maxAbs < Number.MIN_VALUE*10) maxAbs = 1;
+  const sy=(plotH/2-8)/maxAbs;
 
-  // Grid
-  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=0.5;
-  for (let i=-2;i<=2;i++) { const gy=baseY-i*plotH/4; ctx.beginPath(); ctx.moveTo(margin.left,gy); ctx.lineTo(w-margin.right,gy); ctx.stroke(); }
-  ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(margin.left,baseY); ctx.lineTo(w-margin.right,baseY); ctx.stroke();
+  // 水平參考格線與圖框
+  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=0.8;
+  for (let i=-2;i<=2;i++) {
+    if (i===0) continue;
+    const gy=Math.round(baseY-i*plotH/4);
+    ctx.beginPath(); ctx.moveTo(margin.left,gy); ctx.lineTo(w-margin.right,gy); ctx.stroke();
+  }
+  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1;
+  ctx.strokeRect(margin.left, margin.top, plotW, plotH);
 
-  // Support lines
+  // 支承垂直軸線與底部跨度/支承標記
   let xOff=0;
-  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
   for (let i=0;i<=model.numSpans;i++) {
-    const px=margin.left+xOff*sx;
+    const px=Math.round(margin.left+xOff*sx);
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
     ctx.beginPath(); ctx.moveTo(px,margin.top); ctx.lineTo(px,h-margin.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#475569';
+    ctx.beginPath(); ctx.arc(px, baseY, 2.3, 0, Math.PI*2); ctx.fill();
     if (i<model.numSpans) xOff+=model.spans[i].L;
   }
-  ctx.setLineDash([]);
 
-  // Fill
-  ctx.fillStyle=color.replace(')',',0.18)').replace('rgb','rgba');
-  ctx.strokeStyle=color; ctx.lineWidth=1.5;
+  // 零基準軸 (0-axis)
+  ctx.strokeStyle='#475569'; ctx.lineWidth=1.3;
+  ctx.beginPath(); ctx.moveTo(margin.left,baseY); ctx.lineTo(w-margin.right,baseY); ctx.stroke();
+
+  // 內力圖填色 + 工程垂直剖面線 (Vertical stress hatching) + 主曲線
+  const fillRgba = color.replace(')',',0.13)').replace('rgb','rgba');
+  const hatchRgba = color.replace(')',',0.28)').replace('rgb','rgba');
   for (const sp of diag.spans) {
     const arr=key==='v'?sp.vs:key==='m'?sp.ms:sp.ds;
+    if (!sp.xs.length) continue;
+    ctx.fillStyle = fillRgba;
     ctx.beginPath(); ctx.moveTo(margin.left+sp.xs[0]*sx,baseY);
-    for (let j=0;j<sp.xs.length;j++) { let v=flipSign?-arr[j]:arr[j]; ctx.lineTo(margin.left+sp.xs[j]*sx,baseY-v*sy); }
+    for (let j=0;j<sp.xs.length;j++) { const v=flipSign?-arr[j]:arr[j]; ctx.lineTo(margin.left+sp.xs[j]*sx,baseY-v*sy); }
     ctx.lineTo(margin.left+sp.xs[sp.xs.length-1]*sx,baseY); ctx.closePath(); ctx.fill();
+
+    // 工程剖面垂直細線 (SFD / BMD 專用，撓度曲線保持平滑淨空)
+    if (key !== 'd') {
+      ctx.strokeStyle = hatchRgba; ctx.lineWidth = 0.85;
+      const step = Math.max(1, Math.floor(sp.xs.length / Math.max(6, Math.floor((sp.L * sx) / 15))));
+      for (let j=0; j<sp.xs.length; j+=step) {
+        const v = flipSign ? -arr[j] : arr[j];
+        const px = Math.round(margin.left + sp.xs[j]*sx), py = baseY - v*sy;
+        if (Math.abs(py - baseY) > 1.5) {
+          ctx.beginPath(); ctx.moveTo(px, baseY); ctx.lineTo(px, py); ctx.stroke();
+        }
+      }
+    }
+
+    // 曲線外框
+    ctx.strokeStyle = color; ctx.lineWidth = 2.2;
     ctx.beginPath();
-    for (let j=0;j<sp.xs.length;j++) { let v=flipSign?-arr[j]:arr[j]; const px=margin.left+sp.xs[j]*sx,py=baseY-v*sy; j===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
+    for (let j=0;j<sp.xs.length;j++) {
+      const v=flipSign?-arr[j]:arr[j];
+      const px=margin.left+sp.xs[j]*sx, py=baseY-v*sy;
+      j===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+    }
     ctx.stroke();
   }
 
-  // 標題 (先測寬, 供標籤佈局避讓)
-  ctx.font='bold 14px Segoe UI';
+  // 標題與右上角工程慣例說明 (先測寬, 供標籤佈局避讓)
+  const conventionNote = key==='v' ? '剪力 V（+上 / −下）' : key==='m' ? '彎矩 M（繪於受拉側，下緣受拉向下）' : '撓度曲線 δ（向下撓曲為負）';
+  ctx.font=`700 14px ${CANVAS_FONT_SANS}`;
   const titleW = ctx.measureText(label).width;
-  const titleX = margin.left+4, titleY = 4; // 畫在畫布頂端 gutter 的最上方
+  const titleX = margin.left+2, titleY = 5;
 
-  // 縱軸刻度 (左側)
-  ctx.fillStyle='#000'; ctx.font='bold 11px Segoe UI'; ctx.textAlign='right'; ctx.textBaseline='alphabetic';
-  ctx.fillText(fmtVal(maxAbs),margin.left-4,margin.top+10);
-  ctx.fillText(fmtVal(-maxAbs),margin.left-4,h-margin.bottom);
-  ctx.fillText('0',margin.left-4,baseY+4);
+  // 縱軸刻度 (左側) — 放大至 12px 清晰字體
+  ctx.fillStyle='#1e293b'; ctx.font=`700 12px ${CANVAS_FONT_SANS}`; ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+  ctx.fillText(fmtVal(flipSign ? -maxAbs : maxAbs),margin.left-7,margin.top+11);
+  ctx.fillText(fmtVal(flipSign ? maxAbs : -maxAbs),margin.left-7,h-margin.bottom);
+  ctx.fillText('0',margin.left-7,baseY+4);
 
   // Extremes per span — 以引出線將標籤拉到繪圖框外的空白帶, 完全不覆蓋曲線
-  const extremeThresh = Math.max(maxAbs * 0.02, Number.MIN_VALUE); // 2% 相對門檻, 過濾雜訊
+  const extremeThresh = Math.max(maxAbs * 0.02, Number.MIN_VALUE);
   const uLen = getUnit().length;
-  ctx.font='bold 12px Consolas';
-  const lineH = 14;
-  // 收集每個段的極值
+  ctx.font=`700 13px ${CANVAS_FONT_SANS}`;
+  const lineH = 15;
   const items = [];
   for (const sp of diag.spans) {
     const arr = key==='v'?sp.vs:key==='m'?sp.ms:sp.ds;
@@ -1557,10 +2557,11 @@ function drawDiagramFill(canvasId, diag, key, color, label, flipSign) {
     const nearEnd = (j) => (j<=1) || (j>=n-2);
     const pushOne = (v, j, side) => {
       if (Math.abs(v) < extremeThresh) return;
+      const rawVal = flipSign ? -v : v;
       const gx = sp.xs[j], locX = gx - sp.xStart;
       const dotX = margin.left + gx*sx, dotY = baseY - v*sy;
-      const lines = [fmtVal(v)];
-      if (!nearEnd(j) && spL>0) lines.push(`x=${fmtVal(locX)}${uLen}`);
+      const lines = [fmtVal(rawVal)];
+      if (!nearEnd(j) && spL>0) lines.push(`x=${fmtVal(locX)} ${uLen}`);
       let maxW = 0;
       for (const ln of lines) maxW = Math.max(maxW, ctx.measureText(ln).width);
       items.push({ side, dotX, dotY, lines, maxW, v });
@@ -1568,7 +2569,7 @@ function drawDiagramFill(canvasId, diag, key, color, label, flipSign) {
     pushOne(maxV, maxJ, 'top');
     pushOne(minV, minJ, 'bot');
   }
-  // 合併鄰跨於共用支承上的重複極值 (同側、x 幾乎相同、值幾乎相同)
+  // 合併鄰跨於共用支承上的重複極值
   items.sort((a,b)=>a.side===b.side ? a.dotX-b.dotX : (a.side<b.side?-1:1));
   const merged = [];
   for (const it of items) {
@@ -1578,14 +2579,13 @@ function drawDiagramFill(canvasId, diag, key, color, label, flipSign) {
         && Math.abs(last.v-it.v) < Math.max(maxAbs*1e-3, 1e-12)) continue;
     merged.push(it);
   }
-  // 依水平位置分流至上下兩排
   const topLane = merged.filter(it=>it.side==='top').sort((a,b)=>a.dotX-b.dotX);
   const botLane = merged.filter(it=>it.side==='bot').sort((a,b)=>a.dotX-b.dotX);
   function layoutLane(lane, laneY, leftLim) {
     for (const it of lane) { it.lx = it.dotX; it.ly = laneY; }
     for (let i=1;i<lane.length;i++) {
       const prev=lane[i-1], cur=lane[i];
-      const minGap=(prev.maxW+cur.maxW)/2+6;
+      const minGap=(prev.maxW+cur.maxW)/2+12;
       if (cur.lx-prev.lx<minGap) cur.lx=prev.lx+minGap;
     }
     const rightLim = w - margin.right - 4;
@@ -1594,21 +2594,19 @@ function drawDiagramFill(canvasId, diag, key, color, label, flipSign) {
       if (cur.lx+cur.maxW/2>rightLim) cur.lx=rightLim-cur.maxW/2;
       if (i>0) {
         const prev=lane[i-1];
-        const minGap=(prev.maxW+cur.maxW)/2+6;
+        const minGap=(prev.maxW+cur.maxW)/2+12;
         if (cur.lx-prev.lx<minGap) prev.lx=cur.lx-minGap;
       }
     }
     for (const it of lane) if (it.lx-it.maxW/2<leftLim) it.lx=leftLim+it.maxW/2;
   }
-  // 標籤帶位於繪圖框上/下空白處, 完全不與曲線重疊
-  // 上排需避開左上角的標題
-  const topLaneLeftLim = titleX + titleW + 8;
-  layoutLane(topLane, margin.top/2 + 4, topLaneLeftLim);
-  layoutLane(botLane, h - margin.bottom/2 - 2, margin.left + 4);
+  const topLaneLeftLim = titleX + titleW + 14;
+  layoutLane(topLane, Math.round(margin.top/2 + 3), topLaneLeftLim);
+  layoutLane(botLane, Math.round(h - margin.bottom/2 - 1), margin.left + 4);
 
   // 繪製引出線
-  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1;
-  ctx.setLineDash([3,2]);
+  ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1;
+  ctx.setLineDash([2,2]);
   for (const it of merged) {
     const labelH = it.lines.length*lineH;
     const boxTop = it.ly - labelH/2 - 2;
@@ -1617,60 +2615,129 @@ function drawDiagramFill(canvasId, diag, key, color, label, flipSign) {
     ctx.beginPath(); ctx.moveTo(it.dotX, it.dotY); ctx.lineTo(it.lx, anchorY); ctx.stroke();
   }
   ctx.setLineDash([]);
-  // 圓點
-  ctx.fillStyle = color;
-  for (const it of merged) { ctx.beginPath(); ctx.arc(it.dotX, it.dotY, 2.8, 0, Math.PI*2); ctx.fill(); }
 
-  // 標籤框 + 文字
-  ctx.font='bold 12px Consolas'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  // 雙層極值標記點 (白底外環 + 主色實心點)
+  for (const it of merged) {
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(it.dotX, it.dotY, 4.2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(it.dotX, it.dotY, 2.8, 0, Math.PI*2); ctx.fill();
+  }
+
+  // 工程數值標籤框 (含左側色條，放大至 13px 清晰字體 + 整數座標對齊)
+  ctx.textAlign='center'; ctx.textBaseline='middle';
   for (const it of merged) {
     const labelH = it.lines.length*lineH;
-    const boxTop = it.ly - labelH/2 - 2;
-    ctx.fillStyle='#fff';
-    ctx.fillRect(it.lx-it.maxW/2-3, boxTop, it.maxW+6, labelH+4);
+    const bw = Math.round(it.maxW + 12), bh = Math.round(labelH + 5);
+    const bx = Math.round(it.lx - bw/2), boxTop = Math.round(it.ly - bh/2);
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(bx, boxTop, bw, bh);
     ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1;
-    ctx.strokeRect(it.lx-it.maxW/2-3, boxTop, it.maxW+6, labelH+4);
-    ctx.fillStyle='#000';
+    ctx.strokeRect(bx, boxTop, bw, bh);
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, boxTop, 3, bh);
     for (let li=0; li<it.lines.length; li++) {
-      const ty = boxTop + 2 + li*lineH + lineH/2;
-      ctx.fillText(it.lines[li], it.lx, ty);
+      ctx.font = li === 0 ? `700 13px ${CANVAS_FONT_SANS}` : `600 11.5px ${CANVAS_FONT_SANS}`;
+      ctx.fillStyle = li === 0 ? '#0f172a' : '#475569';
+      const ty = Math.round(boxTop + 2.5 + li*lineH + lineH/2);
+      ctx.fillText(it.lines[li], Math.round(it.lx + 1), ty);
     }
   }
   ctx.textBaseline='alphabetic';
 
-  // 最後畫標題 (確保在最上層)
-  ctx.fillStyle='#000'; ctx.font='bold 14px Segoe UI'; ctx.textAlign='left'; ctx.textBaseline='top';
+  // 最後畫標題與慣例圖例 (確保在最上層)
+  ctx.fillStyle='#0f172a'; ctx.font=`700 14px ${CANVAS_FONT_SANS}`; ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillText(label, titleX, titleY);
+  ctx.font=`600 12px ${CANVAS_FONT_SANS}`; ctx.fillStyle='#475569'; ctx.textAlign='right';
+  if (w > 460 && topLane.every(it => it.lx + it.maxW/2 < w - margin.right - ctx.measureText(conventionNote).width - 14)) {
+    ctx.fillText(conventionNote, w - margin.right, titleY + 1);
+  }
   ctx.textBaseline='alphabetic';
+
+  // 若啟用互動斷面游標且非匯出模式，繪製同步十字準線與當前斷面即時數值標記
+  if (!_suppressInspectorOverlay && _inspectorState.globalX !== null) {
+    drawInspectorCrosshair(ctx, w, h, margin, sx, baseY, sy, key, color, flipSign);
+  }
 }
 
 function drawILDiagram(canvasId, ilData, title) {
   const {ctx,w,h} = setupCanvas(canvasId);
   const totalL = model.spans.reduce((s,sp)=>s+sp.L,0);
   if (totalL<=0||!ilData) return;
-  const margin={left:55,right:25,top:40,bottom:42};
-  const sx=getScale(totalL,w,margin), plotH=h-margin.top-margin.bottom, baseY=margin.top+plotH/2;
+  const margin={left:66,right:26,top:46,bottom:48};
+  const sx=getScale(totalL,w,margin), plotW=w-margin.left-margin.right, plotH=h-margin.top-margin.bottom, baseY=Math.round(margin.top+plotH/2);
   let maxAbs=Math.max(...ilData.values.map(Math.abs),1e-10);
-  const sy=(plotH/2-5)/maxAbs;
+  const sy=(plotH/2-8)/maxAbs;
 
-  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=0.5;
-  for (let i=-2;i<=2;i++) { const gy=baseY-i*plotH/4; ctx.beginPath(); ctx.moveTo(margin.left,gy); ctx.lineTo(w-margin.right,gy); ctx.stroke(); }
-  ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(margin.left,baseY); ctx.lineTo(w-margin.right,baseY); ctx.stroke();
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(margin.left, margin.top, plotW, plotH);
+
+  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=0.8;
+  for (let i=-2;i<=2;i++) { if(i===0) continue; const gy=Math.round(baseY-i*plotH/4); ctx.beginPath(); ctx.moveTo(margin.left,gy); ctx.lineTo(w-margin.right,gy); ctx.stroke(); }
+  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1;
+  ctx.strokeRect(margin.left, margin.top, plotW, plotH);
+
   let xOff=0;
-  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
-  for (let i=0;i<=model.numSpans;i++) { const px=margin.left+xOff*sx; ctx.beginPath(); ctx.moveTo(px,margin.top); ctx.lineTo(px,h-margin.bottom); ctx.stroke(); if(i<model.numSpans) xOff+=model.spans[i].L; }
+  ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+  for (let i=0;i<=model.numSpans;i++) { const px=Math.round(margin.left+xOff*sx); ctx.beginPath(); ctx.moveTo(px,margin.top); ctx.lineTo(px,h-margin.bottom); ctx.stroke(); if(i<model.numSpans) xOff+=model.spans[i].L; }
   ctx.setLineDash([]);
 
+  ctx.strokeStyle='#475569'; ctx.lineWidth=1.3;
+  ctx.beginPath(); ctx.moveTo(margin.left,baseY); ctx.lineTo(w-margin.right,baseY); ctx.stroke();
+
   const clr='#7c3aed';
-  ctx.fillStyle='rgba(124,58,237,0.12)'; ctx.strokeStyle=clr; ctx.lineWidth=1.5;
+  ctx.fillStyle='rgba(124,58,237,0.13)';
   ctx.beginPath(); ctx.moveTo(margin.left+ilData.positions[0]*sx,baseY);
   for (let j=0;j<ilData.positions.length;j++) ctx.lineTo(margin.left+ilData.positions[j]*sx,baseY-ilData.values[j]*sy);
   ctx.lineTo(margin.left+ilData.positions[ilData.positions.length-1]*sx,baseY); ctx.closePath(); ctx.fill();
+
+  ctx.strokeStyle='rgba(124,58,237,0.3)'; ctx.lineWidth=0.85;
+  for (let j=0; j<ilData.positions.length; j+=6) {
+    const px=Math.round(margin.left+ilData.positions[j]*sx), py=baseY-ilData.values[j]*sy;
+    if (Math.abs(py - baseY) > 1.5) { ctx.beginPath(); ctx.moveTo(px, baseY); ctx.lineTo(px, py); ctx.stroke(); }
+  }
+
+  ctx.strokeStyle=clr; ctx.lineWidth=2.2;
   ctx.beginPath();
   for (let j=0;j<ilData.positions.length;j++) { const px=margin.left+ilData.positions[j]*sx,py=baseY-ilData.values[j]*sy; j===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
   ctx.stroke();
-  ctx.fillStyle='#000'; ctx.font='bold 14px Segoe UI'; ctx.textAlign='left'; ctx.textBaseline='top'; ctx.fillText(title,margin.left+4,4); ctx.textBaseline='alphabetic';
+
+  ctx.fillStyle='#1e293b'; ctx.font=`700 12px ${CANVAS_FONT_SANS}`; ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+  ctx.fillText(fmtVal(maxAbs),margin.left-7,margin.top+11);
+  ctx.fillText(fmtVal(-maxAbs),margin.left-7,h-margin.bottom);
+  ctx.fillText('0',margin.left-7,baseY+4);
+
+  // 若啟用移動車載重，標出控制極值車位的各車輪在影響線上的踩點位置
+  const activeML = getActiveMovingLoadCase(influenceLineState?.movingLoad);
+  if (activeML?.data?.wheelPositions?.length) {
+    const u = getUnit();
+    for (const wp of activeML.data.wheelPositions) {
+      const wx = margin.left + wp.x * sx;
+      const wy = baseY - (wp.eta || 0) * sy;
+      ctx.save();
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath(); ctx.moveTo(wx, baseY); ctx.lineTo(wx, wy); ctx.stroke();
+      ctx.setLineDash([]);
+      // 向下軸重短箭頭
+      const tipY = wy - 5;
+      const tailY = Math.max(margin.top - 16, tipY - 18);
+      ctx.lineWidth = 2.0;
+      ctx.beginPath(); ctx.moveTo(wx, tailY); ctx.lineTo(wx, tipY); ctx.stroke();
+      drawAH(ctx, wx, tipY, 'down', '#dc2626', 3.6);
+      // 紅色實心輪點
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(wx, wy, 4.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath(); ctx.arc(wx, wy, 3.0, 0, Math.PI * 2); ctx.fill();
+      // P_k 標籤
+      drawLoadTag(ctx, `P${wp.axleIndex}=${fmtVal(wp.P)}${u.force}`, wx, tailY - 9, null, '#991b1b', 'center');
+      ctx.restore();
+    }
+  }
+
+  ctx.fillStyle='#0f172a'; ctx.font=`700 14px ${CANVAS_FONT_SANS}`; ctx.textAlign='left'; ctx.textBaseline='top'; ctx.fillText(title,margin.left+2,5); ctx.textBaseline='alphabetic';
 }
 
 function fmtVal(v) {
@@ -1710,10 +2777,18 @@ function usesPriorPeakMethod(source) {
     ['V1.5', 'V1.6', 'V1.7', 'V1.8'].includes(source.pageVersion);
 }
 
+function hasLoadAtInternalHinge(mdl) {
+  return mdl.spans.some((span, index) => span.hinges?.some(hinge => mdl.loads[index].some(load =>
+    (load.type === 'point' || load.type === 'moment') && Math.abs(load.a - hinge) <= 1e-9)));
+}
+
 function needsDeflectionReview(source) {
   if (!source) return false;
   if (source.calculationEngine === CONTINUOUS_BEAM_CALCULATION_ENGINE &&
       source.pageVersion === CONTINUOUS_BEAM_PUBLIC_VERSION) return false;
+  if (source.calculationEngine === 'continuous-beam.inline.v1.5.1' && source.pageVersion === 'V1.8.1') {
+    return hasLoadAtInternalHinge(model);
+  }
   return !(usesPriorPeakMethod(source) && !hasDescendingTrapezoid(model));
 }
 
@@ -1724,6 +2799,9 @@ function showDeflectionReview(diag, lengthUnit) {
   if (source) {
     message = `原輸入版號 ${source.pageVersion || '未記錄'}。`;
     if (source.pageVersion === 'V1.4') message += ' V1.4 在撓度修正前後共用版號，請對照原報告。';
+    else if (source.calculationEngine === 'continuous-beam.inline.v1.5.1' && hasLoadAtInternalHinge(model)) {
+      message += ' 新版對正好作用於內鉸點的集中荷重只計一次，請將本次重算與原報告核對。';
+    }
     else if (!usesPriorPeakMethod(source) && needsDeflectionReview(source)) message += ' 無法由來源資料確認原報告的撓度算法。';
   }
   if (hasDescendingTrapezoid(model)) message += ' 舊法重現修正前的遞減梯形等效載重，請對照原報告。';
@@ -1747,23 +2825,25 @@ function showDeflectionReview(diag, lengthUnit) {
 
 function showResults(sol, diag) {
   const u = getUnit(), n = model.numSpans;
-  let html = `<table class="results-table"><tr><th>支承</th><th>類型</th><th>Ry (${u.force})</th><th>Mr (${u.moment})</th></tr>`;
+  const suppMap = { pin:'鉸支', roller:'滾支', fixed:'固定端', free:'自由端', guided:'定向支承', vspring:'垂直彈簧', rspring:'旋轉彈簧' };
+  let html = `<div class="table-scroll-wrap"><table class="results-table"><tr><th>支承</th><th>類型</th><th>Ry (${u.force})</th><th>Mr (${u.moment})</th></tr>`;
   for (let i=0;i<=n;i++) {
     const Ry=sol.reactions[i].Ry, Mr=sol.reactions[i].Mr;
     const st=model.supports[i].type;
-    const nm={pin:'鉸支',roller:'滾支',fixed:'固定端',free:'自由端'}[st];
-    html += `<tr><td>${i}</td><td>${nm}</td><td>${fmtVal(Ry)}</td><td>${st==='fixed'?fmtVal(Mr):'-'}</td></tr>`;
+    const nm=suppMap[st] || st;
+    const hasMomentReaction = st==='fixed' || st==='guided' || st==='rspring';
+    html += `<tr><td>${i}</td><td>${nm}</td><td>${fmtVal(Ry)}</td><td>${hasMomentReaction?fmtVal(Mr):'-'}</td></tr>`;
   }
-  html += '</table>';
+  html += '</table></div>';
   document.getElementById('reactionTable').innerHTML = html;
 
-  html = `<table class="results-table"><tr><th>跨</th><th>Vmax (${u.force})</th><th>Vmin (${u.force})</th><th>Mmax (${u.moment})</th><th>Mmin (${u.moment})</th><th>|δ|max (${u.length})</th><th>距跨左端 x (${u.length})</th><th>L/|δ|max</th></tr>`;
+  html = `<div class="table-scroll-wrap"><table class="results-table"><tr><th>跨</th><th>Vmax (${u.force})</th><th>Vmin (${u.force})</th><th>Mmax (${u.moment})</th><th>Mmin (${u.moment})</th><th>|δ|max (${u.length})</th><th>距跨左端 x (${u.length})</th><th>L/|δ|max</th></tr>`;
   for (let i=0;i<n;i++) {
     const sp=diag.spans[i];
     const peak = formatSpanDeflection(sp);
     html += `<tr><td>${i+1}</td><td>${fmtVal(Math.max(...sp.vs))}</td><td>${fmtVal(Math.min(...sp.vs))}</td><td>${fmtVal(Math.max(...sp.ms))}</td><td>${fmtVal(Math.min(...sp.ms))}</td><td>${peak.magnitude}</td><td>${peak.station}</td><td>${peak.ratio}</td></tr>`;
   }
-  html += '</table>';
+  html += '</table></div>';
   document.getElementById('extremeTable').innerHTML = html;
   showDeflectionReview(diag, u.length);
 }
@@ -1852,6 +2932,9 @@ function continuousBeamReportReadinessModel() {
   if (document.getElementById('iMode')?.value === 'direct') reviewItems.push('I 值為直接輸入，需確認來源');
   if (document.getElementById('matSelect')?.value === 'custom') reviewItems.push('材料 E 值為自訂，需確認專案依據');
   if (model.spans.some(sp => (sp.hinges || []).length)) reviewItems.push('含內絞點，需確認位置與模型假設');
+  if (model.supports.some(s => s.type === 'vspring' || s.type === 'rspring' || s.type === 'guided')) {
+    reviewItems.push('含彈性或定向支承，需確認支承勁度與邊界假設');
+  }
   if (document.getElementById('ilEnabled')?.checked) reviewItems.push('影響線已啟用，需確認目標支承或位置為報告需要');
   const readinessItems = [...reviewItems];
 
@@ -1930,6 +3013,15 @@ function validateModelInputs(mdl) {
       }
     }
   }
+  for (let i = 0; i <= mdl.numSpans; i++) {
+    const sup = mdl.supports[i] || {};
+    if (sup.type === 'vspring' && (!Number.isFinite(sup.kv) || sup.kv <= 0)) {
+      return `支承${i}垂直彈簧勁度 kv 必須大於 0 ${u.dist}`;
+    }
+    if (sup.type === 'rspring' && (!Number.isFinite(sup.kr) || sup.kr <= 0)) {
+      return `支承${i}旋轉彈簧勁度 kr 必須大於 0 ${u.moment}/rad`;
+    }
+  }
   return '';
 }
 
@@ -1943,11 +3035,15 @@ function validateInfluenceLineInputs(mdl) {
     if (Math.abs(param - idx) > 1e-9 || idx < 0 || idx > mdl.numSpans) {
       return `影響線支承編號必須為 0 ~ ${mdl.numSpans} 的整數`;
     }
-    return '';
+  } else {
+    const totalL = mdl.spans.reduce((s,sp)=>s+sp.L,0);
+    if (param < -1e-9 || param > totalL + 1e-9) {
+      return `影響線位置 x 必須介於 0 與 ${fmtVal(totalL)} ${getUnit().length} 之間`;
+    }
   }
-  const totalL = mdl.spans.reduce((s,sp)=>s+sp.L,0);
-  if (param < -1e-9 || param > totalL + 1e-9) {
-    return `影響線位置 x 必須介於 0 與 ${fmtVal(totalL)} ${getUnit().length} 之間`;
+  if (document.getElementById('movingLoadEnabled')?.checked) {
+    const axles = parseVehicleAxlesString(document.getElementById('vehicleAxlesInput')?.value);
+    if (!axles.length) return '移動車型載重軸列格式不正確，請以「軸重@距首軸距離」輸入正值（例：35@0, 142@4.3）';
   }
   return '';
 }
@@ -1991,7 +3087,14 @@ function runAnalysis() {
   const u = getUnit();
 
   drawSchematic();
+  const emptyCard = document.getElementById('emptyAnalysisCard');
+  if (emptyCard) emptyCard.hidden = true;
   ['sfdCard','bmdCard','deflCard','resultsCard'].forEach(id => document.getElementById(id).style.display='block');
+  const toolbar = document.getElementById('diagramToolbar');
+  if (toolbar) toolbar.hidden = false;
+  const inspector = document.getElementById('stationInspectorBar');
+  if (inspector) inspector.hidden = false;
+  initStationInspector();
 
   drawDiagramFill('sfdCanvas', diagrams, 'v', 'rgb(37,99,235)', `V (${u.force})`, false);
   drawDiagramFill('bmdCanvas', diagrams, 'm', 'rgb(220,38,38)', `M (${u.moment})`, true);
@@ -2001,14 +3104,23 @@ function runAnalysis() {
     const ilType=document.getElementById('ilType').value, ilParam=parseFloat(document.getElementById('ilParam').value)||0;
     const ilData = computeInfluenceLine(model, ilType, ilParam);
     const titles = {reaction:`影響線 - 支承${Math.round(ilParam)}反力`,shear:`影響線 - V(${ilParam}${u.length})`,moment:`影響線 - M(${ilParam}${u.length})`};
-    influenceLineState = { data: ilData, title: titles[ilType] };
+    let movingLoad = null;
+    if (document.getElementById('movingLoadEnabled')?.checked) {
+      const axles = parseVehicleAxlesString(document.getElementById('vehicleAxlesInput')?.value);
+      const bidir = Boolean(document.getElementById('vehicleBidirectional')?.checked);
+      movingLoad = computeMovingLoadEnvelope(ilData, axles, bidir);
+    }
+    influenceLineState = { data: ilData, title: titles[ilType], movingLoad };
     document.getElementById('ilCard').style.display='block';
     document.getElementById('ilTitle').textContent=titles[ilType];
+    renderMovingLoadResultPanel();
     drawILDiagram('ilCanvas',ilData,titles[ilType]);
   } else {
     influenceLineState = null;
     document.getElementById('ilCard').style.display='none';
+    renderMovingLoadResultPanel();
   }
+  applyDiagramTabVisibility();
 
   showResults(solution, diagrams);
   renderDesignBtns();
@@ -2185,10 +3297,22 @@ function dispatchDesign(target) {
 })();
 
 // ==================== EXPORT ====================
+function redrawDiagramsForExport(forExport) {
+  _suppressInspectorOverlay = Boolean(forExport);
+  drawSchematic(Boolean(forExport));
+  if (diagrams) {
+    const u = getUnit();
+    drawDiagramFill('sfdCanvas', diagrams, 'v', 'rgb(37,99,235)', `V (${u.force})`, false);
+    drawDiagramFill('bmdCanvas', diagrams, 'm', 'rgb(220,38,38)', `M (${u.moment})`, true);
+    drawDiagramFill('deflCanvas', diagrams, 'd', 'rgb(5,150,105)', `Deflection (${u.length})`, false);
+  }
+}
+
 function exportJPG() {
   if (!diagrams) return;
+  redrawDiagramsForExport(true);
   const ids = ['schematicCanvas','sfdCanvas','bmdCanvas','deflCanvas'];
-  if (document.getElementById('ilEnabled').checked) ids.push('ilCanvas');
+  if (influenceLineState?.data) ids.push('ilCanvas');
   const cvs = ids.map(id=>document.getElementById(id)).filter(c=>c.width>0);
   const totalH = cvs.reduce((s,c)=>s+c.height+8,0)+80;
   const maxW = Math.max(...cvs.map(c=>c.width),600);
@@ -2201,6 +3325,7 @@ function exportJPG() {
   ctx.fillText(model.spans.map((s,i)=>`跨${i+1}:${s.L}${getUnit().length}`).join(' | '),exp.width/2,46);
   let y=60;
   for (const c of cvs) { ctx.drawImage(c,20,y); y+=c.height+8; }
+  redrawDiagramsForExport(false);
   const link=document.createElement('a'); link.download='連續梁分析.jpg'; link.href=exp.toDataURL('image/jpeg',0.95); link.click();
 }
 
@@ -2208,7 +3333,10 @@ function exportPDF() {
   if (!diagrams) { showError('請先執行計算再產生計算書'); return; }
   if (typeof openReport !== 'function') { showError('計算書模組尚未載入，請稍後再試或重新整理頁面'); return; }
   const u = getUnit(), uk = getUnitKey(), n = model.numSpans;
-  const suppMap = { pin:'鉸支', roller:'滾支', fixed:'固定端', free:'自由端' };
+  const suppMap = { pin:'鉸支', roller:'滾支', fixed:'固定端', free:'自由端', guided:'定向支承', vspring:'垂直彈簧', rspring:'旋轉彈簧' };
+
+  // 匯出計算書前以純淨工程圖模式重繪梁示意圖與內力圖（移除操作頁選取標記與互動十字準線）
+  redrawDiagramsForExport(true);
 
   // 圖表（梁示意 + SFD + BMD + 撓度 + 影響線）
   const diagSpec = [
@@ -2217,8 +3345,8 @@ function exportPDF() {
     { id:'bmdCanvas',       title:`彎矩圖 (${u.moment})` },
     { id:'deflCanvas',      title:'撓度曲線' },
   ];
-  if (document.getElementById('ilEnabled').checked) {
-    const ilTitle = document.getElementById('ilTitle')?.textContent || '影響線';
+  if (influenceLineState?.data) {
+    const ilTitle = influenceLineState.title;
     diagSpec.push({ id:'ilCanvas', title: ilTitle });
   }
   const reportDiagrams = diagSpec.map(d => {
@@ -2226,6 +3354,7 @@ function exportPDF() {
     if (!c || !c.width) return null;
     return { title: d.title, dataURL: c.toDataURL('image/png'), width: 720 };
   }).filter(Boolean);
+  redrawDiagramsForExport(false);
 
   // 基本設定
   const matSel = document.getElementById('matSelect').value;
@@ -2247,10 +3376,15 @@ function exportPDF() {
   }));
 
   // 支承條件
-  const supportItems = model.supports.map((s,i) => ({
-    label: `支承 ${i}`,
-    value: suppMap[s.type] || s.type,
-  }));
+  const supportItems = model.supports.map((s,i) => {
+    let val = suppMap[s.type] || s.type;
+    if (s.type === 'vspring' && isFinite(s.kv)) val += ` (kv = ${fmtVal(s.kv)} ${u.dist})`;
+    else if (s.type === 'rspring' && isFinite(s.kr)) val += ` (kr = ${fmtVal(s.kr)} ${u.moment}/rad)`;
+    return {
+      label: `支承 ${i}`,
+      value: val,
+    };
+  });
 
   // 載重清單
   const loadItems = [];
@@ -2275,9 +3409,9 @@ function exportPDF() {
     const r = solution.reactions[i] || {};
     const parts = [];
     parts.push(`Ry = ${fmtVal(r.Ry)} ${u.force}`);
-    if (st === 'fixed') parts.push(`Mr = ${fmtVal(r.Mr)} ${u.moment}`);
+    if (st === 'fixed' || st === 'guided' || st === 'rspring') parts.push(`Mr = ${fmtVal(r.Mr)} ${u.moment}`);
     reactionItems.push({
-      label: `支承 ${i}（${suppMap[st]}）`,
+      label: `支承 ${i}（${suppMap[st] || st}）`,
       value: parts.join('　'),
     });
   }
@@ -2344,7 +3478,319 @@ function exportPDF() {
   });
 }
 
+// ==================== 互動斷面游標與精確位置內力查詢 ====================
+function evaluateBeamStation(globalX) {
+  if (!solution || !diagrams || !diagrams.spans?.length) return null;
+  const totalL = diagrams.totalLength || 0;
+  const gx = Math.max(0, Math.min(totalL, Number(globalX) || 0));
+  let spanIdx = 0;
+  for (let i = 0; i < diagrams.spans.length; i++) {
+    const sp = diagrams.spans[i];
+    if (gx <= sp.xStart + sp.L + 1e-9 || i === diagrams.spans.length - 1) {
+      spanIdx = i;
+      break;
+    }
+  }
+  const sp = diagrams.spans[spanIdx];
+  const localX = Math.max(0, Math.min(sp.L, gx - sp.xStart));
+  const elems = (solution.topo?.elems || []).filter(e => e.spanIdx === spanIdx);
+  let targetElem = elems[0];
+  for (const e of elems) {
+    if (localX >= e.x1 - 1e-9 && localX <= e.x2 + 1e-9) {
+      targetElem = e;
+      break;
+    }
+  }
+  if (!targetElem) return null;
+  const subX = Math.max(0, Math.min(targetElem.L, localX - targetElem.x1));
+  const spanLfull = model.spans[spanIdx].L;
+  const loads = (model.loads[spanIdx] || [])
+    .map(ld => ld.type === 'trapezoid' ? Object.assign({ _spanL: spanLfull }, ld) : ld)
+    .map(ld => clipLoadToRange(ld, targetElem.x1, targetElem.x2))
+    .filter(Boolean);
+  const left = evalSectionState(subX, targetElem.L, targetElem.endForces, loads, 'left');
+  const right = evalSectionState(subX, targetElem.L, targetElem.endForces, loads, 'right');
+  const curve = elementDeflectionCurve(targetElem, loads);
+  const xi = targetElem.L > 0 ? subX / targetElem.L : 0;
+  const defl = curve.displacement(xi);
+  return {
+    globalX: sp.xStart + localX,
+    spanIdx,
+    localX,
+    spanL: sp.L,
+    V: right.V,
+    Vleft: left.V,
+    Vright: right.V,
+    hasVJump: Math.abs(left.V - right.V) > 1e-6,
+    M: right.M,
+    Mleft: left.M,
+    Mright: right.M,
+    hasMJump: Math.abs(left.M - right.M) > 1e-6,
+    defl,
+  };
+}
+
+function drawInspectorCrosshair(ctx, w, h, margin, sx, baseY, sy, key, color, flipSign) {
+  const st = evaluateBeamStation(_inspectorState.globalX);
+  if (!st) return;
+  const u = getUnit();
+  const px = Math.round(margin.left + st.globalX * sx);
+  const rawVal = key === 'v' ? st.V : key === 'm' ? st.M : st.defl;
+  const plotVal = flipSign ? -rawVal : rawVal;
+  const py = Math.round(baseY - plotVal * sy);
+
+  ctx.save();
+  // 垂直基準準線
+  ctx.strokeStyle = _inspectorState.pinned ? '#0f172a' : '#334155';
+  ctx.lineWidth = _inspectorState.pinned ? 1.5 : 1.1;
+  ctx.setLineDash(_inspectorState.pinned ? [] : [4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(px, margin.top);
+  ctx.lineTo(px, h - margin.bottom);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 曲線交點高亮雙圈
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(px, py, 5.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.arc(px, py, 5.5, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(px, py, 2.6, 0, Math.PI * 2); ctx.fill();
+
+  // 圖面即時浮動讀值膠囊
+  const unitStr = key === 'v' ? u.force : key === 'm' ? u.moment : u.length;
+  const prefix = key === 'v' ? 'V' : key === 'm' ? 'M' : 'δ';
+  let valText = `${prefix} = ${fmtVal(rawVal)} ${unitStr}`;
+  if (key === 'v' && st.hasVJump) valText = `V = ${fmtVal(st.Vleft)} / ${fmtVal(st.Vright)} ${unitStr}`;
+  else if (key === 'm' && st.hasMJump) valText = `M = ${fmtVal(st.Mleft)} / ${fmtVal(st.Mright)} ${unitStr}`;
+  const posText = `跨${st.spanIdx + 1} x=${fmtVal(st.localX)}${u.length}`;
+  const badgeText = `${posText} ｜ ${valText}`;
+
+  ctx.font = `700 12px ${CANVAS_FONT_SANS}`;
+  const bw = Math.round(ctx.measureText(badgeText).width + 16), bh = 22;
+  let bx = px + 10;
+  if (bx + bw > w - margin.right - 4) bx = px - bw - 10;
+  bx = Math.max(margin.left + 4, bx);
+  let by = py - bh - 8;
+  if (by < margin.top + 4) by = Math.min(h - margin.bottom - bh - 4, py + 8);
+
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = color;
+  ctx.fillRect(bx, by, 3.5, bh);
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(badgeText, bx + 9, Math.round(by + bh / 2));
+  ctx.restore();
+}
+
+function renderInspectorReadouts() {
+  const box = document.getElementById('inspectorReadouts');
+  const pinBtn = document.getElementById('inspectorPinBtn');
+  const hintEl = document.getElementById('inspectorHint');
+  if (!box || !diagrams) return;
+  if (_inspectorState.globalX === null) {
+    const sp0 = diagrams.spans[0];
+    _inspectorState.spanIdx = 0;
+    _inspectorState.localX = sp0 ? sp0.L / 2 : 0;
+    _inspectorState.globalX = _inspectorState.localX;
+  }
+  const st = evaluateBeamStation(_inspectorState.globalX);
+  if (!st) return;
+  const u = getUnit();
+  if (pinBtn) pinBtn.hidden = !_inspectorState.pinned;
+  if (hintEl) hintEl.textContent = _inspectorState.pinned ? '已鎖定斷面位置（再次點擊圖面或按上方按鈕可解除）' : '滑鼠移過圖面即時讀值，點擊圖面可鎖定斷面';
+
+  const vStr = st.hasVJump ? `${fmtVal(st.Vleft)} → ${fmtVal(st.Vright)} ${u.force}` : `${fmtVal(st.V)} ${u.force}`;
+  const mStr = st.hasMJump ? `${fmtVal(st.Mleft)} → ${fmtVal(st.Mright)} ${u.moment}` : `${fmtVal(st.M)} ${u.moment}`;
+  const dMag = Math.abs(st.defl);
+  const ratioStr = dMag > 1e-12 ? ` (L/|δ| = ${fmtVal(st.spanL / dMag)})` : '';
+  const dStr = `${fmtVal(st.defl)} ${u.length}${ratioStr}`;
+
+  box.innerHTML = `
+    <div class="inspector-badge pos"><span>斷面位置</span><strong>跨 ${st.spanIdx + 1} · x = ${fmtVal(st.localX)} ${u.length} <small>(總 X = ${fmtVal(st.globalX)} ${u.length})</small></strong></div>
+    <div class="inspector-badge sfd"><span>剪力 V(x)</span><strong>${vStr}</strong></div>
+    <div class="inspector-badge bmd"><span>彎矩 M(x)</span><strong>${mStr}</strong></div>
+    <div class="inspector-badge defl"><span>撓度 δ(x)</span><strong>${dStr}</strong></div>
+  `;
+}
+
+function syncInspectorControlsFromState() {
+  if (!diagrams) return;
+  const st = evaluateBeamStation(_inspectorState.globalX);
+  if (!st) return;
+  const sel = document.getElementById('inspectorSpanSelect');
+  const inp = document.getElementById('inspectorLocalX');
+  if (sel && String(sel.value) !== String(st.spanIdx)) sel.value = String(st.spanIdx);
+  if (inp) {
+    inp.max = String(st.spanL);
+    inp.value = +st.localX.toPrecision(6);
+  }
+}
+
+function initStationInspector() {
+  if (!diagrams || !diagrams.spans?.length) return;
+  const sel = document.getElementById('inspectorSpanSelect');
+  if (sel) {
+    sel.innerHTML = diagrams.spans.map((sp, i) => `<option value="${i}">跨 ${i + 1} (L=${sp.L}${getUnit().length})</option>`).join('');
+  }
+  const spanIdx = Math.min(_inspectorState.spanIdx || 0, diagrams.spans.length - 1);
+  const sp = diagrams.spans[spanIdx];
+  const localX = (_inspectorState.globalX !== null && _inspectorState.localX <= sp.L) ? _inspectorState.localX : sp.L / 2;
+  _inspectorState.spanIdx = spanIdx;
+  _inspectorState.localX = localX;
+  _inspectorState.globalX = sp.xStart + localX;
+  syncInspectorControlsFromState();
+  renderInspectorReadouts();
+}
+
+function onInspectorSpanChange() {
+  if (!diagrams) return;
+  const sel = document.getElementById('inspectorSpanSelect');
+  const spanIdx = Math.max(0, Math.min(diagrams.spans.length - 1, parseInt(sel?.value) || 0));
+  const sp = diagrams.spans[spanIdx];
+  _inspectorState.spanIdx = spanIdx;
+  _inspectorState.localX = sp.L / 2;
+  _inspectorState.globalX = sp.xStart + _inspectorState.localX;
+  _inspectorState.pinned = true;
+  syncInspectorControlsFromState();
+  renderInspectorReadouts();
+  redrawAll();
+}
+
+function onInspectorInputX(val) {
+  if (!diagrams) return;
+  const sel = document.getElementById('inspectorSpanSelect');
+  const spanIdx = Math.max(0, Math.min(diagrams.spans.length - 1, parseInt(sel?.value) || 0));
+  const sp = diagrams.spans[spanIdx];
+  let lx = parseFloat(val);
+  if (!isFinite(lx)) return;
+  lx = Math.max(0, Math.min(sp.L, lx));
+  _inspectorState.spanIdx = spanIdx;
+  _inspectorState.localX = lx;
+  _inspectorState.globalX = sp.xStart + lx;
+  _inspectorState.pinned = true;
+  renderInspectorReadouts();
+  redrawAll();
+}
+
+function setInspectorQuickRatio(ratio) {
+  if (!diagrams) return;
+  const sel = document.getElementById('inspectorSpanSelect');
+  const spanIdx = Math.max(0, Math.min(diagrams.spans.length - 1, parseInt(sel?.value) || 0));
+  const sp = diagrams.spans[spanIdx];
+  const lx = +(sp.L * ratio).toPrecision(8);
+  _inspectorState.spanIdx = spanIdx;
+  _inspectorState.localX = lx;
+  _inspectorState.globalX = sp.xStart + lx;
+  _inspectorState.pinned = true;
+  syncInspectorControlsFromState();
+  renderInspectorReadouts();
+  redrawAll();
+}
+
+function toggleInspectorPin() {
+  _inspectorState.pinned = !_inspectorState.pinned;
+  renderInspectorReadouts();
+  redrawAll();
+}
+
+let _diagramInspectorBound = false;
+function bindDiagramInspectorEvents() {
+  if (_diagramInspectorBound) return;
+  _diagramInspectorBound = true;
+  const ids = ['sfdCanvas', 'bmdCanvas', 'deflCanvas'];
+  const margin = { left: 66, right: 26 };
+
+  const clientXToGlobalX = (canvas, clientX) => {
+    if (!diagrams || !canvas.getBoundingClientRect) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0) return null;
+    const logicalW = canvas._logicalWidth || canvas.width;
+    const x = (clientX - rect.left) * (logicalW / rect.width);
+    const plotW = Math.max(1, logicalW - margin.left - margin.right);
+    const totalL = diagrams.totalLength || 1;
+    let gx = ((x - margin.left) / plotW) * totalL;
+    gx = Math.max(0, Math.min(totalL, gx));
+
+    // 磁性吸附關鍵控制點（支承、跨中、集中載重點、極值點，吸附半徑相當於 4.5px）
+    const snapTol = (4.5 / plotW) * totalL;
+    const snapTargets = [0, totalL];
+    for (let i = 0; i < diagrams.spans.length; i++) {
+      const sp = diagrams.spans[i];
+      snapTargets.push(sp.xStart, sp.xStart + sp.L / 2, sp.xStart + sp.L);
+      if (sp.peakDeflection) snapTargets.push(sp.xStart + sp.peakDeflection.x);
+      for (const ld of (model.loads[i] || [])) {
+        if (ld.type === 'point' || ld.type === 'moment') snapTargets.push(sp.xStart + (ld.a || 0));
+      }
+    }
+    let bestSnap = gx, bestDist = snapTol;
+    for (const t of snapTargets) {
+      const d = Math.abs(gx - t);
+      if (d <= bestDist) { bestDist = d; bestSnap = t; }
+    }
+    return bestSnap;
+  };
+
+  ids.forEach(id => {
+    const canvas = document.getElementById(id);
+    if (!canvas || typeof canvas.addEventListener !== 'function') return;
+    canvas.addEventListener('mousemove', (ev) => {
+      if (!diagrams || _inspectorState.pinned) return;
+      const gx = clientXToGlobalX(canvas, ev.clientX);
+      if (gx === null) return;
+      _inspectorState.globalX = gx;
+      const st = evaluateBeamStation(gx);
+      if (st) {
+        _inspectorState.spanIdx = st.spanIdx;
+        _inspectorState.localX = st.localX;
+      }
+      syncInspectorControlsFromState();
+      renderInspectorReadouts();
+      redrawAll();
+    });
+    canvas.addEventListener('click', (ev) => {
+      if (!diagrams) return;
+      const gx = clientXToGlobalX(canvas, ev.clientX);
+      if (gx === null) return;
+      if (_inspectorState.pinned && Math.abs((_inspectorState.globalX || 0) - gx) < (diagrams.totalLength || 1) * 0.015) {
+        _inspectorState.pinned = false;
+      } else {
+        _inspectorState.globalX = gx;
+        _inspectorState.pinned = true;
+        const st = evaluateBeamStation(gx);
+        if (st) {
+          _inspectorState.spanIdx = st.spanIdx;
+          _inspectorState.localX = st.localX;
+        }
+      }
+      syncInspectorControlsFromState();
+      renderInspectorReadouts();
+      redrawAll();
+    });
+  });
+}
+
 // ==================== INIT ====================
+let _schematicClickBound = false;
+function bindSchematicCanvasClick() {
+  if (_schematicClickBound) return;
+  const canvas = document.getElementById('schematicCanvas');
+  if (!canvas || typeof canvas.addEventListener !== 'function') return;
+  _schematicClickBound = true;
+  canvas.addEventListener('click', (ev) => {
+    if (!canvas.getBoundingClientRect || !_schematicSpanHitRegions.length) return;
+    const rect = canvas.getBoundingClientRect();
+    const logicalW = canvas._logicalWidth || canvas.width;
+    const scaleX = rect.width > 0 ? logicalW / rect.width : 1;
+    const x = (ev.clientX - rect.left) * scaleX;
+    const hit = _schematicSpanHitRegions.find(r => x >= r.x1 && x <= r.x2);
+    if (hit) selectLoadSpan(hit.index);
+  });
+}
+
 function init() {
   const spanSelect = document.getElementById('numSpans');
   spanSelect.innerHTML = Array.from({length:MAX_BEAM_SPANS}, (_, i) =>
@@ -2362,6 +3808,10 @@ function init() {
   else document.getElementById('eVal').value = 2040000;
   document.getElementById('eVal').readOnly = true;
   document.getElementById('eVal').style.background = '#f1f5f9';
+  bindSchematicCanvasClick();
+  bindDiagramInspectorEvents();
+  updateBasisDetailsSummary(false);
+  updateProjectDetailsSummary(false);
   onUnitChange();
   renderSpanInputs();
   renderLoadSpanSelect();
@@ -2519,6 +3969,12 @@ function collectSaveData() {
     ilEnabled: document.getElementById('ilEnabled').checked,
     ilType: document.getElementById('ilType').value,
     ilParam: document.getElementById('ilParam').value,
+    movingLoad: {
+      enabled: document.getElementById('movingLoadEnabled').checked,
+      preset: document.getElementById('vehiclePreset').value,
+      axles: document.getElementById('vehicleAxlesInput').value,
+      bidirectional: document.getElementById('vehicleBidirectional').checked,
+    },
     projName: getProjectFieldValue('projName'),
     projNo: getProjectFieldValue('projNo'),
     projDesigner: getProjectFieldValue('projDesigner'),
@@ -2605,9 +4061,13 @@ function validateContinuousBeamSaveData(d) {
   savedModel.spans.forEach((span, index) => {
     if (!span || !Number.isFinite(Number(span.L)) || Number(span.L) <= 0) throw new Error('跨 ' + (index + 1) + ' 長度必須大於 0。');
   });
-  const supportedTypes = new Set(['pin', 'roller', 'fixed', 'free']);
+  const supportedTypes = new Set(['pin', 'roller', 'fixed', 'free', 'guided', 'vspring', 'rspring']);
   savedModel.supports.forEach((support, index) => {
     if (!support || !supportedTypes.has(support.type)) throw new Error('支承 ' + index + ' 類型不受支援。');
+    const stiffness = support.type === 'vspring' ? 'kv' : support.type === 'rspring' ? 'kr' : null;
+    if (stiffness && (!Number.isFinite(support[stiffness]) || support[stiffness] <= 0)) {
+      throw new Error(`支承 ${index} 的彈簧勁度 ${stiffness} 必須大於 0。`);
+    }
   });
   return d;
 }
@@ -2641,10 +4101,20 @@ function restoreFromData(d, sourceTool) {
   document.getElementById('ilType').value = d.ilType || 'reaction';
   window.onILTypeChange();
   document.getElementById('ilParam').value = d.ilParam || '0';
+  const vehicle = d.movingLoad;
+  const preset = vehicle?.preset === 'custom' || Object.hasOwn(VEHICLE_PRESETS_KN_M, vehicle?.preset) ? vehicle.preset : 'truck3';
+  document.getElementById('movingLoadEnabled').checked = vehicle?.enabled === true;
+  document.getElementById('vehicleBidirectional').checked = vehicle?.bidirectional !== false;
+  document.getElementById('vehiclePreset').value = preset;
+  document.getElementById('vehicleAxlesInput').value = typeof vehicle?.axles === 'string'
+    ? vehicle.axles : formatPresetAxlesForUnit(preset, window.getUnitKey());
+  toggleMovingLoad();
   document.getElementById('projName').value = normalizeProjectFieldValue(d.projName);
   document.getElementById('projNo').value = normalizeProjectFieldValue(d.projNo);
   document.getElementById('projDesigner').value = normalizeProjectFieldValue(d.projDesigner);
   document.getElementById('projNote').value = d.projNote || '';
+  if (typeof window.updateBasisDetailsSummary === 'function') window.updateBasisDetailsSummary(true);
+  if (typeof window.updateProjectDetailsSummary === 'function') window.updateProjectDetailsSummary(true);
   pickedSection = d.pickedSection || null;
   renderPickedSection();
   const u = window.getUnit();

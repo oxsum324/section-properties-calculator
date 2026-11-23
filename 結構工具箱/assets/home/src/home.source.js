@@ -183,7 +183,7 @@
       '/beam-analysis': '2026-11-23',
       '/frame-analysis': '2026-11-23',
       '/struct-dx': '2026-08-13',
-      '/section': '2026-11-19',
+      '/section': '2026-11-23',
       '/composite-section': '2026-11-23',
       '/rc-beam': '2026-11-20',
       '/rc-deep-beam-stm': '2026-10-23',
@@ -329,7 +329,7 @@
     },
     {
       title: '連續梁分析',
-      version: 'V1.8.1',
+      version: 'V1.9.0',
       href: '/beam-analysis',
       aliases: ['Continuous beam', '多跨梁分析'],
       categories: ['analysis'],
@@ -370,7 +370,7 @@
     },
     {
       title: '斷面性質計算',
-      version: 'V2.1',
+      version: 'V2.2',
       href: '/section',
       aliases: ['斷面參數', '慣性矩計算'],
       categories: ['reference'],
@@ -384,7 +384,7 @@
     },
     {
       title: '合成斷面性質',
-      version: 'V1.2',
+      version: 'V1.3',
       href: '/composite-section',
       aliases: ['複合斷面', 'H 型鋼補強板'],
       categories: ['reference'],

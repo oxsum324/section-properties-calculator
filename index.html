@@ -9,58 +9,79 @@
 <link rel="stylesheet" href="結構工具箱/core/direct-print-boundary.css">
 <style>
   :root {
-    --primary: #2563eb;
-    --primary-dark: #1d4ed8;
-    --bg: #f8fafc;
+    --primary: #1e3a5f;
+    --primary-dark: #0f172a;
+    --primary-accent: #1e40af;
+    --bg: #f1f5f9;
     --card: #ffffff;
-    --border: #e2e8f0;
-    --text: #1e293b;
-    --text-light: #64748b;
-    --accent: #059669;
+    --border: #cbd5e1;
+    --text: #0f172a;
+    --text-light: #475569;
+    --accent: #047857;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
-  header { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: white; padding: 20px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
-  header h1 { font-size: 1.5em; }
-  header p { font-size: 0.85em; opacity: 0.85; margin-top: 4px; }
-  .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
-  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; background: var(--card); padding: 8px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  header { background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 55%, var(--primary-accent) 100%); color: white; padding: 22px 32px; box-shadow: 0 4px 14px rgba(15,23,42,0.22); border-bottom: 1px solid rgba(255,255,255,0.12); }
+  header h1 { font-size: 1.55em; letter-spacing: 0.02em; font-weight: 700; }
+  header p { font-size: 0.85em; opacity: 0.88; margin-top: 4px; }
+  .container { max-width: 1240px; margin: 20px auto; padding: 0 20px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; background: var(--card); padding: 8px 10px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 6px rgba(15,23,42,0.06); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .tabs::-webkit-scrollbar { display: none; }
-  .tab-btn { padding: 10px 16px; border: none; background: transparent; color: var(--text-light); font-size: 0.9em; font-weight: 500; cursor: pointer; border-radius: 8px; transition: all 0.2s; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
-  .tab-btn:hover { background: #f1f5f9; color: var(--text); }
-  .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }
-  .main-layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
-  .card { background: var(--card); border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .card h2 { font-size: 1.1em; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--border); color: var(--primary); }
+  .tab-btn { padding: 9px 16px; border: 1px solid transparent; background: transparent; color: var(--text-light); font-size: 0.9em; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 0.18s ease; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
+  .tab-btn:hover { background: #f1f5f9; color: var(--primary); border-color: #e2e8f0; }
+  .tab-btn.active { background: linear-gradient(135deg, var(--primary), var(--primary-accent)); color: white; box-shadow: 0 2px 8px rgba(30,58,95,0.28); }
+  .main-layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .auto-calc-badge { margin-top: 12px; padding: 8px 12px; background: linear-gradient(135deg, #eff6ff, #f8fafc); border: 1px dashed #93c5fd; border-radius: 8px; color: #1e40af; font-size: 0.8em; font-weight: 600; text-align: center; }
+  .card { background: var(--card); border-radius: 12px; padding: 24px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(15,23,42,0.05); }
+  .card h2 { font-size: 1.1em; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; color: var(--primary); font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
   .form-group { margin-bottom: 12px; }
-  .form-group label { display: block; font-size: 0.85em; font-weight: 600; color: var(--text-light); margin-bottom: 3px; }
-  .form-group input, .form-group select { width: 100%; padding: 9px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 1em; font-family: inherit; outline: none; transition: border-color 0.2s; }
-  .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-group label { display: block; font-size: 0.85em; font-weight: 600; color: var(--text-light); margin-bottom: 4px; }
+  .form-group input, .form-group select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.98em; font-family: inherit; outline: none; transition: border-color 0.2s, box-shadow 0.2s; background: #fff; color: var(--text); }
+  .form-group input[type="number"] { font-family: 'Consolas', 'Segoe UI', monospace; font-variant-numeric: tabular-nums; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--primary-accent); box-shadow: 0 0 0 3px rgba(30,64,175,0.12); }
+  .h-filter-input { width: 100%; padding: 7px 11px; margin-bottom: 6px; border: 1.5px dashed var(--border); border-radius: 7px; font-size: 0.86em; font-family: inherit; background: #f8fafc; color: var(--text); outline: none; transition: border-color 0.2s, background 0.2s; }
+  .h-filter-input:focus { border-color: var(--primary-accent); border-style: solid; background: #fff; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-  .btn-calc { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
-  .btn-calc:hover { background: var(--primary-dark); }
+  .btn-calc { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-accent)); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; box-shadow: 0 2px 6px rgba(30,58,95,0.2); transition: filter 0.15s, transform 0.1s; }
+  .btn-calc:hover { filter: brightness(1.08); }
+  .btn-calc:active { transform: translateY(1px); }
   .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .result-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f8fafc; border-radius: 8px; border-left: 3px solid var(--primary); }
-  .result-item .label { font-size: 0.85em; color: var(--text-light); font-weight: 500; }
-  .result-item .value { font-size: 1em; font-weight: 700; font-family: 'Consolas',monospace; }
-  .result-item .unit { font-size: 0.75em; color: var(--text-light); margin-left: 4px; }
-  .canvas-wrap { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); min-height: 250px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .result-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; border-left: 3.5px solid var(--primary); transition: background 0.15s, border-color 0.15s; }
+  .result-item:hover { background: #f1f5f9; border-color: #cbd5e1; border-left-color: var(--primary-accent); }
+  .result-item .label { font-size: 0.85em; color: var(--text-light); font-weight: 600; }
+  .result-item .val-wrap { cursor: pointer; padding: 2px 6px; border-radius: 5px; transition: background 0.15s; text-align: right; white-space: nowrap; }
+  .result-item .val-wrap:hover { background: #e2e8f0; }
+  .result-item .value { font-size: 1.02em; font-weight: 700; font-family: 'Consolas',monospace; font-variant-numeric: tabular-nums; color: var(--primary-dark); }
+  .result-item .unit { font-size: 0.75em; color: var(--text-light); margin-left: 4px; font-family: 'Consolas', sans-serif; }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; margin-bottom: 4px; background: #ffffff; border-radius: 8px; border: 1px solid var(--border); min-height: 250px; padding: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; box-shadow: inset 0 1px 3px rgba(15,23,42,0.03); }
   canvas { display: block; max-width: 100%; }
   .section-panel { display: none; }
   .section-panel.active { display: block; }
   .hint { font-size: 0.8em; color: var(--text-light); margin-top: 4px; font-style: italic; }
   .right-panel { display: flex; flex-direction: column; gap: 20px; }
   .sub-select { margin-bottom: 14px; }
-  .status-msg { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; }
-  .status-msg.ok { display: block; background: #ecfdf5; color: #047857; }
-  .status-msg.warn { display: block; background: #fffbeb; color: #92400e; }
-  .status-msg.error { display: block; background: #fef2f2; color: #dc2626; }
-  .case-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; padding:10px 12px; background:#fff; border:1px solid var(--border); border-radius:10px; }
-  .case-bar button { padding:7px 11px; border:1px solid var(--border); background:#fff; border-radius:7px; cursor:pointer; font-family:inherit; font-size:.82em; font-weight:600; }
+  .status-msg { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; font-weight: 500; }
+  .status-msg.ok { display: block; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+  .status-msg.warn { display: block; background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+  .status-msg.error { display: block; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .case-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; padding:10px 14px; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+  .case-bar button, .action-chip-btn { padding:7px 11px; border:1px solid var(--border); background:#fff; color:var(--text); border-radius:7px; cursor:pointer; font-family:inherit; font-size:.82em; font-weight:600; transition: all 0.15s; }
+  .case-bar button:hover, .action-chip-btn:hover { background:#f1f5f9; border-color:#94a3b8; color:var(--primary); }
+  .case-bar .bar-sep { width:1px; height:20px; background:var(--border); margin:0 2px; }
   .case-bar label { margin-left:auto; display:flex; align-items:center; gap:7px; font-size:.84em; color:var(--text-light); font-weight:600; }
+  .comp-table-wrap { overflow-x: auto; margin-top: 10px; }
+  .comp-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+  .comp-table th, .comp-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums; }
+  .comp-table th:first-child, .comp-table td:first-child { text-align: left; font-weight: 600; color: var(--text-light); white-space: nowrap; }
+  .comp-table th { background: #f8fafc; color: var(--primary); font-weight: 700; border-bottom: 2px solid var(--border); }
+  .comp-table td.num { font-family: 'Consolas', monospace; font-weight: 600; color: var(--text); }
+  .comp-delta { font-size: 0.78em; font-weight: 600; margin-left: 4px; padding: 1px 4px; border-radius: 4px; }
+  .comp-delta.pos { color: #047857; background: #ecfdf5; }
+  .comp-delta.neg { color: #b91c1c; background: #fef2f2; }
+  .comp-delta.zero { color: #64748b; }
   @media (max-width: 900px) {
-    .main-layout { grid-template-columns: 1fr; }
+    .main-layout { grid-template-columns: minmax(0, 1fr); }
   }
   @media print { .page-only-tool-actions { display:none !important; } }
   @media (max-width: 768px) {
@@ -102,24 +123,58 @@
     <button type="button" onclick="downloadSectionProject()">儲存案例 JSON</button>
     <button type="button" onclick="document.getElementById('sectionJsonFile').click()">載入案例 JSON</button>
     <input id="sectionJsonFile" type="file" accept="application/json,.json" hidden onchange="loadSectionProjectFile(event)">
+    <span class="bar-sep" aria-hidden="true"></span>
+    <button type="button" onclick="copyResultsTSV()" title="複製為 Tab 分隔格式，可直接 Ctrl+V 貼入 Excel">📋 複製 Excel 表格 (TSV)</button>
+    <button type="button" onclick="copyResultsSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或通訊軟體">📝 複製報告摘要</button>
+    <button type="button" onclick="exportCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">📊 匯出 CSV</button>
+    <button type="button" onclick="copyShareLink()" title="將目前斷面尺寸編碼為分享網址">🔗 複製分享連結</button>
+    <button type="button" onclick="addCurrentToComparison()" style="margin-left:auto;background:#eff6ff;border-color:#93c5fd;color:#1e40af;" title="將目前斷面加入下方方案並排比較表（最多 4 組）">⚖️ ➕ 加入方案比較</button>
   </div>
   <div class="tabs" id="tabBar"></div>
   <div class="main-layout">
     <div class="card" id="input-panel"></div>
     <div class="right-panel">
-      <div class="card"><h2>斷面圖形</h2><div class="canvas-wrap"><canvas id="sectionCanvas" width="420" height="280"></canvas></div></div>
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--border);">
-          <div><span style="font-size:1.1em;font-weight:700;color:var(--primary);">計算結果</span> <span style="font-size:0.75em;font-weight:400;color:var(--text-light);">(單位: cm)</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;gap:8px;">
+          <div>
+            <span style="font-size:1.1em;font-weight:700;color:var(--primary);">斷面圖形與性質圖卡</span>
+            <span style="font-size:0.75em;font-weight:500;color:var(--text-light);margin-left:6px;">2x 高解析工程標註｜左圖＋右參數表</span>
+          </div>
+          <div class="page-only-tool-actions" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <button type="button" onclick="copyCanvasImage()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:#eff6ff;border-color:#93c5fd;color:#1e40af;" title="將斷面圖卡複製為圖片，可直接 Ctrl+V 貼入 Word 報告或簡報">📋 複製圖卡 (貼入報告)</button>
+            <button type="button" onclick="exportCanvasCardJPG()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:#ecfdf5;border-color:#6ee7b7;color:#047857;" title="直接另存左圖＋右參數表之高解析度工程圖卡 JPG">↓ 另存圖卡 JPG</button>
+          </div>
+        </div>
+        <div class="canvas-wrap"><canvas id="sectionCanvas" width="680" height="310"></canvas></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;gap:8px;">
+          <div><span style="font-size:1.1em;font-weight:700;color:var(--primary);">計算結果</span> <span style="font-size:0.76em;font-weight:500;color:var(--text-light);">(單位: cm｜點擊數值可單獨複製)</span></div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-            <button onclick="toggleAllResults()" title="全選/取消全選" style="padding:5px 10px;border:1px solid var(--border);background:white;border-radius:6px;cursor:pointer;font-size:0.78em;color:var(--text-light);font-family:inherit;">☑ 全選</button>
-            <button id="btnPickI" onclick="sendIxToOpener()" style="display:none;padding:5px 12px;border:none;background:#2563eb;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">→ 導入至連續梁工具</button>
-            <button onclick="exportJPG()" style="padding:5px 12px;border:none;background:#059669;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
-            <button onclick="exportPDF()" style="padding:5px 12px;border:none;background:#dc2626;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">📄 計算書</button>
+            <button type="button" onclick="toggleAllResults()" title="全選/取消全選" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;">☑ 全選</button>
+            <button type="button" onclick="selectCoreResults()" title="僅勾選常用核心斷面性質 (A, W, Ix, Iy, Sx, Sy, Zx, Zy, rx, ry)" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;">★ 常用核心項</button>
+            <button type="button" id="btnPickI" onclick="sendIxToOpener()" style="display:none;padding:5px 12px;border:none;background:#1e40af;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">→ 導入至連續梁工具</button>
+            <button type="button" onclick="exportJPG()" style="padding:5px 12px;border:none;background:#047857;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
+            <button type="button" onclick="exportPDF()" aria-label="計算書" style="padding:5px 12px;border:none;background:#b91c1c;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">📄 計算書</button>
+            <button type="button" onclick="exportPDF()" aria-label="📄 計算書" tabindex="-1" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;overflow:hidden;border:none;padding:0;">📄 計算書</button>
           </div>
         </div>
         <div class="results-grid" id="results"><div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div></div>
         <div class="status-msg" id="exportStatus" role="status" aria-live="polite"></div>
+      </div>
+      <div class="card page-only-tool-actions" id="comparisonCard" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;gap:8px;">
+          <div>
+            <span id="sectionComparisonTitle" style="font-size:1.05em;font-weight:700;color:var(--primary);">⚖️ 斷面方案並排比較</span>
+            <span id="comparisonCountBadge" style="font-size:0.76em;color:var(--text-light);margin-left:6px;">(0 / 4 組，以方案 1 為基準對照百分比變化)</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <button type="button" onclick="addCurrentToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:#eff6ff;border-color:#93c5fd;color:#1e40af;">➕ 加入目前斷面</button>
+            <button type="button" onclick="copyComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">📋 複製比較表 (Excel)</button>
+            <button type="button" onclick="clearComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;color:#b91c1c;">清空比較</button>
+          </div>
+        </div>
+        <div class="comp-table-wrap" id="comparisonTableWrap" role="region" aria-labelledby="sectionComparisonTitle" tabindex="0"></div>
       </div>
     </div>
   </div>
@@ -226,8 +281,44 @@ function showResults(items) {
   } else {
     lastTitle = tabName;
   }
-  document.getElementById('results').innerHTML = items.map(([l,v,u]) =>
-    `<div class="result-item" style="gap:8px;"><input type="checkbox" class="res-cb" checked style="flex-shrink:0;width:15px;height:15px;cursor:pointer;accent-color:var(--primary);"><span class="label">${l}</span><span><span class="value">${fmt(v)}</span><span class="unit">${u}</span></span></div>`).join('');
+  document.getElementById('results').innerHTML = items.map(([l,v,u], idx) =>
+    `<div class="result-item" style="gap:8px;"><input type="checkbox" class="res-cb" checked onchange="redrawSectionCard()" style="flex-shrink:0;width:15px;height:15px;cursor:pointer;accent-color:var(--primary);"><span class="label">${l}</span><span class="val-wrap" onclick="copySingleResult(${idx})" title="點擊複製 ${escapeHtml(l)} 數值"><span class="value">${fmt(v)}</span><span class="unit">${u}</span></span></div>`).join('');
+}
+
+function clearSectionResults() {
+  lastResults = [];
+  lastTitle = '';
+  document.getElementById('results').innerHTML = '<div class="result-item">請補齊有效斷面尺寸</div>';
+  drawSection(() => {});
+}
+
+async function writeTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (_) {}
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (_) {}
+  document.body.removeChild(ta);
+  return ok;
+}
+
+async function copySectionText(text, success) {
+  if (await writeTextToClipboard(text)) setStatus(success, 'ok');
+  else setStatus('無法複製，請允許瀏覽器存取剪貼簿後重試。', 'warn');
+}
+
+async function copySingleResult(index) {
+  const item = lastResults[index];
+  if (!item) return;
+  const [label, value, unit] = item;
+  const formatted = String(fmt(value));
+  await copySectionText(formatted, `已複製 ${label}：${formatted}${unit ? ' ' + unit : ''}`);
 }
 
 function getCheckedResults() {
@@ -238,6 +329,22 @@ function toggleAllResults() {
   const cbs = [...document.querySelectorAll('.res-cb')];
   const allChecked = cbs.every(cb => cb.checked);
   cbs.forEach(cb => cb.checked = !allChecked);
+  redrawSectionCard();
+}
+
+function selectCoreResults() {
+  const corePattern = /^\s*(A|W|Ix|Iy|I|Sx|Sy|S|Sx_top|Sx_bot|Sx \(控制\)|Zx|Zy|Z|rx|ry|r)\b/i;
+  const cbs = [...document.querySelectorAll('.res-cb')];
+  let count = 0;
+  cbs.forEach((cb, i) => {
+    const label = String(lastResults[i]?.[0] || '');
+    const isCore = corePattern.test(label) && !/Avx|Avy|I \(參考軸\)|I \(底邊軸\)|I \(下底軸\)|I \(尖端軸\)/i.test(label);
+    cb.checked = isCore;
+    if (isCore) count++;
+  });
+  if (count === 0) cbs.forEach(cb => { cb.checked = true; });
+  redrawSectionCard();
+  setStatus(`已篩選勾選 ${count || cbs.length} 項常用核心斷面性質（計算指紋 ${sectionCalculationFingerprint()}）`, 'ok');
 }
 
 const SECTION_PROJECT_SCHEMA = 'section-properties.project.v1';
@@ -314,10 +421,7 @@ function revisedSectionGeometry(section) {
   return section.tab === 'geo' && ['oblong','sym-trapezoid','general','parabola','half-parabola'].includes(section.inputs['geo-type']);
 }
 
-function validateSectionProjectData(data) {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('案例內容不是有效物件');
-  if (data.schema !== SECTION_PROJECT_SCHEMA || data.version !== 1) throw new Error('案例格式或版本不相容');
-  const section = data.section;
+function validateSectionInputData(section) {
   if (!section || !tabs.some(tab => tab.id === section.tab)) throw new Error('案例缺少有效的斷面類型');
   if (!section.inputs || typeof section.inputs !== 'object' || Array.isArray(section.inputs)) throw new Error('案例缺少尺寸輸入');
   const entries = Object.entries(section.inputs);
@@ -328,9 +432,18 @@ function validateSectionProjectData(data) {
     if (!Array.isArray(section.custom) || !section.custom.length || section.custom.length > 50) throw new Error('自訂斷面矩形資料不合法');
     section.custom.forEach((rect, index) => {
       const b = Number(rect?.b), h = Number(rect?.h), yc = Number(rect?.yc);
-      if (!(b > 0) || !(h > 0) || !Number.isFinite(yc)) throw new Error(`第 ${index + 1} 個矩形尺寸不合法`);
+      if (!Number.isFinite(b) || b <= 0 || !Number.isFinite(h) || h <= 0 || !Number.isFinite(yc)) {
+        throw new Error(`第 ${index + 1} 個矩形尺寸不合法`);
+      }
     });
   }
+}
+
+function validateSectionProjectData(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('案例內容不是有效物件');
+  if (data.schema !== SECTION_PROJECT_SCHEMA || data.version !== 1) throw new Error('案例格式或版本不相容');
+  const section = data.section;
+  validateSectionInputData(section);
   const fingerprint = data.calculation?.fingerprint;
   if (!/^CF-[0-9A-F]{16}$/.test(String(fingerprint || ''))) throw new Error('案例缺少有效計算指紋');
   if (previousSectionEngine(data)) {
@@ -355,9 +468,8 @@ function applySectionProjectDataUnchecked(checked, verifyFingerprint = true) {
     while (document.querySelectorAll('#custom-rects .custom-rect-row').length < section.custom.length) addRect();
     while (document.querySelectorAll('#custom-rects .custom-rect-row').length > section.custom.length) removeRect();
   }
-  Object.entries(section.inputs).forEach(([id, value]) => {
-    const el = document.getElementById(id);
-    if (el) el.value = String(value);
+  document.querySelectorAll('#input-panel input[id], #input-panel select[id]').forEach(el => {
+    if (Object.hasOwn(section.inputs, el.id)) el.value = String(section.inputs[el.id]);
   });
   if (section.tab === 'custom') {
     [...document.querySelectorAll('#custom-rects .custom-rect-row')].forEach((row, index) => {
@@ -425,7 +537,7 @@ async function loadSectionProjectFile(event) {
 
 function collectReportInputRows() {
   return [...document.querySelectorAll('#input-panel .form-group')].map(group => {
-    const control = group.querySelector('input, select');
+    const control = group.querySelector('input[id], select[id]');
     if (!control) return null;
     const label = group.querySelector('label')?.textContent?.trim() || control.id || '輸入值';
     let value = control.tagName === 'SELECT'
@@ -436,33 +548,302 @@ function collectReportInputRows() {
   }).filter(Boolean);
 }
 
+async function copyResultsTSV() {
+  const checked = getCheckedResults();
+  if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
+  const inputRows = collectReportInputRows();
+  const fp = sectionCalculationFingerprint();
+  const lines = [
+    ['斷面性質計算', lastTitle || '斷面性質', `指紋: ${fp}`].join('\t'),
+    ['類別', '項目名稱', '數值', '單位'].join('\t'),
+    ...inputRows.map(r => ['採用尺寸', r.label, r.value, 'mm'].join('\t')),
+    ...checked.map(([l, v, u]) => ['計算結果', l, String(fmt(v)), u || ''].join('\t')),
+  ];
+  await copySectionText(lines.join('\n'), `已複製 Excel 表格 (TSV，共 ${checked.length} 項性質)；可直接於 Excel 按 Ctrl+V 貼上分欄`);
+}
+
+async function copyResultsSummary() {
+  const checked = getCheckedResults();
+  if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
+  const fp = sectionCalculationFingerprint();
+  const propsText = checked.map(([l, v, u]) => {
+    const shortLabel = String(l).split(' (')[0].trim();
+    return `${shortLabel} = ${fmt(v)}${u ? ' ' + u : ''}`;
+  }).join(', ');
+  const summary = `【${lastTitle || '斷面性質'}】${propsText} (${fp})`;
+  await copySectionText(summary, `已複製報告摘要：${summary}`);
+}
+
+function csvCell(val) {
+  const s = String(val ?? '');
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function exportCSV() {
+  const checked = getCheckedResults();
+  if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
+  const inputRows = collectReportInputRows();
+  const fp = sectionCalculationFingerprint();
+  const rows = [
+    ['斷面名稱', lastTitle || '斷面性質', '工具版本', SECTION_TOOL_VERSION],
+    ['計算引擎', SECTION_CALCULATION_ENGINE, '計算指紋', fp],
+    [],
+    ['類別', '項目名稱', '數值', '單位'],
+    ...inputRows.map(r => ['採用尺寸', r.label, r.value, '']),
+    ...checked.map(([l, v, u]) => ['斷面性質', l, String(fmt(v)), u || '']),
+  ];
+  const csvContent = '\uFEFF' + rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(lastTitle || '斷面性質').replace(/[\\/:*?"<>|]+/g, '-')}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  setStatus(`已匯出 CSV 試算表（含 UTF-8 BOM，计算指紋 ${fp}）`, 'ok');
+}
+
+const COMPARISON_METRIC_KEYS = [
+  { key: 'A', label: 'A (斷面積)', unit: 'cm²', match: l => /^\s*A\b/i.test(l) },
+  { key: 'W', label: 'W (單位重)', unit: 'kg/m', match: l => /^\s*W\b/i.test(l) },
+  { key: 'Ix', label: 'Ix / I (強軸慣性矩)', unit: 'cm⁴', match: l => /^\s*(Ix|I\s*\(|I$)/i.test(l) && !/Iy|參考軸|底邊軸|下底軸|尖端軸/i.test(l) },
+  { key: 'Iy', label: 'Iy (弱軸慣性矩)', unit: 'cm⁴', match: l => /^\s*Iy\b/i.test(l) },
+  { key: 'Sx', label: 'Sx / S (強軸斷面模數)', unit: 'cm³', match: l => /^\s*(Sx|S\s*\(|S$|Sx \(控制\)|Sx_bot)/i.test(l) && !/Sy/i.test(l) },
+  { key: 'Sy', label: 'Sy (弱軸斷面模數)', unit: 'cm³', match: l => /^\s*Sy\b/i.test(l) },
+  { key: 'Zx', label: 'Zx / Z (強軸塑性模數)', unit: 'cm³', match: l => /^\s*(Zx|Z\s*\(|Z$)/i.test(l) && !/Zy/i.test(l) },
+  { key: 'Zy', label: 'Zy (弱軸塑性模數)', unit: 'cm³', match: l => /^\s*Zy\b/i.test(l) },
+  { key: 'rx', label: 'rx / r (強軸迴轉半徑)', unit: 'cm', match: l => /^\s*(rx|r\s*\(|r$|r_cg)/i.test(l) && !/ry|rT|r₁|r₂|r_tip/i.test(l) },
+  { key: 'ry', label: 'ry (弱軸迴轉半徑)', unit: 'cm', match: l => /^\s*ry\b/i.test(l) },
+];
+
+let comparisonItems = [];
+
+function extractComparisonMetrics(results) {
+  const map = {};
+  COMPARISON_METRIC_KEYS.forEach(m => {
+    const governing = m.key === 'Sx' ? results.find(([label]) => label === 'Sx (控制)') : null;
+    if (m.key === 'Sx' && !governing) {
+      const sides = results.filter(([label, value]) => /^Sx_(top|bot)$/.test(label) && Number.isFinite(value));
+      if (sides.length === 2) {
+        map[m.key] = Math.min(...sides.map(([, value]) => value));
+        return;
+      }
+    }
+    const found = governing || results.find(([label]) => m.match(String(label)));
+    map[m.key] = found ? Number(found[1]) : null;
+  });
+  return map;
+}
+
+function addCurrentToComparison() {
+  if (!lastResults.length) { setStatus('請先完成斷面計算再加入比較', 'warn'); return; }
+  if (comparisonItems.length >= 4) {
+    setStatus('比較清單最多容納 4 組斷面方案；請先移除或清空現有方案', 'warn');
+    return;
+  }
+  const fp = sectionCalculationFingerprint();
+  const dims = collectReportInputRows()
+    .filter(r => !/標準規格選擇|選擇斷面類型/.test(r.label))
+    .map(r => `${r.label.split(' - ')[0].trim()}=${r.value}`)
+    .slice(0, 5)
+    .join(', ');
+  comparisonItems.push({
+    title: lastTitle || '斷面方案',
+    dims,
+    fingerprint: fp,
+    metrics: extractComparisonMetrics(lastResults),
+  });
+  renderComparisonTable();
+  setStatus(`已將「${lastTitle}」加入方案並排比較（目前 ${comparisonItems.length} / 4 組）`, 'ok');
+}
+
+function removeComparisonItem(index) {
+  comparisonItems.splice(index, 1);
+  renderComparisonTable();
+}
+
+function clearComparison() {
+  comparisonItems = [];
+  renderComparisonTable();
+  setStatus('已清空斷面方案比較表', 'ok');
+}
+
+function formatDeltaBadge(val, baseVal) {
+  if (val == null || baseVal == null || !Number.isFinite(val) || !Number.isFinite(baseVal) || baseVal === 0) return '';
+  const pct = ((val - baseVal) / Math.abs(baseVal)) * 100;
+  if (Math.abs(pct) < 0.05) return `<span class="comp-delta zero">0.0%</span>`;
+  const sign = pct > 0 ? '+' : '';
+  const cls = pct > 0 ? 'pos' : 'neg';
+  return `<span class="comp-delta ${cls}">${sign}${pct.toFixed(1)}%</span>`;
+}
+
+function renderComparisonTable() {
+  const card = document.getElementById('comparisonCard');
+  const wrap = document.getElementById('comparisonTableWrap');
+  const badge = document.getElementById('comparisonCountBadge');
+  if (!card || !wrap) return;
+  if (!comparisonItems.length) {
+    card.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+  card.style.display = 'block';
+  if (badge) badge.textContent = `(${comparisonItems.length} / 4 組，以方案 1 為基準對照百分比變化)`;
+  const base = comparisonItems[0].metrics;
+  const headers = comparisonItems.map((item, idx) =>
+    `<th><div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;"><span>方案 ${idx + 1}：${escapeHtml(item.title)}</span><button type="button" onclick="removeComparisonItem(${idx})" title="移除此方案" style="border:none;background:transparent;color:#94a3b8;cursor:pointer;font-size:1em;">✕</button></div><div style="font-size:0.75em;font-weight:400;color:#64748b;margin-top:2px;">${escapeHtml(item.dims)}</div></th>`
+  ).join('');
+  const bodyRows = COMPARISON_METRIC_KEYS.map(m => {
+    if (comparisonItems.every(item => item.metrics[m.key] == null)) return '';
+    const cells = comparisonItems.map((item, idx) => {
+      const v = item.metrics[m.key];
+      if (v == null || !Number.isFinite(v)) return `<td class="num" style="color:#94a3b8;">—</td>`;
+      const delta = idx === 0 ? '' : formatDeltaBadge(v, base[m.key]);
+      return `<td class="num">${fmt(v)}${delta}</td>`;
+    }).join('');
+    return `<tr><td>${escapeHtml(m.label)} <span style="font-size:0.8em;color:#94a3b8;">(${m.unit})</span></td>${cells}</tr>`;
+  }).filter(Boolean).join('');
+  wrap.innerHTML = `<table class="comp-table"><thead><tr><th>斷面性質項目</th>${headers}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+}
+
+async function copyComparisonTSV() {
+  if (!comparisonItems.length) { setStatus('比較表尚無方案資料', 'warn'); return; }
+  const base = comparisonItems[0].metrics;
+  const headerRow = ['斷面性質', '單位', ...comparisonItems.map((item, idx) => `方案 ${idx + 1}: ${item.title} (${item.dims})`)].join('\t');
+  const rows = [headerRow];
+  COMPARISON_METRIC_KEYS.forEach(m => {
+    if (comparisonItems.every(item => item.metrics[m.key] == null)) return;
+    const cols = [m.label, m.unit];
+    comparisonItems.forEach((item, idx) => {
+      const v = item.metrics[m.key];
+      if (v == null || !Number.isFinite(v)) { cols.push('—'); return; }
+      if (idx === 0 || base[m.key] == null || base[m.key] === 0) {
+        cols.push(String(fmt(v)));
+      } else {
+        const pct = ((v - base[m.key]) / Math.abs(base[m.key])) * 100;
+        const sign = pct > 0 ? '+' : '';
+        cols.push(`${fmt(v)} (${sign}${pct.toFixed(1)}%)`);
+      }
+    });
+    rows.push(cols.join('\t'));
+  });
+  await copySectionText(rows.join('\n'), `已複製 ${comparisonItems.length} 組斷面方案比較表 (TSV)，可直接貼入 Excel 或報告`);
+}
+
+function encodeSharePayload(obj) {
+  const json = JSON.stringify(obj);
+  const bytes = new TextEncoder().encode(json);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeSharePayload(token) {
+  const b64 = String(token).replace(/-/g, '+').replace(/_/g, '/');
+  const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
+  const bin = atob(b64 + pad);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+async function copyShareLink() {
+  if (!lastResults.length) { setStatus('請先完成斷面計算', 'warn'); return; }
+  const source = collectSectionInputs();
+  const payload = { t: currentTab, i: source.inputs, c: source.custom };
+  const token = encodeSharePayload(payload);
+  const url = new URL(window.location.href);
+  url.hash = `share=${token}`;
+  if (window.history?.replaceState) window.history.replaceState(null, '', url.href);
+  await copySectionText(url.href, `已複製斷面分享連結（含目前尺寸參數，計算指紋 ${sectionCalculationFingerprint()}）`);
+}
+
+function restoreFromShareHash() {
+  const hash = String(window.location.hash || '');
+  if (!hash.startsWith('#share=')) return false;
+  const previous = collectSectionProjectData();
+  try {
+    const token = hash.slice('#share='.length);
+    if (token.length > 32000) throw new Error('分享連結長度超出限制');
+    const payload = decodeSharePayload(token);
+    const section = { tab: payload?.t, inputs: payload?.i, custom: payload?.c };
+    validateSectionInputData(section);
+    const fingerprint = applySectionProjectDataUnchecked({ section }, false);
+    if (!lastResults.length) throw new Error('斷面尺寸無法計算');
+    setStatus(`已從分享連結還原「${lastTitle}」斷面尺寸（計算指紋 ${fingerprint}）`, 'ok');
+    return true;
+  } catch (e) {
+    applySectionProjectDataUnchecked(previous, false);
+    setStatus('分享連結內的斷面資料無法還原。', 'warn');
+    return false;
+  }
+}
+
+function exportCanvasCardJPG() {
+  if (!lastResults.length) { setStatus('請先完成斷面計算', 'warn'); return; }
+  const srcCanvas = document.getElementById('sectionCanvas');
+  const out = document.createElement('canvas');
+  out.width = srcCanvas.width;
+  out.height = srcCanvas.height;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(srcCanvas, 0, 0);
+  const a = document.createElement('a');
+  a.href = out.toDataURL('image/jpeg', 0.96);
+  a.download = `${(lastTitle || '斷面圖卡').replace(/[\\/:*?"<>|]+/g, '-')}-圖卡.jpg`;
+  a.click();
+  setStatus(`已另存高解析度斷面工程圖卡 JPG（含左圖與右側參數表）`, 'ok');
+}
+
+async function copyCanvasImage() {
+  if (!lastResults.length) { setStatus('請先完成斷面計算', 'warn'); return; }
+  const srcCanvas = document.getElementById('sectionCanvas');
+  try {
+    if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+      const blob = await new Promise(resolve => srcCanvas.toBlob(resolve, 'image/png'));
+      if (blob) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        setStatus('已將斷面工程圖卡複製至剪貼簿！可直接於 Word 計算書、簡報或 LINE 按 Ctrl+V 貼上', 'ok');
+        return;
+      }
+    }
+  } catch (_) {}
+  const a = document.createElement('a');
+  a.href = srcCanvas.toDataURL('image/png');
+  a.download = `${(lastTitle || '斷面圖卡').replace(/[\\/:*?"<>|]+/g, '-')}-圖卡.png`;
+  a.click();
+  setStatus('您的瀏覽器環境限制直接寫入圖片剪貼簿，已自動為您下載高解析 PNG 圖卡', 'warn');
+}
+
 function exportJPG() {
   const checked = getCheckedResults();
   if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
   const srcCanvas = document.getElementById('sectionCanvas');
-  const pad = 20, titleH = 48, sectionH = srcCanvas.height + 16;
-  const rowH = 30, cols = 2, colW = 260;
+  const diagW = 680, diagH = 310;
+  const pad = 20, titleH = 48, sectionH = diagH + 16;
+  const rowH = 30, cols = 2, colW = 340;
   const rows = Math.ceil(checked.length / cols);
   const tableW = colW * cols;
-  const totalW = Math.max(tableW + pad * 2, srcCanvas.width + pad * 2);
+  const totalW = Math.max(tableW + pad * 2, diagW + pad * 2);
   const totalH = titleH + sectionH + rows * rowH + pad + 20;
+  const dpr = 2;
   const out = document.createElement('canvas');
-  out.width = totalW; out.height = totalH;
+  out.width = totalW * dpr; out.height = totalH * dpr;
   const ctx = out.getContext('2d');
+  if (typeof ctx.scale === 'function') ctx.scale(dpr, dpr);
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, totalW, totalH);
   // Header
-  ctx.fillStyle = '#2563eb'; ctx.fillRect(0, 0, totalW, titleH);
+  ctx.fillStyle = '#1e3a5f'; ctx.fillRect(0, 0, totalW, titleH);
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 15px "Microsoft JhengHei","Segoe UI",sans-serif';
   ctx.textAlign = 'left'; ctx.fillText('斷面性質計算', pad, 20);
   ctx.font = '12px "Microsoft JhengHei","Segoe UI",sans-serif';
   ctx.fillText(lastTitle, pad, 38);
   // Section diagram
-  const sx = (totalW - srcCanvas.width) / 2;
-  ctx.drawImage(srcCanvas, sx, titleH + 8);
+  const sx = (totalW - diagW) / 2;
+  ctx.drawImage(srcCanvas, sx, titleH + 8, diagW, diagH);
   // Separator
   const tableY = titleH + sectionH;
-  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(pad, tableY); ctx.lineTo(totalW - pad, tableY); ctx.stroke();
   // Results
   const ox = (totalW - tableW) / 2;
@@ -472,13 +853,13 @@ function exportJPG() {
     ctx.fillStyle = (row % 2 === 0) ? '#f8fafc' : '#ffffff';
     ctx.fillRect(x, y, colW, rowH);
     ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 0.5; ctx.strokeRect(x, y, colW, rowH);
-    ctx.fillStyle = '#2563eb'; ctx.fillRect(x, y, 3, rowH);
+    ctx.fillStyle = '#1e3a5f'; ctx.fillRect(x, y, 3, rowH);
     ctx.fillStyle = '#475569'; ctx.font = '12px "Microsoft JhengHei","Segoe UI",sans-serif';
     ctx.textAlign = 'left'; ctx.fillText(l, x + 10, y + 20);
-    ctx.fillStyle = '#1e293b'; ctx.font = 'bold 12px Consolas,monospace';
-    ctx.textAlign = 'right'; ctx.fillText(String(fmt(v)), x + colW - 36, y + 20);
+    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 12px Consolas,monospace';
+    ctx.textAlign = 'right'; ctx.fillText(String(fmt(v)), x + colW - 42, y + 20);
     ctx.fillStyle = '#64748b'; ctx.font = '11px "Microsoft JhengHei",sans-serif';
-    ctx.textAlign = 'left'; ctx.fillText(u, x + colW - 32, y + 20);
+    ctx.textAlign = 'left'; ctx.fillText(u, x + colW - 38, y + 20);
   });
   // Footer
   ctx.fillStyle = '#94a3b8'; ctx.font = '10px "Segoe UI",sans-serif';
@@ -518,7 +899,7 @@ function exportPDF() {
   .hdr p{font-size:12px;margin:0;color:#475569;}
   .meta{display:grid;grid-template-columns:1fr 1fr;gap:3px 18px;font-size:10px;color:#475569;margin:8px 0 12px;}
   .fig{text-align:center;border:1px solid #e2e8f0;padding:12px;background:#fafbfc;}
-  .fig img{max-height:220px;}
+  .fig img{max-width:100%;height:auto;max-height:280px;}
   table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px;}
   th{background:#2563eb;color:white;padding:7px 12px;text-align:left;font-size:12px;}
   td{padding:6px 12px;border-bottom:1px solid #e2e8f0;border-left:3px solid transparent;}
@@ -544,22 +925,312 @@ ${approvalReport.html}
   setStatus('已產生可列印的內部審閱計算書；請在預覽內確認後核可為正式附件。', 'ok');
 }
 
+let _lastDrawFn = null;
+let _lastAccessibleLabel = '斷面計算示意圖';
+let _axesQueue = [];
+let _dimQueue = [];
+let _inDrawSection = false;
+
+function redrawSectionCard() {
+  if (_lastDrawFn) drawSection(_lastDrawFn, _lastAccessibleLabel);
+}
+
 function drawSection(fn, accessibleLabel = '斷面計算示意圖') {
+  _lastDrawFn = fn;
+  _lastAccessibleLabel = accessibleLabel;
   const c = document.getElementById('sectionCanvas'), ctx = c.getContext('2d');
   c.setAttribute('role', 'img');
   c.setAttribute('aria-label', accessibleLabel);
-  ctx.clearRect(0,0,c.width,c.height);
-  fn(ctx, c.width, c.height);
+  const W = 680, H = 310, plotW = 390, plotH = 310, dpr = 2;
+  if (typeof ctx.scale === 'function') {
+    c.width = W * dpr;
+    c.height = H * dpr;
+    if (c.style) { c.style.width = `${W}px`; c.style.height = `${H}px`; }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+  }
+  ctx.clearRect(0, 0, W, H);
+  // Layer 1: Engineering grid paper background + Section geometry
+  if (typeof ctx.fillRect === 'function' && typeof ctx.strokeRect === 'function') {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#f1f5f9';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 20; x < plotW; x += 20) { ctx.moveTo(x, 0); ctx.lineTo(x, plotH); }
+    for (let y = 20; y < plotH; y += 20) { ctx.moveTo(0, y); ctx.lineTo(plotW, y); }
+    ctx.stroke();
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, plotW - 1, plotH - 1);
+    ctx.restore();
+  }
+  _axesQueue = [];
+  _dimQueue = [];
+  _inDrawSection = true;
+  fn(ctx, plotW, plotH);
+  _inDrawSection = false;
+
+  // Layer 2: Centroidal Principal Axes (drawn AFTER geometry, BEFORE dimensions)
+  _axesQueue.forEach(ax => _renderAxesNow(ax.ctx, ax.cx, ax.cy, ax.len, _dimQueue, plotW, plotH));
+
+  // Layer 3: Dimension lines & Non-overlapping Opaque Pill Badges (Topmost layer)
+  _renderDimsNow(ctx, _dimQueue, _axesQueue, plotW, plotH);
+
+  // Right Column: Engineering Specification & Section Properties Summary Card
+  if (typeof ctx.fillRect === 'function' && typeof ctx.fillText === 'function') {
+    _renderSectionSpecCard(ctx, plotW + 6, 0, W - plotW - 6, H);
+  }
 }
 
 function drawAxes(ctx, cx, cy, len) {
-  ctx.save(); ctx.setLineDash([4,4]); ctx.strokeStyle='#ef4444'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(cx-len,cy); ctx.lineTo(cx+len,cy); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx,cy-len); ctx.lineTo(cx,cy+len); ctx.stroke();
-  ctx.setLineDash([]); ctx.restore();
+  if (_inDrawSection) {
+    _axesQueue.push({ ctx, cx, cy, len });
+    return;
+  }
+  _renderAxesNow(ctx, cx, cy, len, [], 390, 310);
 }
 
-function dimText(ctx, txt, x, y) { ctx.fillStyle='#1e293b'; ctx.font='12px Consolas,monospace'; ctx.textAlign='center'; ctx.fillText(txt,x,y); }
+function _renderAxesNow(ctx, cx, cy, len, dims, plotW, plotH) {
+  ctx.save();
+  const x1 = Math.max(12, cx - len), x2 = Math.min(plotW - 18, cx + len);
+  const y1 = Math.max(18, cy - len), y2 = Math.min(plotH - 12, cy + len);
+  ctx.setLineDash([5, 3]);
+  ctx.strokeStyle = '#dc2626';
+  ctx.lineWidth = 1.25;
+  ctx.beginPath(); ctx.moveTo(x1, cy); ctx.lineTo(x2, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, y1); ctx.lineTo(cx, y2); ctx.stroke();
+  ctx.setLineDash([]);
+  // Centroid marker & principal axis labels
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath(); ctx.arc(cx, cy, 3, 0, PI * 2); ctx.fill();
+  ctx.font = 'italic bold 11px "Segoe UI", Consolas, sans-serif';
+  // Check if right end 'x' or top end 'y' is near any dimension text
+  let xLabelX = x2 + 4, xLabelY = cy + 4;
+  const xNearDim = dims.some(d => Math.abs(d.x - xLabelX) < 32 && Math.abs(d.y - xLabelY) < 16);
+  if (xNearDim) { xLabelY = cy - 6; }
+  ctx.textAlign = 'left';
+  ctx.fillText('x', xLabelX, xLabelY);
+
+  let yLabelX = cx, yLabelY = y1 - 5;
+  const yNearDim = dims.some(d => Math.abs(d.x - yLabelX) < 34 && Math.abs(d.y - yLabelY) < 16);
+  if (yNearDim) { yLabelX = cx + 10; yLabelY = y1 + 8; }
+  ctx.textAlign = 'center';
+  ctx.fillText('y', yLabelX, yLabelY);
+  ctx.restore();
+}
+
+function dimText(ctx, txt, x, y, opts = null) {
+  if (_inDrawSection) {
+    _dimQueue.push({ ctx, txt: String(txt), x, y, opts });
+    return;
+  }
+  _renderSingleDimPill(ctx, String(txt), x, y, '#0f172a', '#94a3b8');
+}
+
+function drawDimH(ctx, x1, x2, yLine, txt) {
+  const mx = (x1 + x2) / 2;
+  dimText(ctx, txt, mx, yLine + 4, { type: 'H', x1, x2, yLine });
+}
+
+function drawDimV(ctx, xLine, y1, y2, txt) {
+  const my = (y1 + y2) / 2;
+  dimText(ctx, txt, xLine, my + 4, { type: 'V', xLine, y1, y2 });
+}
+
+function _renderSingleDimPill(ctx, txt, x, y, textColor = '#0f172a', borderColor = '#94a3b8') {
+  ctx.save();
+  ctx.font = 'bold 11.5px "Segoe UI", "Microsoft JhengHei", Consolas, sans-serif';
+  ctx.textAlign = 'center';
+  const w = (typeof ctx.measureText === 'function' ? ctx.measureText(txt).width : txt.length * 7) + 10;
+  const h = 16;
+  const rx = x - w / 2, ry = y - 12;
+  ctx.fillStyle = '#ffffff';
+  if (typeof ctx.roundRect === 'function') {
+    ctx.beginPath(); ctx.roundRect(rx, ry, w, h, 4); ctx.fill();
+    ctx.strokeStyle = borderColor; ctx.lineWidth = 1; ctx.stroke();
+  } else {
+    ctx.fillRect(rx, ry, w, h);
+    if (typeof ctx.strokeRect === 'function') {
+      ctx.strokeStyle = borderColor; ctx.lineWidth = 1; ctx.strokeRect(rx, ry, w, h);
+    }
+  }
+  ctx.fillStyle = textColor;
+  ctx.fillText(txt, x, y);
+  ctx.restore();
+  return { x: rx, y: ry, w, h, cx: x, cy: y };
+}
+
+function _renderDimsNow(ctx, dims, axes, plotW, plotH) {
+  const placedBoxes = [];
+  dims.forEach(d => {
+    // Draw dimension leader / witness line first if specified
+    if (d.opts && d.opts.type === 'H') {
+      const { x1, x2, yLine } = d.opts;
+      ctx.save();
+      ctx.strokeStyle = '#475569'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x1, yLine); ctx.lineTo(x2, yLine);
+      ctx.moveTo(x1, yLine - 3.5); ctx.lineTo(x1, yLine + 3.5);
+      ctx.moveTo(x2, yLine - 3.5); ctx.lineTo(x2, yLine + 3.5);
+      ctx.stroke();
+      ctx.restore();
+    } else if (d.opts && d.opts.type === 'V') {
+      const { xLine, y1, y2 } = d.opts;
+      ctx.save();
+      ctx.strokeStyle = '#475569'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(xLine, y1); ctx.lineTo(xLine, y2);
+      ctx.moveTo(xLine - 3.5, y1); ctx.lineTo(xLine + 3.5, y1);
+      ctx.moveTo(xLine - 3.5, y2); ctx.lineTo(xLine + 3.5, y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.font = 'bold 11.5px "Segoe UI", "Microsoft JhengHei", Consolas, sans-serif';
+    const w = (typeof ctx.measureText === 'function' ? ctx.measureText(d.txt).width : d.txt.length * 7) + 10;
+    const h = 16;
+    ctx.restore();
+
+    let px = d.x, py = d.y;
+    // Clamp within plot area with safe margin
+    px = Math.max(w / 2 + 4, Math.min(plotW - w / 2 - 4, px));
+    py = Math.max(15, Math.min(plotH - 6, py));
+
+    // Avoid sitting directly on centroid red dot if not C.G. label
+    if (!/C\.G\./i.test(d.txt)) {
+      axes.forEach(ax => {
+        if (Math.abs(px - ax.cx) < w / 2 + 4 && Math.abs((py - 4) - ax.cy) < 10) {
+          py += (py >= ax.cy ? 12 : -12);
+        }
+      });
+    }
+
+    // 2D collision avoidance against previously placed dimension badges
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const rx = px - w / 2, ry = py - 12;
+      const hit = placedBoxes.find(b => !(rx + w + 2 < b.x || rx - 2 > b.x + b.w || ry + h + 2 < b.y || ry - 2 > b.y + b.h));
+      if (!hit) break;
+      if (py >= plotH / 2) {
+        py = Math.min(plotH - 6, hit.y + hit.h + 14);
+      } else {
+        py = Math.max(15, hit.y - 5);
+      }
+    }
+
+    const isCg = /C\.G\./i.test(d.txt);
+    const box = _renderSingleDimPill(d.ctx, d.txt, px, py, isCg ? '#b91c1c' : '#0f172a', isCg ? '#fca5a5' : '#94a3b8');
+    placedBoxes.push(box);
+  });
+}
+
+function _renderSectionSpecCard(ctx, x0, y0, cardW, cardH) {
+  ctx.save();
+  // Card frame
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(x0, y0, cardW, cardH);
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x0 + 0.5, y0 + 0.5, cardW - 1, cardH - 1);
+
+  // Top header banner
+  const hdrH = 44;
+  ctx.fillStyle = '#1e3a5f';
+  ctx.fillRect(x0, y0, cardW, hdrH);
+  ctx.fillStyle = '#93c5fd';
+  ctx.font = 'bold 10px "Microsoft JhengHei", "Segoe UI", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('斷面規格與性質參數卡 (單位: 尺寸 mm｜性質 cm)', x0 + 10, y0 + 15);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 12.5px "Microsoft JhengHei", "Segoe UI", sans-serif';
+  const titleStr = String(lastTitle || '斷面性質計算');
+  ctx.fillText(titleStr.length > 24 ? titleStr.slice(0, 23) + '…' : titleStr, x0 + 10, y0 + 34);
+
+  // Dimensions strip
+  const dimBarY = y0 + hdrH;
+  const dimBarH = 26;
+  ctx.fillStyle = '#eff6ff';
+  ctx.fillRect(x0 + 1, dimBarY, cardW - 2, dimBarH);
+  ctx.strokeStyle = '#bfdbfe';
+  ctx.beginPath(); ctx.moveTo(x0, dimBarY + dimBarH); ctx.lineTo(x0 + cardW, dimBarY + dimBarH); ctx.stroke();
+
+  let dimParts = [];
+  if (typeof collectReportInputRows === 'function') {
+    dimParts = collectReportInputRows()
+      .filter(r => !/標準規格選擇|選擇斷面類型/.test(r.label) && !/未提供/.test(r.value))
+      .map(r => `${r.label.split(' - ')[0].split(' (')[0].trim()}=${r.value}`);
+  }
+  if (currentTab === 'custom') {
+    const nRects = document.querySelectorAll('#custom-rects .custom-rect-row').length;
+    dimParts = [`共 ${nRects} 個矩形組合斷面`];
+  }
+  const dimSummary = dimParts.length ? `尺寸: ${dimParts.slice(0, 6).join(' ｜ ')}` : '尺寸: 依左側輸入參數';
+  ctx.fillStyle = '#1e40af';
+  ctx.font = 'bold 10px Consolas, "Microsoft JhengHei", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(dimSummary.length > 44 ? dimSummary.slice(0, 43) + '…' : dimSummary, x0 + 8, dimBarY + 17);
+
+  // Properties 2-column grid
+  const checked = (typeof getCheckedResults === 'function' ? getCheckedResults() : []);
+  const sourceItems = checked.length ? checked : (lastResults || []);
+  const displayItems = sourceItems.slice(0, 14);
+  const gridTop = dimBarY + dimBarH + 6;
+  const cols = 2;
+  const colW = (cardW - 16) / cols;
+  const rowH = 30;
+
+  displayItems.forEach(([l, v, u], idx) => {
+    const col = idx % cols;
+    const row = Math.floor(idx / cols);
+    const gx = x0 + 6 + col * (colW + 4);
+    const gy = gridTop + row * rowH;
+    if (gy + rowH > y0 + cardH - 18) return;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(gx, gy, colW, rowH - 3);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(gx, gy, colW, rowH - 3);
+    ctx.fillStyle = '#1e3a5f';
+    ctx.fillRect(gx, gy, 2.5, rowH - 3);
+
+    const shortLabel = String(l).split(' (')[0].trim();
+    ctx.fillStyle = '#475569';
+    ctx.font = 'bold 10.5px "Segoe UI", "Microsoft JhengHei", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(shortLabel.length > 10 ? shortLabel.slice(0, 9) + '…' : shortLabel, gx + 6, gy + 17);
+
+    const valStr = String(fmt(v));
+    const unitStr = String(u || '');
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 11px Consolas, monospace';
+    ctx.textAlign = 'right';
+    const unitOffset = unitStr ? 26 : 5;
+    ctx.fillText(valStr, gx + colW - unitOffset, gy + 17);
+
+    if (unitStr) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = '9.5px Consolas, "Microsoft JhengHei", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(unitStr, gx + colW - 24, gy + 17);
+    }
+  });
+
+  // Footer bar with version & fingerprint
+  let fp = '';
+  try { fp = typeof sectionCalculationFingerprint === 'function' ? sectionCalculationFingerprint() : ''; } catch (_) {}
+  ctx.fillStyle = '#64748b';
+  ctx.font = '9.5px Consolas, "Segoe UI", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`工具版本 ${SECTION_TOOL_VERSION}`, x0 + 8, y0 + cardH - 5);
+  if (fp) {
+    ctx.textAlign = 'right';
+    ctx.fillText(fp, x0 + cardW - 8, y0 + cardH - 5);
+  }
+  ctx.restore();
+}
 
 // ==================== TAB SYSTEM ====================
 const tabs = [
@@ -601,14 +1272,32 @@ function inp(id,label,val,oninput) { return `<div class="form-group"><label>${la
 // 型鋼尺寸統一取自 結構工具箱/core/materials/steel.js（H_SECTIONS_MM）
 const hSections = Steel.H_SECTIONS_MM;
 
-function buildHSelect() {
+function buildHSelect(filterText = '') {
+  const q = String(filterText || '').trim().toLowerCase().replace(/[×x*]/g, 'x');
   let html = '<option value="">-- 自訂尺寸 --</option>';
   hSections.forEach(g => {
-    html += `<optgroup label="${g.g}">`;
-    g.s.forEach((s,i) => html += `<option value="${g.g}-${i}">${s.n} (R=${s.R})</option>`);
-    html += '</optgroup>';
+    const matched = [];
+    g.s.forEach((s, i) => {
+      const normalized = `${s.n} ${g.g}`.toLowerCase().replace(/[×x*]/g, 'x');
+      if (!q || normalized.includes(q)) {
+        matched.push(`<option value="${g.g}-${i}">${s.n} (R=${s.R})</option>`);
+      }
+    });
+    if (matched.length) {
+      html += `<optgroup label="${g.g}">${matched.join('')}</optgroup>`;
+    }
   });
   return html;
+}
+
+function filterHSelect(inputEl) {
+  const sel = document.getElementById('h-select');
+  if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = buildHSelect(inputEl?.value || '');
+  if (currentVal && [...sel.options].some(o => o.value === currentVal)) {
+    sel.value = currentVal;
+  }
 }
 
 function onHSelect() {
@@ -628,33 +1317,33 @@ function onHSelect() {
 
 function panelHBeam(p) {
   p.innerHTML = `<h2>H 型鋼尺寸 (mm)</h2>
-    <div class="form-group"><label>標準規格選擇</label><select id="h-select" onchange="onHSelect()" style="width:100%;padding:9px 12px;border:2px solid var(--border);border-radius:8px;font-size:0.95em;font-family:inherit;outline:none;cursor:pointer;">${buildHSelect()}</select></div>
+    <div class="form-group"><label>標準規格選擇</label><input type="search" class="h-filter-input" data-role="h-filter" placeholder="🔍 快速篩選規格 (如 400x200、588、300)..." aria-label="篩選 H 型鋼標準規格" oninput="filterHSelect(this)"><select id="h-select" onchange="onHSelect()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95em;font-family:inherit;outline:none;cursor:pointer;">${buildHSelect()}</select></div>
     <div style="text-align:center;color:var(--text-light);font-size:0.8em;margin:-6px 0 8px;">▼ 或手動輸入 ▼</div>
     ${inp('h-H','H - 全高',588,'calcHBeam()')}${inp('h-B','B - 翼板寬度',300,'calcHBeam()')}
     <div class="form-row">${inp('h-tw','tw - 腹板厚',12,'calcHBeam()')}${inp('h-tf','tf - 翼板厚',20,'calcHBeam()')}</div>
     ${inp('h-R','R - 圓角半徑',13,'calcHBeam()')}
-    <button class="btn-calc" onclick="calcHBeam()">計算</button>`;
+    <div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
 }
 function panelPipe(p) {
-  p.innerHTML = `<h2>圓管尺寸 (mm)</h2>${inp('p-D','D - 外徑',48.6,'calcPipe()')}${inp('p-t','t - 壁厚',2.5,'calcPipe()')}<button class="btn-calc" onclick="calcPipe()">計算</button>`;
+  p.innerHTML = `<h2>圓管尺寸 (mm)</h2>${inp('p-D','D - 外徑',48.6,'calcPipe()')}${inp('p-t','t - 壁厚',2.5,'calcPipe()')}<div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
 }
 function panelBox(p) {
-  p.innerHTML = `<h2>方管尺寸 (mm)</h2>${inp('b-X','X - 寬度',200,'calcBox()')}${inp('b-Y','Y - 高度',150,'calcBox()')}${inp('b-t','t - 壁厚',4.5,'calcBox()')}<button class="btn-calc" onclick="calcBox()">計算</button>`;
+  p.innerHTML = `<h2>方管尺寸 (mm)</h2>${inp('b-X','X - 寬度',200,'calcBox()')}${inp('b-Y','Y - 高度',150,'calcBox()')}${inp('b-t','t - 壁厚',4.5,'calcBox()')}<div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
 }
 function panelAngle(p) {
-  p.innerHTML = `<h2>角鋼尺寸 (mm)</h2>${inp('a-X','X - 水平翼長',50,'calcAngle()')}${inp('a-Y','Y - 垂直翼長',50,'calcAngle()')}${inp('a-t','t - 厚度',6,'calcAngle()')}<button class="btn-calc" onclick="calcAngle()">計算</button>`;
+  p.innerHTML = `<h2>角鋼尺寸 (mm)</h2>${inp('a-X','X - 水平翼長',50,'calcAngle()')}${inp('a-Y','Y - 垂直翼長',50,'calcAngle()')}${inp('a-t','t - 厚度',6,'calcAngle()')}<div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
 }
 function panelChannel(p) {
-  p.innerHTML = `<h2>槽鋼尺寸 (mm)</h2>${inp('c-H','H - 全高',125,'calcChannel()')}${inp('c-B','B - 翼板寬度',65,'calcChannel()')}<div class="form-row">${inp('c-tw','tw - 腹板厚',4,'calcChannel()')}${inp('c-tf','tf - 翼板厚',4,'calcChannel()')}</div><button class="btn-calc" onclick="calcChannel()">計算</button>`;
+  p.innerHTML = `<h2>槽鋼尺寸 (mm)</h2>${inp('c-H','H - 全高',125,'calcChannel()')}${inp('c-B','B - 翼板寬度',65,'calcChannel()')}<div class="form-row">${inp('c-tw','tw - 腹板厚',4,'calcChannel()')}${inp('c-tf','tf - 翼板厚',4,'calcChannel()')}</div><div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
 }
 function panelCChannel(p) {
-  p.innerHTML = `<h2>C 型鋼尺寸 (mm)</h2>${inp('cc-H','H - 全高',60,'calcCChannel()')}${inp('cc-B','B - 翼板寬度',30,'calcCChannel()')}${inp('cc-C','C - 唇緣長度',10,'calcCChannel()')}${inp('cc-t','t - 板厚',1.6,'calcCChannel()')}<button class="btn-calc" onclick="calcCChannel()">計算</button>`;
+  p.innerHTML = `<h2>C 型鋼尺寸 (mm)</h2>${inp('cc-H','H - 全高',60,'calcCChannel()')}${inp('cc-B','B - 翼板寬度',30,'calcCChannel()')}${inp('cc-C','C - 唇緣長度',10,'calcCChannel()')}${inp('cc-t','t - 板厚',1.6,'calcCChannel()')}<div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
 }
 function panelSolidRect(p) {
-  p.innerHTML = `<h2>實心矩形尺寸 (mm)</h2>${inp('sr-b','b - 寬度',200,'calcSolidRect()')}${inp('sr-h','h - 高度',300,'calcSolidRect()')}<button class="btn-calc" onclick="calcSolidRect()">計算</button>`;
+  p.innerHTML = `<h2>實心矩形尺寸 (mm)</h2>${inp('sr-b','b - 寬度',200,'calcSolidRect()')}${inp('sr-h','h - 高度',300,'calcSolidRect()')}<div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
 }
 function panelSolidCircle(p) {
-  p.innerHTML = `<h2>實心圓形尺寸 (mm)</h2>${inp('sc-d','D - 直徑',200,'calcSolidCircle()')}<button class="btn-calc" onclick="calcSolidCircle()">計算</button>`;
+  p.innerHTML = `<h2>實心圓形尺寸 (mm)</h2>${inp('sc-d','D - 直徑',200,'calcSolidCircle()')}<div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
 }
 
 // ==================== GEO PANEL ====================
@@ -698,7 +1387,7 @@ function panelGeo(p) {
   p.innerHTML = `<h2>基本幾何斷面</h2>
     <div class="sub-select"><div class="form-group"><label>選擇斷面類型</label><select id="geo-type" onchange="buildGeoInputs()">${opts}</select></div></div>
     <div id="geo-inputs"></div>
-    <button class="btn-calc" onclick="calcGeo()">計算</button>`;
+    <div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
   buildGeoInputs();
 }
 
@@ -752,12 +1441,12 @@ function panelCustom(p) {
   p.innerHTML = `<h2>自訂組合斷面</h2>
     <p class="hint">多個矩形疊加組合。b(寬), h(高), yc(中心Y座標) 皆為 mm。</p>
     <div id="custom-rects">
-      <div class="custom-rect-row" style="margin-top:10px"><div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 1</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="300" step="any" class="rect-b"></div><div class="form-group"><label>h</label><input type="number" value="20" step="any" class="rect-h"></div><div class="form-group"><label>yc</label><input type="number" value="290" step="any" class="rect-yc"></div></div></div>
-      <div class="custom-rect-row"><div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 2</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="12" step="any" class="rect-b"></div><div class="form-group"><label>h</label><input type="number" value="260" step="any" class="rect-h"></div><div class="form-group"><label>yc</label><input type="number" value="150" step="any" class="rect-yc"></div></div></div>
-      <div class="custom-rect-row"><div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 3</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="300" step="any" class="rect-b"></div><div class="form-group"><label>h</label><input type="number" value="20" step="any" class="rect-h"></div><div class="form-group"><label>yc</label><input type="number" value="10" step="any" class="rect-yc"></div></div></div>
+      <div class="custom-rect-row" style="margin-top:10px"><div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 1</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="300" step="any" class="rect-b" oninput="calcCustom()"></div><div class="form-group"><label>h</label><input type="number" value="20" step="any" class="rect-h" oninput="calcCustom()"></div><div class="form-group"><label>yc</label><input type="number" value="290" step="any" class="rect-yc" oninput="calcCustom()"></div></div></div>
+      <div class="custom-rect-row"><div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 2</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="12" step="any" class="rect-b" oninput="calcCustom()"></div><div class="form-group"><label>h</label><input type="number" value="260" step="any" class="rect-h" oninput="calcCustom()"></div><div class="form-group"><label>yc</label><input type="number" value="150" step="any" class="rect-yc" oninput="calcCustom()"></div></div></div>
+      <div class="custom-rect-row"><div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 3</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="300" step="any" class="rect-b" oninput="calcCustom()"></div><div class="form-group"><label>h</label><input type="number" value="20" step="any" class="rect-h" oninput="calcCustom()"></div><div class="form-group"><label>yc</label><input type="number" value="10" step="any" class="rect-yc" oninput="calcCustom()"></div></div></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px"><button class="btn-calc" style="flex:1;background:var(--accent);" onclick="addRect()">+ 新增</button><button class="btn-calc" style="flex:1;background:#ef4444;" onclick="removeRect()">- 移除</button></div>
-    <button class="btn-calc" onclick="calcCustom()">計算</button>`;
+    <div class="auto-calc-badge">⚡ 修改尺寸即時自動更新圖卡與斷面性質</div>`;
 }
 
 // ==================== CALC FUNCTIONS ====================
@@ -776,7 +1465,7 @@ const calcFns = {
 
 // ---------- Solid Rect ----------
 function calcSolidRect() {
-  const bmm=val('sr-b'),hmm=val('sr-h'); if(!bmm||!hmm) return;
+  const bmm=val('sr-b'),hmm=val('sr-h'); if(!bmm||!hmm) return clearSectionResults();
   const b=bmm/10,h=hmm/10;
   const A=b*h;
   const Ix=b*h**3/12, Iy=h*b**3/12;
@@ -797,17 +1486,18 @@ function calcSolidRect() {
     ['J (扭轉常數)',J,'cm⁴'],['b/h 寬高比',bmm/hmm,''],
   ]);
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/bmm,(H-40)/hmm),sw=bmm*sc,sh=hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    const sc=Math.min((W-110)/bmm,(H-80)/hmm),sw=bmm*sc,sh=hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);
-    dimText(ctx,`b=${bmm}`,ox+sw/2,oy+sh+16);dimText(ctx,`h=${hmm}`,ox-24,oy+sh/2);
-    drawAxes(ctx,ox+sw/2,oy+sh/2,Math.max(sw,sh)/2+10);
+    drawDimH(ctx,ox,ox+sw,oy+sh+22,`b = ${bmm} mm`);
+    drawDimV(ctx,ox-26,oy,oy+sh,`h = ${hmm}`);
+    drawAxes(ctx,ox+sw/2,oy+sh/2,Math.max(sw,sh)/2+16);
   });
 }
 
 // ---------- Solid Circle ----------
 function calcSolidCircle() {
-  const Dmm=val('sc-d'); if(!Dmm) return;
+  const Dmm=val('sc-d'); if(!Dmm) return clearSectionResults();
   const D=Dmm/10,r=D/2;
   const A=PI*r**2;
   const I=PI*D**4/64;
@@ -826,18 +1516,18 @@ function calcSolidCircle() {
     ['D (直徑)',D,'cm'],
   ]);
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/Dmm,(H-40)/Dmm),sr=Dmm/2*sc,cx=W/2,cy=H/2;
+    const sc=Math.min((W-110)/Dmm,(H-80)/Dmm),sr=Dmm/2*sc,cx=W/2,cy=H/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(cx,cy,sr,0,PI*2);ctx.fill();ctx.stroke();
-    dimText(ctx,`D=${Dmm}`,cx,cy-sr-8);
-    drawAxes(ctx,cx,cy,sr+10);
+    drawDimH(ctx,cx-sr,cx+sr,cy+sr+22,`D = ${Dmm} mm`);
+    drawAxes(ctx,cx,cy,sr+16);
   });
 }
 
 // ---------- H-Beam ----------
 function calcHBeam() {
   const Hmm=val('h-H'),Bmm=val('h-B'),tw=val('h-tw'),tf=val('h-tf'),R=val('h-R');
-  if(!Hmm||!Bmm||!tw||!tf) return;
+  if (Hmm <= 0 || Bmm <= 0 || tw <= 0 || tf <= 0 || 2 * tf >= Hmm || tw > Bmm) return clearSectionResults();
   const H=Hmm/10,B=Bmm/10,twc=tw/10,tfc=tf/10,Rc=R/10;
   const hw=H-2*tfc;
   let A=2*B*tfc+hw*twc;
@@ -858,65 +1548,112 @@ function calcHBeam() {
   const hw6=hw/6,ArT=B*tfc+hw6*twc,IyrT=tfc*B**3/12+hw6*twc**3/12,rT=Math.sqrt(IyrT/ArT); // 受壓翼板 + 1/3 受壓腹板 (hw/2)/3
   showResults([['A (斷面積)',A,'cm²'],['W (單位重)',W,'kg/m'],['Ix (強軸慣性矩)',Ix,'cm⁴'],['Iy (弱軸慣性矩)',Iy,'cm⁴'],['Sx (強軸斷面模數)',Sx,'cm³'],['Sy (弱軸斷面模數)',Sy,'cm³'],['rx (強軸迴轉半徑)',rx,'cm'],['ry (弱軸迴轉半徑)',ry,'cm'],['Zx (強軸塑性模數)',Zx,'cm³'],['Zy (弱軸塑性模數)',Zy,'cm³'],['Avx (腹板剪力面積)',Avx,'cm²'],['Avy (翼板剪力面積)',Avy,'cm²'],['J (扭轉常數)',J,'cm⁴'],['Cw (翹曲常數)',Cw,'cm⁶'],['rT',rT,'cm'],['翼板寬厚比 B/(2tf)',Bmm/(2*tf),''],['腹板寬厚比 h/tw',(Hmm-2*tf)/tw,'']]);
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/Bmm,(H-40)/Hmm),sw=Bmm*sc,sh=Hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2,stw=tw*sc,stf=tf*sc;
+    const sc=Math.min((W-120)/Bmm,(H-84)/Hmm),sw=Bmm*sc,sh=Hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2,stw=Math.max(2,tw*sc),stf=Math.max(2,tf*sc);
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sw,oy);ctx.lineTo(ox+sw,oy+stf);ctx.lineTo(ox+sw/2+stw/2,oy+stf);ctx.lineTo(ox+sw/2+stw/2,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.lineTo(ox,oy+sh-stf);ctx.lineTo(ox+sw/2-stw/2,oy+sh-stf);ctx.lineTo(ox+sw/2-stw/2,oy+stf);ctx.lineTo(ox,oy+stf);ctx.closePath();ctx.fill();ctx.stroke();
-    dimText(ctx,`H=${Hmm}`,ox-24,oy+sh/2);dimText(ctx,`B=${Bmm}`,ox+sw/2,oy+sh+16);
-    drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+10);
+    drawDimV(ctx,ox-26,oy,oy+sh,`H=${Hmm}`);
+    drawDimH(ctx,ox,ox+sw,oy+sh+22,`B=${Bmm} mm`);
+    dimText(ctx,`tw=${tw}, tf=${tf}`,ox+sw/2+stw/2+44,oy+sh/2-18);
+    drawAxes(ctx,ox+sw/2,oy+sh/2,Math.max(sw,sh)/2+16);
   });
 }
 
 // ---------- Pipe ----------
 function calcPipe() {
-  const D=val('p-D'),t=val('p-t'); if(!D||!t) return;
+  const D=val('p-D'),t=val('p-t'); if (D <= 0 || t <= 0 || 2 * t >= D) return clearSectionResults();
   const Dc=D/10,tc=t/10,d=Dc-2*tc;
   const A=PI/4*(Dc**2-d**2),I=PI/64*(Dc**4-d**4),S=I/(Dc/2),r=Math.sqrt(I/A),Z=(Dc**3-d**3)/6,J=PI/32*(Dc**4-d**4);
   showResults([['A',A,'cm²'],['W',A*0.785,'kg/m'],['I (慣性矩)',I,'cm⁴'],['S (斷面模數)',S,'cm³'],['r (迴轉半徑)',r,'cm'],['Z (塑性模數)',Z,'cm³'],['J (扭轉常數)',J,'cm⁴']]);
-  drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/D,(H-40)/D),sr=D/2*sc,sir=(D/2-t)*sc,cx=W/2,cy=H/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,sr,0,PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sir,0,PI*2);ctx.fill();ctx.stroke();dimText(ctx,`D=${D}`,cx,cy-sr-8);drawAxes(ctx,cx,cy,sr+10);});
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-110)/D,(H-84)/D),sr=D/2*sc,sir=Math.max(2,(D/2-t)*sc),cx=W/2,cy=H/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(cx,cy,sr,0,PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sir,0,PI*2);ctx.fill();ctx.stroke();
+    drawDimH(ctx,cx-sr,cx+sr,cy+sr+22,`D = ${D} mm`);
+    dimText(ctx,`t = ${t} mm`,cx+sr+34,cy-sr/2);
+    drawAxes(ctx,cx,cy,sr+16);
+  });
 }
 
 // ---------- Box ----------
 function calcBox() {
-  const X=val('b-X'),Y=val('b-Y'),t=val('b-t'); if(!X||!Y||!t) return;
+  const X=val('b-X'),Y=val('b-Y'),t=val('b-t'); if(!X||!Y||!t) return clearSectionResults();
   const Xc=X/10,Yc=Y/10,tc=t/10,Xi=Xc-2*tc,Yi=Yc-2*tc;
   const A=Xc*Yc-Xi*Yi,Ix=(Xc*Yc**3-Xi*Yi**3)/12,Iy=(Yc*Xc**3-Yi*Xi**3)/12;
   showResults([['A',A,'cm²'],['W',A*0.785,'kg/m'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(Yc/2),'cm³'],['Sy',Iy/(Xc/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']]);
-  drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/X,(H-40)/Y),sw=X*sc,sh=Y*sc,st=t*sc,ox=(W-sw)/2,oy=(H-sh)/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);ctx.fillStyle='#f8fafc';ctx.fillRect(ox+st,oy+st,sw-2*st,sh-2*st);ctx.strokeRect(ox+st,oy+st,sw-2*st,sh-2*st);dimText(ctx,`X=${X}`,ox+sw/2,oy+sh+16);dimText(ctx,`Y=${Y}`,ox-20,oy+sh/2);drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+10);});
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-120)/X,(H-84)/Y),sw=X*sc,sh=Y*sc,st=Math.max(2,t*sc),ox=(W-sw)/2,oy=(H-sh)/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);
+    ctx.fillStyle='#f8fafc';ctx.fillRect(ox+st,oy+st,sw-2*st,sh-2*st);ctx.strokeRect(ox+st,oy+st,sw-2*st,sh-2*st);
+    drawDimH(ctx,ox,ox+sw,oy+sh+22,`X = ${X} mm`);
+    drawDimV(ctx,ox-26,oy,oy+sh,`Y = ${Y}`);
+    dimText(ctx,`t = ${t} mm`,ox+sw+32,oy+22);
+    drawAxes(ctx,ox+sw/2,oy+sh/2,Math.max(sw,sh)/2+16);
+  });
 }
 
 // ---------- Angle ----------
 function calcAngle() {
-  const X=val('a-X'),Y=val('a-Y'),t=val('a-t'); if(!X||!Y||!t) return;
+  const X=val('a-X'),Y=val('a-Y'),t=val('a-t'); if(!X||!Y||!t) return clearSectionResults();
   const Xc=X/10,Yc=Y/10,tc=t/10;
   const A1=Xc*tc,A2=(Yc-tc)*tc,A=A1+A2;
   const Cy=(A1*tc/2+A2*(tc+(Yc-tc)/2))/A, Cx=(A1*Xc/2+A2*tc/2)/A;
   const Ix=Xc*tc**3/12+A1*(Cy-tc/2)**2+tc*(Yc-tc)**3/12+A2*(tc+(Yc-tc)/2-Cy)**2;
   const Iy=tc*Xc**3/12+A1*(Cx-Xc/2)**2+(Yc-tc)*tc**3/12+A2*(Cx-tc/2)**2;
   showResults([['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/Math.max(Cy,Yc-Cy),'cm³'],['Sy',Iy/Math.max(Cx,Xc-Cx),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm'],['Cy (形心距底)',Cy,'cm'],['Cx (形心距左)',Cx,'cm']]);
-  drawSection((ctx,W,H)=>{const sc=Math.min((W-80)/X,(H-40)/Y),sw=X*sc,sh=Y*sc,st=t*sc,ox=(W-sw)/2,oy=(H-sh)/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy+sh);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox+sw,oy+sh-st);ctx.lineTo(ox+st,oy+sh-st);ctx.lineTo(ox+st,oy);ctx.lineTo(ox,oy);ctx.closePath();ctx.fill();ctx.stroke();const cxp=ox+Cx/Xc*sw,cyp=oy+sh-Cy/Yc*sh;ctx.fillStyle='#ef4444';ctx.beginPath();ctx.arc(cxp,cyp,4,0,PI*2);ctx.fill();dimText(ctx,'C.G.',cxp+14,cyp-6);});
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-120)/X,(H-84)/Y),sw=X*sc,sh=Y*sc,st=Math.max(3,t*sc),ox=(W-sw)/2,oy=(H-sh)/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ox,oy+sh);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox+sw,oy+sh-st);ctx.lineTo(ox+st,oy+sh-st);ctx.lineTo(ox+st,oy);ctx.lineTo(ox,oy);ctx.closePath();ctx.fill();ctx.stroke();
+    const cxp=ox+Cx/Xc*sw,cyp=oy+sh-Cy/Yc*sh;
+    drawAxes(ctx,cxp,cyp,Math.max(sw,sh)*0.65);
+    drawDimH(ctx,ox,ox+sw,oy+sh+22,`X = ${X} mm`);
+    drawDimV(ctx,ox-26,oy,oy+sh,`Y = ${Y}`);
+    dimText(ctx,`t = ${t} mm`,ox+sw-20,oy+sh-st-12);
+    dimText(ctx,`C.G. (${fmt(Cx)}, ${fmt(Cy)} cm)`,cxp+54,cyp-14);
+  });
 }
 
 // ---------- Channel ----------
 function calcChannel() {
-  const Hmm=val('c-H'),Bmm=val('c-B'),tw=val('c-tw'),tf=val('c-tf'); if(!Hmm||!Bmm||!tw||!tf) return;
+  const Hmm=val('c-H'),Bmm=val('c-B'),tw=val('c-tw'),tf=val('c-tf'); if(!Hmm||!Bmm||!tw||!tf) return clearSectionResults();
   const H=Hmm/10,B=Bmm/10,twc=tw/10,tfc=tf/10,hw=H-2*tfc;
   const A=2*B*tfc+hw*twc, Cy=(hw*twc*twc/2+2*B*tfc*B/2)/A;
   const Ix=twc*hw**3/12+2*(B*tfc**3/12+B*tfc*((H-tfc)/2)**2);
   const Iy=hw*twc**3/12+hw*twc*(Cy-twc/2)**2+2*(tfc*B**3/12+B*tfc*(B/2-Cy)**2);
   showResults([['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(H/2),'cm³'],['Sy',Iy/Math.max(Cy,B-Cy),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm'],['Cy (形心距腹板)',Cy,'cm']]);
-  drawSection((ctx,W,H)=>{const sc=Math.min((W-80)/Bmm,(H-40)/Hmm),sw=Bmm*sc,sh=Hmm*sc,stw=tw*sc,stf=tf*sc,ox=(W-sw)/2,oy=(H-sh)/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sw,oy);ctx.lineTo(ox+sw,oy+stf);ctx.lineTo(ox+stw,oy+stf);ctx.lineTo(ox+stw,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+10);});
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-120)/Bmm,(H-84)/Hmm),sw=Bmm*sc,sh=Hmm*sc,stw=Math.max(2,tw*sc),stf=Math.max(2,tf*sc),ox=(W-sw)/2,oy=(H-sh)/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sw,oy);ctx.lineTo(ox+sw,oy+stf);ctx.lineTo(ox+stw,oy+stf);ctx.lineTo(ox+stw,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();
+    const cxp=ox+Cy/B*sw,cyp=oy+sh/2;
+    drawAxes(ctx,cxp,cyp,Math.max(sw,sh)/2+16);
+    drawDimV(ctx,ox-26,oy,oy+sh,`H=${Hmm}`);
+    drawDimH(ctx,ox,ox+sw,oy+sh+22,`B=${Bmm} mm`);
+    dimText(ctx,`tw=${tw}, tf=${tf}`,ox+sw+42,oy+sh/2-18);
+  });
 }
 
 // ---------- C-Channel ----------
 function calcCChannel() {
-  const Hmm=val('cc-H'),Bmm=val('cc-B'),Cmm=val('cc-C'),tmm=val('cc-t'); if(!Hmm||!Bmm||!tmm) return;
+  const Hmm=val('cc-H'),Bmm=val('cc-B'),Cmm=val('cc-C'),tmm=val('cc-t'); if(!Hmm||!Bmm||!tmm) return clearSectionResults();
   const H=Hmm/10,B=Bmm/10,C=Cmm/10,t=tmm/10,hc=H-t,bc=B-t,cc=C-t/2;
   const Aw=hc*t,Af=2*bc*t,Al=2*cc*t,A=Aw+Af+Al;
   const xw=t/2,xf=t/2+bc/2,xl=t/2+bc,Cy=(Aw*xw+Af*xf+Al*xl)/A; // 中心線模型：翼板 t/2→B−t/2，唇緣中心線 x=B−t/2
   const Ix=t*hc**3/12+2*(bc*t**3/12+bc*t*(hc/2)**2)+2*(t*cc**3/12+cc*t*((hc-cc)/2)**2);
   const Iy=hc*t**3/12+Aw*(Cy-xw)**2+2*(t*bc**3/12+bc*t*(xf-Cy)**2)+2*(cc*t**3/12+cc*t*(xl-Cy)**2);
   showResults([['A',A,'cm²'],['W',A*0.785,'kg/m'],['Cy',Cy,'cm'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(H/2),'cm³'],['Sy',Iy/Math.max(Cy,B-Cy),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']]);
-  drawSection((ctx,W,H)=>{const tot=Bmm+Cmm,sc=Math.min((W-80)/tot,(H-40)/Hmm),sh=Hmm*sc,sb=Bmm*sc,scc=Cmm*sc,st=tmm*sc,ox=(W-(sb+scc))/2,oy=(H-sh)/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sb,oy);ctx.lineTo(ox+sb,oy+scc);ctx.lineTo(ox+sb-st,oy+scc);ctx.lineTo(ox+sb-st,oy+st);ctx.lineTo(ox+st,oy+st);ctx.lineTo(ox+st,oy+sh-st);ctx.lineTo(ox+sb-st,oy+sh-st);ctx.lineTo(ox+sb-st,oy+sh-scc);ctx.lineTo(ox+sb,oy+sh-scc);ctx.lineTo(ox+sb,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();});
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-120)/Bmm,(H-84)/Hmm),sh=Hmm*sc,sb=Bmm*sc,scc=Math.max(4,Cmm*sc),st=Math.max(2,tmm*sc),ox=(W-sb)/2,oy=(H-sh)/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sb,oy);ctx.lineTo(ox+sb,oy+scc);ctx.lineTo(ox+sb-st,oy+scc);ctx.lineTo(ox+sb-st,oy+st);ctx.lineTo(ox+st,oy+st);ctx.lineTo(ox+st,oy+sh-st);ctx.lineTo(ox+sb-st,oy+sh-st);ctx.lineTo(ox+sb-st,oy+sh-scc);ctx.lineTo(ox+sb,oy+sh-scc);ctx.lineTo(ox+sb,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();
+    const cxp=ox+Cy/B*sb,cyp=oy+sh/2;
+    drawAxes(ctx,cxp,cyp,Math.max(sb,sh)/2+16);
+    drawDimV(ctx,ox-26,oy,oy+sh,`H=${Hmm}`);
+    drawDimH(ctx,ox,ox+sb,oy+sh+22,`B=${Bmm} mm`);
+    dimText(ctx,`C=${Cmm}, t=${tmm}`,ox+sb+42,oy+20);
+  });
 }
 
 // ==================== GEO CALC ====================
@@ -939,18 +1676,18 @@ function calcGeo() {
   let results = [];
 
   if (t==='rect-c') {
-    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return clearSectionResults();
     const A=b*h, I=b*h**3/12, S=b*h**2/6, r=h/Math.sqrt(12);
     const Iy=h*b**3/12, Sy=h*b**2/6, ry=b/Math.sqrt(12);
     results=[['A',A,'cm²'],['Ix',I,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',S,'cm³'],['Sy',Sy,'cm³'],['rx',r,'cm'],['ry',ry,'cm'],['e (形心距)',h/2,'cm']];
     drawGeoRect(g('b'),g('h'),'center');
   } else if (t==='rect-e') {
-    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return clearSectionResults();
     const A=b*h, I=b*h**3/3, S=b*h**2/3, r=h/Math.sqrt(3);
     results=[['A',A,'cm²'],['I (軸在底邊)',I,'cm⁴'],['S',S,'cm³'],['r',r,'cm'],['e (底邊到頂)',h,'cm']];
     drawGeoRect(g('b'),g('h'),'edge');
   } else if (t==='rect-rot') {
-    const b=g('b')/10,h=g('h')/10,th=g('theta')*PI/180; if(!b||!h) return;
+    const b=g('b')/10,h=g('h')/10,th=g('theta')*PI/180; if(!b||!h) return clearSectionResults();
     const A=b*h, ct=Math.cos(th),st=Math.sin(th);
     const I=b*h/12*(h**2*ct**2+b**2*st**2);
     const e=(h*ct+b*st)/2;
@@ -958,44 +1695,44 @@ function calcGeo() {
     results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['r',r,'cm'],['e',e,'cm']];
     drawGeoRotRect(g('b'),g('h'),g('theta'));
   } else if (t==='square-dia') {
-    const a=g('a')/10; if(!a) return;
+    const a=g('a')/10; if(!a) return clearSectionResults();
     const A=a**2, I=a**4/12, e=a/Math.sqrt(2), S=a**3/(6*Math.sqrt(2)), r=a/Math.sqrt(12);
     results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['r',r,'cm'],['e (形心到角)',e,'cm']];
     drawGeoDiamond(g('a'));
   } else if (t==='hollow-rect') {
-    const b=g('b')/10,h=g('h')/10,b1=g('b1')/10,h1=g('h1')/10; if(!b||!h||!b1||!h1) return;
+    const b=g('b')/10,h=g('h')/10,b1=g('b1')/10,h1=g('h1')/10; if(!b||!h||!b1||!h1) return clearSectionResults();
     const A=b*h-b1*h1, Ix=(b*h**3-b1*h1**3)/12, Iy=(h*b**3-h1*b1**3)/12;
     results=[['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(h/2),'cm³'],['Sy',Iy/(b/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']];
     drawGeoHollowRect(g('b'),g('h'),g('b1'),g('h1'));
   } else if (t==='hollow-rect2') {
-    const b=g('b')/10,h=g('h')/10,t2=g('t')/10; if(!b||!h||!t2) return;
+    const b=g('b')/10,h=g('h')/10,t2=g('t')/10; if(!b||!h||!t2) return clearSectionResults();
     const bi=b-2*t2,hi=h-2*t2,A=b*h-bi*hi,Ix=(b*h**3-bi*hi**3)/12,Iy=(h*b**3-hi*bi**3)/12;
     results=[['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(h/2),'cm³'],['Sy',Iy/(b/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']];
     drawGeoHollowRect(g('b'),g('h'),g('b')-2*g('t'),g('h')-2*g('t'));
   } else if (t==='solid-circle') {
-    const d=g('d')/10; if(!d) return;
+    const d=g('d')/10; if(!d) return clearSectionResults();
     const A=PI*d**2/4, I=PI*d**4/64, S=PI*d**3/32, r=d/4, Z=d**3/6;
     results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['Z (塑性)',Z,'cm³'],['r',r,'cm']];
     drawGeoCircle(g('d'),0);
   } else if (t==='hollow-circle') {
-    const D=g('d')/10,d=g('d1')/10; if(!D||!d) return;
+    const D=g('d')/10,d=g('d1')/10; if(!D||!d) return clearSectionResults();
     const A=PI/4*(D**2-d**2),I=PI/64*(D**4-d**4),S=I/(D/2),r=Math.sqrt(I/A),Z=(D**3-d**3)/6;
     results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['Z (塑性)',Z,'cm³'],['r',r,'cm']];
     drawGeoCircle(g('d'),g('d1'));
   } else if (t==='semicircle') {
-    const r0=g('r')/10; if(!r0) return;
+    const r0=g('r')/10; if(!r0) return clearSectionResults();
     const A=PI*r0**2/2, e=4*r0/(3*PI), I_base=PI*r0**4/8;
     const Ix=I_base-A*e**2; // about centroid
     const ey_top=r0-e, ey_bot=e;
     results=[['A',A,'cm²'],['Ix (形心軸)',Ix,'cm⁴'],['Ix (底邊軸)',I_base,'cm⁴'],['e (形心距底)',e,'cm'],['Sx_top',Ix/ey_top,'cm³'],['Sx_bot',Ix/ey_bot,'cm³'],['rx',Math.sqrt(Ix/A),'cm']];
     drawGeoSemicircle(g('r'));
   } else if (t==='triangle') {
-    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return clearSectionResults();
     const A=b*h/2, e=h/3, I=b*h**3/36, S=b*h**2/24, r=h/Math.sqrt(18);
     results=[['A',A,'cm²'],['I (形心軸)',I,'cm⁴'],['S (形心軸)',S,'cm³'],['r',r,'cm'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',2*h/3,'cm']];
     drawGeoTriangle(g('b'),g('h'),'center');
   } else if (t==='triangle-e') {
-    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return clearSectionResults();
     const A=b*h/2, I=b*h**3/12, S=b*h**2/6;
     results=[['A',A,'cm²'],['I (底邊軸)',I,'cm⁴'],['S (底邊軸)',S,'cm³'],['r',h/Math.sqrt(6),'cm'],['e (底到頂)',h,'cm']];
     drawGeoTriangle(g('b'),g('h'),'edge');
@@ -1011,13 +1748,13 @@ function calcGeo() {
     if (t==='sym-trapezoid') results.push(['S (底緣)',I/e,'cm³'],['S (頂緣)',I/e1,'cm³']);
     drawGeoTrapezoid(g('b'),g('b1'),g('h'),'center');
   } else if (t==='trapezoid-e') {
-    const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return;
+    const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return clearSectionResults();
     const A=h*(b+b1)/2;
     const I=h**3*(b+3*b1)/12; // 對下底 b 軸
     results=[['A',A,'cm²'],['I (下底軸)',I,'cm⁴'],['S',I/h,'cm³'],['r',Math.sqrt(I/A),'cm'],['e (底到頂)',h,'cm']];
     drawGeoTrapezoid(g('b'),g('b1'),g('h'),'edge');
   } else if (t==='hexagon') {
-    const a=g('a')/10; if(!a) return;
+    const a=g('a')/10; if(!a) return clearSectionResults();
     const A=3*Math.sqrt(3)/2*a**2, r2=a, r1=a*Math.sqrt(3)/2;
     const I=5*Math.sqrt(3)/16*a**4;
     const e=a; // r2
@@ -1025,14 +1762,14 @@ function calcGeo() {
     results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['r',Math.sqrt(I/A),'cm'],['e (形心到頂)',e,'cm'],['外接圓半徑 r₂',r2,'cm'],['內切圓半徑 r₁',r1,'cm']];
     drawGeoPolygon(6,g('a'),0);
   } else if (t==='hexagon-f') {
-    const h=g('h')/10; if(!h) return;
+    const h=g('h')/10; if(!h) return clearSectionResults();
     const a=h/Math.sqrt(3); // side length from flat-to-flat
     const A=3*Math.sqrt(3)/2*a**2;
     const I=5*Math.sqrt(3)/16*a**4;
     results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',I/(h/2),'cm³'],['r',Math.sqrt(I/A),'cm'],['e (形心距邊)',h/2,'cm'],['邊長 a',a,'cm']];
     drawGeoPolygon(6,g('h')/Math.sqrt(3),30);
   } else if (t==='octagon') {
-    const h=g('h')/10; if(!h) return;
+    const h=g('h')/10; if(!h) return clearSectionResults();
     const A=2*h**2*Math.tan(PI/8);
     const a=h*Math.tan(PI/8); // side length
     const I=A/48*h**2*(1+2*Math.cos(PI/8)**2/(Math.cos(PI/8)**2)); // approximate
@@ -1048,7 +1785,7 @@ function calcGeo() {
     results=[['A',A,'cm²'],['I',Igen,'cm⁴'],['S',Igen/(h/2),'cm³'],['r',Math.sqrt(Igen/A),'cm'],['e',h/2,'cm'],['邊長',s*10,'mm']];
     drawGeoPolygon(8,s*10,PI/8*180/PI);
   } else if (t==='polygon') {
-    const n=g('n'),a=g('a')/10; if(!n||n<3||!a) return;
+    const n=g('n'),a=g('a')/10; if(!n||n<3||!a) return clearSectionResults();
     const alpha=PI/n;
     const r1=a/(2*Math.tan(alpha)); // apothem (inscribed circle radius)
     const r2=a/(2*Math.sin(alpha)); // circumscribed circle radius
@@ -1057,14 +1794,14 @@ function calcGeo() {
     results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',I/r2,'cm³'],['r',Math.sqrt(I/A),'cm'],['r₁ (內切圓)',r1,'cm'],['r₂ (外接圓)',r2,'cm']];
     drawGeoPolygon(n,g('a'),0);
   } else if (t==='diamond-hollow') {
-    const b=g('b')/10,a=g('a')/10; if(!b||!a) return;
+    const b=g('b')/10,a=g('a')/10; if(!b||!a) return clearSectionResults();
     const A=b**2-a**2, I=(b**4-a**4)/12;
     const e=b/Math.sqrt(2);
     const S=Math.sqrt(2)*(b**4-a**4)/(12*b);
     results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['r',Math.sqrt(I/A),'cm'],['e',e,'cm']];
     drawGeoHollowDiamond(g('b'),g('a'));
   } else if (t==='tee') {
-    const bf=g('bf')/10,tf=g('tf')/10,hw=g('hw')/10,tw=g('tw')/10; if(!bf||!tf||!hw||!tw) return;
+    const bf=g('bf')/10,tf=g('tf')/10,hw=g('hw')/10,tw=g('tw')/10; if(!bf||!tf||!hw||!tw) return clearSectionResults();
     const Af=bf*tf, Aw=hw*tw, A=Af+Aw;
     const H=hw+tf;
     const yf=hw+tf/2, yw=hw/2;
@@ -1075,44 +1812,44 @@ function calcGeo() {
     results=[['A',A,'cm²'],['Ybar (形心距底)',Ybar,'cm'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx_top',Ix/et,'cm³'],['Sx_bot',Ix/eb,'cm³'],['Sy',Iy/(bf/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']];
     drawGeoTee(g('bf'),g('tf'),g('hw'),g('tw'));
   } else if (t==='ellipse') {
-    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return clearSectionResults();
     const A=PI*b*h/4, Ix=PI*b*h**3/64, Iy=PI*h*b**3/64;
     results=[['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',PI*b*h**2/32,'cm³'],['Sy',PI*h*b**2/32,'cm³'],['rx',h/4,'cm'],['ry',b/4,'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('b'),(H-40)/g('h')),cx=W/2,cy=H/2,rx=g('b')/2*sc,ry=g('h')/2*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,PI*2);ctx.fill();ctx.stroke();dimText(ctx,`b=${g('b')}`,cx,cy+ry+16);dimText(ctx,`h=${g('h')}`,cx-rx-20,cy);drawAxes(ctx,cx,cy,Math.max(rx,ry)+10);});
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-110)/g('b'),(H-80)/g('h')),cx=W/2,cy=H/2,rx=g('b')/2*sc,ry=g('h')/2*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,PI*2);ctx.fill();ctx.stroke();drawDimH(ctx,cx-rx,cx+rx,cy+ry+22,`b=${g('b')}`);drawDimV(ctx,cx-rx-26,cy-ry,cy+ry,`h=${g('h')}`);drawAxes(ctx,cx,cy,Math.max(rx,ry)+14);});
 
   } else if (t==='half-ellipse') {
-    const a=g('a')/10,b=g('bb')/10; if(!a||!b) return;
+    const a=g('a')/10,b=g('bb')/10; if(!a||!b) return clearSectionResults();
     const A=PI*a*b/2, e1=4*a/(3*PI), e=a-e1;
     const I=(PI/8-8/(9*PI))*a**3*b;
     results=[['A',A,'cm²'],['e (形心距底)',e1,'cm'],['e₁ (形心距頂)',e,'cm'],['I (形心軸)',I,'cm⁴'],['S',0.1907*a**2*b,'cm³'],['S₁',0.2586*a**2*b,'cm³'],['r',Math.sqrt(I/A),'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('bb')*2),(H-40)/g('a')),cx=W/2,cy=H/2+g('a')*sc/4,rx=g('bb')*sc,ry=g('a')*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,PI,0);ctx.closePath();ctx.fill();ctx.stroke();drawAxes(ctx,cx,cy-4*g('a')*sc/(3*PI),rx+10);});
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-110)/(g('bb')*2),(H-80)/g('a')),cx=W/2,cy=H/2+g('a')*sc/4,rx=g('bb')*sc,ry=g('a')*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,PI,0);ctx.closePath();ctx.fill();ctx.stroke();drawDimH(ctx,cx-rx,cx+rx,cy+22,`2b=${g('bb')*2}`);drawDimV(ctx,cx-rx-26,cy-ry,cy,`a=${g('a')}`);drawAxes(ctx,cx,cy-4*g('a')*sc/(3*PI),rx+14);});
 
   } else if (t==='quarter-circle') {
-    const R=g('R')/10; if(!R) return;
+    const R=g('R')/10; if(!R) return clearSectionResults();
     const A=PI*R**2/4, e=0.5756*R, e1=0.4244*R;
     const I=0.055*R**4;
     results=[['A',A,'cm²'],['e (距曲邊)',e,'cm'],['e₁ (距直邊)',e1,'cm'],['I',I,'cm⁴'],['S',0.0956*R**3,'cm³'],['S₁',0.1296*R**3,'cm³'],['r',0.26433*R,'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('R'),(H-40)/g('R')),sr=g('R')*sc,ox=W/2-sr/2,oy=H/2-sr/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy+sr);ctx.lineTo(ox,oy);ctx.lineTo(ox+sr,oy);ctx.arc(ox,oy,sr,0,PI/2);ctx.closePath();ctx.fill();ctx.stroke();});
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-110)/g('R'),(H-80)/g('R')),sr=g('R')*sc,ox=W/2-sr/2,oy=H/2-sr/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy+sr);ctx.lineTo(ox,oy);ctx.lineTo(ox+sr,oy);ctx.arc(ox,oy,sr,0,PI/2);ctx.closePath();ctx.fill();ctx.stroke();drawDimH(ctx,ox,ox+sr,oy-18,`R = ${g('R')} mm`);drawAxes(ctx,ox+0.4244*sr,oy+0.4244*sr,sr*0.6);});
 
   } else if (t==='fillet') {
-    const R=g('R')/10; if(!R) return;
+    const R=g('R')/10; if(!R) return clearSectionResults();
     const A=(1-PI/4)*R**2, e=0.2234*R, e1=0.7766*R;
     const I=0.0075*R**4;
     results=[['A',A,'cm²'],['e',e,'cm'],['e₁',e1,'cm'],['I',I,'cm⁴'],['S',I/e,'cm³'],['S₁',I/e1,'cm³'],['r',0.187*R,'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('R'),(H-40)/g('R')),sr=g('R')*sc,ox=W/2-sr/2,oy=H/2-sr/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sr,oy);ctx.lineTo(ox+sr,oy+sr);ctx.arc(ox,oy,sr,PI/2,0,true);ctx.closePath();ctx.fill();ctx.stroke();});
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-110)/g('R'),(H-80)/g('R')),sr=g('R')*sc,ox=W/2-sr/2,oy=H/2-sr/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sr,oy);ctx.lineTo(ox+sr,oy+sr);ctx.arc(ox,oy,sr,PI/2,0,true);ctx.closePath();ctx.fill();ctx.stroke();drawDimH(ctx,ox,ox+sr,oy-18,`R = ${g('R')} mm`);drawAxes(ctx,ox+0.7766*sr,oy+0.2234*sr,sr*0.5);});
 
   } else if (t==='sector') {
-    const R=g('R')/10, deg=g('alpha'), alpha=deg/2*PI/180; if(!R||!deg) return;
+    const R=g('R')/10, deg=g('alpha'), alpha=deg/2*PI/180; if(!R||!deg) return clearSectionResults();
     const A=alpha*R**2;
     const e_cg=2*R*Math.sin(alpha)/(3*alpha);
     const I=R**4/4*(alpha+Math.sin(alpha)*Math.cos(alpha)-16*Math.sin(alpha)**2/(9*alpha));
     const I_tip=R**4/4*(alpha-Math.sin(alpha)*Math.cos(alpha));
     const e_arc=R*Math.sin(alpha);
     results=[['A',A,'cm²'],['e (形心距圓心)',e_cg,'cm'],['I (形心軸)',I,'cm⁴'],['I (尖端軸)',I_tip,'cm⁴'],['S_tip',I_tip/e_arc,'cm³'],['r_cg',Math.sqrt(I/A),'cm'],['r_tip',Math.sqrt(I_tip/A),'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('R')*2),(H-40)/(g('R')*2)),sr=g('R')*sc,cx=W/2,cy=H/2;const a=alpha;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,sr,-a,a);ctx.closePath();ctx.fill();ctx.stroke();dimText(ctx,`R=${g('R')}`,cx+sr/2+10,cy);dimText(ctx,`2α=${deg}°`,cx,cy-sr/2-8);drawAxes(ctx,cx,cy,sr+10);});
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-110)/(g('R')*2),(H-80)/(g('R')*2)),sr=g('R')*sc,cx=W/2,cy=H/2;const a=alpha;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,sr,-a,a);ctx.closePath();ctx.fill();ctx.stroke();dimText(ctx,`R=${g('R')}`,cx+sr/2+24,cy+18);dimText(ctx,`2α=${deg}°`,cx,cy-sr/2-14);drawAxes(ctx,cx,cy,sr+14);});
 
   } else if (t==='segment') {
-    const R=g('R')/10, deg=g('alpha'), alpha=deg/2*PI/180; if(!R||!deg) return;
+    const R=g('R')/10, deg=g('alpha'), alpha=deg/2*PI/180; if(!R||!deg) return clearSectionResults();
     const A=R**2/2*(2*alpha-Math.sin(2*alpha));
     const e=R*Math.sin(alpha);
     const sin3=Math.sin(alpha)**3, cos1=Math.cos(alpha), sin2a=Math.sin(2*alpha);
@@ -1121,7 +1858,7 @@ function calcGeo() {
     const I_center=R**4/4*(alpha-sin2a/2+2*sin3*cos1); // 對過圓心且平行弦之軸
     const I_cg=I_center-A*e_center**2;
     results=[['A',A,'cm²'],['e (弦到弧頂)',R*(1-cos1),'cm'],['形心距弦',e_cg,'cm'],['I (形心軸)',I_cg,'cm⁴'],['r',Math.sqrt(I_cg/A),'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('R')*2),(H-40)/g('R')),sr=g('R')*sc,cx=W/2,cy=H/2;const a=alpha;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,sr,PI/2-a,PI/2+a);ctx.closePath();ctx.fill();ctx.stroke();});
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-110)/(g('R')*2),(H-80)/g('R')),sr=g('R')*sc,cx=W/2,cy=H/2-sr/3;const a=alpha;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,sr,PI/2-a,PI/2+a);ctx.closePath();ctx.fill();ctx.stroke();dimText(ctx,`R=${g('R')}, 2α=${deg}°`,cx,cy+sr+22);drawAxes(ctx,cx,cy+e_center/R*sr,sr*0.8);});
 
   } else if (t==='parabola') {
     const b=g('b')/10,h=g('h')/10;
@@ -1129,7 +1866,7 @@ function calcGeo() {
     const A=4*b*h/3, e=2*h/5, e1=3*h/5; // 頂點在上，形心距底 2h/5
     const I=16*b*h**3/175;
     results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['S (頂緣)',I/e1,'cm³'],['S₁ (底緣)',I/e,'cm³'],['r',Math.sqrt(I/A),'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('b')*2),(H-40)/g('h')),sw=g('b')*sc,sh=g('h')*sc,cx=W/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-sw,bot);for(let i=-1;i<=1;i+=0.02){const x=i*sw,y=bot-sh*(1-i*i);}ctx.moveTo(cx-sw,bot);for(let i=0;i<=40;i++){const tt=i/40,xx=-1+2*tt;ctx.lineTo(cx+xx*sw,bot-sh*(1-xx*xx));}ctx.lineTo(cx+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();dimText(ctx,`2b=${g('b')*2}`,cx,bot+16);dimText(ctx,`h=${g('h')}`,cx-sw-22,H/2);});
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-110)/(g('b')*2),(H-80)/g('h')),sw=g('b')*sc,sh=g('h')*sc,cx=W/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-sw,bot);for(let i=0;i<=40;i++){const tt=i/40,xx=-1+2*tt;ctx.lineTo(cx+xx*sw,bot-sh*(1-xx*xx));}ctx.lineTo(cx+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();drawDimH(ctx,cx-sw,cx+sw,bot+22,`2b=${g('b')*2}`);drawDimV(ctx,cx-sw-26,bot-sh,bot,`h=${g('h')}`);drawAxes(ctx,cx,bot-2*sh/5,sw+14);});
 
   } else if (t==='half-parabola') {
     const b=g('b')/10,h=g('h')/10;
@@ -1137,14 +1874,14 @@ function calcGeo() {
     const A=2*b*h/3, e=2*h/5, e1=3*h/5; // 頂點在上，形心距底 2h/5
     const I=8*b*h**3/175;
     results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['S (頂緣)',I/e1,'cm³'],['S₁ (底緣)',I/e,'cm³'],['r',Math.sqrt(I/A),'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('b'),(H-40)/g('h')),sw=g('b')*sc,sh=g('h')*sc,ox=W/2-sw/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,bot);for(let i=0;i<=40;i++){const tt=i/40;ctx.lineTo(ox+tt*sw,bot-sh*(1-tt*tt));}ctx.lineTo(ox+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();});
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-110)/g('b'),(H-80)/g('h')),sw=g('b')*sc,sh=g('h')*sc,ox=W/2-sw/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,bot);for(let i=0;i<=40;i++){const tt=i/40;ctx.lineTo(ox+tt*sw,bot-sh*(1-tt*tt));}ctx.lineTo(ox+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();drawDimH(ctx,ox,ox+sw,bot+22,`b=${g('b')}`);drawDimV(ctx,ox-26,bot-sh,bot,`h=${g('h')}`);drawAxes(ctx,ox+3*sw/8,bot-2*sh/5,Math.max(sw,sh)*0.6);});
 
   } else if (t==='square-hole') {
-    const a=g('a')/10,d=g('d')/10; if(!a||!d) return;
+    const a=g('a')/10,d=g('d')/10; if(!a||!d) return clearSectionResults();
     const A=a**2-PI*d**2/4;
     const I=(a**4-3*PI/16*d**4)/12;
     results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',I/(a/2),'cm³'],['r',Math.sqrt(I/A),'cm']];
-    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('a'),(H-40)/g('a')),ss=g('a')*sc,sd=g('d')*sc,cx=W/2,cy=H/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(cx-ss/2,cy-ss/2,ss,ss);ctx.strokeRect(cx-ss/2,cy-ss/2,ss,ss);ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sd/2,0,PI*2);ctx.fill();ctx.stroke();drawAxes(ctx,cx,cy,ss/2+10);});
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-110)/g('a'),(H-80)/g('a')),ss=g('a')*sc,sd=g('d')*sc,cx=W/2,cy=H/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(cx-ss/2,cy-ss/2,ss,ss);ctx.strokeRect(cx-ss/2,cy-ss/2,ss,ss);ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sd/2,0,PI*2);ctx.fill();ctx.stroke();drawDimH(ctx,cx-ss/2,cx+ss/2,cy+ss/2+22,`a=${g('a')}`);dimText(ctx,`d=${g('d')}`,cx+sd/2+24,cy-sd/2);drawAxes(ctx,cx,cy,ss/2+14);});
 
   } else if (t==='oblong') {
     const b=geometryNumber('b')/10, h=geometryNumber('h')/10, d=geometryNumber('d')/10;
@@ -1157,23 +1894,23 @@ function calcGeo() {
     const A=width*h-4*cornerArea, I=width*h**3/12-4*cornerI;
     results=[['外寬',width,'cm'],['A',A,'cm²'],['I (水平形心軸)',I,'cm⁴'],['S',I/(h/2),'cm³'],['r',Math.sqrt(I/A),'cm']];
     drawSection((ctx,W,H)=>{
-      const scale=Math.min((W-80)/width,(H-58)/h), cx=W/2, cy=H/2;
+      const scale=Math.min((W-110)/width,(H-80)/h), cx=W/2, cy=H/2;
       const w=width*scale, ht=h*scale, r=radius*scale;
       ctx.fillStyle='#dbeafe'; ctx.strokeStyle='#2563eb'; ctx.lineWidth=2;
       ctx.beginPath(); ctx.roundRect(cx-w/2,cy-ht/2,w,ht,r); ctx.fill(); ctx.stroke();
-      drawAxes(ctx,cx,cy,Math.min(w,ht)/2+8);
-      dimText(ctx,`2b+d=${fmt(width*10)} mm`,cx,cy+ht/2+16);
-      dimText(ctx,`h=${fmt(h*10)}`,cx-w/2-19,cy);
+      drawAxes(ctx,cx,cy,Math.max(w,ht)/2+12);
+      drawDimH(ctx,cx-w/2,cx+w/2,cy+ht/2+22,`2b+d=${fmt(width*10)} mm`);
+      drawDimV(ctx,cx-w/2-26,cy-ht/2,cy+ht/2,`h=${fmt(h*10)}`);
     },'四角等半徑斷面，外寬 2b+d、高 h、圓角半徑 d/2');
 
   } else if (t==='cross') {
-    const B=g('B')/10,H2=g('H')/10,b=g('b')/10,h=g('h')/10; if(!B||!H2||!b||!h) return;
+    const B=g('B')/10,H2=g('H')/10,b=g('b')/10,h=g('h')/10; if(!B||!H2||!b||!h) return clearSectionResults();
     const A=B*h+b*(H2-h);
     const Ix_v=b*H2**3/12, Ix_h=B*h**3/12;
     const Ix=Ix_v+Ix_h-b*h**3/12;
     const Iy=H2*b**3/12+h*B**3/12-h*b**3/12;
     results=[['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(H2/2),'cm³'],['Sy',Iy/(B/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']];
-    drawSection((ctx,W,Hc)=>{const sc=Math.min((W-60)/g('B'),(Hc-40)/g('H')),sB=g('B')*sc,sH=g('H')*sc,sb=g('b')*sc,sh=g('h')*sc,cx=W/2,cy=Hc/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(cx-sb/2,cy-sH/2,sb,sH);ctx.strokeRect(cx-sb/2,cy-sH/2,sb,sH);ctx.fillRect(cx-sB/2,cy-sh/2,sB,sh);ctx.strokeRect(cx-sB/2,cy-sh/2,sB,sh);drawAxes(ctx,cx,cy,Math.max(sB,sH)/2+10);});
+    drawSection((ctx,W,Hc)=>{const sc=Math.min((W-110)/g('B'),(Hc-80)/g('H')),sB=g('B')*sc,sH=g('H')*sc,sb=g('b')*sc,sh=g('h')*sc,cx=W/2,cy=Hc/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(cx-sb/2,cy-sH/2,sb,sH);ctx.strokeRect(cx-sb/2,cy-sH/2,sb,sH);ctx.fillRect(cx-sB/2,cy-sh/2,sB,sh);ctx.strokeRect(cx-sB/2,cy-sh/2,sB,sh);drawDimH(ctx,cx-sB/2,cx+sB/2,cy+sH/2+22,`B=${g('B')}, b=${g('b')}`);drawDimV(ctx,cx-sB/2-26,cy-sH/2,cy+sH/2,`H=${g('H')}`);drawAxes(ctx,cx,cy,Math.max(sB,sH)/2+14);});
 
   } else if (t==='general') {
     const parts=[];
@@ -1199,108 +1936,118 @@ function calcGeo() {
     drawGeoGeneral(parts);
   }
   if (results.some(([,value])=>!Number.isFinite(value))) return invalidGeometry('尺寸超過可計算範圍，請核對單位及輸入。');
-  if(results.length) showResults(results);
+  if(results.length) {
+    showResults(results);
+    if (typeof redrawSectionCard === 'function') redrawSectionCard();
+  }
 }
 
 // ==================== GEO DRAW HELPERS ====================
 function drawGeoRect(bmm,hmm,mode) {
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-80)/bmm,(H-40)/hmm),sw=bmm*sc,sh=hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    const sc=Math.min((W-110)/bmm,(H-80)/hmm),sw=bmm*sc,sh=hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);
-    dimText(ctx,`b=${bmm}`,ox+sw/2,oy+sh+16);dimText(ctx,`h=${hmm}`,ox-20,oy+sh/2);
-    if(mode==='center') drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+15);
-    else { ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle='#ef4444';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(ox-15,oy+sh);ctx.lineTo(ox+sw+15,oy+sh);ctx.stroke();ctx.setLineDash([]);ctx.restore(); }
+    drawDimH(ctx,ox,ox+sw,oy+sh+22,`b=${bmm}`);drawDimV(ctx,ox-26,oy,oy+sh,`h=${hmm}`);
+    if(mode==='center') drawAxes(ctx,ox+sw/2,oy+sh/2,Math.max(sw,sh)/2+14);
+    else { ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle='#ef4444';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(ox-18,oy+sh);ctx.lineTo(ox+sw+18,oy+sh);ctx.stroke();ctx.setLineDash([]);ctx.restore(); }
   });
 }
 function drawGeoRotRect(bmm,hmm,deg) {
   drawSection((ctx,W,H)=>{
-    const th=deg*PI/180,sc=Math.min((W-80)/(bmm*Math.abs(Math.cos(th))+hmm*Math.abs(Math.sin(th))),(H-60)/(bmm*Math.abs(Math.sin(th))+hmm*Math.abs(Math.cos(th))));
+    const th=deg*PI/180,sc=Math.min((W-110)/(bmm*Math.abs(Math.cos(th))+hmm*Math.abs(Math.sin(th))),(H-80)/(bmm*Math.abs(Math.sin(th))+hmm*Math.abs(Math.cos(th))));
     const cx=W/2,cy=H/2;
     ctx.save();ctx.translate(cx,cy);ctx.rotate(-th);
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.fillRect(-bmm*sc/2,-hmm*sc/2,bmm*sc,hmm*sc);ctx.strokeRect(-bmm*sc/2,-hmm*sc/2,bmm*sc,hmm*sc);
     ctx.restore();
-    dimText(ctx,`θ=${deg}°`,cx+60,cy-60);
+    dimText(ctx,`b=${bmm}, h=${hmm}, θ=${deg}°`,cx,H-14);
     drawAxes(ctx,cx,cy,80);
   });
 }
 function drawGeoDiamond(amm) {
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/(amm*Math.sqrt(2)),(H-40)/(amm*Math.sqrt(2))),s=amm*sc/Math.sqrt(2),cx=W/2,cy=H/2;
+    const sc=Math.min((W-110)/(amm*Math.sqrt(2)),(H-80)/(amm*Math.sqrt(2))),s=amm*sc/Math.sqrt(2),cx=W/2,cy=H/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(cx,cy-s);ctx.lineTo(cx+s,cy);ctx.lineTo(cx,cy+s);ctx.lineTo(cx-s,cy);ctx.closePath();ctx.fill();ctx.stroke();
-    dimText(ctx,`a=${amm}`,cx+s/2+15,cy-s/2-5);drawAxes(ctx,cx,cy,s+15);
+    dimText(ctx,`a=${amm} mm`,cx+s/2+24,cy-s/2-8);drawAxes(ctx,cx,cy,s+14);
   });
 }
 function drawGeoHollowRect(b,h,b1,h1) {
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/b,(H-40)/h),sw=b*sc,sh=h*sc,sw1=b1*sc,sh1=h1*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    const sc=Math.min((W-110)/b,(H-80)/h),sw=b*sc,sh=h*sc,sw1=b1*sc,sh1=h1*sc,ox=(W-sw)/2,oy=(H-sh)/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);
     ctx.fillStyle='#f8fafc';ctx.fillRect(ox+(sw-sw1)/2,oy+(sh-sh1)/2,sw1,sh1);ctx.strokeRect(ox+(sw-sw1)/2,oy+(sh-sh1)/2,sw1,sh1);
-    drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+10);
+    drawDimH(ctx,ox,ox+sw,oy+sh+22,`b=${b} (內 ${b1})`);
+    drawDimV(ctx,ox-26,oy,oy+sh,`h=${h}`);
+    drawAxes(ctx,ox+sw/2,oy+sh/2,Math.max(sw,sh)/2+14);
   });
 }
 function drawGeoCircle(D,d) {
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/D,(H-40)/D),sr=D/2*sc,cx=W/2,cy=H/2;
+    const sc=Math.min((W-110)/D,(H-80)/D),sr=D/2*sc,cx=W/2,cy=H/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,sr,0,PI*2);ctx.fill();ctx.stroke();
-    if(d>0){const sir=d/2*sc;ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sir,0,PI*2);ctx.fill();ctx.stroke();}
-    dimText(ctx,`D=${D}`,cx,cy-sr-8);drawAxes(ctx,cx,cy,sr+10);
+    if(d>0){const sir=d/2*sc;ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sir,0,PI*2);ctx.fill();ctx.stroke();dimText(ctx,`d=${d}`,cx+sir/2+22,cy-sir/2);}
+    drawDimH(ctx,cx-sr,cx+sr,cy+sr+22,`D=${D} mm`);drawAxes(ctx,cx,cy,sr+14);
   });
 }
 function drawGeoSemicircle(rmm) {
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/(rmm*2),(H-40)/rmm),sr=rmm*sc,cx=W/2,cy=H/2+sr/4;
+    const sc=Math.min((W-110)/(rmm*2),(H-80)/rmm),sr=rmm*sc,cx=W/2,cy=H/2+sr/3;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(cx,cy,sr,PI,0);ctx.closePath();ctx.fill();ctx.stroke();
-    dimText(ctx,`r=${rmm}`,cx+sr+10,cy);drawAxes(ctx,cx,cy-4*rmm*sc/(3*PI),sr+10);
+    drawDimH(ctx,cx-sr,cx+sr,cy+22,`2r=${rmm*2} (r=${rmm})`);drawAxes(ctx,cx,cy-4*rmm*sc/(3*PI),sr+14);
   });
 }
 function drawGeoTriangle(bmm,hmm,mode) {
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/bmm,(H-40)/hmm),sw=bmm*sc,sh=hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    const sc=Math.min((W-110)/bmm,(H-80)/hmm),sw=bmm*sc,sh=hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(ox+sw/2,oy);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();
-    dimText(ctx,`b=${bmm}`,ox+sw/2,oy+sh+16);dimText(ctx,`h=${hmm}`,ox-20,oy+sh/2);
-    if(mode==='center'){const cy=oy+sh-sh/3;ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle='#ef4444';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(ox-10,cy);ctx.lineTo(ox+sw+10,cy);ctx.stroke();ctx.setLineDash([]);ctx.restore();}
+    drawDimH(ctx,ox,ox+sw,oy+sh+22,`b=${bmm}`);drawDimV(ctx,ox-26,oy,oy+sh,`h=${hmm}`);
+    if(mode==='center'){drawAxes(ctx,ox+sw/2,oy+sh-sh/3,Math.max(sw,sh)/2+12);}
   });
 }
 function drawGeoTrapezoid(b,b1,h,mode) {
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/Math.max(b,b1),(H-40)/h),sw=b*sc,sw1=b1*sc,sh=h*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    const sc=Math.min((W-110)/Math.max(b,b1),(H-80)/h),sw=b*sc,sw1=b1*sc,sh=h*sc,ox=(W-sw)/2,oy=(H-sh)/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(ox+(sw-sw1)/2,oy);ctx.lineTo(ox+(sw+sw1)/2,oy);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();
-    dimText(ctx,`b=${b}`,ox+sw/2,oy+sh+16);dimText(ctx,`b₁=${b1}`,ox+sw/2,oy-8);dimText(ctx,`h=${h}`,ox-20,oy+sh/2);
+    drawDimH(ctx,ox,ox+sw,oy+sh+22,`b=${b}`);dimText(ctx,`b₁=${b1}`,ox+sw/2,oy-12);drawDimV(ctx,ox-26,oy,oy+sh,`h=${h}`);
+    if(mode==='center'){const e=sh*(b+2*b1)/(3*(b+b1));drawAxes(ctx,ox+sw/2,oy+sh-e,Math.max(sw,sh)/2+12);}
   });
 }
 function drawGeoPolygon(n,amm,rotDeg) {
   drawSection((ctx,W,H)=>{
     const a=amm, alpha=PI/n, r2=a/(2*Math.sin(alpha));
-    const sc=Math.min((W-60)/(2*r2),(H-40)/(2*r2)),sr=r2*sc,cx=W/2,cy=H/2,rot=rotDeg*PI/180-PI/2;
+    const sc=Math.min((W-110)/(2*r2),(H-80)/(2*r2)),sr=r2*sc,cx=W/2,cy=H/2,rot=rotDeg*PI/180-PI/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();
     for(let i=0;i<n;i++){const ang=rot+2*PI*i/n;ctx.lineTo(cx+sr*Math.cos(ang),cy+sr*Math.sin(ang));}
     ctx.closePath();ctx.fill();ctx.stroke();
-    dimText(ctx,`n=${n}, a=${amm}`,cx,cy+sr+18);drawAxes(ctx,cx,cy,sr+10);
+    dimText(ctx,`n=${n}, a=${fmt(amm)} mm`,cx,cy+sr+22);drawAxes(ctx,cx,cy,sr+14);
   });
 }
 function drawGeoHollowDiamond(bmm,amm) {
   drawSection((ctx,W,H)=>{
-    const sc=Math.min((W-60)/(bmm*Math.sqrt(2)),(H-40)/(bmm*Math.sqrt(2)));
+    const sc=Math.min((W-110)/(bmm*Math.sqrt(2)),(H-80)/(bmm*Math.sqrt(2)));
     const cx=W/2,cy=H/2,sb=bmm*sc/Math.sqrt(2),sa=amm*sc/Math.sqrt(2);
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(cx,cy-sb);ctx.lineTo(cx+sb,cy);ctx.lineTo(cx,cy+sb);ctx.lineTo(cx-sb,cy);ctx.closePath();ctx.fill();ctx.stroke();
     ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.moveTo(cx,cy-sa);ctx.lineTo(cx+sa,cy);ctx.lineTo(cx,cy+sa);ctx.lineTo(cx-sa,cy);ctx.closePath();ctx.fill();ctx.stroke();
-    drawAxes(ctx,cx,cy,sb+10);
+    dimText(ctx,`外 b=${bmm}, 內 a=${amm}`,cx,cy+sb+22);
+    drawAxes(ctx,cx,cy,sb+14);
   });
 }
 function drawGeoTee(bf,tf,hw,tw) {
   drawSection((ctx,W,H)=>{
-    const Hmm=parseFloat(hw)+parseFloat(tf),sc=Math.min((W-60)/bf,(H-40)/Hmm);
-    const swf=bf*sc,stf=tf*sc,shw=hw*sc,stw=tw*sc,ox=(W-swf)/2,oy=(H-(shw+stf))/2;
+    const Hmm=parseFloat(hw)+parseFloat(tf),sc=Math.min((W-110)/bf,(H-80)/Hmm);
+    const swf=bf*sc,stf=Math.max(2,tf*sc),shw=hw*sc,stw=Math.max(2,tw*sc),ox=(W-swf)/2,oy=(H-(shw+stf))/2;
     ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+swf,oy);ctx.lineTo(ox+swf,oy+stf);ctx.lineTo(ox+swf/2+stw/2,oy+stf);ctx.lineTo(ox+swf/2+stw/2,oy+stf+shw);ctx.lineTo(ox+swf/2-stw/2,oy+stf+shw);ctx.lineTo(ox+swf/2-stw/2,oy+stf);ctx.lineTo(ox,oy+stf);ctx.closePath();ctx.fill();ctx.stroke();
-    dimText(ctx,`bf=${bf}`,ox+swf/2,oy-8);dimText(ctx,`hw=${hw}`,ox+swf/2+stw/2+20,oy+stf+shw/2);
+    drawDimH(ctx,ox,ox+swf,oy-18,`bf=${bf} (tf=${tf})`);
+    drawDimV(ctx,ox+swf/2+stw/2+26,oy+stf,oy+stf+shw,`hw=${hw} (tw=${tw})`);
+    const Af=bf*tf,Aw=hw*tw,Ybar=(Af*(hw+tf/2)+Aw*(hw/2))/(Af+Aw);
+    drawAxes(ctx,ox+swf/2,oy+stf+shw-Ybar*sc,Math.max(swf,shw+stf)/2+12);
   });
 }
 function drawGeoGeneral(parts) {
@@ -1377,19 +2124,24 @@ function drawGeoGeneral(parts) {
 
 // ==================== CUSTOM ====================
 function addRect() {
-  const c=document.getElementById('custom-rects'); if(!c) return;
+  const c=document.getElementById('custom-rects'); if(!c) return clearSectionResults();
   const n=c.children.length+1, d=document.createElement('div');
   d.className='custom-rect-row';
-  d.innerHTML=`<div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 ${n}</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="100" step="any" class="rect-b"></div><div class="form-group"><label>h</label><input type="number" value="10" step="any" class="rect-h"></div><div class="form-group"><label>yc</label><input type="number" value="0" step="any" class="rect-yc"></div></div>`;
+  d.innerHTML=`<div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 ${n}</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="100" step="any" class="rect-b" oninput="calcCustom()"></div><div class="form-group"><label>h</label><input type="number" value="10" step="any" class="rect-h" oninput="calcCustom()"></div><div class="form-group"><label>yc</label><input type="number" value="0" step="any" class="rect-yc" oninput="calcCustom()"></div></div>`;
   c.appendChild(d);
+  calcCustom();
 }
 function removeRect() {
-  const c=document.getElementById('custom-rects'); if(c&&c.children.length>1) c.removeChild(c.lastChild);
+  const c=document.getElementById('custom-rects');
+  if(c&&c.children.length>1) {
+    c.removeChild(c.lastChild);
+    calcCustom();
+  }
 }
 function calcCustom() {
   const rows=document.querySelectorAll('#custom-rects .custom-rect-row'), rects=[];
   rows.forEach(r=>{const b=parseFloat(r.querySelector('.rect-b')?.value)||0,h=parseFloat(r.querySelector('.rect-h')?.value)||0,yc=parseFloat(r.querySelector('.rect-yc')?.value)||0;if(b>0&&h>0) rects.push({b:b/10,h:h/10,yc:yc/10,bmm:b,hmm:h,ycmm:yc});});
-  if(!rects.length) return;
+  if (!rects.length || rects.length !== rows.length) return clearSectionResults();
   const A=rects.reduce((s,r)=>s+r.b*r.h,0), Ybar=rects.reduce((s,r)=>s+r.b*r.h*r.yc,0)/A;
   const Ix=rects.reduce((s,r)=>s+r.b*r.h**3/12+r.b*r.h*(r.yc-Ybar)**2,0);
   const Iy=rects.reduce((s,r)=>s+r.h*r.b**3/12,0);
@@ -1397,10 +2149,13 @@ function calcCustom() {
   showResults([['A',A,'cm²'],['Ybar',Ybar,'cm'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx_top',Ix/yt,'cm³'],['Sx_bot',Ix/yb,'cm³'],['Sx (控制)',Math.min(Ix/yt,Ix/yb),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']]);
   drawSection((ctx,cW,cH)=>{
     if(!rects.length) return;
-    const ymin=Math.min(...rects.map(r=>r.ycmm-r.hmm/2)),ymax=Math.max(...rects.map(r=>r.ycmm+r.hmm/2)),bmax=Math.max(...rects.map(r=>r.bmm)),tH=ymax-ymin;
-    const sc=Math.min((cW-80)/bmax,(cH-40)/tH);
-    rects.forEach(r=>{const sw=r.bmm*sc,sh=r.hmm*sc,ox=(cW-sw)/2,oy=(cH-20)-(r.ycmm+r.hmm/2-ymin)*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);});
-    const cgY=(cH-20)-(Ybar*10-ymin)*sc;ctx.fillStyle='#ef4444';ctx.beginPath();ctx.arc(cW/2,cgY,5,0,PI*2);ctx.fill();dimText(ctx,'C.G.',cW/2+16,cgY-6);
+    const ymin=Math.min(...rects.map(r=>r.ycmm-r.hmm/2)),ymax=Math.max(...rects.map(r=>r.ycmm+r.hmm/2)),bmax=Math.max(...rects.map(r=>r.bmm)),tH=Math.max(1,ymax-ymin);
+    const sc=Math.min((cW-110)/bmax,(cH-80)/tH);
+    const topPad = (cH - tH * sc) / 2;
+    rects.forEach(r=>{const sw=r.bmm*sc,sh=r.hmm*sc,ox=(cW-sw)/2,oy=(cH-topPad)-(r.ycmm+r.hmm/2-ymin)*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);});
+    const cgY=(cH-topPad)-(Ybar*10-ymin)*sc;
+    drawAxes(ctx,cW/2,cgY,Math.max(bmax*sc,tH*sc)/2+14);
+    dimText(ctx,`C.G. (Y=${fmt(Ybar)} cm)`,cW/2+54,cgY-14);
   });
 }
 
@@ -1408,6 +2163,7 @@ function calcCustom() {
 buildTabs();
 buildPanel('h-beam');
 calcHBeam();
+restoreFromShareHash();
 </script>
 <script src="tool-nav.manifest.js" defer></script>
 <script src="tool-chrome.js" defer></script>

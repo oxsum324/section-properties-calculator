@@ -8,8 +8,8 @@
     'continuous-beam': define({
       route: '/beam-analysis',
       discipline: 'analysis',
-      version: 'V1.8.1',
-      calculationEngine: 'continuous-beam.inline.v1.5.1',
+      version: 'V1.9.0',
+      calculationEngine: 'continuous-beam.inline.v1.6.0',
       state: 'assist',
       governance: 'continuous-beam',
     }),
@@ -24,7 +24,7 @@
     section: define({
       route: '/section',
       discipline: 'section',
-      version: 'V2.1',
+      version: 'V2.2',
       calculationEngine: 'section-properties.inline.v2.3.0',
       state: 'reference',
       governance: 'section-tools',
@@ -32,7 +32,7 @@
     'composite-section': define({
       route: '/composite-section',
       discipline: 'section',
-      version: 'V1.2',
+      version: 'V1.3',
       calculationEngine: 'composite-section.inline.v1.3.0',
       state: 'reference',
       governance: 'section-tools',

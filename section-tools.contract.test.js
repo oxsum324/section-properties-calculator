@@ -676,7 +676,7 @@ const sourceCompositeReportHtml = renderSharedReportPayload(
 );
 const sourceCompositeFingerprint = reportCalculationFingerprint(sourceCompositeReportHtml);
 assert(sourceCompositeJson.schema === 'composite-section.project.v1', 'composite JSON uses versioned schema', sourceCompositeJson.schema);
-assert(sourceCompositeJson.tool?.version === 'V1.2', 'composite JSON records current tool version', JSON.stringify(sourceCompositeJson.tool));
+assert(sourceCompositeJson.tool?.version === compositeMetadata.version, 'composite JSON records current tool version', JSON.stringify(sourceCompositeJson.tool));
 assert(sourceCompositeJson.tool?.calculationEngine === compositeMetadata.calculationEngine, 'composite JSON records canonical calculation engine', JSON.stringify(sourceCompositeJson.tool));
 assert(compositeRuntime.getLastData()?.total?.Jclosed != null, 'composite replay fixture covers closed-section torsion result', JSON.stringify(compositeRuntime.getLastData()?.total));
 assert(/^[0-9a-f]{64}$/.test(sourceCompositeSha), 'composite result snapshot has stable SHA-256', sourceCompositeSha);

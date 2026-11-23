@@ -10,61 +10,79 @@
 <link rel="stylesheet" href="結構工具箱/core/report-readiness.css">
 <style>
   :root {
-    --primary: #2563eb;
-    --primary-dark: #1d4ed8;
-    --bg: #f8fafc;
+    --primary: #1e3a5f;
+    --primary-dark: #0f172a;
+    --primary-accent: #1e40af;
+    --bg: #f1f5f9;
     --card: #ffffff;
-    --border: #e2e8f0;
-    --text: #1e293b;
-    --text-light: #64748b;
-    --accent: #059669;
+    --border: #cbd5e1;
+    --text: #0f172a;
+    --text-light: #475569;
+    --accent: #047857;
     --warn: #ea580c;
     --plate-a: #f97316;
     --plate-b: #a855f7;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
-  header { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: white; padding: 20px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
-  header h1 { font-size: 1.5em; }
-  header p { font-size: 0.85em; opacity: 0.85; margin-top: 4px; }
-  .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
-  .main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
-  .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
-  .card h2 { font-size: 1.05em; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid var(--border); color: var(--primary); }
+  header { background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 55%, var(--primary-accent) 100%); color: white; padding: 22px 32px; box-shadow: 0 4px 14px rgba(15,23,42,0.22); border-bottom: 1px solid rgba(255,255,255,0.12); }
+  header h1 { font-size: 1.55em; letter-spacing: 0.02em; font-weight: 700; }
+  header p { font-size: 0.85em; opacity: 0.88; margin-top: 4px; }
+  .container { max-width: 1240px; margin: 20px auto; padding: 0 20px; }
+  .main-layout { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .card { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(15,23,42,0.05); margin-bottom: 16px; }
+  .card h2 { font-size: 1.05em; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; color: var(--primary); font-weight: 700; }
   .card h3 { font-size: 0.9em; margin: 14px 0 8px; color: var(--text); font-weight: 700; }
   .form-group { margin-bottom: 10px; }
   .form-group label { display: block; font-size: 0.82em; font-weight: 600; color: var(--text-light); margin-bottom: 3px; }
-  .form-group input, .form-group select { width: 100%; padding: 8px 11px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.94em; font-family: inherit; outline: none; transition: border-color 0.2s; }
-  .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-group input, .form-group select { width: 100%; padding: 8px 11px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.94em; font-family: inherit; outline: none; transition: border-color 0.2s, box-shadow 0.2s; background: #fff; color: var(--text); }
+  .form-group input[type="number"] { font-family: 'Consolas', 'Segoe UI', monospace; font-variant-numeric: tabular-nums; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--primary-accent); box-shadow: 0 0 0 3px rgba(30,64,175,0.12); }
+  .h-filter-input { width: 100%; padding: 7px 11px; margin-bottom: 6px; border: 1.5px dashed var(--border); border-radius: 7px; font-size: 0.85em; font-family: inherit; background: #f8fafc; color: var(--text); outline: none; transition: border-color 0.2s, background 0.2s; }
+  .h-filter-input:focus { border-color: var(--primary-accent); border-style: solid; background: #fff; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
   .form-row4 { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 10px; }
-  .btn-calc { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
-  .btn-calc:hover { background: var(--primary-dark); }
-  .btn-report { padding: 6px 14px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 0.84em; font-weight: 600; cursor: pointer; font-family: inherit; }
-  .btn-report:hover { background: #047857; }
-  .case-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
-  .btn-case { padding:6px 12px; background:#475569; color:white; border:none; border-radius:7px; font-size:0.8em; font-weight:600; cursor:pointer; font-family:inherit; }
-  .btn-case:hover { background:#334155; }
-  .case-status { min-height:1.4em; font-size:0.78em; color:var(--text-light); }
-  .case-status.error { color:#dc2626; }
+  .auto-calc-badge { margin-top: 10px; padding: 8px 12px; background: linear-gradient(135deg, #eff6ff, #f8fafc); border: 1px dashed #93c5fd; border-radius: 8px; color: #1e40af; font-size: 0.8em; font-weight: 600; text-align: center; }
+  .btn-report { padding: 6px 14px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 0.84em; font-weight: 600; cursor: pointer; font-family: inherit; transition: filter 0.15s; }
+  .btn-report:hover { filter: brightness(1.08); }
+  .action-chip-btn { padding: 6px 11px; border: 1px solid var(--border); background: #fff; color: var(--text); border-radius: 7px; cursor: pointer; font-family: inherit; font-size: 0.8em; font-weight: 600; transition: all 0.15s; }
+  .action-chip-btn:hover { background: #f1f5f9; border-color: #94a3b8; color: var(--primary); }
+  .case-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 14px; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+  .case-bar .bar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+  .case-status { min-height: 1.4em; font-size: 0.8em; color: var(--text-light); font-weight: 500; }
+  .case-status.ok { color: #047857; }
+  .case-status.error { color: #dc2626; }
+  .collapsible-details { background: var(--card); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 6px rgba(15,23,42,0.04); margin-bottom: 16px; overflow: hidden; }
+  .collapsible-details summary { padding: 12px 18px; cursor: pointer; font-size: 0.92em; font-weight: 700; color: var(--primary); display: flex; align-items: center; justify-content: space-between; list-style: none; user-select: none; background: #f8fafc; transition: background 0.15s; }
+  .collapsible-details summary::-webkit-details-marker { display: none; }
+  .collapsible-details summary:hover { background: #f1f5f9; }
+  .collapsible-details[open] summary { border-bottom: 1px solid #e2e8f0; }
+  .collapsible-body { padding: 14px 18px; }
+  .proj-summary-badge { font-size: 0.78em; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: #e2e8f0; color: #475569; }
+  .proj-summary-badge.filled { background: #dbeafe; color: #1e40af; }
+  .mode-pills { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  .mode-pill-btn { padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #f8fafc; color: var(--text-light); font-size: 0.8em; font-weight: 600; cursor: pointer; font-family: inherit; text-align: left; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
+  .mode-pill-btn:hover { background: #f1f5f9; border-color: #94a3b8; color: var(--primary); }
+  .mode-pill-btn.active { background: #eff6ff; border-color: #2563eb; color: #1d4ed8; box-shadow: 0 1px 4px rgba(37,99,235,0.15); }
+  .mode-pill-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
   .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .result-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; background: #f8fafc; border-radius: 8px; border-left: 3px solid var(--primary); }
-  .result-item .label { font-size: 0.82em; color: var(--text-light); font-weight: 500; }
-  .result-item .value { font-size: 0.95em; font-weight: 700; font-family: 'Consolas',monospace; }
+  .result-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; border-left: 3.5px solid var(--primary); cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+  .result-item:hover { background: #f1f5f9; border-color: #cbd5e1; border-left-color: var(--primary-accent); }
+  .result-item .label { font-size: 0.83em; color: var(--text-light); font-weight: 600; }
+  .result-item .value { font-size: 0.98em; font-weight: 700; font-family: 'Consolas',monospace; font-variant-numeric: tabular-nums; color: var(--primary-dark); }
   .result-item .unit { font-size: 0.75em; color: var(--text-light); margin-left: 4px; }
-  .result-item .delta { font-size: 0.78em; color: var(--accent); margin-left: 6px; font-weight: 700; }
-  .canvas-wrap { display: flex; justify-content: center; align-items: center; background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); min-height: 280px; padding: 10px; }
+  .result-item .delta { font-size: 0.78em; color: var(--accent); margin-left: 6px; font-weight: 700; background: #ecfdf5; padding: 1px 5px; border-radius: 4px; }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; background: #ffffff; border-radius: 8px; border: 1px solid var(--border); min-height: 280px; padding: 10px; overflow-x: auto; box-shadow: inset 0 1px 3px rgba(15,23,42,0.03); }
   canvas { display: block; max-width: 100%; }
   .hint { font-size: 0.78em; color: var(--text-light); margin-top: 4px; font-style: italic; }
-  .mode-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; font-size: 0.7em; font-weight: 700; background: #eef2f6; color: #374151; }
+  .mode-tag { display: inline-block; margin-left: 6px; padding: 2px 9px; border-radius: 10px; font-size: 0.72em; font-weight: 700; background: #eef2f6; color: #374151; }
   .mode-tag.active { background: #dbeafe; color: #1d4ed8; }
   .note-box { background: #fef3c7; border: 1px solid #fcd34d; border-left: 4px solid #ea580c; border-radius: 6px; padding: 8px 12px; font-size: 0.82em; color: #78350f; margin-top: 10px; }
-  .report-status { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; }
-  .report-status.warn { display: block; background: #fffbeb; color: #92400e; }
-  .report-status.error { display: block; background: #fef2f2; color: #dc2626; }
-  .comparison-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .action-chip-btn { padding: 6px 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--primary); font: inherit; font-size: .8em; cursor: pointer; }
+  .report-status { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; font-weight: 500; }
+  .report-status.ok { display: block; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+  .report-status.warn { display: block; background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+  .report-status.error { display: block; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
   .comp-table-wrap { overflow-x: auto; margin-top: 10px; }
   .comp-table { width: 100%; border-collapse: collapse; font-size: 0.84em; }
   .comp-table th, .comp-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums; }
@@ -79,7 +97,7 @@
     .page-only-report-status { display: none !important; }
     .page-only-tool-actions { display: none !important; }
   }
-  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 6px; justify-content: center; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 8px; justify-content: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid; }
   @media (max-width: 900px) {
@@ -106,21 +124,32 @@
 
 <div class="container">
 
-  <div class="card" style="padding:12px 20px;">
-    <div style="font-size:0.88em; font-weight:700; color:var(--primary); margin-bottom:8px;">計畫資訊（計算書表頭）</div>
-    <div class="form-row4">
-      <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 大樓鋼梁補強"></div>
-      <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
-      <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
-      <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—"></div>
-    </div>
-    <div class="case-actions page-only-tool-actions">
-      <button class="btn-case" type="button" onclick="exportCompositeJSON()">本地存檔 JSON</button>
-      <button class="btn-case" type="button" onclick="document.getElementById('compositeJsonFile').click()">讀取 JSON</button>
-      <input type="file" id="compositeJsonFile" accept=".json,application/json" hidden onchange="importCompositeJSONFile(this)">
-      <span class="case-status" id="caseStatus" role="status" aria-live="polite"></span>
-    </div>
+  <div class="case-bar page-only-tool-actions">
+    <button class="action-chip-btn" type="button" onclick="exportCompositeJSON()">💾 本地存檔 JSON</button>
+    <button class="action-chip-btn" type="button" onclick="document.getElementById('compositeJsonFile').click()">📂 讀取 JSON</button>
+    <input type="file" id="compositeJsonFile" accept=".json,application/json" hidden onchange="importCompositeJSONFile(this)">
+    <span class="bar-sep" aria-hidden="true"></span>
+    <button class="action-chip-btn" type="button" onclick="copyCompositeTSV()" title="複製為 Tab 分隔格式，可直接 Ctrl+V 貼入 Excel">📋 複製 Excel 表格 (TSV)</button>
+    <button class="action-chip-btn" type="button" onclick="copyCompositeSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或審查意見">📝 複製報告摘要</button>
+    <button class="action-chip-btn" type="button" onclick="exportCompositeCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">📊 匯出 CSV</button>
+    <button class="action-chip-btn" type="button" onclick="addCompositeToComparison()" style="margin-left:auto;background:#eff6ff;border-color:#93c5fd;color:#1e40af;" title="將目前補強方案加入下方並排比較表（最多 4 組）">⚖️ ➕ 加入方案比較</button>
+    <span class="case-status" id="caseStatus" role="status" aria-live="polite"></span>
   </div>
+
+  <details class="collapsible-details">
+    <summary>
+      <span>📋 計畫資訊（計算書表頭｜選填）</span>
+      <span class="proj-summary-badge" id="projSummaryBadge">空白欄位由主文繼承</span>
+    </summary>
+    <div class="collapsible-body">
+      <div class="form-row4">
+        <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 大樓鋼梁補強" oninput="updateProjectSummaryBadge();renderCompositeReportReadiness()"></div>
+        <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—" oninput="updateProjectSummaryBadge();renderCompositeReportReadiness()"></div>
+        <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—" oninput="updateProjectSummaryBadge();renderCompositeReportReadiness()"></div>
+        <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—" oninput="updateProjectSummaryBadge()"></div>
+      </div>
+    </div>
+  </details>
 
   <div class="main-layout">
     <!-- 左：輸入 -->
@@ -129,25 +158,32 @@
         <h2>① 基礎 H 型鋼</h2>
         <div class="form-group">
           <label>標準規格選擇</label>
+          <input type="search" id="h-filter" class="h-filter-input" placeholder="🔍 快速篩選型鋼 (如 400、588、300)..." aria-label="篩選 H 型鋼規格" oninput="filterCompositeHSelect(this)">
           <select id="h-select" onchange="onHSelect()"></select>
         </div>
         <div style="text-align:center;color:var(--text-light);font-size:0.78em;margin:-4px 0 8px;">▼ 或手動輸入 ▼</div>
         <div class="form-row">
-          <div class="form-group"><label>H (全高)</label><input type="number" id="h-H" value="400" step="any"></div>
-          <div class="form-group"><label>B (翼寬)</label><input type="number" id="h-B" value="200" step="any"></div>
+          <div class="form-group"><label>H (全高)</label><input type="number" id="h-H" value="400" step="any" oninput="calcAll()"></div>
+          <div class="form-group"><label>B (翼寬)</label><input type="number" id="h-B" value="200" step="any" oninput="calcAll()"></div>
         </div>
         <div class="form-row3">
-          <div class="form-group"><label>tw (腹厚)</label><input type="number" id="h-tw" value="8" step="any"></div>
-          <div class="form-group"><label>tf (翼厚)</label><input type="number" id="h-tf" value="13" step="any"></div>
-          <div class="form-group"><label>R (圓角)</label><input type="number" id="h-R" value="13" step="any"></div>
+          <div class="form-group"><label>tw (腹厚)</label><input type="number" id="h-tw" value="8" step="any" oninput="calcAll()"></div>
+          <div class="form-group"><label>tf (翼厚)</label><input type="number" id="h-tf" value="13" step="any" oninput="calcAll()"></div>
+          <div class="form-group"><label>R (圓角)</label><input type="number" id="h-R" value="13" step="any" oninput="calcAll()"></div>
         </div>
       </div>
 
       <div class="card">
         <h2>② 補強配置</h2>
         <div class="form-group">
-          <label>補強型式</label>
-          <select id="mode" onchange="onModeChange()">
+          <label>補強型式快捷切換</label>
+          <div class="mode-pills page-only-tool-actions" role="group" aria-label="補強型式快捷切換">
+            <button type="button" class="mode-pill-btn" data-mode-pill="none" onclick="selectRetrofitMode('none')"><span class="mode-pill-dot" style="background:#2563eb;"></span>無補強 (純 H)</button>
+            <button type="button" class="mode-pill-btn" data-mode-pill="side" onclick="selectRetrofitMode('side')"><span class="mode-pill-dot" style="background:#f97316;"></span>A 兩側貼板</button>
+            <button type="button" class="mode-pill-btn active" data-mode-pill="cover" onclick="selectRetrofitMode('cover')"><span class="mode-pill-dot" style="background:#a855f7;"></span>B 上下蓋板</button>
+            <button type="button" class="mode-pill-btn" data-mode-pill="both" onclick="selectRetrofitMode('both')"><span class="mode-pill-dot" style="background:linear-gradient(135deg,#f97316,#a855f7);"></span>C 四面包覆</button>
+          </div>
+          <select id="mode" onchange="onModeChange()" aria-label="補強型式下拉選單">
             <option value="none">無補強（純 H 型鋼）</option>
             <option value="side">A 兩側貼板（左右，介於翼板高度）</option>
             <option value="cover" selected>B 上下蓋板（頂、底翼板外貼）</option>
@@ -159,15 +195,15 @@
         <div id="side-panel" style="display:none;">
           <h3 style="color:var(--plate-a);">側板參數（左右各一塊）</h3>
           <div class="form-row">
-            <div class="form-group"><label>tsp (板厚)</label><input type="number" id="tsp" value="12" step="any"></div>
+            <div class="form-group"><label>tsp (板厚)</label><input type="number" id="tsp" value="12" step="any" oninput="calcAll()"></div>
             <div class="form-group">
               <label>hsp (板高)</label>
-              <input type="number" id="hsp" value="" step="any" placeholder="預設 = H">
+              <input type="number" id="hsp" value="" step="any" placeholder="預設 = H" oninput="calcAll()">
               <div class="hint">留空則取 H；常用 H（全高）或 H−2·tf（翼板之間）。</div>
             </div>
           </div>
           <div class="form-group" style="margin-top:4px;">
-            <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="sp-flush" checked> 板緣與翼板外緣齊平（貼焊於翼板端）</label>
+            <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="sp-flush" checked onchange="calcAll()"> 板緣與翼板外緣齊平（貼焊於翼板端）</label>
             <div class="hint">未勾選時板中心距離形心 = B/2 + tsp/2（外貼）；勾選即相同位置。</div>
           </div>
         </div>
@@ -175,16 +211,16 @@
         <div id="cover-panel" style="display:none;">
           <h3 style="color:var(--plate-b);">蓋板參數（上下各一塊）</h3>
           <div class="form-row">
-            <div class="form-group"><label>tcp (板厚)</label><input type="number" id="tcp" value="10" step="any"></div>
+            <div class="form-group"><label>tcp (板厚)</label><input type="number" id="tcp" value="10" step="any" oninput="calcAll()"></div>
             <div class="form-group">
               <label>wcp (板寬)</label>
-              <input type="number" id="wcp" value="" step="any" placeholder="預設 = B">
+              <input type="number" id="wcp" value="" step="any" placeholder="預設 = B" oninput="calcAll()">
               <div class="hint">留空則取 B；可大於或小於 B。</div>
             </div>
           </div>
         </div>
 
-        <button class="btn-calc" onclick="calcAll()">計 算</button>
+        <div class="auto-calc-badge">⚡ 修改型鋼或補強板尺寸即時自動更新圖卡與性質</div>
         <div class="hint" id="calcMsg" style="color:var(--warn); margin-top:6px;"></div>
       </div>
     </div>
@@ -192,8 +228,17 @@
     <!-- 右：結果 -->
     <div>
       <div class="card">
-        <h2>合成斷面圖</h2>
-        <div class="canvas-wrap"><canvas id="secCanvas" width="480" height="320"></canvas></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;gap:8px;">
+          <div>
+            <span style="font-size:1.05em;font-weight:700;color:var(--primary);">合成斷面圖形與補強性質圖卡</span>
+            <span style="font-size:0.75em;font-weight:500;color:var(--text-light);margin-left:6px;">2x 高解析工程標註｜左合成圖＋右增益參數表</span>
+          </div>
+          <div class="page-only-tool-actions" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <button type="button" onclick="copyCompositeCanvasImage()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:#eff6ff;border-color:#93c5fd;color:#1e40af;" title="將合成斷面圖卡複製為圖片，可直接 Ctrl+V 貼入 Word 報告或簡報">📋 複製圖卡 (貼入報告)</button>
+            <button type="button" onclick="exportCompositeJPG()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:#ecfdf5;border-color:#6ee7b7;color:#047857;" title="另存左合成圖＋右補強性質參數表之高解析度工程圖卡 JPG">↓ 另存圖卡 JPG</button>
+          </div>
+        </div>
+        <div class="canvas-wrap"><canvas id="secCanvas" width="680" height="320"></canvas></div>
         <div class="legend">
           <span><i style="background:#dbeafe;border-color:#2563eb;"></i>H 型鋼</span>
           <span><i style="background:#fed7aa;border-color:#f97316;"></i>側板 (A)</span>
@@ -201,14 +246,14 @@
         </div>
       </div>
       <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border); flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid #e2e8f0; flex-wrap:wrap; gap:8px;">
           <div>
             <span style="font-size:1.05em; font-weight:700; color:var(--primary);">計算結果</span>
-            <span style="font-size:0.75em; color:var(--text-light); margin-left:6px;">(輸出單位：cm)</span>
+            <span style="font-size:0.75em; color:var(--text-light); margin-left:6px;">(輸出單位：cm｜點擊任一項目可單獨複製數值)</span>
             <span class="mode-tag active" id="modeTag">—</span>
           </div>
-          <div class="comparison-actions">
-            <button type="button" class="action-chip-btn page-only-tool-actions" onclick="addCompositeToComparison()">加入方案比較</button>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button type="button" class="action-chip-btn page-only-tool-actions" onclick="addCompositeToComparison()" style="padding:5px 10px;font-size:0.78em;background:#eff6ff;border-color:#93c5fd;color:#1e40af;">➕ 加入比較</button>
             <button class="btn-report" onclick="exportReport()">📄 計算書</button>
           </div>
         </div>
@@ -226,7 +271,7 @@
             <span id="compositeComparisonTitle" style="font-size:1.05em;font-weight:700;color:var(--primary);">⚖️ 補強方案並排比較表</span>
             <span id="compositeCompCountBadge" style="font-size:0.76em;color:var(--text-light);margin-left:6px;">(0 / 4 組，括號顯示相對於原基礎 H 型鋼之增益％)</span>
           </div>
-          <div class="comparison-actions">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <button type="button" onclick="addCompositeToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:#eff6ff;border-color:#93c5fd;color:#1e40af;">➕ 加入目前方案</button>
             <button type="button" onclick="copyCompositeComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">📋 複製比較表 (Excel)</button>
             <button type="button" onclick="clearCompositeComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;color:#b91c1c;">清空比較</button>
@@ -275,6 +320,23 @@ function getProjectFieldValue(id) {
 }
 
 const COMPOSITE_PROJECT_SCHEMA = 'composite-section.project.v1';
+
+function updateProjectSummaryBadge() {
+  const badge = document.getElementById('projSummaryBadge');
+  if (!badge) return;
+  const parts = [
+    getProjectFieldValue('projName'),
+    getProjectFieldValue('projNo'),
+    getProjectFieldValue('projDesigner'),
+  ].filter(Boolean);
+  if (parts.length) {
+    badge.textContent = parts.join(' ｜ ');
+    badge.className = 'proj-summary-badge filled';
+  } else {
+    badge.textContent = '空白欄位由主文繼承';
+    badge.className = 'proj-summary-badge';
+  }
+}
 function setCaseStatus(message, tone = '') {
   const el = document.getElementById('caseStatus');
   if (!el) return;
@@ -342,6 +404,7 @@ function applyCompositeProjectData(data) {
   document.getElementById('sp-flush').checked = !!inputs.spFlush;
   document.getElementById('tcp').value = Number(inputs.tcp);
   document.getElementById('wcp').value = inputs.wcp == null ? '' : Number(inputs.wcp);
+  if (typeof updateProjectSummaryBadge === 'function') updateProjectSummaryBadge();
   onModeChange();
   setCaseStatus('已讀取 JSON 並重新計算。');
 }
@@ -458,14 +521,32 @@ const hSections = Steel.H_SECTIONS_MM
   .map(g => ({ g: g.g, s: g.s.filter(x => COMPOSITE_H_SECTION_NAMES.has(x.n)) }))
   .filter(g => g.s.length);
 
-function buildHSelect() {
+function buildHSelect(filterText = '') {
+  const q = String(filterText || '').trim().toLowerCase().replace(/[×x*]/g, 'x');
   let html = '<option value="">-- 自訂尺寸 --</option>';
   hSections.forEach(g => {
-    html += `<optgroup label="${g.g}">`;
-    g.s.forEach((s,i) => html += `<option value="${g.g}-${i}">${s.n} (R=${s.R})</option>`);
-    html += '</optgroup>';
+    const matched = [];
+    g.s.forEach((s, i) => {
+      const normalized = `${s.n} ${g.g}`.toLowerCase().replace(/[×x*]/g, 'x');
+      if (!q || normalized.includes(q)) {
+        matched.push(`<option value="${g.g}-${i}">${s.n} (R=${s.R})</option>`);
+      }
+    });
+    if (matched.length) {
+      html += `<optgroup label="${g.g}">${matched.join('')}</optgroup>`;
+    }
   });
   return html;
+}
+
+function filterCompositeHSelect(inputEl) {
+  const sel = document.getElementById('h-select');
+  if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = buildHSelect(inputEl?.value || '');
+  if (currentVal && [...sel.options].some(o => o.value === currentVal)) {
+    sel.value = currentVal;
+  }
 }
 
 function onHSelect() {
@@ -492,10 +573,25 @@ function currentHName() {
   return `H${val('h-H')}×${val('h-B')}×${val('h-tw')}×${val('h-tf')}`;
 }
 
+function syncModePillButtons(mode) {
+  if (!document.querySelectorAll) return;
+  document.querySelectorAll('[data-mode-pill]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-mode-pill') === mode);
+  });
+}
+
+function selectRetrofitMode(mode) {
+  const sel = document.getElementById('mode');
+  if (!sel) return;
+  sel.value = mode;
+  onModeChange();
+}
+
 function onModeChange() {
   const mode = document.getElementById('mode').value;
   document.getElementById('side-panel').style.display  = (mode==='side'  || mode==='both') ? 'block' : 'none';
   document.getElementById('cover-panel').style.display = (mode==='cover' || mode==='both') ? 'block' : 'none';
+  if (typeof syncModePillButtons === 'function') syncModePillButtons(mode);
   calcAll();
 }
 
@@ -568,12 +664,25 @@ function calcClosedBoxJ(H, B, tf, tsp) {
 
 // ================= 主計算 =================
 let lastData = null;
+let lastResultRows = [];
+
+function clearCompositeResults(message) {
+  lastData = null;
+  lastResultRows = [];
+  document.getElementById('calcMsg').textContent = message;
+  document.getElementById('results').innerHTML = '<div class="result-item">請補齊有效斷面尺寸</div>';
+  document.getElementById('modeTag').textContent = '—';
+  document.getElementById('noteBox').style.display = 'none';
+  const canvas = document.getElementById('secCanvas');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  renderCompositeReportReadiness();
+}
 
 function calcAll() {
   document.getElementById('calcMsg').textContent = '';
   setReportStatus('');
   const Hmm = val('h-H'), Bmm = val('h-B'), tw = val('h-tw'), tf = val('h-tf'), R = val('h-R');
-  if (!Hmm || !Bmm || !tw || !tf) { document.getElementById('calcMsg').textContent = '請填寫 H、B、tw、tf'; lastData = null; renderCompositeReportReadiness(); return; }
+  if (Hmm <= 0 || Bmm <= 0 || tw <= 0 || tf <= 0 || 2 * tf >= Hmm || tw > Bmm) return clearCompositeResults('請輸入有效的 H、B、tw、tf。');
 
   // 轉為 cm
   const H = Hmm/10, B = Bmm/10, twc = tw/10, tfc = tf/10, Rc = R/10;
@@ -585,13 +694,13 @@ function calcAll() {
     tspMm = val('tsp');
     const hspUser = valOrNull('hsp');
     hspMm = (hspUser===null || hspUser<=0) ? Hmm : hspUser;
-    if (!tspMm) { document.getElementById('calcMsg').textContent = '請填寫側板厚度 tsp'; lastData = null; renderCompositeReportReadiness(); return; }
+    if (tspMm <= 0) return clearCompositeResults('側板厚度 tsp 必須大於 0。');
   }
   if (mode==='cover' || mode==='both') {
     tcpMm = val('tcp');
     const wcpUser = valOrNull('wcp');
     wcpMm = (wcpUser===null || wcpUser<=0) ? Bmm : wcpUser;
-    if (!tcpMm) { document.getElementById('calcMsg').textContent = '請填寫蓋板厚度 tcp'; lastData = null; renderCompositeReportReadiness(); return; }
+    if (tcpMm <= 0) return clearCompositeResults('蓋板厚度 tcp 必須大於 0。');
   }
   const tspc = tspMm/10, hspc = hspMm/10, tcpc = tcpMm/10, wcpc = wcpMm/10;
 
@@ -655,12 +764,13 @@ function renderResults() {
     ['Cw (翹曲常數，基礎 H 型鋼)', b.Cw, 'cm⁶', ''],
   ];
   if (t.Jclosed !== null) rows.push(['J_closed (封閉箱型)', t.Jclosed, 'cm⁴', '']);
+  lastResultRows = rows;
 
   const host = document.getElementById('results');
-  host.innerHTML = rows.map(([label, v, unit, deltaPct]) => {
+  host.innerHTML = rows.map(([label, v, unit, deltaPct], idx) => {
     const deltaHTML = (deltaPct !== '' && isFinite(deltaPct) && Math.abs(deltaPct) > 0.01)
       ? `<span class="delta">${deltaPct>0?'+':''}${deltaPct.toFixed(1)}%</span>` : '';
-    return `<div class="result-item">
+    return `<div class="result-item" onclick="copySingleCompositeResult(${idx})" title="點擊複製 ${label} 數值">
       <span class="label">${label}</span>
       <span class="value">${fmt(v)} <span class="unit">${unit}</span>${deltaHTML}</span>
     </div>`;
@@ -677,67 +787,120 @@ function renderResults() {
   else nb.style.display='none';
 }
 
-// ================= 繪圖 =================
+// ================= 繪圖：雙欄 2x HiDPI 工程圖卡 (680 × 320) =================
+function _drawCompositePill(ctx, txt, x, y, textColor = '#0f172a', borderColor = '#94a3b8', bgColor = '#ffffff') {
+  ctx.save();
+  ctx.font = 'bold 11px "Segoe UI", "Microsoft JhengHei", Consolas, sans-serif';
+  ctx.textAlign = 'center';
+  const w = (typeof ctx.measureText === 'function' ? ctx.measureText(txt).width : txt.length * 7) + 10;
+  const h = 16;
+  const rx = x - w / 2, ry = y - 12;
+  ctx.fillStyle = bgColor;
+  if (typeof ctx.roundRect === 'function') {
+    ctx.beginPath(); ctx.roundRect(rx, ry, w, h, 4); ctx.fill();
+    ctx.strokeStyle = borderColor; ctx.lineWidth = 1; ctx.stroke();
+  } else {
+    ctx.fillRect(rx, ry, w, h);
+    if (typeof ctx.strokeRect === 'function') {
+      ctx.strokeStyle = borderColor; ctx.lineWidth = 1; ctx.strokeRect(rx, ry, w, h);
+    }
+  }
+  ctx.fillStyle = textColor;
+  ctx.fillText(txt, x, y);
+  ctx.restore();
+  return { x: rx, y: ry, w, h };
+}
+
 function drawSection() {
   const c = document.getElementById('secCanvas');
+  if (!c) return;
   const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, c.width, c.height);
+  const W = 680, H = 320, plotW = 390, plotH = 320, dpr = 2;
+  if (typeof ctx.scale === 'function') {
+    c.width = W * dpr;
+    c.height = H * dpr;
+    if (c.style) { c.style.width = `${W}px`; c.style.height = `${H}px`; }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+  }
+  ctx.clearRect(0, 0, W, H);
   const d = lastData; if (!d) return;
 
   const g = d.geom;
   const hasSide  = (g.mode==='side'  || g.mode==='both');
   const hasCover = (g.mode==='cover' || g.mode==='both');
+  const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[g.mode];
+  c.setAttribute('role', 'img');
+  c.setAttribute('aria-label', `合成斷面工程圖卡：${currentHName()}｜${modeText}`);
 
-  // mm 範圍
-  const halfW_mm = g.Bmm/2 + (hasSide  ? (g.tspMm) : 0);
-  const halfH_mm = g.Hmm/2 + (hasCover ? (g.tcpMm) : 0);
-  const W = 2 * halfW_mm + 40, Hd = 2 * halfH_mm + 40;
-  const sc = Math.min((c.width - 80) / W, (c.height - 40) / Hd);
-  const cx = c.width / 2, cy = c.height / 2;
+  // ===== Layer 1: 工程方格底圖與幾何斷面 =====
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#f1f5f9';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 20; x < plotW; x += 20) { ctx.moveTo(x, 0); ctx.lineTo(x, plotH); }
+  for (let y = 20; y < plotH; y += 20) { ctx.moveTo(0, y); ctx.lineTo(plotW, y); }
+  ctx.stroke();
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, plotW - 1, plotH - 1);
+  ctx.restore();
+
+  // mm 範圍與安全邊距縮放
+  const wcp_mm = hasCover ? (g.wcpMm || g.Bmm) : g.Bmm;
+  const hsp_mm = hasSide  ? (g.hspMm || g.Hmm) : g.Hmm;
+  const halfW_mm = Math.max(g.Bmm/2 + (hasSide ? g.tspMm : 0), wcp_mm/2);
+  const halfH_mm = Math.max(g.Hmm/2 + (hasCover ? g.tcpMm : 0), hsp_mm/2);
+  const totalW_mm = Math.max(10, 2 * halfW_mm);
+  const totalH_mm = Math.max(10, 2 * halfH_mm);
+  const sc = Math.min((plotW - 130) / totalW_mm, (plotH - 110) / totalH_mm);
+  const cx = plotW / 2 + 8, cy = plotH / 2 - 4;
   const toX = mm => cx + mm * sc;
   const toY = mm => cy - mm * sc;
 
-  // ===== 蓋板（先畫，H 型鋼會覆蓋交疊部分）=====
+  // 1A. 蓋板 (B)
   if (hasCover) {
-    const wcp_mm = g.wcpMm || g.Bmm;
+    const tcpDraw = Math.max(3, g.tcpMm * sc);
     ctx.fillStyle = '#e9d5ff';
-    ctx.strokeStyle = '#a855f7';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#9333ea';
+    ctx.lineWidth = 1.6;
     // 上蓋板
     ctx.beginPath();
-    ctx.rect(toX(-wcp_mm/2), toY(g.Hmm/2 + g.tcpMm), wcp_mm*sc, g.tcpMm*sc);
+    ctx.rect(toX(-wcp_mm/2), toY(g.Hmm/2) - tcpDraw, wcp_mm*sc, tcpDraw);
     ctx.fill(); ctx.stroke();
     // 下蓋板
     ctx.beginPath();
-    ctx.rect(toX(-wcp_mm/2), toY(-g.Hmm/2), wcp_mm*sc, g.tcpMm*sc);
+    ctx.rect(toX(-wcp_mm/2), toY(-g.Hmm/2), wcp_mm*sc, tcpDraw);
     ctx.fill(); ctx.stroke();
   }
 
-  // ===== 側板 =====
+  // 1B. 側板 (A)
   if (hasSide) {
-    const hsp_mm = g.hspMm || g.Hmm;
+    const tspDraw = Math.max(3, g.tspMm * sc);
     ctx.fillStyle = '#fed7aa';
-    ctx.strokeStyle = '#f97316';
-    ctx.lineWidth = 1.5;
-    // 左
+    ctx.strokeStyle = '#ea580c';
+    ctx.lineWidth = 1.6;
+    // 左側板
     ctx.beginPath();
-    ctx.rect(toX(-g.Bmm/2 - g.tspMm), toY(hsp_mm/2), g.tspMm*sc, hsp_mm*sc);
+    ctx.rect(toX(-g.Bmm/2) - tspDraw, toY(hsp_mm/2), tspDraw, hsp_mm*sc);
     ctx.fill(); ctx.stroke();
-    // 右
+    // 右側板
     ctx.beginPath();
-    ctx.rect(toX(g.Bmm/2), toY(hsp_mm/2), g.tspMm*sc, hsp_mm*sc);
+    ctx.rect(toX(g.Bmm/2), toY(hsp_mm/2), tspDraw, hsp_mm*sc);
     ctx.fill(); ctx.stroke();
   }
 
-  // ===== H 型鋼（覆蓋在最上層）=====
+  // 1C. 基礎 H 型鋼
   ctx.fillStyle = '#dbeafe';
   ctx.strokeStyle = '#2563eb';
   ctx.lineWidth = 2;
-  const H = g.Hmm, B = g.Bmm, tw = g.tw, tf = g.tf;
-  const left = toX(-B/2), right = toX(B/2);
-  const top  = toY(H/2),  bot   = toY(-H/2);
-  const wL = toX(-tw/2),  wR    = toX(tw/2);
-  const tfiTop = toY(H/2 - tf), tfiBot = toY(-(H/2 - tf));
+  const Hmm = g.Hmm, Bmm = g.Bmm, tw = g.tw, tf = g.tf;
+  const left = toX(-Bmm/2), right = toX(Bmm/2);
+  const top  = toY(Hmm/2),  bot   = toY(-Hmm/2);
+  const wL = toX(-tw/2),    wR    = toX(tw/2);
+  const tfiTop = toY(Hmm/2 - tf), tfiBot = toY(-(Hmm/2 - tf));
   ctx.beginPath();
   ctx.moveTo(left, top);
   ctx.lineTo(right, top);
@@ -755,25 +918,212 @@ function drawSection() {
   ctx.fill();
   ctx.stroke();
 
-  // ===== 軸線 =====
+  // ===== Layer 2: 形心主軸虛線與形心點 =====
+  const outerTop = hasCover ? (top - Math.max(3, g.tcpMm * sc)) : Math.min(top, toY(hsp_mm/2));
+  const outerBot = hasCover ? (bot + Math.max(3, g.tcpMm * sc)) : Math.max(bot, toY(-hsp_mm/2));
+  const outerLeft  = hasSide ? (left - Math.max(3, g.tspMm * sc)) : Math.min(left, toX(-wcp_mm/2));
+  const outerRight = hasSide ? (right + Math.max(3, g.tspMm * sc)) : Math.max(right, toX(wcp_mm/2));
+
   ctx.save();
-  ctx.setLineDash([4,4]);
-  ctx.strokeStyle = '#ef4444';
-  ctx.lineWidth = 1;
-  const extH = halfH_mm*sc + 16, extW = halfW_mm*sc + 16;
-  ctx.beginPath(); ctx.moveTo(cx-extW, cy); ctx.lineTo(cx+extW, cy); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, cy-extH); ctx.lineTo(cx, cy+extH); ctx.stroke();
+  ctx.setLineDash([5, 3]);
+  ctx.strokeStyle = '#dc2626';
+  ctx.lineWidth = 1.25;
+  const axLeft = Math.max(14, outerLeft - 18), axRight = Math.min(plotW - 22, outerRight + 18);
+  const axTop  = Math.max(22, outerTop - 16),  axBot   = Math.min(plotH - 26, outerBot + 16);
+  ctx.beginPath(); ctx.moveTo(axLeft, cy); ctx.lineTo(axRight, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, axTop); ctx.lineTo(cx, axBot); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath(); ctx.arc(cx, cy, 3, 0, PI * 2); ctx.fill();
+  ctx.font = 'italic bold 11px "Segoe UI", Consolas, sans-serif';
+  ctx.textAlign = 'left'; ctx.fillText('x', axRight + 4, cy - 5);
+  ctx.textAlign = 'left'; ctx.fillText('y', cx + 6, axTop + 8);
   ctx.restore();
 
-  // ===== 尺寸標註 =====
-  ctx.fillStyle = '#1e293b';
-  ctx.font = '11px Consolas,monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`B=${B}`, cx, bot + 18 + (hasCover? g.tcpMm*sc : 0));
-  ctx.textAlign = 'right';
-  ctx.fillText(`H=${H}`, left - 6 - (hasSide? g.tspMm*sc : 0), cy + 4);
+  // ===== Layer 3: 工程尺寸延伸線與不透明防碰撞膠囊標籤 =====
+  // 垂直尺寸線 H (左側)
+  const dimX = Math.max(32, outerLeft - 24);
+  ctx.save();
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(dimX, top); ctx.lineTo(dimX, bot);
+  ctx.moveTo(dimX - 3.5, top); ctx.lineTo(dimX + 3.5, top);
+  ctx.moveTo(dimX - 3.5, bot); ctx.lineTo(dimX + 3.5, bot);
+  ctx.stroke();
+  ctx.restore();
+  _drawCompositePill(ctx, `H=${Hmm}`, dimX, cy + 4, '#0f172a', '#94a3b8');
+
+  // 水平尺寸線 B (下方)
+  const dimY = Math.min(plotH - 30, outerBot + 18);
+  ctx.save();
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(left, dimY); ctx.lineTo(right, dimY);
+  ctx.moveTo(left, dimY - 3.5); ctx.lineTo(left, dimY + 3.5);
+  ctx.moveTo(right, dimY - 3.5); ctx.lineTo(right, dimY + 3.5);
+  ctx.stroke();
+  ctx.restore();
+  _drawCompositePill(ctx, `B=${Bmm} mm`, cx, dimY + 4, '#0f172a', '#94a3b8');
+
+  // 腹板/翼板厚標籤 (避開 x 軸標記)
+  const webPillX = Math.min(plotW - 58, Math.max(cx + 48, outerRight + 44));
+  const webPillY = cy - 22;
+  _drawCompositePill(ctx, `tw=${tw}, tf=${tf}`, webPillX, webPillY, '#1e40af', '#93c5fd', '#eff6ff');
+
+  // 蓋板標籤 (右上方，避開 y 軸線與上蓋板)
+  if (hasCover) {
+    const cpPillX = Math.min(plotW - 58, cx + 64);
+    const cpPillY = Math.max(18, outerTop - 10);
+    _drawCompositePill(ctx, `蓋板 ${g.tcpMm}×${wcp_mm}`, cpPillX, cpPillY, '#6b21a8', '#c084fc', '#faf5ff');
+  }
+
+  // 側板標籤 (右側，位於 x 軸下方)
+  if (hasSide) {
+    const spPillX = Math.min(plotW - 58, Math.max(cx + 48, outerRight + 44));
+    const spPillY = cy + 18;
+    _drawCompositePill(ctx, `側板 ${g.tspMm}×${hsp_mm}`, spPillX, spPillY, '#9a3412', '#fb923c', '#fff7ed');
+  }
+
+  // 左下角內嵌迷你圖例
+  ctx.save();
+  ctx.font = 'bold 9.5px "Microsoft JhengHei", "Segoe UI", sans-serif';
+  ctx.textAlign = 'left';
+  const legY = plotH - 8;
+  ctx.fillStyle = '#dbeafe'; ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1;
+  ctx.fillRect(8, legY - 8, 9, 9); ctx.strokeRect(8, legY - 8, 9, 9);
+  ctx.fillStyle = '#334155'; ctx.fillText('H型鋼', 20, legY);
+  ctx.fillStyle = '#fed7aa'; ctx.strokeStyle = '#ea580c';
+  ctx.fillRect(56, legY - 8, 9, 9); ctx.strokeRect(56, legY - 8, 9, 9);
+  ctx.fillStyle = '#334155'; ctx.fillText('側板A', 68, legY);
+  ctx.fillStyle = '#e9d5ff'; ctx.strokeStyle = '#9333ea';
+  ctx.fillRect(104, legY - 8, 9, 9); ctx.strokeRect(104, legY - 8, 9, 9);
+  ctx.fillStyle = '#334155'; ctx.fillText('蓋板B', 116, legY);
+  ctx.restore();
+
+  // ===== 右欄：合成斷面規格與補強增益參數卡 (x: 396 .. 680) =====
+  _renderCompositeSpecCard(ctx, plotW + 6, 0, W - plotW - 6, H, d);
 }
 
+function _renderCompositeSpecCard(ctx, x0, y0, cardW, cardH, d) {
+  ctx.save();
+  const g = d.geom, t = d.total, b = d.baseH;
+  const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[g.mode];
+
+  // 外框
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(x0, y0, cardW, cardH);
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x0 + 0.5, y0 + 0.5, cardW - 1, cardH - 1);
+
+  // 頂部深海藍橫幅
+  const hdrH = 44;
+  ctx.fillStyle = '#1e3a5f';
+  ctx.fillRect(x0, y0, cardW, hdrH);
+  ctx.fillStyle = '#93c5fd';
+  ctx.font = 'bold 10px "Microsoft JhengHei", "Segoe UI", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('合成斷面規格與性質參數卡 (含原 H 增益對照)', x0 + 10, y0 + 15);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 12px "Microsoft JhengHei", "Segoe UI", sans-serif';
+  const titleStr = `${currentHName()} ｜ ${modeText}`;
+  ctx.fillText(titleStr.length > 26 ? titleStr.slice(0, 25) + '…' : titleStr, x0 + 10, y0 + 34);
+
+  // 採用尺寸摘要列
+  const dimBarY = y0 + hdrH;
+  const dimBarH = 26;
+  ctx.fillStyle = '#eff6ff';
+  ctx.fillRect(x0 + 1, dimBarY, cardW - 2, dimBarH);
+  ctx.strokeStyle = '#bfdbfe';
+  ctx.beginPath(); ctx.moveTo(x0, dimBarY + dimBarH); ctx.lineTo(x0 + cardW, dimBarY + dimBarH); ctx.stroke();
+
+  const dimTokens = [`H${g.Hmm}×${g.Bmm}×${g.tw}×${g.tf}`];
+  if (g.mode === 'side' || g.mode === 'both') dimTokens.push(`側板 ${g.tspMm}×${g.hspMm}`);
+  if (g.mode === 'cover' || g.mode === 'both') dimTokens.push(`蓋板 ${g.tcpMm}×${g.wcpMm}`);
+  const dimSummary = dimTokens.join(' ＋ ') + ' (mm)';
+  ctx.fillStyle = '#1e40af';
+  ctx.font = 'bold 10px Consolas, "Microsoft JhengHei", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(dimSummary.length > 42 ? dimSummary.slice(0, 41) + '…' : dimSummary, x0 + 8, dimBarY + 17);
+
+  // 核心性質雙欄表格（含增益％）
+  const cardItems = [
+    ['A',      t.A,     'cm²',  pct(t.A,  b.A)],
+    ['W',      t.W,     'kg/m', pct(t.W,  b.A*0.785)],
+    ['Ix',     t.Ix,    'cm⁴',  pct(t.Ix, b.Ix)],
+    ['Iy',     t.Iy,    'cm⁴',  pct(t.Iy, b.Iy)],
+    ['Sx',     t.Sx,    'cm³',  pct(t.Sx, b.Ix/b.ymax)],
+    ['Sy',     t.Sy,    'cm³',  pct(t.Sy, b.Iy/b.xmax)],
+    ['Zx',     t.Zx,    'cm³',  pct(t.Zx, b.Zx)],
+    ['Zy',     t.Zy,    'cm³',  pct(t.Zy, b.Zy)],
+    ['rx',     t.rx,    'cm',   pct(t.rx, Math.sqrt(b.Ix/b.A))],
+    ['ry',     t.ry,    'cm',   pct(t.ry, Math.sqrt(b.Iy/b.A))],
+    ['J_open', t.Jopen, 'cm⁴',  pct(t.Jopen, b.Jopen)],
+    t.Jclosed !== null
+      ? ['J_box', t.Jclosed, 'cm⁴', '']
+      : ['Cw',    b.Cw,      'cm⁶', ''],
+  ];
+
+  const gridTop = dimBarY + dimBarH + 6;
+  const cols = 2;
+  const colW = (cardW - 16) / cols;
+  const rowH = 36;
+
+  cardItems.forEach(([shortLabel, v, unit, deltaPct], idx) => {
+    const col = idx % cols;
+    const row = Math.floor(idx / cols);
+    const gx = x0 + 6 + col * (colW + 4);
+    const gy = gridTop + row * rowH;
+    if (gy + rowH > y0 + cardH - 14) return;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(gx, gy, colW, rowH - 3);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(gx, gy, colW, rowH - 3);
+    ctx.fillStyle = (shortLabel === 'J_box') ? '#ea580c' : '#1e3a5f';
+    ctx.fillRect(gx, gy, 2.5, rowH - 3);
+
+    // 左上：性質代號
+    ctx.fillStyle = '#475569';
+    ctx.font = 'bold 10.5px "Segoe UI", Consolas, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(shortLabel, gx + 6, gy + 13);
+
+    // 左下：增益百分比
+    if (deltaPct !== '' && isFinite(deltaPct) && Math.abs(deltaPct) > 0.01) {
+      ctx.fillStyle = deltaPct >= 0 ? '#047857' : '#b91c1c';
+      ctx.font = 'bold 9.5px Consolas, sans-serif';
+      ctx.fillText(`${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(1)}%`, gx + 6, gy + 27);
+    } else if (shortLabel === 'J_box') {
+      ctx.fillStyle = '#ea580c';
+      ctx.font = 'bold 9px "Microsoft JhengHei", sans-serif';
+      ctx.fillText('封閉箱型', gx + 6, gy + 27);
+    }
+
+    // 右側：數值與單位
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 11px Consolas, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(fmt(v), gx + colW - 5, gy + 14);
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '9.5px Consolas, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(unit, gx + colW - 5, gy + 27);
+  });
+
+  // 底部版本標記
+  ctx.fillStyle = '#64748b';
+  ctx.font = '9.5px Consolas, "Segoe UI", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`合成斷面性質計算 ${COMPOSITE_PUBLIC_VERSION}`, x0 + 8, y0 + cardH - 5);
+  ctx.textAlign = 'right';
+  ctx.fillText(COMPOSITE_CALCULATION_ENGINE, x0 + cardW - 8, y0 + cardH - 5);
+  ctx.restore();
+}
+
+// ================= 協同複製、圖卡匯出與方案並排比較 =================
 async function writeCompositeClipboard(text) {
   if (navigator.clipboard?.writeText) {
     try { await navigator.clipboard.writeText(text); return true; } catch (_) {}
@@ -790,6 +1140,113 @@ async function writeCompositeClipboard(text) {
   return ok;
 }
 
+async function copySingleCompositeResult(index) {
+  const row = lastResultRows[index];
+  if (!row) return;
+  const [label, v, unit] = row;
+  const formatted = fmt(v);
+  await writeCompositeClipboard(formatted);
+  setReportStatus(`已複製 ${label}：${formatted} ${unit}`, 'ok');
+}
+
+async function copyCompositeTSV() {
+  if (!lastData) { setReportStatus('請先完成斷面計算', 'warn'); return; }
+  const g = lastData.geom;
+  const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[g.mode];
+  const lines = [
+    ['合成斷面性質計算', `${currentHName()} ｜ ${modeText}`, COMPOSITE_PUBLIC_VERSION].join('\t'),
+    ['項目名稱', '合成數值', '單位', '相對原 H 型鋼增益'].join('\t'),
+    ...lastResultRows.map(([l, v, u, dPct]) => [
+      l,
+      fmt(v),
+      u,
+      (dPct !== '' && isFinite(dPct)) ? `${dPct >= 0 ? '+' : ''}${dPct.toFixed(1)}%` : '—',
+    ].join('\t')),
+  ];
+  await writeCompositeClipboard(lines.join('\n'));
+  setReportStatus('已複製 Excel 表格 (TSV)；可直接於 Excel 按 Ctrl+V 貼上分欄', 'ok');
+}
+
+async function copyCompositeSummary() {
+  if (!lastData) { setReportStatus('請先完成斷面計算', 'warn'); return; }
+  const g = lastData.geom, t = lastData.total, b = lastData.baseH;
+  const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[g.mode];
+  const plateDesc = [];
+  if (g.mode === 'side' || g.mode === 'both') plateDesc.push(`側板 2-${g.tspMm}×${g.hspMm}mm`);
+  if (g.mode === 'cover' || g.mode === 'both') plateDesc.push(`蓋板 2-${g.tcpMm}×${g.wcpMm}mm`);
+  const gainStr = (cur, base) => {
+    const p = pct(cur, base);
+    return (p !== '' && isFinite(p) && Math.abs(p) > 0.05) ? ` (${p > 0 ? '+' : ''}${p.toFixed(1)}%)` : '';
+  };
+  const summary = `【${currentHName()}｜${modeText}${plateDesc.length ? '：' + plateDesc.join('＋') : ''}】A = ${fmt(t.A)} cm²${gainStr(t.A, b.A)}, W = ${fmt(t.W)} kg/m, Ix = ${fmt(t.Ix)} cm⁴${gainStr(t.Ix, b.Ix)}, Iy = ${fmt(t.Iy)} cm⁴${gainStr(t.Iy, b.Iy)}, Sx = ${fmt(t.Sx)} cm³${gainStr(t.Sx, b.Ix/b.ymax)}, Sy = ${fmt(t.Sy)} cm³${gainStr(t.Sy, b.Iy/b.xmax)}, Zx = ${fmt(t.Zx)} cm³${gainStr(t.Zx, b.Zx)}, Zy = ${fmt(t.Zy)} cm³${gainStr(t.Zy, b.Zy)}${t.Jclosed !== null ? `, J_closed = ${fmt(t.Jclosed)} cm⁴` : ''}`;
+  await writeCompositeClipboard(summary);
+  setReportStatus(`已複製報告摘要：${summary}`, 'ok');
+}
+
+function exportCompositeCSV() {
+  if (!lastData) { setReportStatus('請先完成斷面計算', 'warn'); return; }
+  const g = lastData.geom;
+  const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[g.mode];
+  const csvCell = val => {
+    const s = String(val ?? '');
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows = [
+    ['基礎型鋼', currentHName(), '補強型式', modeText],
+    ['H (mm)', g.Hmm, 'B (mm)', g.Bmm, 'tw (mm)', g.tw, 'tf (mm)', g.tf],
+    [],
+    ['斷面性質項目', '合成後數值', '單位', '相對原 H 型鋼增益'],
+    ...lastResultRows.map(([l, v, u, dPct]) => [
+      l,
+      fmt(v),
+      u,
+      (dPct !== '' && isFinite(dPct)) ? `${dPct >= 0 ? '+' : ''}${dPct.toFixed(1)}%` : '—',
+    ]),
+  ];
+  const csvContent = '\uFEFF' + rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `合成斷面-${currentHName()}-${g.mode}.csv`.replace(/[\\/:*?"<>|]+/g, '-');
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  setReportStatus('已匯出 CSV 試算表（含 UTF-8 BOM）', 'ok');
+}
+
+function exportCompositeJPG() {
+  if (!lastData) { setReportStatus('請先完成斷面計算', 'warn'); return; }
+  const srcCanvas = document.getElementById('secCanvas');
+  const out = document.createElement('canvas');
+  out.width = srcCanvas.width;
+  out.height = srcCanvas.height;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(srcCanvas, 0, 0);
+  const a = document.createElement('a');
+  a.href = out.toDataURL('image/jpeg', 0.96);
+  a.download = `合成斷面圖卡-${currentHName()}-${lastData.geom.mode}.jpg`.replace(/[\\/:*?"<>|]+/g, '-');
+  a.click();
+  setReportStatus('已另存高解析度合成斷面工程圖卡 JPG（含左合成圖與右側增益參數表）', 'ok');
+}
+
+async function copyCompositeCanvasImage() {
+  if (!lastData) { setReportStatus('請先完成斷面計算', 'warn'); return; }
+  const srcCanvas = document.getElementById('secCanvas');
+  try {
+    if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+      const blob = await new Promise(resolve => srcCanvas.toBlob(resolve, 'image/png'));
+      if (blob) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        setReportStatus('已將合成斷面工程圖卡複製至剪貼簿！可直接於 Word 計算書或簡報按 Ctrl+V 貼上', 'ok');
+        return;
+      }
+    }
+  } catch (_) {}
+  exportCompositeJPG();
+}
+
+// ===== 補強方案並排比較表 =====
 const COMPOSITE_COMP_METRICS = [
   { key: 'A',       label: 'A (斷面積)',       unit: 'cm²' },
   { key: 'W',       label: 'W (單位重)',       unit: 'kg/m' },
@@ -807,12 +1264,11 @@ const COMPOSITE_COMP_METRICS = [
 let compositeComparisonList = [];
 
 function addCompositeToComparison() {
+  if (!lastData) { setReportStatus('請先完成斷面計算再加入比較', 'warn'); return; }
   if (compositeComparisonList.length >= 4) {
     setReportStatus('比較表最多容納 4 組補強方案；請先移除或清空現有方案', 'warn');
     return;
   }
-  calcAll();
-  if (!lastData) { setReportStatus('請先完成有效的斷面計算再加入比較', 'warn'); return; }
   const g = lastData.geom, t = lastData.total, b = lastData.baseH;
   const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[g.mode];
   const plateParts = [];
@@ -993,7 +1449,7 @@ function exportReport() {
     documentState: attachmentReadiness.documentState,
     documentClass: attachmentReadiness.documentClass,
     summary: { ok: null, text: `合成斷面性質計算：${modeText}` },
-    diagrams: [{ title:'合成斷面示意圖', dataURL, width: 500 }],
+    diagrams: [{ title:'合成斷面示意圖', dataURL, width: 640 }],
     inputs: [
       { group: '基本輸入（輸入單位 mm）', items: basicItems },
       { group: '合成斷面總性質（單位 cm）', items: totalItems },
@@ -1013,6 +1469,7 @@ function exportReport() {
 // ================= INIT =================
 function init() {
   document.getElementById('h-select').innerHTML = buildHSelect();
+  updateProjectSummaryBadge();
   onModeChange();
   calcAll();
 }
@@ -1020,6 +1477,7 @@ init();
 </script>
 <script src="tool-nav.manifest.js" defer></script>
 <script src="tool-chrome.js" defer></script>
+<script src="tool-page-a11y.js" defer></script>
 <script src="結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

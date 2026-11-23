@@ -4,6 +4,7 @@ const { spawn } = require('node:child_process');
 const readline = require('node:readline');
 const root = path.resolve(__dirname, '..');
 const { chromium } = require(path.join(root, 'output/playwright/phase2-quality-deps/node_modules/playwright'));
+const beamMetadata = require('../結構工具箱/tools/analysis-section-tool-metadata')['continuous-beam'];
 
 function simpleBeamInput(load = 12, units = 'kN-m') {
   return { unitSystem: units, matSelect: 'steel', eVal: 2.04e8, globalI: 0.0003, projNo: '', model: {
@@ -123,8 +124,8 @@ async function main() {
     assert.equal(p.span, 1);
     assert.equal(p.x, 2);
     assert.deepEqual(p.analysis, {
-      pageVersion: adopted.adoptedBeamImport.station.analysis.pageVersion,
-      engine: 'continuous-beam.inline.v1.5.1',
+      pageVersion: beamMetadata.version,
+      engine: beamMetadata.calculationEngine,
       material: 'steel',
       elasticModulus: 2.04e8,
       elasticModulusUnit: 'kN/m²',

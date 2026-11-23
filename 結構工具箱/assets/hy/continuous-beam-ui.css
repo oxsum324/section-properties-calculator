@@ -121,7 +121,466 @@ header a { color: var(--fg-on-navy-muted); text-decoration: none; font-size: var
 #loadInputs .load-item > .form-group:first-of-type { margin-bottom: 4px; }
 #loadInputs input, #loadInputs select { padding: 4px; font-size: var(--fs-sm); }
 .main-layout > *, .form-group { min-width: 0; }
+
+/* ==================== 介面美化與設定輕量化 ==================== */
+.collapsible-details { margin-top: 6px; }
+.collapsible-details summary {
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  user-select: none;
+  list-style: none;
+}
+.collapsible-details summary::-webkit-details-marker { display: none; }
+.collapsible-details summary::before {
+  content: "▸";
+  font-size: var(--fs-sm);
+  color: var(--primary);
+  transition: transform 0.15s ease;
+  margin-right: 4px;
+}
+.collapsible-details[open] summary::before { transform: rotate(90deg); }
+.collapsible-details .details-title { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.collapsible-details .details-summary-badge {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--fg-2);
+  background: var(--hy-paper);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collapsible-details .details-body { padding-top: 10px; }
+[data-ui-panel="project"] .collapsible-details { margin-top: 0; }
+
+.section-header-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--border);
+}
+.section-header-bar h2, .section-header-bar h3 {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+.section-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--fg-1);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 4px 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-chip input { width: auto; margin: 0; min-height: auto !important; }
+
+/* 進階跨度欄位預設精簡收合 */
+#spanInputs:not(.show-adv-span) .span-adv-field { display: none; }
+#spanInputs:not(.show-adv-span) .span-row {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+.span-row.active-span {
+  border: 1.5px solid var(--primary);
+  background: color-mix(in srgb, var(--hy-info-100) 55%, var(--bg-page));
+}
+.span-adv-badge {
+  font-size: var(--fs-xs);
+  color: var(--hy-navy);
+  background: var(--hy-info-100);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+/* 跨度快速切換頁籤 (Span Pill Tabs) */
+.span-pill-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.span-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--hy-paper);
+  color: var(--fg-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.span-pill:hover {
+  border-color: var(--primary);
+}
+.span-pill.active {
+  background: var(--primary);
+  color: var(--hy-paper);
+  border-color: var(--primary);
+}
+.span-pill .pill-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: var(--bg-subtle);
+  color: var(--fg-1);
+}
+.span-pill.active .pill-badge {
+  background: var(--hy-paper);
+  color: var(--primary);
+}
+
+.load-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+.btn-outline {
+  background: var(--hy-paper);
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+.btn-outline:hover {
+  background: var(--primary);
+  color: var(--hy-paper);
+}
+
+/* 右側面板與梁示意圖互動 */
+.schematic-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+.schematic-card-head h2 {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+.schematic-hint {
+  font-size: var(--fs-xs);
+  color: var(--fg-2);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+#schematicCanvas { cursor: pointer; }
+.right-panel > .card, .diagrams-section > .card {
+  padding: 14px 18px;
+  margin-bottom: 12px;
+}
+.empty-analysis-card {
+  border: 1.5px dashed var(--border);
+  background: var(--bg-subtle);
+}
+.empty-analysis-inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-sm);
+  color: var(--fg-2);
+}
+.empty-analysis-inner strong { color: var(--primary); }
+
+/* 圖表檢視模式切換工具列 */
+.diagram-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+.diagram-view-switch, .diagram-tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.diagram-tab-btn {
+  padding: 5px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  color: var(--fg-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.diagram-tab-btn.active {
+  background: var(--primary);
+  color: var(--hy-paper);
+  border-color: var(--primary);
+}
+.diagrams-section[data-view-mode="tabs"] .diagram-panel-card.tab-hidden {
+  display: none !important;
+}
+
+/* 互動斷面游標與精確位置內力查詢列 */
+#sfdCanvas, #bmdCanvas, #deflCanvas { cursor: crosshair; }
+.station-inspector-bar {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+.inspector-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.inspector-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary);
+}
+.inspector-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--fg-2);
+}
+.inspector-field select, .inspector-field input {
+  padding: 3px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-family: inherit;
+  width: auto;
+  min-height: 28px !important;
+}
+.inspector-field input { width: 82px; }
+.inspector-quick-btns {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.btn-quick-x {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-subtle);
+  color: var(--fg-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-quick-x:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.inspector-pin-btn {
+  background: var(--hy-info-100);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.inspector-hint {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--fg-2);
+}
+.inspector-readouts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.inspector-badge {
+  padding: 6px 10px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-lg);
+  border-left: 3.5px solid var(--primary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.inspector-badge.sfd { border-left-color: #2563eb; }
+.inspector-badge.bmd { border-left-color: #dc2626; }
+.inspector-badge.defl { border-left-color: #059669; }
+.inspector-badge span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-2);
+}
+.inspector-badge strong {
+  font-size: var(--fs-sm);
+  color: var(--fg-1);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.inspector-badge strong small {
+  font-weight: 500;
+  color: var(--fg-2);
+}
+
+/* 表格質感強化 */
+.table-scroll-wrap { overflow-x: auto; width: 100%; }
+.results-table th, .results-table td { padding: 8px 10px; }
+.results-table tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-subtle) 55%, var(--hy-paper)); }
+
+/* 支承彈簧輸入欄與移動車型載重區塊 */
+.support-controls-wrap {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.support-controls-wrap:has(.support-spring-field) {
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+}
+.moving-load-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+#movingLoadControls {
+  margin-top: 8px;
+  padding: 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.moving-load-result-panel {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-left: 4px solid #7c3aed;
+  border-radius: var(--radius-lg);
+}
+.moving-load-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.moving-load-head strong {
+  font-size: var(--fs-sm);
+  color: var(--primary);
+}
+.moving-load-meta {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--fg-2);
+  background: var(--hy-paper);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.moving-load-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.moving-load-box {
+  padding: 8px 12px;
+  background: var(--hy-paper);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.moving-load-box.active {
+  border-color: #7c3aed;
+  background: color-mix(in srgb, #7c3aed 6%, var(--hy-paper));
+}
+.ml-box-title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--fg-2);
+}
+.ml-box-val {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--fg-1);
+  margin: 2px 0;
+}
+.moving-load-box.pos .ml-box-val { color: #b91c1c; }
+.moving-load-box.neg .ml-box-val { color: #1d4ed8; }
+.ml-box-sub {
+  font-size: 11px;
+  color: var(--fg-2);
+  line-height: 1.4;
+}
+.moving-load-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .inspector-readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 640px) {
   [data-ui-panel="project"] .form-row { grid-template-columns: 1fr; }
   #spanInputs input, #spanInputs select, #loadInputs input, #loadInputs select { font-size: var(--fs-md); }
+  .collapsible-details .details-summary-badge { max-width: 140px; }
+  .diagram-toolbar, .station-inspector-bar { padding: 8px 10px; }
+  .inspector-readouts, .moving-load-grid { grid-template-columns: 1fr; }
+  .support-controls-wrap:has(.support-spring-field) { grid-template-columns: 1fr; }
 }

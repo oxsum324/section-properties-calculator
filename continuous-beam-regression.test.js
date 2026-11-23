@@ -906,6 +906,7 @@ function main() {
   runInstabilityChecks(ctx);
   runInternalForceSnapshotCheck(ctx);
   runDeflectionClosedFormChecks(ctx);
+  runExtendedSupportsAndMovingLoadChecks(ctx);
 
   console.log('\nAll continuous beam regression checks passed.');
 }
@@ -1339,6 +1340,115 @@ function runInternalForceSnapshotCheck(ctx) {
   historical[descendingIndex] = internalForceSnapshot(ctx, cases[descendingIndex], true);
   assert(stableSha256(historical) === ORIGINAL_INTERNAL_FORCE_SNAPSHOT_SHA256,
     'historical reactions / shear / moment arrays retain the original file snapshot', stableSha256(historical));
+}
+
+function runExtendedSupportsAndMovingLoadChecks(ctx) {
+  const E = 204000000, I = 0.00042, EI = E * I;
+
+  // 1) 定向支承 (guided)：左端固定、右端定向支承、跨長 L=6、集中力 P=30 於右端
+  //    右端 θ=0、v 自由 → 反力 R_left = P, R_right = 0；兩端彎矩大小均為 PL/2 = 90，右端撓度 δ = PL³/(12EI)
+  {
+    const P = 30, L = 6;
+    setupBeam(ctx, { supports: ['fixed', 'guided'], spans: [{ L }], loads: [[{ type: 'point', P, a: L }]] });
+    assert(!!ctx.solution, 'fixed-guided beam solves', 'solution present');
+    assertNear(ctx.solution.reactions[0].Ry, P, 1e-9, 'fixed-guided left vertical reaction = P', 'Ry0 = 30');
+    assertNear(ctx.solution.reactions[1].Ry, 0, 1e-9, 'fixed-guided right vertical reaction = 0', 'Ry1 = 0');
+    assertNear(Math.abs(ctx.solution.reactions[0].Mr), P * L / 2, 1e-9, 'fixed-guided left moment reaction = PL/2', '|Mr0| = 90');
+    assertNear(Math.abs(ctx.solution.reactions[1].Mr), P * L / 2, 1e-9, 'fixed-guided right moment reaction = PL/2', '|Mr1| = 90');
+    assertNear(-Math.min(...ctx.diagrams.spans[0].ds), P * L ** 3 / (12 * EI), 1e-9, 'fixed-guided tip deflection = PL^3/(12EI)', 'x = L');
+  }
+
+  // 2) 垂直彈簧 (vspring)：左端固定、右端垂直彈簧 kv = 10000 kN/m、跨長 L=6、右端集中力 P=30
+  //    懸臂先端勁度 k_beam = 3EI/L³；由位移協調 v = -P / (k_beam + kv)，彈簧反力 R_spring = -kv * v = P * kv / (k_beam + kv)
+  //    全梁垂直力平衡 R_fixed + R_spring = P
+  {
+    const P = 30, L = 6, kv = 10000;
+    const kBeam = 3 * EI / (L ** 3);
+    const expectedRspring = P * kv / (kBeam + kv);
+    const expectedRfixed = P - expectedRspring;
+    ctx.initModel(1);
+    ctx.model.supports[0] = { type: 'fixed' };
+    ctx.model.supports[1] = { type: 'vspring', kv };
+    ctx.model.spans[0] = { L, eiMul: 1, hinges: [] };
+    ctx.model.loads[0] = [{ type: 'point', P, a: L }];
+    ctx.renderSpanInputs();
+    ctx.renderLoadInputs();
+    ctx.runAnalysis();
+    assert(!!ctx.solution, 'fixed-vspring beam solves', 'solution present');
+    assertNear(ctx.solution.reactions[1].Ry, expectedRspring, 1e-8, 'vspring support reaction matches analytical stiffness ratio', `Ry1=${expectedRspring}`);
+    assertNear(ctx.solution.reactions[0].Ry, expectedRfixed, 1e-8, 'vspring + fixed vertical equilibrium sum(Ry) = P', `Ry0=${expectedRfixed}`);
+    assertNear(ctx.solution.reactions[0].Ry + ctx.solution.reactions[1].Ry, P, 1e-9, 'vspring total vertical reaction equals applied load', 'sum(Ry) = P');
+  }
+
+  // 3) 鉸支＋旋轉彈簧 (rspring)：左端 rspring (kr=20000)、右端 roller、全跨均佈 w=10, L=6
+  //    左端撓曲剛度 3EI/L，θ_0 = -(wL³/24EI) / (1 + kr·L/(3EI))，彎矩反力 Mr0 = -kr * θ_0 > 0
+  //    左端彎矩 M(0) = -Mr0，垂直反力 Ry0 = wL/2 + Mr0/L, Ry1 = wL/2 - Mr0/L
+  {
+    const w = 10, L = 6, kr = 20000;
+    const theta0 = -(w * L ** 3 / (24 * EI)) / (1 + (kr * L) / (3 * EI));
+    const expectedMr0 = -kr * theta0;
+    ctx.initModel(1);
+    ctx.model.supports[0] = { type: 'rspring', kr };
+    ctx.model.supports[1] = { type: 'roller' };
+    ctx.model.spans[0] = { L, eiMul: 1, hinges: [] };
+    ctx.model.loads[0] = [{ type: 'udl', w }];
+    ctx.renderSpanInputs();
+    ctx.renderLoadInputs();
+    ctx.runAnalysis();
+    assert(!!ctx.solution, 'rspring-roller beam solves', 'solution present');
+    assertNear(ctx.solution.reactions[0].Mr, expectedMr0, 1e-7, 'rspring moment reaction matches rotational stiffness formula', `Mr0=${expectedMr0}`);
+    assertNear(ctx.solution.reactions[0].Ry, w * L / 2 + expectedMr0 / L, 1e-7, 'rspring left vertical reaction satisfies moment equilibrium', 'Ry0');
+    assertNear(ctx.solution.reactions[1].Ry, w * L / 2 - expectedMr0 / L, 1e-7, 'rspring right vertical reaction satisfies moment equilibrium', 'Ry1');
+  }
+
+  {
+    const L = 10;
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[]] });
+    const xMoment = 0.063;
+    const moment = ctx.computeMovingLoadEnvelope(ctx.computeInfluenceLine(ctx.model, 'moment', xMoment), [{ P: 1, d: 0 }], false);
+    assertNear(moment.maxPos.value, xMoment * (L - xMoment) / L, 1e-9, 'off-grid moment influence target', 'simple beam closed form');
+    const xShear = 4.025;
+    const shear = ctx.computeMovingLoadEnvelope(ctx.computeInfluenceLine(ctx.model, 'shear', xShear), [{ P: 1, d: 0 }], false);
+    assertNear(shear.maxPos.value, (L - xShear) / L, 1e-7, 'off-grid positive shear approach', 'right side of unit load station');
+    assertNear(shear.maxNeg.value, -xShear / L, 1e-7, 'off-grid negative shear approach', 'left side of unit load station');
+    ctx.replaceLoadsWithVehicle('pos', shear.maxPos.wheelPositions);
+    assertNear(ctx.evaluateBeamStation(xShear).V, shear.maxPos.value, 1e-9, 'adopted shear vehicle retains sign and value', 'static recalculation');
+  }
+  {
+    for (const a of [3.9, 4, 4.1]) {
+      setupBeam(ctx, { supports: ['fixed', 'roller'], spans: [{ L: 10, hinges: [4] }], loads: [[{ type: 'point', P: 1, a }]] });
+      const result = ctx.solve(ctx.model);
+      assertNear(result.reactions.reduce((sum, support) => sum + support.Ry, 0), 1, 1e-9,
+        'point load contributes once at and around an internal hinge', `a=${a}`);
+    }
+    assert(!ctx.parseVehicleAxlesString('10oops@2.5').length, 'malformed vehicle axle is rejected', 'no partial numeric parsing');
+  }
+  // 4) 移動車載重 × 影響線極值求解器：簡支梁 L=10，跨中 x=5 彎矩影響線（峰值 η(5) = L/4 = 2.5）
+  //    雙軸車 60@0, 140@4.0：當重軸 140 踩在 x=5 時，60 軸在 x=1（或 x=9），η(1) = 0.5
+  //    理論最大正彎矩 = 140 * 2.5 + 60 * 0.5 = 350 + 30 = 380 kN-m
+  {
+    const L = 10;
+    setupBeam(ctx, { supports: ['pin', 'roller'], spans: [{ L }], loads: [[]] });
+    ctx.document.getElementById('ilEnabled').checked = true;
+    ctx.toggleIL();
+    ctx.document.getElementById('ilType').value = 'moment';
+    ctx.onILTypeChange();
+    ctx.document.getElementById('ilParam').value = '5';
+    ctx.document.getElementById('movingLoadEnabled').checked = true;
+    ctx.toggleMovingLoad();
+    ctx.document.getElementById('vehiclePreset').value = 'truck2';
+    ctx.onVehiclePresetChange();
+    ctx.runAnalysis();
+    const env = ctx.influenceLineState?.movingLoad;
+    assert(!!env, 'moving load envelope computed on influence line', JSON.stringify(env));
+    assertNear(env.totalWeight, 200, 1e-9, 'truck2 total weight is 200 kN', `totalWeight=${env.totalWeight}`);
+    assertNear(env.maxPos.value, 380, 1e-6, 'moving load captures exact peak moment when heavy axle aligns with midspan', `maxPos=${env.maxPos.value}`);
+    // 一鍵帶入最大正值車位至跨度載重，靜力分析跨中最大彎矩應等於 380 kN-m
+    ctx.applyMovingLoadToSpans('pos');
+    assertNear(Math.max(...ctx.diagrams.spans[0].ms), 380, 1e-6, 'applyMovingLoadToSpans transfers critical wheel loads and reproduces 380 kN-m peak moment', `Mmax=${Math.max(...ctx.diagrams.spans[0].ms)}`);
+    ctx.document.getElementById('movingLoadEnabled').checked = false;
+    ctx.toggleMovingLoad();
+  }
 }
 
 main();
