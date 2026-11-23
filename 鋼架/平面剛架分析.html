@@ -54,6 +54,18 @@
   .row2 input, .row2 select, .row3 input, .row3 select { width: 100%; min-width: 0; }
   .flex-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 
+  dialog.card { margin: auto; width: min(calc(100% - 32px), 440px); color: inherit; }
+  dialog.card::backdrop { background: rgb(15 23 42 / 55%); }
+  #replaceFrameGridDialog form { justify-content: flex-end; margin-top: 16px; }
+  #replaceFrameGridDialog button { min-height: 40px; }
+
+  .quick-grid-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: end; }
+  .quick-grid-fields input, .quick-grid-fields select { width: 100%; }
+  .quick-grid-presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  @media (max-width: 640px) {
+    .quick-grid-fields { grid-template-columns: minmax(0, 1fr); }
+  }
+
   .error-msg { padding: 8px 12px; margin-top: 8px; display: none; }
   .warn-msg { padding: 8px 12px; margin-top: 8px; display: none; }
   .report-status { min-height: 20px; flex-basis: 100%; line-height: 1.5; }
@@ -105,6 +117,14 @@
 <body class="formal-tool-output-page" data-family="analysis">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>分析工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的計算書輸出按鈕產生只包含案件資料、分析輸入、計算結果與必要結論的計算書；本頁不得作為附件。</span></div>
+<dialog class="card page-only-tool-actions" id="replaceFrameGridDialog" aria-labelledby="replaceFrameGridTitle" aria-describedby="replaceFrameGridImpact">
+  <h2 id="replaceFrameGridTitle">取代現有剛架模型</h2>
+  <p id="replaceFrameGridImpact">快速建模會取代現有節點、桿件、載重與組合，並重設基礎傳遞設定。</p>
+  <form method="dialog" class="flex-row">
+    <button type="submit" class="btn btn-ghost" value="cancel" autofocus>取消</button>
+    <button type="submit" class="btn btn-danger" value="replace">確認生成</button>
+  </form>
+</dialog>
 <header>
   <h1>平面剛架分析 <span id="frameAnalysisVersion"></span></h1>
   <p>2D Rigid Frame — 直接勁度法 ‧ 集中/均布/自重載重 ‧ 端部鉸接 ‧ JSON ‧ 計算書 ‧ 單位 tf-m</p>
@@ -246,6 +266,37 @@
           <button class="btn btn-primary btn-sm" onclick="sendFoundationLoadComponents()">送至樁帽三維 STM</button>
         </div>
         <pre id="foundationTransferPreview" class="foundation-transfer-preview">請先指定基礎節點與 D／L／W／E 案例；未使用案例可保留 0。</pre>
+      </div>
+
+      <div class="card quick-grid-generator page-only-tool-actions" id="quickFrameGeneratorCard">
+        <h2><span>⚡ 快速剛架產生器（跨距 × 層高）</span><span class="summary-badge active" id="quickGridPreviewBadge">N 跨 × M 層</span></h2>
+        <div class="quick-grid-fields">
+          <div>
+            <label for="quickGridBays">各跨跨距 (m，逗號分隔)</label>
+            <input type="text" id="quickGridBays" value="6, 6" placeholder="例：6, 6">
+          </div>
+          <div>
+            <label for="quickGridStories">各層層高 (m，由下而上)</label>
+            <input type="text" id="quickGridStories" value="4, 3.5" placeholder="例：4, 3.5">
+          </div>
+          <div>
+            <label for="quickGridSupport">柱腳支承類型</label>
+            <select id="quickGridSupport" aria-label="柱腳支承類型">
+              <option value="fixed">固定端 (X, Y, θ)</option>
+              <option value="pinned">鉸支承 (X, Y)</option>
+            </select>
+          </div>
+          <div>
+            <button class="btn btn-primary" id="btnGenerateFrameGrid" onclick="generateQuickFrameGrid()">生成剛架網格</button>
+          </div>
+        </div>
+        <p class="hint">新網格會帶入示範載重，使用前請改成案件載重。</p>
+        <div class="quick-grid-presets">
+          <span class="preset-label">快捷尺寸：</span>
+          <button class="btn btn-ghost btn-sm" onclick="applyQuickGridPreset('6','4','fixed')">1跨1層 (6m×4m)</button>
+          <button class="btn btn-ghost btn-sm" onclick="applyQuickGridPreset('6, 6','4, 3.5','fixed')">2跨2層 (6,6×4,3.5)</button>
+          <button class="btn btn-ghost btn-sm" onclick="applyQuickGridPreset('7, 7, 7','4.2, 3.6, 3.6','fixed')">3跨3層 (7×3, 4.2+3.6×2)</button>
+        </div>
       </div>
 
       <div class="card">
@@ -1074,6 +1125,150 @@ function validateModel() {
 // ============================================================
 // UI: 資料表格
 // ============================================================
+function parseQuickGridNumbers(text) {
+  const dimensions = text.trim().split(/[,，\s;；]+/).map(Number);
+  return dimensions.every(value => Number.isFinite(value) && value > 0) ? dimensions : [];
+}
+
+function applyQuickGridPreset(bays, stories, support) {
+  generateQuickFrameGrid({ bays, stories, support });
+}
+
+function hasQuickGridDataToReplace() {
+  if (state.nodes.length || state.members.length || state.nodalLoads.length
+      || state.memberLoads.length || state.memberPointLoads.length || state.benchmarkId != null) return true;
+
+  const [loadCase] = state.loadCases;
+  const [combination] = state.loadCombinations;
+  if (state.loadCases.length > 1 || state.loadCombinations.length > 1
+      || (loadCase && (loadCase.name !== 'D' || state.comboFactors[loadCase.id] !== 1))
+      || (combination && combination.name !== `COMB${combination.id}`)) return true;
+
+  const transfer = state.foundationTransfer;
+  return !!transfer && (transfer.momentAxis !== 'My' || transfer.momentSign !== 1
+    || FOUNDATION_TRANSFER_LOAD_KEYS.some(key => transfer.caseMap[key] !== automaticFoundationLoadCaseId(key)));
+}
+
+function generateQuickFrameGrid(preset) {
+  const bayInput = document.getElementById('quickGridBays');
+  const storyInput = document.getElementById('quickGridStories');
+  const supSelect = document.getElementById('quickGridSupport');
+  const bays = parseQuickGridNumbers(preset?.bays ?? bayInput.value);
+  const stories = parseQuickGridNumbers(preset?.stories ?? storyInput.value);
+  const supportType = preset?.support || supSelect.value || 'fixed';
+  const err = document.getElementById('errorMsg');
+  if (!bays.length || !stories.length) {
+    if (err) {
+      err.textContent = '錯誤: 請輸入有效的跨距與層高數值（大於 0，以逗號分隔）。';
+      err.style.display = 'block';
+    }
+    return;
+  }
+  const replace = () => replaceQuickFrameGrid(bays, stories, supportType, preset);
+  if (!hasQuickGridDataToReplace()) {
+    replace();
+    return;
+  }
+  const dialog = document.getElementById('replaceFrameGridDialog');
+  dialog.querySelector('form').onsubmit = event => {
+    if (event.submitter?.value === 'replace') replace();
+  };
+  dialog.showModal();
+}
+
+function replaceQuickFrameGrid(bays, stories, supportType, preset) {
+  if (preset) {
+    document.getElementById('quickGridBays').value = preset.bays;
+    document.getElementById('quickGridStories').value = preset.stories;
+    document.getElementById('quickGridSupport').value = supportType;
+  }
+  const defE = parseFloat(document.getElementById('defE')?.value) || 2040;
+  const defA = parseFloat(document.getElementById('defA')?.value) || 63.1;
+  const defI = parseFloat(document.getElementById('defI')?.value) || 13600;
+  resetAll();
+  const xCoords = [0];
+  for (const w of bays) xCoords.push(Number((xCoords[xCoords.length - 1] + w).toFixed(6)));
+  const yCoords = [0];
+  for (const h of stories) yCoords.push(Number((yCoords[yCoords.length - 1] + h).toFixed(6)));
+
+  const nCols = xCoords.length;
+  const nLevels = yCoords.length;
+  const gridNodeId = (levelIdx, colIdx) => levelIdx * nCols + colIdx + 1;
+
+  for (let lvl = 0; lvl < nLevels; lvl++) {
+    const isBase = lvl === 0;
+    for (let col = 0; col < nCols; col++) {
+      const id = ++nodeIdCnt;
+      state.nodes.push({
+        id,
+        x: xCoords[col],
+        y: yCoords[lvl],
+        cx: isBase,
+        cy: isBase,
+        crz: isBase && supportType === 'fixed',
+        kx: 0,
+        ky: 0,
+        krz: 0,
+      });
+    }
+  }
+
+  const beamIdsByLevel = [];
+  // 建立各層柱 (下至上)
+  for (let lvl = 0; lvl < nLevels - 1; lvl++) {
+    for (let col = 0; col < nCols; col++) {
+      state.members.push({
+        id: ++memberIdCnt,
+        i: gridNodeId(lvl, col),
+        j: gridNodeId(lvl + 1, col),
+        E: defE,
+        A: defA,
+        I: defI,
+        relI: false,
+        relJ: false,
+      });
+    }
+  }
+  // 建立各層梁 (左至右)
+  for (let lvl = 1; lvl < nLevels; lvl++) {
+    const levelBeams = [];
+    for (let col = 0; col < nCols - 1; col++) {
+      const id = ++memberIdCnt;
+      state.members.push({
+        id,
+        i: gridNodeId(lvl, col),
+        j: gridNodeId(lvl, col + 1),
+        E: defE,
+        A: defA,
+        I: defI,
+        relI: false,
+        relJ: false,
+      });
+      levelBeams.push(id);
+    }
+    beamIdsByLevel.push(levelBeams);
+  }
+
+  // 預設在各樓層梁配置 2.0 tf/m 向下均布載重，頂層左節點配置 2.0 tf 水平側力，即可直接執行分析檢視
+  const firstCaseId = firstLoadCaseId();
+  for (const levelBeams of beamIdsByLevel) {
+    for (const mid of levelBeams) {
+      state.memberLoads.push({ caseId: firstCaseId, member: mid, w: 2.0, dir: 'globalY' });
+    }
+  }
+  state.nodalLoads.push({ caseId: firstCaseId, node: gridNodeId(nLevels - 1, 0), Fx: 2.0, Fy: 0, M: 0 });
+
+  const badge = document.getElementById('quickGridPreviewBadge');
+  if (badge) badge.textContent = `${bays.length} 跨 × ${stories.length} 層（${state.nodes.length} 節點 / ${state.members.length} 桿件）`;
+
+  renderLoadCombinationControls();
+  renderLoadCaseTable();
+  renderNodeTable();
+  refreshNodeSelectors();
+  renderFoundationTransferControls();
+  runAnalysis();
+}
+
 function addNodeRow(data) {
   const d = makeNode(data);
   const id = ++nodeIdCnt;

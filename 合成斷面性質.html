@@ -63,6 +63,18 @@
   .report-status { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; }
   .report-status.warn { display: block; background: #fffbeb; color: #92400e; }
   .report-status.error { display: block; background: #fef2f2; color: #dc2626; }
+  .comparison-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .action-chip-btn { padding: 6px 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--primary); font: inherit; font-size: .8em; cursor: pointer; }
+  .comp-table-wrap { overflow-x: auto; margin-top: 10px; }
+  .comp-table { width: 100%; border-collapse: collapse; font-size: 0.84em; }
+  .comp-table th, .comp-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums; }
+  .comp-table th:first-child, .comp-table td:first-child { text-align: left; font-weight: 600; color: var(--text-light); white-space: nowrap; }
+  .comp-table th { background: #f8fafc; color: var(--primary); font-weight: 700; border-bottom: 2px solid var(--border); }
+  .comp-table td.num { font-family: 'Consolas', monospace; font-weight: 600; color: var(--text); }
+  .comp-delta { font-size: 0.76em; font-weight: 700; margin-left: 4px; padding: 1px 4px; border-radius: 4px; }
+  .comp-delta.pos { color: #047857; background: #ecfdf5; }
+  .comp-delta.neg { color: #b91c1c; background: #fef2f2; }
+  .comp-delta.zero { color: #64748b; }
   @media print {
     .page-only-report-status { display: none !important; }
     .page-only-tool-actions { display: none !important; }
@@ -71,7 +83,7 @@
   .legend span { display: flex; align-items: center; gap: 4px; }
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid; }
   @media (max-width: 900px) {
-    .main-layout { grid-template-columns: 1fr; }
+    .main-layout { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 768px) {
     .results-grid { grid-template-columns: 1fr; }
@@ -189,13 +201,16 @@
         </div>
       </div>
       <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border); flex-wrap:wrap; gap:8px;">
           <div>
             <span style="font-size:1.05em; font-weight:700; color:var(--primary);">計算結果</span>
             <span style="font-size:0.75em; color:var(--text-light); margin-left:6px;">(輸出單位：cm)</span>
             <span class="mode-tag active" id="modeTag">—</span>
           </div>
-          <button class="btn-report" onclick="exportReport()">📄 計算書</button>
+          <div class="comparison-actions">
+            <button type="button" class="action-chip-btn page-only-tool-actions" onclick="addCompositeToComparison()">加入方案比較</button>
+            <button class="btn-report" onclick="exportReport()">📄 計算書</button>
+          </div>
         </div>
         <div class="results-grid" id="results">
           <div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div>
@@ -203,6 +218,21 @@
         <div class="note-box" id="noteBox" style="display:none;"></div>
         <div class="report-readiness page-only-report-status" id="reportReadiness" role="status" aria-live="polite"></div>
         <div class="report-status" id="reportStatus" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="card page-only-tool-actions" id="compositeComparisonCard" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;gap:8px;">
+          <div>
+            <span id="compositeComparisonTitle" style="font-size:1.05em;font-weight:700;color:var(--primary);">⚖️ 補強方案並排比較表</span>
+            <span id="compositeCompCountBadge" style="font-size:0.76em;color:var(--text-light);margin-left:6px;">(0 / 4 組，括號顯示相對於原基礎 H 型鋼之增益％)</span>
+          </div>
+          <div class="comparison-actions">
+            <button type="button" onclick="addCompositeToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:#eff6ff;border-color:#93c5fd;color:#1e40af;">➕ 加入目前方案</button>
+            <button type="button" onclick="copyCompositeComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">📋 複製比較表 (Excel)</button>
+            <button type="button" onclick="clearCompositeComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;color:#b91c1c;">清空比較</button>
+          </div>
+        </div>
+        <div class="comp-table-wrap" id="compositeComparisonTableWrap" role="region" aria-labelledby="compositeComparisonTitle" tabindex="0"></div>
       </div>
     </div>
   </div>
@@ -742,6 +772,142 @@ function drawSection() {
   ctx.fillText(`B=${B}`, cx, bot + 18 + (hasCover? g.tcpMm*sc : 0));
   ctx.textAlign = 'right';
   ctx.fillText(`H=${H}`, left - 6 - (hasSide? g.tspMm*sc : 0), cy + 4);
+}
+
+async function writeCompositeClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (_) {}
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (_) {}
+  document.body.removeChild(ta);
+  return ok;
+}
+
+const COMPOSITE_COMP_METRICS = [
+  { key: 'A',       label: 'A (斷面積)',       unit: 'cm²' },
+  { key: 'W',       label: 'W (單位重)',       unit: 'kg/m' },
+  { key: 'Ix',      label: 'Ix (強軸慣性矩)',  unit: 'cm⁴' },
+  { key: 'Iy',      label: 'Iy (弱軸慣性矩)',  unit: 'cm⁴' },
+  { key: 'Sx',      label: 'Sx (強軸斷面模數)',unit: 'cm³' },
+  { key: 'Sy',      label: 'Sy (弱軸斷面模數)',unit: 'cm³' },
+  { key: 'Zx',      label: 'Zx (強軸塑性模數)',unit: 'cm³' },
+  { key: 'Zy',      label: 'Zy (弱軸塑性模數)',unit: 'cm³' },
+  { key: 'rx',      label: 'rx (強軸迴轉半徑)',unit: 'cm' },
+  { key: 'ry',      label: 'ry (弱軸迴轉半徑)',unit: 'cm' },
+  { key: 'Jopen',   label: 'J_open (開斷面扭轉)', unit: 'cm⁴' },
+  { key: 'Jclosed', label: 'J_closed (封閉箱型)', unit: 'cm⁴' },
+];
+let compositeComparisonList = [];
+
+function addCompositeToComparison() {
+  if (compositeComparisonList.length >= 4) {
+    setReportStatus('比較表最多容納 4 組補強方案；請先移除或清空現有方案', 'warn');
+    return;
+  }
+  calcAll();
+  if (!lastData) { setReportStatus('請先完成有效的斷面計算再加入比較', 'warn'); return; }
+  const g = lastData.geom, t = lastData.total, b = lastData.baseH;
+  const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[g.mode];
+  const plateParts = [];
+  if (g.mode === 'side' || g.mode === 'both') plateParts.push(`側板 ${g.tspMm}×${g.hspMm}mm`);
+  if (g.mode === 'cover' || g.mode === 'both') plateParts.push(`蓋板 ${g.tcpMm}×${g.wcpMm}mm`);
+  const dimsText = plateParts.length ? plateParts.join(' ＋ ') : '無補強板';
+
+  compositeComparisonList.push({
+    title: `${currentHName()} (${modeText})`,
+    dims: dimsText,
+    metrics: {
+      A: t.A, W: t.W, Ix: t.Ix, Iy: t.Iy, Sx: t.Sx, Sy: t.Sy,
+      Zx: t.Zx, Zy: t.Zy, rx: t.rx, ry: t.ry, Jopen: t.Jopen, Jclosed: t.Jclosed,
+    },
+    baseMetrics: {
+      A: b.A, W: b.A * 0.785, Ix: b.Ix, Iy: b.Iy, Sx: b.Ix / b.ymax, Sy: b.Iy / b.xmax,
+      Zx: b.Zx, Zy: b.Zy, rx: Math.sqrt(b.Ix / b.A), ry: Math.sqrt(b.Iy / b.A), Jopen: b.Jopen, Jclosed: null,
+    },
+  });
+  renderCompositeComparisonTable();
+  setReportStatus(`已將「${currentHName()} - ${modeText}」加入方案比較（目前 ${compositeComparisonList.length} / 4 組）`, 'ok');
+}
+
+function removeCompositeComparisonItem(index) {
+  compositeComparisonList.splice(index, 1);
+  renderCompositeComparisonTable();
+}
+
+function clearCompositeComparison() {
+  compositeComparisonList = [];
+  renderCompositeComparisonTable();
+  setReportStatus('已清空補強方案比較表', 'ok');
+}
+
+function renderCompositeComparisonTable() {
+  const card = document.getElementById('compositeComparisonCard');
+  const wrap = document.getElementById('compositeComparisonTableWrap');
+  const badge = document.getElementById('compositeCompCountBadge');
+  if (!card || !wrap) return;
+  if (!compositeComparisonList.length) {
+    card.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+  card.style.display = 'block';
+  if (badge) badge.textContent = `(${compositeComparisonList.length} / 4 組，括號顯示相對於原基礎 H 型鋼之增益％)`;
+  const headers = compositeComparisonList.map((item, idx) =>
+    `<th><div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;"><span>方案 ${idx + 1}：${item.title}</span><button type="button" onclick="removeCompositeComparisonItem(${idx})" title="移除此方案" style="border:none;background:transparent;color:#94a3b8;cursor:pointer;font-size:1em;">✕</button></div><div style="font-size:0.75em;font-weight:400;color:#64748b;margin-top:2px;">${item.dims}</div></th>`
+  ).join('');
+  const bodyRows = COMPOSITE_COMP_METRICS.map(m => {
+    if (compositeComparisonList.every(item => item.metrics[m.key] == null)) return '';
+    const cells = compositeComparisonList.map(item => {
+      const v = item.metrics[m.key];
+      if (v == null || !isFinite(v)) return `<td class="num" style="color:#94a3b8;">—</td>`;
+      const baseV = item.baseMetrics[m.key];
+      let deltaHtml = '';
+      if (baseV && isFinite(baseV) && baseV !== 0) {
+        const dPct = ((v - baseV) / baseV) * 100;
+        if (Math.abs(dPct) >= 0.05) {
+          const cls = dPct > 0 ? 'pos' : 'neg';
+          deltaHtml = `<span class="comp-delta ${cls}">${dPct > 0 ? '+' : ''}${dPct.toFixed(1)}%</span>`;
+        }
+      }
+      return `<td class="num">${fmt(v)}${deltaHtml}</td>`;
+    }).join('');
+    return `<tr><td>${m.label} <span style="font-size:0.8em;color:#94a3b8;">(${m.unit})</span></td>${cells}</tr>`;
+  }).filter(Boolean).join('');
+  wrap.innerHTML = `<table class="comp-table"><thead><tr><th>斷面性質項目</th>${headers}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+}
+
+async function copyCompositeComparisonTSV() {
+  if (!compositeComparisonList.length) { setReportStatus('比較表尚無方案資料', 'warn'); return; }
+  const headerRow = ['斷面性質項目', '單位', ...compositeComparisonList.map((item, idx) => `方案 ${idx + 1}: ${item.title} (${item.dims})`)].join('\t');
+  const rows = [headerRow];
+  COMPOSITE_COMP_METRICS.forEach(m => {
+    if (compositeComparisonList.every(item => item.metrics[m.key] == null)) return;
+    const cols = [m.label, m.unit];
+    compositeComparisonList.forEach(item => {
+      const v = item.metrics[m.key];
+      if (v == null || !isFinite(v)) { cols.push('—'); return; }
+      const baseV = item.baseMetrics[m.key];
+      if (baseV && isFinite(baseV) && baseV !== 0) {
+        const dPct = ((v - baseV) / baseV) * 100;
+        cols.push(Math.abs(dPct) >= 0.05 ? `${fmt(v)} (${dPct > 0 ? '+' : ''}${dPct.toFixed(1)}%)` : fmt(v));
+      } else {
+        cols.push(fmt(v));
+      }
+    });
+    rows.push(cols.join('\t'));
+  });
+  if (!await writeCompositeClipboard(rows.join('\n'))) {
+    setReportStatus('無法複製比較表，請允許瀏覽器存取剪貼簿後重試。', 'warn');
+    return;
+  }
+  setReportStatus(`已複製 ${compositeComparisonList.length} 組補強方案比較表 (TSV)，可直接貼入 Excel 或報告`, 'ok');
 }
 
 // ================= 匯出計算書 =================

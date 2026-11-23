@@ -99,6 +99,8 @@
   .save-bar .btn { display: inline-flex; align-items: center; gap: 4px; }
   .save-bar .current-file { margin-left: 8px; }
   .save-bar .status-msg { flex-basis: 100%; }
+  dialog.modal-box { margin: auto; border: 1px solid var(--border); color: inherit; }
+  dialog.modal-box::backdrop { background: rgb(15 23 42 / 55%); }
   .status-msg { display: none; padding: 6px 10px; line-height: 1.45; }
   .status-msg.ok { display: block; }
   .status-msg.warn { display: block; }
@@ -204,6 +206,15 @@
   </div>
 </div>
 
+<dialog class="modal-box page-only-report-status" id="copySpanLoadsDialog" aria-labelledby="copySpanLoadsTitle" aria-describedby="copySpanLoadsImpact">
+  <h2 id="copySpanLoadsTitle">套用載重至其他跨</h2>
+  <p id="copySpanLoadsImpact"></p>
+  <form method="dialog" class="modal-actions">
+    <button type="submit" class="btn btn-outline" value="cancel" autofocus>取消</button>
+    <button type="submit" class="btn btn-danger" value="apply">確認套用</button>
+  </form>
+</dialog>
+
 <div class="container">
   <!-- Top Bar: Unit system -->
   <div class="card" data-ui-panel="settings">
@@ -290,6 +301,7 @@
         </div>
         <div id="loadInputs"></div>
         <button class="btn btn-accent btn-sm" onclick="addLoad()" data-ui-action="add-load">+ 新增載重</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="copyCurrentSpanLoadsToAll()" data-ui-action="copy-loads-all" title="將目前所選跨度的載重複製到所有跨度">套用本跨載重至全跨</button>
 
         <div class="section-divider"></div>
         <h3>影響線設定</h3>
@@ -602,6 +614,44 @@ function invalidateAnalysis(opts = {}) {
   hideAnalysisCards();
   renderContinuousBeamReadiness();
   if (!opts.keepError) showError('');
+}
+
+function copyCurrentSpanLoadsToAll() {
+  const si = parseInt(document.getElementById('loadSpanSelect')?.value) || 0;
+  const occupiedTargets = model.spans.filter((_, i) => i !== si && model.loads[i]?.length).length;
+  if (!occupiedTargets) {
+    applySpanLoadsToAll(si);
+    return;
+  }
+  document.getElementById('copySpanLoadsImpact').textContent = model.loads[si]?.length
+    ? `將用跨 ${si + 1} 的載重取代其他 ${occupiedTargets} 跨的既有載重。`
+    : `跨 ${si + 1} 沒有載重，套用將清除其他 ${occupiedTargets} 跨的既有載重。`;
+  const dialog = document.getElementById('copySpanLoadsDialog');
+  dialog.querySelector('form').onsubmit = event => {
+    if (event.submitter?.value === 'apply') applySpanLoadsToAll(si);
+  };
+  dialog.showModal();
+}
+
+function applySpanLoadsToAll(si) {
+  const srcLoads = model.loads[si] || [];
+  for (let i = 0; i < model.numSpans; i++) {
+    if (i === si) continue;
+    const targetL = model.spans[i]?.L || 1;
+    model.loads[i] = srcLoads.map(ld => {
+      const copy = { ...ld };
+      if ((copy.type === 'point' || copy.type === 'moment') && isFinite(copy.a)) {
+        copy.a = +Math.min(Math.max(copy.a, 0), targetL).toPrecision(8);
+      }
+      return copy;
+    });
+  }
+  invalidateAnalysis();
+  renderLoadInputs();
+  drawSchematic();
+  if (typeof window.setSaveStatus === 'function') {
+    window.setSaveStatus(`已將跨 ${si + 1} 的 ${srcLoads.length} 組載重套用至全部 ${model.numSpans} 跨。`, 'ok');
+  }
 }
 
 function initModel(n) {
