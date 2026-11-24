@@ -95,35 +95,6 @@
 [data-ui-heading="project"] { margin-top: 16px; }
 [data-ui-part="project-basis"], .flex-row.page-only-tool-actions, [data-ui-part="foundation-actions"] { margin-top: 8px; }
 
-.collapsible-details { margin-top: 6px; }
-.collapsible-details > summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  color: var(--hy-navy);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-bold);
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  list-style: none;
-}
-.collapsible-details > summary::-webkit-details-marker { display: none; }
-.collapsible-details > summary::before { content: "▸"; }
-.collapsible-details[open] > summary::before { transform: rotate(90deg); }
-.collapsible-details > summary .details-title { flex: 1; min-width: 0; }
-.collapsible-details > summary .details-summary-badge {
-  padding: 2px 8px;
-  color: var(--fg-2);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
-}
-.collapsible-details > .details-body { padding-top: 10px; }
 [data-ui-part="self-weight"] { margin-top: 10px; gap: 12px; }
 [data-ui-part="self-weight"] > label, [data-ui-part="self-weight"] > span { display: inline-flex; align-items: center; gap: 5px; }
 [data-ui-part="self-weight"] > label { font-weight: var(--fw-bold); }
