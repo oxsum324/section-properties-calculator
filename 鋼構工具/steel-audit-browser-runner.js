@@ -1059,6 +1059,7 @@ async function assertFormalBeamReadinessBlocked(cdp, sessionId) {
 }
 
 async function assertFormalBeamImportCandidate(cdp, sessionId) {
+  await openFormalReportReadiness(cdp, sessionId, '#beamReportReadiness');
   const state = await evaluate(cdp, sessionId, `((${installReportPopupFixture.toString()}))(), (async () => {
     const fixture = window.__t23ReportPopupFixture;
     try {
@@ -2668,7 +2669,15 @@ async function assertFormalColumnReportPopupPlaceholder(cdp, sessionId) {
   });
 }
 
+async function openFormalReportReadiness(cdp, sessionId, selector) {
+  await evaluate(cdp, sessionId, `(() => {
+    const panel = document.querySelector(${JSON.stringify(selector)});
+    panel?.closest('details:not([open])')?.querySelector(':scope > summary')?.click();
+  })()`, 'expand formal report readiness');
+}
+
 async function assertFormalReportReadiness(cdp, sessionId, selector, label) {
+  await openFormalReportReadiness(cdp, sessionId, selector);
   const text = await evaluate(cdp, sessionId, `(() => {
     const text = document.querySelector('${selector}')?.innerText || '';
     if (!text.includes('優先閱讀')) {
@@ -2686,6 +2695,7 @@ async function assertFormalReportReadiness(cdp, sessionId, selector, label) {
 }
 
 async function assertFormalReportReadinessBlocked(cdp, sessionId, selector, label) {
+  await openFormalReportReadiness(cdp, sessionId, selector);
   const text = await evaluate(cdp, sessionId, `(() => {
     const text = document.querySelector('${selector}')?.innerText || '';
     if (!text.includes('暫勿作附件')) {
