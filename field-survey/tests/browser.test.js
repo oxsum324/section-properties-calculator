@@ -87,18 +87,19 @@ async function verifyHttpCachedUpdate() {
   // Fresh max-age=600 HTTP responses must not enter the next offline cache.
   const worker = await fs.readFile(path.join(root, 'field-survey/sw.js'), 'utf8');
   const assets = [...worker.match(/const ASSETS = \[([^\]]+)\]/)[1].matchAll(/'([^']+)'/g)].map(match => match[1]);
-  const files = new Map(await Promise.all([...assets, './sw.js'].map(async name => [name, await fs.readFile(path.join(root, 'field-survey', name))])));
+  const assetPath = name => new URL(name, 'http://localhost/field-survey/').pathname;
+  const files = new Map(await Promise.all([...assets, './sw.js'].map(async name => [assetPath(name), await fs.readFile(path.join(root, 'field-survey', name))])));
   const cacheName = worker.match(/const CACHE = '([^']+)'/)[1], requestedNew = new Set();
   let phase = 0;
   const fixtureServer = createServer((request, response) => {
-    const name = '.' + new URL(request.url, 'http://localhost').pathname.replace(/^\/field-survey/, '');
+    const name = new URL(request.url, 'http://localhost').pathname;
     if (!files.has(name)) { response.writeHead(404); response.end(); return; }
     if (phase) requestedNew.add(name);
     let bytes = files.get(name);
-    if (!phase && name === './sw.js') bytes = Buffer.from(worker.replace(cacheName, cacheName + '-old-fixture').replace("ASSETS.map(url => new Request(url, { cache: 'reload' }))", 'ASSETS'));
+    if (!phase && name === assetPath('./sw.js')) bytes = Buffer.from(worker.replace(cacheName, cacheName + '-old-fixture').replace("ASSETS.map(url => new Request(url, { cache: 'reload' }))", 'ASSETS'));
     else if (!phase && /\.(html|js|css)$/.test(name)) bytes = Buffer.from(bytes.toString().replaceAll(VERSION, VERSION + '-old-fixture') + '\n/* old fixture */');
     const extension = path.extname(name), mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
-    response.writeHead(200, { 'Content-Type': mime[extension] || 'application/octet-stream', 'Cache-Control': name === './sw.js' ? 'no-store' : 'public, max-age=600' }); response.end(bytes);
+    response.writeHead(200, { 'Content-Type': mime[extension] || 'application/octet-stream', 'Cache-Control': name === assetPath('./sw.js') ? 'no-store' : 'public, max-age=600' }); response.end(bytes);
   });
   await new Promise(resolve => fixtureServer.listen(0, '127.0.0.1', resolve));
   const upgradeContext = await browser.newContext(), upgrade = await upgradeContext.newPage();
@@ -119,12 +120,18 @@ async function verifyHttpCachedUpdate() {
     assert.deepEqual((await projects(upgrade))[0], before);
     const cached = await upgrade.evaluate(async cacheName => {
       const cache = await caches.open(cacheName), result = {};
-      for (const request of await cache.keys()) { const buffer = await (await cache.match(request)).arrayBuffer(); result['.' + new URL(request.url).pathname.replace(/^\/field-survey/, '')] = [...new Uint8Array(await crypto.subtle.digest('SHA-256', buffer))].map(b => b.toString(16).padStart(2, '0')).join(''); }
+      for (const request of await cache.keys()) { const buffer = await (await cache.match(request)).arrayBuffer(); result[new URL(request.url).pathname] = [...new Uint8Array(await crypto.subtle.digest('SHA-256', buffer))].map(b => b.toString(16).padStart(2, '0')).join(''); }
       return result;
     }, cacheName);
     assert.equal(Object.keys(cached).length, assets.length);
-    for (const asset of assets) { assert(requestedNew.has(asset), 'new worker refetches ' + asset); assert.equal(cached[asset], createHash('sha256').update(files.get(asset)).digest('hex'), 'offline cache bytes match current ' + asset); }
+    for (const asset of assets) {
+      const name = assetPath(asset);
+      assert(requestedNew.has(name), 'new worker refetches ' + asset);
+      assert.equal(cached[name], createHash('sha256').update(files.get(name)).digest('hex'), 'offline cache bytes match current ' + asset);
+    }
     await upgradeContext.setOffline(true); await upgrade.reload(); await upgrade.locator('#contextStrip').waitFor(); assert.equal(await upgrade.title(), '現況鑑定紀錄 V' + VERSION); assert.deepEqual((await projects(upgrade))[0], before);
+    await upgrade.locator('[data-tool-chrome][data-tool-route="/condition-survey"]').waitFor();
+    assert(await upgrade.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--hy-navy').trim()));
     console.log('PASS update bypasses fresh HTTP cache for every offline asset and preserves existing case');
   } finally { await upgradeContext.close(); await new Promise(resolve => fixtureServer.close(resolve)); }
 }

@@ -8,12 +8,14 @@ const { chromium } = require('../../.github/pages-smoke/node_modules/playwright'
   for (const source of ['e54dc4834104e2097bb0dcf89704e893fae7d12d', '5a9f15d88b96857d2c9cb773d1a289356fd2b923', 'f0560aeec2b5f6cc5e0d6fa9b7b992fb95f159f2', '467ae808924a8f2aa35da66efa367652b831d89d', '4b324a9cb4c995ef929a504b1a0842828e34a52b', 'd3eef357001a1a00dbbd0dbbab8263ae2105512d', '308fd259772dbe6efd42649e93e1226fe5910836', '433cec277577539ba306e395d5d8ed1445eb5f20', 'aa39ee96996e33ad2057367b641cd94ad0542152', '182b7a2dca46ed0ee92d97f02941c39f50de991f', '6f74e9329cecabbc2080438825f2ad58bf88a28e', 'eb364f0a3812f983b8fa27194dc32b11a66d6eb8', '0b654d6047ad2e268fa1ae47523ab9fda7ea5621', '554a8765b285e0206aa09da95ad10da47b7cf4b3', '641e627d731122d7451aaf1b349e761928efcb6e', '828d2bc94181273e64290cb1f4f6c9dd87a55957']) {
   const from = JSON.parse(execFileSync('git', ['show', source + ':field-survey/package.json'], { cwd: root })).version, old = new Map(), fresh = new Map();
   const oldSW = execFileSync('git', ['show', source + ':field-survey/sw.js'], { cwd: root }).toString();
-  const names = sw => [...sw.match(/const ASSETS = \[([^\]]+)\]/)[1].matchAll(/'\.\/([^']+)'/g)].map(x => x[1]);
-  for (const name of [...names(oldSW), 'sw.js']) old.set(name, execFileSync('git', ['show', source + ':field-survey/' + name], { cwd: root }));
+  const names = sw => [...sw.match(/const ASSETS = \[([^\]]+)\]/)[1].matchAll(/'([^']+)'/g)].map(x => x[1]);
+  const assetPath = name => new URL(name, 'http://local/field-survey/').pathname;
+  const repoPath = name => decodeURIComponent(assetPath(name)).slice(1);
+  for (const name of [...names(oldSW), './sw.js']) old.set(assetPath(name), execFileSync('git', ['show', source + ':' + repoPath(name)], { cwd: root }));
   const sw = fs.readFileSync(path.join(root, 'field-survey/sw.js'), 'utf8');
-  for (const name of [...names(sw), 'sw.js']) fresh.set(name, fs.readFileSync(path.join(root, 'field-survey', name)));
+  for (const name of [...names(sw), './sw.js']) fresh.set(assetPath(name), fs.readFileSync(path.join(root, repoPath(name))));
   let phase = 0;
-  const server = createServer((req,res) => { const name = new URL(req.url,'http://local').pathname.split('/').pop(), data = (phase ? fresh : old).get(name); if (!data) { res.writeHead(404); res.end(); return; } const mime = { '.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json' }; res.writeHead(200, {'Content-Type':mime[path.extname(name)],'Cache-Control':name==='sw.js'?'no-store':'public, max-age=600'}); res.end(data); });
+  const server = createServer((req,res) => { const name = new URL(req.url,'http://local').pathname, data = (phase ? fresh : old).get(name); if (!data) { res.writeHead(404); res.end(); return; } const mime = { '.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json' }; res.writeHead(200, {'Content-Type':mime[path.extname(name)],'Cache-Control':name===assetPath('./sw.js')?'no-store':'public, max-age=600'}); res.end(data); });
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
   const browser = await chromium.launch({...(process.platform === 'win32' ? {channel:'chrome'} : {}),headless:true}), ctx = await browser.newContext(), page = await ctx.newPage();
   try {

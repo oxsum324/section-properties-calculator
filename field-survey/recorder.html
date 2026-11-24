@@ -7,9 +7,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'">
   <title>現況鑑定紀錄 V0.31.0</title>
   <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
+  <link rel="stylesheet" href="../tool-chrome.css">
   <link rel="stylesheet" href="./app.css"><script type="module" src="./app.js"></script>
 </head>
-<body>
+<body data-family="local-quick">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <header class="app-header"><div class="brand"><img src="./icon.svg" width="40" height="40" alt=""><div><span class="eyebrow">弘一工程 · <span id="appVersion">V0.31.0</span></span><h1>現況鑑定紀錄</h1></div></div><button id="fontSize" class="quiet" aria-pressed="false">大字</button><button id="help" class="quiet" aria-label="使用說明">使用說明</button></header>
 <div class="system-bar"><span id="offlineStatus" role="status">離線資源準備中</span><span id="saveStatus" role="status">資料保存在此裝置</span><button id="updateApp" class="quiet" hidden>套用新版</button></div>
 <main id="app">
@@ -75,4 +78,6 @@
 <div id="signoffHandoff" class="signoff-handoff" hidden></div>
 <div id="toast" role="status" aria-live="polite" hidden></div><div id="errorBar" role="alert" hidden><span id="errorText"></span><button id="recoverCopy" class="secondary" hidden>另存目前副本</button><button id="dismissError" class="quiet">知道了</button></div><div id="busy" role="status" hidden><span class="spinner"></span><span id="busyText">處理中</span></div>
 <noscript>此工具需要 JavaScript 才能保存現場紀錄。</noscript>
+<script src="../tool-nav.manifest.js" defer></script>
+<script src="../tool-chrome.js" defer></script>
 </body></html>

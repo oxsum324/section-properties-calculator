@@ -25,15 +25,15 @@
     '.tool-chrome__siblings summary::-webkit-details-marker{display:none}',
     '.tool-chrome__siblings summary::after{content:" \\25BE"}',
     '.tool-chrome__siblings[open] summary::after{content:" \\25B4"}',
-    '.tool-chrome__siblings ul{position:absolute;right:0;top:100%;z-index:60;margin:4px 0 0;padding:6px 0;list-style:none;min-width:240px;max-height:60vh;overflow:auto;background:var(--hy-paper,#fff);color:var(--hy-ink,#111316);border:1px solid var(--hy-slate-300,#d4d7dc);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.18)}',
+    '.tool-chrome__siblings ul{position:absolute;right:0;top:100%;z-index:60;margin:4px 0 0;padding:6px 0;list-style:none;min-width:240px;max-width:min(24rem, calc(100vw - 7rem));max-height:60vh;overflow:auto;background:var(--hy-paper,#fff);color:var(--hy-ink,#111316);border:1px solid var(--hy-slate-300,#d4d7dc);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.18)}',
     '.tool-chrome__siblings li{margin:0;padding:0}',
-    '.tool-chrome__siblings li a,.tool-chrome__siblings li span{display:block;padding:4px 12px;color:inherit;text-decoration:none;white-space:nowrap}',
+    '.tool-chrome__siblings li a,.tool-chrome__siblings li span{display:block;padding:4px 12px;color:inherit;text-decoration:none;white-space:normal;overflow-wrap:anywhere}',
     '.tool-chrome__siblings li a:hover,.tool-chrome__siblings li a:focus-visible{background:var(--hy-navy-50,#f3f5fa);text-decoration:underline;outline:none}',
     '.tool-chrome__siblings li [aria-current="page"]{font-weight:600;color:var(--hy-navy,#002060);background:var(--hy-navy-100,#e6eaf3)}',
     '.tool-chrome__sibling-version{margin-left:6px;font-size:12px;color:var(--hy-slate-500,#6b7280)}',
     '.tool-chrome__meta{display:inline-flex;flex:none;gap:6px;align-items:center}',
     '.tool-chrome__version,.tool-chrome__state{padding:1px 7px;border-radius:3px;background:rgba(255,255,255,.14);font-size:12px;white-space:nowrap}',
-    '@media (max-width:480px){.tool-chrome{gap:6px;padding:0 10px}.tool-chrome__current{max-width:40vw}.tool-chrome__siblings summary{padding:2px 6px}.tool-chrome__state{display:none}}',
+    '@media (max-width:480px){.tool-chrome{gap:6px;padding:0 10px}.tool-chrome__current{max-width:40vw}.tool-chrome__siblings summary{padding:2px 6px}.tool-chrome__siblings ul{width:min(18rem, calc(100vw - 7rem));min-width:0}.tool-chrome__state{display:none}}',
     '@media print{.page-only-tool-chrome{display:none !important}}',
   ].join('\n');
 
@@ -56,7 +56,8 @@
     try { rootPath = decodePath(new URL('.', script.src).pathname); } catch (error) { return null; }
     const pagePath = decodePath(window.location.pathname);
     const relative = pagePath.startsWith(rootPath) ? pagePath.slice(rootPath.length) : '';
-    const exact = relative && manifest.tools.find(tool => tool.file === relative);
+    const indexPath = relative.endsWith('/') ? relative.slice(0, -1) + '/index.html' : relative;
+    const exact = indexPath && manifest.tools.find(tool => tool.file === indexPath);
     if (exact) return exact;
     const bySuffix = manifest.tools
       .filter(tool => pagePath.endsWith(`/${tool.file}`))

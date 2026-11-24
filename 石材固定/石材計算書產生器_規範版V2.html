@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>石材外牆固定構件計算書產生器 規範版 V3.2</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
+<link rel="stylesheet" href="../tool-chrome.css">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 <style>
 /* ─── Reset ─────────────────────────────── */
@@ -13,6 +15,7 @@ body{font-family:'標楷體','DFKai-SB',serif;font-size:13px;background:#e0e4e8;
 
 /* ─── App Layout ─────────────────────────── */
 #app{display:flex;height:100vh;overflow:hidden}
+@media screen{.tool-chrome-slot:not([data-tool-chrome-empty]) ~ #app{height:calc(100vh - 44px)}}
 #sidebar{width:370px;min-width:370px;background:#fff;overflow-y:auto;
   border-right:2px solid #aaa;display:flex;flex-direction:column}
 /* KaTeX 輔助 MathML 的 absolute 定位需留在可捲動預覽內，避免擴張根視窗。 */
@@ -799,7 +802,8 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
   }
 </style>
 </head>
-<body class="formal-tool-output-page">
+<body class="formal-tool-output-page" data-family="attachments">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>石材工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「預覽列印 (A4)」、「PDF」或「Word」輸出，產生只包含案件資料、採用條件、計算結果與必要追溯資訊的文件；本頁不得作為附件。</span></div>
 
 <!-- PDF 頁面挑選器 -->
@@ -16663,6 +16667,8 @@ window.addEventListener('load', ()=>{
 </script>
 <script src="../結構工具箱/core/ui/tool-workflow.js"></script>
 <script src="../結構工具箱/tools/tool-workflow-adapters.js" data-tool-key="/stone-fixing" data-workflow-result="#review-dashboard"></script>
+<script src="../tool-nav.manifest.js" defer></script>
+<script src="../tool-chrome.js" defer></script>
   <script src="../tool-page-a11y.js" defer></script>
 </body>
 </html>
