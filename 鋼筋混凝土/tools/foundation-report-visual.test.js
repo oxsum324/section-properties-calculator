@@ -407,6 +407,7 @@ async function main() {
 
       const response = await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
       assert(response && response.status() === 200, `${tc.key} tool page loads`, `status=${response && response.status()}`);
+      await page.locator('#foundationProjectDetails > summary').click();
       await page.fill('#projName', 'RC 基礎正式附件測試');
       await page.fill('#projNo', 'RC-FT-001');
       await page.fill('#projDesigner', 'QA');

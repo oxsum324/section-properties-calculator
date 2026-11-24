@@ -21,6 +21,9 @@
 <title>基礎設計 — RC 工具箱 V4.1</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-ui-collapsible.css">
+<script src="../../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
 <style>
@@ -300,9 +303,14 @@
     </div>
     <span class="mode-bar__hint" id="modeHint">設計模式：給定載重，建議基腳尺寸與配筋。</span>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo"   class="w-no"   placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details project-details" id="foundationProjectDetails" data-details-project-profile>
+        <summary><span class="details-title">案件識別資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">選填</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo"   class="w-no"   placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+      </details>
       <div class="mode-bar__actions" aria-label="基礎專案存讀檔">
         <button id="btnSaveFoundationProject" class="mode-bar__action" type="button" title="下載基礎專案 JSON 檔">存檔</button>
         <button id="btnLoadFoundationProject" class="mode-bar__action" type="button" title="讀取基礎專案 JSON 檔">讀檔</button>
@@ -311,7 +319,7 @@
         <input id="foundationProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
       </div>
       <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
-      <span id="foundationProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
+      <span id="foundationProjectStatus" class="mode-bar__project-status" data-details-refresh aria-live="polite"></span>
     </div>
   </div>
 
@@ -333,17 +341,22 @@
       <!-- 基本資料 (永遠可見) -->
       <div class="card">
         <h2>基本資料</h2>
-        <div class="toggle-stack">
-          <div class="checkbox-row">
-            <input type="checkbox" id="showSteps">
-            <label for="showSteps">顯示計算過程</label>
+        <details class="collapsible-details" id="foundationDisplayDetails">
+          <summary><span class="details-title">計算過程與進階圖表</span><span class="details-summary-badge" data-details-value="#showAdvanced" data-details-prefix="進階圖表">未啟用</span></summary>
+          <div class="details-body">
+            <div class="toggle-stack">
+              <div class="checkbox-row">
+                <input type="checkbox" id="showSteps">
+                <label for="showSteps">顯示計算過程</label>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="showAdvanced">
+                <label for="showAdvanced">顯示進階圖表／摘要</label>
+              </div>
+            </div>
+            <p class="toggle-hint">手機版預設只保留必要輸入與檢核結果；進階圖面、摘要與詳細過程可視需要再展開。</p>
           </div>
-          <div class="checkbox-row">
-            <input type="checkbox" id="showAdvanced">
-            <label for="showAdvanced">顯示進階圖表／摘要</label>
-          </div>
-        </div>
-        <p class="toggle-hint">手機版預設只保留必要輸入與檢核結果；進階圖面、摘要與詳細過程可視需要再展開。</p>
+        </details>
         <div class="form-row">
           <div class="form-group"><label>fc' (kgf/cm²)</label><input type="number" id="fc" value="280"></div>
           <div class="form-group"><label>fy (kgf/cm²)</label><input type="number" id="fy" value="4200"></div>
@@ -401,22 +414,27 @@
           <div class="form-group"><label>水平力 H (D+L) (tf)</label><input type="number" id="HDL" value="0"></div>
           <div class="form-group"><label>水平力 H (E) (tf)</label><input type="number" id="HE" value="0"></div>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label>土摩擦係數 μ</label><input type="number" id="mu_f" value="0.4" step="0.05"></div>
-        </div>
+        <details class="collapsible-details" id="foundationIsoTransferDetails">
+          <summary><span class="details-title">土摩擦與強度組合／偏心傳力</span><span class="details-summary-badge" data-details-value="#mu_f" data-details-prefix="μ = ">μ = 0.4</span></summary>
+          <div class="details-body">
+            <div class="form-row">
+              <div class="form-group"><label>土摩擦係數 μ</label><input type="number" id="mu_f" value="0.4" step="0.05"></div>
+            </div>
 
-        <div class="form-group">
-          <label for="isoStrengthCases">強度載重組合（基底淨反力）</label>
-          <textarea id="isoStrengthCases" rows="3" style="width:100%;" aria-describedby="isoStrengthCasesHelp" placeholder="U1,184,0,0&#10;U2,165,18,-12"></textarea>
-          <p id="isoStrengthCasesHelp" class="hint">每列貼入「組合代號、Pu (tf)、使沿 L 增壓的彎矩 (tf·m)、使沿 B 增壓的彎矩 (tf·m)」，用逗號或 Tab 分隔。代號使用英數、.、_、+、- 或 /，未作用的彎矩填 0。請貼齊專案適用組合，Pu 以壓力為正，彎矩以 +L、+B 側增壓為正，並換算至基底反力面。柱須居中。基底採剛性、承壓區線性且土壤無抗拉的模型。只有靜活載重軸力時可留空，由工具取 1.4D 及 1.2D+1.6L。</p>
-        </div>
+            <div class="form-group">
+              <label for="isoStrengthCases">強度載重組合（基底淨反力）</label>
+              <textarea id="isoStrengthCases" rows="3" style="width:100%;" aria-describedby="isoStrengthCasesHelp" placeholder="U1,184,0,0&#10;U2,165,18,-12"></textarea>
+              <p id="isoStrengthCasesHelp" class="hint">每列貼入「組合代號、Pu (tf)、使沿 L 增壓的彎矩 (tf·m)、使沿 B 增壓的彎矩 (tf·m)」，用逗號或 Tab 分隔。代號使用英數、.、_、+、- 或 /，未作用的彎矩填 0。請貼齊專案適用組合，Pu 以壓力為正，彎矩以 +L、+B 側增壓為正，並換算至基底反力面。柱須居中。基底採剛性、承壓區線性且土壤無抗拉的模型。只有靜活載重軸力時可留空，由工具取 1.4D 及 1.2D+1.6L。</p>
+            </div>
 
-        <div class="form-group">
-          <label for="isoTransferCases">偏心衝剪與柱底彎矩傳力</label>
-          <textarea id="isoTransferCases" rows="3" style="width:100%;" aria-describedby="isoTransferCasesHelp" placeholder="U2,18,-12,25,22,S-03 計算書第 8 頁"></textarea>
-          <p id="isoTransferCasesHelp" class="hint">每列依序填同一組合代號、換算至衝剪周界重心的有號外力矩（沿 L、沿 B）、兩向有效板寬內可用撓曲設計強度 φMn、依據。彎矩與強度均用 tf·m，可用逗號或 Tab 分隔。外力矩應含水平力換算影響，工具會扣周界內土反力矩。可用 φMn 須按實配、受拉面、錨定及同時作用檢核。缺列時該工況顯示待確認。</p>
-          <p id="isoTransferWidths" class="hint"></p>
-        </div>
+            <div class="form-group">
+              <label for="isoTransferCases">偏心衝剪與柱底彎矩傳力</label>
+              <textarea id="isoTransferCases" rows="3" style="width:100%;" aria-describedby="isoTransferCasesHelp" placeholder="U2,18,-12,25,22,S-03 計算書第 8 頁"></textarea>
+              <p id="isoTransferCasesHelp" class="hint">每列依序填同一組合代號、換算至衝剪周界重心的有號外力矩（沿 L、沿 B）、兩向有效板寬內可用撓曲設計強度 φMn、依據。彎矩與強度均用 tf·m，可用逗號或 Tab 分隔。外力矩應含水平力換算影響，工具會扣周界內土反力矩。可用 φMn 須按實配、受拉面、錨定及同時作用檢核。缺列時該工況顯示待確認。</p>
+              <p id="isoTransferWidths" class="hint"></p>
+            </div>
+          </div>
+        </details>
 
         <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">板式配筋</h3>
         <div class="form-row">
@@ -432,16 +450,20 @@
           <div class="form-group"><label>Y 向間距 sY (cm)</label><input type="number" id="barSpY" value="18" step="0.5"></div>
         </div>
 
-        <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">沉陷估算</h3>
-        <div class="form-row">
-          <div class="form-group"><label>土壤彈性模數 Es (tf/m²)</label><input type="number" id="soilEs" value="2000"></div>
-          <div class="form-group"><label>柏松比 ν</label><input type="number" id="soilNu" value="0.3" step="0.05"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>影響係數 Iw</label><input type="number" id="soilIw" value="0.88" step="0.01"></div>
-          <div class="form-group"><label>容許沉陷 Sa (cm)</label><input type="number" id="soilSa" value="2.5" step="0.1"></div>
-        </div>
-        <p class="hint">Iw 參考：剛性方形 ≈ 0.88；柔性中央 ≈ 1.12；柔性角 ≈ 0.56。</p>
+        <details class="collapsible-details" id="foundationSettlementDetails">
+          <summary><span class="details-title">沉陷估算</span><span class="details-summary-badge" data-details-value="#soilEs" data-details-prefix="Es = " data-details-suffix=" tf/m²">Es = 2000 tf/m²</span></summary>
+          <div class="details-body">
+            <div class="form-row">
+              <div class="form-group"><label>土壤彈性模數 Es (tf/m²)</label><input type="number" id="soilEs" value="2000"></div>
+              <div class="form-group"><label>柏松比 ν</label><input type="number" id="soilNu" value="0.3" step="0.05"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>影響係數 Iw</label><input type="number" id="soilIw" value="0.88" step="0.01"></div>
+              <div class="form-group"><label>容許沉陷 Sa (cm)</label><input type="number" id="soilSa" value="2.5" step="0.1"></div>
+            </div>
+            <p class="hint">Iw 參考：剛性方形 ≈ 0.88；柔性中央 ≈ 1.12；柔性角 ≈ 0.56。</p>
+          </div>
+        </details>
       </div>
 
       <!-- ───── 聯合基腳 輸入 ───── -->
@@ -520,32 +542,36 @@
           <div class="form-group"><label>總 E 載重 (tf)</label><input type="number" id="mPE" value="0"></div>
           <div class="form-group"><label>保護層 (cm)</label><input type="number" id="mCover" value="7.5"></div>
         </div>
-        <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">多代表柱近似檢核</h3>
-        <p class="hint">分攤區以 B（Y 向）× L（X 向）輸入。內柱置中，邊柱柱心在自由邊，角柱柱心在板角且板向 +X、+Y 延伸。實際柱心有退縮、地反力不均或有開孔時，應依實際平面另建模型。</p>
-        <div class="form-row">
-          <div class="form-group"><label for="mEdgeInward">邊柱的板內方向</label>
-            <select id="mEdgeInward"><option value="y" selected>+Y（自由邊平行 X）</option><option value="x">+X（自由邊平行 Y）</option></select>
+        <details class="collapsible-details" id="foundationMatPointDetails">
+          <summary><span class="details-title">多代表柱近似檢核</span><span class="details-summary-badge" data-details-value="#mCaseView">內柱</span></summary>
+          <div class="details-body">
+            <p class="hint">分攤區以 B（Y 向）× L（X 向）輸入。內柱置中，邊柱柱心在自由邊，角柱柱心在板角且板向 +X、+Y 延伸。實際柱心有退縮、地反力不均或有開孔時，應依實際平面另建模型。</p>
+            <div class="form-row">
+              <div class="form-group"><label for="mEdgeInward">邊柱的板內方向</label>
+                <select id="mEdgeInward"><option value="y" selected>+Y（自由邊平行 X）</option><option value="x">+X（自由邊平行 Y）</option></select>
+              </div>
+              <div class="form-group"><label for="mCaseView">控制圖顯示</label>
+                <select id="mCaseView">
+                  <option value="interior" selected>內柱</option>
+                  <option value="edge">邊柱</option>
+                  <option value="corner">角柱</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>內柱 D/L/E (tf)</label><input type="text" id="mColInteriorLoad" value="120/40/0"></div>
+              <div class="form-group"><label>內柱分攤區 B×L (cm)</label><input type="text" id="mTribInterior" value="600×600" style="width:100%;"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>邊柱 D/L/E (tf)</label><input type="text" id="mColEdgeLoad" value="90/30/0"></div>
+              <div class="form-group"><label>邊柱分攤區 B×L (cm)</label><input type="text" id="mTribEdge" value="600×300" style="width:100%;"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>角柱 D/L/E (tf)</label><input type="text" id="mColCornerLoad" value="60/20/0"></div>
+              <div class="form-group"><label>角柱分攤區 B×L (cm)</label><input type="text" id="mTribCorner" value="300×300" style="width:100%;"></div>
+            </div>
           </div>
-          <div class="form-group"><label for="mCaseView">控制圖顯示</label>
-            <select id="mCaseView">
-              <option value="interior" selected>內柱</option>
-              <option value="edge">邊柱</option>
-              <option value="corner">角柱</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>內柱 D/L/E (tf)</label><input type="text" id="mColInteriorLoad" value="120/40/0"></div>
-          <div class="form-group"><label>內柱分攤區 B×L (cm)</label><input type="text" id="mTribInterior" value="600×600" style="width:100%;"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>邊柱 D/L/E (tf)</label><input type="text" id="mColEdgeLoad" value="90/30/0"></div>
-          <div class="form-group"><label>邊柱分攤區 B×L (cm)</label><input type="text" id="mTribEdge" value="600×300" style="width:100%;"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>角柱 D/L/E (tf)</label><input type="text" id="mColCornerLoad" value="60/20/0"></div>
-          <div class="form-group"><label>角柱分攤區 B×L (cm)</label><input type="text" id="mTribCorner" value="300×300" style="width:100%;"></div>
-        </div>
+        </details>
         <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">板式配筋</h3>
         <div class="form-row">
           <div class="form-group"><label>X 向主筋號數</label>
@@ -1027,8 +1053,12 @@
       </div>
 
       <div class="card report-readiness-card" id="foundationAttachmentReadinessCard">
-        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
-        <div id="foundationAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+        <details class="collapsible-details" id="foundationReadinessDetails">
+          <summary><span class="details-title">產報前檢查</span><span class="details-summary-badge" data-details-value="#foundationAttachmentReadiness .report-readiness-badge">頁面輔助</span></summary>
+          <div class="details-body">
+            <div id="foundationAttachmentReadiness" role="status" data-details-refresh aria-live="polite">尚未計算。</div>
+          </div>
+        </details>
       </div>
 
       <!-- 設計建議 hero (淺基礎) -->

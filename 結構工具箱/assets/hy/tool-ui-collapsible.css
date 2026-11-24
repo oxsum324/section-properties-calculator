@@ -47,3 +47,38 @@
 @media (max-width: 640px) {
   .collapsible-details .details-summary-badge { max-width: min(140px, 45%); }
 }
+
+.form-row > .collapsible-details {
+  margin-top: 0;
+  min-width: 0;
+}
+
+.mode-bar__proj > .project-details {
+  flex: 1 1 100%;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.project-details > .details-project-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 8px;
+}
+
+.mode-bar__proj .details-project-fields input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+@media screen and (min-width: 360px) and (max-width: 640px) {
+  .mode-bar__proj:has(> #steelProjectDetails),
+  #inputColumn [data-plate-mode="geometry"] > .form-row,
+  #inputColumn [data-connection="plate_check"] .form-row.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mode-bar__proj:has(> #steelProjectDetails) > :is(#examplePresetSelect, #exportReportBtn, #exportReportStatus) {
+    grid-column: 1 / -1;
+  }
+}
