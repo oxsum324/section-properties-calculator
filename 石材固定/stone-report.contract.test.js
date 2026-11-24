@@ -16,13 +16,15 @@ function assertContract(condition, label, detail) {
 
 const directPrintNeedles = [
   '../結構工具箱/core/direct-print-boundary.css',
-  '<body class="formal-tool-output-page">',
   'class="formal-direct-print-boundary"',
   '石材工具主頁列印已封鎖',
   '本頁不得作為附件',
   'body.formal-tool-output-page > #printout{display:none!important}',
 ];
 
+const bodyClass = formalPage.match(/<body\b[^>]*\bclass="([^"]*)"/i)?.[1] || '';
+assertContract(bodyClass.split(/\s+/).includes('formal-tool-output-page'),
+  'Stone body retains the direct-print boundary class', bodyClass);
 for (const needle of directPrintNeedles) {
   assertContract(formalPage.includes(needle), 'Stone direct-print boundary is present', needle);
 }

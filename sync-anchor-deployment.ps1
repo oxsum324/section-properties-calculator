@@ -175,7 +175,7 @@ try {
   }
 
   $index = Get-Content -LiteralPath $stagedIndex -Raw -Encoding UTF8
-  $referencedAssets = [regex]::Matches($index, '(?:\./)?assets/([^"''<>]+)') |
+  $referencedAssets = [regex]::Matches($index, '(?i)\b(?:src|href)\s*=\s*["''](?:\./)?assets/([^"''<>]+)["'']') |
     ForEach-Object { $_.Groups[1].Value } |
     Sort-Object -Unique
   foreach ($assetName in @($referencedAssets)) {
