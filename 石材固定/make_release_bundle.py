@@ -23,6 +23,7 @@ CORE_FILES = [
     'RELEASE_CHECKLIST.md',
     'PROJECT_FILES.md',
     '石材計算書產生器_規範版V2.html',
+    'stone-v2.css',
     'server.py',
     'auto_word.py',
     'generate_docx.py',

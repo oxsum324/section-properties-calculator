@@ -10,13 +10,16 @@ function assert(pass, title, detail) {
   console.log(`PASS | ${title} | ${detail}`);
 }
 
+const stoneStylesheet = '石材固定/stone-v2.css';
+assert(read(stoneStylesheet).includes('#v2-migration-toast.err'),
+  'stone V2 error toast has a stylesheet rule', stoneStylesheet);
+
 const pages = [
   {
     label: 'stone V2',
     path: '石材固定/石材計算書產生器_規範版V2.html',
     needles: [
       'function v2Notify',
-      '#v2-migration-toast.err',
       "toast.classList.toggle('err', o.kind === 'error' || o.kind === 'err')",
       'function v2ConfirmAction',
       'id="v2_tpl_name"',

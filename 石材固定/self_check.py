@@ -17,6 +17,7 @@ ACTIVE_FILES = [
     'js/calculator.spec.js',
     'js/version-sync.js',
     TARGET_HTML,
+    'stone-v2.css',
 ]
 DOC_FILES = [
     'README.md',
@@ -141,6 +142,7 @@ def main() -> int:
     audit_compare_bat = read_text('比對稽核報告.bat')
     calculator = read_text('js/calculator.spec.js')
     html = read_text(TARGET_HTML)
+    page_css = read_text('stone-v2.css')
     readme = read_text('README.md')
     changelog = read_text('CHANGELOG.md')
     release_checklist = read_text('RELEASE_CHECKLIST.md')
@@ -168,6 +170,7 @@ def main() -> int:
     require(bool(auto_word_url and TARGET_HTML in auto_word_url), 'auto_word.py TOOL_URL should point to the V2 HTML file', errors)
     require(bool(launcher_url and TARGET_HTML in launcher_url), '開啟石材計算書.bat URL should point to the V2 HTML file', errors)
     require(bool(auto_word_http_url and TARGET_HTML in auto_word_http_url), 'V2 HTML AUTO_WORD_HTTP_URL should point to the V2 HTML file', errors)
+    require('<link rel="stylesheet" href="stone-v2.css">' in html, 'V2 HTML should load stone-v2.css', errors)
     require('./js/formula-registry.spec.js' in html, 'V2 HTML should load js/formula-registry.spec.js', errors)
     require('./js/version-sync.js' in html, 'V2 HTML should load js/version-sync.js', errors)
     require('./js/review-dashboard.js' in html, 'V2 HTML should load js/review-dashboard.js', errors)
@@ -326,7 +329,7 @@ def main() -> int:
         ('template manager close button has stable id', 'id="v2_tpl_close"' in html),
         ('template manager focuses close button when opened', "v2_tpl_close')?.focus" in html),
     ], 'V2 HTML template manager should focus a stable close button when opened', errors)
-    require('#v2-tpl-mgr .panel{background:#fff;border-radius:6px;width:min(500px,calc(100vw - 32px))' in html, 'V2 HTML template manager should fit narrow viewports', errors)
+    require('#v2-tpl-mgr .panel{background:#fff;border-radius:6px;width:min(500px,calc(100vw - 32px))' in page_css, 'V2 HTML template manager should fit narrow viewports', errors)
     require_all([
         ('check modal open helper exists', 'function v2OpenCheckModal' in html),
         ('check modal stores return focus target', '_v2CheckModalReturnFocus' in html),
@@ -373,10 +376,10 @@ def main() -> int:
         ('validation modal is labelled by title', 'aria-labelledby="v2_validation_title"' in html),
         ('validation modal is described by body', 'aria-describedby="v2_validation_body"' in html),
     ], 'V2 HTML validation modal should connect title and body for assistive technology', errors)
-    require('#v2-validation-modal .panel{background:#fff;border-radius:6px;width:min(960px,calc(100vw - 32px))' in html, 'V2 HTML validation modal should fit narrow viewports', errors)
+    require('#v2-validation-modal .panel{background:#fff;border-radius:6px;width:min(960px,calc(100vw - 32px))' in page_css, 'V2 HTML validation modal should fit narrow viewports', errors)
     require_all([
-        ('validation modal body allows overflow scrolling', '#v2-validation-modal .body{padding:10px 14px;overflow:auto' in html),
-        ('validation modal footer wraps controls', '#v2-validation-modal .foot{flex-wrap:wrap' in html),
+        ('validation modal body allows overflow scrolling', '#v2-validation-modal .body{padding:10px 14px;overflow:auto' in page_css),
+        ('validation modal footer wraps controls', '#v2-validation-modal .foot{flex-wrap:wrap' in page_css),
     ], 'V2 HTML validation modal should keep wide tables and footer usable on narrow viewports', errors)
     require_all([
         ('modal visibility exposes active dialog', "modal?.setAttribute('aria-hidden', 'false')" in html),
@@ -419,14 +422,14 @@ def main() -> int:
     ], 'V2 HTML check modal should restore focus before hiding', errors)
     require('document.activeElement.blur()' in html, 'V2 HTML check modal should blur stale focus when return target is unavailable', errors)
     require_all([
-        ('check modal has constrained responsive width', 'width:min(760px,calc(100vw - 32px))' in html),
-        ('check modal has narrow viewport media query', '@media (max-width:520px)' in html),
+        ('check modal has constrained responsive width', 'width:min(760px,calc(100vw - 32px))' in page_css),
+        ('check modal has narrow viewport media query', '@media (max-width:520px)' in page_css),
     ], 'V2 HTML check modal should fit narrow viewports', errors)
     require_all([
-        ('check modal body style exists', '#v2-check-modal .body' in html),
-        ('check modal body allows overflow scrolling', 'overflow:auto' in html),
+        ('check modal body style exists', '#v2-check-modal .body' in page_css),
+        ('check modal body allows overflow scrolling', 'overflow:auto' in page_css),
     ], 'V2 HTML check modal body should allow horizontal scrolling for wide review tables', errors)
-    require('#v2-check-modal .foot{display:flex;flex-wrap:wrap' in html, 'V2 HTML check modal should keep footer controls usable on narrow viewports', errors)
+    require('#v2-check-modal .foot{display:flex;flex-wrap:wrap' in page_css, 'V2 HTML check modal should keep footer controls usable on narrow viewports', errors)
     require_all([
         ('check modal close assertion helper exists', 'def assert_check_modal_closed' in ui_smoke),
         ('check modal closed-state JS constant exists', 'CHECK_MODAL_CLOSED_JS' in ui_smoke),
@@ -857,14 +860,14 @@ def main() -> int:
         ('UI smoke warning modal title coverage', '⚠ 狀態提醒' in ui_smoke),
     ], 'ui_smoke_test.py should cover status pill keyboard modal flow', errors)
     require_all([
-        ('global focus-visible styles exist', ':focus-visible' in html),
-        ('mode button focus-visible style exists', '.v2-mode-switch .mode-btn:focus-visible' in html),
-        ('tier button focus-visible style exists', '.v2-tier-bar .tier-btn:focus-visible' in html),
-        ('generic button focus-visible style exists', '.btn:focus-visible' in html),
-        ('method zoom focus-visible style exists', '.v2-method-card .zoom-btn:focus-visible' in html),
-        ('case copy focus-visible style exists', '.case-card .v2-case-copy:focus-visible' in html),
-        ('case delete focus-visible style exists', 'button[aria-label="刪除此案例"]:focus-visible' in html),
-        ('attachment remove focus-visible style exists', 'button[aria-label="移除此附件"]:focus-visible' in html),
+        ('global focus-visible styles exist', ':focus-visible' in page_css),
+        ('mode button focus-visible style exists', '.v2-mode-switch .mode-btn:focus-visible' in page_css),
+        ('tier button focus-visible style exists', '.v2-tier-bar .tier-btn:focus-visible' in page_css),
+        ('generic button focus-visible style exists', '.btn:focus-visible' in page_css),
+        ('method zoom focus-visible style exists', '.v2-method-card .zoom-btn:focus-visible' in page_css),
+        ('case copy focus-visible style exists', '.case-card .v2-case-copy:focus-visible' in page_css),
+        ('case delete focus-visible style exists', 'button[aria-label="刪除此案例"]:focus-visible' in page_css),
+        ('attachment remove focus-visible style exists', 'button[aria-label="移除此附件"]:focus-visible' in page_css),
     ], 'V2 HTML should show visible focus states for review dashboard, toggle and small action controls', errors)
     require_all([
         ('dashboard collapse preference key exists', 'stone_review_dashboard_collapsed' in html),
@@ -874,13 +877,13 @@ def main() -> int:
     ], 'V2 HTML should persist workflow/dashboard preferences and report readable errors when preference storage fails', errors)
     require_all([
         ('dashboard collapse control exists', 'dash-toggle' in html),
-        ('dashboard collapsed style state exists', 'is-collapsed' in html),
+        ('dashboard collapsed style state exists', 'is-collapsed' in page_css),
     ], 'V2 HTML should render and style the review dashboard collapse control', errors)
     require_all([
-        ('compact dashboard media query exists', '@media (max-width:900px)' in html),
-        ('compact dashboard uses wrapping layout', 'flex-wrap:wrap' in html),
+        ('compact dashboard media query exists', '@media (max-width:900px)' in page_css),
+        ('compact dashboard uses wrapping layout', 'flex-wrap:wrap' in page_css),
     ], 'V2 HTML should keep compact dashboard wrapping styles', errors)
-    require('text-overflow:ellipsis' in html, 'V2 HTML dashboard title should avoid compact-width overflow', errors)
+    require('text-overflow:ellipsis' in page_css, 'V2 HTML dashboard title should avoid compact-width overflow', errors)
     require("return rows.some(item => item.level !== 'info')" in html, 'V2 HTML export fallback should conservatively confirm non-info checklist items', errors)
     require('匯出前有 ${rows.length} 項需確認' in html, 'V2 HTML export fallback should render a readable checklist modal', errors)
     require('deliveryQualityReasonText(quality)' in html, 'V2 HTML delivery quality fallback should preserve quality reasons', errors)
