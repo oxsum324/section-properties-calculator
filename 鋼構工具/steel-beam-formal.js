@@ -460,8 +460,11 @@
     document.querySelectorAll("[data-section-type]").forEach((block) => {
       block.classList.toggle("is-hidden", block.dataset.sectionType !== type);
     });
-    $("beamLtbField").classList.toggle("is-hidden", suppressesBeamLtbInput(type));
-    $("beamCbGroup").classList.toggle("is-hidden", suppressesBeamLtbInput(type));
+    const hidesLtbInputs = suppressesBeamLtbInput(type);
+    $("beamLtbField").classList.toggle("is-hidden", hidesLtbInputs);
+    const cbGroup = $("beamCbGroup");
+    cbGroup.classList.toggle("is-hidden", hidesLtbInputs);
+    cbGroup.closest("details")?.toggleAttribute("hidden", hidesLtbInputs);
     $("beamClosedShapeNote").textContent = getBeamClosedShapeNote(type);
     $("beamClosedShapeNote").classList.toggle("is-hidden", !isClosedHss(type));
     $("beamRoundShearRow").classList.toggle("is-hidden", !isRoundHss(type));
@@ -913,12 +916,17 @@
     });
   }
 
-  function applyInputAccordionPreset(preset = currentInputPreset) {
+  function applyInputAccordionPreset(preset = currentInputPreset, { syncDetails = true } = {}) {
     currentInputPreset = preset;
     const activeId = { smart: "beamInputPresetSmart", focus: "beamInputPresetFocus", open: "beamInputPresetOpen" }[preset];
     ["beamInputPresetSmart", "beamInputPresetFocus", "beamInputPresetOpen"].forEach((id) => {
       $(id).classList.toggle("active", id === activeId);
     });
+    if (syncDetails) {
+      document.querySelectorAll("#inputColumn [data-member-input-secondary]").forEach(details => {
+        details.open = preset === "open";
+      });
+    }
     const narrow = window.innerWidth <= 1024;
     document.querySelectorAll("#inputColumn .card").forEach((card) => {
       const toggle = card.querySelector(".card-toggle");
@@ -2445,7 +2453,7 @@
     window.addEventListener("resize", () => {
       requestQuickNavSync();
       requestReportJumpSync();
-      applyInputAccordionPreset(currentInputPreset);
+      applyInputAccordionPreset(currentInputPreset, { syncDetails: false });
       applyReportAccordionPreset(resultState, currentReportPreset);
     });
   }

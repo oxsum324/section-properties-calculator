@@ -91,6 +91,7 @@ async function main(){
     await importSource(plain,accepted);assert.equal((await raw(plain)).calculationFingerprint,accepted.calculationFingerprint);
     const altered=structuredClone(accepted);altered.adoptedBrace.profile.pieces[0][2]+=1;
     await importSource(plain,altered);assert.match(await plain.locator('#beamInputStatus').innerText(),/匯入失敗/);assert.equal((await raw(plain)).adoptedBrace.id,p.id);
+    await plain.locator('#beamCbDetails > summary').click();
     await plain.locator('#inCb').fill('2');assert.equal(await raw(plain),null);
     await plain.locator('#releaseBeamBrace').evaluate(el=>el.click());assert.equal((await raw(plain)).adoptedBrace,undefined);near(Number((await raw(plain)).fields.inCb.value),1);
     await plain.close();

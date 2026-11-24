@@ -7,10 +7,12 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="../tool-chrome.css">
   <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
+  <link rel="stylesheet" href="../結構工具箱/assets/hy/tool-ui-collapsible.css">
   <link rel="stylesheet" href="../結構工具箱/core/family-theme.css">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./steel-member-formal.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
+  <script src="../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
 </head>
 <body class="steel-formal-output-page" data-family="steel">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
@@ -43,9 +45,15 @@
       </div>
       <span class="mode-bar__hint" id="methodBadge">鋼構造建築物鋼結構設計技術規範｜鋼柱檢核</span>
       <div class="mode-bar__proj">
-        <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-        <input type="text" id="projNo" class="w-no" placeholder="編號">
-        <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        <details class="collapsible-details project-details" id="steelProjectDetails" data-page-only="true">
+          <summary><span class="details-title">案件識別資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">選填</span></summary>
+          <div class="details-body details-project-fields">
+            <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+            <input type="text" id="projNo" class="w-no" placeholder="編號">
+            <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+          </div>
+          <div data-details-project-profile></div>
+        </details>
         <button id="btnExportSourceJson" class="mode-bar__report secondary" type="button">💾 匯出來源 JSON</button>
         <button id="btnImportSourceJson" class="mode-bar__report secondary" type="button">📂 匯入來源 JSON</button>
         <input id="inputImportSourceJson" type="file" accept="application/json,.json" hidden>
@@ -54,7 +62,12 @@
     </section>
 
     <section class="card page-only-report-status">
-      <div class="report-readiness blocked" id="columnReportReadiness" role="status" aria-live="polite"></div>
+      <details class="collapsible-details" id="columnReadinessDetails">
+        <summary><span class="details-title">產報前閱讀狀態</span><span class="details-summary-badge" data-details-value="#columnReportReadiness .report-readiness-badge">待檢查</span></summary>
+        <div class="details-body">
+          <div class="report-readiness blocked" id="columnReportReadiness" data-details-refresh role="status" aria-live="polite"></div>
+        </div>
+      </details>
     </section>
 
     <section class="card unit-system-card" aria-label="鋼柱正式頁單位系統">
@@ -111,7 +124,7 @@
             <button id="columnInputPresetOpen" type="button">全部展開</button>
           </div>
         </div>
-        <div class="member-input-status" id="columnInputStatus" aria-live="polite"></div>
+        <div class="member-input-status" id="columnInputStatus" data-details-refresh aria-live="polite"></div>
 
         <div class="card" id="columnCardBasic">
           <div class="member-card-head">
@@ -242,7 +255,7 @@
 
             <label hidden>材證或設計依據 <input type="text" id="materialBasis" maxlength="200" disabled></label>
             <p id="materialNote" class="section-note" aria-live="polite"></p>
-            <details><summary>查 SM490A／B／C 鋼板最低 Fy</summary>
+            <details class="collapsible-details"><summary><span class="details-title">查 SM490A／B／C 鋼板最低 Fy</span><span class="details-summary-badge" data-details-value="#plateLookupThickness" data-details-prefix="板厚 " data-details-suffix=" mm">未填寫</span></summary>
               <label>鋼板厚度 (mm) <input type="number" id="plateLookupThickness" min="6" max="160" step="any" data-filter-input="lookup"></label>
               <output id="plateLookupResult" aria-live="polite"></output>
               <p>查表值供鋼板核對。梁柱的熱軋型鋼、鋼管及計算材料另依上方選項。<a href="https://www.csc.com.tw/csc/pd/doc/spec_pl_e_2025.pdf">中鋼鋼板型錄 §6.1.1.2</a> · <a href="https://www.nipponsteel.com/product/catalog_download/pdf/K004en.pdf">日本製鐵型鋼表</a></p>
@@ -251,10 +264,15 @@
             <div class="form-group"><label id="columnLxLabel">Lx 強軸無支撐長 (cm)</label><input type="number" id="inLx" value="400"></div>
             <div class="form-group"><label id="columnLyLabel">Ly 弱軸無支撐長 (cm)</label><input type="number" id="inLy" value="400"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label>Kx</label><input type="number" id="inKx" value="1.0" step="0.05"></div>
-            <div class="form-group"><label>Ky</label><input type="number" id="inKy" value="1.0" step="0.05"></div>
-          </div>
+          <details class="collapsible-details" id="columnEffectiveLengthDetails" data-member-input-secondary>
+            <summary><span class="details-title">柱有效長度係數</span><span class="details-summary-badge" data-details-value="#inKx" data-details-prefix="Kx = ">Kx = 1</span></summary>
+            <div class="details-body">
+              <div class="form-row">
+                <div class="form-group"><label>Kx</label><input type="number" id="inKx" value="1.0" step="0.05"></div>
+                <div class="form-group"><label>Ky</label><input type="number" id="inKy" value="1.0" step="0.05"></div>
+              </div>
+            </div>
+          </details>
         </div>
 
         <div class="card" id="columnCardLoad">
@@ -271,15 +289,20 @@
             <div class="form-group"><label id="lblMx">Mux / Max 強軸彎矩 (tf·m)</label><input type="number" id="inMux" value="0"></div>
             <div class="form-group"><label id="lblMy">Muy / May 弱軸彎矩 (tf·m)</label><input type="number" id="inMuy" value="0"></div>
           </div>
-          <div class="form-row" id="columnLtbRow">
-            <div class="form-group"><label id="columnLbxLabel">Lbx 強軸側撐間距 (cm)</label><input type="number" id="inLbx" value="400"></div>
-            <div class="form-group"><label>Cbx</label><input type="number" id="inCbx" value="1.0" step="0.01"></div>
-          </div>
-          <p class="section-note is-hidden" id="columnClosedShapeNote">方管與圓管為封閉斷面，本版暫不啟用 Lbx / Cbx 側扭挫屈參數。</p>
-          <div class="form-row">
-            <div class="form-group"><label>Cmx</label><input type="number" id="inCmx" value="0.85" step="0.05"></div>
-            <div class="form-group"><label>Cmy</label><input type="number" id="inCmy" value="0.85" step="0.05"></div>
-          </div>
+          <details class="collapsible-details" id="columnMomentFactorsDetails" data-member-input-secondary>
+            <summary><span class="details-title">側扭挫屈與彎矩修正</span><span class="details-summary-badge" data-details-value="#inCmx" data-details-prefix="Cmx = ">Cmx = 0.85</span></summary>
+            <div class="details-body">
+              <div class="form-row" id="columnLtbRow">
+                <div class="form-group"><label id="columnLbxLabel">Lbx 強軸側撐間距 (cm)</label><input type="number" id="inLbx" value="400"></div>
+                <div class="form-group"><label>Cbx</label><input type="number" id="inCbx" value="1.0" step="0.01"></div>
+              </div>
+              <p class="section-note is-hidden" id="columnClosedShapeNote">方管與圓管為封閉斷面，本版暫不啟用 Lbx / Cbx 側扭挫屈參數。</p>
+              <div class="form-row">
+                <div class="form-group"><label>Cmx</label><input type="number" id="inCmx" value="0.85" step="0.05"></div>
+                <div class="form-group"><label>Cmy</label><input type="number" id="inCmy" value="0.85" step="0.05"></div>
+              </div>
+            </div>
+          </details>
           <div class="member-actions">
             <button class="btn-calc" id="runCheckBtn" type="button">執行檢核</button>
           </div>

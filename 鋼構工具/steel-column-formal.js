@@ -711,12 +711,17 @@
     });
   }
 
-  function applyInputAccordionPreset(preset = currentInputPreset) {
+  function applyInputAccordionPreset(preset = currentInputPreset, { syncDetails = true } = {}) {
     currentInputPreset = preset;
     const activeId = { smart: "columnInputPresetSmart", focus: "columnInputPresetFocus", open: "columnInputPresetOpen" }[preset];
     ["columnInputPresetSmart", "columnInputPresetFocus", "columnInputPresetOpen"].forEach((id) => {
       $(id).classList.toggle("active", id === activeId);
     });
+    if (syncDetails) {
+      document.querySelectorAll("#inputColumn [data-member-input-secondary]").forEach(details => {
+        details.open = preset === "open";
+      });
+    }
     const narrow = window.innerWidth <= 1024;
     document.querySelectorAll("#inputColumn .card").forEach((card) => {
       const toggle = card.querySelector(".card-toggle");
@@ -2098,7 +2103,7 @@
     window.addEventListener("resize", () => {
       requestQuickNavSync();
       requestReportJumpSync();
-      applyInputAccordionPreset(currentInputPreset);
+      applyInputAccordionPreset(currentInputPreset, { syncDetails: false });
       applyReportAccordionPreset(resultState, currentReportPreset);
     });
   }
