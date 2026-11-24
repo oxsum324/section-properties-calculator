@@ -1287,6 +1287,14 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
   });
 }
 
+const seismicToolCss = readText(toolboxFile('tools/地震力/seismic-tools.css'));
+for (const adapter of ['force', 'appendage', 'dynamic', 'misc']) {
+  const relativePath = `tools/地震力/seismic-${adapter}.html`;
+  const html = readText(toolboxFile(relativePath));
+  assertIncludes(html, '<link rel="stylesheet" href="seismic-tools.css">', `${relativePath} loads the seismic page stylesheet`);
+  assertPrintHidesSelectors(seismicToolCss, ['.page-only-report-status', '.collapsible-details.page-only-tool-actions'], `${relativePath} operation-page print boundary`);
+}
+
 {
   const html = readText(toolboxFile('tools/地震力/seismic-force.html'));
   assertIncludes(html, 'id="inputStatus"', 'seismic-force inline input status element');
@@ -1308,7 +1316,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'seismic-force page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-force page-only report readiness hidden from print');
   assertIncludes(html, 'class="rep-source-tool"', 'seismic-force trace source has dedicated print cell');
   assertIncludes(html, '.rep-meta--traceable .rep-source-tool { grid-column:span 2; }', 'seismic-force trace source spans two print columns');
   assertIncludes(html, '../../core/loads/seismic.js', 'seismic-force page loads the production seismic core covered by the independent benchmark');
@@ -1351,7 +1358,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'seismic-appendage page-only report readiness'));
   assertIncludes(html, "if (!lastAppendResult || appendageReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none')", 'seismic-appendage stale report recalculation guard');
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-appendage page-only report readiness hidden from print');
   const reportStart = html.indexOf('function openAppendageReport()');
   const reportEnd = html.indexOf('(function initPageScopeCard()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-appendage report body isolated');
@@ -1386,7 +1392,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'seismic-dynamic page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-dynamic page-only report readiness hidden from print');
   const reportStart = html.indexOf('function openDynamicReport()');
   const reportEnd = html.indexOf('function exportResponseSpectrumCsv()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-dynamic report body isolated');
@@ -1427,7 +1432,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'seismic-misc page-only report readiness'));
   assertIncludes(html, "if (!lastMiscResult || miscReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none')", 'seismic-misc stale report recalculation guard');
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-misc page-only report readiness hidden from print');
   const reportStart = html.indexOf('function openMiscReport()');
   const reportEnd = html.indexOf('(function initPageScopeCard()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-misc report body isolated');
@@ -1490,18 +1494,12 @@ for (const relativePath of [
   'tools/風力/wind-object-tower.html',
   'tools/風力/wind-lattice-tower.html',
   'tools/風力/wind-sign-pole.html',
-  'tools/地震力/seismic-force.html',
-  'tools/地震力/seismic-appendage.html',
-  'tools/地震力/seismic-misc.html',
 ]) {
   const html = readText(toolboxFile(relativePath));
   assertPrintHidesSelectors(html, ['.case-actions', '.case-status'], `${relativePath} print-only case helper boundary`);
 }
 
-{
-  const html = readText(toolboxFile('tools/地震力/seismic-dynamic.html'));
-  assertPrintHidesSelectors(html, ['.case-file-actions'], 'seismic-dynamic print-only case helper boundary');
-}
+assertPrintHidesSelectors(seismicToolCss, ['.case-actions', '.case-status', '.case-file-actions'], 'seismic print-only case helper boundary');
 
 for (const relativePath of [
   'tools/風力/wind-fence-sign.html',
@@ -1510,19 +1508,11 @@ for (const relativePath of [
   'tools/風力/wind-object-tower.html',
   'tools/風力/wind-lattice-tower.html',
   'tools/風力/wind-sign-pole.html',
-  'tools/地震力/seismic-appendage.html',
-  'tools/地震力/seismic-misc.html',
 ]) {
   const html = readText(toolboxFile(relativePath));
   assertPrintHidesSelectors(html, ['.report-mode-control'], `${relativePath} print-only report mode boundary`);
 }
 
-for (const relativePath of [
-  'tools/地震力/seismic-appendage.html',
-  'tools/地震力/seismic-misc.html',
-]) {
-  const html = readText(toolboxFile(relativePath));
-  assertPrintHidesSelectors(html, ['.print-option-row'], `${relativePath} print-only print option boundary`);
-}
+assertPrintHidesSelectors(seismicToolCss, ['.report-mode-control', '.print-option-row'], 'seismic print-only report mode boundary');
 
 console.log(`formal tools contract OK (${tools.length} tools)`);

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-seismic-tool="dynamic">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,109 +10,8 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
-<style>
-  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
-             font-size:0.6em; font-weight:700; vertical-align:middle; background:#0f766e; color:#fff; }
-  .header-links { margin-top:4px; font-size:0.88em; line-height:1.7; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
-  .header-links .sep { opacity:0.55; }
-  .hero-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:#fff; }
-  .dynamic-shell { display:grid; grid-template-columns:minmax(340px, 430px) minmax(0, 1fr); gap:18px; align-items:start; }
-  .dynamic-form-stack, .dynamic-result-stack { display:grid; gap:18px; }
-  .dynamic-shell, .dynamic-form-stack, .dynamic-result-stack, .dynamic-shell .card { min-width:0; }
-  .dynamic-result-stack { position:sticky; top:18px; overflow:hidden; }
-  .status-box { padding:12px 14px; border-radius:10px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.84em; line-height:1.7; color:#334155; }
-  .status-box strong { color:#0f172a; }
-  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
-  .input-status:empty { display:none; }
-  .input-status.confirm { padding:8px 10px; border-radius:8px; background:#fffbeb; border:1px solid #fcd34d; color:#92400e; }
-  .input-status .inline-action { margin-left:8px; padding:3px 8px; border-radius:6px; border:1px solid currentColor; background:#fff; color:inherit; cursor:pointer; font:inherit; font-size:0.92em; }
-  .input-status .inline-action.danger { background:#991b1b; border-color:#991b1b; color:#fff; }
-  .fold-summary { cursor:pointer; font-weight:700; color:var(--primary); }
-  .fold-summary::-webkit-details-marker { display:none; }
-  .fold-summary::before { content:'▸ '; color:#0f766e; }
-  details[open] > .fold-summary::before { content:'▾ '; }
-  .compare-table { width:100%; border-collapse:collapse; font-size:0.85em; }
-  .compare-table th, .compare-table td { border:1px solid var(--border); padding:7px 10px; text-align:center; }
-  .compare-table th { background:#f1f5f9; color:var(--primary); font-weight:700; }
-  .compare-table td.label { text-align:left; font-weight:700; color:var(--primary); }
-  .compact-pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .chip-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-  .chip-row .chip { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; background:#ecfeff; border:1px solid #99f6e4; color:#115e59; font-size:0.78em; }
-  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { flex:1 1 180px; width:auto; margin-top:0; justify-content:center; }
-  .mini-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
-  .mini-card { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px 12px; }
-  .mini-card .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; }
-  .mini-card .value { font-weight:700; color:#0c4a6e; font-family:'Consolas',monospace; }
-  .decision-panel { display:grid; gap:10px; }
-  .decision-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
-  .decision-card { border:1px solid #cbd5e1; border-left:5px solid #0f766e; border-radius:10px; background:#f8fafc; padding:12px 14px; }
-  .decision-card.warn { border-left-color:#f59e0b; background:#fffbeb; border-color:#fcd34d; }
-  .decision-card.pending { border-left-color:#64748b; background:#f8fafc; border-color:#cbd5e1; }
-  .decision-card strong { display:block; color:#0f172a; margin-bottom:5px; }
-  .decision-card .decision-line { display:flex; justify-content:space-between; gap:12px; padding:3px 0; font-size:0.84em; color:#334155; }
-  .decision-card .decision-line span:last-child { font-family:'Consolas',monospace; font-weight:700; color:#0f172a; text-align:right; }
-  .decision-note { padding:10px 12px; border-radius:10px; background:#ecfeff; border:1px solid #99f6e4; color:#115e59; font-size:0.84em; line-height:1.75; }
-  .spectrum-panel { display:grid; gap:12px; min-width:0; max-width:100%; overflow:hidden; }
-  .spectrum-table-wrap { overflow-x:auto; min-width:0; max-width:100%; border:1px solid var(--border); border-radius:10px; }
-  .spectrum-table { min-width:920px; width:100%; border-collapse:collapse; font-size:0.82em; }
-  .spectrum-table th, .spectrum-table td { border:1px solid var(--border); padding:6px 8px; text-align:center; }
-  .spectrum-table th { background:#f1f5f9; color:var(--primary); font-weight:700; }
-  .spectrum-table td.label { font-weight:700; color:#0f172a; background:#f8fafc; }
-  .spectrum-table td.control-design { font-weight:700; color:#115e59; background:#ecfdf5; }
-  .spectrum-table td.control-lower { font-weight:700; color:#9a3412; background:#fffbeb; }
-  .spectrum-note { padding:10px 12px; border-radius:10px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:0.84em; line-height:1.75; }
-  .spectrum-note.info { background:#f0fdfa; border-color:#99f6e4; color:#115e59; }
-  .code-step-strip { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin:12px 0; }
-  .code-step { border:1px solid #cbd5e1; border-radius:10px; background:linear-gradient(180deg, #ffffff, #f8fafc); padding:9px 10px; min-height:76px; }
-  .code-step span { display:inline-flex; align-items:center; justify-content:center; min-width:38px; padding:2px 7px; border-radius:999px; background:#0f766e; color:#fff; font-size:0.72em; font-weight:700; margin-bottom:6px; }
-  .code-step strong { display:block; color:#0f172a; font-size:0.9em; margin-bottom:3px; }
-  .code-step small { display:block; color:#64748b; font-size:0.76em; line-height:1.45; }
-  .export-actions { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-top:10px; }
-  .export-actions .btn-secondary { width:100%; margin-top:0; justify-content:center; }
-  .checklist-grid { display:grid; gap:8px; margin-top:10px; }
-  .check-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; padding:9px 10px; border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; }
-  .check-row label { margin:0; color:#0f172a; font-weight:700; }
-  .check-row small { display:block; color:#64748b; font-weight:400; line-height:1.45; margin-top:2px; }
-  .check-row input[type="checkbox"] { width:20px; height:20px; accent-color:#0f766e; }
-  .model-status-list { display:grid; gap:8px; }
-  .model-status-item { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:start; padding:9px 10px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; }
-  .model-status-item strong { color:#0f172a; }
-  .model-status-item small { display:block; color:#64748b; margin-top:2px; line-height:1.45; }
-  .status-pill { display:inline-flex; align-items:center; justify-content:center; min-width:52px; padding:3px 8px; border-radius:999px; font-size:0.76em; font-weight:700; }
-  .status-pill.pass { background:#dcfce7; color:#166534; }
-  .status-pill.warn { background:#fef3c7; color:#92400e; }
-  .status-pill.pending { background:#e2e8f0; color:#475569; }
-  .note-list { padding-left:18px; font-size:0.84em; line-height:1.8; color:#475569; }
-  .note-list li + li { margin-top:4px; }
-  .status-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .status-actions .btn-secondary { flex:1 1 160px; width:auto; min-width:0; margin-top:0; white-space:normal; }
-  .case-file-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; padding-top:10px; border-top:1px solid #e2e8f0; }
-  .case-file-actions .btn-secondary { flex:1 1 150px; width:auto; min-width:0; margin-top:0; justify-content:center; white-space:normal; }
-  @media (max-width: 1080px) {
-    .dynamic-shell { grid-template-columns:1fr; }
-    .dynamic-result-stack { position:static; }
-  }
-  @media (max-width: 768px) {
-    .header-links .sep { display:none; }
-    .hero-chip { font-size:0.76em; padding:5px 10px; }
-    .mini-grid, .decision-grid, .compact-pair { grid-template-columns:1fr; }
-    .code-step-strip { grid-template-columns:1fr; }
-    .export-actions { grid-template-columns:1fr; }
-    .inline-actions { flex-direction:column; }
-    .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { width:100%; flex:1 1 auto; }
-    .status-actions { flex-direction:column; }
-    .status-actions .btn-secondary { width:100%; flex:1 1 auto; }
-    .case-file-actions { flex-direction:column; }
-    .case-file-actions .btn-secondary { width:100%; flex:1 1 auto; }
-    .form-row { grid-template-columns:1fr; }
-  }
-  @media print {
-    .page-only-report-status, .case-file-actions { display:none !important; }
-    .card { break-inside:avoid; page-break-inside:avoid; }
-  }
-</style>
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="seismic-tools.css">
 </head>
 <body class="formal-tool-output-page" data-family="seismic">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
@@ -142,11 +41,15 @@
 
 <div class="container">
   <div class="card mode-bar print-meta">
-    <strong class="mode-bar__label">計畫資訊：</strong>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo" class="w-no" placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details page-only-tool-actions project-details">
+        <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge">案名／編號／設計人</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo" class="w-no" placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+      </details>
       <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
     </div>
     <div class="case-file-actions">
@@ -328,33 +231,38 @@
             <input id="codeDamping" type="number" value="5" step="0.5" min="0">
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>R / Ra</label>
-            <div class="compact-pair">
-              <input id="codeR" type="number" value="2" step="0.1" min="1">
-              <input id="codeRa" type="number" step="any" min="1" aria-label="容許韌性容量 Ra" placeholder="依 R 與工址計算">
+        <details class="collapsible-details page-only-tool-actions">
+          <summary><span class="details-title">進階反應譜參數</span><span class="details-summary-badge">R／Ra、αy、BS／B1</span></summary>
+          <div class="details-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>R / Ra</label>
+                <div class="compact-pair">
+                  <input id="codeR" type="number" value="2" step="0.1" min="1">
+                  <input id="codeRa" type="number" step="any" min="1" aria-label="容許韌性容量 Ra" placeholder="依 R 與工址計算">
+                </div>
+                <div class="hint">Ra 留白依 R 與工址計算。一般工址的既有模型值可輸入至小數第 4 位核對。</div>
+              </div>
+              <div class="form-group">
+                <label>α<sub>y</sub></label>
+                <input id="codeAlphaY" type="number" value="1.5" step="0.1" min="0.1">
+              </div>
             </div>
-            <div class="hint">Ra 留白依 R 與工址計算。一般工址的既有模型值可輸入至小數第 4 位核對。</div>
-          </div>
-          <div class="form-group">
-            <label>α<sub>y</sub></label>
-            <input id="codeAlphaY" type="number" value="1.5" step="0.1" min="0.1">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>B<sub>S</sub> / B<sub>1</sub></label>
-            <div class="compact-pair">
-              <input id="codeBS" type="number" value="1" step="0.05" min="0.1">
-              <input id="codeB1" type="number" value="1" step="0.05" min="0.1">
+            <div class="form-row">
+              <div class="form-group">
+                <label>B<sub>S</sub> / B<sub>1</sub></label>
+                <div class="compact-pair">
+                  <input id="codeBS" type="number" value="1" step="0.05" min="0.1">
+                  <input id="codeB1" type="number" value="1" step="0.05" min="0.1">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>參數用途</label>
+                <div class="status-box">用於產生規範第 3.2 節設計水平加速度反應譜；阻尼修正採 S<sub>DS</sub>/B<sub>S</sub> 與 S<sub>D1</sub>/B<sub>1</sub>。不取代模型軟體的模態求解。</div>
+              </div>
             </div>
           </div>
-          <div class="form-group">
-            <label>參數用途</label>
-            <div class="status-box">用於產生規範第 3.2 節設計水平加速度反應譜；阻尼修正採 S<sub>DS</sub>/B<sub>S</sub> 與 S<sub>D1</sub>/B<sub>1</sub>。不取代模型軟體的模態求解。</div>
-          </div>
-        </div>
+        </details>
         <div class="form-row">
           <div class="form-group">
             <label>總橫力調整要求</label>
@@ -368,22 +276,32 @@
             <div class="status-box">先建立設計反應譜與最大考量地震反應譜，再檢核中小度下限與總橫力調整要求；模型振態、方向組合與構材內力仍以分析軟體輸出為準。</div>
           </div>
         </div>
-        <div class="code-step-strip" aria-label="規範工作順序">
-          <div class="code-step"><span>3.2</span><strong>反應譜係數</strong><small>建立設計地震與最大考量地震譜。</small></div>
-          <div class="code-step"><span>3.2</span><strong>下限控制</strong><small>檢核中小度地震時不過早降伏。</small></div>
-          <div class="code-step"><span>3.3</span><strong>總橫力調整</strong><small>依規則性選取 90% 或 100% 調整比例。</small></div>
-          <div class="code-step"><span>3.5</span><strong>模型確認</strong><small>確認有效質量、振態疊加與方向輸入。</small></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>計算書模式</label>
-            <select id="reportMode">
-              <option value="detailed" selected>詳算式（含反應譜表與模型檢核）</option>
-              <option value="summary">簡易結果（總橫力摘要）</option>
-            </select>
-            <div class="hint">本選項只控制輸出詳略，不會列為計算書欄位。</div>
+        <details class="collapsible-details page-only-tool-actions">
+          <summary><span class="details-title">規範工作順序</span><span class="details-summary-badge">第 3.2～3.5 節</span></summary>
+          <div class="details-body">
+            <div class="code-step-strip" aria-label="規範工作順序">
+              <div class="code-step"><span>3.2</span><strong>反應譜係數</strong><small>建立設計地震與最大考量地震譜。</small></div>
+              <div class="code-step"><span>3.2</span><strong>下限控制</strong><small>檢核中小度地震時不過早降伏。</small></div>
+              <div class="code-step"><span>3.3</span><strong>總橫力調整</strong><small>依規則性選取 90% 或 100% 調整比例。</small></div>
+              <div class="code-step"><span>3.5</span><strong>模型確認</strong><small>確認有效質量、振態疊加與方向輸入。</small></div>
+            </div>
           </div>
-        </div>
+        </details>
+        <details class="collapsible-details page-only-tool-actions">
+          <summary><span class="details-title">計算書模式</span><span class="details-summary-badge">報表詳略</span></summary>
+          <div class="details-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>計算書模式</label>
+                <select id="reportMode">
+                  <option value="detailed" selected>詳算式（含反應譜表與模型檢核）</option>
+                  <option value="summary">簡易結果（總橫力摘要）</option>
+                </select>
+                <div class="hint">本選項只控制輸出詳略，不會列為計算書欄位。</div>
+              </div>
+            </div>
+          </div>
+        </details>
         <div class="inline-actions">
           <button class="btn-calc" id="btnCalc">整理動力摘要</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
@@ -436,64 +354,68 @@
           圖表範圍只影響畫面顯示；匯出範圍另由 T<sub>export</sub> 控制。CSV 採純欄位表格：週期、採用設計輸入譜、中小度下限譜、最大考量地震輸入譜，可依軟體需求貼入或再篩選欄位。
         </div>
 
-        <h3 style="margin-top:16px;">動力模型檢核資料</h3>
-        <div class="form-row">
-          <div class="form-group">
-            <label>模態數</label>
-            <input id="modelModeCount" type="number" value="25" step="1" min="1">
-          </div>
-          <div class="form-group">
-            <label>振態疊加方法</label>
-            <select id="modalCombination">
-              <option value="CQC" selected>CQC</option>
-              <option value="SRSS">SRSS</option>
-              <option value="CQC/SRSS">CQC / SRSS 混合或分案</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>X / Y 向有效質量參與率 (%)</label>
-            <div class="compact-pair">
-              <input id="massParticipationX" type="number" value="90" step="0.1" min="0" max="100">
-              <input id="massParticipationY" type="number" value="90" step="0.1" min="0" max="100">
+        <details class="collapsible-details page-only-tool-actions">
+          <summary><span class="details-title">動力模型檢核資料</span><span class="details-summary-badge">模態與檢核項目</span></summary>
+          <div class="details-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>模態數</label>
+                <input id="modelModeCount" type="number" value="25" step="1" min="1">
+              </div>
+              <div class="form-group">
+                <label>振態疊加方法</label>
+                <select id="modalCombination">
+                  <option value="CQC" selected>CQC</option>
+                  <option value="SRSS">SRSS</option>
+                  <option value="CQC/SRSS">CQC / SRSS 混合或分案</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>X / Y 向有效質量參與率 (%)</label>
+                <div class="compact-pair">
+                  <input id="massParticipationX" type="number" value="90" step="0.1" min="0" max="100">
+                  <input id="massParticipationY" type="number" value="90" step="0.1" min="0" max="100">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>扭轉有效質量參與率 (%)</label>
+                <input id="massParticipationRz" type="number" value="90" step="0.1" min="0" max="100">
+              </div>
+            </div>
+            <div class="checklist-grid">
+              <div class="check-row">
+                <label>有效質量和達 90%<small>對應規範第 3.5 節 X、Y、扭轉方向有效質量和要求。</small></label>
+                <input id="checkMassParticipation" type="checkbox" checked>
+              </div>
+              <div class="check-row">
+                <label>CQC / SRSS 使用原則已確認<small>週期相近宜採 CQC；週期不甚相近可採 SRSS。</small></label>
+                <input id="checkModalCombination" type="checkbox" checked>
+              </div>
+              <div class="check-row">
+                <label>扭轉偶然偏心已納入模型或載重組合<small>供模型設定與審查紀錄，不由本頁自動生成載重組合。</small></label>
+                <input id="checkAccidentalTorsion" type="checkbox">
+              </div>
+              <div class="check-row">
+                <label>樓層剪力 / 反應結果已依總橫力調整<small>確認模型輸出已按第 3.3 節縮放後再進行構件設計。</small></label>
+                <input id="checkStoryShearScale" type="checkbox">
+              </div>
+              <div class="check-row">
+                <label>地震輸入方向與不規則性已確認<small>建築物甚不規則時，應評估多個地震輸入角度。</small></label>
+                <input id="checkDirectionAngle" type="checkbox">
+              </div>
+              <div class="check-row">
+                <label>計算書包含動力模型檢核表<small>取消勾選時，畫面與案件 JSON 仍保留檢核資料，但列印計算書不輸出此表。</small></label>
+                <input id="printModelCheckSection" type="checkbox" checked>
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+              <label>模型檢核說明</label>
+              <input id="modelCheckNote" type="text" placeholder="例：X/Y/Rz 有效質量均超過 90%，樓層剪力已依採用倍率縮放">
             </div>
           </div>
-          <div class="form-group">
-            <label>扭轉有效質量參與率 (%)</label>
-            <input id="massParticipationRz" type="number" value="90" step="0.1" min="0" max="100">
-          </div>
-        </div>
-        <div class="checklist-grid">
-          <div class="check-row">
-            <label>有效質量和達 90%<small>對應規範第 3.5 節 X、Y、扭轉方向有效質量和要求。</small></label>
-            <input id="checkMassParticipation" type="checkbox" checked>
-          </div>
-          <div class="check-row">
-            <label>CQC / SRSS 使用原則已確認<small>週期相近宜採 CQC；週期不甚相近可採 SRSS。</small></label>
-            <input id="checkModalCombination" type="checkbox" checked>
-          </div>
-          <div class="check-row">
-            <label>扭轉偶然偏心已納入模型或載重組合<small>供模型設定與審查紀錄，不由本頁自動生成載重組合。</small></label>
-            <input id="checkAccidentalTorsion" type="checkbox">
-          </div>
-          <div class="check-row">
-            <label>樓層剪力 / 反應結果已依總橫力調整<small>確認模型輸出已按第 3.3 節縮放後再進行構件設計。</small></label>
-            <input id="checkStoryShearScale" type="checkbox">
-          </div>
-          <div class="check-row">
-            <label>地震輸入方向與不規則性已確認<small>建築物甚不規則時，應評估多個地震輸入角度。</small></label>
-            <input id="checkDirectionAngle" type="checkbox">
-          </div>
-          <div class="check-row">
-            <label>計算書包含動力模型檢核表<small>取消勾選時，畫面與案件 JSON 仍保留檢核資料，但列印計算書不輸出此表。</small></label>
-            <input id="printModelCheckSection" type="checkbox" checked>
-          </div>
-        </div>
-        <div class="form-group" style="margin-top:10px;">
-          <label>模型檢核說明</label>
-          <input id="modelCheckNote" type="text" placeholder="例：X/Y/Rz 有效質量均超過 90%，樓層剪力已依採用倍率縮放">
-        </div>
+        </details>
       </div>
     </div>
 
@@ -540,27 +462,31 @@
     </div>
   </div>
 </div>
-<details class="card" id="pageScopeCard">
-  <summary class="fold-summary">本頁定位與適用範圍</summary>
-  <div class="note" style="margin-top:12px;">
-    本頁是「反應譜動力分析規範整理」工具，用來承接外部模型分析成果，整理設計譜參數、動力基底剪力、總橫力調整要求與動 / 靜比。
-  </div>
-  <div class="hint" style="margin-top:10px;">
-    適合：ETABS / SAP2000 / MIDAS 等反應譜分析結果之案件整理、送審前比對、報表化輸出。<br>
-    仍須於分析模型中確認：規範第 3.5 節有效質量和、CQC / SRSS 振態疊加方式、地震輸入方向與構件內力組合。<br>
-    不適合：直接建立模型、求模態、執行反應譜分析或取代分析軟體本身。<br>
-    若只需完整靜力法計算，請回 <a href="seismic-force.html">等值靜力分析</a>。
+<details class="card collapsible-details page-only-tool-actions" id="pageScopeCard">
+  <summary><span class="details-title">本頁定位與適用範圍</span><span class="details-summary-badge">適用條件</span></summary>
+  <div class="details-body">
+    <div class="note" style="margin-top:12px;">
+      本頁是「反應譜動力分析規範整理」工具，用來承接外部模型分析成果，整理設計譜參數、動力基底剪力、總橫力調整要求與動 / 靜比。
+    </div>
+    <div class="hint" style="margin-top:10px;">
+      適合：ETABS / SAP2000 / MIDAS 等反應譜分析結果之案件整理、送審前比對、報表化輸出。<br>
+      仍須於分析模型中確認：規範第 3.5 節有效質量和、CQC / SRSS 振態疊加方式、地震輸入方向與構件內力組合。<br>
+      不適合：直接建立模型、求模態、執行反應譜分析或取代分析軟體本身。<br>
+      若只需完整靜力法計算，請回 <a href="seismic-force.html">等值靜力分析</a>。
+    </div>
   </div>
 </details>
-<details class="card" id="versionInfoCard">
-  <summary class="fold-summary">版本與更新重點</summary>
-  <div class="note" style="margin-top:12px;">
-    目前頁面版本為 <strong>V3.9</strong>，定位為動力分析成果的整理、規範靜力比對、設計水平加速度反應譜工作輸出、總橫力調整判讀、案件資料匯入匯出、反應譜資料匯出、模型檢核與列印，而不是分析求解器本身。
-  </div>
-  <div class="hint" style="margin-top:10px;">
-    本版已完成：靜力摘要載入、案件資料銜接、案件 JSON 匯入 / 匯出、設計地震與最大考量地震反應譜繪製、規範設計水平加速度反應譜、中小度下限譜、Tx / Ty 設計週期標示、圖表與匯出週期上限分離、總橫力調整要求、採用總橫力輸入、反應譜 CSV / JSON 匯出、動力模型檢核表、計算書檢核表顯示選項、動 / 靜比整理、縮放倍率提示與列印。<br>
-    建議用法：先於模型軟體完成分析，再把 X / Y 向基底剪力與週期帶入本頁，作為報表化整理與比對。<br>
-    若需要正式靜力法主算，請回 <a href="seismic-force.html">等值靜力分析</a>。
+<details class="card collapsible-details page-only-tool-actions" id="versionInfoCard">
+  <summary><span class="details-title">版本與更新重點</span><span class="details-summary-badge">版本資訊</span></summary>
+  <div class="details-body">
+    <div class="note" style="margin-top:12px;">
+      目前頁面版本為 <strong>V3.9</strong>，定位為動力分析成果的整理、規範靜力比對、設計水平加速度反應譜工作輸出、總橫力調整判讀、案件資料匯入匯出、反應譜資料匯出、模型檢核與列印，而不是分析求解器本身。
+    </div>
+    <div class="hint" style="margin-top:10px;">
+      本版已完成：靜力摘要載入、案件資料銜接、案件 JSON 匯入 / 匯出、設計地震與最大考量地震反應譜繪製、規範設計水平加速度反應譜、中小度下限譜、Tx / Ty 設計週期標示、圖表與匯出週期上限分離、總橫力調整要求、採用總橫力輸入、反應譜 CSV / JSON 匯出、動力模型檢核表、計算書檢核表顯示選項、動 / 靜比整理、縮放倍率提示與列印。<br>
+      建議用法：先於模型軟體完成分析，再把 X / Y 向基底剪力與週期帶入本頁，作為報表化整理與比對。<br>
+      若需要正式靜力法主算，請回 <a href="seismic-force.html">等值靜力分析</a>。
+    </div>
   </div>
 </details>
 </div>
