@@ -413,6 +413,7 @@ async function main() {
       await page.fill('#projDesigner', 'QA');
       await applyCase(page, tc);
       await page.waitForTimeout(350);
+      await page.locator('#foundationReadinessDetails > summary').click();
 
       const state = await page.evaluate(() => ({
         banner: document.getElementById('bannerStatus')?.innerText?.replace(/\s+/g, ' ').trim() || '',
