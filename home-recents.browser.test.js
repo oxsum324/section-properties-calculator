@@ -92,9 +92,16 @@ async function main() {
         await page.reload();
         await expect(page.locator('.home-personal .tool-card').first()).toHaveAttribute('data-route-href', routes[0]);
         await expect(page.locator('.home-personal .tool-card')).toHaveCount(2);
-        await page.locator('#toolSearch').fill('Shear Tab');
+        const search = page.locator('#toolSearch');
+        await page.locator('body').press('/');
+        await expect(search).toBeFocused();
+        await search.press('/');
+        await expect(search).toHaveValue('/');
+        await search.fill('Shear Tab');
         await expect(page.locator('.home-personal')).toHaveCount(0);
-        await page.locator('#clearToolSearch').click();
+        await search.press('Escape');
+        await expect(search).toHaveValue('');
+        await expect(search).toBeFocused();
         await expect(page.locator('.home-personal .tool-card')).toHaveCount(2);
         for (const viewport of [{ width: 1365, height: 900 }, { width: 390, height: 844 }]) {
           await page.setViewportSize(viewport);
@@ -108,9 +115,10 @@ async function main() {
           await expect(page).toHaveURL(/\.html$/);
           await page.goto(home);
         }
-        await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)).length, recentKey)).toBe(8);
-        await expect.poll(() => page.evaluate(key => new Set(JSON.parse(localStorage.getItem(key)).map(item => item.href)).size, recentKey)).toBe(8);
+        await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)).length, recentKey)).toBe(5);
+        await expect.poll(() => page.evaluate(key => new Set(JSON.parse(localStorage.getItem(key)).map(item => item.href)).size, recentKey)).toBe(5);
         await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key))[0].href, recentKey)).toBe(routes[0]);
+        await expect(page.locator('.home-personal .tool-card')).toHaveCount(5);
         await page.setViewportSize({ width: 1365, height: 900 });
         for (const href of routes.slice(1, 12)) await page.locator(`#toolGrid .tool-pin[data-pin-href="${href}"]`).click();
         await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)).length, pinnedKey)).toBe(12);

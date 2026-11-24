@@ -1165,6 +1165,7 @@
 
   const RECENT_TOOLS_KEY = 'structToolbox.home.recentTools';
   const PINNED_TOOLS_KEY = 'structToolbox.home.pinnedTools';
+  const RECENT_TOOLS_LIMIT = 5;
   const toolsByHref = new Map(tools.map(tool => [tool.href, tool]));
   const personal = { recent: readRecentTools(), pinned: readPinnedTools(), notice: '' };
 
@@ -1181,7 +1182,7 @@
       .filter(item => item && toolsByHref.has(item.href) && Number.isFinite(item.at) && item.at >= 0)
       .sort((left, right) => right.at - left.at)
       .filter(item => !seen.has(item.href) && seen.add(item.href))
-      .slice(0, 8).map(({ href, at }) => ({ href, at }));
+      .slice(0, RECENT_TOOLS_LIMIT).map(({ href, at }) => ({ href, at }));
   }
 
   function readPinnedTools() {
@@ -1194,7 +1195,7 @@
   }
 
   function recordRecentTool(href) {
-    personal.recent = [{ href, at: Date.now() }, ...personal.recent.filter(item => item.href !== href)].slice(0, 8);
+    personal.recent = [{ href, at: Date.now() }, ...personal.recent.filter(item => item.href !== href)].slice(0, RECENT_TOOLS_LIMIT);
     writeStoredTools(RECENT_TOOLS_KEY, personal.recent);
   }
 
@@ -1243,8 +1244,7 @@
     notice.textContent = personal.notice;
     notice.hidden = !personal.notice;
     const grid = document.createElement('div');
-    grid.className = 'tool-grid home-personal__grid';
-    grid.classList.toggle('tool-grid--detailed', !!document.getElementById('toolDetailToggle')?.checked);
+    grid.className = 'home-personal__grid';
     ordered.forEach(href => {
       const card = renderToolCard(toolsByHref.get(href));
       card.dataset.personalKind = personal.pinned.includes(href) ? 'pinned' : 'recent';
@@ -2001,12 +2001,34 @@
       elements.grid.classList.toggle('tool-grid--detailed', detailPref);
       detailToggle.addEventListener('change', () => {
         elements.grid.classList.toggle('tool-grid--detailed', detailToggle.checked);
-        document.querySelector('.home-personal__grid')?.classList.toggle('tool-grid--detailed', detailToggle.checked);
         try { localStorage.setItem(DETAIL_PREF_KEY, detailToggle.checked ? '1' : '0'); } catch (error) { /* per-viewer convenience only */ }
       });
     }
-    search?.addEventListener('input', () => { state.query = search.value; renderTools(); });
-    clear?.addEventListener('click', () => { search.value = ''; state.query = ''; renderTools(); search.focus(); });
+    if (search) {
+      const updateSearch = () => {
+        state.query = search.value;
+        renderTools();
+      };
+      const clearSearch = () => {
+        search.value = '';
+        updateSearch();
+        search.focus();
+      };
+      search.addEventListener('input', updateSearch);
+      clear?.addEventListener('click', clearSearch);
+      document.addEventListener('keydown', event => {
+        if (event.defaultPrevented || event.isComposing || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+        const target = event.target;
+        const editing = target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select'));
+        if (event.key === '/' && !editing) {
+          event.preventDefault();
+          search.focus();
+        } else if (event.key === 'Escape' && search.value && (!editing || target === search)) {
+          event.preventDefault();
+          clearSearch();
+        }
+      });
+    }
     renderCategoryOverview();
     render();
   }
