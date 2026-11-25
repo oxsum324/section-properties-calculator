@@ -67,11 +67,13 @@ const EXTRA = {
   '結構工具箱/tools/鋼構/steel-column.html': { key: '/steel-column-legacy', calculateFunction: 'runCheck', resultSelector: '#summaryResult' },
   '結構工具箱/tools/風力/wind-kzt.html': { key: '/wind-kzt', calculateButton: '#btnCalc', resultSelector: '#resultPanel' },
   '結構工具箱/tools/風力/wind-special.html': { key: '/wind-special', calculateButton: '#btnCalc', resultSelector: '#summary' },
+  '結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html': { key: '/concrete-strength-ndt', calculateButton: '#btnCalc', resultSelector: '#bannerStatus' },
 };
 const FORMAT_KEYS = ['/rc-beam', '/rc-column', '/rc-wall', '/rc-shear-wall', '/rc-pile', '/rc-deep-beam-stm', '/rc-foundation-deep-beam-stm'];
 const DEEP_KEYS = ['/rc-beam', '/rc-wall', '/rc-pile', '/wind-object-solid', '/earth-pressure', '/steel-plate', '/steel-beam-formal'];
+const TEXT_KEYS = ['/rc-slab', '/rc-wall', '/rc-shear-wall', '/rc-pile', '/rc-deep-beam-stm', '/rc-foundation-deep-beam-stm', '/rc-pile-cap-3d-stm', '/rc-retrofit-section', '/src-beam', '/src-column', '/frame-analysis'];
 // earth 的既有局部報告使用 btnPrint；鋼構 app 使用 exportReportBtn。
-const REPORT_BUTTONS = { '/earth-pressure': '#btnPrint', '/steel-plate': '#exportReportBtn' };
+const REPORT_BUTTONS = { '/earth-pressure': '#btnPrint', '/steel-plate': '#exportReportBtn', '/rc-retrofit-section': '[onclick="exportBeamReport()"]' };
 const PROJECT_READERS = { '/rc-beam': 'collectBeamProjectData', '/rc-column': 'collectColumnProjectData',
   '/rc-wall': 'collectWallProjectData', '/rc-shear-wall': 'collectShearWallProjectData', '/rc-pile': 'buildProjectPayload' };
 
@@ -87,9 +89,10 @@ function inventory() {
     assert.ok(adapter, `需明確新增計算入口映射：${file}`);
     return { ...adapter, file, reportDependencies: refs, format: FORMAT_KEYS.includes(adapter.key), deep: DEEP_KEYS.includes(adapter.key) };
   }).filter(Boolean);
-  assert.equal(list.length, 45, 'actual report.js consumers changed; review inventory before running');
+  assert.equal(list.length, 46, 'actual report.js consumers changed; review inventory before running');
   assert.equal(list.filter(tool => tool.format).length, 7);
   assert.equal(list.filter(tool => tool.deep).length, 7);
+  for (const key of TEXT_KEYS) assert.ok(list.some(tool => tool.key === key), `${key} 缺少 TXT 驗證入口`);
   return list;
 }
 function fixedState(ref) {
@@ -233,6 +236,26 @@ async function deepCheck(browser, page, report, tool, record, output, baseUrl) {
       fingerprint: before.fingerprint, txtSha256: hash(txt), offline: true, wordOrPdfRendered: false };
   } finally { await offline.close(); }
 }
+async function referenceTextCheck(report, state, record, output) {
+  const generatedText = await report.evaluate(() => window.buildReportText());
+  const [download] = await Promise.all([report.waitForEvent('download'), report.locator('#repDownloadCurrentText').click()]);
+  assert.ok(download.suggestedFilename().endsWith(`_文字備查_${state.fingerprint}.txt`));
+  const folder = path.join(output, `${record.slug}-reference-text`);
+  fs.mkdirSync(folder, { recursive: true });
+  const file = path.join(folder, download.suggestedFilename());
+  await download.saveAs(file);
+  const raw = fs.readFileSync(file, 'utf8');
+  assert.equal(raw, '\ufeff' + generatedText);
+  assert.ok(generatedText.includes(state.fingerprint));
+  const marker = '文字內容 SHA-256（非數位簽章）：';
+  const offset = generatedText.lastIndexOf(marker);
+  assert.ok(offset > 0);
+  assert.equal(generatedText.slice(offset + marker.length).trim(), hash(generatedText.slice(0, offset)));
+  const result = checker.checkPackage(folder);
+  assert.equal(result.status, 'blocked');
+  assert.ok(result.issues.some(issue => issue.code === 'non-formal-reference-text'));
+  record.referenceText = { file: path.relative(output, file), fingerprint: state.fingerprint, packageStatus: result.status };
+}
 async function main() {
   const all = inventory(), phase = argument('--phase', 'all'), only = argument('--only').split(',').filter(Boolean).map(key => '/' + key.replace(/^\//, ''));
   assert.ok(['all', 'load', 'fmt', 'deep'].includes(phase));
@@ -288,7 +311,8 @@ async function main() {
         await page.waitForFunction(rc => typeof window.StructReportUtils?.sha256Text === 'function' && (!rc || typeof window.RCReportUtils?.sha256Text === 'function'), tool.reportDependencies.includes('鋼筋混凝土/shared/report.js'));
         record.calculation = await calculate(page, tool);
         await page.screenshot({ path: path.join(output, record.slug + '-calculated.png') });
-        const needsReport = phase !== 'load' && (tool.format || (tool.deep && phase !== 'fmt'));
+        const checkText = phase === 'all' && TEXT_KEYS.includes(tool.key);
+        const needsReport = phase !== 'load' && (checkText || tool.format || (tool.deep && phase !== 'fmt'));
         if (needsReport) {
           if (tool.format) await instrumentReport(page);
           const collector = PROJECT_READERS[tool.key];
@@ -311,6 +335,7 @@ async function main() {
             record.numericReconciliation = { strategy: 'actual formatted report config values + source project fingerprint', fingerprint: state.fingerprint, metrics };
           }
           await report.screenshot({ path: path.join(output, record.slug + '-report.png') });
+          if (checkText) await referenceTextCheck(report, state, record, output);
           if (tool.deep && phase !== 'fmt') await deepCheck(browser, page, report, tool, record, output, baseUrl);
         }
         assert.deepEqual(record.errors, [], '頁面／報告 console 或依賴錯誤');

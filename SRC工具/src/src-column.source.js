@@ -672,6 +672,7 @@
       subtitle: `SRC Column ${axis.toUpperCase()}-Axis Seismic Calculation Report`,
       toolName: TOOL_NAME,
       toolVersion: PAGE_VERSION,
+      textExport: true,
       formalApprovalAllowed: result.steelSection?.source?.mode === 'catalog',
       outputSource: {
         tool: TOOL_NAME,
@@ -1012,6 +1013,7 @@
       subtitle: 'SRC Column X/Y-Axis Seismic Calculation Report',
       toolName: `${TOOL_NAME}（雙向彙總）`,
       toolVersion: PAGE_VERSION,
+      textExport: true,
       formalApprovalAllowed: xConfig.formalApprovalAllowed && yConfig.formalApprovalAllowed,
       outputSource: {
         tool: `${TOOL_NAME}（雙向彙總）`,

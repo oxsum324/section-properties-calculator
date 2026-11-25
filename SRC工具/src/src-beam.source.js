@@ -338,6 +338,7 @@
       subtitle: 'Fully Encased SRC Beam Design Report',
       toolName: TOOL_NAME,
       toolVersion: PAGE_VERSION,
+      textExport: true,
       outputSource: {
         tool: TOOL_NAME,
         version: PAGE_VERSION,
