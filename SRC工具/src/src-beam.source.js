@@ -1,13 +1,14 @@
 (function initSrcBeamPage(root, factory) {
   const core = root.SrcBeamCore || (typeof require === 'function' ? require('./core/src-beam-core.js') : null);
-  const api = factory(core);
+  const diagram = root.MemberSectionSvg || (typeof require === 'function' ? require('../結構工具箱/core/ui/member-section-svg.js') : null);
+  const api = factory(core, diagram);
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.SrcBeamPage = api;
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => api.init(document, root));
     else api.init(document, root);
   }
-})(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcBeamPage(Core) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcBeamPage(Core, SectionSvg) {
   'use strict';
 
   const PAGE_VERSION = 'v1.0';
@@ -125,19 +126,21 @@
     const tensionY = y + d * scale;
     const shearY = y + dv * scale;
     const hDimX = x - 28;
+    const rebarInset = Math.min(10, sectionWidth * 0.06);
     const depthDimension = (dimensionX, targetY, label, color) => `
       <line class="extension" x1="${x2 + 5}" y1="${y}" x2="${dimensionX}" y2="${y}"/>
       <line class="extension" x1="${x2 + 5}" y1="${targetY}" x2="${dimensionX}" y2="${targetY}"/>
       <line x1="${dimensionX}" y1="${y}" x2="${dimensionX}" y2="${targetY}" stroke="${color}" marker-start="url(#arrow-${label.replace('′', 'p')})" marker-end="url(#arrow-${label.replace('′', 'p')})"/>
       <text class="dimension-label" x="${dimensionX + 5}" y="${(y + targetY) / 2}" fill="${color}">${escapeXml(label)}</text>`;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 450" role="img" aria-labelledby="src-section-title src-section-desc">
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 782 580" role="img" aria-labelledby="src-section-title src-section-desc">
       <title id="src-section-title">${SECTION_DIAGRAM_TITLE}</title>
       <desc id="src-section-desc">矩形混凝土斷面內置中雙對稱 H 型鋼；主筋以 As 與 As′ 計算面積位置表示。</desc>
       <defs>
-        <marker id="arrow-d" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto-start-reverse"><path d="M0,0 L7,3.5 L0,7 Z" fill="#9a3412"/></marker>
-        <marker id="arrow-dp" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto-start-reverse"><path d="M0,0 L7,3.5 L0,7 Z" fill="#7c3aed"/></marker>
-        <marker id="arrow-dv" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto-start-reverse"><path d="M0,0 L7,3.5 L0,7 Z" fill="#047857"/></marker>
-        <marker id="arrow-dim" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto-start-reverse"><path d="M0,0 L7,3.5 L0,7 Z" fill="#334155"/></marker>
+        ${SectionSvg.arrowMarker('src-beam-load', '#9a3412', 8)}
+        <marker id="arrow-d" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto-start-reverse"><path d="M0,0 L7,3.5 L0,7 Z" fill="#9a3412"/></marker>
+        <marker id="arrow-dp" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto-start-reverse"><path d="M0,0 L7,3.5 L0,7 Z" fill="#7c3aed"/></marker>
+        <marker id="arrow-dv" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto-start-reverse"><path d="M0,0 L7,3.5 L0,7 Z" fill="#047857"/></marker>
+        <marker id="arrow-dim" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto-start-reverse"><path d="M0,0 L7,3.5 L0,7 Z" fill="#334155"/></marker>
         <style>
           text{font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif;fill:#172033}
           .dimension{stroke:#334155;stroke-width:1.4;marker-start:url(#arrow-dim);marker-end:url(#arrow-dim)}
@@ -147,13 +150,16 @@
           .area-line{fill:none;stroke-width:3;stroke-dasharray:7 5}
         </style>
       </defs>
-      <rect x="0.5" y="0.5" width="719" height="449" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
-      <rect x="${x}" y="${y}" width="${sectionWidth}" height="${sectionHeight}" fill="#f1f5f9" stroke="#334155" stroke-width="2.2"/>
-      <line class="area-line" x1="${x + 10}" y1="${compressionY}" x2="${x2 - 10}" y2="${compressionY}" stroke="#7c3aed"/>
-      <line class="area-line" x1="${x + 10}" y1="${tensionY}" x2="${x2 - 10}" y2="${tensionY}" stroke="#9a3412"/>
+      <rect x="0.5" y="0.5" width="781" height="579" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+      <rect data-diagram-role="concrete-outline" x="${x}" y="${y}" width="${sectionWidth}" height="${sectionHeight}" fill="#f1f5f9" stroke="#334155" stroke-width="2.2"/>
+      ${SectionSvg.symbolicTie({ x, y, width: sectionWidth, height: sectionHeight })}
+      <line class="area-line" x1="${x + rebarInset}" y1="${compressionY}" x2="${x2 - rebarInset}" y2="${compressionY}" stroke="#7c3aed" data-diagram-role="compression-rebar-layer"/>
+      <line class="area-line" data-diagram-role="tension-rebar-layer" x1="${x + rebarInset}" y1="${tensionY}" x2="${x2 - rebarInset}" y2="${tensionY}" stroke="#9a3412"/>
+      <g data-diagram-role="steel-core">
       <rect x="${steelLeft}" y="${steelTop}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
       <rect x="${webLeft}" y="${steelTop + flangeThickness}" width="${webThickness}" height="${steelDepth - 2 * flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
       <rect x="${steelLeft}" y="${steelTop + steelDepth - flangeThickness}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
+      </g>
       <line class="extension" x1="${x}" y1="${y - 5}" x2="${x}" y2="${y - 30}"/>
       <line class="extension" x1="${x2}" y1="${y - 5}" x2="${x2}" y2="${y - 30}"/>
       <line class="dimension" x1="${x}" y1="${y - 25}" x2="${x2}" y2="${y - 25}"/>
@@ -165,7 +171,7 @@
       ${depthDimension(x2 + 22, compressionY, 'd′', '#7c3aed')}
       ${depthDimension(x2 + 50, tensionY, 'd', '#9a3412')}
       ${depthDimension(x2 + 78, shearY, 'dv', '#047857')}
-      <g transform="translate(470 78)">
+      <g data-diagram-role="section-dimensions" transform="translate(513 78)">
         <text class="legend-title" x="0" y="0">採用斷面</text>
         <rect x="0" y="22" width="18" height="18" fill="#f1f5f9" stroke="#334155"/><text class="legend" x="28" y="36">混凝土 ${fmt(b, 1)} × ${fmt(h, 1)} cm</text>
         <rect x="0" y="56" width="18" height="18" fill="#2563eb" stroke="#1e3a8a"/><text class="legend" x="28" y="70">H 型鋼（置中）</text>
@@ -176,8 +182,15 @@
         <text class="legend" x="0" y="228" fill="#7c3aed">d′ = ${fmt(dPrime, 1)} cm</text>
         <text class="legend" x="0" y="257" fill="#9a3412">d = ${fmt(d, 1)} cm</text>
         <text class="legend" x="0" y="286" fill="#047857">dv = ${fmt(dv, 1)} cm</text>
-        <text class="legend-small" x="0" y="333">Av / s = ${fmt(reinforcement.avCm2, 3)} cm² / ${fmt(reinforcement.spacingCm, 1)} cm</text>
+        <text class="legend-small" x="0" y="318">閉合橫箍筋配置示意</text>
+        <text class="legend-small" x="0" y="342">Av / s = ${fmt(reinforcement.avCm2, 3)} cm² / ${fmt(reinforcement.spacingCm, 1)} cm</text>
       </g>
+      <text class="legend-title" x="513" y="450">X 向檢核 · 外力方向示意</text>
+      ${SectionSvg.loadLegend([
+        { direction: 'down', label: 'Pu = ' + SectionSvg.dimensionValue(input.demands?.puTf) + ' tf' },
+        { direction: 'moment', label: 'Mu = ' + SectionSvg.dimensionValue(input.demands?.muTfM) + ' tf·m' },
+        { direction: 'down', label: 'Vu = ' + SectionSvg.dimensionValue(input.demands?.vuTf) + ' tf' },
+      ], 517, 475, 'src-beam-load')}
     </svg>`;
     return Object.freeze({
       title: SECTION_DIAGRAM_TITLE,

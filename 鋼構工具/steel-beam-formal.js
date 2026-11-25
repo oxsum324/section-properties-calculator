@@ -2018,11 +2018,26 @@
 
     const result = { materialNote: material.note, sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, loadDead, loadLive, pointDead, pointLive, pointDeadX, pointLiveX, adoptedInputSource: adoptedBeamImportSourceText() };
     resultState = result;
+    const diagram = buildMemberSectionDiagram(result);
+    $("beamSectionDiagramImage").src = diagram.dataURL;
+    $("beamSectionDiagramCaption").textContent = diagram.caption;
+    $("beamSectionDiagram").hidden = false;
     setBeamReportValidationMessage("");
     renderSummary(result);
     renderFlow(result);
     workflow?.refresh();
     return result;
+  }
+
+  function buildMemberSectionDiagram(result) {
+    const loads = [
+      ["moment", result.isLRFD ? "|Mu|" : "|Ma|", result.demandMoment, "moment"],
+      ["down", result.isLRFD ? "|Vu|" : "|Va|", result.demandShear, "force"],
+    ].map(([direction, name, magnitude, kind]) => ({
+      direction,
+      label: name + " = " + formatDisplayValue(magnitude, kind, 2) + " " + getQuantityUnit(kind),
+    }));
+    return MemberSectionSvg.steelMember({ section: result.sec, member: "beam", loads });
   }
 
   function buildBeamReportConfig(result, sourceVersion = "") {
@@ -2087,6 +2102,7 @@
           { label: "總撓度", formula: "ΔT ≤ L / limit", sub: !previousFormat && result.deflStatus === "skipped" ? "未輸入服務載重" : comparison(result.deflection.deltaT, result.allowTotal, false, "deflection"), value: result.deflStatus === "skipped" ? "未檢核" : `${formatDisplayValue(result.deflection.deltaT, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(result.allowTotal, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}`, ok: result.deflStatus === "skipped" ? null : result.deflection.deltaT <= result.allowTotal, note: `限值：L/${$("limT").value}` },
         ]},
       ],
+      diagrams: [buildMemberSectionDiagram(result)],
       summary: summaryState,
       steps: buildReportSteps(result, previousDeflectionFormat),
     };

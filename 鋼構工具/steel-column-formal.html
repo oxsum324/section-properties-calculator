@@ -366,6 +366,11 @@
               </div>
             </section>
             <div class="member-summary-grid" id="columnSummaryGrid"></div>
+            <section class="report-block no-print" data-page-only="true" id="columnSectionDiagram" hidden>
+              <h3>鋼柱計算斷面與受力示意</h3>
+              <img id="columnSectionDiagramImage" class="member-section-image" alt="鋼柱計算斷面與受力示意">
+              <p id="columnSectionDiagramCaption"></p>
+            </section>
             <section class="report-block">
               <h3>審查摘要 <span class="report-block-status neutral" id="columnReviewBadge">待計算</span></h3>
               <table class="report-table report-table--matrix">
@@ -480,6 +485,7 @@
   <script src="core/ui/report-utils.js"></script>
 <script src="../結構工具箱/core/ui/report-docx.js"></script>
 <script src="./core/ui/report.js"></script>
+  <script src="../結構工具箱/core/ui/member-section-svg.js"></script>
   <script src="./steel-member-report.js"></script>
   <script src="./steel-column-formal.js"></script>
 <script src="../tool-nav.manifest.js" defer></script>

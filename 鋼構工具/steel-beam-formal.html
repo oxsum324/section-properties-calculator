@@ -440,6 +440,11 @@
               </div>
             </section>
             <div class="member-summary-grid" id="beamSummaryGrid"></div>
+            <section class="report-block no-print" data-page-only="true" id="beamSectionDiagram" hidden>
+              <h3>鋼梁計算斷面與受力示意</h3>
+              <img id="beamSectionDiagramImage" class="member-section-image" alt="鋼梁計算斷面與受力示意">
+              <p id="beamSectionDiagramCaption"></p>
+            </section>
             <section class="report-block">
               <h3>審查摘要 <span class="report-block-status neutral" id="beamReviewBadge">待計算</span></h3>
               <table class="report-table report-table--matrix">
@@ -558,6 +563,7 @@
   <script src="core/ui/report-utils.js"></script>
 <script src="../結構工具箱/core/ui/report-docx.js"></script>
 <script src="./core/ui/report.js"></script>
+  <script src="../結構工具箱/core/ui/member-section-svg.js"></script>
   <script src="./steel-member-report.js"></script>
   <script src="../結構工具箱/tools/beam-element-deflection.js?v=2"></script>
   <script src="./steel-beam-formal.js?v=2"></script>

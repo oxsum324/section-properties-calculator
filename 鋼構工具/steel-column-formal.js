@@ -1728,11 +1728,27 @@
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk(result) ? "本次鋼柱斷面於細長比、軸壓與互制檢核均通過。" : "本次鋼柱斷面至少有一項控制條件未通過，請優先檢視 KL/r、Fcr 與互制項目。"}</div>`;
     $("summaryCard").hidden = false;
     resultState = result;
+    const diagram = buildMemberSectionDiagram(result);
+    $("columnSectionDiagramImage").src = diagram.dataURL;
+    $("columnSectionDiagramCaption").textContent = diagram.caption;
+    $("columnSectionDiagram").hidden = false;
     setColumnReportValidationMessage("");
     renderSummary(result);
     renderFlow(result);
     workflow?.refresh();
     return result;
+  }
+
+  function buildMemberSectionDiagram(result) {
+    const loads = [
+      ["down", result.isLRFD ? "|Pu|" : "|Pa|", result.PuTf, "force"],
+      ["moment", "|Mx|", result.MuxTf, "moment"],
+      ["moment", "|My|", result.MuyTf, "moment"],
+    ].map(([direction, name, magnitude, kind]) => ({
+      direction,
+      label: name + " = " + formatDisplayValue(magnitude, kind, 2) + " " + getQuantityUnit(kind),
+    }));
+    return MemberSectionSvg.steelMember({ section: result.sec, member: "column", loads });
   }
 
   function buildColumnReportConfig(result, sourceVersion = "") {
@@ -1791,6 +1807,7 @@
             ]},
           { group: "互制檢核", items: [{ label: "互制狀態", formula: "第八章組合力互制式", sub: result.bending ? result.interDetail.join(" ｜ ") : `${result.isLRFD ? `φb = ${f2(Steel.PHI.flexure)}` : `Ωb = ${f2(Steel.OMEGA.flexure)}`} ｜ ${result.interDetail.join(" ｜ ")}`, value: result.interRatioText, ok: result.local && !result.MuxTf && !result.MuyTf ? null : result.interOk, note: `控制軸向：${getColumnAxisDisplay(result.ctrlAxis)}` }] },
       ],
+      diagrams: [buildMemberSectionDiagram(result)],
       summary: summaryState,
       steps: buildReportSteps(result),
     };

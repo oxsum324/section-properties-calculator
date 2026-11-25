@@ -2,14 +2,15 @@
   const core = root.SrcColumnCore || (typeof require === 'function' ? require('./core/src-column-core.js') : null);
   const catalog = root.SrcColumnHSectionCatalog || (typeof require === 'function' ? require('./core/src-column-h-section-catalog.js') : null);
   const weakAxisReference = root.SrcColumnWeakAxisShearReference || (typeof require === 'function' ? require('./core/src-column-weak-axis-shear-reference.js') : null);
-  const api = factory(core, catalog, weakAxisReference);
+  const diagram = root.MemberSectionSvg || (typeof require === 'function' ? require('../結構工具箱/core/ui/member-section-svg.js') : null);
+  const api = factory(core, catalog, weakAxisReference, diagram);
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.SrcColumnPage = api;
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => api.init(document, root));
     else api.init(document, root);
   }
-})(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog, WeakAxisReference) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog, WeakAxisReference, SectionSvg) {
   'use strict';
 
   const PAGE_VERSION = 'v1.0';
@@ -558,34 +559,35 @@
     const steelTop = cy - steelDepth / 2;
     const steelLeft = cx - flangeWidth / 2;
     const webLeft = cx - webThickness / 2;
-    const layerSvg = layers.map((layer, index) => {
+    const layerInset = Math.min(9, sectionWidth * 0.06, sectionHeight * 0.06);
+    const layerSvg = layers.map(layer => {
       if (axis === 'y') {
         const layerX = x + Number(layer.xCm) * scale;
-        return `<line x1="${layerX}" y1="${y + 9}" x2="${layerX}" y2="${y + sectionHeight - 9}" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>
-          <rect x="${layerX - 12.5}" y="${y + 7}" width="25" height="18" rx="4" fill="#fff7ed" stroke="#fdba74"/>
-          <text x="${layerX}" y="${y + 20}" text-anchor="middle" class="layer">L${index + 1}</text>`;
+        return `<line x1="${layerX}" y1="${y + layerInset}" x2="${layerX}" y2="${y + sectionHeight - layerInset}" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>`;
       }
       const layerY = y + Number(layer.yCm) * scale;
-      return `<line x1="${x + 9}" y1="${layerY}" x2="${x + sectionWidth - 9}" y2="${layerY}" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>
-        <rect x="${x + 7}" y="${layerY - 10}" width="25" height="18" rx="4" fill="#fff7ed" stroke="#fdba74"/>
-        <text x="${x + 19.5}" y="${layerY + 3}" text-anchor="middle" class="layer">L${index + 1}</text>`;
+      return `<line x1="${x + layerInset}" y1="${layerY}" x2="${x + sectionWidth - layerInset}" y2="${layerY}" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>`;
     }).join('');
     const layerLegendSvg = layers.map((layer, index) =>
       `<text class="note" x="0" y="${154 + index * 27}">L${index + 1}: ${axis === 'y' ? 'x' : 'y'}=${fmt(axis === 'y' ? layer.xCm : layer.yCm, 1)} cm, As=${fmt(layer.areaCm2, 2)} cm²</text>`
     ).join('');
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 455" role="img" aria-labelledby="src-column-title src-column-desc">
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 530" role="img" aria-labelledby="src-column-title src-column-desc">
       <title id="src-column-title">${SECTION_DIAGRAM_TITLE}</title>
       <desc id="src-column-desc">矩形混凝土柱內置中雙對稱 H 型鋼，主筋以 ${axis.toUpperCase()} 向計算層列總面積表示。</desc>
+      <defs>${SectionSvg.arrowMarker('src-column-load', '#9a3412', 8)}</defs>
       <style>text{font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif;fill:#172033}.dim{font-size:14px;font-weight:700}.layer{font-size:12px;fill:#92400e}.note{font-size:12px;fill:#64748b}.title{font-size:17px;font-weight:800}</style>
-      <rect x="0.5" y="0.5" width="759" height="454" rx="10" fill="#fff" stroke="#cbd5e1"/>
-      <rect x="${x}" y="${y}" width="${sectionWidth}" height="${sectionHeight}" fill="#f1f5f9" stroke="#334155" stroke-width="2.2"/>
-      ${layerSvg}
+      <rect x="0.5" y="0.5" width="759" height="529" rx="10" fill="#fff" stroke="#cbd5e1"/>
+      <rect data-diagram-role="concrete-outline" x="${x}" y="${y}" width="${sectionWidth}" height="${sectionHeight}" fill="#f1f5f9" stroke="#334155" stroke-width="2.2"/>
+      ${SectionSvg.symbolicTie({ x, y, width: sectionWidth, height: sectionHeight })}
+      <g data-diagram-role="longitudinal-rebar-layers">${layerSvg}</g>
+      <g data-diagram-role="steel-core">
       <rect x="${steelLeft}" y="${steelTop}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
       <rect x="${webLeft}" y="${steelTop + flangeThickness}" width="${webThickness}" height="${steelDepth - 2 * flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
       <rect x="${steelLeft}" y="${steelTop + steelDepth - flangeThickness}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
+      </g>
       <text x="${cx}" y="${y - 18}" text-anchor="middle" class="dim">b = ${fmt(width, 1)} cm</text>
       <text x="${x - 22}" y="${cy}" text-anchor="middle" class="dim" transform="rotate(-90 ${x - 22} ${cy})">h = ${fmt(depth, 1)} cm</text>
-      <g transform="translate(475 82)">
+      <g data-diagram-role="section-dimensions" transform="translate(475 82)">
         <text class="title" x="0" y="0">採用計算斷面</text>
         <text class="dim" x="0" y="35">混凝土 ${fmt(width, 1)} × ${fmt(depth, 1)} cm</text>
         <text class="dim" x="0" y="66">${escapeXml(steel.shape || '')}</text>
@@ -594,9 +596,14 @@
         <line x1="0" y1="132" x2="28" y2="132" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>
         <text class="note" x="38" y="136">${axis.toUpperCase()} 向主筋計算${axis === 'y' ? '列' : '層'}與總 As</text>
         ${layerLegendSvg}
-        <text class="note" x="0" y="278">本圖依計算尺寸同比例繪製</text>
+        <text class="note" x="0" y="278">外框內虛線為閉合橫箍筋配置示意</text>
         <text class="note" x="0" y="303">不表示鋼筋根數、號數或施工配置</text>
       </g>
+      <text class="title" x="475" y="422">${axis.toUpperCase()} 向檢核 · 外力方向示意</text>
+      ${SectionSvg.loadLegend([
+        { direction: 'down', label: 'Pu = ' + SectionSvg.dimensionValue(input.demands?.puTf) + ' tf' },
+        { direction: 'moment', label: 'M' + axis + ' = ' + SectionSvg.dimensionValue(axis === 'x' ? input.demands?.muxTfM : input.demands?.muyTfM) + ' tf·m' },
+      ], 479, 451, 'src-column-load')}
     </svg>`;
     return Object.freeze({
       title: SECTION_DIAGRAM_TITLE,
