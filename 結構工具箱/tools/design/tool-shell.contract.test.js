@@ -368,11 +368,14 @@ for (const page of PAGES) {
   assert.ok(adopt.attrs['aria-label'], 'kzt: scrollable adopt table has an accessible name');
   // axe 對比不足的兩處（版本徽章、逐步計算重點值）改用 token；列印規則另以 !important 覆寫，紙本不變。
   const inlineCss = (kztHtml.match(/<style\b[^>]*>([\s\S]*?)<\/style>/i) || [])[1] || '';
-  const inlineRules = [...inlineCss.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(m => ({ selector: m[1].trim(), body: m[2] }));
+  assert.ok(kztHtml.includes('href="wind-tools.css"'), 'kzt loads the shared wind stylesheet');
+  const windCss = read('結構工具箱/tools/風力/wind-tools.css');
+  const rules = [...(windCss + '\n' + inlineCss).matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(m => ({ selector: m[1].trim(), body: m[2] }));
   for (const selector of ['.badge-v', '.step-body .val.hl']) {
-    const rule = inlineRules.find(item => item.selector === selector);
-    assert.ok(rule, `kzt: inline rule ${selector} exists`);
-    assert.equal(/#[0-9a-f]{3,8}\b/i.test(rule.body), false, `kzt: ${selector} uses tokens instead of inline hex`);
+    const rule = rules.find(item => item.selector === selector || item.selector.endsWith(`) ${selector}`));
+    assert.ok(rule, `kzt: rule ${selector} exists`);
+    assert.doesNotMatch(rule.body, /:\s*#[0-9a-f]{3,8}\b/i, `kzt: ${selector} uses tokens instead of literal colors`);
     assert.match(rule.body, /var\(--/, `kzt: ${selector} uses a design token`);
   }
   const printMeta = all(kzt, node => hasClass(node, 'print-meta'))[0];
