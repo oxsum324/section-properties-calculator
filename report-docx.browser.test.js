@@ -253,9 +253,8 @@ async function prepareCalculationSource(page, tool, projectMetadata = RC_PROJECT
   return snapshot;
 }
 
-// RC document.open/write 的 popup 可被 Chromium 回報為 opener URL；Playwright 的
-// Frame 對照可能漏發 request/route callback。其 Network 在 popup target，
-// document.write 繼承的 Fetch loader 則在 opener；兩個 session 必須分開。
+// 透過 Chromium 追蹤報告的實際請求。獨立 Blob 頁在自己的 target 載入；
+// 舊式 document.write 報告若沿用 opener loader，可另指定 Fetch target。
 async function createCdpReportNetworkProbe(context, report, record, requestOwner = report) {
   const session = await context.newCDPSession(report);
   let fetchSession = session;
@@ -403,8 +402,8 @@ async function main() {
           fs.writeFileSync(path.join(output, record.projectSnapshot.file), JSON.stringify(snapshot, null, 2));
         }
         [report] = await Promise.all([page.waitForEvent('popup', { timeout: 60000 }), page.locator(tool.report).click()]);
-        if (tool.key === 'rc-beam') cdpProbe = await createCdpReportNetworkProbe(context, report, record, page);
         await report.waitForFunction(() => typeof window.buildReportDocx === 'function' && typeof window.serializeReportDocumentHtml === 'function');
+        if (tool.key === 'rc-beam') cdpProbe = await createCdpReportNetworkProbe(context, report, record);
         await report.locator(tool.paper).first().waitFor({ state: 'visible' });
         await report.locator('#repDownloadCurrentWord').waitFor({ state: 'visible' });
         await report.evaluate(async () => { await document.fonts.ready; if (window.MathJax?.typesetPromise) await window.MathJax.typesetPromise(); });
@@ -479,15 +478,16 @@ async function main() {
           record.formalSourceDocx = await wordDownload(report, tool.key + '-formal-source-nonformal-word', formal, output);
           assert.equal(record.formalSourceDocx.attachmentStatus, 'blocked');
           record.checks.push('formal-source-still-nonformal');
-          const missingImage = await cdpProbe.injectFailure(new URL('/__docx_qa_missing__.png', origin.origin).href);
+          const missingImageUrl = new URL('/__docx_qa_missing__.png', origin.origin).href;
+          const missingImage = await cdpProbe.injectFailure(missingImageUrl);
           try {
             await missingImage.release();
-            record.expectedFailures.push(await report.evaluate(async () => {
-            const image = document.createElement('img'); image.width = 64; image.height = 40; image.src = '/__docx_qa_missing__.png'; document.querySelector('.rep-paper, .paper').append(image);
+            record.expectedFailures.push(await report.evaluate(async url => {
+            const image = document.createElement('img'); image.width = 64; image.height = 40; image.src = url; document.querySelector('.rep-paper, .paper').append(image);
             try { await window.buildReportDocx(); return { kind: 'missing-image', rejected: false }; }
             catch (error) { return { kind: 'missing-image', rejected: true, message: error.message }; }
             finally { image.remove(); }
-            }));
+            }, missingImageUrl));
             await missingImage.waitForPause();
           } finally { await missingImage.close(); }
           assert.equal(record.expectedFailures.at(-1).rejected, true); assert.match(record.expectedFailures.at(-1).message, /圖像|圖片/);
