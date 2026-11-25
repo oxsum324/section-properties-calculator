@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-wind-tool="sign-pole" data-wind-layout="object">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,63 +11,30 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="wind-tools.css">
 <style>
-  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#0f766e; color:#fff; }
-  .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
-  .case-actions button { border:none; border-radius:8px; padding:9px 12px; font-weight:700; cursor:pointer; background:#ccfbf1; color:#115e59; }
-  .case-actions button:hover { background:#99f6e4; }
-  .case-actions .primary { background:#0f766e; color:#fff; }
-  .case-actions .primary:hover { background:#115e59; }
-  .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
-  .case-status.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
-  .case-status:empty { display:none; }
-  .report-mode-control { margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #99f6e4; border-radius:10px; background:#f0fdfa; color:#334155; font-size:0.84em; line-height:1.6; }
-  .report-mode-label { font-weight:700; color:#0f766e; margin-right:2px; }
-  .mode-segment { border:1px solid #5eead4; background:#fff; color:#0f766e; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
-  .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#0f766e; color:#fff; border-color:#0f766e; box-shadow:0 4px 10px rgba(15,118,110,.18); }
-  .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
   .form-error { display:none; margin-top:10px; padding:9px 11px; border:1px solid #fca5a5; border-radius:9px; background:#fef2f2; color:#991b1b; font-size:0.84em; line-height:1.6; }
-  .form-error.show { display:block; }
   .hint-panel { margin-top:8px; padding:9px 11px; border-radius:9px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e3a8a; font-size:0.82em; line-height:1.65; }
   .support-fields { display:none; }
   .support-fields.active { display:block; }
-  .schema-wrap { border:1px solid #ccfbf1; border-radius:12px; background:linear-gradient(180deg,#f8fffd 0%,#ffffff 100%); padding:10px; overflow:hidden; }
-  .schema-svg { width:100%; max-width:680px; height:auto; display:block; margin:0 auto; background:#f8fafc; border-radius:12px; }
-  table.zone { width:100%; border-collapse:collapse; font-size:0.84em; }
-  table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
-  table.zone th { background:#f1f5f9; color:var(--primary); font-weight:700; font-family:inherit; }
   .component-table td:first-child, .component-table th:first-child { text-align:left; font-family:inherit; }
   .mini-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px; margin-top:10px; }
   .mini-stat { border:1px solid #dbeafe; border-radius:10px; padding:9px 10px; background:#fff; line-height:1.5; }
   .mini-stat b { display:block; color:#0f766e; font-size:0.78em; margin-bottom:2px; }
   .mini-stat span { font-family:'Consolas',monospace; font-size:1.02em; font-weight:700; color:#172554; }
-  .step { margin-bottom:14px; }
-  .step-title { font-size:0.92em; font-weight:700; color:#0f766e; margin-bottom:6px; padding:5px 10px; background:#f0fdfa; border-left:4px solid #0f766e; border-radius:0 6px 6px 0; }
-  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
-  .step-body .val { font-weight:700; color:#0f766e; font-family:'Consolas',monospace; }
-  .step-body .val.hl { font-size:1.05em; color:#166534; }
   .step-note { display:block; margin-top:4px; color:#64748b; }
-  .inline-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
-  .inline-actions .btn-calc { flex:1 1 220px; width:auto; min-height:46px; margin-top:0; justify-content:center; }
   .main-layout { grid-template-columns:minmax(0, 380px) minmax(0, 1fr); }
   .main-layout > div, #resultPanel, .card, .form-group, .form-row { min-width:0; }
   .form-row { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .form-group input, .form-group select { min-width:0; }
   @media (max-width:768px) {
     .main-layout { grid-template-columns:1fr; }
-    .case-actions button { flex:1 1 120px; }
-    .inline-actions { flex-direction:column; }
-    .inline-actions .btn-calc { width:100%; flex:1 1 auto; }
   }
   @media (max-width:520px) {
     .form-row { grid-template-columns:1fr; }
     .report-mode-control .mode-segment { flex:1 1 120px; }
     .case-actions button { flex:1 1 100%; }
-  }
-  @media print {
-    header, .back, .case-actions, .case-status, .report-mode-control, .btn-calc, .form-error, .hint-panel, .page-only-report-status { display:none !important; }
-    .container { max-width:none; padding:0; }
-    .card { break-inside:avoid; box-shadow:none; border:1px solid #ddd; }
   }
 </style>
 </head>
@@ -84,17 +51,27 @@
 <div class="card mode-bar print-meta">
   <strong class="mode-bar__label">計畫資訊：</strong>
   <div class="mode-bar__proj">
-    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-    <input type="text" id="projNo" class="w-no" placeholder="編號">
-    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+    <details class="collapsible-details project-details page-only-tool-actions" id="windProjectDetails">
+      <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">案名／編號／設計人</span></summary>
+      <div class="details-project-fields">
+        <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+        <input type="text" id="projNo" class="w-no" placeholder="編號">
+        <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      </div>
+    </details>
     <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
   </div>
-  <div class="report-mode-control" role="group" aria-label="列印計算書輸出模式">
-    <span class="report-mode-label">計算書模式</span>
-    <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true">詳算式</button>
-    <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
-    <span class="report-mode-hint">詳算式列出元件分流、G 與分段計算；簡易結果只整理條件、示意圖與控制值。</span>
-  </div>
+  <details class="collapsible-details page-only-tool-actions" id="windReportModeDetails">
+    <summary><span class="details-title">計算書模式</span><span class="details-summary-badge" data-details-value=".mode-segment[aria-pressed=&quot;true&quot;]">詳算式</span></summary>
+    <div class="details-body">
+      <div class="report-mode-control" role="group" aria-label="列印計算書輸出模式">
+        <span class="report-mode-label">計算書模式</span>
+        <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true">詳算式</button>
+        <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
+        <span class="report-mode-hint">詳算式列出元件分流、G 與分段計算；簡易結果只整理條件、示意圖與控制值。</span>
+      </div>
+    </div>
+  </details>
   <input type="hidden" id="printReportMode" value="detail">
   <div class="case-actions">
     <button class="primary" id="btnExportCase" type="button">匯出案件 JSON</button>
@@ -131,10 +108,15 @@
         <select id="impClass"></select>
       </div>
     </div>
-    <div class="form-group">
-      <label>K<sub>zt</sub> 地形係數</label>
-      <input id="Kzt" type="number" value="1.0" step="0.05">
-    </div>
+    <details class="collapsible-details" id="windTerrainDetails">
+      <summary><span class="details-title">地形係數</span><span class="details-summary-badge" data-details-value="#Kzt" data-details-prefix="Kzt = ">Kzt = 1.0</span></summary>
+      <div class="details-body">
+        <div class="form-group">
+          <label>K<sub>zt</sub> 地形係數</label>
+          <input id="Kzt" type="number" value="1.0" step="0.05">
+        </div>
+      </div>
+    </details>
   </div>
 
   <div class="card">
@@ -1355,6 +1337,7 @@ calc();
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../../../tool-page-a11y.js" defer></script>
+<script src="../../assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>
 </html>

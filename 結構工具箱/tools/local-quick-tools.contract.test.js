@@ -1532,12 +1532,14 @@ assert.equal(towerReportBuilderBlock.includes('formError'), false, 'tower object
   'function drawSchema',
   'data-diagram-object="',
   'data-diagram-role="force-panel"',
-  'applic-warn',
+  '<link rel="stylesheet" href="wind-tools.css">',
   '圍籬牆 / 直接座地',
   '獨立招牌 / 離地架高',
   '專案指定 C<sub>f</sub>',
   '規範表 2.10 判定值',
 ].forEach(needle => assertIncludes(repoDocs.windFenceSign, needle, 'wind fence sign v2 workflow'));
+const windToolStyles = readText(toolboxFile('tools/風力/wind-tools.css'));
+assert.match(windToolStyles, /\.applic-warn\s*\{[^}]+background:#fffbeb/, 'wind fence sign uses the shared applicability warning style');
 assert.equal(repoDocs.windFenceSign.includes('覆寫'), false, 'wind fence sign avoids override wording for Cf adoption');
 assert.equal(repoDocs.windFenceSign.includes('使用者'), false, 'wind fence sign avoids user-choice wording in report-sensitive flow');
 assert.equal(repoDocs.windFenceSign.includes('工具預設'), false, 'wind fence sign avoids tool-centric default wording');

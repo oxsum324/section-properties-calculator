@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-wind-tool="kzt">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,17 +10,10 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
 <link rel="stylesheet" href="../../core/tool-shell.css">
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="wind-tools.css">
 <style>
-  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--hy-navy-500); color:var(--fg-on-navy); }
-  .step { margin-bottom:14px; }
-  .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px; padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
-  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
-  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
-  .step-body .val.hl { font-size:1.05em; color:var(--hy-success); }
   .topo-svg { width:100%; max-width:480px; height:auto; display:block; margin:8px auto; background:#fff; border:1px solid var(--border); border-radius:8px; }
-  table.zone { width:100%; border-collapse:collapse; font-size:0.84em; }
-  table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
-  table.zone th { background:#f1f5f9; color:var(--primary); font-weight:700; font-family:inherit; }
   .kzt-result {
     font-size:1.6em; font-weight:800; color:#0d9488;
     text-align:center; padding:12px; background:#f0fdfa;
@@ -34,8 +27,6 @@
     .page-only-report-status { display:none !important; }
     /* 頁首舊返回連結段落（列印時連結隱藏、僅留 4px 上邊距）已移除；補回 4px，紙本版面逐像素不變。 */
     .tool-shell-header__sub { margin-bottom:4px; }
-  }
-  @media (max-width: 768px) {
   }
 </style>
 </head>
@@ -58,8 +49,8 @@
     <input type="text" id="projNo" class="w-no" placeholder="編號">
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
   </div>
-  <details class="tool-shell-case__more">
-    <summary>案件存讀檔與共用表頭</summary>
+  <details class="tool-shell-case__more collapsible-details">
+    <summary><span class="details-title">案件存讀檔與共用表頭</span><span class="details-summary-badge">案件管理</span></summary>
   </details>
 </div>
 </div>
