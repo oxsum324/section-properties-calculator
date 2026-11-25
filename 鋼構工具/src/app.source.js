@@ -12,6 +12,7 @@
       : STEEL_TOOL_METADATA.connection;
   const withFormalToolVersion = (title, metadata) => `${title} ${metadata.version}`;
   const MAIN_SUITE_PAGE_TITLE = "鋼構正式規範核算工具";
+  const usesDraftGuard = document.body.hasAttribute("data-steel-draft-guard");
   const IS_STANDALONE_PLATE = location.pathname.toLowerCase().includes("plate-check");
   const STORAGE_KEY = IS_STANDALONE_PLATE
     ? "steel-plate-check-draft-v2"
@@ -2741,7 +2742,7 @@
     draftStatus.textContent = `草稿已儲存：${nowLabel()}`;
   }
 
-  function loadSavedDraft() {
+  function loadSavedDraft(announce = true) {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
@@ -2754,10 +2755,10 @@
         ...(exampleStates[draftType] || {}),
         ...draftState,
       };
-      draftStatus.textContent = `已載入草稿：${parsed.savedAt || "未知時間"}`;
-      return mergedState;
+      if (announce) draftStatus.textContent = `已載入草稿：${parsed.savedAt || "未知時間"}`;
+      return { savedAt: parsed.savedAt, state: mergedState };
     } catch {
-      draftStatus.textContent = "草稿讀取失敗";
+      if (announce) draftStatus.textContent = "草稿讀取失敗";
       return null;
     }
   }
@@ -3460,7 +3461,7 @@ ${scopeHtml}
     renderShearTabExtras(result);
     updateReportJumpButtons(result);
     window.latestSteelConnectionResult = result;
-    if (autoSave) persistDraft(state);
+    if (autoSave && !usesDraftGuard) persistDraft(state);
     workflow?.refresh();
   }
 
@@ -3788,7 +3789,22 @@ ${scopeHtml}
   });
   window.buildSteelConnectionSourcePayload = buildConnectionSourcePayload;
   window.importSteelConnectionSourceJson = importConnectionSourceJson;
-  setFormState(loadSavedDraft() || getCurrentExampleState(), false);
+  if (usesDraftGuard) {
+    window.SteelConnectionDraft = {
+      capture: collectFormState,
+      restore(state) {
+        setFormState(state, false);
+        draftStatus.textContent = "已恢復草稿";
+      },
+      readLegacy: () => loadSavedDraft(false),
+      clearLegacy() {
+        localStorage.removeItem(STORAGE_KEY);
+        draftStatus.textContent = "尚未儲存草稿";
+      },
+    };
+  }
+  const savedDraft = usesDraftGuard ? null : loadSavedDraft();
+  setFormState(savedDraft?.state || getCurrentExampleState(), false);
   allowMathJaxLoad = true;
   activatePanel(currentPanel);
   loadAuditStatus();
