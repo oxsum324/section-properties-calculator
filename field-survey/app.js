@@ -1,4 +1,4 @@
-import { setAttachmentHeader } from './model.js';
+import { setAttachmentHeader, exportCaseSeed, parseCaseSeed, recordFactSignature, sealFieldHandoff } from './model.js';
 import { planTemplateCopy, VERSION, removeRecordPhotos, BUILDING_TYPES, floorConfig, buildingType, floorOptions, spaceOptions, sortedUnits, apartmentUnits, validDate, MARK_TONES, CAPTURE_SOURCES, localDateOf, defaultStamp, photoStampText, applyPhotoDate, exifDate, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, widthLabel, areaAmountText, widthChoices, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, rebaseSignoffs, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
 import { makeBundle, readBundle, makeReceipt, checkReceipt, consolidateBundles } from './bundle.js';
@@ -23,7 +23,7 @@ const opts = object => Object.entries(object).map(([v, t]) => `<option value="${
 const size = bytes => bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
 const localDate = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; };
 let project = null, unitId = '', recordId = '', activeView = 'work', dirty = false, editGeneration = 0, saveTimer, formSaving = null, working = false, renderToken = 0;
-let pendingCapture = null, pendingPlan = null, modalCleanup = () => {}, modalDirty = false, recording = null, toastTimer;
+let pendingCapture = null, pendingPlan = null, modalCleanup = () => {}, modalDirty = false, recording = null, toastTimer, correctionPromptOpen = false;
 let conflictDraft = null;
 let reports, crackFields, organisation, signoffs, reviewPage = 0;
 const preference = { get(key) { try { return localStorage.getItem('survey-' + key); } catch { return null; } }, set(key, value) { try { localStorage.setItem('survey-' + key, value); } catch {} } };
@@ -149,13 +149,49 @@ function formValues() {
   if (values.tiles.crackText || values.tiles.brokenText) values.tiles.overlapCount = null;
   return values;
 }
+async function promptCorrectionLog(beforeSig, afterSig) {
+  if (correctionPromptOpen) return null;
+  correctionPromptOpen = true;
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = value => { if (settled) return; settled = true; correctionPromptOpen = false; resolve(value); };
+    openModal('內業實測更正留痕', `<p class="modal-note">本案已封存外業基準快照，您正在修改實測尺寸、數量或日期。請填寫更正原因以保存完整追溯鏈（若僅調整空間名稱或報告文字不需此步驟）。</p><form id="correctionForm"><label>更正人員（選填）<input id="correctionEditor" maxlength="80" placeholder="例如 歐技師／內業承辦"></label><label>更正原因<select id="correctionChoice"><option value="抄錄筆誤">抄錄筆誤</option><option value="照片量尺複核修正">照片量尺複核修正</option><option value="單位誤植">單位誤植</option><option value="日期補登／核對">日期補登／核對</option><option value="other">其他原因</option></select></label><label>補充說明（選填）<input id="correctionNote" maxlength="300" placeholder="例如 依近照量尺複核改為 0.25 mm"></label><div class="modal-actions"><button id="cancelCorrection" type="button" class="secondary">還原外業值</button><button type="submit" class="primary">確認更正並保存</button></div></form>`, () => finish(null));
+    $('#cancelCorrection').onclick = () => { closeModal(true); finish(null); };
+    $('#correctionForm').onsubmit = e => {
+      e.preventDefault();
+      const choice = $('#correctionChoice').value;
+      const note = $('#correctionNote').value.trim();
+      const reason = choice === 'other' ? (note || '其他內業更正') : (note ? `${choice}：${note}` : choice);
+      const editor = $('#correctionEditor').value.trim();
+      closeModal(true);
+      finish({ at: now(), editor, reason, before: beforeSig, after: afterSig });
+    };
+  });
+}
 async function saveForm() {
   clearTimeout(saveTimer);
   if (formSaving) { await formSaving; if (dirty) return saveForm(); return; }
   if (!dirty || !currentRecord() || $('#recordEditor').hidden) return;
   const generation = editGeneration, target = recordId, values = formValues(), beforeFloor = currentRecord().floor;
+  const sealedSig = project?.fieldHandoff?.records?.[target];
+  let correctionEntry = null;
+  if (sealedSig && (document.body.dataset.workspaceMode === 'office' || window.innerWidth >= 1180 && preference.get('workspace-mode') !== 'field')) {
+    const beforeSig = recordFactSignature(currentRecord());
+    const afterSig = recordFactSignature({ ...currentRecord(), ...values });
+    if (beforeSig !== afterSig && afterSig !== sealedSig) {
+      correctionEntry = await promptCorrectionLog(beforeSig, afterSig);
+      if (!correctionEntry) {
+        dirty = false;
+        await renderEditor();
+        toast('已取消更正，維持原保存內容');
+        return;
+      }
+    }
+  }
   formSaving = commit(next => {
-    const r = next.records.find(x => x.id === target); Object.assign(r, values); markUnitOpen(next, r);
+    const r = next.records.find(x => x.id === target); Object.assign(r, values);
+    if (correctionEntry) { r.editLog = [...(r.editLog || []), correctionEntry].slice(-500); }
+    markUnitOpen(next, r);
     clearWrongFloor(next, r);
   }).then(async () => {
     if (generation === editGeneration) dirty = false;
@@ -487,6 +523,10 @@ async function showView(view) {
 }
 function renderReview() {
   const totalIssues = project.units.reduce((sum, u) => sum + unitIssues(project, u).length, 0);
+  const noPhotoRecords = project.records.filter(r => r.visibility !== 'inaccessible' && !r.photos.some(p => !p.excluded)).length;
+  const unplacedPhotos = project.records.reduce((sum, r) => sum + r.photos.filter(p => !p.excluded && !photoPlacement(r, p) && !r.observationPin).length, 0);
+  const unsignedUnits = project.units.filter(u => signoffStatus(project, u.id, $('#visitSelect').value) === '未簽').length;
+  $('#reviewHandoffStats').textContent = `無照片紀錄 ${noPhotoRecords} 筆 · 未定位照片 ${unplacedPhotos} 張 · 尚未會勘簽認 ${unsignedUnits} 戶${project.fieldHandoff ? ` · 已封存（${new Date(project.fieldHandoff.sealedAt).toLocaleString('zh-TW', { hour12: false })}）` : ''}`;
   const progress = new Map(project.units.map(u => { const records = project.records.filter(r => r.unitId === u.id); return [u.id, { records, issues: unitIssues(project, u), noDate: records.filter(r => !r.observedOn).length, noDetail: records.filter(r => r.photos.some(p => !p.excluded) && !r.detail).length }]; }));
   $('#reviewSummary').innerHTML = [[project.units.length, '戶別／公設'], [[...progress.values()].filter(x => x.records.length).length, '已有位置紀錄'], [totalIssues, '現場待補項目']].map(([n, label]) => `<div class="stat"><strong>${n}</strong><span>${label}</span></div>`).join('');
   const search = $('#reviewSearch').value.trim().toLocaleLowerCase(), filter = $('#reviewFilter').value;
@@ -1022,11 +1062,13 @@ async function prepareHandoff() {
   const scope = $('#exportScope').value, source = clone(project);
   const { blob, manifest } = await makeBundle(source, async mid => (await getMedia(mid))?.blob, scope, (i, n) => busyText(`準備完整案件 ${i} / ${n}`));
   const unit = source.units.find(u => u.id === scope);
-  const name = `${source.code}${unit ? '-' + unit.code : ''}-${localDate()}-r${source.revision}.csurvey`.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_');
+  const baseCode = (source.caseNumber || source.code).trim();
+  const name = `${baseCode}_${unit ? unit.code : '全案'}_${localDate()}-r${source.revision}.csurvey`.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_');
   const file = new File([blob], name, { type: blob.type });
   let canShare = false;
   try { canShare = !!navigator.share && !!navigator.canShare?.({ files: [file] }); } catch {}
-  openModal('完整案件已準備好', `<h3>${esc(source.name)}</h3><p>${scope ? '單戶' : '全案'} · ${manifest.payload.project.records.length} 筆紀錄 · ${size(blob.size)}</p><p>包含位置紀錄、文字說明、照片、錄音、平面圖及可編輯細圖。接收端開啟本工具，選「開啟」即可接續工作。</p><div class="handoff-actions"><button id="saveHandoff" class="primary" ${typeof window.showSaveFilePicker !== 'function' ? 'hidden' : ''}>另存到資料夾</button><button id="shareHandoff" class="secondary" ${canShare ? '' : 'hidden'}>分享案件檔</button><button id="downloadHandoff" class="secondary">下載案件檔</button></div><p id="handoffStatus" class="modal-note" role="status">電腦可選已同步的 Google Drive 資料夾；手機可在分享選單選 Google Drive（若裝置提供）。儲存後請等 Drive 顯示同步完成。</p><p>${cloudFolderLink()}<br><span class="micro">固定交接位置：先保存案件檔，再上傳到此資料夾；需連線。</span></p><details><summary>從雲端交接的操作方式</summary><ol><li>下載或另存這份 .csurvey 案件檔。</li><li>存入共用雲端資料夾；若未安裝 Drive，可開啟上方共用資料夾後手動上傳。</li><li>另一台電腦下載案件檔，在本工具開啟、編輯及製作報告。</li><li>多人交件時先開啟一份主案，再選「彙整」。</li></ol><p class="micro">工具目前不會直接上傳或列出雲端檔案，也無法確認 Drive 的同步進度。這是完整案件交接，不是照片壓縮檔。</p></details>`);
+  openModal('完整案件已準備好', `<h3>${esc(source.name)}</h3><p>${scope ? '單戶' : '全案'} · ${manifest.payload.project.records.length} 筆紀錄 · ${size(blob.size)}</p><p class="micro">標準檔名：<code>${esc(name)}</code> <button id="copyHandoffName" type="button" class="text-button">複製檔名</button></p><p>包含位置紀錄、文字說明、照片、錄音、平面圖及可編輯細圖。接收端開啟本工具，選「開啟」即可接續工作。</p><div class="handoff-actions"><button id="saveHandoff" class="primary" ${typeof window.showSaveFilePicker !== 'function' ? 'hidden' : ''}>另存到資料夾</button><button id="shareHandoff" class="secondary" ${canShare ? '' : 'hidden'}>分享案件檔</button><button id="downloadHandoff" class="secondary">下載案件檔</button></div><p id="handoffStatus" class="modal-note" role="status">電腦可選已同步的 Google Drive 資料夾；手機可在分享選單選 Google Drive（若裝置提供）。儲存後請等 Drive 顯示同步完成。</p><p>${cloudFolderLink()}<br><span class="micro">固定交接位置：先保存案件檔，再上傳到此資料夾；需連線。</span></p><details><summary>從雲端交接的操作方式</summary><ol><li>下載或另存這份 .csurvey 案件檔。</li><li>存入共用雲端資料夾；若未安裝 Drive，可開啟上方共用資料夾後手動上傳。</li><li>另一台電腦下載案件檔，在本工具開啟、編輯及製作報告。</li><li>多人交件時先開啟一份主案，再選「彙整」。</li></ol><p class="micro">工具目前不會直接上傳或列出雲端檔案，也無法確認 Drive 的同步進度。這是完整案件交接，不是照片壓縮檔。</p></details>`);
+  $('#copyHandoffName').onclick = async () => { try { await navigator.clipboard.writeText(name); toast('已複製標準檔名'); } catch { toast('無法複製，請手動選取檔名'); } };
   const status = $('#handoffStatus');
   const exported = async () => {
     const state = await backupState(source.id);
@@ -1180,7 +1222,37 @@ $('#visibilityChoices').onclick = e => { const b = e.target.closest('[data-visib
 $('#editRecordDate').onclick = () => { $('#recordAdvanced').open = true; $('#recordVisit').focus(); };
 $('#stopAudioVisible').onclick = () => action(stopAudio, '保存錄音');
 $('#togglePhotos').onclick = () => { const open = $('#photoGrid').classList.toggle('expanded'); $('#togglePhotos').setAttribute('aria-expanded', String(open)); $('#togglePhotos').textContent = open ? '收合照片' : `查看全部 ${currentRecord().photos.length} 張照片`; };
+async function sealAndHandoff() {
+  requireNoRecording();
+  assert(project, '請先開啟或建立案件');
+  await commit(next => { sealFieldHandoff(next, $('#visitSelect').value); });
+  await prepareHandoff();
+}
+function exportSeedFile() {
+  assert(project, '請先開啟或建立案件');
+  const seed = exportCaseSeed(project);
+  const baseName = (seed.caseNumber || seed.caseCode).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_');
+  download(new Blob([JSON.stringify(seed, null, 2)], { type: 'application/json' }), `${baseName}_case-seed.json`);
+  toast(`已匯出派案種子（${seed.units.length} 戶），可放入共用雲端資料夾`);
+}
+async function importSeedFile(file) {
+  requireNoRecording();
+  const seed = parseCaseSeed(await file.text());
+  const created = newProject(seed.caseCode, seed.caseName, seed.surveyDate);
+  setAttachmentHeader(created, !!(seed.caseNumber || seed.orgName), seed.caseNumber, seed.orgName);
+  created.buildingType = seed.buildingType;
+  for (const item of seed.units) {
+    created.units.push({ ...newUnit(item.code, item.address), building: item.building, kind: item.kind, floor: item.floor });
+  }
+  await saveProject(created, 0);
+  await selectProject(created.id);
+  toast(`已由派案種子建立案件（${created.units.length} 戶）；現場仍可隨時補建戶別`);
+}
 $('#prepareHandoff').onclick = () => action(prepareHandoff, '準備完整案件交接檔');
+$('#sealAndHandoff').onclick = $('#reviewSealHandoff').onclick = () => action(sealAndHandoff, '封存外業基準並準備回報檔');
+$('#exportCaseSeed').onclick = () => action(async () => exportSeedFile(), '匯出派案種子');
+$('#importCaseSeed').onclick = $('#welcomeImportSeed').onclick = () => { try { requireNoRecording(); $('#seedInput').click(); } catch (e) { fail(e); } };
+$('#seedInput').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (file) action(() => importSeedFile(file), '由派案種子開案'); };
 $('#mergeBundles').onclick = () => { try { requireNoRecording(); $('#mergeBundleInput').click(); } catch (e) { fail(e); } };
 $('#mergeBundleInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (files.length) action(() => inspectColleagueBundles(files), '核對同事案件'); };
 $('#readBackup').onclick = $('#welcomeImport').onclick = () => action(chooseCaseFile, '準備開啟案件');
@@ -1206,6 +1278,18 @@ for (const selector of ['#tileCrackCount', '#tileBrokenCount', '#tileBulgeCount'
 }
 const applyFont = large => { document.body.classList.toggle('large-type', large); $('#fontSize').setAttribute('aria-pressed', String(large)); $('#fontSize').textContent = large ? '標準字' : '大字'; preference.set('large-type', String(large)); };
 applyFont(preference.get('large-type') === 'true'); $('#fontSize').onclick = () => applyFont(!document.body.classList.contains('large-type'));
+function applyWorkspaceMode(mode) {
+  const normalized = mode === 'field' || mode === 'office' ? mode : 'auto';
+  if (normalized === 'auto') delete document.body.dataset.workspaceMode;
+  else document.body.dataset.workspaceMode = normalized;
+  preference.set('workspace-mode', normalized);
+  $('#modeFieldBtn').setAttribute('aria-pressed', String(normalized === 'field'));
+  $('#modeOfficeBtn').setAttribute('aria-pressed', String(normalized === 'office'));
+  if (normalized === 'field' && activeView === 'report' && project) showView('work').catch(fail);
+}
+applyWorkspaceMode(preference.get('workspace-mode') || 'auto');
+$('#modeFieldBtn').onclick = () => applyWorkspaceMode(document.body.dataset.workspaceMode === 'field' ? 'auto' : 'field');
+$('#modeOfficeBtn').onclick = () => applyWorkspaceMode(document.body.dataset.workspaceMode === 'office' ? 'auto' : 'office');
 $('#keepAwake').onclick = () => toggleScreenWake().catch(fail);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && wakeRequested) requestScreenWake().catch(fail); });
 $('#recordForm').onclick = e => { const b = e.target.closest('[data-field-preset]'); if (!b) return; $('#condition input[value="normal"]').checked = false; if (b.dataset.fieldPreset === 'u') { $('#component input[value="梁"]').checked = true; $('#condition input[value="crack"]').checked = true; $('#crackPattern').value = 'u'; } else { $('#component input[value="牆面"]').checked = true; $('#surface').value = 'tile'; $('#tileCrack').checked = true; $('#condition input[value="crack"]').checked = true; } changed(); };

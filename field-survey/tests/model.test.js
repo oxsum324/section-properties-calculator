@@ -1050,3 +1050,35 @@ test('oblique preset faces map two taps to a face-aligned opening; flat faces an
   r.detail = { kind: 'preset', preset: 'flatCorner', mirror: false, marks: [{ type: 'opening', kind: 'door', points: [{ x: .3, y: .5 }, { x: .4, y: .9 }] }] }; p.records.push(r); M21.validateProject(p);
   assert.throws(() => M21.validateProject({ ...p, records: [{ ...r, detail: { ...r.detail, preset: 'flatRoof' } }] }), /細部圖預選/);
 });
+
+import * as M32 from '../model.js';
+test('V0.32 case seed round-trip and fieldHandoff/editLog validation stay backward-compatible', () => {
+  const p = M32.newProject('114-001', '派案種子驗證', '2026-11-25');
+  M32.setAttachmentHeader(p, true, '114-A01', '新北市土木技師公會');
+  p.buildingType = 'tower';
+  const u1 = { ...M32.newUnit('A-101', '忠孝路一段 1 號'), building: 'A棟', floor: '1F', kind: 'residence' };
+  const u2 = { ...M32.newUnit('A棟公設'), building: 'A棟', kind: 'public' };
+  p.units.push(u1, u2);
+  const r = M32.newRecord(u1.id, '1F', '客廳');
+  Object.assign(r, { measured: true, widthMode: 'exact', width: 0.25, length: 1.5 });
+  p.records.push(r);
+
+  const seed = M32.exportCaseSeed(p);
+  assert.equal(seed.format, M32.CASE_SEED_FORMAT);
+  const parsed = M32.parseCaseSeed(JSON.stringify(seed));
+  assert.equal(parsed.caseNumber, '114-A01');
+  assert.equal(parsed.orgName, '新北市土木技師公會');
+  assert.equal(parsed.units.length, 2);
+  assert.equal(parsed.units[1].kind, 'public');
+  assert.throws(() => M32.parseCaseSeed('{"format":"unknown"}'), /派案種子格式/);
+
+  const sigBefore = M32.recordFactSignature(r);
+  M32.sealFieldHandoff(p, p.visits[0].id);
+  assert.equal(p.fieldHandoff.records[r.id], sigBefore);
+  r.width = 0.35;
+  const sigAfter = M32.recordFactSignature(r);
+  assert.notEqual(sigAfter, sigBefore);
+  r.editLog = [{ at: M32.now(), editor: '歐技師', reason: '照片量尺複核修正', before: sigBefore, after: sigAfter }];
+  M32.validateProject(p);
+  assert.throws(() => M32.validateProject({ ...p, records: [{ ...r, editLog: [{ at: 'bad', editor: '', reason: 'ok', before: '', after: '' }] }] }), /更正時間/);
+});

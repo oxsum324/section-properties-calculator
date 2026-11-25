@@ -179,7 +179,7 @@
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
-      '/condition-survey': '2026-11-24',
+      '/condition-survey': '2026-11-25',
       '/beam-analysis': '2026-11-25',
       '/frame-analysis': '2026-11-25',
       '/struct-dx': '2026-11-25',
@@ -316,7 +316,7 @@
   const tools = [
     {
       title: '現況鑑定紀錄',
-      version: 'V0.31.0',
+      version: 'V0.32.0',
       href: '/condition-survey',
       aliases: ['現勘紀錄', '現況巡查'],
       categories: ['temporary'],
