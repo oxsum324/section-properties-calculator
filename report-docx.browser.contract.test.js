@@ -36,7 +36,17 @@ async function assertActualBeamSourceCaptureOrder() {
     const metadata = { projectName: '來源順序測試', projectNo: 'DOCX-QA', designer: 'QA' };
     // 模擬 Playwright 傳回可序列化值，計算與來源收集仍執行實際 beam.html 函數。
     const page = {
-      locator(selector) { return { async fill(value) { win.document.querySelector(selector).value = value; }, async blur() { win.document.querySelector(selector).blur(); } }; },
+      locator(selector) {
+        const target = win.document.querySelector(selector);
+        return {
+          async click() { target.click(); },
+          async fill(value) {
+            assert.equal(target.closest('details')?.open, true, '填寫表頭前須展開案件區');
+            target.value = value;
+          },
+          async blur() { target.blur(); }
+        };
+      },
       async evaluate(fn, argument) { return plain(win.eval('(' + fn.toString() + ')(' + JSON.stringify(argument) + ')')); }
     };
     const snapshot = await prepareCalculationSource(page, CASES.find(item => item.key === 'rc-beam'), metadata);

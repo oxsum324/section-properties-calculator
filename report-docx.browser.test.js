@@ -236,6 +236,7 @@ async function wordDownload(report, name, inventory, output) {
 
 async function prepareCalculationSource(page, tool, projectMetadata = RC_PROJECT) {
   if (tool.key === 'rc-beam') {
+    await page.locator('[data-rc-details="project"] > summary').click();
     await page.locator('#projName').fill(projectMetadata.projectName);
     await page.locator('#projNo').fill(projectMetadata.projectNo);
     await page.locator('#projDesigner').fill(projectMetadata.designer);

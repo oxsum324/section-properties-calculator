@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <style>
   .diagram-svg { width:100%; max-width:520px; display:block; margin:0 auto; background:var(--bg-page); border:1px solid var(--border-strong); border-radius: var(--radius-lg); }
   .design-sugg { margin:8px 0; padding:10px 12px; border-radius: var(--radius-md); font-size: var(--fs-sm); border-left:3px solid var(--hy-success); background:var(--hy-success-100); }
@@ -96,9 +97,15 @@
     </div>
     <span class="mode-bar__hint" id="modeHint">設計模式：給定載重，建議配筋與邊界構材。</span>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo"   class="w-no"   placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details project-details no-print" data-rc-details="project">
+        <summary><span class="details-title">案件與計算書頁首</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">未填寫</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo"   class="w-no"   placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+        <div data-details-project-profile></div>
+      </details>
       <div class="mode-bar__actions" aria-label="剪力牆專案存讀檔">
         <button id="btnSaveShearWallProject" class="mode-bar__action" type="button" title="下載剪力牆專案 JSON 檔">存檔</button>
         <button id="btnLoadShearWallProject" class="mode-bar__action" type="button" title="讀取剪力牆專案 JSON 檔">讀檔</button>
@@ -316,20 +323,24 @@
         <p class="hint detail-help">ccore 須依專案施工圖指定，與前頁「至縱筋筋心 cover」不同。Ash/(s·bc) ≥ max[0.3·(Ag/Ach−1)·fc'/fyt, 0.09·fc'/fyt] (表 18.7.6.4(g))；矩形牆邊界區採 Ag=tw·ℓbe、Ach=(tw−2ccore)(ℓbe−2ccore)、bc=tw−2ccore。間距 ≤ min(邊界最小尺寸/3, 6·db, so)，so=10+(35−hx)/3 取 [10,15] cm。壓力區 b 可依翼板有效寬度調整，未輸入時採 tw；非矩形邊界構材仍須依施工圖另檢兩方向圍束。</p>
       </div>
       <div class="card subpanel" data-panel="detail">
-        <h2>施工細部</h2>
-        <div class="checkbox-row">
-          <input type="checkbox" id="hasConstrJoint" checked>
-          <label for="hasConstrJoint">本牆段有水平施工縫</label>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>剪力面處理 (表 22.9.4.2)</label>
-            <select id="jointSurface">
-              <option value="roughened" selected>已硬化面，粗糙至約 0.6 cm</option>
-              <option value="not_roughened">已硬化面，未特別粗糙</option>
-            </select>
+        <details class="collapsible-details" data-rc-details="construction-details">
+          <summary><span class="details-title">施工細部</span><span class="details-summary-badge" data-details-value="#jointSurface">已硬化面，粗糙至約 0.6 cm</span></summary>
+          <div class="details-body">
+            <div class="checkbox-row">
+              <input type="checkbox" id="hasConstrJoint" checked>
+              <label for="hasConstrJoint">本牆段有水平施工縫</label>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>剪力面處理 (表 22.9.4.2)</label>
+                <select id="jointSurface">
+                  <option value="roughened" selected>已硬化面，粗糙至約 0.6 cm</option>
+                  <option value="not_roughened">已硬化面，未特別粗糙</option>
+                </select>
+              </div>
+            </div>
+            <p class="hint detail-help">施工縫須檢核剪摩擦 (規範 22.9) 與粗糙度；本頁初估限水平施工縫、垂直穿縫筋，錨定與界面處理須列入圖說。</p>
           </div>
-        </div>
-        <p class="hint detail-help">施工縫須檢核剪摩擦 (規範 22.9) 與粗糙度；本頁初估限水平施工縫、垂直穿縫筋，錨定與界面處理須列入圖說。</p>
+        </details>
       </div>
     </div>
 
@@ -342,8 +353,12 @@
       </div>
 
       <div class="card report-readiness-card" data-shows="summary" id="shearWallAttachmentReadinessCard">
-        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
-        <div id="shearWallAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+        <details class="collapsible-details no-print" data-rc-details="readiness">
+          <summary><span class="details-title">產報前檢查</span><span class="details-summary-badge" data-details-value="#shearWallAttachmentReadiness .report-readiness-badge">尚未計算</span></summary>
+          <div class="details-body">
+            <div id="shearWallAttachmentReadiness" data-details-refresh role="status" aria-live="polite">尚未計算。</div>
+          </div>
+        </details>
       </div>
 
       <div class="card mobile-summary-card" id="quickSummaryCard">
@@ -2065,6 +2080,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
 <script src="../../tool-nav.manifest.js" defer></script>
 <script src="../../tool-chrome.js" defer></script>
 <script src="../../tool-page-a11y.js" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

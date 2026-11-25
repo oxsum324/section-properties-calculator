@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <style>
   .moment-table { width:100%; border-collapse:collapse; font-size: var(--fs-sm); margin-top:8px; }
   .moment-table th, .moment-table td { border:1px solid var(--border-strong); padding:6px 8px; text-align:center; }
@@ -73,9 +74,15 @@
     </div>
     <span class="mode-bar__hint" id="modeHint">設計模式：給定載重與跨距，反算需求並建議鋼筋配置。</span>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo" class="w-no" placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details project-details no-print" data-rc-details="project">
+        <summary><span class="details-title">案件與計算書頁首</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">未填寫</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo" class="w-no" placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+        <div data-details-project-profile></div>
+      </details>
       <label data-ui="compact-option">
         <input type="checkbox" id="showSteps"> 顯示計算過程
       </label>
@@ -207,19 +214,24 @@
             </select>
           </div>
         </div>
-        <div class="form-row" id="slabEdgeGroup" hidden>
-          <div class="form-group">
-            <label for="slabEdgeType">有梁雙向板的不連續板緣</label>
-            <select id="slabEdgeType">
-              <option value="">待確認</option>
-              <option value="continuous">無不連續板緣</option>
-              <option value="discontinuous">有不連續板緣</option>
-            </select>
-          </div>
-          <div class="form-group" id="slabEdgeAlphaGroup" hidden>
-            <label for="slabEdgeAlpha">不連續板緣的最低邊梁 α_f</label>
-            <input type="number" id="slabEdgeAlpha" min="0" step="any" placeholder="無邊梁輸入 0">
-          </div>
+        <div id="slabEdgeGroup" hidden>
+          <details class="collapsible-details" data-rc-details="slab-edge">
+            <summary><span class="details-title">不連續板緣與邊梁勁度</span><span class="details-summary-badge" data-details-value="#slabEdgeType">待確認</span></summary>
+            <div class="form-row details-body">
+              <div class="form-group">
+                <label for="slabEdgeType">有梁雙向板的不連續板緣</label>
+                <select id="slabEdgeType">
+                  <option value="">待確認</option>
+                  <option value="continuous">無不連續板緣</option>
+                  <option value="discontinuous">有不連續板緣</option>
+                </select>
+              </div>
+              <div class="form-group" id="slabEdgeAlphaGroup" hidden>
+                <label for="slabEdgeAlpha">不連續板緣的最低邊梁 α_f</label>
+                <input type="number" id="slabEdgeAlpha" min="0" step="any" placeholder="無邊梁輸入 0">
+              </div>
+            </div>
+          </details>
           <p id="slabEdgeNote" class="hint" role="status" style="grid-column:1/-1;"></p>
         </div>
       </div>
@@ -388,8 +400,8 @@
             <div class="form-group"><label for="punchMscY">繞 Y 軸 Msc,y (tf·m)</label><input type="number" id="punchMscY" step="any"></div>
           </div>
           <p class="hint">Vu 填同組合經臨界斷面的淨剪力，並依分析扣除周界內的載重效應。彎矩以斷面中心為準，+Mx 增加 +Y 側，+My 增加 −X 側的剪應力。c1 對應 X、c2 對應 Y。無彎矩請填 0。</p>
-          <details id="punchTransferInputs">
-            <summary>有效板寬撓曲傳遞</summary>
+          <details id="punchTransferInputs" class="collapsible-details" data-rc-details="punch-transfer">
+            <summary><span class="details-title">有效板寬撓曲傳遞</span><span class="details-summary-badge" data-details-value="#punchTransferSource">未填寫</span></summary>
             <p class="hint">輸入柱面至四方板緣的距離。依同一組合及實際受拉面，填有效板寬內已核對伸展的設計強度 φMn。繞 X 軸採沿 Y 受拉筋，繞 Y 軸採沿 X 受拉筋。</p>
             <div class="form-row">
               <div class="form-group"><label for="punchEdgeXM">−X 柱面至板緣 (cm)</label><input id="punchEdgeXM" type="number" min="0" step="any"></div>
@@ -423,8 +435,12 @@
         <div id="bannerKey" class="banner-key"></div>
       </div>
       <div class="card report-readiness-card" id="slabAttachmentReadinessCard">
-        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
-        <div id="slabAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+        <details class="collapsible-details no-print" data-rc-details="readiness">
+          <summary><span class="details-title">產報前檢查</span><span class="details-summary-badge" data-details-value="#slabAttachmentReadiness .report-readiness-badge">尚未計算</span></summary>
+          <div class="details-body">
+            <div id="slabAttachmentReadiness" data-details-refresh role="status" aria-live="polite">尚未計算。</div>
+          </div>
+        </details>
       </div>
 
       <!-- 1. 載重 → wu -->
@@ -2866,6 +2882,7 @@
 <script src="../../tool-nav.manifest.js" defer></script>
 <script src="../../tool-chrome.js" defer></script>
 <script src="../../tool-page-a11y.js" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

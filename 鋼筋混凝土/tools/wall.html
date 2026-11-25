@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <style>
   .mobile-summary-card { display:none; }
 
@@ -67,9 +68,15 @@
     </div>
     <span class="mode-bar__hint" id="modeHint">設計模式：給定載重，建議鋼筋配置。</span>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo"   class="w-no"   placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details project-details no-print" data-rc-details="project">
+        <summary><span class="details-title">案件與計算書頁首</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">未填寫</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo"   class="w-no"   placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+        <div data-details-project-profile></div>
+      </details>
       <div class="mode-bar__actions" aria-label="牆專案存讀檔">
         <button id="btnSaveWallProject" class="mode-bar__action" type="button" title="下載牆專案 JSON 檔">存檔</button>
         <button id="btnLoadWallProject" class="mode-bar__action" type="button" title="讀取牆專案 JSON 檔">讀檔</button>
@@ -295,34 +302,38 @@
       </div>
 
       <div class="card subpanel" data-panel="methods">
-        <h2>計算法選擇</h2>
-        <p class="hint detail-help">本頁集中所有「演算法／求解選項」，與輸入分離以利對照。</p>
+        <details class="collapsible-details" data-rc-details="calculation-methods">
+          <summary><span class="details-title">計算法選擇</span><span class="details-summary-badge" data-details-value="#slenderMethod">簡版 (一次 P-δ + Δs ≤ ℓc/150 服務檢核)</span></summary>
+          <div class="details-body">
+            <p class="hint detail-help">本頁集中所有「演算法／求解選項」，與輸入分離以利對照。</p>
 
-        <h3 data-ui="section-heading">面外撓曲 P-Δ 求解法 (規範 11.8)</h3>
-        <div class="form-group">
-          <label>方法</label>
-          <select id="slenderMethod">
-            <option value="simple" selected>簡版 (一次 P-δ + Δs ≤ ℓc/150 服務檢核)</option>
-            <option value="iter">完整迭代 (M_(k+1) = Mu + Pu·Δ(M_k))</option>
-          </select>
-        </div>
+            <h3 data-ui="section-heading">面外撓曲 P-Δ 求解法 (規範 11.8)</h3>
+            <div class="form-group">
+              <label>方法</label>
+              <select id="slenderMethod">
+                <option value="simple" selected>簡版 (一次 P-δ + Δs ≤ ℓc/150 服務檢核)</option>
+                <option value="iter">完整迭代 (M_(k+1) = Mu + Pu·Δ(M_k))</option>
+              </select>
+            </div>
 
-        <hr data-ui="section-divider">
-        <h3 data-ui="section-heading">SBE 沿水平延伸 (壓應力 ≤0.15fc' 終止, 規範 18.7.6.3)</h3>
-        <div class="form-group">
-          <label>延伸計算方法</label>
-          <select id="sbeExtMethod">
-            <option value="linear" selected>線性內插 (σmax → 0)</option>
-            <option value="custom">輸入完整應力分布</option>
-          </select>
-        </div>
-        <div id="sbeExtCustomBox" style="display:none;">
-          <p class="hint detail-help">輸入沿牆長離壓側距離 x (cm) 與對應壓應力 σ (kgf/cm²)，每行一組，逗號或空白分隔。例：<br>0, 80<br>50, 60<br>120, 30<br>200, 0</p>
-          <textarea id="sbeStressData" rows="5">0, 80
+            <hr data-ui="section-divider">
+            <h3 data-ui="section-heading">SBE 沿水平延伸 (壓應力 ≤0.15fc' 終止, 規範 18.7.6.3)</h3>
+            <div class="form-group">
+              <label>延伸計算方法</label>
+              <select id="sbeExtMethod">
+                <option value="linear" selected>線性內插 (σmax → 0)</option>
+                <option value="custom">輸入完整應力分布</option>
+              </select>
+            </div>
+            <div id="sbeExtCustomBox" style="display:none;">
+              <p class="hint detail-help">輸入沿牆長離壓側距離 x (cm) 與對應壓應力 σ (kgf/cm²)，每行一組，逗號或空白分隔。例：<br>0, 80<br>50, 60<br>120, 30<br>200, 0</p>
+              <textarea id="sbeStressData" rows="5">0, 80
 50, 60
 120, 30
 200, 0</textarea>
-        </div>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="card subpanel" data-panel="geom">
@@ -397,8 +408,12 @@
       </div>
 
       <div class="card report-readiness-card" data-shows="summary" id="wallAttachmentReadinessCard">
-        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
-        <div id="wallAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+        <details class="collapsible-details no-print" data-rc-details="readiness">
+          <summary><span class="details-title">產報前檢查</span><span class="details-summary-badge" data-details-value="#wallAttachmentReadiness .report-readiness-badge">尚未計算</span></summary>
+          <div class="details-body">
+            <div id="wallAttachmentReadiness" data-details-refresh role="status" aria-live="polite">尚未計算。</div>
+          </div>
+        </details>
       </div>
 
       <div class="card mobile-summary-card" id="quickSummaryCard">
@@ -3130,6 +3145,7 @@ ${basementStepTxt}
 <script src="../../tool-nav.manifest.js" defer></script>
 <script src="../../tool-chrome.js" defer></script>
 <script src="../../tool-page-a11y.js" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>
