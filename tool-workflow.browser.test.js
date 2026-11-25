@@ -38,14 +38,18 @@ const groups = {
 // 頁面主程式逐字外移後，計算函式位於外部頁面腳本（column.html → column.app.js）；明確映射，不猜測。
 // 路徑取自單一來源 column-app-source.test.js；探針比對 URL pathname，不受 ?v= 快取參數影響。
 const { COLUMN_APP_RELATIVE } = require('./鋼筋混凝土/tools/column-app-source.test.js');
-const PAGE_APP_SOURCES = { '/rc-column': COLUMN_APP_RELATIVE };
+const PAGE_APP_SOURCES = {
+  '/rc-column': COLUMN_APP_RELATIVE,
+  '/steel-formal': '鋼構工具/app.js',
+  '/steel-plate': '鋼構工具/app.js'
+};
 function probeSourceFile(tool) {
   if (tool.key.startsWith('/src-')) return `SRC工具/${slug(tool.key)}.js`;
-  if (tool.adapter === 'steel-explicit') return tool.sourceFile;
   if (PAGE_APP_SOURCES[tool.key]) return PAGE_APP_SOURCES[tool.key];
+  if (tool.adapter === 'steel-explicit') return tool.sourceFile;
   return tool.file;
 }
-function compiledCalculationBody(source, entry, key) {
+function compiledCalculationBody(source, entry, key, workflow = false) {
   const parser = require(path.join(ROOT, 'output/playwright/phase2-quality-deps/node_modules/acorn'));
   if (parser.version !== '8.19.0') throw Error(`Compiled workflow probes require pinned Acorn 8.19.0; found ${parser.version}`);
   const ast = parser.parse(source, { ecmaVersion: 'latest' });
@@ -54,9 +58,11 @@ function compiledCalculationBody(source, entry, key) {
   function visit(node, owner = ast) {
     if (!node || typeof node.type !== 'string') return;
     if (node.type === 'FunctionDeclaration') declarations.push({ node, owner });
-    if (node.type === 'AssignmentExpression' && node.left.type === 'MemberExpression' && !node.left.computed && node.left.property.name === entry) {
-      const arrow = node.right;
-      if (arrow.type !== 'ArrowFunctionExpression' || arrow.params.length || arrow.body.type !== 'CallExpression' || arrow.body.callee.type !== 'Identifier') throw Error(`${key}: 公開計算 callback 綁定格式不符`);
+    const assignment = !workflow && node.type === 'AssignmentExpression' && node.left.type === 'MemberExpression' && !node.left.computed && node.left.property.name === entry;
+    const workflowInstall = workflow && node.type === 'CallExpression' && node.callee.type === 'MemberExpression' && node.callee.property.name === 'install' && node.callee.object.property?.name === 'HYToolWorkflow';
+    if (assignment || workflowInstall) {
+      const arrow = assignment ? node.right : node.arguments[0]?.properties?.find(property => property.key?.name === entry)?.value;
+      if (arrow?.type !== 'ArrowFunctionExpression' || arrow.params.length || arrow.body.type !== 'CallExpression' || arrow.body.callee.type !== 'Identifier') throw Error(`${key}: 公開計算 callback 綁定格式不符`);
       bindings.push({ name: arrow.body.callee.name, owner });
     }
     const childOwner = isFunction(node) ? node : owner;
@@ -83,6 +89,12 @@ function sourceProbe(tool, relativeFile, source) {
     return { source, edits };
   }
   if (relativeFile !== probeSourceFile(tool)) return { source, edits };
+  if (['/steel-formal', '/steel-plate'].includes(tool.key) && source.startsWith('/* generated from 鋼構工具/src/')) {
+    const position = compiledCalculationBody(source, 'calculate', tool.key, true);
+    source = source.slice(0, position) + "globalThis.__hyWorkflowBrowserProbe.hit('update');" + source.slice(position);
+    edits.push('update');
+    return { source, edits };
+  }
   if (tool.key.startsWith('/src-') && source.startsWith('/* generated from SRC工具/src/')) {
     const entry = tool.key === '/src-beam' ? 'runSrcBeamCalculation' : 'runSrcColumnCalculation';
     const position = compiledCalculationBody(source, entry, tool.key);
@@ -288,6 +300,10 @@ async function main() {
           await page.locator('nav.tabs button[data-tab="global"]').click();
           await settle(page);
           check('decking-returns-to-editable-inputs', await input.isVisible());
+        }
+        if (['/rc-beam', '/rc-column'].includes(tool.key)) {
+          await page.locator('.section-tabs button[data-tab="geom"]').click();
+          await settle(page);
         }
 
         await input.focus(); await settle(page);
