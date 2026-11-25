@@ -348,6 +348,10 @@
     color: #555;
   }
 
+  #tab-report h2, #tab-report h3 { color: var(--hy-navy); line-height: 1.35; }
+  #tab-report table { font-variant-numeric: tabular-nums; }
+  #tab-report table.calc th { background: var(--bg-subtle); color: var(--hy-navy); }
+
   @media print {
     body.formal-tool-output-page.decking-report-print-mode > .formal-direct-print-boundary { display: none !important; }
     body.formal-tool-output-page.decking-report-print-mode > main {
@@ -364,11 +368,12 @@
     .page-only-report-status, .page-only-tool-actions, .decking-report-page-only, header { display: none !important; }
     body { background: #fff; font-size: 11px; }
     #tab-report > .card { border: 0; box-shadow: none; padding: 0; page-break-inside: auto; }
-    #tab-report h1, #tab-report h2, #tab-report h3, #tab-report h4 { break-after: avoid-page; }
+    #tab-report h1, #tab-report h2, #tab-report h3, #tab-report h4 { break-after: avoid-page; page-break-after: avoid; }
     #tab-report table { break-inside: auto; }
     #report-output { max-width: none; overflow: visible; }
     #tab-report thead { display: table-header-group; }
-    #tab-report tr { break-inside: avoid-page; }
+    #tab-report tr, #tab-report figure { break-inside: avoid-page; page-break-inside: avoid; }
+    #tab-report .ok, #tab-report .ng, #tab-report .pass, #tab-report .fail { color: #111; font-weight: 800; }
     .summary, table.calc th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>

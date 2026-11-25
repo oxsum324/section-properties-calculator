@@ -305,11 +305,11 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
   font-size:14px;color:#333}
 
 /* ─── Body Sections ──────────────────────── */
-.doc-title{font-size:21px;font-weight:bold;text-align:center;
-  border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:14px;letter-spacing:2px}
+.doc-title{font-size:21px;font-weight:bold;text-align:center;color:#173955;
+  border-bottom:2px solid #173955;padding-bottom:5px;margin-bottom:14px;letter-spacing:2px}
 .sec{margin-bottom:16px;page-break-inside:avoid;break-inside:avoid}
-.sec-hd{font-size:19px;font-weight:bold;margin-bottom:7px;
-  border-bottom:1px solid #aaa;padding-bottom:2px}
+.sec-hd{font-size:19px;font-weight:bold;line-height:1.35;margin-bottom:7px;color:#173955;
+  border-bottom:1px solid #c5ced6;padding-bottom:2px}
 .sec-hd-sm{font-size:16px;margin-bottom:5px}
 .calc{font-size:17px;margin:4px 0 4px 16px;line-height:1.65}
 .calc .eq{color:#444}
@@ -329,7 +329,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 .dt-sm{font-size:14px}
 
 /* ─── Data Table ─────────────────────────── */
-.dt{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0}
+.dt{width:100%;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums;margin:6px 0}
 .dt th{background:#1a3a5c;color:#fff;padding:5px 8px;text-align:center;border:1px solid #888}
 .dt td{border:1px solid #bbb;padding:4px 8px}
 .dt tr:nth-child(even) td{background:#f7f7f7}
@@ -349,8 +349,9 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 /* V2: 列印時長表格 thead 自動重複（避免無表頭續頁誤讀） */
 @media print{
   .dt thead, .dt tr:first-child{display:table-header-group}
-  .dt tr{page-break-inside:avoid}
-  .chk{page-break-inside:avoid}
+  .a4 .doc-title,.a4 .sec-hd,.a4 h2,.a4 h3{break-after:avoid-page;page-break-after:avoid}
+  .dt tr,.chk,.a4 figure{break-inside:avoid-page;page-break-inside:avoid}
+  .a4 .chk .judge{color:#111;font-weight:800}
 }
 
 /* ─── Print ──────────────────────────────── */
