@@ -131,7 +131,7 @@
     <button type="button" onclick="copyResultsSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或通訊軟體">複製報告摘要</button>
     <button type="button" onclick="exportCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">匯出 CSV</button>
     <button type="button" onclick="copyShareLink()" title="將目前斷面尺寸編碼為分享網址">複製分享連結</button>
-    <button type="button" onclick="addCurrentToComparison()" style="margin-left:auto;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將目前斷面加入下方方案並排比較表（最多 4 組）">⚖️ ➕ 加入方案比較</button>
+    <button type="button" onclick="addCurrentToComparison()" style="margin-left:auto;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將目前斷面加入下方方案並排比較表（最多 4 組）">加入方案比較</button>
   </div>
   <div class="tabs" id="tabBar"></div>
   <div class="main-layout">
@@ -172,7 +172,7 @@
             <span id="comparisonCountBadge" style="font-size:0.76em;color:var(--text-light);margin-left:6px;">(0 / 4 組，以方案 1 為基準對照百分比變化)</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button type="button" onclick="addCurrentToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">➕ 加入目前斷面</button>
+            <button type="button" onclick="addCurrentToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">加入目前斷面</button>
             <button type="button" onclick="copyComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">複製比較表 (Excel)</button>
             <button type="button" onclick="clearComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;color:var(--hy-red-deep);">清空比較</button>
           </div>

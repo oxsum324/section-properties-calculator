@@ -135,7 +135,7 @@
     <button class="action-chip-btn" type="button" onclick="copyCompositeTSV()" title="複製為 Tab 分隔格式，可直接 Ctrl+V 貼入 Excel">複製 Excel 表格 (TSV)</button>
     <button class="action-chip-btn" type="button" onclick="copyCompositeSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或審查意見">複製報告摘要</button>
     <button class="action-chip-btn" type="button" onclick="exportCompositeCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">匯出 CSV</button>
-    <button class="action-chip-btn" type="button" onclick="addCompositeToComparison()" style="margin-left:auto;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將目前補強方案加入下方並排比較表（最多 4 組）">⚖️ ➕ 加入方案比較</button>
+    <button class="action-chip-btn" type="button" onclick="addCompositeToComparison()" style="margin-left:auto;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將目前補強方案加入下方並排比較表（最多 4 組）">加入方案比較</button>
     <span class="case-status" id="caseStatus" role="status" aria-live="polite"></span>
   </div>
 
@@ -256,7 +256,7 @@
             <span class="mode-tag active" id="modeTag">—</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
-            <button type="button" class="action-chip-btn page-only-tool-actions" onclick="addCompositeToComparison()" style="padding:5px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">➕ 加入比較</button>
+            <button type="button" class="action-chip-btn page-only-tool-actions" onclick="addCompositeToComparison()" style="padding:5px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">加入比較</button>
             <button class="btn-report" onclick="exportReport()">產生計算書</button>
           </div>
         </div>
@@ -275,7 +275,7 @@
             <span id="compositeCompCountBadge" style="font-size:0.76em;color:var(--text-light);margin-left:6px;">(0 / 4 組，括號顯示相對於原基礎 H 型鋼之增益％)</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button type="button" onclick="addCompositeToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">➕ 加入目前方案</button>
+            <button type="button" onclick="addCompositeToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">加入目前方案</button>
             <button type="button" onclick="copyCompositeComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">複製比較表 (Excel)</button>
             <button type="button" onclick="clearCompositeComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;color:var(--hy-red-deep);">清空比較</button>
           </div>
