@@ -1,9 +1,9 @@
 (function () {
   'use strict';
 
-  const config = document.currentScript.dataset;
+  const config = document.currentScript?.dataset;
+  if (!config) return;
   const delay = 800;
-  const storageKey = 'tool-draft-guard:v1:' + location.pathname;
 
   function install() {
     const anchor = document.querySelector(config.draftAnchor || '.mode-bar')
@@ -13,6 +13,7 @@
     const banner = document.createElement('section');
     banner.className = 'tool-draft-guard no-print page-only-tool-actions';
     banner.hidden = true;
+    banner.dataset.pageOnly = 'true';
     const text = document.createElement('span');
     text.setAttribute('role', 'status');
     const restore = document.createElement('button');
@@ -37,14 +38,16 @@
     const excludedInputs = 'input:is([type=file], [type=hidden], [type=button], [type=submit], [type=reset], [type=image], [type=password], [type=search])';
     const excludedSections = 'dialog, .project-storage-bar, .report-paper, .tool-draft-guard, [data-rc-details=force-candidate], [data-draft-ignore]';
     const choices = config.draftChoices ? Array.from(document.querySelectorAll(config.draftChoices)) : [];
-    const actions = config.draftActions ? Array.from(document.querySelectorAll(config.draftActions)) : [];
+    const actions = [config.draftChoices, config.draftActions].filter(Boolean).join(', ');
     const adapter = config.draftAdapter ? window[config.draftAdapter] : null;
+    const suffix = adapter?.keySuffix ? ':' + encodeURIComponent(adapter.keySuffix) : '';
+    const storageKey = 'tool-draft-guard:v1:' + location.pathname + suffix;
     let timer = null;
     let loadingDraft = false;
     let pendingDraft = null;
 
     function allowField(field) {
-      return !field.readOnly && !field.matches(excludedInputs) && !field.closest(excludedSections)
+      return !field.readOnly && !field.hasAttribute('data-filter-input') && !field.matches(excludedInputs) && !field.closest(excludedSections)
         && !/attachmentApproval|attachmentApproved|approvalConfirm|CandidateConfirm|reviewResolution/i.test(field.id || field.name);
     }
 
@@ -82,6 +85,7 @@
     }
 
     function signature(state) {
+      if (adapter?.signature) return adapter.signature(state);
       if (!adapter) return JSON.stringify(state);
       return JSON.stringify(Object.entries(state).sort(([left], [right]) => left.localeCompare(right)));
     }
@@ -101,7 +105,7 @@
 
     function loadDraft() {
       try {
-        return draftRecord(localStorage.getItem(storageKey)) || adapter?.readLegacy() || null;
+        return draftRecord(localStorage.getItem(storageKey)) || adapter?.readLegacy?.() || null;
       } catch {
         return null;
       }
@@ -163,7 +167,7 @@
       try {
         const state = pendingDraft.state;
         if (adapter) {
-          adapter.restore(state);
+          if (adapter.restore(state) === false) throw Error('draft rejected');
         } else {
           const choice = choices.find(button => choiceKey(button) === state.choice);
           if (choice && !choice.classList.contains('active') && choice.getAttribute('aria-pressed') !== 'true') choice.click();
@@ -186,7 +190,7 @@
       timer = null;
       try {
         localStorage.removeItem(storageKey);
-        adapter?.clearLegacy();
+        adapter?.clearLegacy?.();
         showDraft(null);
       } catch {
         text.textContent = '無法清除草稿，請檢查瀏覽器的儲存設定。';
@@ -200,7 +204,10 @@
     showDraft(loadDraft());
     document.addEventListener('input', onFieldEdit);
     document.addEventListener('change', onFieldEdit);
-    for (const button of [...choices, ...actions]) button.addEventListener('click', scheduleSave);
+    if (actions) document.addEventListener('click', event => {
+      if (event.target instanceof Element && event.target.closest(actions)) scheduleSave();
+    });
+    document.addEventListener('tool-draft-change', scheduleSave);
     addEventListener('pagehide', saveDraft);
     addEventListener('storage', event => {
       if (event.key === storageKey) showDraft(loadDraft());

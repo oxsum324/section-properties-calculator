@@ -1704,19 +1704,26 @@ function applyFormState(data, version) {
   }
   return '';
 }
-function saveState() {
-  const data = collectFormState();
-  localStorage.setItem(LS_KEY, JSON.stringify({ ...data, sectionTableVersion:DECKING_TOOL_METADATA.version }));
+function deckingDraftFields(input) {
+  const { deckingAttachmentApproved, ...fields } = input;
+  return fields;
 }
-function restoreState() {
-  const raw = localStorage.getItem(LS_KEY);
-  if (!raw) return;
-  try {
-    const stored = JSON.parse(raw);
-    const notice = applyFormState(stored, stored.sectionTableVersion);
+
+window.DeckingDraft = {
+  capture() {
+    return { ...deckingDraftFields(collectFormState()), sectionTableVersion: DECKING_TOOL_METADATA.version };
+  },
+  restore(state) {
+    const notice = applyFormState(deckingDraftFields(state), state.sectionTableVersion);
+    recalcAll();
     if (notice) setActionStatus(notice, 'info');
-  } catch(e) { console.warn(e); }
-}
+  },
+  readLegacy() {
+    const state = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+    return state ? { version: 1, savedAt: '時間未記錄', state: deckingDraftFields(state) } : null;
+  },
+  clearLegacy() { localStorage.removeItem(LS_KEY); },
+};
 function buildProjectPayload() {
   return {
     schema: 'fugongban.project.v1',
@@ -2059,7 +2066,6 @@ function recalcAll() {
   calcBond();
   calcPile();
   buildReport();
-  saveState();
 }
 
 //============================================================
@@ -2093,7 +2099,6 @@ document.addEventListener('keydown', (e) => {
 
 window.addEventListener('DOMContentLoaded', () => {
   fillSectionSelects();
-  restoreState();
   // 預設日期 = 今天
   const dateEl = document.getElementById('proj_date');
   if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
@@ -2107,5 +2112,6 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="../tool-chrome.js" defer></script>
   <script src="../tool-page-a11y.js" defer></script>
   <script src="../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
+<script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-adapter="DeckingDraft" data-draft-actions=".preset-bar button, button[onclick^=loadDraft], button[onclick^=reset]" defer></script>
 </body>
 </html>

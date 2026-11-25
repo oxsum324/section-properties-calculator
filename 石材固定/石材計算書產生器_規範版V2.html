@@ -1514,6 +1514,7 @@ let _projectMigrationEventInfo = null;
 let _projectIntegrityToken = 0;
 let _projectMigrationPersistenceToken = 0;
 let _projectPersistenceRequestToken = 0;
+let stoneWorkspaceReady = false;
 let _lastStoredProjectBackupStatus = '';
 function getStoredProjectRaw(){
   for(const key of STORAGE_KEYS){
@@ -12222,10 +12223,11 @@ function startProjectMigrationPersistence(migrated, context, token){
 }
 
 async function save(){
+  const canPersist = stoneWorkspaceReady;
   const requestToken = ++_projectPersistenceRequestToken;
   const payload = await buildProjectPayload();
   // oninput 會頻繁啟動非同步 SHA-256；只有最新請求可寫回，避免較慢的舊快照倒寫覆蓋新輸入。
-  if(requestToken !== _projectPersistenceRequestToken) return payload;
+  if(!canPersist || requestToken !== _projectPersistenceRequestToken) return payload;
   try{
     setStoredProjectRaw(JSON.stringify(payload));
     _projectMigrationInfo = { ...(_projectMigrationInfo || {}), ...(payload.meta || {}) };
@@ -12244,7 +12246,7 @@ async function save(){
   return payload;
 }
 
-function load(){
+function load(draft){
   try{
     // 載入／復原／匯入會取代目前專案；使先前尚在計算 hash 的 save/export 寫回失效。
     _projectPersistenceRequestToken++;
@@ -12255,7 +12257,9 @@ function load(){
     _v2MigrationToastShown = false;
     _v2IntegrityToastSignature = '';
     clearTimeout(window._v2IntegrityToastTimer);
-    const { key: storedKey, raw } = getStoredProjectRaw();
+    const { key: storedKey, raw } = draft
+      ? { key: STORAGE_KEY, raw: JSON.stringify(draft) }
+      : getStoredProjectRaw();
     if(!raw){
       refreshRecoveryNotice();
       return;
@@ -12304,7 +12308,7 @@ function load(){
       || !parsed?.meta
       || (migrationDiagnostics?.appliedDefaults?.length || 0) > 0
       || persistenceRetry;
-    if(needsMigrationPersistence){
+    if(needsMigrationPersistence && !draft){
       startProjectMigrationPersistence(migrated, {
         sourceSchema,
         sourceVersion,
@@ -12421,7 +12425,8 @@ function load(){
     if(scc) caseIdCounter = scc;
     (savedCases||[]).forEach(c=>{ addCase(c); });
     refreshRecoveryNotice();
-    startProjectIntegrityCheck(parsed);
+    if (!draft || parsed.meta?.input_hash) startProjectIntegrityCheck(parsed);
+    return true;
   } catch(e){
     console.warn('load failed', e);
     refreshRecoveryNotice();
@@ -15670,7 +15675,11 @@ window.addEventListener('DOMContentLoaded', ()=>{
     const json = v2DecodeBase64Utf8(m[1]);
     v2ImportProjectText(json, 'hash_import_replace');
     history.replaceState(null, '', location.pathname + location.search);
-    setTimeout(()=>location.reload(), 50);
+    window.addEventListener('load', () => {
+      load();
+      render();
+      document.dispatchEvent(new Event('tool-draft-change'));
+    }, { once: true });
   }catch(e){
     console.warn('import hash 解析失敗', e);
     v2Notify('分享連結匯入失敗：\n' + (e?.message || e), 'error', '分享連結');
@@ -15900,6 +15909,53 @@ function updateStampPreview(b64){
   }
 }
 
+function stoneDraftInputs() {
+  const inp = inputs();
+  const activeCC = currentCCReportSnapshot(inp);
+  if (activeCC) inp.cc_report = activeCC;
+  if (Object.keys(_windCoeffReport).length) inp.wind_coeff_report = _windCoeffReport;
+  inp.extra_ann_on = document.getElementById('extra_ann_on')?.checked || false;
+  inp.extra_ann_title = document.getElementById('extra_ann_title')?.value || '';
+  inp.extra_ann_note = document.getElementById('extra_ann_note')?.value || '';
+  inp.extra_per_page = v2NormalizeExtraPerPage(document.getElementById('extra_per_page')?.value);
+  return inp;
+}
+
+window.StoneWorkspaceDraft = {
+  capture() {
+    return {
+      schema: PROJECT_SCHEMA,
+      version: PROJECT_SCHEMA_VERSION,
+      meta: { workflow_mode: v2CurrentWorkflowMode(), template: v2TemplateTrace() },
+      inp: stoneDraftInputs(),
+      cases: cases.map(id => ({ id, ...caseData(id) })),
+      reviewNotes: reviewNotesForPayload(),
+      batchAnalysis: _batchAnalysisReport,
+      caseIdCounter,
+    };
+  },
+  signature(state) {
+    return stableSerialize({
+      inp: state.inp, cases: state.cases, reviewNotes: state.reviewNotes,
+      batchAnalysis: state.batchAnalysis, workflow: state.meta?.workflow_mode,
+    });
+  },
+  restore(state) {
+    if (!isRecognizableProjectPayload(state) || !load(state)) return false;
+    render();
+    return true;
+  },
+  readLegacy() {
+    const { raw } = getStoredProjectRaw();
+    if (!raw) return null;
+    const prior = JSON.parse(raw);
+    if (!isRecognizableProjectPayload(prior)) return null;
+    const { document: approval, ...state } = prior;
+    return { version: 1, savedAt: prior.meta?.generated_at || '時間未記錄', state };
+  },
+  clearLegacy() { STORAGE_KEYS.forEach(key => localStorage.removeItem(key)); },
+};
+
 /* ══════════════════ INIT ══════════════════════ */
 window.addEventListener('load', ()=>{
   renderSpecRefSummary();
@@ -15912,13 +15968,7 @@ window.addEventListener('load', ()=>{
   v2RefreshKeyboardSemanticStates();
   toggleCertPageOptions(false);
   initCityDropdown();
-  load();
-  // 還原縣市→鄉鎮下拉的選取狀態
-  const { raw: savedRaw } = getStoredProjectRaw();
-  if(savedRaw){ try{ const {inp} = JSON.parse(savedRaw);
-    if(inp?.city){ document.getElementById('c_city').value = inp.city; onCityChange();
-      setTimeout(()=>{ if(inp?.dist) document.getElementById('c_dist').value = normalizedDistrict(inp.city, inp.dist); }, 0); }
-  }catch(e){} }
+  refreshRecoveryNotice();
   updatePinVa();
   updateAnchorAllowable();
   refreshSeismicSiteState({ applySds: seismicSiteMode() !== 'manual' });
@@ -15932,6 +15982,7 @@ window.addEventListener('load', ()=>{
   const savedDiagram = v2StoredRasterDataUrl(DIAGRAM_KEY);
   if(savedDiagram) updateDiagramPreview(savedDiagram);
   render();
+  stoneWorkspaceReady = true;
 });
 </script>
 <script src="../結構工具箱/core/ui/tool-workflow.js"></script>
@@ -15939,5 +15990,6 @@ window.addEventListener('load', ()=>{
 <script src="../tool-nav.manifest.js" defer></script>
 <script src="../tool-chrome.js" defer></script>
   <script src="../tool-page-a11y.js" defer></script>
+<script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-anchor="#v2-toolbar" data-draft-adapter="StoneWorkspaceDraft" data-draft-actions="button[onclick^=add], button[onclick^=remove], button[onclick^=del], button[onclick^=v2Apply], button[onclick^=v2Load], .chip, .mode-btn" defer></script>
 </body>
 </html>

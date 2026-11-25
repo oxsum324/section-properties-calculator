@@ -1964,84 +1964,30 @@
     openReport(buildColumnReportConfig(result));
   }
 
-  // === 本機輸入草稿（頁面專用：重整或關閉分頁後自動還原，不影響來源 JSON 與計算書） ===
-  let draftTimer = null;
-  let draftRestoring = false;
-
   function persistInputDraft() {
-    if (draftRestoring) return;
-    clearTimeout(draftTimer);
-    draftTimer = null;
-    try {
-      const state = captureColumnSourceState();
-      localStorage.setItem(INPUT_DRAFT_KEY, JSON.stringify({ savedAt: new Date().toISOString(), ...state }));
-      renderDraftControls(true);
-    } catch {
-      // 儲存空間不可用時忽略；草稿只是操作便利，不是交付資料。
-    }
+    document.dispatchEvent(new Event("tool-draft-change"));
   }
 
-  function scheduleInputDraft() {
-    clearTimeout(draftTimer);
-    draftTimer = setTimeout(persistInputDraft, 400);
-  }
-
-  function clearInputDraft() {
-    clearTimeout(draftTimer);
-    draftTimer = null;
-    try { localStorage.removeItem(INPUT_DRAFT_KEY); } catch { /* ignore */ }
-    renderDraftControls(false);
-    setInputStatus("已清除本機輸入草稿；目前畫面輸入維持不變。");
-  }
-
-  function renderDraftControls(hasDraft) {
-    const status = $("columnInputStatus");
-    if (!status) return;
-    let button = document.getElementById("columnDraftClear");
-    if (!hasDraft) {
-      if (button) button.remove();
-      return;
-    }
-    if (button) return;
-    button = document.createElement("button");
-    button.type = "button";
-    button.id = "columnDraftClear";
-    button.className = "member-draft-clear";
-    button.textContent = "清除本機草稿";
-    button.title = "移除此瀏覽器保存的輸入草稿；不影響已匯出的來源 JSON 與計算書。";
-    button.addEventListener("click", clearInputDraft);
-    status.insertAdjacentElement("afterend", button);
-  }
-
-  function restoreInputDraft() {
-    let draft = null;
-    try {
-      const raw = localStorage.getItem(INPUT_DRAFT_KEY);
-      draft = raw ? JSON.parse(raw) : null;
-    } catch {
-      draft = null;
-    }
-    if (!draft || typeof draft !== "object" || !draft.fields) return false;
-    if (!["LRFD", "ASD"].includes(draft.designMethod) || !["legacy", "si"].includes(draft.unitMode)) return false;
-    draftRestoring = true;
-    try {
+  window.SteelColumnDraft = {
+    capture: captureColumnSourceState,
+    restore(draft) {
+      if (!draft?.fields || !["LRFD", "ASD"].includes(draft.designMethod)
+          || !["legacy", "si"].includes(draft.unitMode)) return false;
       applyColumnSourceState(draft);
-      const savedAt = new Date(draft.savedAt);
-      const stamp = Number.isFinite(savedAt.getTime())
-        ? savedAt.toLocaleString("zh-TW", { hour12: false })
-        : "先前";
-      setInputStatus(`已還原本機輸入草稿（${stamp} 自動保存）；正式交付仍以匯出的來源 JSON 與計算書為準。`);
-      renderDraftControls(true);
+      applyInputAccordionPreset(currentInputPreset);
+      applyReportAccordionPreset(resultState, currentReportPreset);
       return true;
-    } catch {
-      return false;
-    } finally {
-      draftRestoring = false;
-    }
-  }
+    },
+    readLegacy() {
+      const draft = JSON.parse(localStorage.getItem(INPUT_DRAFT_KEY) || "null");
+      if (!draft?.fields) return null;
+      const { savedAt, ...state } = draft;
+      return { version: 1, savedAt, state };
+    },
+    clearLegacy() { localStorage.removeItem(INPUT_DRAFT_KEY); },
+  };
 
   function bindEvents() {
-    window.addEventListener("pagehide", () => { if (draftTimer !== null) persistInputDraft(); });
     $("sectionTypeSelect").addEventListener("change", () => {
       syncSectionTypeUI();
       resultState = runCheck();
@@ -2110,11 +2056,6 @@
         input.addEventListener("change", () => { resultState = runCheck(); });
       }
     });
-    document.querySelectorAll("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id], #projName, #projNo, #projDesigner").forEach((input) => {
-      if (input.dataset.filterInput || input.type === "file") return;
-      input.addEventListener("input", scheduleInputDraft);
-      input.addEventListener("change", scheduleInputDraft);
-    });
     window.addEventListener("scroll", requestQuickNavSync, { passive: true });
     window.addEventListener("scroll", requestReportJumpSync, { passive: true });
     window.addEventListener("resize", () => {
@@ -2147,10 +2088,6 @@
   activatePanel(currentPanel);
   requestQuickNavSync();
   requestReportJumpSync();
-  if (restoreInputDraft()) {
-    applyInputAccordionPreset(currentInputPreset);
-    applyReportAccordionPreset(resultState, currentReportPreset);
-  }
 
   workflow = window.HYToolWorkflow.install({
     key: '/steel-column-formal',

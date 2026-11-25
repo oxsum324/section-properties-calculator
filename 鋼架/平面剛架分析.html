@@ -3917,6 +3917,11 @@ function collectProjectData() {
   };
 }
 
+window.FrameDraft = {
+  capture: collectProjectData,
+  restore: loadFromData,
+};
+
 function exportJSON() {
   let data;
   try {
@@ -4456,5 +4461,6 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="../tool-chrome.js" defer></script>
 <script src="../tool-page-a11y.js" defer></script>
 <script src="../結構工具箱/tools/project-meta-profile.js"></script>
+<script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-adapter="FrameDraft" data-draft-actions="#btnLoadDraft, #loadFrameBenchmarkButton, button[onclick^=add], button[onclick^=remove], button[onclick^=delete], button[onclick^=loadExample], button[onclick^=applyQuick]" defer></script>
 </body>
 </html>

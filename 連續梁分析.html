@@ -3983,6 +3983,14 @@ function collectSaveData() {
   };
 }
 
+window.ContinuousBeamDraft = {
+  capture: collectSaveData,
+  restore(state) {
+    restoreFromData(state);
+    setLoadedCaseStatus('已恢復本機草稿，請重新分析。');
+  }
+};
+
 function buildLocalPayload() {
   return {
     schema: 'continuous-beam.project.v1',
@@ -4381,5 +4389,6 @@ async function runDeleteAction(docId, name) {
 <script src="tool-nav.manifest.js" defer></script>
 <script src="tool-chrome.js" defer></script>
 <script src="結構工具箱/tools/project-meta-profile.js"></script>
+<script src="結構工具箱/assets/hy/tool-draft-guard.js" data-draft-adapter="ContinuousBeamDraft" data-draft-actions="button[onclick^=add], button[onclick^=remove], button[onclick^=delete], button[onclick^=apply], button[onclick^=loadExample], button[onclick^=reset]" defer></script>
 </body>
 </html>
