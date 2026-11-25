@@ -322,10 +322,11 @@ for (const relativePath of [
     `${relativePath} includes the shared calculation traceability header`
   );
   assert.ok(
-    source.includes('.rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }')
+    source.includes('.rep-paper h2, .rep-paper h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }')
       && hasKeepTogetherMarkup
       && source.includes('.rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }')
-      && source.includes('tr { break-inside:avoid-page; page-break-inside:avoid; }'),
+      && source.includes('thead { display:table-header-group; }')
+      && source.includes('tr, .rep-step, .rep-diagram, .rep-paper figure { break-inside:avoid-page; page-break-inside:avoid; }'),
     `${relativePath} keeps report headings and table rows intact across print pages`
   );
 }

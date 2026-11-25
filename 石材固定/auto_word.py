@@ -88,7 +88,8 @@ def load_render_payload(page, payload: dict, tool_url: str = TOOL_URL) -> None:
     """讓獨立產檔瀏覽器明確套用呼叫者提供的案件。"""
     page.goto(tool_url, wait_until='load', timeout=60000)
     page.evaluate(
-        """(args) => {
+        """async (args) => {
+            await calcSourceHashReady;
             localStorage.setItem(args.key, JSON.stringify(args.data));
             if (!load()) throw new Error('產檔案件載入失敗');
             render();

@@ -4156,12 +4156,10 @@ async function v2ComputeCalcSourceHash(){
     window.__CALC_SOURCE_HASH = null;
   }
 }
-// 啟動時觸發（非同步、不阻塞）
-if(document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', () => { v2ComputeCalcSourceHash(); });
-} else {
-  v2ComputeCalcSourceHash();
-}
+// 工作頁照常載入，獨立產檔流程可等候同一份公式指紋。
+const calcSourceHashReady = document.readyState === 'loading'
+  ? new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, {once:true})).then(v2ComputeCalcSourceHash)
+  : v2ComputeCalcSourceHash();
 
 /* ═════════ V2 審查儀表板 dock 模式（可折疊側欄 / 底部抽屜） ═════════ */
 const V2_DOCK_KEY = 'stoneV2DashboardDock';
@@ -12227,7 +12225,8 @@ async function save(){
   const requestToken = ++_projectPersistenceRequestToken;
   const payload = await buildProjectPayload();
   // oninput 會頻繁啟動非同步 SHA-256；只有最新請求可寫回，避免較慢的舊快照倒寫覆蓋新輸入。
-  if(!canPersist || requestToken !== _projectPersistenceRequestToken) return payload;
+  if(requestToken !== _projectPersistenceRequestToken) return payload;
+  if(!canPersist) return payload;
   try{
     setStoredProjectRaw(JSON.stringify(payload));
     _projectMigrationInfo = { ...(_projectMigrationInfo || {}), ...(payload.meta || {}) };

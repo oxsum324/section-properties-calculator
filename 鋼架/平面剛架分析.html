@@ -3917,11 +3917,6 @@ function collectProjectData() {
   };
 }
 
-window.FrameDraft = {
-  capture: collectProjectData,
-  restore: loadFromData,
-};
-
 function exportJSON() {
   let data;
   try {
@@ -4452,6 +4447,7 @@ function loadSelectedFrameBenchmark() {
 
 // 啟動
 window.addEventListener('DOMContentLoaded', () => {
+  window.FrameDraft = { capture: collectProjectData, restore: loadFromData };
   loadExample('portal');
 });
 </script>
