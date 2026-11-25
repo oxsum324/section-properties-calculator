@@ -610,7 +610,7 @@ for (const [label, html, expectedVersion, navFamily] of [
   );
   assert.match(
     html,
-    new RegExp(`<body class="steel-formal-output-page" data-family="${navFamily}">[\\s\\S]*class="steel-formal-direct-print-boundary"`),
+    new RegExp(`<body class="steel-formal-output-page" data-family="${navFamily}"(?:\\s+[^>]*)?>[\\s\\S]*class="steel-formal-direct-print-boundary"`),
     `${label} work page should expose the steel formal direct-print boundary`,
   );
   for (const needle of [
