@@ -31,6 +31,9 @@ export function TopHeaderToolbar(props: {
   /** 在元件內僅會以 'report' 呼叫；以字面型別保留呼叫端的 setState 型別。 */
   setActiveTab: (tab: 'report') => void
   onOpenCommandPalette: () => void
+  onExportCurrentCase: () => void
+  onOpenCaseImport: () => void
+  caseFileStatus: string
   onPrintReport: () => void
   onPreviewReport: () => void
   onExportHtmlReport: () => Promise<void> | void
@@ -49,6 +52,9 @@ export function TopHeaderToolbar(props: {
     activeRuleProfileChapter17Title,
     setActiveTab,
     onOpenCommandPalette,
+    onExportCurrentCase,
+    onOpenCaseImport,
+    caseFileStatus,
     onPrintReport,
     onPreviewReport,
     onExportHtmlReport,
@@ -104,6 +110,16 @@ export function TopHeaderToolbar(props: {
           <span>快速命令</span>
           <kbd className="command-palette-trigger-kbd">Ctrl+K</kbd>
         </button>
+      </div>
+
+      <div className="toolbar-group no-print" role="group" aria-label="案件 JSON">
+        <button type="button" className="secondary-button" onClick={onExportCurrentCase}>
+          匯出本案 JSON
+        </button>
+        <button type="button" className="secondary-button" onClick={onOpenCaseImport}>
+          匯入案件 JSON
+        </button>
+        <span className="toolbar-case-status" role="status">{caseFileStatus}</span>
       </div>
 
       <div className="toolbar-group toolbar-export" data-shows="result report">

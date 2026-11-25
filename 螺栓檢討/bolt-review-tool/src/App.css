@@ -5098,3 +5098,10 @@ strong svg {
 @media print {
   .workspace-recalculation-status { display: none !important; }
 }
+
+.toolbar-case-status {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.toolbar-case-status:empty { display: none; }
