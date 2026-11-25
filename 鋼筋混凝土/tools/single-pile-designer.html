@@ -8,27 +8,27 @@
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<link rel="stylesheet" href="../../結構工具箱/core/family-theme.css">
+<link rel="stylesheet" href="../../結構工具箱/core/tool-shell.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <style>
   :root {
-    --bg: #f4efe6;
-    --card: #fffdf8;
-    --ink: #1f2937;
-    --muted: #6b7280;
-    --line: #d6c8b4;
-    --accent: #9a3412;
-    --accent-2: #14532d;
-    --warn: #b45309;
-    --bad: #b91c1c;
-    --good: #166534;
+    --bg: var(--bg-page);
+    --card: var(--bg-surface);
+    --ink: var(--fg-1);
+    --muted: var(--fg-3);
+    --line: var(--border-default);
+    --accent: var(--hy-navy);
+    --warn: var(--hy-warning-ink);
+    --bad: var(--hy-red-deep);
+    --good: var(--hy-success);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    font-family: var(--font-sans);
     color: var(--ink);
-    background:
-      radial-gradient(circle at top right, rgba(154,52,18,0.08), transparent 30%),
-      linear-gradient(180deg, #f8f3ea 0%, var(--bg) 100%);
+    background: var(--bg);
   }
   .page {
     max-width: 1440px;
@@ -36,15 +36,16 @@
     padding: 24px;
   }
   .hero {
-    background: linear-gradient(135deg, #fff8ef 0%, #f8ecdd 100%);
-    border: 1px solid #ead7bd;
-    border-radius: 18px;
-    padding: 22px;
-    margin-bottom: 18px;
-    box-shadow: 0 12px 30px rgba(120, 53, 15, 0.08);
+    border-radius: var(--radius-xl);
+    margin-bottom: var(--space-5);
   }
-  .hero h1 { margin: 0 0 8px; font-size: 1.8rem; }
-  .hero p { margin: 0; color: #5b4633; line-height: 1.6; }
+  .hero h1 { margin: 0 0 var(--space-2); font-size: var(--fs-xl); }
+  .hero p { margin: 0; color: var(--fg-on-navy); line-height: var(--lh-normal); }
+  .hero .pile-version { font-size: var(--fs-xs); color: var(--fg-on-navy-muted); }
+  @media screen and (max-width: 768px) {
+    .hero h1 { font-size: var(--fs-md); }
+    .hero p { font-size: var(--fs-sm); }
+  }
   .layout {
     display: grid;
     grid-template-columns: 480px minmax(0, 1fr);
@@ -56,7 +57,7 @@
     border: 1px solid var(--line);
     border-radius: 16px;
     padding: 18px;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+    box-shadow: var(--shadow-md);
   }
   .card h2, .card h3 { margin: 0 0 14px; }
   .stack {
@@ -70,15 +71,15 @@
     gap: 12px;
   }
   .form-group { display: grid; gap: 6px; }
-  label { font-size: 0.92rem; font-weight: 700; color: #4b5563; }
+  label { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--fg-2); }
   input, select, textarea, button {
     font: inherit;
   }
   input, select, textarea {
     width: 100%;
-    border: 1px solid #ccb89e;
+    border: 1px solid var(--border-strong);
     border-radius: 10px;
-    background: #fff;
+    background: var(--bg-surface);
     padding: 10px 12px;
   }
   textarea {
@@ -89,17 +90,31 @@
     line-height: 1.45;
   }
   button {
-    border: 0;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #9a3412 0%, #c2410c 100%);
-    color: #fff;
+    border: 1px solid var(--btn-primary-bg);
+    border-radius: var(--radius-lg);
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-fg);
     padding: 12px 16px;
     font-weight: 700;
     cursor: pointer;
   }
   button.secondary {
-    background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+    background: var(--btn-secondary-bg);
+    border-color: var(--btn-secondary-border);
+    color: var(--btn-secondary-fg);
   }
+  button:focus-visible,
+  :is(input, select, textarea):focus-visible {
+    outline: 2px solid var(--hy-navy);
+    outline-offset: 2px;
+  }
+  @media (hover: hover) {
+    button:hover { background: var(--btn-primary-bg-hover); }
+    button.secondary:hover { background: var(--btn-secondary-bg-hover); }
+  }
+  .pile-input-details { margin-top: 0; min-width: 0; padding: 0; }
+  .pile-input-details > summary { min-height: 44px; }
+  .pile-input-details > .details-body { padding: var(--space-3) var(--space-4) var(--space-4); }
   .hint {
     margin: 0;
     color: var(--muted);
@@ -126,10 +141,10 @@
     gap: 12px;
   }
   .result {
-    border: 1px solid #ead7bd;
+    border: 1px solid var(--border-default);
     border-radius: 12px;
     padding: 12px;
-    background: #fff9f2;
+    background: var(--hy-navy-50);
   }
   .result .k {
     display: block;
@@ -155,8 +170,8 @@
   .report-readiness-card { border-top: 3px solid var(--accent); }
   .report-readiness-card h2 .scope-badge {
     font-size: 0.68em;
-    background: #dcfce7;
-    color: #166534;
+    background: var(--hy-success-100);
+    color: var(--hy-success);
     padding: 2px 8px;
     border-radius: 999px;
     font-weight: 700;
@@ -171,12 +186,12 @@
     border: 1px solid var(--line);
     border-left: 4px solid var(--accent);
     border-radius: 8px;
-    background: #f8fafc;
+    background: var(--bg-page);
     font-size: 0.88em;
   }
-  .report-readiness-summary.ok { border-left-color: var(--good); background: #ecfdf5; color: #065f46; }
-  .report-readiness-summary.warn { border-left-color: var(--warn); background: #fffbeb; color: #92400e; }
-  .report-readiness-summary.fail { border-left-color: var(--bad); background: #fef2f2; color: #991b1b; }
+  .report-readiness-summary.ok { border-left-color: var(--good); background: var(--hy-success-100); color: var(--hy-success); }
+  .report-readiness-summary.warn { border-left-color: var(--warn); background: var(--hy-warning-100); color: var(--hy-warning-ink); }
+  .report-readiness-summary.fail { border-left-color: var(--bad); background: var(--hy-danger-100); color: var(--hy-red-deep); }
   .report-readiness-summary.neutral { color: var(--muted); }
   .report-readiness-badge {
     display: inline-flex;
@@ -186,13 +201,13 @@
     border-radius: 999px;
     font-size: 0.82em;
     font-weight: 800;
-    background: #e5e7eb;
-    color: #374151;
+    background: var(--bg-subtle);
+    color: var(--fg-2);
     white-space: nowrap;
   }
-  .report-readiness-badge.ok { background: #bbf7d0; color: #166534; }
-  .report-readiness-badge.warn { background: #fde68a; color: #92400e; }
-  .report-readiness-badge.fail { background: #fecaca; color: #991b1b; }
+  .report-readiness-badge.ok { background: var(--hy-success-100); color: var(--hy-success); }
+  .report-readiness-badge.warn { background: var(--hy-warning-100); color: var(--hy-warning-ink); }
+  .report-readiness-badge.fail { background: var(--hy-danger-100); color: var(--hy-red-deep); }
   .report-readiness-list {
     display: grid;
     gap: 8px;
@@ -206,7 +221,7 @@
     padding: 8px 10px;
     border-left: 3px solid var(--accent);
     border-radius: 6px;
-    background: #fffaf2;
+    background: var(--bg-subtle);
     font-size: 0.84em;
   }
   .report-readiness-item.ok { border-left-color: var(--good); }
@@ -227,8 +242,8 @@
     padding: 12px 14px;
     font-weight: 700;
     margin-bottom: 14px;
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
+    background: var(--hy-navy-50);
+    border: 1px solid var(--border-default);
   }
   .table-wrap { overflow-x: auto; }
   table {
@@ -237,7 +252,7 @@
     font-size: 0.82rem;
   }
   th, td {
-    border: 1px solid #e5d7c3;
+    border: 1px solid var(--border-default);
     padding: 7px 8px;
     text-align: right;
     vertical-align: top;
@@ -249,24 +264,24 @@
     text-align: left;
   }
   thead th {
-    background: #fbf3e7;
-    color: #3f3f46;
+    background: var(--bg-subtle);
+    color: var(--fg-2);
   }
-  tr.pass-row { background: rgba(22, 101, 52, 0.08); }
-  tr.control-row { background: rgba(154, 52, 18, 0.10); }
+  tr.pass-row { background: var(--hy-success-100); }
+  tr.control-row { background: var(--hy-navy-100); }
   pre {
     margin: 0;
     white-space: pre-wrap;
     line-height: 1.55;
     font-size: 0.84rem;
-    background: #fcf7ef;
-    border: 1px solid #e9dcc8;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-default);
     border-radius: 12px;
     padding: 14px;
   }
   .section-title {
     margin: 0 0 10px;
-    color: #7c2d12;
+    color: var(--hy-navy);
     font-size: 1rem;
   }
   @media (max-width: 1100px) {
@@ -286,11 +301,11 @@
 <body class="rc-formal-output-page" data-family="rc">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
-<div class="page" role="main">
-  <section class="hero">
-    <h1>單樁承載力設計器 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.5</span></h1>
+<main class="page">
+  <header class="hero tool-shell-header">
+    <h1>單樁承載力設計器 <span class="pile-version">V3.5</span></h1>
     <p>這是一份可獨立分享的單一 HTML。輸入單樁需求與土層資料後，工具會用 <code>Qs + Qb</code>、沉陷與構造限制，自動搜尋建議樁徑與樁深，並列出逐層摩擦力與候選方案。</p>
-  </section>
+  </header>
 
   <div class="layout">
     <section class="stack">
@@ -358,174 +373,182 @@
         <p class="hint">此頁面固定以單樁為對象，不納入群樁間距與群樁效應；「規範模式」固定依 112 年版基礎規範之支承力推估公式執行分項安全係數，「一般工程模式」為工程推估模式，「簡化模式」則保留你慣用的簡化公式。</p>
       </div>
 
-      <div class="card">
-        <h2>搜尋範圍</h2>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="diameterMin">樁徑起 (cm)</label>
-            <input id="diameterMin" type="number" value="40" step="5">
+      <details class="card collapsible-details pile-input-details">
+        <summary><span class="details-title">搜尋範圍</span><span class="details-summary-badge">樁徑與樁深</span></summary>
+        <div class="details-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="diameterMin">樁徑起 (cm)</label>
+              <input id="diameterMin" type="number" value="40" step="5">
+            </div>
+            <div class="form-group">
+              <label for="diameterMax">樁徑迄 (cm)</label>
+              <input id="diameterMax" type="number" value="120" step="5">
+            </div>
+            <div class="form-group">
+              <label for="diameterStep">樁徑間距 (cm)</label>
+              <input id="diameterStep" type="number" value="10" step="5">
+            </div>
+            <div class="form-group">
+              <label for="depthMin">樁深起 (m)</label>
+              <input id="depthMin" type="number" value="8" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="depthMax">樁深迄 (m)</label>
+              <input id="depthMax" type="number" value="40" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="depthStep">樁深間距 (m)</label>
+              <input id="depthStep" type="number" value="0.5" step="0.5">
+            </div>
           </div>
-          <div class="form-group">
-            <label for="diameterMax">樁徑迄 (cm)</label>
-            <input id="diameterMax" type="number" value="120" step="5">
-          </div>
-          <div class="form-group">
-            <label for="diameterStep">樁徑間距 (cm)</label>
-            <input id="diameterStep" type="number" value="10" step="5">
-          </div>
-          <div class="form-group">
-            <label for="depthMin">樁深起 (m)</label>
-            <input id="depthMin" type="number" value="8" step="0.5">
-          </div>
-          <div class="form-group">
-            <label for="depthMax">樁深迄 (m)</label>
-            <input id="depthMax" type="number" value="40" step="0.5">
-          </div>
-          <div class="form-group">
-            <label for="depthStep">樁深間距 (m)</label>
-            <input id="depthStep" type="number" value="0.5" step="0.5">
-          </div>
+          <p class="hint">工具會對每一組樁徑與樁深逐一試算，並回傳第一個同時滿足承載、沉陷與構造限制的方案。</p>
         </div>
-        <p class="hint">工具會對每一組樁徑與樁深逐一試算，並回傳第一個同時滿足承載、沉陷與構造限制的方案。</p>
-      </div>
+      </details>
 
-      <div class="card page-only-case-tools">
-        <h2>案件資料與場址快捷帶入</h2>
-        <div class="form-grid" style="margin-bottom:12px;">
-          <div class="form-group">
-            <label for="projName">計畫名稱</label>
-            <input id="projName" type="text" placeholder="計畫名稱">
+      <details class="card collapsible-details pile-input-details page-only-case-tools">
+        <summary><span class="details-title">案件資料與場址快捷帶入</span><span class="details-summary-badge">案件 JSON／範例</span></summary>
+        <div class="details-body">
+          <div class="form-grid" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label for="projName">計畫名稱</label>
+              <input id="projName" type="text" placeholder="計畫名稱">
+            </div>
+            <div class="form-group">
+              <label for="projNo">計畫編號</label>
+              <input id="projNo" type="text" placeholder="計畫編號">
+            </div>
+            <div class="form-group">
+              <label for="projDesigner">設計人</label>
+              <input id="projDesigner" type="text" placeholder="設計人">
+            </div>
           </div>
-          <div class="form-group">
-            <label for="projNo">計畫編號</label>
-            <input id="projNo" type="text" placeholder="計畫編號">
+          <div class="preset-grid">
+            <button id="btnPresetBh5" type="button" class="preset-btn secondary">高捷紅線 R17 BH-5<small>粉質細砂為主，示範短樁搜尋</small></button>
+            <button id="btnPresetB031" type="button" class="preset-btn secondary">高捷紅線 R17 B-031<small>含泥岩層，示範深樁搜尋</small></button>
+            <button id="btnPresetCh2830" type="button" class="preset-btn secondary">高捷紅線 R17 CH-28~30<small>簡化工程參數表</small></button>
+            <button id="btnBlankProfile" type="button" class="preset-btn secondary">保留空白輸入<small>清空土層資料，自行貼上新場址</small></button>
           </div>
-          <div class="form-group">
-            <label for="projDesigner">設計人</label>
-            <input id="projDesigner" type="text" placeholder="設計人">
+          <div class="preset-grid" style="margin-top:10px;">
+            <button id="btnSaveDefaults" type="button" class="preset-btn">設為目前預設值<small>保存目前載重、搜尋範圍、細部參數與土層</small></button>
+            <button id="btnResetDefaults" type="button" class="preset-btn secondary">還原內建預設值<small>清除自訂預設，回到系統示範值</small></button>
           </div>
+          <div class="preset-grid" style="margin-top:10px;">
+            <button id="btnSaveProject" type="button" class="preset-btn secondary">存檔 JSON<small>下載目前整組輸入，可帶到其他瀏覽器回讀</small></button>
+            <button id="btnLoadProject" type="button" class="preset-btn secondary">讀取 JSON<small>回復先前下載的單樁案例檔</small></button>
+            <button id="btnSaveDraft" type="button" class="preset-btn secondary">暫存<small>保存目前案例到此瀏覽器</small></button>
+            <button id="btnLoadDraft" type="button" class="preset-btn secondary">讀取暫存<small>回復此瀏覽器最近暫存案例</small></button>
+            <input id="projectFile" type="file" accept=".json,application/json" hidden>
+          </div>
+          <p class="hint">快捷鍵現在只會帶入土層資料，不會覆蓋你已輸入的載重、樁徑、搜尋範圍與細部設定；如需固定目前整組數值，可按「設為目前預設值」。</p>
+          <pre id="presetSummary">尚未選擇場址快捷資料</pre>
         </div>
-        <div class="preset-grid">
-          <button id="btnPresetBh5" type="button" class="preset-btn secondary">高捷紅線 R17 BH-5<small>粉質細砂為主，示範短樁搜尋</small></button>
-          <button id="btnPresetB031" type="button" class="preset-btn secondary">高捷紅線 R17 B-031<small>含泥岩層，示範深樁搜尋</small></button>
-          <button id="btnPresetCh2830" type="button" class="preset-btn secondary">高捷紅線 R17 CH-28~30<small>簡化工程參數表</small></button>
-          <button id="btnBlankProfile" type="button" class="preset-btn secondary">保留空白輸入<small>清空土層資料，自行貼上新場址</small></button>
-        </div>
-        <div class="preset-grid" style="margin-top:10px;">
-          <button id="btnSaveDefaults" type="button" class="preset-btn">設為目前預設值<small>保存目前載重、搜尋範圍、細部參數與土層</small></button>
-          <button id="btnResetDefaults" type="button" class="preset-btn secondary">還原內建預設值<small>清除自訂預設，回到系統示範值</small></button>
-        </div>
-        <div class="preset-grid" style="margin-top:10px;">
-          <button id="btnSaveProject" type="button" class="preset-btn secondary">存檔 JSON<small>下載目前整組輸入，可帶到其他瀏覽器回讀</small></button>
-          <button id="btnLoadProject" type="button" class="preset-btn secondary">讀取 JSON<small>回復先前下載的單樁案例檔</small></button>
-          <button id="btnSaveDraft" type="button" class="preset-btn secondary">暫存<small>保存目前案例到此瀏覽器</small></button>
-          <button id="btnLoadDraft" type="button" class="preset-btn secondary">讀取暫存<small>回復此瀏覽器最近暫存案例</small></button>
-          <input id="projectFile" type="file" accept=".json,application/json" hidden>
-        </div>
-        <p class="hint">快捷鍵現在只會帶入土層資料，不會覆蓋你已輸入的載重、樁徑、搜尋範圍與細部設定；如需固定目前整組數值，可按「設為目前預設值」。</p>
-        <pre id="presetSummary">尚未選擇場址快捷資料</pre>
-      </div>
+      </details>
 
-      <div class="card">
-        <h2>單樁瞬時沉陷</h2>
-        <p class="hint">採長期服務載重。ξ、Cp 由樁周摩擦分佈、樁端土層與施工法確認；可依基礎規範解說 5.5.1 或專案試驗指定。各分項採同一組工作端承與摩擦力。</p>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="toePercent">服務載重端承比例（%，留白取可行範圍）</label>
-            <input id="toePercent" type="number" min="0" max="100" step="any" placeholder="依載重試驗或專案分析">
-          </div>
-          <div class="form-group">
-            <label for="settlementMode">沉陷模式</label>
-            <select id="settlementMode">
-              <option value="auto" selected>試算假設 ξ＝0.67、Cp＝0.09</option>
-              <option value="manual">手動輸入</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="xi">ξ</label>
-            <input id="xi" type="number" value="0.67" step="0.01">
-          </div>
-          <div class="form-group">
-            <label for="cp">Cp</label>
-            <input id="cp" type="number" value="0.09" step="0.01">
-          </div>
-          <div class="form-group">
-            <label for="cs">Cs</label>
-            <input id="cs" type="number" value="0.30" step="0.01">
-          </div>
-          <div class="form-group">
-            <label for="qo">極限樁端壓力 q₀ (tf/m²，0=自動)</label>
-            <input id="qo" type="number" value="0" step="1">
+      <details class="card collapsible-details pile-input-details">
+        <summary><span class="details-title">單樁瞬時沉陷</span><span class="details-summary-badge">沉陷假設</span></summary>
+        <div class="details-body">
+          <p class="hint">採長期服務載重。ξ、Cp 由樁周摩擦分佈、樁端土層與施工法確認；可依基礎規範解說 5.5.1 或專案試驗指定。各分項採同一組工作端承與摩擦力。</p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="toePercent">服務載重端承比例（%，留白取可行範圍）</label>
+              <input id="toePercent" type="number" min="0" max="100" step="any" placeholder="依載重試驗或專案分析">
+            </div>
+            <div class="form-group">
+              <label for="settlementMode">沉陷模式</label>
+              <select id="settlementMode">
+                <option value="auto" selected>試算假設 ξ＝0.67、Cp＝0.09</option>
+                <option value="manual">手動輸入</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="xi">ξ</label>
+              <input id="xi" type="number" value="0.67" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="cp">Cp</label>
+              <input id="cp" type="number" value="0.09" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="cs">Cs</label>
+              <input id="cs" type="number" value="0.30" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="qo">極限樁端壓力 q₀ (tf/m²，0=自動)</label>
+              <input id="qo" type="number" value="0" step="1">
+            </div>
           </div>
         </div>
-      </div>
+      </details>
 
-      <div class="card">
-        <h2>細部折減與規範參數</h2>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="alphaSoft">黏土 α1 (c ≤ 3 tf/m²)</label>
-            <input id="alphaSoft" type="number" value="0.90" step="0.01">
+      <details class="card collapsible-details pile-input-details">
+        <summary><span class="details-title">細部折減與規範參數</span><span class="details-summary-badge">承載與折減設定</span></summary>
+        <div class="details-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="alphaSoft">黏土 α1 (c ≤ 3 tf/m²)</label>
+              <input id="alphaSoft" type="number" value="0.90" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="alphaMedium">黏土 α2 (3 &lt; c ≤ 6)</label>
+              <input id="alphaMedium" type="number" value="0.70" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="alphaStiff">黏土 α3 (c &gt; 6)</label>
+              <input id="alphaStiff" type="number" value="0.55" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="sandKDriven">砂層 K (打入樁)</label>
+              <input id="sandKDriven" type="number" value="0.90" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="sandKBored">砂層 K (鑽掘樁)</label>
+              <input id="sandKBored" type="number" value="0.65" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="deltaRatio">砂層 δ / φ 比例</label>
+              <input id="deltaRatio" type="number" value="0.75" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="sandFsCap">一般砂層 fs 上限 (tf/m²)</label>
+              <input id="sandFsCap" type="number" value="8" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="denseSandFsCap">緊密砂/礫層 fs 上限 (tf/m²)</label>
+              <input id="denseSandFsCap" type="number" value="12" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="tipCapDriven">卵礫石端承上限 打入樁 (tf/m²)</label>
+              <input id="tipCapDriven" type="number" value="1800" step="10">
+            </div>
+            <div class="form-group">
+              <label for="tipCapBored">卵礫石端承上限 鑽掘樁 (tf/m²)</label>
+              <input id="tipCapBored" type="number" value="750" step="10">
+            </div>
+            <div class="form-group">
+              <label for="simpleFs1Long">簡化模式 FS1 常時端承</label>
+              <input id="simpleFs1Long" type="number" value="2.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="simpleFs2Long">簡化模式 FS2 常時摩擦</label>
+              <input id="simpleFs2Long" type="number" value="3.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="simpleFs1Short">簡化模式 FS1 短期端承</label>
+              <input id="simpleFs1Short" type="number" value="1.8" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="simpleFs2Short">簡化模式 FS2 短期摩擦</label>
+              <input id="simpleFs2Short" type="number" value="2.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="upliftSafetyFactor">抗拔 FS</label>
+              <input id="upliftSafetyFactor" type="number" value="3.0" step="0.1">
+            </div>
           </div>
-          <div class="form-group">
-            <label for="alphaMedium">黏土 α2 (3 &lt; c ≤ 6)</label>
-            <input id="alphaMedium" type="number" value="0.70" step="0.01">
-          </div>
-          <div class="form-group">
-            <label for="alphaStiff">黏土 α3 (c &gt; 6)</label>
-            <input id="alphaStiff" type="number" value="0.55" step="0.01">
-          </div>
-          <div class="form-group">
-            <label for="sandKDriven">砂層 K (打入樁)</label>
-            <input id="sandKDriven" type="number" value="0.90" step="0.01">
-          </div>
-          <div class="form-group">
-            <label for="sandKBored">砂層 K (鑽掘樁)</label>
-            <input id="sandKBored" type="number" value="0.65" step="0.01">
-          </div>
-          <div class="form-group">
-            <label for="deltaRatio">砂層 δ / φ 比例</label>
-            <input id="deltaRatio" type="number" value="0.75" step="0.01">
-          </div>
-          <div class="form-group">
-            <label for="sandFsCap">一般砂層 fs 上限 (tf/m²)</label>
-            <input id="sandFsCap" type="number" value="8" step="0.5">
-          </div>
-          <div class="form-group">
-            <label for="denseSandFsCap">緊密砂/礫層 fs 上限 (tf/m²)</label>
-            <input id="denseSandFsCap" type="number" value="12" step="0.5">
-          </div>
-          <div class="form-group">
-            <label for="tipCapDriven">卵礫石端承上限 打入樁 (tf/m²)</label>
-            <input id="tipCapDriven" type="number" value="1800" step="10">
-          </div>
-          <div class="form-group">
-            <label for="tipCapBored">卵礫石端承上限 鑽掘樁 (tf/m²)</label>
-            <input id="tipCapBored" type="number" value="750" step="10">
-          </div>
-          <div class="form-group">
-            <label for="simpleFs1Long">簡化模式 FS1 常時端承</label>
-            <input id="simpleFs1Long" type="number" value="2.5" step="0.1">
-          </div>
-          <div class="form-group">
-            <label for="simpleFs2Long">簡化模式 FS2 常時摩擦</label>
-            <input id="simpleFs2Long" type="number" value="3.5" step="0.1">
-          </div>
-          <div class="form-group">
-            <label for="simpleFs1Short">簡化模式 FS1 短期端承</label>
-            <input id="simpleFs1Short" type="number" value="1.8" step="0.1">
-          </div>
-          <div class="form-group">
-            <label for="simpleFs2Short">簡化模式 FS2 短期摩擦</label>
-            <input id="simpleFs2Short" type="number" value="2.5" step="0.1">
-          </div>
-          <div class="form-group">
-            <label for="upliftSafetyFactor">抗拔 FS</label>
-            <input id="upliftSafetyFactor" type="number" value="3.0" step="0.1">
-          </div>
+          <p class="hint">規範模式下，垂直承載與抗拔安全係數固定依規範表值計算，不讀取上方整體 FS 與此區簡化 FS。此區可調者主要供一般工程模式與簡化模式使用；若專案規範、顧問設計準則或地工報告另有指定，應以專案文件複核後再修改。</p>
         </div>
-        <p class="hint">規範模式下，垂直承載與抗拔安全係數固定依規範表值計算，不讀取上方整體 FS 與此區簡化 FS。此區可調者主要供一般工程模式與簡化模式使用；若專案規範、顧問設計準則或地工報告另有指定，應以專案文件複核後再修改。</p>
-      </div>
+      </details>
 
       <div class="card">
         <h2>土層資料</h2>
@@ -625,7 +648,7 @@
       </div>
     </section>
   </div>
-</div>
+</main>
 
 <script src="../shared/common.js?v=4"></script>
 <script src="../../結構工具箱/core/ui/report-utils.js"></script>

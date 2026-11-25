@@ -19,6 +19,9 @@ const CHROME_SCRIPTS = [
   '<script src="../tool-chrome.js" defer></script>',
 ];
 const CHROME_SLOT = '<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>';
+const DIRECT_PRINT_STYLE = '<link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">';
+const DIRECT_PRINT_CLASS = 'formal-tool-output-page';
+const DIRECT_PRINT_NOTICE = '<aside class="formal-direct-print-boundary" data-page-only="true" aria-hidden="true"><strong>錨栓工具主頁列印已封鎖</strong><span>請關閉列印視窗，從「報表」分頁開啟獨立計算書，再使用計算書內的列印功能。</span></aside>';
 
 function countOccurrences(text, needle) {
   return text.split(needle).length - 1;
@@ -86,18 +89,50 @@ function ensureAnchorToolChrome(html) {
   return { html: result, changed: true };
 }
 
+function ensureAnchorDirectPrintBoundary(html) {
+  const headEnd = /(^[ \t]*)?<\/head\s*>/im;
+  const bodyStart = /<body(?=[\s>])[^>]*>/i;
+  const body = html.match(bodyStart)?.[0];
+  if (!body || !headEnd.test(html)) {
+    throw new Error('anchor direct print needs a head and a body');
+  }
+  const classAttribute = /\bclass=(["'])(.*?)\1/i;
+  const bodyClass = body.match(classAttribute);
+  const classes = bodyClass?.[2].split(/\s+/).filter(Boolean) || [];
+  const styleCount = countOccurrences(html, DIRECT_PRINT_STYLE);
+  const noticeCount = countOccurrences(html, DIRECT_PRINT_NOTICE);
+  const classCount = classes.filter(name => name === DIRECT_PRINT_CLASS).length;
+  if (styleCount === 1 && noticeCount === 1 && classCount === 1) {
+    return { html, changed: false };
+  }
+  if (styleCount || noticeCount || classCount || /direct-print-boundary\.css|formal-direct-print-boundary/.test(html)) {
+    throw new Error('anchor index has an incomplete or duplicate direct-print boundary');
+  }
+  const eol = html.includes('\r\n') ? '\r\n' : '\n';
+  const classValue = [...classes, DIRECT_PRINT_CLASS].join(' ');
+  const printClass = 'class="' + classValue + '"';
+  const printBody = bodyClass
+    ? body.replace(classAttribute, () => printClass)
+    : body.slice(0, -1) + ' ' + printClass + '>';
+  const result = html
+    .replace(headEnd, (end, indent = '') => indent + '  ' + DIRECT_PRINT_STYLE + eol + end)
+    .replace(bodyStart, () => printBody + eol + '    ' + DIRECT_PRINT_NOTICE);
+  return { html: result, changed: true };
+}
+
 function patchAnchorIndexFile(target, withToolChrome = false) {
   const bytes = fs.readFileSync(target);
   const text = bytes.toString('utf8');
   if (!Buffer.from(text, 'utf8').equals(bytes)) throw new Error(`anchor index is not valid UTF-8: ${target}`);
   const a11y = ensureAnchorA11yTag(text);
   const chrome = withToolChrome ? ensureAnchorToolChrome(a11y.html) : a11y;
-  const result = { html: chrome.html, changed: a11y.changed || chrome.changed };
+  const print = withToolChrome ? ensureAnchorDirectPrintBoundary(chrome.html) : chrome;
+  const result = { html: print.html, changed: a11y.changed || chrome.changed || print.changed };
   if (result.changed) fs.writeFileSync(target, Buffer.from(result.html, 'utf8'));
   return result;
 }
 
-module.exports = { ANCHOR_A11Y_TAG, ensureAnchorA11yTag, ensureAnchorToolChrome, patchAnchorIndexFile };
+module.exports = { ANCHOR_A11Y_TAG, ensureAnchorA11yTag, ensureAnchorToolChrome, ensureAnchorDirectPrintBoundary, patchAnchorIndexFile };
 
 if (require.main === module) {
   const [target, option, extra] = process.argv.slice(2);

@@ -13,13 +13,14 @@
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
 <link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="../../core/tool-shell.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
-             font-size:0.6em; font-weight:700; vertical-align:middle; background:#a16207; color:#fff; }
+             font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--hy-warning); color:var(--fg-on-navy); }
   .header-links { margin-top:4px; font-size:0.88em; line-height:1.7; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
   .header-links .sep { opacity:0.55; }
   .hero-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:#fff; }
+  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:var(--fg-on-navy); }
   .foundation-shell { display:grid; grid-template-columns:minmax(320px, 430px) minmax(0, 1fr); gap:18px; align-items:start; }
   .foundation-form-stack { display:grid; gap:18px; }
   .foundation-result-stack { display:grid; gap:18px; position:sticky; top:18px; }
@@ -48,39 +49,39 @@
   .output-actions .btn-calc { flex:2 1 220px; }
   .output-actions .btn-print,
   .output-actions .btn-secondary { flex:1 1 150px; }
-  .scope-box { padding:12px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fcd34d; color:#78350f; font-size:0.84em; line-height:1.75; }
-  .scope-box strong { color:#92400e; }
+  .scope-box { padding:12px 14px; border-radius:10px; background:var(--hy-warning-100); border:1px solid color-mix(in srgb, var(--hy-warning) 45%, var(--bg-surface)); color:var(--hy-warning-ink); font-size:0.84em; line-height:1.75; }
+  .scope-box strong { color:var(--hy-warning-ink); }
   .tool-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-  .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:#fef3c7; color:#92400e; font-size:0.78em; font-weight:800; }
+  .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:var(--hy-warning-100); color:var(--hy-warning-ink); font-size:0.78em; font-weight:800; }
   .basis-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px; }
   .criteria-wide { grid-template-columns:1fr; }
-  .basis-pill { border:1px solid #dbeafe; background:#eff6ff; border-radius:10px; padding:9px 10px; min-height:58px; }
-  .basis-pill .label { display:block; color:#475569; font-size:0.75em; font-weight:800; margin-bottom:3px; }
-  .basis-pill .value { display:block; color:#075985; font-family:'Consolas',monospace; font-weight:800; overflow-wrap:anywhere; }
+  .basis-pill { border:1px solid var(--hy-navy-100); background:var(--hy-navy-50); border-radius:10px; padding:9px 10px; min-height:58px; }
+  .basis-pill .label { display:block; color:var(--fg-2); font-size:0.75em; font-weight:800; margin-bottom:3px; }
+  .basis-pill .value { display:block; color:var(--hy-navy-500); font-family:'Consolas',monospace; font-weight:800; overflow-wrap:anywhere; }
   .criteria-hint { margin-top:10px; }
   .metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
-  .metric { border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; padding:10px 12px; min-height:72px; }
+  .metric { border:1px solid var(--border-default); border-radius:10px; background:var(--bg-page); padding:10px 12px; min-height:72px; }
   .metric .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; line-height:1.45; }
-  .metric .value { font-weight:800; color:#0f172a; font-family:'Consolas',monospace; overflow-wrap:anywhere; }
+  .metric .value { font-weight:800; color:var(--fg-1); font-family:'Consolas',monospace; overflow-wrap:anywhere; }
   .metric.ok { border-left:4px solid var(--accent); }
   .metric.warn { border-left:4px solid var(--warn); }
   .metric.fail { border-left:4px solid var(--danger); }
   .check-list { display:grid; gap:9px; }
-  .check-item { padding:10px 12px; border-radius:8px; background:#f8fafc; border-left:4px solid #cbd5e1; }
+  .check-item { padding:10px 12px; border-radius:8px; background:var(--bg-page); border-left:4px solid var(--border-strong); }
   .check-item.ok { border-left-color:var(--accent); }
   .check-item.warn { border-left-color:var(--warn); }
   .check-item.fail { border-left-color:var(--danger); }
   .check-item .k { display:block; color:var(--text-light); font-size:0.8em; font-weight:700; margin-bottom:2px; }
   .check-item .v { display:block; color:var(--text); font-size:0.88em; line-height:1.6; }
-  .step-card { font-size:0.84em; line-height:1.8; color:#334155; }
-  .step-card .step-title { margin:10px 0 4px; font-weight:800; color:#92400e; }
-  .step-card code { font-family:'Consolas',monospace; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:1px 5px; }
+  .step-card { font-size:0.84em; line-height:1.8; color:var(--fg-2); }
+  .step-card .step-title { margin:10px 0 4px; font-weight:800; color:var(--hy-warning-ink); }
+  .step-card code { font-family:'Consolas',monospace; background:var(--bg-page); border:1px solid var(--border-default); border-radius:4px; padding:1px 5px; }
   .mini-table { width:100%; border-collapse:collapse; font-size:0.84em; margin-top:8px; }
-  .mini-table th, .mini-table td { border:1px solid #e2e8f0; padding:6px 8px; text-align:right; }
-  .mini-table th { background:#f8fafc; color:var(--primary); font-weight:700; text-align:center; }
+  .mini-table th, .mini-table td { border:1px solid var(--border-default); padding:6px 8px; text-align:right; }
+  .mini-table th { background:var(--bg-page); color:var(--primary); font-weight:700; text-align:center; }
   .mini-table td:first-child { text-align:left; color:var(--text-light); font-weight:700; }
   .muted { color:var(--text-light); font-size:0.82em; line-height:1.65; }
-  .diagram-wrap { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px; }
+  .diagram-wrap { background:var(--bg-page); border:1px solid var(--border-default); border-radius:10px; padding:8px; }
   .diagram-wrap svg { width:100%; height:auto; display:block; max-width:520px; margin:0 auto; }
   @media (max-width:1080px) {
     .foundation-shell { grid-template-columns:1fr; }
@@ -110,7 +111,7 @@
 <body class="local-quick-output-page" data-family="local-quick">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
-<header>
+<header class="tool-shell-header">
   <h1>基礎局部檢核 <span class="badge-v">V0.6 局部正式檢核</span></h1>
   <p>淺基礎服務載重底壓、偏心、抗滑、抗傾覆快速檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
@@ -359,7 +360,7 @@
                 <tbody></tbody>
               </table>
             </div>
-            <button type="button" id="btnAddConsolLayer" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一層</button>
+            <button type="button" id="btnAddConsolLayer" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid var(--border-strong);border-radius:6px;background:var(--bg-subtle);">＋ 增加一層</button>
             <div class="scope-box" style="margin-top:8px;">z 為壓密層中點深度（自基礎底面往下算），用於計算 Δσ；σ0′ 為該深度之初始有效覆土應力，須由使用者依地質資料輸入。σp′ 留空或 ≤ σ0′ 視為正常壓密（NC）；σp′ 大於 σ0′ 時依過壓密（OC）判別，必要時跨越 σp′ 分段計算。Sc = Cc·h/(1+e0)·log10((σ0′+Δσ)/σ0′)（NC）；Δσ 由 2:1 或 Boussinesq 法，以淨壓力 q<sub>net</sub>=qAvg−γs·Df 計算。多層壓密量加總；不含次壓縮與分層土非均質效應。<br>時間-沉陷歷程（選填）：提供 cv 與排水條件（單面 Hdr=h、雙面 Hdr=h/2）後，依 Terzaghi Tv-U 關係估算 t50、t90；填入評估年限可另估該時刻壓密度 U(t) 與對應沉陷量。僅當「所有」壓密層皆提供 cv 時才合計評估年限沉陷量，避免混雜已知/未知速率層。</div>
           </div>
         </div>
@@ -393,7 +394,7 @@
                 <tbody></tbody>
               </table>
             </div>
-            <button type="button" id="btnAddLiqPoint" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一個深度點</button>
+            <button type="button" id="btnAddLiqPoint" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid var(--border-strong);border-radius:6px;background:var(--bg-subtle);">＋ 增加一個深度點</button>
             <div class="scope-box" style="margin-top:8px;">z 為鑽孔深度；σv、σv′ 為該深度之總覆土應力與有效覆土應力，須由使用者依地質剖面（含地下水位）自行計算後輸入。FC 為細料含量百分比（黏土/粉土含量），留空或 0 表示乾淨砂。FSliq = CRR<sub>7.5</sub>×MSF / CSR；(N1)60cs≥30 視為過密實、不判為可能液化。本頁僅提供簡化篩選（NCEER/Youd et al. 2001 架構、Idriss 1999 MSF，未含 Kσ 覆土壓力修正），屬初步篩選層級，正式設計仍應以完整地質鑽探報告與液化潛能詳細評估為準；本方法未必等同台灣現行基礎構造設計規範或耐震設計規範指定之液化評估程序，請併同專案地質技師意見複核。</div>
           </div>
         </div>
