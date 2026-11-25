@@ -68,14 +68,14 @@
         <div data-details-project-profile></div>
       </details>
       <div class="mode-bar__actions" aria-label="柱專案存讀檔">
-        <button id="btnSaveProject" class="mode-bar__action" type="button" title="下載柱專案 JSON 檔">存檔</button>
-        <button id="btnLoadProject" class="mode-bar__action" type="button" title="讀取柱專案 JSON 檔">讀檔</button>
+        <button id="btnSaveProject" class="mode-bar__action" type="button" title="下載柱專案 JSON 檔">匯出案件 JSON</button>
+        <button id="btnLoadProject" class="mode-bar__action" type="button" title="讀取柱專案 JSON 檔">匯入案件 JSON</button>
         <button id="btnSaveDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
         <button id="btnLoadDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
         <input id="columnProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
       </div>
-      <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
-      <button id="btnPrintReport" class="mode-bar__report" type="button">🖨️ 直接列印計算書</button>
+      <button id="btnReport" class="mode-bar__report" type="button">產生計算書</button>
+      <button id="btnPrintReport" class="mode-bar__report" type="button">列印／另存 PDF</button>
       <span id="projectFileStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
@@ -398,8 +398,8 @@
       <!-- 綜合結果 — 輸出 -->
       <div class="card" data-shows="summary">
         <h2>輸出</h2>
-        <button id="btnReportSummary" type="button" class="btn-secondary">匯出計算書</button>
-        <button id="btnPrintReportSummary" type="button" class="btn-secondary">🖨️ 直接列印計算書</button>
+        <button id="btnReportSummary" type="button" class="btn-secondary">產生計算書</button>
+        <button id="btnPrintReportSummary" type="button" class="btn-secondary">列印／另存 PDF</button>
         <p class="hint">計算書預覽可下載文字備查版 TXT，或列印／存成 PDF。</p>
       </div>
     </div>

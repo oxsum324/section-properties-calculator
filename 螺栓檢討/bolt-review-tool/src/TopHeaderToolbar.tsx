@@ -114,7 +114,7 @@ export function TopHeaderToolbar(props: {
 
       <div className="toolbar-group no-print" role="group" aria-label="案件 JSON">
         <button type="button" className="secondary-button" onClick={onExportCurrentCase}>
-          匯出本案 JSON
+          匯出案件 JSON
         </button>
         <button type="button" className="secondary-button" onClick={onOpenCaseImport}>
           匯入案件 JSON
@@ -123,19 +123,11 @@ export function TopHeaderToolbar(props: {
       </div>
 
       <div className="toolbar-group toolbar-export" data-shows="result report">
-        <button type="button" onClick={onPrintReport}>
-          列印報表
+        <button type="button" className="secondary-button" onClick={onPrintReport}>
+          列印／另存 PDF
         </button>
         <button
-          type="button"
-          onClick={() => {
-            void onPreviewReport()
-          }}
-        >
-          預覽報表
-        </button>
-        <button
-          type="button"
+          type="button" className="secondary-button"
           onClick={() => {
             void onExportHtmlReport()
           }}
@@ -143,7 +135,7 @@ export function TopHeaderToolbar(props: {
           匯出 HTML
         </button>
         <button
-          type="button"
+          type="button" className="secondary-button"
           onClick={() => {
             void onExportTxtReport()
           }}
@@ -152,7 +144,7 @@ export function TopHeaderToolbar(props: {
           匯出 TXT 備查
         </button>
         <button
-          type="button"
+          type="button" className="secondary-button"
           onClick={() => {
             void onExportXlsxReport()
           }}
@@ -160,12 +152,20 @@ export function TopHeaderToolbar(props: {
           匯出 XLSX
         </button>
         <button
-          type="button"
+          type="button" className="secondary-button"
           onClick={() => {
             void onExportDocxReport()
           }}
         >
           匯出 DOCX
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            void onPreviewReport()
+          }}
+        >
+          產生計算書
         </button>
         <button
           type="button"

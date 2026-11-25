@@ -84,9 +84,9 @@
     <h3 id="v2_validation_title">🔬 V2 × Excel V1.101 驗算對照</h3>
     <div class="body" id="v2_validation_body"></div>
     <div class="foot">
-      <button type="button" class="btn btn-gray" onclick="v2ResetValidationRef()">重設範例值</button>
+      <button type="button" class="btn btn-gray" onclick="v2ResetValidationRef()">重設預設值</button>
       <button type="button" class="btn btn-gray" onclick="v2ExportValidationCsv()">匯出對照 CSV</button>
-      <button type="button" class="btn btn-blue" onclick="v2RunValidation()">▶ 執行比對</button>
+      <button type="button" class="btn btn-blue" onclick="v2RunValidation()">執行比對</button>
       <button type="button" class="btn btn-gray" id="v2_validation_close" onclick="v2CloseValidationModal()">關閉</button>
     </div>
   </div>
@@ -124,8 +124,8 @@
       </optgroup>
       <optgroup label="自訂範本" id="v2_user_tpl_group"></optgroup>
     </select>
-    <button type="button" class="mini" onclick="v2OpenTemplateManager({focusName:true})" title="將目前荷載與石材主要輸入儲存為自訂範本（存於瀏覽器 LocalStorage）">💾存範本</button>
-    <button type="button" class="mini" onclick="v2OpenTemplateManager()" aria-haspopup="dialog" aria-controls="v2-tpl-mgr" title="檢視／刪除已儲存的自訂範本">🗂管理</button>
+    <button type="button" class="mini" onclick="v2OpenTemplateManager({focusName:true})" title="將目前荷載與石材主要輸入儲存為自訂範本（存於瀏覽器 LocalStorage）">存範本</button>
+    <button type="button" class="mini" onclick="v2OpenTemplateManager()" aria-haspopup="dialog" aria-controls="v2-tpl-mgr" title="檢視／刪除已儲存的自訂範本">管理</button>
     <button type="button" class="mini" onclick="v2ToggleAll(true)" title="展開所有區塊">全開</button>
     <button type="button" class="mini" onclick="v2ToggleAll(false)" title="收合所有區塊">全收</button>
     <button type="button" class="mini" id="v2_shortcut_toggle" onclick="v2ToggleShortcutHint()" aria-label="顯示快捷鍵說明" aria-controls="v2-shortcut-hint" aria-expanded="false" aria-keyshortcuts="F1" title="快捷鍵說明 (F1)">⌨</button>
@@ -304,7 +304,7 @@
         color:#aaa;text-align:center;flex-shrink:0;overflow:hidden">未上傳</div>
       <div style="flex:1">
         <button type="button" class="btn btn-gray" style="width:100%;font-size:11px;padding:5px" aria-controls="diagramFile"
-          onclick="document.getElementById('diagramFile').click()">📎 上傳示意圖</button>
+          onclick="document.getElementById('diagramFile').click()">上傳示意圖</button>
         <input type="file" id="diagramFile" accept=".png,.jpg,.jpeg,.webp,.gif" style="display:none"
           onchange="uploadDiagram(event)">
         <button type="button" class="btn" style="width:100%;font-size:11px;padding:4px;margin-top:4px;
@@ -322,7 +322,7 @@
       </div>
       <div style="flex:1">
         <button type="button" class="btn btn-gray" style="width:100%;font-size:11px;padding:5px" aria-controls="stampFile"
-          onclick="document.getElementById('stampFile').click()">📎 上傳印章圖片</button>
+          onclick="document.getElementById('stampFile').click()">上傳印章圖片</button>
         <input type="file" id="stampFile" accept=".png,.jpg,.jpeg,.webp,.gif" style="display:none"
           onchange="uploadStamp(event)">
         <button type="button" class="btn" style="width:100%;font-size:11px;padding:4px;margin-top:4px;
@@ -618,7 +618,7 @@
 
     <!-- V2 CSV 案例匯入（案例管理；其他匯出已集中至下方匯出按鈕區） -->
     <div style="margin-top:6px">
-      <button type="button" class="btn btn-gray" style="width:100%;font-size:10.5px;padding:4px 6px" aria-controls="v2_csv_import" onclick="document.getElementById('v2_csv_import').click()" title="從 CSV 匯入新形式（UTF-8，第一列為欄名：name,w,h,type,fx,fy1,fy2,tags...）">📂 從 CSV 匯入新形式</button>
+      <button type="button" class="btn btn-gray" style="width:100%;font-size:10.5px;padding:4px 6px" aria-controls="v2_csv_import" onclick="document.getElementById('v2_csv_import').click()" title="從 CSV 匯入新形式（UTF-8，第一列為欄名：name,w,h,type,fx,fy1,fy2,tags...）">從 CSV 匯入新形式</button>
       <input type="file" id="v2_csv_import" accept=".csv" style="display:none" onchange="if(this.files[0])v2ImportCaseCsv(this.files[0]);this.value=''">
     </div>
   </div>
@@ -1066,13 +1066,13 @@
       <input id="sa_size_values" type="text" value="600x800, 870x800, 1000x1200" oninput="save()"></div>
     <div class="row">
       <div class="field" style="margin-bottom:0">
-        <button type="button" class="btn btn-blue" style="width:100%" onclick="runBatchAnalysis()">▶ 執行掃描</button>
+        <button type="button" class="btn btn-blue" style="width:100%" onclick="runBatchAnalysis()">執行掃描</button>
       </div>
       <div class="field" style="margin-bottom:0">
-        <button type="button" class="btn btn-gray" style="width:100%" onclick="exportBatchAnalysisCSV()">⬇ 匯出 CSV</button>
+        <button type="button" class="btn btn-gray" style="width:100%" onclick="exportBatchAnalysisCSV()">匯出 CSV</button>
       </div>
       <div class="field" style="margin-bottom:0">
-        <button type="button" class="btn btn-gray" style="width:100%" onclick="exportBatchAnalysisJSON()">⬇ 匯出 JSON</button>
+        <button type="button" class="btn btn-gray" style="width:100%" onclick="exportBatchAnalysisJSON()">匯出 JSON</button>
       </div>
     </div>
     <div class="rule-box" style="margin-top:8px">會以所選案例為基準，批次掃描 SDS、風速與板塊尺寸組合，輸出每組工況的最大 DCR、控制項目與是否通過。若目前為手動風壓模式，風速變化會依 V² 比例縮放；若為 C&amp;C 模式則會重算風壓。</div>
@@ -1084,8 +1084,8 @@
     <!-- V2 檢核狀態燈 -->
     <div id="v2-status-pill" class="ok" onclick="v2ShowStatusDetails()" title="點擊檢視細節">✓ 檢核：核心欄正常</div>
     <!-- 主要動作 -->
-    <button type="button" class="btn btn-blue btn-primary" onclick="render()" title="重新跑計算引擎並更新預覽">🔄 重新計算 / 預覽</button>
-    <button type="button" class="btn btn-green btn-primary" onclick="previewPrint()" title="A4 預覽列印（含 KaTeX 公式排版）">🖨 預覽列印 (A4)</button>
+    <button type="button" class="btn btn-blue btn-primary" onclick="render()" title="重新跑計算引擎並更新預覽">重新計算 / 預覽</button>
+    <button type="button" class="btn btn-green btn-primary" onclick="previewPrint()" title="A4 預覽列印（含 KaTeX 公式排版）">列印／另存 PDF</button>
     <label style="grid-column:1/-1;display:flex;align-items:flex-start;gap:7px;padding:8px 9px;border:1px solid #b8c8d8;border-radius:5px;background:#f7fafc;font-size:11px;line-height:1.45;cursor:pointer">
       <input id="v2_attachment_approved" type="checkbox" onchange="v2SetAttachmentApproval(this.checked)" style="margin-top:2px">
       <span><b>本計算內容已完成審閱，核可作為正式附件</b><br><span style="color:#667">未勾選時為可列印的內部審閱版；修改計算內容後會自動取消核可。</span></span>
@@ -1111,17 +1111,17 @@
     <!-- 進階輸出 -->
     <div class="v2-export-group" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:6px;width:100%;margin-top:4px;padding-top:6px;border-top:1px dashed #c8d3e3">
       <div style="grid-column:1/-1;font-size:10px;color:#666;letter-spacing:1px;margin-bottom:-2px">━ 進階輸出 ━</div>
-      <button type="button" class="btn" style="flex:1;font-size:10.5px;padding:4px 6px;background:#196019;color:#fff" onclick="v2ExportXlsxSummary()" title="可追算附錄版：含三 sheet（形式摘要 / 完整 Checks / 版本指紋），DCR 為 raw numeric 可直接二次運算；用於業主追蹤、自動化分析">📊 XLSX 摘要 ‧ 可追算</button>
-      <button type="button" class="btn btn-gray" style="flex:1;font-size:10.5px;padding:4px 6px" onclick="v2ExportCaseCsv()" title="把目前所有形式匯出為 CSV，可於 Excel 編輯後再匯入">📤 CSV 形式表</button>
-      <button type="button" id="v2_validation_open" class="btn btn-gray btn-sec" style="font-size:10.5px;padding:5px 6px" onclick="v2OpenValidationModal()" title="對照 Excel V1.101 計算值，逐欄驗算 V2 是否一致">🔬 驗算對照</button>
-      <button type="button" class="btn btn-gray btn-sec" style="font-size:10.5px;padding:5px 6px" onclick="v2ExportChangeLog()" title="匯出歷史版次變更紀錄 CSV">📋 變更紀錄</button>
+      <button type="button" class="btn" style="flex:1;font-size:10.5px;padding:4px 6px;background:#196019;color:#fff" onclick="v2ExportXlsxSummary()" title="可追算附錄版：含三 sheet（形式摘要 / 完整 Checks / 版本指紋），DCR 為 raw numeric 可直接二次運算；用於業主追蹤、自動化分析">XLSX 摘要 ‧ 可追算</button>
+      <button type="button" class="btn btn-gray" style="flex:1;font-size:10.5px;padding:4px 6px" onclick="v2ExportCaseCsv()" title="把目前所有形式匯出為 CSV，可於 Excel 編輯後再匯入">CSV 形式表</button>
+      <button type="button" id="v2_validation_open" class="btn btn-gray btn-sec" style="font-size:10.5px;padding:5px 6px" onclick="v2OpenValidationModal()" title="對照 Excel V1.101 計算值，逐欄驗算 V2 是否一致">驗算對照</button>
+      <button type="button" class="btn btn-gray btn-sec" style="font-size:10.5px;padding:5px 6px" onclick="v2ExportChangeLog()" title="匯出歷史版次變更紀錄 CSV">變更紀錄</button>
     </div>
 
     <!-- 專案存檔 / 載入 -->
     <div class="v2-export-group" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:6px;width:100%;margin-top:4px;padding-top:6px;border-top:1px dashed #c8d3e3">
       <div style="grid-column:1/-1;font-size:10px;color:#666;letter-spacing:1px;margin-bottom:-2px">━ 專案存檔 ━</div>
-      <button type="button" class="btn btn-gray btn-sec" style="font-size:11px;padding:5px 6px" onclick="exportJSON()" title="儲存目前所有輸入為 JSON 檔（含計算結果與形式）">💾 存 JSON</button>
-      <button type="button" class="btn btn-gray btn-sec" style="font-size:11px;padding:5px 6px" aria-controls="importFile" onclick="document.getElementById('importFile').click()" title="載入先前儲存的 JSON 檔">📂 載入 JSON</button>
+      <button type="button" class="btn btn-gray btn-sec" style="font-size:11px;padding:5px 6px" onclick="exportJSON()" title="儲存目前所有輸入為 JSON 檔（含計算結果與形式）">匯出案件 JSON</button>
+      <button type="button" class="btn btn-gray btn-sec" style="font-size:11px;padding:5px 6px" aria-controls="importFile" onclick="document.getElementById('importFile').click()" title="載入先前儲存的 JSON 檔">匯入案件 JSON</button>
     </div>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
   </div>

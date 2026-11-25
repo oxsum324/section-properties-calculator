@@ -592,12 +592,12 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
   );
   assert.match(
     html,
-    /id="exportSourceJsonBtn"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+    /id="exportSourceJsonBtn"[^>]*>[^<]*匯出案件 JSON<\/button>/,
     `${label} page should expose a calculation-source JSON export`,
   );
   assert.match(
     html,
-    /id="importSourceJsonBtn"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="importSourceJsonInput"[^>]*type="file"[^>]*accept="application\/json,\.json"[^>]*hidden/,
+    /id="importSourceJsonBtn"[^>]*>[^<]*匯入案件 JSON<\/button>[\s\S]*id="importSourceJsonInput"[^>]*type="file"[^>]*accept="application\/json,\.json"[^>]*hidden/,
     `${label} page should expose a calculation-source JSON import`,
   );
 }
@@ -1354,12 +1354,12 @@ assert.doesNotMatch(
 );
 assert.match(
   beamFormalHtmlSource,
-  /id="btnExportSourceJson"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+  /id="btnExportSourceJson"[^>]*>[^<]*匯出案件 JSON<\/button>/,
   "steel-beam-formal.html should expose a calculation-source JSON export",
 );
 assert.match(
   beamFormalHtmlSource,
-  /id="btnImportSourceJson"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
+  /id="btnImportSourceJson"[^>]*>[^<]*匯入案件 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
   "steel-beam-formal.html should expose a calculation-source JSON import",
 );
 assert.match(
@@ -1405,12 +1405,12 @@ assert.doesNotMatch(
 );
 assert.match(
   columnFormalHtmlSource,
-  /id="btnExportSourceJson"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+  /id="btnExportSourceJson"[^>]*>[^<]*匯出案件 JSON<\/button>/,
   "steel-column-formal.html should expose a calculation-source JSON export",
 );
 assert.match(
   columnFormalHtmlSource,
-  /id="btnImportSourceJson"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
+  /id="btnImportSourceJson"[^>]*>[^<]*匯入案件 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
   "steel-column-formal.html should expose a calculation-source JSON import",
 );
 assert.match(

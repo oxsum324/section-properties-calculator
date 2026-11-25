@@ -55,11 +55,11 @@
       <div class="case-actions">
         <button class="btn btn-secondary" id="openBiaxial" type="button" aria-haspopup="dialog">逐筋座標與雙軸比較</button>
         <button class="btn btn-secondary" id="openCoverBatch" type="button" aria-haspopup="dialog">批次檢核</button>
-        <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
-        <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveProject" type="button">匯出案件 JSON</button>
+        <button class="btn btn-secondary" id="btnImportJson" type="button">匯入案件 JSON</button>
         <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
         <button class="btn btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
-        <button class="btn btn-danger" id="btnReset" type="button">恢復示例</button>
+        <button class="btn btn-danger" id="btnReset" type="button">重設預設值</button>
         <input id="jsonFile" type="file" accept="application/json,.json" hidden>
         <span class="json-status" id="jsonStatus">JSON 內嵌 result 只供備查、匯入時一律忽略；本頁會用目前 core 重算 input 並核對版本／指紋，重新匯出時取代舊 result。</span>
       </div>
@@ -151,8 +151,8 @@
           <div class="danger-box"><strong>capacity OK 不等於保護層厚度合規。</strong>耐火與耐久性、防火細部、施工容許差、握裹／裂縫與箍筋包覆須獨立判定；雙軸同時作用、二階、剪力、接頭及整體結構安全也不在本頁範圍。</div>
           <div class="output-actions">
             <button class="btn btn-primary" id="btnCalc" type="button">計算斷面強度偏差</button>
-            <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
-            <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
+            <button class="btn btn-secondary" id="btnPrint" type="button">產生計算書</button>
+            <button class="btn btn-secondary" id="btnJson" type="button">匯出計算來源 JSON</button>
             <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
           </div>
         </section>

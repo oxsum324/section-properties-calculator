@@ -221,12 +221,12 @@
           </span>
         </div>
         <div class="flex-row page-only-tool-actions">
-          <button class="btn btn-accent btn-sm" id="btnExportCase" onclick="exportJSON()">存檔 JSON</button>
-          <button class="btn btn-ghost btn-sm" id="btnImportCase" onclick="document.getElementById('jsonFile').click()">讀取 JSON</button>
+          <button class="btn btn-ghost btn-sm" id="btnExportCase" onclick="exportJSON()">匯出案件 JSON</button>
+          <button class="btn btn-ghost btn-sm" id="btnImportCase" onclick="document.getElementById('jsonFile').click()">匯入案件 JSON</button>
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none" onchange="importJSONFile(this)">
           <button class="btn btn-ghost btn-sm" id="btnSaveDraft" onclick="saveDraft()">暫存</button>
           <button class="btn btn-ghost btn-sm" id="btnLoadDraft" onclick="loadDraft()">讀取暫存</button>
-          <button class="btn btn-ghost btn-sm" id="btnReport" onclick="printReport()">列印計算書</button>
+          <button class="btn btn-primary btn-sm" id="btnReport" onclick="printReport()">產生計算書</button>
           <span id="reportStatus" class="report-status" role="status" aria-live="polite"></span>
           <a id="reportLink" class="report-link" href="#" target="_blank" rel="noopener">開啟計算書</a>
         </div>
@@ -400,7 +400,7 @@
         <div class="hint">a = 自 i 端沿桿件之距離 (0 ≤ a ≤ L)。全域 -Y = 重力向下；局部 +y = 垂直桿軸；局部 +x = 沿桿軸。</div>
       </div>
 
-      <button class="btn-calc" id="btnCalc" onclick="runAnalysis()">▶ 執行分析</button>
+      <button class="btn-calc" id="btnCalc" onclick="runAnalysis()">執行分析</button>
       <div class="error-msg" id="errorMsg"></div>
       <div class="warn-msg" id="warnMsg"></div>
       <div class="report-readiness page-only-report-status blocked" id="frameReportReadiness" role="status" aria-live="polite"></div>
@@ -4460,7 +4460,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="../tool-nav.manifest.js" defer></script>
 <script src="../tool-chrome.js" defer></script>
 <script src="../tool-page-a11y.js" defer></script>
-<script src="../結構工具箱/tools/project-meta-profile.js"></script>
 <script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-adapter="FrameDraft" data-draft-actions="#btnLoadDraft, #loadFrameBenchmarkButton, button[onclick^=add], button[onclick^=remove], button[onclick^=delete], button[onclick^=loadExample], button[onclick^=applyQuick]" defer></script>
+<script src="../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

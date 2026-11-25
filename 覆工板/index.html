@@ -395,13 +395,13 @@
   <button data-tab="girder">④ 覆工大梁</button>
   <button data-tab="column">⑤ 共構柱</button>
   <button data-tab="report">⑥ 📑 彙整報告</button>
-  <button class="btn btn-ghost" style="align-self:center;" onclick="saveProjectJSON()" title="下載可回讀的專案 JSON">存檔 JSON</button>
-  <button class="btn btn-ghost" style="align-self:center;" onclick="document.getElementById('projectJsonFile').click()" title="讀取專案 JSON">讀取 JSON</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="saveProjectJSON()" title="下載可回讀的專案 JSON">匯出案件 JSON</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="document.getElementById('projectJsonFile').click()" title="讀取專案 JSON">匯入案件 JSON</button>
   <button class="btn btn-ghost" style="align-self:center;" onclick="saveDraft()" title="暫存目前輸入">暫存</button>
   <button class="btn btn-ghost" style="align-self:center;" onclick="loadDraft()" title="讀取瀏覽器暫存">讀取暫存</button>
   <input type="file" id="projectJsonFile" accept=".json,application/json" style="display:none" onchange="importProjectJSON(this)">
-  <button class="btn" style="margin-left:auto; align-self:center;" onclick="printDeckingReport()" title="列印彙整計算書 / 匯出 PDF">🖨 列印彙整計算書</button>
-  <button class="btn btn-ghost" style="align-self:center;" onclick="resetAll()" title="清空所有輸入">↺ 重置</button>
+  <button class="btn" style="margin-left:auto; align-self:center;" onclick="printDeckingReport()" title="列印彙整計算書 / 匯出 PDF">產生計算書</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="resetAll()" title="清空所有輸入">重設預設值</button>
 </nav>
 
 <section class="statusbar" id="statusbar" aria-label="覆工板狀態摘要">
@@ -796,7 +796,7 @@
 
     <div class="row-flex decking-report-page-only" style="margin-bottom:12px; padding:10px; background:#e8f4ff; border:1px solid #b8d4f0; border-radius:6px;">
       <b style="color:#1a4480;">📄 產出正式 Word 計算書：</b>
-      <button class="btn" onclick="exportJSON()">💾 步驟 1：下載 JSON 參數檔</button>
+      <button class="btn" onclick="exportJSON()">步驟 1：下載 JSON 參數檔</button>
       <span style="font-size:12px; color:#555;">→ 雙擊本資料夾內「<b>產生計算書.bat</b>」→ 生成 Word 檔</span>
     </div>
 

@@ -88,14 +88,14 @@
         <input type="checkbox" id="showSteps"> 顯示計算過程
       </label>
       <div class="mode-bar__actions" aria-label="板專案存讀檔">
-        <button id="btnSaveSlabProject" class="mode-bar__action" type="button" title="下載板專案 JSON 檔">存檔</button>
-        <button id="btnLoadSlabProject" class="mode-bar__action" type="button" title="讀取板專案 JSON 檔">讀檔</button>
+        <button id="btnSaveSlabProject" class="mode-bar__action" type="button" title="下載板專案 JSON 檔">匯出案件 JSON</button>
+        <button id="btnLoadSlabProject" class="mode-bar__action" type="button" title="讀取板專案 JSON 檔">匯入案件 JSON</button>
         <button id="btnSaveSlabDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
         <button id="btnLoadSlabDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
         <input id="slabProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
       </div>
-      <button class="mode-bar__report" id="btnReport" type="button">📄 計算書</button>
-      <button class="mode-bar__report" id="btnPrintReport" type="button">🖨️ 直接列印計算書</button>
+      <button class="mode-bar__report" id="btnReport" type="button">產生計算書</button>
+      <button class="mode-bar__report" id="btnPrintReport" type="button">列印／另存 PDF</button>
       <span id="slabProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
     <div class="form-row page-only-case-tools" data-ui-space="section">
@@ -112,7 +112,7 @@
         </select>
       </div>
       <div class="form-group" data-ui="aligned-action">
-        <button type="button" id="btnApplyCase" class="mode-bar__report">套用案例</button>
+        <button type="button" id="btnApplyCase" class="mode-bar__report">載入範例</button>
       </div>
     </div>
     <div class="tool-toggle page-only-case-tools">
@@ -597,10 +597,10 @@
       <div class="advanced-body">
         <div class="form-row" data-ui-space="flush">
           <div class="form-group" data-ui="aligned-action">
-            <button type="button" id="btnExportCase" class="mode-bar__report">匯出目前設定 JSON</button>
+            <button type="button" id="btnExportCase" class="mode-bar__report">匯出案件 JSON</button>
           </div>
           <div class="form-group" data-ui="aligned-action">
-            <button type="button" id="btnImportCase" class="mode-bar__report">匯入 JSON</button>
+            <button type="button" id="btnImportCase" class="mode-bar__report">匯入案件 JSON</button>
           </div>
         </div>
         <div class="form-group" data-ui-space="field">

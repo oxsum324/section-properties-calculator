@@ -45,7 +45,7 @@ const PAGES = [
     foldsProjectFields: true,
     collapsedIds: ['btnSaveBeamProject', 'btnLoadBeamProject', 'btnSaveBeamDraft', 'btnLoadBeamDraft', 'beamProjectFile', 'beamProjectStatus'],
     ids: `bondPlaneData beamLapAreaRatio beamLapPercent beamLapClassAEvidence beamResults flangeMode flangeProjectionGroup flangeLeft flangeSpacingGroup flangeSwLeftGroup flangeSwLeft flangeSwRight flangeStatus simpleDeflLoad sustainedDeflLabel sustainedDeflPercent simpleDeflPointGroup simpleDeflPointX MaNeg MaPos MuNeg MuPos Pu Tu TuWrap Ve VeWrap Vu anchorageLeft anchorageRight autoD autoMa bannerKey bannerStatus barShMin
-      beamAttachmentReadiness beamAttachmentReadinessCard beamDevLeftType beamDevRightType beamForceCandidateApply beamForceCandidateCard
+      beamAttachmentReadiness beamAttachmentReadinessCard beamDevLeftType beamDevRightType beamEnvelopeBasis beamEnvelopeBasisGroup beamForceCandidateApply beamForceCandidateCard
       beamForceCandidateConfirm beamForceCandidateDiscard beamForceCandidateList beamForceCandidateSummary beamJointCard beamJointMprFactor
       beamJointSendStatus beamJointTarget beamLapClass beamLapEnd beamLapLength beamLapStart beamPreset beamProjectFile beamProjectStatus
       beamRebarDesignCandidates beamRebarFeasibleRanges bf botBar1N botBar1No botBar2N botBar2No botBar3N botBar3No botLayerCount
@@ -70,13 +70,13 @@ const PAGES = [
       beamDevLeftType beamDevRightType anchorageLeft anchorageRight beamLapStart beamLapEnd beamLapLength beamLapClass beamLapAreaRatio beamLapPercent bondPlaneData botBar1No
       botBar1N botBar2No botBar2N botBar3No botBar3N topBar1No topBar1N topBar2No topBar2N topBar3No topBar3N skinNo nSkin stirrup legs
       stirS MuPos MuNeg Vu Pu Tu Ve torsionDesignStatus torsionAtPerS torsionAl sensitive enableExactDefl simpleDeflLoad sustainedDeflPercent simpleDeflPointX MaPos MaNeg autoMa xiTime
-      deflLimit colW smrfMnMin firstHoopDist beamJointTarget beamJointMprFactor beamForceCandidateConfirm`,
+      deflLimit colW smrfMnMin firstHoopDist beamJointTarget beamJointMprFactor beamForceCandidateConfirm beamEnvelopeBasis`,
     classes: `active badge-seismic banner-key banner-status big btn-calc btn-secondary canvas-wrap card checkbox-row combo container
       deep-beam-notice force-candidate-actions force-candidate-card force-candidate-confirm force-candidate-list force-candidate-summary
       form-group form-row form-row3 hint label lbl line main-layout mode-bar mode-bar__action mode-bar__actions mode-bar__btn
       mode-bar__file mode-bar__group mode-bar__hint mode-bar__label mode-bar__proj mode-bar__project-status mode-bar__report mode-btn
       page-only-case-tools page-only-tool-chrome preset-row rc-direct-print-boundary rc-formal-output-page rebar-hero rebar-layer
-      rebar-range-wrap rebar-stack rebar-stack-actions report-readiness-card result-item results-grid scope-badge section-tabs
+      rebar-range-wrap rebar-stack rebar-stack-actions report-readiness-card result-item results-grid section-tabs
       steps-body steps-card subpanel tool-chrome-slot unit value w-des w-name w-no`,
   },
   {
@@ -88,7 +88,7 @@ const PAGES = [
     noscriptHome: '結構工具箱/index.html',
     primary: [
       { label: '計算 Kzt', match: node => node.attrs.id === 'btnCalc' },
-      { label: '列印頁面結果', match: node => hasClass(node, 'mode-bar__report') },
+      { label: '列印／另存 PDF', match: node => hasClass(node, 'mode-bar__report') },
     ],
     firstEngineeringInput: 'topoType',
     collapsedIds: [],
@@ -108,7 +108,7 @@ const PAGES = [
     noscriptHome: null,
     primary: [
       { label: '反算鋼索索力', match: node => node.attrs.id === 'btnCalc' },
-      { label: '列印計算書', match: node => node.attrs.id === 'btnPrint' },
+      { label: '產生計算書', match: node => node.attrs.id === 'btnPrint' },
     ],
     firstEngineeringInput: 'effectiveLengthM',
     collapsedIds: ['btnImportJson', 'btnSaveProject', 'btnSaveDraft', 'btnLoadDraft', 'btnReset', 'jsonFile', 'jsonStatus'],

@@ -79,13 +79,13 @@
         <div data-details-project-profile></div>
       </details>
       <div class="mode-bar__actions" aria-label="牆專案存讀檔">
-        <button id="btnSaveWallProject" class="mode-bar__action" type="button" title="下載牆專案 JSON 檔">存檔</button>
-        <button id="btnLoadWallProject" class="mode-bar__action" type="button" title="讀取牆專案 JSON 檔">讀檔</button>
+        <button id="btnSaveWallProject" class="mode-bar__action" type="button" title="下載牆專案 JSON 檔">匯出案件 JSON</button>
+        <button id="btnLoadWallProject" class="mode-bar__action" type="button" title="讀取牆專案 JSON 檔">匯入案件 JSON</button>
         <button id="btnSaveWallDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
         <button id="btnLoadWallDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
         <input id="wallProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
       </div>
-      <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+      <button id="btnReport" class="mode-bar__report" type="button">產生計算書</button>
       <span id="wallProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
@@ -104,7 +104,7 @@
         </select>
       </div>
       <div class="form-group" data-ui="aligned-action">
-        <button id="btnApplyCase" class="mode-bar__report" type="button">套用案例</button>
+        <button id="btnApplyCase" class="mode-bar__report" type="button">載入範例</button>
       </div>
     </div>
     <div class="tool-toggle">
@@ -597,7 +597,7 @@
         <p class="hint detail-help" id="summaryModeNote">設計模式：依當前載重給出建議鋼筋配置；可切換至檢核模式核對既有配筋。</p>
         <div id="summaryTableHost"></div>
         <div data-ui="section-actions">
-          <button type="button" id="btnReport2" data-ui-button="report">📄 產生完整計算書</button>
+          <button type="button" id="btnReport2" data-ui-button="report">產生計算書</button>
         </div>
       </div>
 
@@ -631,10 +631,10 @@
       <div class="advanced-body">
         <div class="form-row" data-ui-space="flush">
           <div class="form-group" data-ui="aligned-action">
-            <button id="btnExportCase" class="mode-bar__report" type="button">匯出目前設定 JSON</button>
+            <button id="btnExportCase" class="mode-bar__report" type="button">匯出案件 JSON</button>
           </div>
           <div class="form-group" data-ui="aligned-action">
-            <button id="btnImportCase" class="mode-bar__report" type="button">匯入 JSON</button>
+            <button id="btnImportCase" class="mode-bar__report" type="button">匯入案件 JSON</button>
           </div>
         </div>
         <div class="form-group" data-ui-space="field">

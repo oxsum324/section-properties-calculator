@@ -123,14 +123,14 @@
 </header>
 <div class="container">
   <div class="case-bar page-only-tool-actions">
-    <button type="button" onclick="downloadSectionProject()">儲存案例 JSON</button>
-    <button type="button" onclick="document.getElementById('sectionJsonFile').click()">載入案例 JSON</button>
+    <button type="button" onclick="downloadSectionProject()">匯出案件 JSON</button>
+    <button type="button" onclick="document.getElementById('sectionJsonFile').click()">匯入案件 JSON</button>
     <input id="sectionJsonFile" type="file" accept="application/json,.json" hidden onchange="loadSectionProjectFile(event)">
     <span class="bar-sep" aria-hidden="true"></span>
-    <button type="button" onclick="copyResultsTSV()" title="複製為 Tab 分隔格式，可直接 Ctrl+V 貼入 Excel">📋 複製 Excel 表格 (TSV)</button>
-    <button type="button" onclick="copyResultsSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或通訊軟體">📝 複製報告摘要</button>
-    <button type="button" onclick="exportCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">📊 匯出 CSV</button>
-    <button type="button" onclick="copyShareLink()" title="將目前斷面尺寸編碼為分享網址">🔗 複製分享連結</button>
+    <button type="button" onclick="copyResultsTSV()" title="複製為 Tab 分隔格式，可直接 Ctrl+V 貼入 Excel">複製 Excel 表格 (TSV)</button>
+    <button type="button" onclick="copyResultsSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或通訊軟體">複製報告摘要</button>
+    <button type="button" onclick="exportCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">匯出 CSV</button>
+    <button type="button" onclick="copyShareLink()" title="將目前斷面尺寸編碼為分享網址">複製分享連結</button>
     <button type="button" onclick="addCurrentToComparison()" style="margin-left:auto;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將目前斷面加入下方方案並排比較表（最多 4 組）">⚖️ ➕ 加入方案比較</button>
   </div>
   <div class="tabs" id="tabBar"></div>
@@ -144,7 +144,7 @@
             <span style="font-size:0.75em;font-weight:500;color:var(--text-light);margin-left:6px;">2x 高解析工程標註｜左圖＋右參數表</span>
           </div>
           <div class="page-only-tool-actions" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button type="button" onclick="copyCanvasImage()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將斷面圖卡複製為圖片，可直接 Ctrl+V 貼入 Word 報告或簡報">📋 複製圖卡 (貼入報告)</button>
+            <button type="button" onclick="copyCanvasImage()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將斷面圖卡複製為圖片，可直接 Ctrl+V 貼入 Word 報告或簡報">複製圖卡 (貼入報告)</button>
             <button type="button" onclick="exportCanvasCardJPG()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:var(--hy-success-100);border-color:color-mix(in srgb, var(--hy-success) 45%, var(--bg-surface));color:var(--hy-success);" title="直接另存左圖＋右參數表之高解析度工程圖卡 JPG">↓ 另存圖卡 JPG</button>
           </div>
         </div>
@@ -158,8 +158,8 @@
             <button type="button" onclick="selectCoreResults()" title="僅勾選常用核心斷面性質 (A, W, Ix, Iy, Sx, Sy, Zx, Zy, rx, ry)" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;">★ 常用核心項</button>
             <button type="button" id="btnPickI" onclick="sendIxToOpener()" style="display:none;padding:5px 12px;border:none;background:var(--hy-navy);color:var(--fg-on-navy);border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">→ 導入至連續梁工具</button>
             <button type="button" onclick="exportJPG()" style="padding:5px 12px;border:none;background:var(--hy-success);color:var(--fg-on-navy);border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
-            <button type="button" onclick="exportPDF()" aria-label="計算書" style="padding:5px 12px;border:none;background:var(--hy-red-deep);color:var(--fg-on-navy);border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">📄 計算書</button>
-            <button type="button" onclick="exportPDF()" aria-label="📄 計算書" tabindex="-1" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;overflow:hidden;border:none;padding:0;">📄 計算書</button>
+            <button type="button" onclick="exportPDF()" aria-label="計算書" style="padding:5px 12px;border:none;background:var(--hy-red-deep);color:var(--fg-on-navy);border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">產生計算書</button>
+            <button type="button" onclick="exportPDF()" aria-label="📄 計算書" tabindex="-1" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;overflow:hidden;border:none;padding:0;">產生計算書</button>
           </div>
         </div>
         <div class="results-grid" id="results"><div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div></div>
@@ -173,7 +173,7 @@
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <button type="button" onclick="addCurrentToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">➕ 加入目前斷面</button>
-            <button type="button" onclick="copyComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">📋 複製比較表 (Excel)</button>
+            <button type="button" onclick="copyComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">複製比較表 (Excel)</button>
             <button type="button" onclick="clearComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;color:var(--hy-red-deep);">清空比較</button>
           </div>
         </div>

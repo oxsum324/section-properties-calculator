@@ -231,8 +231,8 @@
         <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
       </div>
       <div class="mode-bar__actions project-storage-bar" aria-label="梁專案存讀檔">
-        <button id="btnSaveBeamProject" class="mode-bar__action" type="button" title="下載梁專案 JSON 檔">存檔</button>
-        <button id="btnLoadBeamProject" class="mode-bar__action" type="button" title="讀取梁專案 JSON 檔">讀檔</button>
+        <button id="btnSaveBeamProject" class="mode-bar__action" type="button" title="下載梁專案 JSON 檔">匯出案件 JSON</button>
+        <button id="btnLoadBeamProject" class="mode-bar__action" type="button" title="讀取梁專案 JSON 檔">匯入案件 JSON</button>
         <button id="btnSaveBeamDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
         <button id="btnLoadBeamDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
         <input id="beamProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
@@ -253,7 +253,7 @@
     </div>
     <div class="tool-shell-actions" role="group" aria-label="主要動作">
       <button class="mode-bar__report btn-calc" type="button">開始計算</button>
-      <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+      <button id="btnReport" class="mode-bar__report" type="button">產生計算書</button>
     </div>
   </div>
 
@@ -375,7 +375,7 @@
               <option value="t-seismic">T 梁｜SMRF 耐震案例</option>
               <option value="l-deflection">L 梁｜撓度控制案例</option>
             </select>
-            <button id="btnApplyPreset" class="btn-secondary" type="button">套用案例</button>
+            <button id="btnApplyPreset" class="btn-secondary" type="button">載入範例</button>
           </div>
           <p class="hint">快速帶入常見梁設計情境，便於手機、平板與桌機上演示或比對。</p>
         </div>
@@ -656,8 +656,8 @@
       <div class="card subpanel" data-panel="summary">
         <h2>輸出</h2>
         <button class="btn-secondary btn-calc" type="button">開始計算</button>
-        <button id="btnReport2" class="btn-secondary" type="button">📄 匯出計算書</button>
-        <button id="btnPrintReport2" class="btn-secondary" type="button">🖨️ 直接列印計算書</button>
+        <button id="btnReport2" class="btn-secondary" type="button">產生計算書</button>
+        <button id="btnPrintReport2" class="btn-secondary" type="button">列印／另存 PDF</button>
         <button id="btnCopyJson" class="btn-secondary" type="button">複製輸入 JSON</button>
         <p class="hint">計算書內容會依目前「設計／檢核」模式自動切換群組與標題；預覽視窗可下載文字備查版 TXT，或列印／存成 PDF。</p>
       </div>
@@ -665,7 +665,7 @@
       <!-- ⑤ 輸出（次要）：置於輸入欄末端；計算操作面板執行期接在本卡之後，不推擠首屏 -->
       <div class="card mode-bar tool-shell-dock">
         <span class="tool-shell-dock__label">其他輸出</span>
-        <button id="btnPrintReport" class="mode-bar__report secondary" type="button">🖨️ 直接列印計算書</button>
+        <button id="btnPrintReport" class="mode-bar__report secondary" type="button">列印／另存 PDF</button>
       </div>
     </div>
 

@@ -431,11 +431,11 @@
           </div>
           <div class="preset-grid" style="margin-top:10px;">
             <button id="btnSaveDefaults" type="button" class="preset-btn">設為目前預設值<small>保存目前載重、搜尋範圍、細部參數與土層</small></button>
-            <button id="btnResetDefaults" type="button" class="preset-btn secondary">還原內建預設值<small>清除自訂預設，回到系統示範值</small></button>
+            <button id="btnResetDefaults" type="button" class="preset-btn secondary">重設預設值<small>清除自訂預設，回到系統示範值</small></button>
           </div>
           <div class="preset-grid" style="margin-top:10px;">
-            <button id="btnSaveProject" type="button" class="preset-btn secondary">存檔 JSON<small>下載目前整組輸入，可帶到其他瀏覽器回讀</small></button>
-            <button id="btnLoadProject" type="button" class="preset-btn secondary">讀取 JSON<small>回復先前下載的單樁案例檔</small></button>
+            <button id="btnSaveProject" type="button" class="preset-btn secondary">匯出案件 JSON<small>下載目前整組輸入，可帶到其他瀏覽器回讀</small></button>
+            <button id="btnLoadProject" type="button" class="preset-btn secondary">匯入案件 JSON<small>回復先前下載的單樁案例檔</small></button>
             <button id="btnSaveDraft" type="button" class="preset-btn secondary">暫存<small>保存目前案例到此瀏覽器</small></button>
             <button id="btnLoadDraft" type="button" class="preset-btn secondary">讀取暫存<small>回復此瀏覽器最近暫存案例</small></button>
             <input id="projectFile" type="file" accept=".json,application/json" hidden>
@@ -562,9 +562,9 @@
         </div>
         <p class="hint">土名後可加「專案 fs, 專案 qb, 試樁或地工文件依據」，阻力單位 tf/m²。岩層與卵礫石的樁身、樁端分別取專案值；岩礫層可將未量測的 N、c、φ 留空；只指定 fs 時可將 qb 留空。卵礫石端承原則上限為打入 1800、鑽掘 750 tf/m²。 表 5.3-2 以打入上 4D／下 1D、鑽掘上 1D／下 1D 的完整砂層求平均 N，再取 50 上限。</p>
         <div class="form-grid">
-          <button id="btnCalc" type="button">重新試算</button>
-          <button id="btnSample" type="button" class="secondary">載入示範資料</button>
-          <button id="btnReport" type="button" class="secondary">產生計算書</button>
+          <button id="btnCalc" type="button" class="secondary">重新試算</button>
+          <button id="btnSample" type="button" class="secondary">載入範例</button>
+          <button id="btnReport" type="button">產生計算書</button>
           <span id="reportStatus" class="report-status" role="status" aria-live="polite" hidden></span>
         </div>
       </div>

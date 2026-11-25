@@ -121,8 +121,8 @@
       </div>
     </details>
     <div class="case-actions page-only-tool-actions" aria-label="案例存取">
-      <button type="button" class="btn-case" onclick="exportRetrofitJSON()">本地存檔 JSON</button>
-      <button type="button" class="btn-case" onclick="document.getElementById('retrofitJsonFile').click()">讀取 JSON</button>
+      <button type="button" class="btn-case" onclick="exportRetrofitJSON()">匯出案件 JSON</button>
+      <button type="button" class="btn-case" onclick="document.getElementById('retrofitJsonFile').click()">匯入案件 JSON</button>
       <input id="retrofitJsonFile" type="file" accept="application/json,.json" hidden onchange="importRetrofitJSONFile(this)">
       <span id="caseStatus" class="case-status" data-details-refresh role="status" aria-live="polite"></span>
     </div>
@@ -320,7 +320,7 @@
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border);">
             <span style="font-size:1.05em; font-weight:700; color:var(--primary);">計算結果（梁）</span>
-            <button class="btn-report" onclick="exportBeamReport()">📄 計算書</button>
+            <button class="btn-report" onclick="exportBeamReport()">產生計算書</button>
           </div>
           <div id="b-results">
             <div class="result-item"><span class="label">請輸入參數後點擊計算</span></div>
@@ -549,7 +549,7 @@
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border);">
             <span style="font-size:1.05em; font-weight:700; color:var(--primary);">計算結果（柱）</span>
-            <button class="btn-report" onclick="exportColReport()">📄 計算書</button>
+            <button class="btn-report" onclick="exportColReport()">產生計算書</button>
           </div>
           <div id="c-results">
             <div class="result-item"><span class="label">請輸入參數後點擊計算</span></div>

@@ -128,13 +128,13 @@
 <div class="container">
 
   <div class="case-bar page-only-tool-actions">
-    <button class="action-chip-btn" type="button" onclick="exportCompositeJSON()">💾 本地存檔 JSON</button>
-    <button class="action-chip-btn" type="button" onclick="document.getElementById('compositeJsonFile').click()">📂 讀取 JSON</button>
+    <button class="action-chip-btn" type="button" onclick="exportCompositeJSON()">匯出案件 JSON</button>
+    <button class="action-chip-btn" type="button" onclick="document.getElementById('compositeJsonFile').click()">匯入案件 JSON</button>
     <input type="file" id="compositeJsonFile" accept=".json,application/json" hidden onchange="importCompositeJSONFile(this)">
     <span class="bar-sep" aria-hidden="true"></span>
-    <button class="action-chip-btn" type="button" onclick="copyCompositeTSV()" title="複製為 Tab 分隔格式，可直接 Ctrl+V 貼入 Excel">📋 複製 Excel 表格 (TSV)</button>
-    <button class="action-chip-btn" type="button" onclick="copyCompositeSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或審查意見">📝 複製報告摘要</button>
-    <button class="action-chip-btn" type="button" onclick="exportCompositeCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">📊 匯出 CSV</button>
+    <button class="action-chip-btn" type="button" onclick="copyCompositeTSV()" title="複製為 Tab 分隔格式，可直接 Ctrl+V 貼入 Excel">複製 Excel 表格 (TSV)</button>
+    <button class="action-chip-btn" type="button" onclick="copyCompositeSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或審查意見">複製報告摘要</button>
+    <button class="action-chip-btn" type="button" onclick="exportCompositeCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">匯出 CSV</button>
     <button class="action-chip-btn" type="button" onclick="addCompositeToComparison()" style="margin-left:auto;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將目前補強方案加入下方並排比較表（最多 4 組）">⚖️ ➕ 加入方案比較</button>
     <span class="case-status" id="caseStatus" role="status" aria-live="polite"></span>
   </div>
@@ -237,7 +237,7 @@
             <span style="font-size:0.75em;font-weight:500;color:var(--text-light);margin-left:6px;">2x 高解析工程標註｜左合成圖＋右增益參數表</span>
           </div>
           <div class="page-only-tool-actions" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button type="button" onclick="copyCompositeCanvasImage()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將合成斷面圖卡複製為圖片，可直接 Ctrl+V 貼入 Word 報告或簡報">📋 複製圖卡 (貼入報告)</button>
+            <button type="button" onclick="copyCompositeCanvasImage()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將合成斷面圖卡複製為圖片，可直接 Ctrl+V 貼入 Word 報告或簡報">複製圖卡 (貼入報告)</button>
             <button type="button" onclick="exportCompositeJPG()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:var(--hy-success-100);border-color:#6ee7b7;color:var(--hy-success);" title="另存左合成圖＋右補強性質參數表之高解析度工程圖卡 JPG">↓ 另存圖卡 JPG</button>
           </div>
         </div>
@@ -257,7 +257,7 @@
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
             <button type="button" class="action-chip-btn page-only-tool-actions" onclick="addCompositeToComparison()" style="padding:5px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">➕ 加入比較</button>
-            <button class="btn-report" onclick="exportReport()">📄 計算書</button>
+            <button class="btn-report" onclick="exportReport()">產生計算書</button>
           </div>
         </div>
         <div class="results-grid" id="results">
@@ -276,7 +276,7 @@
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <button type="button" onclick="addCompositeToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">➕ 加入目前方案</button>
-            <button type="button" onclick="copyCompositeComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">📋 複製比較表 (Excel)</button>
+            <button type="button" onclick="copyCompositeComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">複製比較表 (Excel)</button>
             <button type="button" onclick="clearCompositeComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;color:var(--hy-red-deep);">清空比較</button>
           </div>
         </div>

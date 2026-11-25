@@ -82,9 +82,9 @@
         <button id="openSonReb" type="button" aria-haspopup="dialog">同測區 SonReb 校正與驗證</button>
         <button id="btnReadConfirmed" type="button">明確讀取同目錄已確認規格</button>
         <button id="btnCalc" class="primary" type="button">重新計算</button>
-        <button id="btnJson" type="button">下載 JSON</button>
-        <button id="btnImportJson" type="button">讀取案例 JSON</button>
-        <button id="btnReset" type="button">恢復示例</button>
+        <button id="btnJson" type="button">匯出案件 JSON</button>
+        <button id="btnImportJson" type="button">匯入案件 JSON</button>
+        <button id="btnReset" type="button">重設預設值</button>
         <input id="jsonFile" type="file" accept="application/json,.json" hidden>
       </div>
       <p class="muted">只有按下按鈕才會請求固定路徑 <code>concrete-strength-ndt-confirmed.json</code>；冷開不探測檔案。strict closed schema 需六項完整確認聲明、各自來源及整體聲明來源；未知欄位、缺欄、未確認或缺來源時整份拒絕。載入代表使用者提供聲明，不代表外部核驗，也不改變本工具 assist 狀態。</p>
@@ -143,7 +143,7 @@
 
     <section class="card">
       <h2>內部審閱計算書</h2>
-      <div class="actions case-actions"><label>報告內容<select id="reportMode"><option value="summary">摘要</option><option value="detailed" selected>詳細</option></select></label><button id="btnPrint" type="button">列印計算書（內部審閱）</button><button id="repDownloadCurrentText" type="button">下載文字備查 TXT</button></div>
+      <div class="actions case-actions"><label>報告內容<select id="reportMode"><option value="summary">摘要</option><option value="detailed" selected>詳細</option></select></label><button id="btnPrint" type="button">產生計算書（內部審閱）</button><button id="repDownloadCurrentText" type="button">下載文字備查 TXT</button></div>
       <div id="reportPreview">尚未產生計算結果。</div>
     </section>
   </main>

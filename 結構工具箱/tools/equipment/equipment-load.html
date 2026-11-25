@@ -103,7 +103,7 @@
 </head>
 <body class="local-quick-output-page" data-family="local-quick">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
-<div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
+<div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header class="tool-shell-header">
   <h1>設備局部荷重 <span class="badge-v">V0.4 局部正式檢核</span></h1>
   <p>設備重量、平均或矩形四支點偏心反力、接觸壓、混凝土承壓、RC 穿孔剪力與鋼板分散厚度 ｜ 單位：m, tf, tf/m²</p>
@@ -137,12 +137,12 @@
       </details>
     </div>
     <div class="case-actions" aria-label="案例管理">
-      <button class="btn-secondary" id="btnSaveProject" type="button">存檔 JSON</button>
-      <button class="btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
+      <button class="btn-secondary" id="btnSaveProject" type="button">匯出案件 JSON</button>
+      <button class="btn-secondary" id="btnImportJson" type="button">匯入案件 JSON</button>
       <input class="json-file-input" id="jsonFile" type="file" accept="application/json,.json">
       <button class="btn-secondary" id="btnSaveDraft" type="button">暫存</button>
       <button class="btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
-      <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
+      <button class="btn-secondary" id="btnReset" type="button">重設預設值</button>
       <div class="muted json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</div>
     </div>
   </div>
@@ -363,8 +363,8 @@
         </details>
         <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算設備局部荷重</button>
-          <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
-          <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
+          <button class="btn-print" id="btnPrint" type="button">產生計算書</button>
+          <button class="btn-secondary" id="btnJson" type="button">匯出計算來源 JSON</button>
         </div>
       </div>
       <details class="card collapsible-details page-only-report-status" id="quickReadinessDetails">

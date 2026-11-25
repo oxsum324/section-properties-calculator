@@ -55,11 +55,11 @@
       </div>
       <div class="case-actions">
         <button class="btn btn-secondary" type="button" id="openPlate" aria-haspopup="dialog">多輪與腳位位置分析</button>
-        <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
-        <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveProject" type="button">匯出案件 JSON</button>
+        <button class="btn btn-secondary" id="btnImportJson" type="button">匯入案件 JSON</button>
         <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
         <button class="btn btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
-        <button class="btn btn-danger" id="btnReset" type="button">恢復示例</button>
+        <button class="btn btn-danger" id="btnReset" type="button">重設預設值</button>
         <input id="jsonFile" type="file" accept="application/json,.json" hidden>
         <span class="json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</span>
       </div>
@@ -96,8 +96,8 @@
           <div class="warning-box">本頁檢核的是均質彈性地坪版之載重彎拉應力，不是地質承載力或沉陷分析。疲勞、接縫傳力與沉陷不在本頁範圍；溫度翹曲、有限版尺寸、空洞、非線性接觸與配筋亦須另行檢核。</div>
           <div class="output-actions">
             <button class="btn btn-primary" id="btnCalc" type="button">計算 Westergaard 應力</button>
-            <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
-            <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
+            <button class="btn btn-secondary" id="btnPrint" type="button">產生計算書</button>
+            <button class="btn btn-secondary" id="btnJson" type="button">匯出計算來源 JSON</button>
             <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
           </div>
         </section>

@@ -65,11 +65,11 @@
       <details class="tool-shell-case__more">
       <summary>案件存讀檔與共用表頭</summary>
       <div class="case-actions project-storage-bar">
-        <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
-        <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveProject" type="button">匯出案件 JSON</button>
+        <button class="btn btn-secondary" id="btnImportJson" type="button">匯入案件 JSON</button>
         <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
         <button class="btn btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
-        <button class="btn btn-danger" id="btnReset" type="button">恢復示例</button>
+        <button class="btn btn-danger" id="btnReset" type="button">重設預設值</button>
         <input id="jsonFile" type="file" accept="application/json,.json" hidden>
         <span class="json-status" id="jsonStatus" role="status">JSON 可用於保存與回讀本頁案例。</span>
       </div>
@@ -81,7 +81,7 @@
         <!-- ② 輸入：主要動作只留反算與計算書（桌機在表單上方，手機固定於視窗底部） -->
         <div class="tool-shell-actions" role="group" aria-label="主要動作">
           <button class="btn btn-primary" id="btnCalc" type="button">反算鋼索索力</button>
-          <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
+          <button class="btn btn-secondary" id="btnPrint" type="button">產生計算書</button>
         </div>
         <section class="card">
           <h2 class="section-title">① 鋼索與量測基準</h2>
@@ -125,7 +125,7 @@
           <h2 class="section-title">④ 計算與輸出</h2>
           <div class="warning-box">本頁只反算現況索力，不檢核鋼索強度、疲勞、錨頭、夾具、端部滑移、腐蝕斷絲、施工張拉程序或整體結構安全。若模型確認未勾選、諧波不一致或有阻尼器，結果僅供人工複核，應改採包含幾何與彎曲勁度的專案分析或直接量測。</div>
           <div class="output-actions">
-            <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
+            <button class="btn btn-secondary" id="btnJson" type="button">匯出計算來源 JSON</button>
             <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
           </div>
           <p class="json-status" role="status" data-json-status="output"></p>
