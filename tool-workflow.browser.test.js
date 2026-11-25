@@ -9,6 +9,7 @@ const { spawn, execFileSync } = require('node:child_process');
 const readline = require('node:readline/promises');
 const ROOT = __dirname;
 const manifest = require('./結構工具箱/tools/tool-workflow.manifest.json');
+const formalTools = require('./結構工具箱/tools/formal-tools.manifest.json').tools;
 const argument = name => { const index = process.argv.indexOf(name); return index < 0 ? '' : process.argv[index + 1] || ''; };
 const normalizeKey = value => '/' + value.replace(/^\//, '').trim();
 const slug = key => key.replace(/^\//, '');
@@ -278,6 +279,16 @@ async function main() {
         await settle(page);
         if (tool.adapter === 'native-react') await page.locator('.app-shell').waitFor({ state: 'visible' });
         else await page.locator(`[data-hy-workflow="${tool.key}"]`).waitFor({ state: 'visible', timeout: 10000 });
+        if (tool.key === '/seismic-appendage') {
+          const { hostImportance } = formalTools.find(entry => entry.route === tool.key).goldenCases
+            .find(golden => golden.id === 'default-unreinforced-masonry-appendage').inputs;
+          await page.locator('#hostImportance').selectOption(hostImportance);
+        }
+        if (tool.key === '/seismic-misc') {
+          const { miscT } = formalTools.find(entry => entry.route === tool.key).goldenCases
+            .find(golden => golden.id === 'default-similar-misc-storage-rack').inputs;
+          await page.locator('#miscT').fill(miscT);
+        }
         check('probe-installed', record.probes.some(probe => probe.names.length > 0), record.probes);
         await capture('initial');
 
@@ -301,7 +312,7 @@ async function main() {
           await settle(page);
           check('decking-returns-to-editable-inputs', await input.isVisible());
         }
-        if (['/rc-beam', '/rc-column'].includes(tool.key)) {
+        if (['/rc-beam', '/rc-column', '/rc-wall', '/rc-shear-wall'].includes(tool.key)) {
           await page.locator('.section-tabs button[data-tab="geom"]').click();
           await settle(page);
         }
