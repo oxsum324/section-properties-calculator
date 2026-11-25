@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
              font-size:0.6em; font-weight:700; vertical-align:middle; background:#0b7285; color:#fff; }
@@ -94,6 +95,7 @@
   }
   @media print {
     .page-only-report-status,
+    .page-only-tool-actions,
     .case-actions { display:none !important; }
   }
 </style>
@@ -122,11 +124,16 @@
 
 <div class="container" role="main">
   <div class="card mode-bar print-meta">
-    <strong class="mode-bar__label">計畫資訊：</strong>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo" class="w-no" placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
+      <details class="collapsible-details project-details page-only-tool-actions" id="quickProjectDetails">
+        <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">選填</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo" class="w-no" placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
+        </div>
+        <div data-details-project-profile></div>
+      </details>
     </div>
     <div class="case-actions" aria-label="案例管理">
       <button class="btn-secondary" id="btnSaveProject" type="button">存檔 JSON</button>
@@ -255,9 +262,14 @@
 
       <div class="card">
         <h2>③ 材料與厚度檢核</h2>
-        <div class="basis-note">
-          混凝土承壓與穿孔剪力為初判基準；若新欄位填 0，該項視為未啟用。靠邊、開孔、配筋與動力設備仍需正式構件檢核。
-        </div>
+        <details class="collapsible-details page-only-tool-actions" id="equipmentMaterialNotes">
+          <summary><span class="details-title">材料檢核適用說明</span><span class="details-summary-badge">局部初判</span></summary>
+          <div class="details-body">
+            <div class="basis-note">
+              混凝土承壓與穿孔剪力為初判基準；若新欄位填 0，該項視為未啟用。靠邊、開孔、配筋與動力設備仍需正式構件檢核。
+            </div>
+          </div>
+        </details>
         <div class="form-row">
           <div class="form-group">
             <label>混凝土 f'c (kgf/cm²)</label>
@@ -312,41 +324,54 @@
             <input type="number" id="steelFy" value="2450" step="50" min="0">
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>混凝土承壓 phi</label>
-            <input type="number" id="concretePhiBearing" value="0.65" step="0.05" min="0">
+        <details class="collapsible-details" id="equipmentFactorsDetails">
+          <summary><span class="details-title">強度折減係數</span><span class="details-summary-badge" data-details-value="#concretePhiBearing" data-details-prefix="φc = ">φc = 0.65</span></summary>
+          <div class="details-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>混凝土承壓 phi</label>
+                <input type="number" id="concretePhiBearing" value="0.65" step="0.05" min="0">
+              </div>
+              <div class="form-group">
+                <label>穿孔剪力 phi</label>
+                <input type="number" id="concretePhiShear" value="0.75" step="0.05" min="0">
+                <label style="margin-top:8px;">鋼板彎曲 phi</label>
+                <input type="number" id="steelPhiFlexure" value="0.90" step="0.05" min="0">
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>穿孔剪力 phi</label>
-            <input type="number" id="concretePhiShear" value="0.75" step="0.05" min="0">
-            <label style="margin-top:8px;">鋼板彎曲 phi</label>
-            <input type="number" id="steelPhiFlexure" value="0.90" step="0.05" min="0">
-          </div>
-        </div>
+        </details>
       </div>
 
       <div class="card action-card">
         <h2>④ 計算與輸出</h2>
-        <div class="basis-note">所有輸入與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>計算書模式</label>
-            <select id="reportMode">
-              <option value="detailed">詳算式（公式逐步）</option>
-              <option value="summary">簡易結果（摘要）</option>
-            </select>
+        <details class="collapsible-details page-only-tool-actions" id="quickReportModeDetails">
+          <summary><span class="details-title">計算書模式</span><span class="details-summary-badge" data-details-value="#reportMode">詳算式</span></summary>
+          <div class="details-body">
+            <div class="basis-note">所有輸入與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>計算書模式</label>
+                <select id="reportMode">
+                  <option value="detailed">詳算式（公式逐步）</option>
+                  <option value="summary">簡易結果（摘要）</option>
+                </select>
+              </div>
+            </div>
           </div>
-        </div>
+        </details>
         <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算設備局部荷重</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
           <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
         </div>
       </div>
-      <div class="card page-only-report-status">
-        <div class="report-readiness blocked" id="equipmentReportReadiness" role="status" aria-live="polite"></div>
-      </div>
+      <details class="card collapsible-details page-only-report-status" id="quickReadinessDetails">
+        <summary><span class="details-title">產報前閱讀狀態</span><span class="details-summary-badge" data-details-value=".report-readiness-badge">尚未計算</span></summary>
+        <div class="details-body">
+          <div class="report-readiness blocked" id="equipmentReportReadiness" role="status" aria-live="polite" data-details-refresh></div>
+        </div>
+      </details>
     </div>
 
     <div class="equipment-result-stack">
@@ -1136,6 +1161,7 @@ ${body}
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../../../tool-page-a11y.js" defer></script>
+<script src="../../assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>
 </html>

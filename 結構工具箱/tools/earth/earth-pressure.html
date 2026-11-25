@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
     background:#fef3c7; color:#92400e; font-size:0.58em; font-weight:800; vertical-align:middle; }
@@ -34,6 +35,7 @@
     padding:8px 12px;
     justify-content:center;
   }
+  .input-table-scroll { overflow-x:auto; }
   .action-card { border-top:3px solid var(--primary); }
   .output-actions { margin-top:10px; }
   .output-actions .btn-calc,
@@ -128,6 +130,7 @@
   }
   @media print {
     .page-only-report-status,
+    .page-only-tool-actions,
     .case-actions { display:none !important; }
   }
 </style>
@@ -154,11 +157,16 @@
 
 <div class="container" role="main">
   <div class="card mode-bar print-meta">
-    <strong class="mode-bar__label">計畫資訊：</strong>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo" class="w-no" placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
+      <details class="collapsible-details project-details page-only-tool-actions" id="quickProjectDetails">
+        <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">選填</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo" class="w-no" placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
+        </div>
+        <div data-details-project-profile></div>
+      </details>
     </div>
     <div class="case-actions" aria-label="案例管理">
       <button class="btn-secondary" id="btnSaveProject" type="button">存檔 JSON</button>
@@ -172,19 +180,21 @@
 
   <div class="main-layout earth-shell">
     <div class="earth-form-stack">
-      <div class="card">
-        <h2>適用範圍</h2>
-        <div class="scope-box">
-          <strong>本頁是土壓與簡化穩定初估，不是完整擋土牆設計。</strong><br>
-          可依本次條件採 Rankine 主動／靜止土壓、Coulomb 主動土壓、Mononobe-Okabe 地震主動土壓，或分層砂／黏土 Rankine 有效應力路線；並可加入均佈超載、地下水壓與簡化牆體穩定檢核。
-          排水與滲流場、被動土壓動員位移、牆身／趾踵版結構配筋及正式施工支撐分析仍不在本頁範圍。
-          <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.7</span>
-            <span id="coreVersion">Core v—</span>
-            <span>正式核算 / 局部</span>
+      <details class="card collapsible-details page-only-tool-actions" id="quickScopeDetails">
+        <summary><span class="details-title">適用範圍</span><span class="details-summary-badge">擋土與穩定</span></summary>
+        <div class="details-body">
+          <div class="scope-box">
+            <strong>本頁是土壓與簡化穩定初估，不是完整擋土牆設計。</strong><br>
+            可依本次條件採 Rankine 主動／靜止土壓、Coulomb 主動土壓、Mononobe-Okabe 地震主動土壓，或分層砂／黏土 Rankine 有效應力路線；並可加入均佈超載、地下水壓與簡化牆體穩定檢核。
+            排水與滲流場、被動土壓動員位移、牆身／趾踵版結構配筋及正式施工支撐分析仍不在本頁範圍。
+            <div class="tool-meta" aria-label="工具版本與責任邊界">
+              <span>頁面 V0.7</span>
+              <span id="coreVersion">Core v—</span>
+              <span>正式核算 / 局部</span>
+            </div>
           </div>
         </div>
-      </div>
+      </details>
 
       <div class="card">
         <h2>① 土壓模型與假設</h2>
@@ -268,76 +278,82 @@
         </div>
       </div>
 
-      <div class="card">
-        <h2>②b 進階土壓理論（選用）</h2>
-        <div class="form-row">
-          <div class="form-group">
-            <label>土壓理論</label>
-            <select id="pressureTheory">
-              <option value="rankine">Rankine（水平背填、垂直光滑牆背）</option>
-              <option value="coulomb">Coulomb（含牆摩擦 δ、牆背傾角 θ、背填傾角 β）</option>
-            </select>
+      <details class="card collapsible-details" id="earthTheoryDetails">
+        <summary><span class="details-title">②b 進階土壓理論（選用）</span><span class="details-summary-badge" data-details-value="#pressureTheory">Rankine</span></summary>
+        <div class="details-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>土壓理論</label>
+              <select id="pressureTheory">
+                <option value="rankine">Rankine（水平背填、垂直光滑牆背）</option>
+                <option value="coulomb">Coulomb（含牆摩擦 δ、牆背傾角 θ、背填傾角 β）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>牆摩擦角 δ (deg)</label>
+              <input type="number" id="deltaDeg" value="0" step="1" min="0">
+            </div>
           </div>
-          <div class="form-group">
-            <label>牆摩擦角 δ (deg)</label>
-            <input type="number" id="deltaDeg" value="0" step="1" min="0">
+          <div class="form-row">
+            <div class="form-group">
+              <label>背填傾角 β，自水平 (deg)</label>
+              <input type="number" id="betaDeg" value="0" step="1" min="0">
+            </div>
+            <div class="form-group">
+              <label>牆背傾角 θ，自鉛直 (deg)</label>
+              <input type="number" id="thetaDeg" value="0" step="1" min="-30" max="30">
+            </div>
           </div>
+          <div class="form-row">
+            <div class="form-group" style="flex-basis:100%;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+                <input type="checkbox" id="seismicEnable" style="width:auto;"> 加做地震時主動土壓（Mononobe-Okabe）
+              </label>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>地震水平係數 k<sub>h</sub></label>
+              <input type="number" id="kh" value="0.15" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+              <label>地震垂直係數 k<sub>v</sub></label>
+              <input type="number" id="kv" value="0.00" step="0.01">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>地震抗滑需求 FS</label>
+              <input type="number" id="fsSlideReqSeismic" value="1.20" step="0.05" min="0.1">
+            </div>
+            <div class="form-group">
+              <label>地震抗傾覆需求 FS</label>
+              <input type="number" id="fsOverReqSeismic" value="1.20" step="0.05" min="0.1">
+            </div>
+          </div>
+          <div class="scope-box">Coulomb 僅適用主動狀態（受約束 / 靜止仍採 Rankine K<sub>0</sub>），水平分量計入穩定。地震採 Mononobe-Okabe：靜態土壓作用於 H/3、動態增量作用於 0.6H（Seed-Whitman），kh=kv=0 時退化為靜態 Coulomb。</div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>背填傾角 β，自水平 (deg)</label>
-            <input type="number" id="betaDeg" value="0" step="1" min="0">
-          </div>
-          <div class="form-group">
-            <label>牆背傾角 θ，自鉛直 (deg)</label>
-            <input type="number" id="thetaDeg" value="0" step="1" min="-30" max="30">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group" style="flex-basis:100%;">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
-              <input type="checkbox" id="seismicEnable" style="width:auto;"> 加做地震時主動土壓（Mononobe-Okabe）
-            </label>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>地震水平係數 k<sub>h</sub></label>
-            <input type="number" id="kh" value="0.15" step="0.01" min="0">
-          </div>
-          <div class="form-group">
-            <label>地震垂直係數 k<sub>v</sub></label>
-            <input type="number" id="kv" value="0.00" step="0.01">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>地震抗滑需求 FS</label>
-            <input type="number" id="fsSlideReqSeismic" value="1.20" step="0.05" min="0.1">
-          </div>
-          <div class="form-group">
-            <label>地震抗傾覆需求 FS</label>
-            <input type="number" id="fsOverReqSeismic" value="1.20" step="0.05" min="0.1">
-          </div>
-        </div>
-        <div class="scope-box">Coulomb 僅適用主動狀態（受約束 / 靜止仍採 Rankine K<sub>0</sub>），水平分量計入穩定。地震採 Mononobe-Okabe：靜態土壓作用於 H/3、動態增量作用於 0.6H（Seed-Whitman），kh=kv=0 時退化為靜態 Coulomb。</div>
-      </div>
+      </details>
 
-      <div class="card">
-        <style>#layerTable th,#layerTable td{border:1px solid #cbd5e1;padding:4px 6px;text-align:center;font-size:0.82em;}#layerTable input,#layerTable select{width:100%;box-sizing:border-box;font-size:0.95em;padding:2px 3px;}#layerTable .lyr-del{cursor:pointer;color:#b91c1c;background:none;border:none;font-weight:700;}</style>
-        <h2>②c 分層土（選用）</h2>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
-          <input type="checkbox" id="layeredMode" style="width:auto;"> 啟用分層土：逐層砂 / 黏土 Rankine 主動土壓（覆蓋單層與 Coulomb / 地震）
-        </label>
-        <div id="layeredInputs" style="display:none;">
-          <table id="layerTable" style="width:100%;border-collapse:collapse;">
-            <thead><tr><th>#</th><th>土性</th><th>層厚 h (m)</th><th>γ (tf/m³)</th><th>φ (°)</th><th>c (tf/m²)</th><th></th></tr></thead>
-            <tbody></tbody>
-          </table>
-          <button type="button" id="btnAddLayer" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一層</button>
-          <div class="scope-box" style="margin-top:8px;">由頂面往下逐層輸入；各層厚度總和須等於擋土高度 H。砂土 c=0；黏土可填 c（φ 可為 0 代表不排水）。超載併入各層 σ<sub>v</sub>，地下水以有效應力＋靜水壓處理，黏土頂部張力自動截斷為裂縫。分層模式不套用 Coulomb 與地震 M-O。</div>
+      <details class="card collapsible-details" id="earthLayeredDetails">
+        <summary><span class="details-title">②c 分層土（選用）</span><span class="details-summary-badge" data-details-value="#layeredMode">未啟用</span></summary>
+        <div class="details-body">
+          <style>#layerTable th,#layerTable td{border:1px solid #cbd5e1;padding:4px 6px;text-align:center;font-size:0.82em;}#layerTable input,#layerTable select{width:100%;box-sizing:border-box;font-size:0.95em;padding:2px 3px;}#layerTable .lyr-del{cursor:pointer;color:#b91c1c;background:none;border:none;font-weight:700;}</style>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
+            <input type="checkbox" id="layeredMode" style="width:auto;"> 啟用分層土：逐層砂 / 黏土 Rankine 主動土壓（覆蓋單層與 Coulomb / 地震）
+          </label>
+          <div id="layeredInputs" style="display:none;">
+            <div class="input-table-scroll" tabindex="0" role="region" aria-label="分層土資料表，可左右捲動">
+              <table id="layerTable" style="width:100%;border-collapse:collapse;">
+                <thead><tr><th>#</th><th>土性</th><th>層厚 h (m)</th><th>γ (tf/m³)</th><th>φ (°)</th><th>c (tf/m²)</th><th></th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <button type="button" id="btnAddLayer" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一層</button>
+            <div class="scope-box" style="margin-top:8px;">由頂面往下逐層輸入；各層厚度總和須等於擋土高度 H。砂土 c=0；黏土可填 c（φ 可為 0 代表不排水）。超載併入各層 σ<sub>v</sub>，地下水以有效應力＋靜水壓處理，黏土頂部張力自動截斷為裂縫。分層模式不套用 Coulomb 與地震 M-O。</div>
+          </div>
         </div>
-      </div>
+      </details>
 
       <div class="card">
         <h2>③ 簡化穩定參數</h2>
@@ -393,25 +409,33 @@
 
       <div class="card action-card">
         <h2>④ 計算與輸出</h2>
-        <div class="scope-box">所有模型假設、土壓、地下水與穩定參數確認後，再執行計算、列印計算書或下載本案 JSON。</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>計算書模式</label>
-            <select id="reportMode">
-              <option value="detailed">詳算式（公式逐步）</option>
-              <option value="summary">簡易結果（摘要）</option>
-            </select>
+        <details class="collapsible-details page-only-tool-actions" id="quickReportModeDetails">
+          <summary><span class="details-title">計算書模式</span><span class="details-summary-badge" data-details-value="#reportMode">詳算式</span></summary>
+          <div class="details-body">
+            <div class="scope-box">所有模型假設、土壓、地下水與穩定參數確認後，再執行計算、列印計算書或下載本案 JSON。</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>計算書模式</label>
+                <select id="reportMode">
+                  <option value="detailed">詳算式（公式逐步）</option>
+                  <option value="summary">簡易結果（摘要）</option>
+                </select>
+              </div>
+            </div>
           </div>
-        </div>
+        </details>
         <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算土壓初估</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
           <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
         </div>
       </div>
-      <div class="card page-only-report-status">
-        <div class="report-readiness blocked" id="earthReportReadiness" role="status" aria-live="polite"></div>
-      </div>
+      <details class="card collapsible-details page-only-report-status" id="quickReadinessDetails">
+        <summary><span class="details-title">產報前閱讀狀態</span><span class="details-summary-badge" data-details-value=".report-readiness-badge">尚未計算</span></summary>
+        <div class="details-body">
+          <div class="report-readiness blocked" id="earthReportReadiness" role="status" aria-live="polite" data-details-refresh></div>
+        </div>
+      </details>
     </div>
 
     <div class="earth-result-stack">
@@ -1426,6 +1450,7 @@ ${body}
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../../../tool-page-a11y.js" defer></script>
+<script src="../../assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>
 </html>

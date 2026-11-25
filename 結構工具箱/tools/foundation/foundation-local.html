@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
              font-size:0.6em; font-weight:700; vertical-align:middle; background:#a16207; color:#fff; }
@@ -33,6 +34,7 @@
     padding:8px 12px;
     justify-content:center;
   }
+  .input-table-scroll { overflow-x:auto; }
   .action-card { border-top:3px solid var(--primary); }
   .output-actions { margin-top:10px; }
   .output-actions .btn-calc,
@@ -100,6 +102,7 @@
   }
   @media print {
     .page-only-report-status,
+    .page-only-tool-actions,
     .case-actions { display:none !important; }
   }
 </style>
@@ -124,11 +127,16 @@
 
 <div class="container" role="main">
   <div class="card mode-bar print-meta">
-    <strong class="mode-bar__label">計畫資訊：</strong>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo" class="w-no" placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details project-details page-only-tool-actions" id="quickProjectDetails">
+        <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">選填</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo" class="w-no" placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+        <div data-details-project-profile></div>
+      </details>
     </div>
     <div class="case-actions" aria-label="案例管理">
       <button class="btn-secondary" id="btnSaveProject" type="button">存檔 JSON</button>
@@ -141,19 +149,21 @@
 
   <div class="main-layout foundation-shell">
     <div class="foundation-form-stack">
-      <div class="card">
-        <h2>適用範圍</h2>
-        <div class="scope-box">
-          <strong>本頁是局部快算，不是完整基礎設計。</strong><br>
-          適用於矩形獨立基礎或設備基座的初步檢核：服務載重底壓、合力偏心、抗滑、抗傾覆與有效面積承壓；另可選用彈性沉陷、一維壓密時間率及 SPT 液化簡化初判。
-          筏基、聯合基腳、衝剪、單向剪力、結構配筋、樁基、非線性土壤互制與完整地工評估仍應回正式設計流程處理。
-          <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.6</span>
-            <span id="coreVersion">Core v—</span>
-            <span>正式核算 / 局部</span>
+      <details class="card collapsible-details page-only-tool-actions" id="quickScopeDetails">
+        <summary><span class="details-title">適用範圍</span><span class="details-summary-badge">矩形淺基礎</span></summary>
+        <div class="details-body">
+          <div class="scope-box">
+            <strong>本頁是局部快算，不是完整基礎設計。</strong><br>
+            適用於矩形獨立基礎或設備基座的初步檢核：服務載重底壓、合力偏心、抗滑、抗傾覆與有效面積承壓；另可選用彈性沉陷、一維壓密時間率及 SPT 液化簡化初判。
+            筏基、聯合基腳、衝剪、單向剪力、結構配筋、樁基、非線性土壤互制與完整地工評估仍應回正式設計流程處理。
+            <div class="tool-meta" aria-label="工具版本與責任邊界">
+              <span>頁面 V0.6</span>
+              <span id="coreVersion">Core v—</span>
+              <span>正式核算 / 局部</span>
+            </div>
           </div>
         </div>
-      </div>
+      </details>
 
       <div class="card criteria-card">
         <h2>① 規範與安全係數設定</h2>
@@ -291,106 +301,121 @@
         </div>
       </div>
 
-      <div class="card">
-        <h2>③b 沉陷與有效面積（選用）</h2>
-        <div class="checkbox-row">
-          <input type="checkbox" id="effectiveAreaCheck">
-          <label for="effectiveAreaCheck">納入 Meyerhof 有效面積承壓（B′=B−2e）為通過條件</label>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>土壤彈性模數 Es (tf/m²，0＝不算沉陷)</label>
-            <input type="number" id="Es" value="0" step="100" min="0">
+      <details class="card collapsible-details" id="foundationSettlementDetails">
+        <summary><span class="details-title">③b 沉陷與有效面積（選用）</span><span class="details-summary-badge">有效面積／彈性沉陷</span></summary>
+        <div class="details-body">
+          <div class="checkbox-row">
+            <input type="checkbox" id="effectiveAreaCheck">
+            <label for="effectiveAreaCheck">納入 Meyerhof 有效面積承壓（B′=B−2e）為通過條件</label>
           </div>
-          <div class="form-group">
-            <label>柏松比 ν</label>
-            <input type="number" id="nu" value="0.30" step="0.05" min="0" max="0.5">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>沉陷影響係數 I<sub>w</sub>（剛性≈0.88）</label>
-            <input type="number" id="settlementInfluence" value="0.88" step="0.01" min="0">
-          </div>
-          <div class="form-group">
-            <label>容許沉陷 (cm)</label>
-            <input type="number" id="allowableSettlementCm" value="2.50" step="0.5" min="0">
-          </div>
-        </div>
-        <div class="scope-box">有效面積承壓 q′ = P / [(B−2e<sub>B</sub>)(L−2e<sub>L</sub>)] 反映偏心折減。立即彈性沉陷 Se = q·B·(1−ν²)·I<sub>w</sub>/Es 為初估，僅供量級判斷；壓密沉陷可於下方③c 選用計算，分層土工況仍建議另行正式詳算。</div>
-      </div>
-
-      <div class="card">
-        <style>#consolLayerTable th,#consolLayerTable td{border:1px solid #cbd5e1;padding:4px 5px;text-align:center;font-size:0.8em;}#consolLayerTable input{width:100%;box-sizing:border-box;font-size:0.95em;padding:2px 3px;}#consolLayerTable .cly-del{cursor:pointer;color:#b91c1c;background:none;border:none;font-weight:700;}</style>
-        <h2>③c 壓密沉陷（選用）</h2>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
-          <input type="checkbox" id="consolidationEnable" style="width:auto;"> 啟用：一維壓密沉陷估算（Cc/Cr + Boussinesq / 2:1 應力增量）
-        </label>
-        <div id="consolidationInputs" style="display:none;">
           <div class="form-row">
             <div class="form-group">
-              <label>應力增量計算方法</label>
-              <select id="consolidationMethod">
-                <option value="2:1">2:1 應力分散法</option>
-                <option value="boussinesq">Boussinesq（矩形基礎中心點）</option>
-              </select>
+              <label>土壤彈性模數 Es (tf/m²，0＝不算沉陷)</label>
+              <input type="number" id="Es" value="0" step="100" min="0">
             </div>
             <div class="form-group">
-              <label>評估年限（年，選填；供估算 t 年後之壓密度與沉陷量）</label>
-              <input type="number" id="evaluationYears" value="" step="0.5" min="0" placeholder="留空僅算 t50/t90">
+              <label>柏松比 ν</label>
+              <input type="number" id="nu" value="0.30" step="0.05" min="0" max="0.5">
             </div>
           </div>
-          <table id="consolLayerTable" style="width:100%;border-collapse:collapse;margin-top:4px;">
-            <thead><tr><th>#</th><th>層厚 h (m)</th><th>中點深度 z (m)</th><th>σ0′ (tf/m²)</th><th>e0</th><th>Cc</th><th>Cr（選填）</th><th>σp′（選填）</th><th>cv（選填，m²/年）</th><th>排水</th><th></th></tr></thead>
-            <tbody></tbody>
-          </table>
-          <button type="button" id="btnAddConsolLayer" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一層</button>
-          <div class="scope-box" style="margin-top:8px;">z 為壓密層中點深度（自基礎底面往下算），用於計算 Δσ；σ0′ 為該深度之初始有效覆土應力，須由使用者依地質資料輸入。σp′ 留空或 ≤ σ0′ 視為正常壓密（NC）；σp′ 大於 σ0′ 時依過壓密（OC）判別，必要時跨越 σp′ 分段計算。Sc = Cc·h/(1+e0)·log10((σ0′+Δσ)/σ0′)（NC）；Δσ 由 2:1 或 Boussinesq 法，以淨壓力 q<sub>net</sub>=qAvg−γs·Df 計算。多層壓密量加總；不含次壓縮與分層土非均質效應。<br>時間-沉陷歷程（選填）：提供 cv 與排水條件（單面 Hdr=h、雙面 Hdr=h/2）後，依 Terzaghi Tv-U 關係估算 t50、t90；填入評估年限可另估該時刻壓密度 U(t) 與對應沉陷量。僅當「所有」壓密層皆提供 cv 時才合計評估年限沉陷量，避免混雜已知/未知速率層。</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <style>#liqPointTable th,#liqPointTable td{border:1px solid #cbd5e1;padding:4px 5px;text-align:center;font-size:0.8em;}#liqPointTable input{width:100%;box-sizing:border-box;font-size:0.95em;padding:2px 3px;}#liqPointTable .liq-del{cursor:pointer;color:#b91c1c;background:none;border:none;font-weight:700;}</style>
-        <h2>③d 液化初判（選用，簡化法）</h2>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
-          <input type="checkbox" id="liquefactionEnable" style="width:auto;"> 啟用：SPT 液化初判（NCEER/Youd et al. 2001 簡化法 + Idriss 1999 地震規模比例係數）
-        </label>
-        <div id="liquefactionInputs" style="display:none;">
           <div class="form-row">
             <div class="form-group">
-              <label>設計地表加速度 amax/g</label>
-              <input type="number" id="liquefactionAmaxG" value="0.24" step="0.01" min="0.01">
+              <label>沉陷影響係數 I<sub>w</sub>（剛性≈0.88）</label>
+              <input type="number" id="settlementInfluence" value="0.88" step="0.01" min="0">
             </div>
             <div class="form-group">
-              <label>地震矩規模 Mw</label>
-              <input type="number" id="liquefactionMw" value="7.5" step="0.1" min="4">
-            </div>
-            <div class="form-group">
-              <label>要求安全係數 FSliq,req</label>
-              <input type="number" id="liquefactionFsReq" value="1.20" step="0.05" min="0.1">
+              <label>容許沉陷 (cm)</label>
+              <input type="number" id="allowableSettlementCm" value="2.50" step="0.5" min="0">
             </div>
           </div>
-          <table id="liqPointTable" style="width:100%;border-collapse:collapse;margin-top:4px;">
-            <thead><tr><th>#</th><th>深度 z (m)</th><th>SPT N</th><th>FC (%)</th><th>σv (tf/m²)</th><th>σv′ (tf/m²)</th><th></th></tr></thead>
-            <tbody></tbody>
-          </table>
-          <button type="button" id="btnAddLiqPoint" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一個深度點</button>
-          <div class="scope-box" style="margin-top:8px;">z 為鑽孔深度；σv、σv′ 為該深度之總覆土應力與有效覆土應力，須由使用者依地質剖面（含地下水位）自行計算後輸入。FC 為細料含量百分比（黏土/粉土含量），留空或 0 表示乾淨砂。FSliq = CRR<sub>7.5</sub>×MSF / CSR；(N1)60cs≥30 視為過密實、不判為可能液化。本頁僅提供簡化篩選（NCEER/Youd et al. 2001 架構、Idriss 1999 MSF，未含 Kσ 覆土壓力修正），屬初步篩選層級，正式設計仍應以完整地質鑽探報告與液化潛能詳細評估為準；本方法未必等同台灣現行基礎構造設計規範或耐震設計規範指定之液化評估程序，請併同專案地質技師意見複核。</div>
+          <div class="scope-box">有效面積承壓 q′ = P / [(B−2e<sub>B</sub>)(L−2e<sub>L</sub>)] 反映偏心折減。立即彈性沉陷 Se = q·B·(1−ν²)·I<sub>w</sub>/Es 為初估，僅供量級判斷；壓密沉陷可於下方③c 選用計算，分層土工況仍建議另行正式詳算。</div>
         </div>
-      </div>
+      </details>
+
+      <details class="card collapsible-details" id="foundationConsolidationDetails">
+        <summary><span class="details-title">③c 壓密沉陷（選用）</span><span class="details-summary-badge" data-details-value="#consolidationEnable">未啟用</span></summary>
+        <div class="details-body">
+          <style>#consolLayerTable th,#consolLayerTable td{border:1px solid #cbd5e1;padding:4px 5px;text-align:center;font-size:0.8em;}#consolLayerTable input{width:100%;box-sizing:border-box;font-size:0.95em;padding:2px 3px;}#consolLayerTable .cly-del{cursor:pointer;color:#b91c1c;background:none;border:none;font-weight:700;}</style>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
+            <input type="checkbox" id="consolidationEnable" style="width:auto;"> 啟用：一維壓密沉陷估算（Cc/Cr + Boussinesq / 2:1 應力增量）
+          </label>
+          <div id="consolidationInputs" style="display:none;">
+            <div class="form-row">
+              <div class="form-group">
+                <label>應力增量計算方法</label>
+                <select id="consolidationMethod">
+                  <option value="2:1">2:1 應力分散法</option>
+                  <option value="boussinesq">Boussinesq（矩形基礎中心點）</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>評估年限（年，選填；供估算 t 年後之壓密度與沉陷量）</label>
+                <input type="number" id="evaluationYears" value="" step="0.5" min="0" placeholder="留空僅算 t50/t90">
+              </div>
+            </div>
+            <div class="input-table-scroll" tabindex="0" role="region" aria-label="壓密土層資料表，可左右捲動">
+              <table id="consolLayerTable" style="width:100%;border-collapse:collapse;margin-top:4px;">
+                <thead><tr><th>#</th><th>層厚 h (m)</th><th>中點深度 z (m)</th><th>σ0′ (tf/m²)</th><th>e0</th><th>Cc</th><th>Cr（選填）</th><th>σp′（選填）</th><th>cv（選填，m²/年）</th><th>排水</th><th></th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <button type="button" id="btnAddConsolLayer" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一層</button>
+            <div class="scope-box" style="margin-top:8px;">z 為壓密層中點深度（自基礎底面往下算），用於計算 Δσ；σ0′ 為該深度之初始有效覆土應力，須由使用者依地質資料輸入。σp′ 留空或 ≤ σ0′ 視為正常壓密（NC）；σp′ 大於 σ0′ 時依過壓密（OC）判別，必要時跨越 σp′ 分段計算。Sc = Cc·h/(1+e0)·log10((σ0′+Δσ)/σ0′)（NC）；Δσ 由 2:1 或 Boussinesq 法，以淨壓力 q<sub>net</sub>=qAvg−γs·Df 計算。多層壓密量加總；不含次壓縮與分層土非均質效應。<br>時間-沉陷歷程（選填）：提供 cv 與排水條件（單面 Hdr=h、雙面 Hdr=h/2）後，依 Terzaghi Tv-U 關係估算 t50、t90；填入評估年限可另估該時刻壓密度 U(t) 與對應沉陷量。僅當「所有」壓密層皆提供 cv 時才合計評估年限沉陷量，避免混雜已知/未知速率層。</div>
+          </div>
+        </div>
+      </details>
+
+      <details class="card collapsible-details" id="foundationLiquefactionDetails">
+        <summary><span class="details-title">③d 液化初判（選用，簡化法）</span><span class="details-summary-badge" data-details-value="#liquefactionEnable">未啟用</span></summary>
+        <div class="details-body">
+          <style>#liqPointTable th,#liqPointTable td{border:1px solid #cbd5e1;padding:4px 5px;text-align:center;font-size:0.8em;}#liqPointTable input{width:100%;box-sizing:border-box;font-size:0.95em;padding:2px 3px;}#liqPointTable .liq-del{cursor:pointer;color:#b91c1c;background:none;border:none;font-weight:700;}</style>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
+            <input type="checkbox" id="liquefactionEnable" style="width:auto;"> 啟用：SPT 液化初判（NCEER/Youd et al. 2001 簡化法 + Idriss 1999 地震規模比例係數）
+          </label>
+          <div id="liquefactionInputs" style="display:none;">
+            <div class="form-row">
+              <div class="form-group">
+                <label>設計地表加速度 amax/g</label>
+                <input type="number" id="liquefactionAmaxG" value="0.24" step="0.01" min="0.01">
+              </div>
+              <div class="form-group">
+                <label>地震矩規模 Mw</label>
+                <input type="number" id="liquefactionMw" value="7.5" step="0.1" min="4">
+              </div>
+              <div class="form-group">
+                <label>要求安全係數 FSliq,req</label>
+                <input type="number" id="liquefactionFsReq" value="1.20" step="0.05" min="0.1">
+              </div>
+            </div>
+            <div class="input-table-scroll" tabindex="0" role="region" aria-label="液化深度資料表，可左右捲動">
+              <table id="liqPointTable" style="width:100%;border-collapse:collapse;margin-top:4px;">
+                <thead><tr><th>#</th><th>深度 z (m)</th><th>SPT N</th><th>FC (%)</th><th>σv (tf/m²)</th><th>σv′ (tf/m²)</th><th></th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <button type="button" id="btnAddLiqPoint" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一個深度點</button>
+            <div class="scope-box" style="margin-top:8px;">z 為鑽孔深度；σv、σv′ 為該深度之總覆土應力與有效覆土應力，須由使用者依地質剖面（含地下水位）自行計算後輸入。FC 為細料含量百分比（黏土/粉土含量），留空或 0 表示乾淨砂。FSliq = CRR<sub>7.5</sub>×MSF / CSR；(N1)60cs≥30 視為過密實、不判為可能液化。本頁僅提供簡化篩選（NCEER/Youd et al. 2001 架構、Idriss 1999 MSF，未含 Kσ 覆土壓力修正），屬初步篩選層級，正式設計仍應以完整地質鑽探報告與液化潛能詳細評估為準；本方法未必等同台灣現行基礎構造設計規範或耐震設計規範指定之液化評估程序，請併同專案地質技師意見複核。</div>
+          </div>
+        </div>
+      </details>
 
       <div class="card action-card">
         <h2>④ 計算與輸出</h2>
-        <div class="scope-box">所有幾何、載重與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>計算書模式</label>
-            <select id="reportMode">
-              <option value="detailed">詳算式（公式逐步）</option>
-              <option value="summary">簡易結果（摘要）</option>
-            </select>
+        <details class="collapsible-details page-only-tool-actions" id="quickReportModeDetails">
+          <summary><span class="details-title">計算書模式</span><span class="details-summary-badge" data-details-value="#reportMode">詳算式</span></summary>
+          <div class="details-body">
+            <div class="scope-box">所有幾何、載重與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>計算書模式</label>
+                <select id="reportMode">
+                  <option value="detailed">詳算式（公式逐步）</option>
+                  <option value="summary">簡易結果（摘要）</option>
+                </select>
+              </div>
+            </div>
           </div>
-        </div>
+        </details>
         <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算局部檢核</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
@@ -399,9 +424,12 @@
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none">
         </div>
       </div>
-      <div class="card page-only-report-status">
-        <div class="report-readiness blocked" id="foundationReportReadiness" role="status" aria-live="polite"></div>
-      </div>
+      <details class="card collapsible-details page-only-report-status" id="quickReadinessDetails">
+        <summary><span class="details-title">產報前閱讀狀態</span><span class="details-summary-badge" data-details-value=".report-readiness-badge">尚未計算</span></summary>
+        <div class="details-body">
+          <div class="report-readiness blocked" id="foundationReportReadiness" role="status" aria-live="polite" data-details-refresh></div>
+        </div>
+      </details>
     </div>
 
     <div class="foundation-result-stack">
@@ -1374,6 +1402,7 @@ ${body}
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../../../tool-page-a11y.js" defer></script>
+<script src="../../assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>
 </html>
