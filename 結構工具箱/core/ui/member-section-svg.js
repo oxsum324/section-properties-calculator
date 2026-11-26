@@ -1,9 +1,9 @@
 (function (root) {
   'use strict';
 
-  const lineInk = '#334155';
-  const steelInk = '#234c77';
-  const loadInk = '#9a3412';
+  const lineInk = '#000000';
+  const steelInk = '#000000';
+  const loadInk = '#000000';
   const svgNamespace = 'http://www.w3.org/2000/svg';
 
   function escapeText(value) {
@@ -84,16 +84,24 @@
     const inset = Math.min(box.width, box.height) * 0.085;
     return '<rect data-diagram-role="transverse-tie" x="' + n(box.x + inset) + '" y="' + n(box.y + inset)
       + '" width="' + n(box.width - inset * 2) + '" height="' + n(box.height - inset * 2)
-      + '" rx="' + n(inset / 2) + '" fill="none" stroke="#047857" stroke-width="1.6" stroke-dasharray="4 3"/>';
+      + '" rx="' + n(inset / 2) + '" fill="none" stroke="#000000" stroke-width="1.5" stroke-dasharray="2 3"/>';
+  }
+
+  function hatchPattern(id, spacing = 6, cross = false, stroke = '#111111', strokeWidth = 1) {
+    return '<pattern id="' + id + '" width="' + spacing + '" height="' + spacing + '" patternUnits="userSpaceOnUse">'
+      + '<path d="M0 ' + spacing + ' L' + spacing + ' 0 M-' + (spacing / 2) + ' ' + (spacing / 2) + ' L' + (spacing / 2) + ' -' + (spacing / 2)
+      + ' M' + (spacing / 2) + ' ' + (spacing * 1.5) + ' L' + (spacing * 1.5) + ' ' + (spacing / 2) + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>'
+      + (cross ? '<path d="M0 0 L' + spacing + ' ' + spacing + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>' : '')
+      + '</pattern>';
   }
 
   function makeSvg({ id, title, description, height, body, extraClass = '' }) {
     return '<svg class="member-section-svg ' + extraClass + '" xmlns="' + svgNamespace + '" viewBox="0 0 650 ' + height
       + '" role="img" aria-labelledby="' + id + '-title ' + id + '-desc" style="width:100%;height:auto;display:block">'
       + '<title id="' + id + '-title">' + escapeText(title) + '</title><desc id="' + id + '-desc">' + escapeText(description) + '</desc>'
-      + '<defs>' + arrowMarker(id + '-dim', lineInk, 6) + arrowMarker(id + '-load', loadInk, 8) + '</defs>'
-      + '<rect x="1" y="1" width="648" height="' + (height - 2) + '" rx="7" fill="#fff" stroke="#cbd5e1"/>'
-      + '<g font-family="Microsoft JhengHei, Arial, sans-serif" fill="#172033">' + body + '</g></svg>';
+      + '<defs>' + arrowMarker(id + '-dim', lineInk, 6) + arrowMarker(id + '-load', loadInk, 8) + hatchPattern(id + '-steel-hatch', 7, false, '#404040', 0.9) + '</defs>'
+      + '<rect x="1" y="1" width="648" height="' + (height - 2) + '" rx="4" fill="#fff" stroke="#222"/>'
+      + '<g font-family="Microsoft JhengHei, Arial, sans-serif" fill="#000">' + body + '</g></svg>';
   }
 
   function steelMember({ section, member, loads }) {
@@ -107,7 +115,7 @@
     const cx = x + w / 2;
     const cy = y + h / 2;
     const id = 'steel-' + member + '-section';
-    const edge = 'fill="#dbe8f6" stroke="' + steelInk + '" stroke-width="1.8"';
+    const edge = 'fill="url(#' + id + '-steel-hatch)" stroke="' + steelInk + '" stroke-width="1.9"';
     const outline = (x1, y1, x2, y2) => 'M' + n(x1) + ' ' + n(y1) + 'H' + n(x2) + 'V' + n(y2) + 'H' + n(x1) + 'Z';
     const t = section.t * scale;
     let profile;
@@ -128,7 +136,7 @@
       profile = '<path d="' + outline(x, y, x + w, y + h) + outline(x + t, y + t, x + w - t, y + h - t)
         + '" fill-rule="evenodd" ' + edge + '/>';
     }
-    const axis = 'stroke="#667085" stroke-dasharray="5 4"';
+    const axis = 'stroke="#404040" stroke-dasharray="9 3 2 3"';
     const same = Math.abs(section.Ix - section.Iy) <= Math.max(section.Ix, section.Iy) * 1e-8;
     const strongAxis = same ? 'X／Y 等慣性主軸' : section.Ix > section.Iy ? 'X 強軸／Y 弱軸' : 'Y 強軸／X 弱軸';
     const mm = value => dimensionValue(value * 10) + ' mm';
@@ -168,17 +176,17 @@
       id, title, description: caption, height: Math.max(313, loadY + 31), extraClass,
       body: '<defs><clipPath id="' + id + '-bounds"><rect x="' + n(x) + '" y="' + n(y) + '" width="' + n(w) + '" height="' + n(h) + '"/></clipPath></defs>'
         + '<rect class="sketch-plate" data-diagram-role="member-outline" x="' + n(x) + '" y="' + n(y)
-        + '" width="' + n(w) + '" height="' + n(h) + '" fill="#e4edf6" stroke="' + steelInk + '" stroke-width="2"/>'
+        + '" width="' + n(w) + '" height="' + n(h) + '" fill="#f5f5f5" stroke="' + steelInk + '" stroke-width="2"/>'
         + '<g clip-path="url(#' + id + '-bounds)">'
         + '<g data-diagram-role="bolt-layout">'
         + holes.map(hole => '<circle class="sketch-hole" cx="' + toX(hole.x) + '" cy="' + toY(hole.y) + '" r="'
           + n(circleRadius) + '" fill="#fff" stroke="' + steelInk + '"/>').join('') + '</g>'
         + '<g data-diagram-role="weld-layout">'
         + welds.map(segment => line(toX(segment.x1), toY(segment.y1), toX(segment.x2), toY(segment.y2),
-          'class="sketch-weld' + (segment.type === 'transverse' ? ' sketch-weld--transverse' : '') + '" stroke="' + loadInk + '" stroke-width="4"')).join('') + '</g>'
+          'class="sketch-weld' + (segment.type === 'transverse' ? ' sketch-weld--transverse' : '') + '" stroke="#000" stroke-width="4"')).join('') + '</g>'
         + '<g data-diagram-role="failure-paths">'
         + paths.map(path => '<polyline class="' + path.className + '" points="' + points(path.points)
-          + '" style="fill:none" stroke="' + (path.className === 'sketch-net' ? '#b91c1c' : '#b45309') + '" stroke-width="2.5"/>').join('') + '</g></g>'
+          + '" style="fill:none" stroke="#000" stroke-width="2.2" stroke-dasharray="' + (path.className === 'sketch-net' ? '6 3' : '9 3 2 3') + '"/>').join('') + '</g></g>'
         + dimensions(box, [axes[0] + ' ' + dimensionValue(width) + ' mm', axes[1] + ' ' + dimensionValue(height) + ' mm'], id + '-dim')
         + '<g data-diagram-role="section-dimensions" font-size="16">'
         + text(365, 45, thickness, 'font-weight="700"') + text(365, 77, boltDescription) + notesSvg + '</g>'
@@ -191,7 +199,7 @@
       && verticalSize > 0 && horizontalSize > 0
       ? compactBox(horizontalSize, verticalSize, { x: 91, y: 89, width: 179, height: 121 })
       : null;
-    const outline = 'fill="#e4edf6" stroke="' + steelInk + '" stroke-width="2"';
+    const outline = 'fill="#f5f5f5" stroke="' + steelInk + '" stroke-width="2"';
     const rect = (x, y, width, height, attrs) => '<rect x="' + n(x) + '" y="' + n(y)
       + '" width="' + n(width) + '" height="' + n(height) + '" ' + attrs + '/>';
     const center = 180;
@@ -200,7 +208,7 @@
       ? '<g data-diagram-role="member-outline">'
         + rect(panel.x - 9, 62, panel.width + 18, 203, outline)
         + rect(82, panel.y, panel.x - 82, panel.height, outline)
-        + rect(panel.x, panel.y, panel.width, panel.height, 'fill="#fef3c7" stroke="' + loadInk + '" stroke-dasharray="4 3"')
+        + rect(panel.x, panel.y, panel.width, panel.height, 'fill="url(#' + id + '-steel-hatch)" stroke="#000" stroke-width="1.6" stroke-dasharray="4 3"')
         + '</g>' + dimensions(panel, [dimensionValue(horizontalSize) + ' mm', dimensionValue(verticalSize) + ' mm'], id + '-dim')
         + text(center, 301, '梁柱接頭區', 'text-anchor="middle" font-size="15"')
       : '<g data-diagram-role="member-outline">'
@@ -235,13 +243,13 @@
   }
 
   const chartInk = {
-    capacity: '#163e62',
-    area: '#e7eef5',
-    demand: '#1e293b',
-    failed: '#9c2c27',
-    grid: '#dce3ea',
-    axis: '#43556a',
-    muted: '#526477',
+    capacity: '#000000',
+    area: '#f3f4f6',
+    demand: '#000000',
+    failed: '#000000',
+    grid: '#d4d4d4',
+    axis: '#000000',
+    muted: '#404040',
   };
   const chartPlot = { x: 58, y: 28, width: 316, height: 184 };
   const chartWidth = 400;
@@ -299,9 +307,14 @@
   }
 
   function chartDemand(x, y, ok) {
-    const color = ok ? chartInk.demand : chartInk.failed;
-    return '<g data-diagram-role="demand-point"><path d="M' + n(x) + ' ' + n(y - 5.5)
-      + ' l5.5 5.5 -5.5 5.5 -5.5 -5.5 Z" fill="' + color + '" stroke="#fff" stroke-width="1.4"/></g>';
+    if (ok) {
+      return '<g data-diagram-role="demand-point"><path d="M' + n(x) + ' ' + n(y - 5.5)
+        + ' l5.5 5.5 -5.5 5.5 -5.5 -5.5 Z" fill="#000" stroke="#fff" stroke-width="1.4"/></g>';
+    }
+    return '<g data-diagram-role="demand-point"><path d="M' + n(x) + ' ' + n(y - 6)
+      + ' l6 6 -6 6 -6 -6 Z" fill="#fff" stroke="#000" stroke-width="2"/>'
+      + line(x - 3.5, y - 3.5, x + 3.5, y + 3.5, 'stroke="#000" stroke-width="1.8"')
+      + line(x + 3.5, y - 3.5, x - 3.5, y + 3.5, 'stroke="#000" stroke-width="1.8"') + '</g>';
   }
 
   function chartCapacity(x, y) {
@@ -429,15 +442,17 @@
     if (!usesLtb) {
       const x0 = 120;
       const barWidth = 250;
+      const defs = hatchPattern(id + '-cap', 5, false, '#111111', 1.1)
+        + hatchPattern(id + '-ng', 5, true, '#000000', 1.2);
       const bars = [
-        { label: '可用容量', value: capM, y: 32, fill: chartInk.capacity },
-        { label: '彎矩需求', value: demandM, y: 72, fill: color },
-      ].map(({ label, value, y, fill }) => text(x0 - 10, y + 5, label, 'font-size="14" font-weight="700" text-anchor="end"')
-        + '<rect x="' + x0 + '" y="' + (y - 10) + '" width="' + barWidth + '" height="20" fill="' + chartInk.area + '"/>'
-        + '<rect x="' + x0 + '" y="' + (y - 10) + '" width="' + n(barWidth * value / yMax) + '" height="20" fill="' + fill + '"/>'
+        { label: '可用容量', value: capM, y: 32, fill: 'url(#' + id + '-cap)', strokeW: '1.2' },
+        { label: '彎矩需求', value: demandM, y: 72, fill: ok ? '#000000' : 'url(#' + id + '-ng)', strokeW: ok ? '1.2' : '2' },
+      ].map(({ label, value, y, fill, strokeW }) => text(x0 - 10, y + 5, label, 'font-size="14" font-weight="700" text-anchor="end"')
+        + '<rect x="' + x0 + '" y="' + (y - 10) + '" width="' + barWidth + '" height="20" fill="' + chartInk.area + '" stroke="' + chartInk.grid + '"/>'
+        + '<rect x="' + x0 + '" y="' + (y - 10) + '" width="' + n(barWidth * value / yMax) + '" height="20" fill="' + fill + '" stroke="#000000" stroke-width="' + strokeW + '"/>'
         + text(x0 + 6, y + 5, chartNumber(value) + ' ' + momentUnit, 'font-size="13" font-weight="700" stroke="#fff" stroke-width="3" paint-order="stroke"')).join('');
       return engineeringGraphic(id, title, caption, '<g data-diagram-role="capacity-comparison">' + bars + '</g>'
-        + text(x0, 112, 'ΔM ' + signedChartNumber(margin) + ' ' + momentUnit + (ok ? '（OK）' : '（NG）'), 'fill="' + color + '" font-size="14" font-weight="800"'), { height: 130 });
+        + text(x0, 112, 'ΔM ' + signedChartNumber(margin) + ' ' + momentUnit + (ok ? '（OK）' : '（NG）'), 'fill="' + color + '" font-size="14" font-weight="800"'), { height: 130, defs });
     }
     const xMax = niceAxisMax(Math.max(Lb, Lr, ...curvePoints.map(pt => pt.x), 1));
     const { toX, toY, grid } = engineeringAxes(xMax, yMax, '側撐間距 Lb (' + lengthUnit + ')', '撓曲需求／容量 (' + momentUnit + ')');
@@ -445,7 +460,7 @@
     const envelope = chartBoundary(outline, [chartCoord(toX(0), toY(0)), ...outline, chartCoord(toX(curvePoints.at(-1)?.x ?? 0), toY(0))]);
     const boundaries = [[Lp, 'Lp'], [Lr, 'Lr']].filter(([x]) => x > 0).map(([x, label]) => {
       const px = toX(x);
-      return line(px, chartPlot.y, px, toY(0), 'stroke="' + chartInk.muted + '" stroke-dasharray="3 4"')
+      return line(px, chartPlot.y, px, toY(0), 'stroke="' + chartInk.muted + '" stroke-dasharray="6 3 2 3"')
         + text(px, chartPlot.y - (label === 'Lr' && Math.abs(toX(Lr) - toX(Lp)) < 25 ? 18 : 6), label, 'font-size="12" font-weight="700" text-anchor="middle"');
     }).join('');
     const useX = toX(Lb);
@@ -532,8 +547,10 @@
   }) {
     const id = 'src-beam-superposition';
     const title = 'SRC 梁鋼骨與 RC 強度疊加與安全餘裕圖';
-    const steelInk = '#1e3a5f';
-    const rcInk = '#0e7490';
+    const steelFill = 'url(#' + id + '-steel)';
+    const rcFill = 'url(#' + id + '-rc)';
+    const defs = hatchPattern(id + '-steel', 5, false, '#000000', 1.2)
+      + hatchPattern(id + '-rc', 7, true, '#444444', 0.85);
     const barX = 112;
     const barW = 296;
     const barH = 22;
@@ -544,15 +561,14 @@
       const w2 = n(barW * clamp(seg2 / scaleMax, 0, 1 - clamp(seg1 / scaleMax, 0, 1)));
       const dx = n(barX + barW * clamp(demand / scaleMax, 0, 1));
       const margin = totalCap - demand;
-      const mColor = ok ? chartInk.capacity : chartInk.failed;
       return text(barX - 10, y + 15, label, 'font-size="13" font-weight="800" text-anchor="end"')
         + '<rect x="' + barX + '" y="' + y + '" width="' + barW + '" height="' + barH + '" fill="' + chartInk.area + '" stroke="' + chartInk.grid + '"/>'
-        + (seg1 > 0 ? '<rect x="' + barX + '" y="' + y + '" width="' + w1 + '" height="' + barH + '" fill="' + steelInk + '"/>' : '')
-        + (seg2 > 0 ? '<rect x="' + n(barX + Number(w1)) + '" y="' + y + '" width="' + w2 + '" height="' + barH + '" fill="' + rcInk + '"/>' : '')
-        + line(dx, y - 5, dx, y + barH + 5, 'stroke="' + (ok ? '#0f172a' : chartInk.failed) + '" stroke-width="2.4"')
-        + '<path d="M' + dx + ' ' + (y - 6) + ' l-4 -6 h8 Z" fill="' + (ok ? '#0f172a' : chartInk.failed) + '"/>'
-        + text(barX + barW + 10, y + 10, 'Δ ' + signedChartNumber(margin) + ' ' + unit, 'font-size="12.5" font-weight="800" fill="' + mColor + '"')
-        + text(barX + barW + 10, y + 23, (ok ? 'OK' : 'NG') + '｜' + chartNumber(demand) + ' / ' + chartNumber(totalCap), 'font-size="11" font-weight="600" fill="' + chartInk.muted + '"')
+        + (seg1 > 0 ? '<rect x="' + barX + '" y="' + y + '" width="' + w1 + '" height="' + barH + '" fill="' + steelFill + '" stroke="#000000" stroke-width="1.2"/>' : '')
+        + (seg2 > 0 ? '<rect x="' + n(barX + Number(w1)) + '" y="' + y + '" width="' + w2 + '" height="' + barH + '" fill="' + rcFill + '" stroke="#000000" stroke-width="1.2"/>' : '')
+        + line(dx, y - 5, dx, y + barH + 5, 'stroke="#000000" stroke-width="' + (ok ? '2.4' : '2.8') + '"' + (ok ? '' : ' stroke-dasharray="3 2"'))
+        + '<path d="M' + dx + ' ' + (y - 6) + ' l-4.5 -6.5 h9 Z" fill="' + (ok ? '#000000' : '#ffffff') + '" stroke="#000000" stroke-width="1.6"/>'
+        + text(barX + barW + 10, y + 10, 'Δ ' + signedChartNumber(margin) + ' ' + unit, 'font-size="12.5" font-weight="800" fill="#000000"')
+        + text(barX + barW + 10, y + 23, (ok ? 'OK' : '[NG]') + '｜' + chartNumber(demand) + ' / ' + chartNumber(totalCap), 'font-size="11" font-weight="' + (ok ? '600' : '800') + '" fill="' + (ok ? chartInk.muted : '#000000') + '"')
         + text(barX, y + barH + 14, subText, 'font-size="11.5" font-weight="600" fill="' + chartInk.axis + '"');
     };
     const mShareS = phiMn > 0 ? Math.round((phiMns / phiMn) * 100) : 0;
@@ -566,16 +582,16 @@
         'RC 分擔需求 ' + chartNumber(vRcDemand) + ' tf vs 0.75Vnrc ' + chartNumber(phiVnrc) + ' tf（' + rcControlLabel + '控制）')
       + '</g>';
     const legend = '<g data-diagram-role="chart-legend" font-size="12" font-weight="700">'
-      + '<rect x="58" y="218" width="14" height="10" fill="' + steelInk + '"/>' + text(78, 227, '鋼骨貢獻')
-      + '<rect x="158" y="218" width="14" height="10" fill="' + rcInk + '"/>' + text(178, 227, 'RC 貢獻')
-      + line(252, 217, 252, 229, 'stroke="#0f172a" stroke-width="2.4"') + text(262, 227, '設計需求')
+      + '<rect x="58" y="218" width="16" height="11" fill="' + steelFill + '" stroke="#000000" stroke-width="1.2"/>' + text(80, 227, '鋼骨貢獻（斜線）')
+      + '<rect x="192" y="218" width="16" height="11" fill="' + rcFill + '" stroke="#000000" stroke-width="1.2"/>' + text(214, 227, 'RC 貢獻（網格）')
+      + line(324, 217, 324, 229, 'stroke="#000000" stroke-width="2.4"') + text(334, 227, '設計需求')
       + '</g>';
     const caption = chartCaption([
       'SRC 強度疊加與剪力分擔比較（第 5.4 / 5.5 節）',
       '彎矩 Mu ' + chartNumber(mu) + ' vs φMn ' + chartNumber(phiMn) + ' tf·m（鋼骨 ' + mShareS + '% / RC ' + mShareRc + '%），ΔM ' + signedChartNumber(phiMn - mu) + ' tf·m',
       '鋼骨剪力 ' + chartNumber(vSteelDemand) + ' / ' + chartNumber(phiVns) + ' tf；RC 剪力 ' + chartNumber(vRcDemand) + ' / ' + chartNumber(phiVnrc) + ' tf（' + rcControlLabel + '）',
     ]);
-    return engineeringGraphic(id, title, caption, rows + legend, { height: 244 });
+    return engineeringGraphic(id, title, caption, rows + legend, { height: 244, defs });
   }
 
   function srcColumnInteraction({
@@ -590,8 +606,6 @@
     const axisName = isY ? 'Y 向（鋼骨弱軸）' : 'X 向（鋼骨強軸）';
     const id = isY ? 'src-column-pm-y' : 'src-column-pm-x';
     const title = 'SRC 柱 ' + axisName + ' 鋼骨／RC 分擔 P–' + mSym + ' 互制圖';
-    const steelInk = '#1e3a5f';
-    const rcInk = '#0e7490';
     const allM = [steelDemandM, rcDemandM, ...steelPoints.map(pt => pt.m), ...rcPoints.map(pt => pt.m)].filter(Number.isFinite);
     const allP = [steelDemandP, rcDemandP, ...steelPoints.map(pt => pt.p), ...rcPoints.map(pt => pt.p)].filter(Number.isFinite);
     const xMax = niceAxisMax(Math.max(1, ...allM));
@@ -602,10 +616,10 @@
     const rOutline = rcPoints.filter(pt => Number.isFinite(pt.m) && Number.isFinite(pt.p) && pt.p >= 0 && pt.m >= 0)
       .map(pt => chartCoord(toX(pt.m), toY(pt.p)));
     const envelopes = '<g data-diagram-role="capacity-envelope">'
-      + (rOutline.length >= 2 ? '<polygon points="' + [chartCoord(toX(0), toY(0)), ...rOutline].join(' ') + '" fill="rgba(14,116,144,0.08)"/>'
-        + '<polyline points="' + rOutline.join(' ') + '" fill="none" stroke="' + rcInk + '" stroke-width="2.2" stroke-dasharray="6 3" stroke-linejoin="round"/>' : '')
-      + (sOutline.length >= 2 ? '<polygon points="' + [chartCoord(toX(0), toY(0)), ...sOutline].join(' ') + '" fill="rgba(30,58,95,0.09)"/>'
-        + '<polyline points="' + sOutline.join(' ') + '" fill="none" stroke="' + steelInk + '" stroke-width="2.5" stroke-linejoin="round"/>' : '')
+      + (rOutline.length >= 2 ? '<polygon points="' + [chartCoord(toX(0), toY(0)), ...rOutline].join(' ') + '" fill="rgba(0,0,0,0.03)"/>'
+        + '<polyline points="' + rOutline.join(' ') + '" fill="none" stroke="#000000" stroke-width="2.2" stroke-dasharray="7 4" stroke-linejoin="round"/>' : '')
+      + (sOutline.length >= 2 ? '<polygon points="' + [chartCoord(toX(0), toY(0)), ...sOutline].join(' ') + '" fill="rgba(0,0,0,0.05)"/>'
+        + '<polyline points="' + sOutline.join(' ') + '" fill="none" stroke="#000000" stroke-width="2.6" stroke-linejoin="round"/>' : '')
       + '</g>';
     const sdx = toX(steelDemandM);
     const sdy = toY(steelDemandP);
@@ -614,18 +628,28 @@
     let marginSvg = '<g data-diagram-role="margin-zone">';
     if (Number.isFinite(rcAllowMAtP) && Math.abs(toX(rcAllowMAtP) - rdx) >= 6) {
       const rax = toX(rcAllowMAtP);
-      const rcColor = rcOk ? rcInk : chartInk.failed;
-      marginSvg += line(rdx, rdy, rax, rdy, 'stroke="' + rcColor + '" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#' + id + '-arrow)"')
-        + '<circle cx="' + n(rax) + '" cy="' + n(rdy) + '" r="3.6" fill="#fff" stroke="' + rcColor + '" stroke-width="1.8"/>';
+      marginSvg += line(rdx, rdy, rax, rdy, 'stroke="#000000" stroke-width="1.6" stroke-dasharray="2 3" marker-end="url(#' + id + '-arrow)"')
+        + '<circle cx="' + n(rax) + '" cy="' + n(rdy) + '" r="3.4" fill="#ffffff" stroke="#000000" stroke-width="1.8"/>';
     }
     marginSvg += '</g>';
-    const demands = '<g data-diagram-role="demand-point">'
-      + '<path d="M' + n(sdx) + ' ' + n(sdy - 5.5) + ' l5.5 5.5 -5.5 5.5 -5.5 -5.5 Z" fill="' + (steelOk ? steelInk : chartInk.failed) + '" stroke="#fff" stroke-width="1.4"/>'
-      + '<circle cx="' + n(rdx) + '" cy="' + n(rdy) + '" r="4.8" fill="' + (rcOk ? rcInk : chartInk.failed) + '" stroke="#fff" stroke-width="1.4"/>'
-      + '</g>';
+    const steelMark = steelOk
+      ? '<path d="M' + n(sdx) + ' ' + n(sdy - 5.5) + ' l5.5 5.5 -5.5 5.5 -5.5 -5.5 Z" fill="#000000" stroke="#ffffff" stroke-width="1.4"/>'
+      : '<path d="M' + n(sdx) + ' ' + n(sdy - 6) + ' l6 6 -6 6 -6 -6 Z" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
+        + line(sdx - 3.5, sdy - 3.5, sdx + 3.5, sdy + 3.5, 'stroke="#000000" stroke-width="1.8"')
+        + line(sdx - 3.5, sdy + 3.5, sdx + 3.5, sdy - 3.5, 'stroke="#000000" stroke-width="1.8"');
+    const rcMark = rcOk
+      ? '<circle cx="' + n(rdx) + '" cy="' + n(rdy) + '" r="4.8" fill="#ffffff" stroke="#000000" stroke-width="2.2"/>'
+      : '<circle cx="' + n(rdx) + '" cy="' + n(rdy) + '" r="5.4" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
+        + line(rdx - 3.2, rdy - 3.2, rdx + 3.2, rdy + 3.2, 'stroke="#000000" stroke-width="1.8"')
+        + line(rdx - 3.2, rdy + 3.2, rdx + 3.2, rdy - 3.2, 'stroke="#000000" stroke-width="1.8"');
+    const demands = '<g data-diagram-role="demand-point">' + steelMark + rcMark + '</g>';
     const legend = '<g data-diagram-role="chart-legend" font-size="11.5" font-weight="700">'
-      + line(56, 267, 74, 267, 'stroke="' + steelInk + '" stroke-width="2.4"') + text(79, 271, '鋼骨包絡 / 需求')
-      + line(188, 267, 206, 267, 'stroke="' + rcInk + '" stroke-width="2.2" stroke-dasharray="6 3"') + text(211, 271, 'RC 包絡 / 需求')
+      + line(52, 267, 70, 267, 'stroke="#000000" stroke-width="2.6"')
+      + '<path d="M61 263 l4 4 -4 4 -4 -4 Z" fill="#000000"/>'
+      + text(76, 271, '鋼骨包絡 / 需求')
+      + line(184, 267, 202, 267, 'stroke="#000000" stroke-width="2.2" stroke-dasharray="7 4"')
+      + '<circle cx="193" cy="267" r="3.6" fill="#ffffff" stroke="#000000" stroke-width="1.8"/>'
+      + text(208, 271, 'RC 包絡 / 需求')
       + text(326, 271, redistributed ? '已重分配 (7.3-9)' : '依勁度分配', 'fill="' + chartInk.muted + '"')
       + '</g>';
     const caption = chartCaption([
@@ -635,7 +659,7 @@
       Number.isFinite(rcAllowMAtP) ? 'RC 同軸力 ΔMrc ' + signedChartNumber(rcAllowMAtP - rcDemandM) + ' tf·m' : '',
     ]);
     return engineeringGraphic(id, title, caption, envelopes + grid + marginSvg + demands + legend, {
-      defs: arrowMarker(id + '-arrow', rcOk ? rcInk : chartInk.failed, 6),
+      defs: arrowMarker(id + '-arrow', '#000000', 6),
     });
   }
 
@@ -651,25 +675,29 @@
     const barW = 296;
     const maxScale = Math.max(1.2, ...validItems.map(item => item.ratio * 1.1));
     const limitX = n(barX + barW * (1 / maxScale));
+    const defs = hatchPattern(id + '-ok', 6, false, '#222222', 1.0)
+      + hatchPattern(id + '-warn', 3.5, false, '#000000', 1.2)
+      + hatchPattern(id + '-ng', 5, true, '#000000', 1.2);
     let body = '<g data-diagram-role="src-seismic-utilization">';
-    body += line(limitX, topPad - 8, limitX, topPad + validItems.length * rowH - 4, 'stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="4 3"')
-      + text(limitX, topPad - 11, '100% 限值', 'font-size="11" font-weight="700" fill="#b91c1c" text-anchor="middle"');
+    body += line(limitX, topPad - 8, limitX, topPad + validItems.length * rowH - 4, 'stroke="#000000" stroke-width="1.6" stroke-dasharray="5 3"')
+      + text(limitX, topPad - 11, '100% 限值', 'font-size="11" font-weight="800" fill="#000000" text-anchor="middle"');
     validItems.forEach((item, idx) => {
       const y = topPad + idx * rowH;
       const pct = clamp(item.ratio / maxScale, 0, 1);
-      const fill = item.ok ? (item.ratio > 0.85 ? '#0e7490' : '#1e3a5f') : chartInk.failed;
+      const fill = item.ok ? (item.ratio > 0.85 ? 'url(#' + id + '-warn)' : 'url(#' + id + '-ok)') : 'url(#' + id + '-ng)';
+      const strokeW = item.ok ? '1.1' : '2';
       body += text(barX - 8, y + 13, item.label, 'font-size="12" font-weight="700" text-anchor="end"')
         + '<rect x="' + barX + '" y="' + (y + 2) + '" width="' + barW + '" height="14" fill="' + chartInk.area + '" stroke="' + chartInk.grid + '"/>'
-        + '<rect x="' + barX + '" y="' + (y + 2) + '" width="' + n(barW * pct) + '" height="14" fill="' + fill + '"/>'
-        + text(barX + barW + 8, y + 13, (item.ratio * 100).toFixed(1) + '% ' + (item.ok ? 'OK' : 'NG'), 'font-size="11.5" font-weight="800" fill="' + (item.ok ? '#0f172a' : chartInk.failed) + '"');
+        + '<rect x="' + barX + '" y="' + (y + 2) + '" width="' + n(barW * pct) + '" height="14" fill="' + fill + '" stroke="#000000" stroke-width="' + strokeW + '"/>'
+        + text(barX + barW + 8, y + 13, (item.ratio * 100).toFixed(1) + '% ' + (item.ok ? 'OK' : '[NG]'), 'font-size="11.5" font-weight="800" fill="#000000"' + (item.ok ? '' : ' text-decoration="underline"'));
     });
     body += '</g>';
     const governing = validItems.reduce((best, item) => (!best || item.ratio > best.ratio ? item : best), null);
     const caption = chartCaption([
-      'SRC 柱選定方向各項規範檢核動員比（虛線為 100% 規範上限）',
+      'SRC 柱選定方向各項規範檢核動員比（虛線為 100% 規範上限；交叉網線為超限）',
       governing ? '控制項目：' + governing.label + ' ' + (governing.ratio * 100).toFixed(1) + '%（' + (governing.ok ? 'OK' : 'NG') + '）' : '',
     ]);
-    return engineeringGraphic(id, title, caption, body, { height });
+    return engineeringGraphic(id, title, caption, body, { height, defs });
   }
 
   const api = Object.freeze({

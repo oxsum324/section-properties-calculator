@@ -1387,9 +1387,24 @@ table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numer
   .rep-check { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 @media print {
-  body { background:#fff; padding:0; }
+  body { background:#fff; color:#000; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .rep-toolbar { display:none; }
-  .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; }
+  .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; background:#fff; color:#000; }
+  .rep-header { border-bottom:2px solid #000 !important; }
+  .rep-header h1, .rep-header .sub, .rep-meta, .rep-meta b, .rep-paper .rep-block > h3, .rep-paper .block > h3,
+  .rep-step h4, .rep-step-body, .rep-diagram-title, .rep-diagram-caption,
+  .rep-check td, .rep-check td.sub, .rep-check .note, .rep-check tr.ng td.lbl, .rep-input .unit, .rep-footer { color:#000 !important; }
+  .rep-meta div { border-bottom-color:#666 !important; }
+  .rep-paper .rep-block > h3, .rep-paper .block > h3, .rep-step h4 { background:#f0f0f0 !important; border-left:3px solid #000 !important; }
+  .rep-input th, .rep-check th { background:#f0f0f0 !important; color:#000 !important; }
+  .rep-input th, .rep-input td, .rep-check th, .rep-check td, .rep-step-body, .rep-diagram { border-color:#222 !important; }
+  .rep-step-body, .rep-diagram { background:#fff !important; }
+  .rep-diagram--engineering .rep-diagram-title, .rep-diagram--engineering .rep-diagram-caption { border-color:#444 !important; }
+  .rep-summary { background:#fff !important; color:#000 !important; font-weight:800; }
+  .rep-summary.ok { border:2px solid #000 !important; }
+  .rep-summary.ng { border:2.5px dashed #000 !important; }
+  .rep-summary.na { border:1.5px dotted #000 !important; }
+  .rep-diagram img, .rep-paper svg { filter:grayscale(100%) contrast(1.08); }
   .rep-paper h2, .rep-paper h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
   .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
   .rep-block--new-page { break-before:page; page-break-before:always; }
@@ -1398,7 +1413,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numer
   table { break-inside:auto; page-break-inside:auto; }
   tr, .rep-step, .rep-diagram, .rep-paper figure { break-inside:avoid-page; page-break-inside:avoid; }
   .rep-check tr.ok td.judge, .rep-check tr.ng td.judge,
-  .rep-paper .block td.ok, .rep-paper .block td.ng, .rep-summary { color:#111; font-weight:800; }
+  .rep-paper .block td.ok, .rep-paper .block td.ng { color:#000 !important; font-weight:800; }
+  .rep-check tr.ng td.judge { text-decoration:underline; }
   p, li, .rep-step-body { orphans:3; widows:3; }
   .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }

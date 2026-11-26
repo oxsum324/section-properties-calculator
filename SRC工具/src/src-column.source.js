@@ -563,10 +563,10 @@
     const layerSvg = layers.map(layer => {
       if (axis === 'y') {
         const layerX = x + Number(layer.xCm) * scale;
-        return `<line x1="${layerX}" y1="${y + layerInset}" x2="${layerX}" y2="${y + sectionHeight - layerInset}" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>`;
+        return `<line x1="${layerX}" y1="${y + layerInset}" x2="${layerX}" y2="${y + sectionHeight - layerInset}" stroke="#000000" stroke-width="2.4" stroke-dasharray="6 4"/>`;
       }
       const layerY = y + Number(layer.yCm) * scale;
-      return `<line x1="${x + layerInset}" y1="${layerY}" x2="${x + sectionWidth - layerInset}" y2="${layerY}" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>`;
+      return `<line x1="${x + layerInset}" y1="${layerY}" x2="${x + sectionWidth - layerInset}" y2="${layerY}" stroke="#000000" stroke-width="2.4" stroke-dasharray="6 4"/>`;
     }).join('');
     const layerLegendSvg = layers.map((layer, index) =>
       `<text class="note" x="0" y="${154 + index * 27}">L${index + 1}: ${axis === 'y' ? 'x' : 'y'}=${fmt(axis === 'y' ? layer.xCm : layer.yCm, 1)} cm, As=${fmt(layer.areaCm2, 2)} cm²</text>`
@@ -574,16 +574,21 @@
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 530" role="img" aria-labelledby="src-column-title src-column-desc">
       <title id="src-column-title">${SECTION_DIAGRAM_TITLE}</title>
       <desc id="src-column-desc">矩形混凝土柱內置中雙對稱 H 型鋼，主筋以 ${axis.toUpperCase()} 向計算層列總面積表示。</desc>
-      <defs>${SectionSvg.arrowMarker('src-column-load', '#9a3412', 8)}</defs>
-      <style>text{font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif;fill:#172033}.dim{font-size:14px;font-weight:700}.layer{font-size:12px;fill:#92400e}.note{font-size:12px;fill:#64748b}.title{font-size:17px;font-weight:800}</style>
-      <rect x="0.5" y="0.5" width="759" height="529" rx="10" fill="#fff" stroke="#cbd5e1"/>
-      <rect data-diagram-role="concrete-outline" x="${x}" y="${y}" width="${sectionWidth}" height="${sectionHeight}" fill="#f1f5f9" stroke="#334155" stroke-width="2.2"/>
+      <defs>
+        ${SectionSvg.arrowMarker('src-column-load', '#000000', 8)}
+        <pattern id="src-col-steel-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="6" stroke="#111111" stroke-width="1.3"/>
+        </pattern>
+      </defs>
+      <style>text{font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif;fill:#000000}.dim{font-size:14px;font-weight:700}.layer{font-size:12px;fill:#000000}.note{font-size:12px;fill:#333333}.title{font-size:17px;font-weight:800}</style>
+      <rect x="0.5" y="0.5" width="759" height="529" rx="10" fill="#ffffff" stroke="#222222"/>
+      <rect data-diagram-role="concrete-outline" x="${x}" y="${y}" width="${sectionWidth}" height="${sectionHeight}" fill="#ffffff" stroke="#000000" stroke-width="2.2"/>
       ${SectionSvg.symbolicTie({ x, y, width: sectionWidth, height: sectionHeight })}
       <g data-diagram-role="longitudinal-rebar-layers">${layerSvg}</g>
       <g data-diagram-role="steel-core">
-      <rect x="${steelLeft}" y="${steelTop}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
-      <rect x="${webLeft}" y="${steelTop + flangeThickness}" width="${webThickness}" height="${steelDepth - 2 * flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
-      <rect x="${steelLeft}" y="${steelTop + steelDepth - flangeThickness}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
+      <rect x="${steelLeft}" y="${steelTop}" width="${flangeWidth}" height="${flangeThickness}" fill="url(#src-col-steel-hatch)" stroke="#000000" stroke-width="1.4"/>
+      <rect x="${webLeft}" y="${steelTop + flangeThickness}" width="${webThickness}" height="${steelDepth - 2 * flangeThickness}" fill="url(#src-col-steel-hatch)" stroke="#000000" stroke-width="1.4"/>
+      <rect x="${steelLeft}" y="${steelTop + steelDepth - flangeThickness}" width="${flangeWidth}" height="${flangeThickness}" fill="url(#src-col-steel-hatch)" stroke="#000000" stroke-width="1.4"/>
       </g>
       <text x="${cx}" y="${y - 18}" text-anchor="middle" class="dim">b = ${fmt(width, 1)} cm</text>
       <text x="${x - 22}" y="${cy}" text-anchor="middle" class="dim" transform="rotate(-90 ${x - 22} ${cy})">h = ${fmt(depth, 1)} cm</text>
@@ -591,12 +596,12 @@
         <text class="title" x="0" y="0">採用計算斷面</text>
         <text class="dim" x="0" y="35">混凝土 ${fmt(width, 1)} × ${fmt(depth, 1)} cm</text>
         <text class="dim" x="0" y="66">${escapeXml(steel.shape || '')}</text>
-        <text class="note" x="0" y="91">D × bf × tw × tf</text>
+        <text class="note" x="0" y="91">D × bf × tw × tf（斜線填充）</text>
         <text class="dim" x="0" y="116">${fmt(steel.depthCm, 1)} × ${fmt(steel.flangeWidthCm, 1)} × ${fmt(steel.webThicknessCm, 1)} × ${fmt(steel.flangeThicknessCm, 1)} cm</text>
-        <line x1="0" y1="132" x2="28" y2="132" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>
+        <line x1="0" y1="132" x2="28" y2="132" stroke="#000000" stroke-width="2.4" stroke-dasharray="6 4"/>
         <text class="note" x="38" y="136">${axis.toUpperCase()} 向主筋計算${axis === 'y' ? '列' : '層'}與總 As</text>
         ${layerLegendSvg}
-        <text class="note" x="0" y="278">外框內虛線為閉合橫箍筋配置示意</text>
+        <text class="note" x="0" y="278">外框內點線為閉合橫箍筋配置示意</text>
         <text class="note" x="0" y="303">不表示鋼筋根數、號數或施工配置</text>
       </g>
       <text class="title" x="475" y="422">${axis.toUpperCase()} 向檢核 · 外力方向示意</text>
