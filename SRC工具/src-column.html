@@ -417,12 +417,33 @@
         </section>
 
         <section class="src-card src-section-card">
-          <h2>SRC 柱計算斷面</h2>
-          <figure class="src-section-figure">
-            <img id="sectionDiagramImage" alt="SRC 柱計算斷面" hidden>
-            <div id="sectionDiagramPlaceholder" class="src-section-placeholder">尚未產生計算斷面圖。</div>
-            <figcaption id="sectionDiagramCaption"></figcaption>
-          </figure>
+          <div class="src-visual-head">
+            <h2>SRC 柱工程圖表</h2>
+            <div class="src-visual-tabs" role="group" aria-label="SRC 柱圖表切換">
+              <button type="button" aria-pressed="true" data-src-column-tab="all">總覽</button>
+              <button type="button" aria-pressed="false" data-src-column-tab="pm">鋼骨＋RC P–M</button>
+              <button type="button" aria-pressed="false" data-src-column-tab="seismic">耐震動員比</button>
+              <button type="button" aria-pressed="false" data-src-column-tab="section">計算斷面</button>
+            </div>
+          </div>
+          <div class="src-diagram-stack">
+            <figure class="src-section-figure" data-src-column-diagram="pm">
+              <h3 class="src-figure-title">鋼骨／RC 分擔 P–M 互制包絡線</h3>
+              <img id="pmDiagramImage" alt="SRC 柱鋼骨與 RC 分擔 P–M 互制圖" hidden>
+              <figcaption id="pmDiagramCaption"></figcaption>
+            </figure>
+            <figure class="src-section-figure" data-src-column-diagram="seismic">
+              <h3 class="src-figure-title">各項規範檢核動員比總覽</h3>
+              <img id="seismicDiagramImage" alt="SRC 柱各項規範檢核動員比總覽圖" hidden>
+              <figcaption id="seismicDiagramCaption"></figcaption>
+            </figure>
+            <figure class="src-section-figure" data-src-column-diagram="section">
+              <h3 class="src-figure-title">SRC 柱計算斷面</h3>
+              <img id="sectionDiagramImage" alt="SRC 柱計算斷面" hidden>
+              <div id="sectionDiagramPlaceholder" class="src-section-placeholder">尚未產生計算斷面圖。</div>
+              <figcaption id="sectionDiagramCaption"></figcaption>
+            </figure>
+          </div>
         </section>
 
         <section class="src-card src-page-only">

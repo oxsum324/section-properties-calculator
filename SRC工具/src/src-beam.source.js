@@ -333,6 +333,20 @@
     const checks = result.checks;
     const overallStrengthOk = Object.values(checks).every(Boolean);
     const sectionDiagram = buildSectionDiagram(input);
+    const superpositionDiagram = SectionSvg?.srcBeamSuperposition ? SectionSvg.srcBeamSuperposition({
+      mu: flexure.demandTfM,
+      phiMn: flexure.designMomentTfM,
+      phiMns: 0.9 * flexure.mnSteelTfM,
+      phiMnrc: 0.9 * flexure.mnRcTfM,
+      flexureOk: checks.flexure,
+      vSteelDemand: shear.steelDemandTf,
+      phiVns: shear.phiVnSteelTf,
+      steelShearOk: checks.steelShearShare,
+      vRcDemand: shear.rcDemandTf,
+      phiVnrc: shear.phiVnRcTf,
+      rcShearOk: checks.rcShearShare,
+      rcControlLabel: shear.rcControlMode === 'general-shear' ? '一般剪力' : '剪力摩擦',
+    }) : null;
     return {
       title: REPORT_TITLE,
       subtitle: 'Fully Encased SRC Beam Design Report',
@@ -382,12 +396,15 @@
           ],
         },
       ],
-      diagrams: [{
-        title: sectionDiagram.title,
-        dataURL: sectionDiagram.dataURL,
-        caption: sectionDiagram.caption,
-        width: sectionDiagram.width,
-      }],
+      diagrams: [
+        {
+          title: sectionDiagram.title,
+          dataURL: sectionDiagram.dataURL,
+          caption: sectionDiagram.caption,
+          width: sectionDiagram.width,
+        },
+        ...(superpositionDiagram ? [superpositionDiagram] : []),
+      ],
       checks: [
         {
           group: '寬厚比與撓曲強度',
@@ -497,6 +514,11 @@
       $('sectionDiagramImage').removeAttribute('src');
       $('sectionDiagramPlaceholder').hidden = false;
       $('sectionDiagramPlaceholder').textContent = '輸入尚未通過檢查，未產生計算斷面圖。';
+      if ($('superpositionDiagramImage')) {
+        $('superpositionDiagramImage').hidden = true;
+        $('superpositionDiagramImage').removeAttribute('src');
+        $('superpositionDiagramCaption').textContent = '';
+      }
       $('reportReadiness').className = 'src-readiness blocked';
       $('reportReadiness').innerHTML = `<strong>輸入未通過檢查</strong><ul>${issues.map(item => `<li>${escapeHtml(item.message || item)}</li>`).join('')}</ul><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`;
     }
@@ -543,6 +565,12 @@
       $('sectionDiagramImage').hidden = !diagram;
       $('sectionDiagramPlaceholder').hidden = Boolean(diagram);
       $('sectionDiagramCaption').textContent = diagram?.caption || '';
+      const superDiagram = config?.diagrams?.[1];
+      if ($('superpositionDiagramImage')) {
+        $('superpositionDiagramImage').src = superDiagram?.dataURL || '';
+        $('superpositionDiagramImage').hidden = !superDiagram;
+        $('superpositionDiagramCaption').textContent = superDiagram?.caption || '';
+      }
       if (!strengthOk) {
         $('reportReadiness').className = 'src-readiness ng';
         $('reportReadiness').innerHTML = `<strong>工程結果含 NG</strong><span>${escapeHtml(failed.join('、'))}不符。仍可列印如實呈現計算結果；文件核可與工程判定是不同層次。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`;
@@ -669,6 +697,16 @@
         lastFingerprint = reportUi.buildReportTrace(lastConfig).calculationFingerprint;
         win.lastSrcBeamReportConfig = lastConfig;
         win.lastSrcBeamCalculationFingerprint = lastFingerprint;
+      });
+    });
+
+    doc.querySelectorAll('[data-src-beam-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.srcBeamTab;
+        doc.querySelectorAll('[data-src-beam-tab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.srcBeamTab === tab ? 'true' : 'false'));
+        doc.querySelectorAll('[data-src-beam-diagram]').forEach(fig => {
+          fig.hidden = tab !== 'all' && fig.dataset.srcBeamDiagram !== tab;
+        });
       });
     });
 

@@ -256,7 +256,7 @@ assert.equal(manualSectionConfig.formalApprovalAllowed, false, 'manual section r
 assert.ok(manualSectionResult.reviewItems.some(item => item.code === 'section-properties-manual'), 'manual section retains its source-review disclosure');
 assert.equal(config.summary.ok, true);
 assert.equal(config.inputs.length, 7);
-assert.equal(config.diagrams.length, 1);
+assert.equal(config.diagrams.length, 3);
 assert.equal(config.checks.flatMap(group => group.items).length, 15);
 assert.equal(config.steps.length, 9);
 assert.equal(config.project.name, '', 'blank optional project metadata remains acceptable');
@@ -333,7 +333,7 @@ const dualConfig = Page.buildDualAxisReportConfig(dualSnapshots);
 assert.equal(dualConfig.title, 'SRC 柱 X／Y 雙向耐震核算計算書');
 assert.equal(dualConfig.formalApprovalAllowed, true, '雙向 catalog-backed 彙總可在人工審閱後正式核可');
 assert.equal(dualConfig.summary.ok, true);
-assert.equal(dualConfig.diagrams.length, 2, '雙向彙總同時保留 X／Y 計算斷面');
+assert.equal(dualConfig.diagrams.length, 6, '雙向彙總同時保留 X／Y 計算斷面與互制／耐震動員圖');
 assert.equal(dualConfig.snapshot.schema, Page.DUAL_CASE_SCHEMA);
 assert.equal(JSON.stringify(dualConfig).includes('X 向計算指紋'), true);
 assert.equal(JSON.stringify(dualConfig).includes('Y 向｜第 9.6.2 節採用柱剪力資料'), true);

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-11-26T09:30:31.167Z",
-  "sourceCommit": "7966dea8881c5ba9b2c691980ec35eff5b318368",
+  "capturedAt": "2026-11-26T13:41:45.509Z",
+  "sourceCommit": "6871deb31eefcbbe3e7e60eb798a396cf50c9731",
   "routeCount": 51,
-  "totalJsBytes": 15060733,
+  "totalJsBytes": 15132084,
   "docxRuntimePath": "/%E7%9F%B3%E6%9D%90%E5%9B%BA%E5%AE%9A/vendor/package/dist/index.iife.js",
   "docxRuntimeBytes": 857630,
   "routes": [
@@ -984,7 +984,7 @@
     },
     {
       "route": "/src-beam",
-      "jsBytes": 289154,
+      "jsBytes": 301424,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1004,7 +1004,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/member-section-svg.js",
-          "bytes": 33578
+          "bytes": 44707
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1022,7 +1022,7 @@
     },
     {
       "route": "/src-column",
-      "jsBytes": 466709,
+      "jsBytes": 481274,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/report-utils.js",
@@ -1070,7 +1070,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/member-section-svg.js",
-          "bytes": 33578
+          "bytes": 44707
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1088,7 +1088,7 @@
     },
     {
       "route": "/steel-formal",
-      "jsBytes": 487694,
+      "jsBytes": 498823,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1108,13 +1108,13 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/member-section-svg.js",
-          "bytes": 33578
+          "bytes": 44707
         }
       ]
     },
     {
       "route": "/steel-beam-formal",
-      "jsBytes": 458212,
+      "jsBytes": 469341,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
@@ -1138,7 +1138,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/member-section-svg.js",
-          "bytes": 33578
+          "bytes": 44707
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
@@ -1152,7 +1152,7 @@
     },
     {
       "route": "/steel-column-formal",
-      "jsBytes": 440869,
+      "jsBytes": 451998,
       "sharedScripts": [
         {
           "path": "/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/core/materials/steel.js",
@@ -1176,7 +1176,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/member-section-svg.js",
-          "bytes": 33578
+          "bytes": 44707
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/loads/loadcombo.js",
@@ -1190,7 +1190,7 @@
     },
     {
       "route": "/steel-plate",
-      "jsBytes": 487694,
+      "jsBytes": 498823,
       "sharedScripts": [
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/tool-workflow.js",
@@ -1210,7 +1210,7 @@
         },
         {
           "path": "/%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/core/ui/member-section-svg.js",
-          "bytes": 33578
+          "bytes": 44707
         }
       ]
     },

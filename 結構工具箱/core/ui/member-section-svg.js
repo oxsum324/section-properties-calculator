@@ -525,12 +525,162 @@
     });
   }
 
+  function srcBeamSuperposition({
+    mu = 0, phiMn = 0, phiMns = 0, phiMnrc = 0, flexureOk = true,
+    vSteelDemand = 0, phiVns = 0, steelShearOk = true,
+    vRcDemand = 0, phiVnrc = 0, rcShearOk = true, rcControlLabel = '一般剪力',
+  }) {
+    const id = 'src-beam-superposition';
+    const title = 'SRC 梁鋼骨與 RC 強度疊加與安全餘裕圖';
+    const steelInk = '#1e3a5f';
+    const rcInk = '#0e7490';
+    const barX = 112;
+    const barW = 296;
+    const barH = 22;
+    const drawStackedRow = (y, label, seg1, seg2, demand, ok, unit, subText) => {
+      const totalCap = Math.max(0, seg1 + seg2);
+      const scaleMax = niceAxisMax(Math.max(totalCap, demand, 1));
+      const w1 = n(barW * clamp(seg1 / scaleMax, 0, 1));
+      const w2 = n(barW * clamp(seg2 / scaleMax, 0, 1 - clamp(seg1 / scaleMax, 0, 1)));
+      const dx = n(barX + barW * clamp(demand / scaleMax, 0, 1));
+      const margin = totalCap - demand;
+      const mColor = ok ? chartInk.capacity : chartInk.failed;
+      return text(barX - 10, y + 15, label, 'font-size="13" font-weight="800" text-anchor="end"')
+        + '<rect x="' + barX + '" y="' + y + '" width="' + barW + '" height="' + barH + '" fill="' + chartInk.area + '" stroke="' + chartInk.grid + '"/>'
+        + (seg1 > 0 ? '<rect x="' + barX + '" y="' + y + '" width="' + w1 + '" height="' + barH + '" fill="' + steelInk + '"/>' : '')
+        + (seg2 > 0 ? '<rect x="' + n(barX + Number(w1)) + '" y="' + y + '" width="' + w2 + '" height="' + barH + '" fill="' + rcInk + '"/>' : '')
+        + line(dx, y - 5, dx, y + barH + 5, 'stroke="' + (ok ? '#0f172a' : chartInk.failed) + '" stroke-width="2.4"')
+        + '<path d="M' + dx + ' ' + (y - 6) + ' l-4 -6 h8 Z" fill="' + (ok ? '#0f172a' : chartInk.failed) + '"/>'
+        + text(barX + barW + 10, y + 10, 'Δ ' + signedChartNumber(margin) + ' ' + unit, 'font-size="12.5" font-weight="800" fill="' + mColor + '"')
+        + text(barX + barW + 10, y + 23, (ok ? 'OK' : 'NG') + '｜' + chartNumber(demand) + ' / ' + chartNumber(totalCap), 'font-size="11" font-weight="600" fill="' + chartInk.muted + '"')
+        + text(barX, y + barH + 14, subText, 'font-size="11.5" font-weight="600" fill="' + chartInk.axis + '"');
+    };
+    const mShareS = phiMn > 0 ? Math.round((phiMns / phiMn) * 100) : 0;
+    const mShareRc = phiMn > 0 ? 100 - mShareS : 0;
+    const rows = '<g data-diagram-role="src-superposition">'
+      + drawStackedRow(26, '撓曲疊加', phiMns, phiMnrc, mu, flexureOk, 'tf·m',
+        '鋼骨 0.9Mns ' + chartNumber(phiMns) + ' (' + mShareS + '%) ＋ RC 0.9Mnrc ' + chartNumber(phiMnrc) + ' (' + mShareRc + '%)')
+      + drawStackedRow(94, '鋼骨剪力', phiVns, 0, vSteelDemand, steelShearOk, 'tf',
+        '鋼骨分擔需求 ' + chartNumber(vSteelDemand) + ' tf vs 設計容量 0.9Vns ' + chartNumber(phiVns) + ' tf')
+      + drawStackedRow(162, 'RC 剪力', 0, phiVnrc, vRcDemand, rcShearOk, 'tf',
+        'RC 分擔需求 ' + chartNumber(vRcDemand) + ' tf vs 0.75Vnrc ' + chartNumber(phiVnrc) + ' tf（' + rcControlLabel + '控制）')
+      + '</g>';
+    const legend = '<g data-diagram-role="chart-legend" font-size="12" font-weight="700">'
+      + '<rect x="58" y="218" width="14" height="10" fill="' + steelInk + '"/>' + text(78, 227, '鋼骨貢獻')
+      + '<rect x="158" y="218" width="14" height="10" fill="' + rcInk + '"/>' + text(178, 227, 'RC 貢獻')
+      + line(252, 217, 252, 229, 'stroke="#0f172a" stroke-width="2.4"') + text(262, 227, '設計需求')
+      + '</g>';
+    const caption = chartCaption([
+      'SRC 強度疊加與剪力分擔比較（第 5.4 / 5.5 節）',
+      '彎矩 Mu ' + chartNumber(mu) + ' vs φMn ' + chartNumber(phiMn) + ' tf·m（鋼骨 ' + mShareS + '% / RC ' + mShareRc + '%），ΔM ' + signedChartNumber(phiMn - mu) + ' tf·m',
+      '鋼骨剪力 ' + chartNumber(vSteelDemand) + ' / ' + chartNumber(phiVns) + ' tf；RC 剪力 ' + chartNumber(vRcDemand) + ' / ' + chartNumber(phiVnrc) + ' tf（' + rcControlLabel + '）',
+    ]);
+    return engineeringGraphic(id, title, caption, rows + legend, { height: 244 });
+  }
+
+  function srcColumnInteraction({
+    axis = 'x',
+    steelPoints = [], rcPoints = [],
+    steelDemandP = 0, steelDemandM = 0, steelOk = true, steelUtil = 0,
+    rcDemandP = 0, rcDemandM = 0, rcOk = true, rcUtil = 0, rcAllowMAtP = null,
+    totalPu = 0, totalMu = 0, redistributed = false,
+  }) {
+    const isY = axis === 'y';
+    const mSym = isY ? 'My' : 'Mx';
+    const axisName = isY ? 'Y 向（鋼骨弱軸）' : 'X 向（鋼骨強軸）';
+    const id = isY ? 'src-column-pm-y' : 'src-column-pm-x';
+    const title = 'SRC 柱 ' + axisName + ' 鋼骨／RC 分擔 P–' + mSym + ' 互制圖';
+    const steelInk = '#1e3a5f';
+    const rcInk = '#0e7490';
+    const allM = [steelDemandM, rcDemandM, ...steelPoints.map(pt => pt.m), ...rcPoints.map(pt => pt.m)].filter(Number.isFinite);
+    const allP = [steelDemandP, rcDemandP, ...steelPoints.map(pt => pt.p), ...rcPoints.map(pt => pt.p)].filter(Number.isFinite);
+    const xMax = niceAxisMax(Math.max(1, ...allM));
+    const yMax = niceAxisMax(Math.max(1, ...allP));
+    const { toX, toY, grid } = engineeringAxes(xMax, yMax, '分擔彎矩 |' + mSym + '| (tf·m)', '分擔軸壓 |P| (tf)');
+    const sOutline = steelPoints.filter(pt => Number.isFinite(pt.m) && Number.isFinite(pt.p) && pt.p >= 0 && pt.m >= 0)
+      .map(pt => chartCoord(toX(pt.m), toY(pt.p)));
+    const rOutline = rcPoints.filter(pt => Number.isFinite(pt.m) && Number.isFinite(pt.p) && pt.p >= 0 && pt.m >= 0)
+      .map(pt => chartCoord(toX(pt.m), toY(pt.p)));
+    const envelopes = '<g data-diagram-role="capacity-envelope">'
+      + (rOutline.length >= 2 ? '<polygon points="' + [chartCoord(toX(0), toY(0)), ...rOutline].join(' ') + '" fill="rgba(14,116,144,0.08)"/>'
+        + '<polyline points="' + rOutline.join(' ') + '" fill="none" stroke="' + rcInk + '" stroke-width="2.2" stroke-dasharray="6 3" stroke-linejoin="round"/>' : '')
+      + (sOutline.length >= 2 ? '<polygon points="' + [chartCoord(toX(0), toY(0)), ...sOutline].join(' ') + '" fill="rgba(30,58,95,0.09)"/>'
+        + '<polyline points="' + sOutline.join(' ') + '" fill="none" stroke="' + steelInk + '" stroke-width="2.5" stroke-linejoin="round"/>' : '')
+      + '</g>';
+    const sdx = toX(steelDemandM);
+    const sdy = toY(steelDemandP);
+    const rdx = toX(rcDemandM);
+    const rdy = toY(rcDemandP);
+    let marginSvg = '<g data-diagram-role="margin-zone">';
+    if (Number.isFinite(rcAllowMAtP) && Math.abs(toX(rcAllowMAtP) - rdx) >= 6) {
+      const rax = toX(rcAllowMAtP);
+      const rcColor = rcOk ? rcInk : chartInk.failed;
+      marginSvg += line(rdx, rdy, rax, rdy, 'stroke="' + rcColor + '" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#' + id + '-arrow)"')
+        + '<circle cx="' + n(rax) + '" cy="' + n(rdy) + '" r="3.6" fill="#fff" stroke="' + rcColor + '" stroke-width="1.8"/>';
+    }
+    marginSvg += '</g>';
+    const demands = '<g data-diagram-role="demand-point">'
+      + '<path d="M' + n(sdx) + ' ' + n(sdy - 5.5) + ' l5.5 5.5 -5.5 5.5 -5.5 -5.5 Z" fill="' + (steelOk ? steelInk : chartInk.failed) + '" stroke="#fff" stroke-width="1.4"/>'
+      + '<circle cx="' + n(rdx) + '" cy="' + n(rdy) + '" r="4.8" fill="' + (rcOk ? rcInk : chartInk.failed) + '" stroke="#fff" stroke-width="1.4"/>'
+      + '</g>';
+    const legend = '<g data-diagram-role="chart-legend" font-size="11.5" font-weight="700">'
+      + line(56, 267, 74, 267, 'stroke="' + steelInk + '" stroke-width="2.4"') + text(79, 271, '鋼骨包絡 / 需求')
+      + line(188, 267, 206, 267, 'stroke="' + rcInk + '" stroke-width="2.2" stroke-dasharray="6 3"') + text(211, 271, 'RC 包絡 / 需求')
+      + text(326, 271, redistributed ? '已重分配 (7.3-9)' : '依勁度分配', 'fill="' + chartInk.muted + '"')
+      + '</g>';
+    const caption = chartCaption([
+      axisName + '｜總需求 Pu ' + chartNumber(totalPu) + ' tf、' + mSym + ' ' + chartNumber(totalMu) + ' tf·m',
+      '鋼骨分擔 (' + chartNumber(steelDemandP) + ' tf, ' + chartNumber(steelDemandM) + ' tf·m) 需求比 ' + chartNumber(steelUtil * 100) + '%（' + (steelOk ? 'OK' : 'NG') + '）',
+      'RC 分擔 (' + chartNumber(rcDemandP) + ' tf, ' + chartNumber(rcDemandM) + ' tf·m) 需求比 ' + chartNumber(rcUtil * 100) + '%（' + (rcOk ? 'OK' : 'NG') + '）',
+      Number.isFinite(rcAllowMAtP) ? 'RC 同軸力 ΔMrc ' + signedChartNumber(rcAllowMAtP - rcDemandM) + ' tf·m' : '',
+    ]);
+    return engineeringGraphic(id, title, caption, envelopes + grid + marginSvg + demands + legend, {
+      defs: arrowMarker(id + '-arrow', rcOk ? rcInk : chartInk.failed, 6),
+    });
+  }
+
+  function srcColumnSeismicProfile({ axis = 'x', items = [] }) {
+    const isY = axis === 'y';
+    const id = isY ? 'src-column-seismic-y' : 'src-column-seismic-x';
+    const title = 'SRC 柱 ' + (isY ? 'Y 向' : 'X 向') + ' 各項規範檢核動員比總覽';
+    const validItems = items.filter(item => item && Number.isFinite(item.ratio));
+    const rowH = 26;
+    const topPad = 24;
+    const height = Math.max(120, topPad + validItems.length * rowH + 30);
+    const barX = 148;
+    const barW = 296;
+    const maxScale = Math.max(1.2, ...validItems.map(item => item.ratio * 1.1));
+    const limitX = n(barX + barW * (1 / maxScale));
+    let body = '<g data-diagram-role="src-seismic-utilization">';
+    body += line(limitX, topPad - 8, limitX, topPad + validItems.length * rowH - 4, 'stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="4 3"')
+      + text(limitX, topPad - 11, '100% 限值', 'font-size="11" font-weight="700" fill="#b91c1c" text-anchor="middle"');
+    validItems.forEach((item, idx) => {
+      const y = topPad + idx * rowH;
+      const pct = clamp(item.ratio / maxScale, 0, 1);
+      const fill = item.ok ? (item.ratio > 0.85 ? '#0e7490' : '#1e3a5f') : chartInk.failed;
+      body += text(barX - 8, y + 13, item.label, 'font-size="12" font-weight="700" text-anchor="end"')
+        + '<rect x="' + barX + '" y="' + (y + 2) + '" width="' + barW + '" height="14" fill="' + chartInk.area + '" stroke="' + chartInk.grid + '"/>'
+        + '<rect x="' + barX + '" y="' + (y + 2) + '" width="' + n(barW * pct) + '" height="14" fill="' + fill + '"/>'
+        + text(barX + barW + 8, y + 13, (item.ratio * 100).toFixed(1) + '% ' + (item.ok ? 'OK' : 'NG'), 'font-size="11.5" font-weight="800" fill="' + (item.ok ? '#0f172a' : chartInk.failed) + '"');
+    });
+    body += '</g>';
+    const governing = validItems.reduce((best, item) => (!best || item.ratio > best.ratio ? item : best), null);
+    const caption = chartCaption([
+      'SRC 柱選定方向各項規範檢核動員比（虛線為 100% 規範上限）',
+      governing ? '控制項目：' + governing.label + ' ' + (governing.ratio * 100).toFixed(1) + '%（' + (governing.ok ? 'OK' : 'NG') + '）' : '',
+    ]);
+    return engineeringGraphic(id, title, caption, body, { height });
+  }
+
   const api = Object.freeze({
     arrowMarker,
     boltPlate,
     connectionElevation,
     dimensionValue,
     loadLegend,
+    srcBeamSuperposition,
+    srcColumnInteraction,
+    srcColumnSeismicProfile,
     steelBeamLtbCurve,
     steelBeamResponse,
     steelColumnBiaxial,

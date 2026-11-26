@@ -614,6 +614,60 @@
     });
   }
 
+  function buildInteractionDiagram(input, result) {
+    if (!SectionSvg?.srcColumnInteraction) return null;
+    const axis = input.seismicAxis === 'y' ? 'y' : 'x';
+    const phiPns = 0.85 * Number(result.steel?.nominalCompressionTf || 0);
+    const phiMns = 0.9 * Number(axis === 'y' ? result.steel?.nominalMomentYTfM : result.steel?.nominalMomentXTfM || 0);
+    const steelPoints = phiPns > 0 && phiMns > 0
+      ? [{ p: phiPns, m: 0 }, { p: 0.2 * phiPns, m: 0.9 * phiMns }, { p: 0, m: phiMns }]
+      : [];
+    const rawRc = Array.isArray(result.rc?.designCurve) ? result.rc.designCurve : [];
+    const posRc = rawRc
+      .map(pt => ({ p: Number(pt.P ?? pt.p), m: Number(pt.M ?? pt.m) }))
+      .filter(pt => Number.isFinite(pt.p) && Number.isFinite(pt.m) && pt.p >= 0 && pt.m >= 0);
+    const step = Math.max(1, Math.floor(posRc.length / 36));
+    const rcPoints = posRc.filter((_, i) => i === 0 || i === posRc.length - 1 || i % step === 0);
+    const sDem = result.redistribution?.finalSteelDemands || {};
+    const rDem = result.redistribution?.finalRcDemands || {};
+    return SectionSvg.srcColumnInteraction({
+      axis,
+      steelPoints,
+      rcPoints,
+      steelDemandP: Number(sDem.puTf || 0),
+      steelDemandM: Math.abs(Number(axis === 'y' ? sDem.muyTfM : sDem.muxTfM || 0)),
+      steelOk: result.checks?.steelInteraction !== false,
+      steelUtil: Number(result.steel?.finalInteraction?.utilization || 0),
+      rcDemandP: Number(rDem.puTf || 0),
+      rcDemandM: Math.abs(Number(axis === 'y' ? rDem.muyTfM : rDem.muxTfM || 0)),
+      rcOk: result.checks?.rcInteraction !== false,
+      rcUtil: Number(result.rc?.utilization || 0),
+      rcAllowMAtP: Number.isFinite(Number(result.rc?.phiMnTfM)) ? Number(result.rc.phiMnTfM) : null,
+      totalPu: Number(input.demands?.puTf || 0),
+      totalMu: Math.abs(Number(axis === 'y' ? input.demands?.muyTfM : input.demands?.muxTfM || 0)),
+      redistributed: result.redistribution?.applied === true,
+    });
+  }
+
+  function buildSeismicProfileDiagram(input, result) {
+    if (!SectionSvg?.srcColumnSeismicProfile) return null;
+    const axis = input.seismicAxis === 'y' ? 'y' : 'x';
+    const items = [
+      { label: '鋼骨 P–M 互制', ratio: Number(result.steel?.finalInteraction?.utilization), ok: result.checks?.steelInteraction !== false },
+      { label: 'RC P–M 互制', ratio: Number(result.rc?.utilization), ok: result.checks?.rcInteraction !== false },
+      { label: '9.3 耐震軸壓', ratio: Number(result.seismicAxial?.compression?.utilization), ok: result.seismicAxial?.compression?.ok !== false },
+      ...(result.seismicAxial?.tension?.applicable ? [{ label: '9.3 耐震軸拉', ratio: Number(result.seismicAxial.tension.utilization), ok: result.seismicAxial.tension.ok !== false }] : []),
+      ...(result.shear ? [
+        { label: '9.6.2 鋼骨剪力', ratio: Number(result.shear.steel?.utilization), ok: result.shear.steel?.ok !== false },
+        { label: '9.6.2 RC 剪力', ratio: Number(result.shear.rc?.utilization), ok: result.shear.rc?.ok !== false },
+      ] : []),
+      ...(result.jointFlexuralStrengthRatio ? [{ label: '8.4.2 接頭比值', ratio: Number(result.jointFlexuralStrengthRatio.maximumUtilization), ok: result.jointFlexuralStrengthRatio.ok !== false }] : []),
+      ...(result.strongColumnWeakBeam ? [{ label: '9.6.1 強柱弱梁', ratio: Number(result.strongColumnWeakBeam.utilization), ok: result.strongColumnWeakBeam.ok !== false }] : []),
+      ...(result.confinement ? [{ label: '9.6.3 圍束箍筋', ratio: Number(result.confinement.ash?.utilization), ok: result.confinement.ok !== false }] : []),
+    ];
+    return SectionSvg.srcColumnSeismicProfile({ axis, items });
+  }
+
   function failedLabels(result) {
     return Object.entries(CHECK_LABELS)
       .filter(([key]) => result?.checks?.[key] === false)
@@ -801,7 +855,10 @@
           ],
         }] : []),
       ],
-      diagrams: [{ title: diagram.title, dataURL: diagram.dataURL, caption: diagram.caption, width: diagram.width }],
+      diagrams: [
+        { title: diagram.title, dataURL: diagram.dataURL, caption: diagram.caption, width: diagram.width },
+        ...[buildInteractionDiagram(input, result), buildSeismicProfileDiagram(input, result)].filter(Boolean),
+      ],
       checks: [
         {
           group: '構材斷面與軸彎互制',
@@ -1372,6 +1429,13 @@
       $('sectionDiagramPlaceholder').hidden = false;
       $('sectionDiagramPlaceholder').textContent = '輸入尚未通過檢查，未產生計算斷面圖。';
       $('sectionDiagramCaption').textContent = '';
+      for (const prefix of ['pmDiagram', 'seismicDiagram']) {
+        if ($(`${prefix}Image`)) {
+          $(`${prefix}Image`).hidden = true;
+          $(`${prefix}Image`).removeAttribute('src');
+          $(`${prefix}Caption`).textContent = '';
+        }
+      }
       $('reportReadiness').className = 'src-readiness blocked';
       $('reportReadiness').innerHTML = `<strong>輸入未通過檢查</strong><ul>${issues.map(item => `<li>${escapeHtml(item.message || item)}</li>`).join('')}</ul><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`;
     }
@@ -1470,6 +1534,18 @@
       $('sectionDiagramImage').hidden = !diagram;
       $('sectionDiagramPlaceholder').hidden = Boolean(diagram);
       $('sectionDiagramCaption').textContent = diagram?.caption || '';
+      const pmDiagram = config?.diagrams?.[1];
+      if ($('pmDiagramImage')) {
+        $('pmDiagramImage').src = pmDiagram?.dataURL || '';
+        $('pmDiagramImage').hidden = !pmDiagram;
+        $('pmDiagramCaption').textContent = pmDiagram?.caption || '';
+      }
+      const seismicDiagram = config?.diagrams?.[2];
+      if ($('seismicDiagramImage')) {
+        $('seismicDiagramImage').src = seismicDiagram?.dataURL || '';
+        $('seismicDiagramImage').hidden = !seismicDiagram;
+        $('seismicDiagramCaption').textContent = seismicDiagram?.caption || '';
+      }
       $('reportReadiness').className = strengthOk ? 'src-readiness review' : 'src-readiness ng';
       $('reportReadiness').innerHTML = strengthOk
         ? `<strong>${escapeHtml(axisLabel)}計算完成</strong><span>計算書預設為可列印的內部審閱；完成審閱並勾選核可後可作正式附件。正交方向、接頭區剪力、接合細部與完整構架仍由主文或其他附件承接。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`
@@ -1635,6 +1711,16 @@
         lastFingerprint = reportUi.buildReportTrace(lastConfig).calculationFingerprint;
         win.lastSrcColumnReportConfig = lastConfig;
         win.lastSrcColumnCalculationFingerprint = lastFingerprint;
+      });
+    });
+
+    doc.querySelectorAll('[data-src-column-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.srcColumnTab;
+        doc.querySelectorAll('[data-src-column-tab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.srcColumnTab === tab ? 'true' : 'false'));
+        doc.querySelectorAll('[data-src-column-diagram]').forEach(fig => {
+          fig.hidden = tab !== 'all' && fig.dataset.srcColumnDiagram !== tab;
+        });
       });
     });
 

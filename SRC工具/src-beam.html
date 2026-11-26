@@ -164,12 +164,27 @@
         </section>
 
         <section class="src-card src-section-card">
-          <h2>SRC 梁計算斷面</h2>
-          <figure class="src-section-figure">
-            <img id="sectionDiagramImage" alt="SRC 梁計算斷面" hidden>
-            <div id="sectionDiagramPlaceholder" class="src-section-placeholder">尚未產生計算斷面圖。</div>
-            <figcaption id="sectionDiagramCaption"></figcaption>
-          </figure>
+          <div class="src-visual-head">
+            <h2>SRC 梁工程圖表</h2>
+            <div class="src-visual-tabs" role="group" aria-label="SRC 梁圖表切換">
+              <button type="button" aria-pressed="true" data-src-beam-tab="all">總覽</button>
+              <button type="button" aria-pressed="false" data-src-beam-tab="superposition">強度疊加</button>
+              <button type="button" aria-pressed="false" data-src-beam-tab="section">計算斷面</button>
+            </div>
+          </div>
+          <div class="src-diagram-stack">
+            <figure class="src-section-figure" data-src-beam-diagram="superposition">
+              <h3 class="src-figure-title">鋼骨與 RC 強度疊加與安全餘裕</h3>
+              <img id="superpositionDiagramImage" alt="SRC 梁鋼骨與 RC 強度疊加與安全餘裕圖" hidden>
+              <figcaption id="superpositionDiagramCaption"></figcaption>
+            </figure>
+            <figure class="src-section-figure" data-src-beam-diagram="section">
+              <h3 class="src-figure-title">SRC 梁計算斷面</h3>
+              <img id="sectionDiagramImage" alt="SRC 梁計算斷面" hidden>
+              <div id="sectionDiagramPlaceholder" class="src-section-placeholder">尚未產生計算斷面圖。</div>
+              <figcaption id="sectionDiagramCaption"></figcaption>
+            </figure>
+          </div>
         </section>
 
         <section class="src-card src-page-only">
