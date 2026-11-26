@@ -25,7 +25,7 @@ const RUNTIME_BYTE_LIMIT = 8192;
 const RUNTIME_MANIFEST_BYTE_LIMIT = 12288;
 const SLOT_MARKUP = '<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>';
 // 外部套件沿用其原有導覽。
-const EXPECTED_TARGET_COUNT = 52;
+const EXPECTED_TARGET_COUNT = 50;
 // 首頁更新日依賴只登錄程式碼兩檔；清冊（json／js）變動不改路由更新日。
 const DEPENDENCIES = [OUTPUT, SOURCE];
 const FORBIDDEN_DEPENDENCIES = [MANIFEST, RUNTIME_MANIFEST];
@@ -75,7 +75,7 @@ for (const tool of manifest.tools) {
   assert.ok(fs.existsSync(path.join(root, tool.file)), `${tool.route} file exists: ${tool.file}`);
 }
 const familyExpectations = {
-  '/rc-beam': 'rc', '/rc-column-cover-deviation': 'rc', '/src-beam': 'steel', '/steel-formal': 'steel', '/steel-beam': 'steel',
+  '/rc-beam': 'rc', '/rc-column-cover-deviation': 'rc', '/src-beam': 'steel', '/steel-formal': 'steel', '/steel-beam-formal': 'steel',
   '/steel-plate': 'attachments', '/anchor': 'attachments', '/wind-kzt': 'wind', '/seismic-dynamic': 'seismic',
   '/cable-tension-frequency': 'local-quick', '/decking': 'local-quick', '/excavation-support': 'local-quick', '/condition-survey': 'local-quick',
   '/section': 'reference', '/concrete-strength-ndt': 'reference', '/beam-analysis': 'analysis', '/struct-dx': 'analysis',
@@ -134,9 +134,9 @@ for (const tool of targets) {
   const body = html.match(/<body\b[^>]*>/i);
   assert.ok(body, `${tool.route} has a <body> tag`);
   assert.ok(body[0].includes(`data-family="${tool.family}"`), `${tool.route} body carries data-family="${tool.family}": ${body[0]}`);
-  // 靜態占位：緊接 <body> 之後（只允許空白），恰一次，固定 44px 最小高度。
+  // 靜態占位：緊接 <body>（或主頁列印封鎖 aside）之後（只允許空白），恰一次，固定 44px 最小高度。
   assert.equal(html.split(SLOT_MARKUP).length - 1, 1, `${tool.route} has exactly one tool-chrome slot`);
-  assert.match(html.slice(body.index + body[0].length, body.index + body[0].length + SLOT_MARKUP.length + 8), new RegExp(`^\\s*${SLOT_MARKUP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), `${tool.route} slot is the first body child`);
+  assert.match(html.slice(body.index + body[0].length, body.index + body[0].length + SLOT_MARKUP.length + 320), new RegExp(`^\\s*(?:<aside class="formal-direct-print-boundary"[^>]*>[\\s\\S]*?<\\/aside>\\s*)?${SLOT_MARKUP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), `${tool.route} slot is the first body child`);
   assert.equal(html.split('data-tool-chrome-slot').length - 1, 1, `${tool.route} declares the slot attribute once`);
   const scripts = [...html.matchAll(/<script\b([^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*)>/gi)];
   const chromeReferences = scripts.filter(match => /(?:^|\/)tool-chrome\.js(?:\?|$)/.test(match[2]));

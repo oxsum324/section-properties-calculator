@@ -175,8 +175,10 @@ const repoDocs = {
   windObjectTower: readText(toolboxFile('tools/風力/wind-object-tower.html')),
   windFenceSign: readText(toolboxFile('tools/風力/wind-fence-sign.html')),
   windSignPole: readText(toolboxFile('tools/風力/wind-sign-pole.html')),
-  steelBeam: readText(toolboxFile('tools/鋼構/steel-beam.html')),
-  steelColumn: readText(toolboxFile('tools/鋼構/steel-column.html')),
+  steelBeamCompat: readText(toolboxFile('tools/鋼構/steel-beam.html')),
+  steelColumnCompat: readText(toolboxFile('tools/鋼構/steel-column.html')),
+  steelBeamFormal: readText(repoFile('鋼構工具/steel-beam-formal.js')),
+  steelColumnFormal: readText(repoFile('鋼構工具/steel-column-formal.js')),
   forcePicker: readText(toolboxFile('tools/force-picker.html')),
   forcePickerCore: readText(toolboxFile('core/ui/force-picker.js')),
   loadComboCore: readText(toolboxFile('core/loads/src/loadcombo.source.js')),
@@ -496,8 +498,6 @@ require(exportHelperTestPath);
   ['tools/equipment/equipment-load.html', "name: Exporter.normalizeProjectFieldValue($('projName').value)"],
   ['tools/earth/earth-pressure.html', "name: Exporter.normalizeProjectFieldValue($('projName').value)"],
   ['tools/foundation/foundation-local.html', "name: Exporter.normalizeProjectFieldValue($('projName').value)"],
-  ['tools/鋼構/steel-beam.html', "window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projName')?.value)"],
-  ['tools/鋼構/steel-column.html', "window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projName')?.value)"],
 ].forEach(([relativePath, needle]) => {
   assertIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} project metadata normalization`);
 });
@@ -505,8 +505,6 @@ for (const relativePath of [
   'tools/equipment/equipment-load.html',
   'tools/earth/earth-pressure.html',
   'tools/foundation/foundation-local.html',
-  'tools/鋼構/steel-beam.html',
-  'tools/鋼構/steel-column.html',
   'tools/風力/wind-kzt.html'
 ]) {
   const html = readText(toolboxFile(relativePath));
@@ -531,12 +529,6 @@ for (const relativePath of [
   ['tools/foundation/foundation-local.html', "if (data.designer != null) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);"],
 ].forEach(([relativePath, needle]) => {
   assertIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} project metadata restore clears stale blank values`);
-});
-[
-  ['tools/鋼構/steel-beam.html', "name: (document.getElementById('projName')?.value || '').trim()"],
-  ['tools/鋼構/steel-column.html', "name: (document.getElementById('projName')?.value || '').trim()"],
-].forEach(([relativePath, needle]) => {
-  assertNoIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} should not use raw project metadata trim in report header`);
 });
 [
   ['tools/equipment/equipment-load.html', "if (data.name) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);"],
@@ -714,40 +706,16 @@ assert.equal(repoDocs.homeTokens.includes('fonts.googleapis.com'), false, 'home 
 assert.equal(repoDocs.homeTokens.includes('fonts.gstatic.com'), false, 'home design tokens avoid remote font binaries');
 assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), false, 'dynamic seismic summary is not mixed into structural analysis');
 [
-  [repoDocs.steelBeam, 'steel beam transition page', 'beamLegacyPurpose', 'beamLegacyUseConfirm', 'isBeamLegacyUseConfirmed', '鋼梁舊案延續計算記錄'],
-  [repoDocs.steelColumn, 'steel column transition page', 'columnLegacyPurpose', 'columnLegacyUseConfirm', 'isColumnLegacyUseConfirmed', '鋼柱舊案延續計算記錄'],
-].forEach(([html, label, purposeId, confirmId, confirmFunction, reportTitle]) => {
-  assertIncludes(html, 'id="inputStatus"', `${label} inline input status`);
-  assertIncludes(html, 'function setInputStatus', `${label} inline input status helper`);
-  assertIncludes(html, 'return inputFail(', `${label} validation returns inline failure`);
-  assert.equal(html.includes('alert('), false, `${label} uses inline validation instead of alerts`);
-  [
-    'page-only-report-status',
-    '優先閱讀',
-    '不會寫入計算書或列印 PDF',
-  ].forEach(needle => assertIncludes(html, needle, `${label} page-only readiness copy`));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), `${label} page-only readiness hidden from print`);
-  assertIncludes(html, 'renderStatusGridPanel', `${label} readiness shared renderer usage`);
-  assertIncludes(html, `id="${purposeId}"`, `${label} existing-project purpose selection`);
-  assertIncludes(html, '既有計算記錄延續', `${label} legacy record purpose option`);
-  assertIncludes(html, '既有案件復核 / 變更比較', `${label} legacy review purpose option`);
-  assertIncludes(html, `id="${confirmId}"`, `${label} existing-project confirmation`);
-  assertIncludes(html, `function ${confirmFunction}`, `${label} output confirmation guard`);
-  assertIncludes(html, 'LegacyConfirmationScope', `${label} confirmation scope persistence`);
-  assertIncludes(html, 'invalidate', `${label} project or purpose change revokes confirmation`);
-  assertIncludes(html, '用途確認', `${label} report purpose confirmation provenance`);
-  assertIncludes(html, '已確認：僅限既有案件，不作新案正式計算附件', `${label} report purpose confirmation boundary`);
-  assertIncludes(html, '>舊案延續計算記錄</button>', `${label} report button classification`);
-  assert.ok(/id="btnReport"[^>]*disabled/.test(html), `${label} report output starts disabled`);
-  assertIncludes(html, reportTitle, `${label} report title classification`);
-  assertIncludes(html, '不得作為新案正式計算附件', `${label} report excludes new-project use`);
-  assertIncludes(html, '新案正式計算附件必須由', `${label} report points new projects to formal page`);
-  assertIncludes(html, 'id="legacyDirectPrintNotice"', `${label} direct-print boundary notice`);
-  assertIncludes(html, 'body > * { display:none !important; }', `${label} direct print hides live calculation page`);
-  assertIncludes(html, '#legacyDirectPrintNotice { display:block !important;', `${label} direct print only shows boundary notice`);
+  [repoDocs.steelBeamCompat, 'steel beam compatibility redirect', '../../../鋼構工具/steel-beam-formal.html'],
+  [repoDocs.steelColumnCompat, 'steel column compatibility redirect', '../../../鋼構工具/steel-column-formal.html'],
+].forEach(([html, label, canonicalHref]) => {
+  assertIncludes(html, `url=${canonicalHref}`, `${label} meta refresh target`);
+  assertIncludes(html, `href="${canonicalHref}"`, `${label} canonical fallback link`);
+  assertIncludes(html, 'window.location.replace(target.href)', `${label} script redirect`);
+  assertIncludes(html, 'class="formal-tool-output-page"', `${label} direct-print body class`);
+  assertIncludes(html, 'class="formal-direct-print-boundary"', `${label} direct-print boundary`);
+  assertIncludes(html, '本頁不得作為附件', `${label} attachment exclusion notice`);
 });
-assertFunctionTemplateExcludes(repoDocs.steelBeam, 'buildBeamReport', 'openReport({', pageOnlyReportStatusNeedles, 'steel beam legacy report excludes page-only readiness wording');
-assertFunctionTemplateExcludes(repoDocs.steelColumn, 'buildColumnReport', 'openReport({', pageOnlyReportStatusNeedles, 'steel column legacy report excludes page-only readiness wording');
 [
   [repoDocs.windKzt, 'wind kzt reference page', 'kztReportReadiness'],
   [repoDocs.windSpecial, 'wind special reference page', 'specialReportReadiness'],

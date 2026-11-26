@@ -524,3 +524,314 @@
 }
 .member-draft-clear:hover { background: var(--hy-navy-50); }
 @media print { .member-draft-clear { display: none !important; } }
+
+/* ═══ V1.6 工程視覺圖表中心、安全餘裕指標與整合輔助面板美化 ═══ */
+.page-header {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-default);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+}
+
+.member-layout .card {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.member-layout .input-column .card:focus-within {
+  border-color: var(--hy-navy-300);
+  box-shadow: 0 6px 18px rgba(30, 58, 138, 0.08);
+}
+
+.member-summary-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.member-summary-card .value,
+.result-item .value,
+.member-margin-pill strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.member-visual-hub {
+  margin: 14px 0 18px;
+  padding: clamp(12px, 2vw, 20px);
+  border: 1px solid var(--border-default);
+  border-top: 3px solid var(--hy-navy);
+  border-radius: var(--radius-xl);
+  background: var(--hy-paper, #fff);
+}
+
+.member-visual-hub__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.report-block .member-visual-hub__head h3 {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-size: var(--fs-md, 1.05rem);
+  color: var(--hy-navy-deep, #0f2942);
+}
+
+.member-visual-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.member-visual-tabs button {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md, 6px);
+  min-height: 36px;
+  padding: 4px 9px;
+  background: var(--hy-paper, #fff);
+  color: var(--hy-navy);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.member-visual-tabs button[aria-pressed="true"] {
+  border-color: var(--hy-navy);
+  background: var(--hy-navy);
+  color: var(--fg-on-navy, #fff);
+}
+
+.member-visual-tabs button:focus-visible {
+  outline: 2px solid var(--hy-navy-500, #315e89);
+  outline-offset: 2px;
+}
+
+.member-chart-basis {
+  margin: 10px 0;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--fg-2, #41546b);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.member-margin-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.member-margin-pill {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--hy-navy-300, #9fb5cb);
+  border-radius: var(--radius-md, 6px);
+  background: var(--hy-navy-50, #f5f8fb);
+}
+
+.member-margin-pill.fail {
+  border-left-color: var(--hy-red-deep, #a62b25);
+}
+
+.member-margin-pill dt {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--fg-2, #41546b);
+}
+
+.member-margin-pill dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.member-margin-pill strong {
+  display: block;
+  color: var(--hy-navy-deep, #0f2942);
+  font-size: clamp(1rem, 0.8rem + 0.4vw, 1.2rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.member-margin-pill.fail strong {
+  color: var(--hy-red-deep, #a62b25);
+}
+
+.member-margin-pill small {
+  display: block;
+  margin-top: 4px;
+  color: var(--fg-2, #41546b);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.member-diagram-figure {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md, 6px);
+  background: var(--hy-paper, #fff);
+}
+
+.member-diagram-figure[hidden] {
+  display: none !important;
+}
+
+.member-diagram-figure__head {
+  margin: 0 0 8px;
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.member-diagram-figure__head h4 {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 750;
+  color: var(--hy-navy-deep, #0f2942);
+}
+
+.member-diagram-figure .member-section-image {
+  max-width: 548px;
+  margin-inline: auto;
+}
+
+.member-diagram-figure figcaption {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-default);
+  color: var(--fg-2, #41546b);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* K 值計算輔助與載重組合產生器整合樣式 */
+.member-helper-box {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px dashed var(--hy-navy-300, #93c5fd);
+  border-radius: var(--radius-lg);
+  background: var(--hy-navy-50, #f8fafc);
+}
+
+.member-helper-box__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--hy-navy, #1e3a5f);
+}
+
+.member-helper-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.member-helper-actions button {
+  padding: 5px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  color: var(--hy-navy, #1e3a5f);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.member-helper-actions button:hover {
+  background: var(--hy-info-100, #e0f2fe);
+}
+
+.member-helper-output {
+  margin-top: 8px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--hy-navy-deep, #0f2942);
+}
+
+.lc-formal-panel {
+  margin-top: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.lc-formal-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-xs);
+}
+
+.lc-formal-panel th,
+.lc-formal-panel td {
+  padding: 5px 6px;
+  border: 1px solid var(--border-default);
+  text-align: center;
+}
+
+.lc-formal-panel th {
+  background: var(--bg-subtle, #f1f5f9);
+  font-weight: 700;
+}
+
+.lc-formal-panel input[type="number"] {
+  min-width: 58px;
+  padding: 4px 6px;
+  font-size: var(--fs-xs);
+}
+
+.lc-formal-panel .lc-actions,
+.lc-formal-panel .lc-limit-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+@media (max-width: 640px) {
+  .member-visual-hub {
+    padding: 10px;
+  }
+
+  .member-visual-hub__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .member-visual-tabs button {
+    min-height: 40px;
+  }
+
+  .member-diagram-figure {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 460px) {
+  .member-margin-strip {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .member-margin-pill {
+    padding: 6px 9px;
+  }
+}

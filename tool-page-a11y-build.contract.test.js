@@ -96,10 +96,10 @@ for (const runtimeDefinition of runtimes) {
   }
 }
 const existingHomeRoutes = Object.fromEntries(Object.entries(homeRoutes).filter(([route]) => route !== '/concrete-strength-ndt'));
-assert.equal(Object.values(existingHomeRoutes).filter(files => files.includes('結構工具箱/tools/project-meta-profile.js')).length, 42,
-  'all 42 profile runtime date dependencies stay registered');
-assert.equal(Object.values(existingHomeRoutes).filter(files => files.includes('結構工具箱/tools/src/project-meta-profile.source.js')).length, 42,
-  'all 42 profile source date dependencies are registered');
+assert.equal(Object.values(existingHomeRoutes).filter(files => files.includes('結構工具箱/tools/project-meta-profile.js')).length, 40,
+  'all 40 profile runtime date dependencies stay registered');
+assert.equal(Object.values(existingHomeRoutes).filter(files => files.includes('結構工具箱/tools/src/project-meta-profile.source.js')).length, 40,
+  'all 40 profile source date dependencies are registered');
 assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/core/loads/wind.js')).length, 16,
   'all 16 core wind runtime date dependencies stay registered');
 assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/core/loads/src/wind.source.js')).length, 17,
@@ -113,7 +113,7 @@ const ndtTool = extractLiteral(home, 'tools').find(tool => tool.href === '/concr
 assert.equal(ndtTool?.state, 'assist', 'NDT accessibility coverage cannot grant formal status');
 assert.ok(homeRoutes[ndtTool.href]?.includes('結構工具箱/tools/project-meta-profile.js'), 'NDT registers the existing profile runtime');
 assert.ok(homeRoutes[ndtTool.href]?.includes('結構工具箱/tools/src/project-meta-profile.source.js'), 'NDT registers the profile readable source');
-assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/tools/project-meta-profile.js')).length, 43, '42 existing profile routes plus NDT');
+assert.equal(Object.values(homeRoutes).filter(files => files.includes('結構工具箱/tools/project-meta-profile.js')).length, 41, '40 existing profile routes plus NDT');
 assert.equal(Object.values(dependencies).filter(files => files.includes(sourcePath)).length, 41, '40 existing a11y sources plus explicit NDT assist coverage');
 for (const tool of [...tools, ndtTool]) {
   assert.ok(routeFileMap[tool.href], `formal route must map to HTML: ${tool.href}`);

@@ -216,7 +216,324 @@
     });
   }
 
-  const api = Object.freeze({ arrowMarker, boltPlate, connectionElevation, dimensionValue, loadLegend, steelMember, symbolicTie });
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function fmtVal(value, digits = 2) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '—';
+    return Number(num.toFixed(digits)).toString();
+  }
+
+  function niceAxisMax(rawMax, fallback = 10) {
+    const base = Number.isFinite(rawMax) && rawMax > 0 ? rawMax * 1.14 : fallback;
+    const exp = Math.pow(10, Math.floor(Math.log10(base)));
+    const frac = base / exp;
+    const step = frac <= 1.2 ? 1.2 : frac <= 1.5 ? 1.5 : frac <= 2 ? 2 : frac <= 2.5 ? 2.5 : frac <= 3 ? 3 : frac <= 4 ? 4 : frac <= 5 ? 5 : frac <= 6 ? 6 : frac <= 8 ? 8 : 10;
+    return step * exp;
+  }
+
+  const chartInk = {
+    capacity: '#163e62',
+    area: '#e7eef5',
+    demand: '#1e293b',
+    failed: '#9c2c27',
+    grid: '#dce3ea',
+    axis: '#43556a',
+    muted: '#526477',
+  };
+  const chartPlot = { x: 58, y: 28, width: 316, height: 184 };
+  const chartWidth = 400;
+
+  function chartNumber(value, digits = 2) {
+    if (!Number.isFinite(value)) return '—';
+    return Math.abs(value) >= 1e5 ? value.toExponential(2) : fmtVal(value, digits);
+  }
+
+  function signedChartNumber(value) {
+    return (value > 0 ? '+' : '') + chartNumber(value);
+  }
+
+  function engineeringAxes(xMax, yMax, xLabel, yLabel, { plot = chartPlot, downward = false } = {}) {
+    const { x, y, width, height } = plot;
+    const bottom = y + height;
+    const toX = value => x + clamp(value / xMax, 0, 1) * width;
+    const toY = value => downward
+      ? y + clamp(value / yMax, 0, 1) * height
+      : bottom - clamp(value / yMax, 0, 1) * height;
+    let grid = '<g data-diagram-role="envelope-grid">';
+    for (let i = 0; i <= 4; i++) {
+      const xTick = xMax * i / 4;
+      const yTick = yMax * i / 4;
+      grid += line(toX(xTick), y, toX(xTick), bottom, 'stroke="' + chartInk.grid + '"');
+      grid += line(x, toY(yTick), x + width, toY(yTick), 'stroke="' + chartInk.grid + '"');
+      grid += text(toX(xTick), bottom + 17, chartNumber(xTick), 'font-size="12" fill="' + chartInk.muted + '" text-anchor="middle"');
+      grid += text(x - 8, toY(yTick) + 4, chartNumber(yTick), 'font-size="12" fill="' + chartInk.muted + '" text-anchor="end"');
+    }
+    grid += '<rect x="' + x + '" y="' + y + '" width="' + width + '" height="' + height + '" fill="none" stroke="' + chartInk.axis + '" stroke-width="1.3"/>';
+    grid += text(x + width / 2, bottom + 37, xLabel, 'font-size="13" font-weight="700" text-anchor="middle"');
+    grid += text(15, y + height / 2, yLabel, 'font-size="13" font-weight="700" text-anchor="middle" transform="rotate(-90 15 ' + n(y + height / 2) + ')"');
+    return { toX, toY, grid: grid + '</g>' };
+  }
+
+  function engineeringGraphic(id, title, caption, content, { height = 282, defs = '' } = {}) {
+    const svg = '<svg class="member-section-svg member-chart-svg" xmlns="' + svgNamespace + '" viewBox="0 0 ' + chartWidth + ' ' + height + '"'
+      + ' role="img" aria-labelledby="' + id + '-title ' + id + '-desc">'
+      + '<title id="' + id + '-title">' + escapeText(title) + '</title><desc id="' + id + '-desc">' + escapeText(caption) + '</desc>'
+      + '<defs>' + defs + '</defs><rect width="' + chartWidth + '" height="' + height + '" fill="#fff"/>'
+      + '<g font-family="Segoe UI, Microsoft JhengHei, Arial, sans-serif" fill="' + chartInk.demand + '">' + content + '</g></svg>';
+    return { title, caption, width: 548, layout: 'engineering-chart', dataURL: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) };
+  }
+
+  function chartBoundary(points, fillPoints) {
+    if (points.length < 2) return '';
+    return '<g data-diagram-role="capacity-envelope">'
+      + '<polygon points="' + fillPoints.join(' ') + '" fill="' + chartInk.area + '"/>'
+      + '<polyline points="' + points.join(' ') + '" fill="none" stroke="' + chartInk.capacity + '" stroke-width="2.6" stroke-linejoin="round"/>'
+      + '</g>';
+  }
+
+  function chartCoord(x, y) {
+    return n(x) + ',' + n(y);
+  }
+
+  function chartDemand(x, y, ok) {
+    const color = ok ? chartInk.demand : chartInk.failed;
+    return '<g data-diagram-role="demand-point"><path d="M' + n(x) + ' ' + n(y - 5.5)
+      + ' l5.5 5.5 -5.5 5.5 -5.5 -5.5 Z" fill="' + color + '" stroke="#fff" stroke-width="1.4"/></g>';
+  }
+
+  function chartCapacity(x, y) {
+    return '<circle cx="' + n(x) + '" cy="' + n(y) + '" r="4" fill="#fff" stroke="' + chartInk.capacity + '" stroke-width="1.8"/>';
+  }
+
+  function chartLegend(entries, y = 271) {
+    return '<g data-diagram-role="chart-legend" font-size="12.5" font-weight="600">'
+      + entries.map(({ x, label, kind }) => {
+        const mark = kind === 'demand' ? chartDemand(x + 8, y - 4, true)
+          : kind === 'point' ? chartCapacity(x + 8, y - 4)
+            : line(x, y - 4, x + 17, y - 4, 'stroke="' + chartInk.capacity + '" stroke-width="2"'
+              + (kind === 'dashed' ? ' stroke-dasharray="6 3"' : kind === 'dotted' ? ' stroke-dasharray="2 5"' : ''));
+        return mark + text(x + 22, y, label);
+      }).join('') + '</g>';
+  }
+
+  function chartCaption(parts) {
+    return parts.filter(Boolean).join('。') + '。';
+  }
+
+  function steelColumnInteraction({
+    methodLabel = 'LRFD', forceUnit = 'tf', momentUnit = 'tf·m', points = [],
+    demandP = 0, demandM = 0, allowMAtP = null, allowPAtM = null, maxP = 0, maxM = 0,
+    ratioText = '', ok = true, eqLabel = '', noteLabel = '', unavailableReason = '', sourceLabel = '',
+  }) {
+    const id = 'steel-column-pm-envelope';
+    const title = '鋼柱 P–Mx 互制與強軸彎矩餘裕';
+    const xMax = niceAxisMax(Math.max(maxM, Math.min(demandM, Math.max(maxM, 10) * 1.3), 1));
+    const yMax = niceAxisMax(Math.max(maxP, Math.min(demandP, Math.max(maxP, 10) * 1.3), 1));
+    const { toX, toY, grid } = engineeringAxes(xMax, yMax, '強軸彎矩 |Mx| (' + momentUnit + ')', '軸壓力 |P| (' + forceUnit + ')');
+    const outline = points.filter(pt => Number.isFinite(pt.m) && Number.isFinite(pt.p)).map(pt => chartCoord(toX(pt.m), toY(pt.p)));
+    const envelope = chartBoundary(outline, [chartCoord(toX(0), toY(0)), ...outline]);
+    const dx = toX(demandM);
+    const dy = toY(demandP);
+    const marginColor = ok ? chartInk.capacity : chartInk.failed;
+    const outside = demandP > yMax || demandM > xMax;
+    const hasMargin = Number.isFinite(allowMAtP);
+    let comparison = '<g data-diagram-role="margin-zone">';
+    if (hasMargin) {
+      const ax = toX(allowMAtP);
+      if (Math.abs(ax - dx) >= 6) {
+        const lx = clamp((dx + ax) / 2, chartPlot.x + 83, chartPlot.x + chartPlot.width - 83);
+        const ly = dy > chartPlot.y + 26 ? dy - 11 : dy + 19;
+        comparison += line(dx, dy, ax, dy, 'stroke="' + marginColor + '" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#' + id + '-arrow)"')
+          + text(lx, ly, 'ΔMx ' + signedChartNumber(allowMAtP - demandM) + ' ' + momentUnit, 'fill="' + marginColor + '" font-size="13" font-weight="800" text-anchor="middle" stroke="#fff" stroke-width="3" paint-order="stroke"');
+      }
+      comparison += chartCapacity(ax, dy);
+    }
+    comparison += '</g>';
+    const guides = line(toX(0), dy, dx, dy, 'stroke="' + chartInk.muted + '" stroke-dasharray="3 3"')
+      + line(dx, toY(0), dx, dy, 'stroke="' + chartInk.muted + '" stroke-dasharray="3 3"');
+    const status = outside
+      ? text(chartPlot.x + chartPlot.width - 9, chartPlot.y + 21, '需求點超出圖幅', 'text-anchor="end" font-size="13" font-weight="800" fill="' + chartInk.failed + '"')
+      : '';
+    const caption = chartCaption([
+      [methodLabel, eqLabel, noteLabel, sourceLabel].filter(Boolean).join('｜'),
+      '需求 P ' + chartNumber(demandP) + ' ' + forceUnit + '，Mx ' + chartNumber(demandM) + ' ' + momentUnit,
+      hasMargin ? '同軸力容量 ' + chartNumber(allowMAtP) + ' ' + momentUnit + '，ΔMx ' + signedChartNumber(allowMAtP - demandM) + ' ' + momentUnit : unavailableReason,
+      Number.isFinite(allowPAtM) ? '同彎矩 ΔP ' + signedChartNumber(allowPAtM - demandP) + ' ' + forceUnit : '',
+      ratioText, outside ? '需求點超出圖幅，菱形置於圖幅邊緣' : '',
+    ]);
+    const legend = chartLegend([{ x: 58, label: '容量界線', kind: 'line' }, { x: 169, label: '需求點', kind: 'demand' }, { x: 266, label: '同軸力容量', kind: 'point' }]);
+    return engineeringGraphic(id, title, caption, envelope + grid + guides + comparison + chartDemand(dx, dy, ok) + status + legend,
+      { defs: arrowMarker(id + '-arrow', marginColor, 7) });
+  }
+
+  function steelColumnBiaxial({
+    momentUnit = 'tf·m', forceUnit = 'tf', demandP = 0, demandMx = 0, demandMy = 0,
+    capMxAtP = null, capMyAtP = null, allowMxAtMy = null, allowMyAtMx = null, contourPoints = [],
+    ok = true, unavailableReason = '', sourceLabel = '',
+  }) {
+    const id = 'steel-column-biaxial-slice';
+    const title = '鋼柱 Mx–My 等軸力切面圖';
+    const xMax = niceAxisMax(Math.max(capMxAtP ?? 0, demandMx, 1));
+    const yMax = niceAxisMax(Math.max(capMyAtP ?? 0, demandMy, 1));
+    const { toX, toY, grid } = engineeringAxes(xMax, yMax, '強軸彎矩 |Mx| (' + momentUnit + ')', '弱軸彎矩 |My| (' + momentUnit + ')');
+    const outline = contourPoints.map(pt => chartCoord(toX(pt.mx), toY(pt.my)));
+    const envelope = chartBoundary(outline, [chartCoord(toX(0), toY(0)), ...outline]);
+    const dx = toX(demandMx);
+    const dy = toY(demandMy);
+    let comparison = '<g data-diagram-role="margin-zone">';
+    if (Number.isFinite(allowMxAtMy)) {
+      const x = toX(allowMxAtMy);
+      comparison += line(dx, dy, x, dy, 'stroke="' + chartInk.axis + '" stroke-dasharray="5 3"') + chartCapacity(x, dy);
+    }
+    if (Number.isFinite(allowMyAtMx)) {
+      const y = toY(allowMyAtMx);
+      comparison += line(dx, dy, dx, y, 'stroke="' + chartInk.axis + '" stroke-dasharray="5 3"') + chartCapacity(dx, y);
+    }
+    comparison += '</g>';
+    const noContour = envelope ? ''
+      : text(chartPlot.x + chartPlot.width / 2, chartPlot.y + 32, '本切面無可用彎矩區域', 'text-anchor="middle" fill="' + chartInk.failed + '" font-size="13" font-weight="700"');
+    const caption = chartCaption([
+      '固定軸力 P ' + chartNumber(demandP) + ' ' + forceUnit, sourceLabel,
+      '需求 Mx ' + chartNumber(demandMx) + '、My ' + chartNumber(demandMy) + ' ' + momentUnit,
+      Number.isFinite(allowMxAtMy) ? '固定 My 時 ΔMx ' + signedChartNumber(allowMxAtMy - demandMx) + ' ' + momentUnit : '固定 My 時無可用 Mx',
+      Number.isFinite(allowMyAtMx) ? '固定 Mx 時 ΔMy ' + signedChartNumber(allowMyAtMx - demandMy) + ' ' + momentUnit : '固定 Mx 時無可用 My',
+      unavailableReason,
+    ]);
+    const legend = chartLegend([{ x: 58, label: '容量界線', kind: 'line' }, { x: 169, label: '需求點', kind: 'demand' }, { x: 266, label: '各軸容量', kind: 'point' }]);
+    return engineeringGraphic(id, title, caption, envelope + grid + comparison + chartDemand(dx, dy, ok) + noContour + legend);
+  }
+
+  function steelBeamLtbCurve({
+    usesLtb = true, lengthUnit = 'cm', momentUnit = 'tf·m', strengthSymbol = 'φMn',
+    curvePoints = [], Lp = 0, Lr = 0, Lb = 0, demandM = 0, capM = 0, governingLabel = '',
+    clauseLabel = '', ok = true, sourceLabel = '',
+  }) {
+    const id = 'steel-beam-ltb-envelope';
+    const title = usesLtb ? '鋼梁撓曲容量–側撐間距' : '鋼梁撓曲需求與容量';
+    const margin = capM - demandM;
+    const color = ok ? chartInk.capacity : chartInk.failed;
+    const caption = chartCaption([
+      [sourceLabel, clauseLabel, governingLabel].filter(Boolean).join('｜'),
+      usesLtb ? '採用 Lb ' + chartNumber(Lb) + ' ' + lengthUnit : '此斷面依本次檢核結果比較撓曲需求與容量',
+      '需求 ' + chartNumber(demandM) + '，' + strengthSymbol + ' ' + chartNumber(capM) + '，ΔM ' + signedChartNumber(margin) + ' ' + momentUnit,
+      ok ? '撓曲 OK' : '撓曲 NG',
+    ]);
+    const yMax = niceAxisMax(Math.max(capM, demandM, ...curvePoints.map(pt => pt.y), 1));
+    if (!usesLtb) {
+      const x0 = 120;
+      const barWidth = 250;
+      const bars = [
+        { label: '可用容量', value: capM, y: 32, fill: chartInk.capacity },
+        { label: '彎矩需求', value: demandM, y: 72, fill: color },
+      ].map(({ label, value, y, fill }) => text(x0 - 10, y + 5, label, 'font-size="14" font-weight="700" text-anchor="end"')
+        + '<rect x="' + x0 + '" y="' + (y - 10) + '" width="' + barWidth + '" height="20" fill="' + chartInk.area + '"/>'
+        + '<rect x="' + x0 + '" y="' + (y - 10) + '" width="' + n(barWidth * value / yMax) + '" height="20" fill="' + fill + '"/>'
+        + text(x0 + 6, y + 5, chartNumber(value) + ' ' + momentUnit, 'font-size="13" font-weight="700" stroke="#fff" stroke-width="3" paint-order="stroke"')).join('');
+      return engineeringGraphic(id, title, caption, '<g data-diagram-role="capacity-comparison">' + bars + '</g>'
+        + text(x0, 112, 'ΔM ' + signedChartNumber(margin) + ' ' + momentUnit + (ok ? '（OK）' : '（NG）'), 'fill="' + color + '" font-size="14" font-weight="800"'), { height: 130 });
+    }
+    const xMax = niceAxisMax(Math.max(Lb, Lr, ...curvePoints.map(pt => pt.x), 1));
+    const { toX, toY, grid } = engineeringAxes(xMax, yMax, '側撐間距 Lb (' + lengthUnit + ')', '撓曲需求／容量 (' + momentUnit + ')');
+    const outline = curvePoints.map(pt => chartCoord(toX(pt.x), toY(pt.y)));
+    const envelope = chartBoundary(outline, [chartCoord(toX(0), toY(0)), ...outline, chartCoord(toX(curvePoints.at(-1)?.x ?? 0), toY(0))]);
+    const boundaries = [[Lp, 'Lp'], [Lr, 'Lr']].filter(([x]) => x > 0).map(([x, label]) => {
+      const px = toX(x);
+      return line(px, chartPlot.y, px, toY(0), 'stroke="' + chartInk.muted + '" stroke-dasharray="3 4"')
+        + text(px, chartPlot.y - (label === 'Lr' && Math.abs(toX(Lr) - toX(Lp)) < 25 ? 18 : 6), label, 'font-size="12" font-weight="700" text-anchor="middle"');
+    }).join('');
+    const useX = toX(Lb);
+    const cy = toY(capM);
+    const dy = toY(demandM);
+    const right = useX < chartPlot.x + chartPlot.width - 115;
+    const comparison = '<g data-diagram-role="margin-zone">'
+      + line(useX, toY(0), useX, Math.min(cy, dy), 'stroke="' + chartInk.muted + '" stroke-dasharray="4 4"')
+      + (Math.abs(cy - dy) >= 6 ? line(useX, dy, useX, cy, 'stroke="' + color + '" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#' + id + '-arrow)"') : '')
+      + chartCapacity(useX, cy)
+      + text(useX + (right ? 9 : -9), Math.min(toY(0) - 10, Math.max(chartPlot.y + 16, (cy + dy) / 2 + 4)), 'ΔM ' + signedChartNumber(margin) + ' ' + momentUnit,
+        'font-size="13" font-weight="800" fill="' + color + '" text-anchor="' + (right ? 'start' : 'end') + '" stroke="#fff" stroke-width="3" paint-order="stroke"') + '</g>';
+    const legend = chartLegend([{ x: 58, label: '容量界線', kind: 'line' }, { x: 169, label: '需求點', kind: 'demand' }, { x: 266, label: '同 Lb 容量', kind: 'point' }]);
+    return engineeringGraphic(id, title, caption, envelope + grid + boundaries + comparison + chartDemand(useX, dy, ok) + legend,
+      { defs: arrowMarker(id + '-arrow', color, 7) });
+  }
+
+  function steelBeamResponse({
+    spanL, lengthUnit = 'cm', deflUnit = 'cm', hasUniformLoad = false, pointLoads = [],
+    deflSamples = [], deltaL = 0, allowL = 0, deltaT = 0, allowT = 0, peakX = null, deflStatus = 'ok',
+  }) {
+    const id = 'steel-beam-response';
+    const title = '鋼梁簡支服務載重與撓度圖';
+    const valid = deflStatus !== 'skipped' && deflSamples.length > 0;
+    const plot = { ...chartPlot, y: 112, height: 145 };
+    const yMax = niceAxisMax(Math.max(deltaT, allowT, deltaL, allowL, 0.1), 1);
+    const { toX, toY, grid } = engineeringAxes(spanL, yMax, '距左支承 (' + lengthUnit + ')', '向下撓度 (' + deflUnit + ')', { plot, downward: true });
+    const x0 = toX(0);
+    const x1 = toX(spanL);
+    let schematic = '<g data-diagram-role="beam-schematic">'
+      + line(x0, 66, x1, 66, 'stroke="' + chartInk.capacity + '" stroke-width="5"')
+      + '<path d="M' + x0 + ' 70 l-8 14 h16 Z M' + x1 + ' 70 l-8 13 h16 Z" stroke="' + chartInk.axis + '" fill="none"/>'
+      + line(x1 - 10, 87, x1 + 10, 87, 'stroke="' + chartInk.axis + '"');
+    if (hasUniformLoad) {
+      schematic += line(x0, 36, x1, 36, 'stroke="' + chartInk.capacity + '"');
+      for (let i = 0; i <= 8; i++) {
+        const x = toX(spanL * i / 8);
+        schematic += line(x, 36, x, 60, 'stroke="' + chartInk.capacity + '" marker-end="url(#' + id + '-uniform)"');
+      }
+      schematic += text(x0 + 3, 25, 'wD + wL', 'font-size="13" font-weight="700"');
+    }
+    const stations = new Map();
+    for (const item of pointLoads) {
+      const labels = stations.get(item.x) || [];
+      stations.set(item.x, [...labels, item.label]);
+    }
+    let labelIndex = 0;
+    for (const [station, labels] of stations) {
+      const x = toX(station);
+      schematic += line(x, 28, x, 60, 'stroke="' + chartInk.failed + '" stroke-width="2" marker-end="url(#' + id + '-point)"')
+        + text(clamp(x, 90, 340), labelIndex++ % 2 === 0 ? 20 : 32, labels.join(' + '), 'font-size="13" font-weight="800" fill="' + chartInk.failed + '" text-anchor="middle" stroke="#fff" stroke-width="3" paint-order="stroke"');
+    }
+    schematic += '</g>';
+    if (!valid) {
+      const caption = '簡支服務載重模型。本次未輸入服務載重，撓度未檢核。';
+      return engineeringGraphic(id, title, caption, schematic + text(200, 116, '未輸入服務載重，撓度未檢核', 'font-size="14" text-anchor="middle" fill="' + chartInk.muted + '"'), { height: 135 });
+    }
+    const totalCurve = deflSamples.map(pt => chartCoord(toX(pt.frac * spanL), toY(pt.total))).join(' ');
+    const liveCurve = deflSamples.map(pt => chartCoord(toX(pt.frac * spanL), toY(pt.live))).join(' ');
+    const peak = chartDemand(toX(peakX ?? spanL / 2), toY(deltaT), deltaT <= allowT);
+    const graph = '<g data-diagram-role="deflection-curve">'
+      + line(x0, toY(allowT), x1, toY(allowT), 'stroke="' + chartInk.axis + '" stroke-width="1.5" stroke-dasharray="2 5"')
+      + '<polyline points="' + liveCurve + '" fill="none" stroke="' + chartInk.capacity + '" stroke-width="1.8" stroke-dasharray="6 3"/>'
+      + '<polyline points="' + totalCurve + '" fill="none" stroke="' + chartInk.capacity + '" stroke-width="2.4"/>'
+      + peak + '</g>';
+    const legend = chartLegend([{ x: 58, label: '總撓度', kind: 'line' }, { x: 144, label: '活載撓度', kind: 'dashed' }, { x: 249, label: '總撓度限值', kind: 'dotted' }], 318);
+    const caption = chartCaption([
+      '簡支服務載重模型',
+      '總撓度 ' + chartNumber(deltaT) + ' / 限值 ' + chartNumber(allowT) + ' ' + deflUnit,
+      '活載撓度 ' + chartNumber(deltaL) + ' / 限值 ' + chartNumber(allowL) + ' ' + deflUnit,
+      Number.isFinite(peakX) ? '總撓度峰值距左支承 ' + chartNumber(peakX) + ' ' + lengthUnit : '',
+      deflStatus === 'ok' ? '撓度 OK' : '撓度 NG',
+    ]);
+    return engineeringGraphic(id, title, caption, schematic + grid + graph + legend, {
+      height: 330,
+      defs: arrowMarker(id + '-uniform', chartInk.capacity, 5) + arrowMarker(id + '-point', chartInk.failed, 7),
+    });
+  }
+
+  const api = Object.freeze({
+    arrowMarker,
+    boltPlate,
+    connectionElevation,
+    dimensionValue,
+    loadLegend,
+    steelBeamLtbCurve,
+    steelBeamResponse,
+    steelColumnBiaxial,
+    steelColumnInteraction,
+    steelMember,
+    symbolicTie,
+  });
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.MemberSectionSvg = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -49,7 +49,7 @@
       "route": "/condition-survey",
       "file": "field-survey/recorder.html",
       "title": "現況鑑定紀錄",
-      "version": "V0.31.0",
+      "version": "V0.32.0",
       "state": "workflow",
       "stateLabel": "案件入口",
       "family": "local-quick",
@@ -322,7 +322,7 @@
       "route": "/steel-beam-formal",
       "file": "鋼構工具/steel-beam-formal.html",
       "title": "鋼梁正式頁",
-      "version": "V1.5",
+      "version": "V1.6",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "steel",
@@ -335,7 +335,7 @@
       "route": "/steel-column-formal",
       "file": "鋼構工具/steel-column-formal.html",
       "title": "鋼柱正式頁",
-      "version": "V1.5",
+      "version": "V1.6",
       "state": "formal",
       "stateLabel": "正式核算",
       "family": "steel",
@@ -356,32 +356,6 @@
         "attachments"
       ],
       "memberSystem": null
-    },
-    {
-      "route": "/steel-beam",
-      "file": "結構工具箱/tools/鋼構/steel-beam.html",
-      "title": "鋼梁舊案延續頁",
-      "version": "舊版",
-      "state": "legacy",
-      "stateLabel": "過渡工具",
-      "family": "steel",
-      "categories": [
-        "member"
-      ],
-      "memberSystem": "steel"
-    },
-    {
-      "route": "/steel-column",
-      "file": "結構工具箱/tools/鋼構/steel-column.html",
-      "title": "鋼柱舊案延續頁",
-      "version": "舊版",
-      "state": "legacy",
-      "stateLabel": "過渡工具",
-      "family": "steel",
-      "categories": [
-        "member"
-      ],
-      "memberSystem": "steel"
     },
     {
       "route": "/wind-overview",

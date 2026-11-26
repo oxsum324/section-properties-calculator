@@ -55,7 +55,7 @@ const FAMILIES = Object.freeze([
     label: '鋼構／SRC 構件',
     layout: 'home',
     title: '鋼構／SRC 構件｜結構工具箱',
-    lead: '鋼梁、鋼柱與鋼構正式規範入口，以及包覆型 SRC 梁、柱檢核；舊案延續頁只供既有案件查核，新案正式附件由正式頁產出。',
+    lead: '鋼梁、鋼柱與鋼構正式規範入口，以及包覆型 SRC 梁、柱檢核。鋼梁、鋼柱各有一個工作頁，可匯入 V1.5 案件資料。',
     output: `${TOOLBOX_DIR}/family/steel.html`,
     rule: 'memberSystem 為 steel 或 src',
     match: tool => ['steel', 'src'].includes(field(tool, 'memberSystem'))

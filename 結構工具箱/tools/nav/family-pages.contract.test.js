@@ -14,8 +14,8 @@ const repoRoot = builder.REPO_ROOT;
 const generatorPath = path.join(__dirname, 'build-family-pages.js');
 
 // 家族成員釘值：新增或移除工具時，先改 home.source.js，重跑產生器，再更新此處。
-const EXPECTED_FAMILY_COUNTS = Object.freeze({ rc: 12, steel: 7, wind: 13, seismic: 4, 'local-quick': 8 });
-const HOME_TOOL_COUNT = 53;
+const EXPECTED_FAMILY_COUNTS = Object.freeze({ rc: 12, steel: 5, wind: 13, seismic: 4, 'local-quick': 8 });
+const HOME_TOOL_COUNT = 51;
 const FAMILY_REDIRECTS = Object.freeze([
   ['/family-steel', '/結構工具箱/family/steel'],
   ['/family-wind', '/結構工具箱/family/wind'],
@@ -65,7 +65,7 @@ assert.ok(check.stdout.includes('family pages check OK'), '--check 需回報通�
 
 // 3. 資料源與家族定義。
 const data = builder.loadHomeSource(repoRoot);
-assert.equal(data.tools.length, HOME_TOOL_COUNT, '首頁工具卡數維持 53，家族頁不是工具卡');
+assert.equal(data.tools.length, HOME_TOOL_COUNT, '首頁工具卡數維持 51，家族頁不是工具卡');
 assert.deepEqual(builder.FAMILIES.map(family => family.id), ['rc', 'steel', 'wind', 'seismic', 'local-quick'], '家族順序固定');
 assert.equal(new Set(builder.FAMILIES.map(family => family.output)).size, builder.FAMILIES.length, '家族輸出路徑不得重複');
 assert.equal(builder.FAMILIES.find(family => family.id === 'rc').output, '鋼筋混凝土/index.html', 'RC 家族頁路徑不變');

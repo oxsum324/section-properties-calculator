@@ -117,7 +117,12 @@ async function main() {
     }
     if (usesReport) count++;
   }
-  assert.equal(count, 46, '依實際 report.js 引用全集接線，含混凝土非破壞試驗及雙 renderer 頁');
+  for (const part of ['beam', 'column']) {
+    const legacy = read(`結構工具箱/tools/鋼構/steel-${part}.html`);
+    assert.ok(legacy.includes(`鋼構工具/steel-${part}-formal.html`), `舊鋼${part === 'beam' ? '梁' : '柱'}網址保留正式頁入口`);
+    assert.doesNotMatch(legacy, /<script\b[^>]*\bsrc=["'][^"']*\/report\.js/i, '相容入口由正式頁產報');
+  }
+  assert.equal(count, 44, '依實際 report.js 引用全集接線，鋼梁、鋼柱相容網址由正式頁產報');
   console.log(`shared-report-integration.contract.test.js passed (${count} consumers / offline HTML / TXT boundary / fingerprints / mirrors)`);
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

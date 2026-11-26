@@ -68,6 +68,17 @@ async function main() {
     assert.ok(cell.options.width.size > 0, '無版面引擎時仍需有效欄寬');
   }
 
+  const chart = await convert('<figure class="rep-diagram--engineering"><figcaption class="rep-diagram-title">鋼柱等軸力切面圖</figcaption><img src="data:image/png;base64,aW1hZ2U=" width="570" height="360" alt="切面圖"><div class="rep-diagram-caption">固定軸力與雙軸餘裕</div></figure>');
+  const chartTitleIndex = chart.body.findIndex(node => words(node) === '鋼柱等軸力切面圖');
+  assert.ok(chartTitleIndex >= 0);
+  const [chartTitle, chartImage, chartCaption] = chart.body.slice(chartTitleIndex);
+  assert.equal(chartTitle.options.keepNext, true);
+  assert.equal(chartImage.options.keepNext, true, 'Word 應將工程圖與圖說保留在同頁');
+  assert.equal(chartCaption.options.keepLines, true);
+  assert.equal(chartCaption.options.keepNext, false);
+  assert.equal(words(chartCaption), '固定軸力與雙軸餘裕');
+  assert.equal(find(chartImage, 'ImageRun')[0].options.transformation.width, 500);
+
   const merged = await convert('<table><tbody><tr><td rowspan="0" colspan="2">群組甲</td><td>甲1</td></tr><tr><td>甲2</td></tr></tbody><tbody><tr><td>乙1</td><td>乙2</td><td>乙3</td></tr></tbody></table>');
   const mergedCells = find(merged.document, 'TableCell');
   assert.equal(mergedCells[0].options.rowSpan, 2, 'rowspan=0 僅合併原 tbody，不得跨群組');

@@ -73,9 +73,9 @@ async function main() {
         const page = await context.newPage();
         const errors = observe(page, 'personal-flow');
         await page.goto(home);
-        await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(53);
+        await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(51);
         await expect(page.locator('.home-personal')).toHaveCount(0);
-        // 「全部」依家族分段，每段超過 6 張的卡片以 class 收合；互動路徑只取可見卡片（DOM 仍為 53 張，上方已斷言）。
+        // 「全部」依家族分段，每段超過 6 張的卡片以 class 收合；互動路徑只取可見卡片（DOM 仍為 51 張，上方已斷言）。
         const routes = await page.locator('#toolGrid .tool-card:visible').evaluateAll(cards => cards.map(card => card.dataset.routeHref));
         for (const [index, href] of routes.slice(0, 2).entries()) {
           const card = page.locator(`#toolGrid .tool-card[data-route-href="${href}"]`);
@@ -137,13 +137,13 @@ async function main() {
         const page = await context.newPage();
         const errors = observe(page, 'storage-denied');
         await page.goto(home);
-        await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(53);
-        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(53);
+        await expect(page.locator('#toolGrid .tool-pin')).toHaveCount(51);
+        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(51);
         await expect(page.locator('.home-personal')).toHaveCount(0);
         await page.locator('#toolGrid .tool-pin').first().click();
         await expect(page.locator('.home-personal .tool-card')).toHaveCount(1);
         await page.reload();
-        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(53);
+        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(51);
         await expect(page.locator('.home-personal')).toHaveCount(0);
         await expect.poll(() => errors.pageErrors).toEqual([]);
       } finally { await context.close(); }
@@ -158,7 +158,7 @@ async function main() {
         const page = await context.newPage();
         const errors = observe(page, 'invalid-storage');
         await page.goto(home);
-        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(53);
+        await expect(page.locator('#toolGrid .tool-card')).toHaveCount(51);
         await expect(page.locator('.home-personal')).toHaveCount(0);
         await expect.poll(() => errors.pageErrors).toEqual([]);
       } finally { await context.close(); }

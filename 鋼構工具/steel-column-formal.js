@@ -111,6 +111,133 @@
   let currentPanel = "report";
   let resultState = null;
   let lastColumnReportValidationMessage = "";
+  let restoredLoadComboGroup = null;
+  let currentChartTab = "pm";
+
+  const lcCfg = {
+    prefix: "lcSC",
+    tupleMode: "select",
+    forces: [
+      { key: "P", label: "軸壓力 Pu", unit: "tf" },
+      { key: "Mx", label: "強軸彎矩 Mux", unit: "tf·m" },
+      { key: "My", label: "弱軸彎矩 Muy", unit: "tf·m" },
+    ],
+    limitStates: [
+      { key: "pm-vector", label: "P-Mx-My 需求向量候選", criterion: "normalized-srss", criterionLabel: "|P|、|Mx|、|My| 正規化 SRSS；僅供候選，互制檢核以正式核算結果為準", terms: [{ forceKey: "P" }, { forceKey: "Mx" }, { forceKey: "My" }] },
+      { key: "axial", label: "軸力 |P|", criterion: "abs", forceKey: "P" },
+      { key: "strong-axis", label: "強軸彎矩 |Mx|", criterion: "abs", forceKey: "Mx" },
+      { key: "weak-axis", label: "弱軸彎矩 |My|", criterion: "abs", forceKey: "My" },
+    ],
+    targetIds: { P: "inPu", Mx: "inMux", My: "inMuy" },
+    targetReportMeta: {
+      inPu: { label: "軸壓需求 |P|", unit: "tf" },
+      inMux: { label: "強軸彎矩需求 |Mx|", unit: "tf·m" },
+      inMuy: { label: "弱軸彎矩需求 |My|", unit: "tf·m" },
+    },
+    targetAdapter: ({ value, targets }) => [{ id: targets[0], value: Math.abs(value) }],
+    getMethod: () => designMethod,
+    onApplied: () => {
+      restoredLoadComboGroup = null;
+      updateLoadComboBadge();
+      resultState = runCheck();
+      persistInputDraft();
+    },
+  };
+
+  function syncLcLabels() {
+    const isLRFD = designMethod === "LRFD";
+    const fUnit = getQuantityUnit("force");
+    const mUnit = getQuantityUnit("moment");
+    lcCfg.forces[0].label = isLRFD ? "軸壓力 Pu" : "軸壓力 Pa";
+    lcCfg.forces[0].unit = fUnit;
+    lcCfg.forces[1].label = isLRFD ? "強軸彎矩 Mux" : "強軸彎矩 Max";
+    lcCfg.forces[1].unit = mUnit;
+    lcCfg.forces[2].label = isLRFD ? "弱軸彎矩 Muy" : "弱軸彎矩 May";
+    lcCfg.forces[2].unit = mUnit;
+    lcCfg.targetReportMeta.inPu = { label: `軸壓需求 |${isLRFD ? "Pu" : "Pa"}|`, unit: fUnit };
+    lcCfg.targetReportMeta.inMux = { label: `強軸彎矩需求 |${isLRFD ? "Mux" : "Max"}|`, unit: mUnit };
+    lcCfg.targetReportMeta.inMuy = { label: `弱軸彎矩需求 |${isLRFD ? "Muy" : "May"}|`, unit: mUnit };
+  }
+
+  function updateLoadComboBadge() {
+    const badge = $("columnLcBadge");
+    if (!badge) return;
+    const group = getAdoptedLoadComboGroup();
+    const comboItem = group?.items?.find((item) => item.label === "採用組合");
+    badge.textContent = comboItem?.value ? `已套用 ${comboItem.value}` : "選填輔助";
+  }
+
+  function getAdoptedLoadComboGroup() {
+    const liveGroup = window.LoadCombo && typeof LoadCombo.toReportGroup === "function"
+      ? LoadCombo.toReportGroup(lcCfg.prefix, "採用載重組合")
+      : null;
+    if (liveGroup) return liveGroup;
+    if (restoredLoadComboGroup && restoredLoadComboGroup.method === designMethod) {
+      return restoredLoadComboGroup.group;
+    }
+    return null;
+  }
+
+  function renderLoadComboPanel({ previousUnitMode = unitMode, convertValues = false } = {}) {
+    const panel = $("lcPanel");
+    if (!panel || !window.LoadCombo) return;
+    const saved = {};
+    ["P", "Mx", "My"].forEach((fKey) => {
+      const kind = fKey === "P" ? "force" : "moment";
+      ["D", "L", "W", "E"].forEach((cKey) => {
+        const el = $(`${lcCfg.prefix}_${fKey}_${cKey}`);
+        if (!el) return;
+        const parsed = parseFloat(el.value);
+        if (!Number.isFinite(parsed) || parsed === 0) return;
+        const val = convertValues && previousUnitMode !== unitMode
+          ? convertLegacyValue(convertDisplayValue(parsed, kind, previousUnitMode), kind, unitMode)
+          : parsed;
+        saved[`${fKey}_${cKey}`] = formatInputValue(val, 3);
+      });
+    });
+    syncLcLabels();
+    panel.innerHTML = window.LoadCombo.buildPanel(lcCfg);
+    Object.entries(saved).forEach(([suffix, val]) => {
+      const el = $(`${lcCfg.prefix}_${suffix}`);
+      if (el) el.value = val;
+    });
+    window.LoadCombo.bind(lcCfg);
+    updateLoadComboBadge();
+  }
+
+  function computeHelperK() {
+    const GA = Math.max(0, parseFloat($("inGA")?.value) || 0);
+    const GB = Math.max(0, parseFloat($("inGB")?.value) || 0);
+    const braced = $("frameType")?.value !== "unbraced";
+    const K = Steel.calcK(GA, GB, braced);
+    return { GA, GB, braced, K };
+  }
+
+  function refreshKHelperPreview(appliedTarget = "") {
+    const out = $("kResult");
+    if (!out) return;
+    const { GA, GB, braced, K } = computeHelperK();
+    const frameText = braced ? "無側移" : "有側移";
+    out.textContent = appliedTarget
+      ? `已套用至 ${appliedTarget}：K = ${K.toFixed(2)}（精確值 ${K.toFixed(3)}｜${frameText}，GA = ${GA}，GB = ${GB}）`
+      : `預覽 K = ${K.toFixed(3)}（${frameText}，GA = ${GA}，GB = ${GB}）`;
+  }
+
+  function applyKHelper(targetAxis) {
+    const { K } = computeHelperK();
+    const formatted = K.toFixed(2);
+    if (targetAxis === "both" || targetAxis === "x") {
+      $("inKx").value = formatted;
+      $("inKx").dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    if (targetAxis === "both" || targetAxis === "y") {
+      $("inKy").value = formatted;
+      $("inKy").dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    refreshKHelperPreview(targetAxis === "both" ? "Kx 與 Ky" : targetAxis === "x" ? "Kx" : "Ky");
+    resultState = runCheck();
+    persistInputDraft();
+  }
 
   const glossaryItems = [
     ["KL/r", "細長比", "-", "有效長度與迴轉半徑之比值。", "壓力構材挫屈控制。", "第六章受壓構材"],
@@ -391,6 +518,7 @@
     $("methodBadge").textContent = `鋼構造建築物鋼結構設計技術規範｜鋼柱檢核 (${method})`;
     $("loadTitle").textContent = isLRFD ? "載重 (LRFD)" : "載重 (ASD / 使用荷重)";
     updateUnitLabels();
+    renderLoadComboPanel();
     persistUiPrefs();
   }
 
@@ -437,6 +565,7 @@
     unitMode = nextMode;
     buildMatOptions();
     updateUnitLabels();
+    renderLoadComboPanel({ previousUnitMode: previousMode, convertValues: convertFields });
     if (persist) persistUiPrefs();
     if (rerun) resultState = runCheck();
   }
@@ -741,7 +870,7 @@
   }
 
   function prepareReportBlockAccordions() {
-    document.querySelectorAll(".report-paper .report-block").forEach((block) => {
+    document.querySelectorAll(".report-paper .report-block:not(.member-visual-hub)").forEach((block) => {
       if (block.querySelector(".report-block-body")) return;
       const title = block.querySelector("h3");
       if (!title) return;
@@ -1529,7 +1658,7 @@
     renderFillStatus();
     clearInputStatus();
     setColumnReportValidationMessage("");
-    const replayGrade = !!sourceVersion && sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version);
+    const replayGrade = !!sourceVersion && !["v1.5", SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)].includes(sourceVersion);
     const material = SteelMemberMaterial.refresh(unitMode,false,replayGrade);
     if (material.error) return inputFail(material.error);
     const sectionType = getSectionType();
@@ -1699,7 +1828,7 @@
         <div class="result-item ${clsC.isSlender ? "fail" : "ok"}"><span class="label">壁厚分類</span><span class="value">${clsC.isSlender ? "細長" : "非細長"}</span></div>
         <div class="result-item"><span class="label">${sectionType === "shs" ? "Bflat / t" : "D / t"}</span><span class="value">${f2(clsC.lambdaF)}</span></div>
       `;
-    const result = { materialNote: material.note, sectionType, sec, clsC, pn, local, bending, E, Fy, Kx, Ky, Lx, Ly, KLrX, KLrY, KLrMax, ctrlAxis, PuTf, MuxTf, MuyTf, Lbx, Cbx, isLRFD, designPcTf, axialOk, interOk, ratioAx, interRatioText, flexX, flexY, interDetail };
+    const result = { materialNote: material.note, sectionType, sec, clsC, pn, local, bending, useHColumnAsd, E, Fy, Kx, Ky, Lx, Ly, KLrX, KLrY, KLrMax, ctrlAxis, PuTf, MuxTf, MuyTf, Lbx, Cbx, Cmx, Cmy, isLRFD, designPcTf, axialOk, interOk, ratioAx, interRatioText, flexX, flexY, interDetail };
     document.querySelectorAll("[data-column-invalid]").forEach(block => {
       delete block.dataset.columnInvalid;
       block.hidden = false;
@@ -1728,10 +1857,7 @@
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk(result) ? "本次鋼柱斷面於細長比、軸壓與互制檢核均通過。" : "本次鋼柱斷面至少有一項控制條件未通過，請優先檢視 KL/r、Fcr 與互制項目。"}</div>`;
     $("summaryCard").hidden = false;
     resultState = result;
-    const diagram = buildMemberSectionDiagram(result);
-    $("columnSectionDiagramImage").src = diagram.dataURL;
-    $("columnSectionDiagramCaption").textContent = diagram.caption;
-    $("columnSectionDiagram").hidden = false;
+    renderColumnVisualHub(result);
     setColumnReportValidationMessage("");
     renderSummary(result);
     renderFlow(result);
@@ -1751,6 +1877,241 @@
     return MemberSectionSvg.steelMember({ section: result.sec, member: "column", loads });
   }
 
+  function evalColumnInteractionRatio(result, pTf, mxTf, myTf) {
+    if (!(result.designPcTf > 0)) return Infinity;
+    const P = Math.max(0, Number(pTf) || 0) * 1000;
+    const Mx = Math.max(0, Number(mxTf) || 0) * 1e5;
+    const My = Math.max(0, Number(myTf) || 0) * 1e5;
+    if (Mx === 0 && My === 0) {
+      return (Number(pTf) || 0) / result.designPcTf;
+    }
+    if (result.isLRFD) {
+      const PI2 = Math.PI * Math.PI;
+      const Pe1x = (PI2 * result.E * result.sec.Ix) / (result.Kx * result.Lx) ** 2;
+      const Pe1y = (PI2 * result.E * result.sec.Iy) / (result.Ky * result.Ly) ** 2;
+      const B1x = Steel.calcB1(result.Cmx, P, Pe1x);
+      const B1y = Steel.calcB1(result.Cmy, P, Pe1y);
+      if (!Number.isFinite(B1x) && Mx > 0) return Infinity;
+      if (!Number.isFinite(B1y) && My > 0) return Infinity;
+      const ir = Steel.calcInteraction(P, result.pn.phiPn, Mx > 0 ? B1x * Mx : 0, result.flexX.phiMn, My > 0 ? B1y * My : 0, result.flexY.phiMny);
+      return Number.isFinite(ir.IR) ? ir.IR : Infinity;
+    }
+    if (result.useHColumnAsd) {
+      const b = Steel.calcHColumnAsd(result.sec, result.Fy, result.pn, result.Lbx, result.Cbx, P, Mx, My, result.Cmx, result.Cmy);
+      return Math.max(b.IR1, b.IR2 || 0);
+    }
+    const PI2 = Math.PI * Math.PI;
+    const fa = P / result.sec.A;
+    const fbx = Mx / result.sec.Sx;
+    const fby = My / result.sec.Sy;
+    const Fbx = result.flexX.Mn / (Steel.OMEGA.flexure * result.sec.Sx);
+    const Fby = result.flexY.Mn / (Steel.OMEGA.flexure * result.sec.Sy);
+    const Fex = (12 * PI2 * result.E) / (23 * result.KLrX * result.KLrX);
+    const Fey = (12 * PI2 * result.E) / (23 * result.KLrY * result.KLrY);
+    const ir = Steel.calcInteractionASD(fa, result.pn.Fa, fbx, Fbx, fby, Fby, result.Cmx, result.Cmy, Fex, Fey, result.Fy);
+    return Math.max(ir.IR1, ir.IR2 || 0);
+  }
+
+  function solveMaxMomentAtAxial(result, pTf, axis = "x", fixedOtherTf = 0) {
+    if (!(result.designPcTf > 0) || pTf > result.designPcTf) return null;
+    const ratioAt = (moment) => evalColumnInteractionRatio(result, pTf,
+      axis === "x" ? moment : fixedOtherTf, axis === "x" ? fixedOtherTf : moment);
+    if (!(ratioAt(0) <= 1)) return null;
+    const nominalCap = axis === "x"
+      ? (result.isLRFD ? result.flexX.phiMn_tfm : result.flexX.MnOmega_tfm)
+      : (result.isLRFD ? result.flexY.phiMny_tfm : result.flexY.MnyOmega_tfm);
+    let low = 0;
+    let high = Math.max(nominalCap * 1.5, 1);
+    for (let expansion = 0; expansion < 8 && ratioAt(high) <= 1; expansion++) high *= 2;
+    if (ratioAt(high) <= 1) return null;
+    for (let i = 0; i < 36; i++) {
+      const mid = (low + high) / 2;
+      if (ratioAt(mid) <= 1) low = mid;
+      else high = mid;
+    }
+    return low;
+  }
+
+  function solveMaxAxialAtMoments(result, mxTf, myTf) {
+    const pc = result.designPcTf;
+    if (!(pc > 0)) return null;
+    if (mxTf === 0 && myTf === 0) return pc;
+    const allow = (p) => evalColumnInteractionRatio(result, p, mxTf, myTf) <= 1;
+    if (allow(pc)) return pc;
+    const split = pc * (result.isLRFD ? 0.2 : 0.15);
+    // ASD 的簡化式與完整式在分界兩側分開求解，保留各自的適用區間。
+    const afterSplit = split + pc * 1e-12;
+    const ranges = [[afterSplit, pc], [0, split]];
+    for (const [low, high] of ranges) {
+      if (allow(high)) return high;
+      if (!allow(low)) continue;
+      let lo = low;
+      let hi = high;
+      for (let i = 0; i < 36; i++) {
+        const mid = (lo + hi) / 2;
+        if (allow(mid)) lo = mid;
+        else hi = mid;
+      }
+      return lo;
+    }
+    return null;
+  }
+
+  function computeColumnEnvelopeMetrics(result) {
+    const pcTf = Math.max(0, result.designPcTf);
+    const pLimitAtMy = solveMaxAxialAtMoments(result, 0, result.MuyTf);
+    const knee = pcTf * (result.isLRFD ? 0.2 : 0.15);
+    const pStops = new Set([0]);
+    if (pLimitAtMy != null) {
+      if (knee < pLimitAtMy) {
+        pStops.add(knee);
+        pStops.add(Math.min(pLimitAtMy, knee + pcTf * 1e-12));
+      }
+      if (result.PuTf <= pLimitAtMy) pStops.add(result.PuTf);
+      for (let i = 1; i <= 32; i++) pStops.add(pLimitAtMy * i / 32);
+    }
+    const points = Array.from(pStops).sort((a, b) => b - a).flatMap((p) => {
+      const mx = solveMaxMomentAtAxial(result, p, "x", result.MuyTf);
+      return mx == null ? [] : [{ p: convertLegacyValue(p, "force"), m: convertLegacyValue(mx, "moment") }];
+    });
+    const pTf = result.PuTf;
+    const mxTf = result.MuxTf;
+    const myTf = result.MuyTf;
+    const value = (amount, kind) => amount == null ? null : convertLegacyValue(amount, kind);
+    const hasMoment = mxTf > 0 || myTf > 0;
+    const ir = evalColumnInteractionRatio(result, pTf, mxTf, myTf);
+    const combo = getAdoptedLoadComboGroup()?.items?.find((item) => item.label === "採用組合")?.value;
+    return {
+      points,
+      maxP: convertLegacyValue(pcTf, "force"),
+      maxM: points.at(-1)?.m ?? 0,
+      demandP: convertLegacyValue(pTf, "force"),
+      demandM: convertLegacyValue(mxTf, "moment"),
+      demandMy: convertLegacyValue(myTf, "moment"),
+      allowMAtP: value(solveMaxMomentAtAxial(result, pTf, "x", myTf), "moment"),
+      allowMyAtP: value(solveMaxMomentAtAxial(result, pTf, "y", mxTf), "moment"),
+      allowPAtM: value(solveMaxAxialAtMoments(result, mxTf, myTf), "force"),
+      currentIr: ir,
+      hasMoment,
+      eqLabel: !hasMoment ? "第六章軸壓檢核"
+        : result.isLRFD ? (pTf >= knee ? "式 H1-1a" : "式 H1-1b")
+          : (pTf <= knee ? "式 (8.2-3)" : "式 (8.2-1)/(8.2-2)"),
+      sourceLabel: combo ? "採用組合 " + combo : "手動輸入需求",
+    };
+  }
+
+  function columnMomentLimitText(result, axis) {
+    if (!result.axialOk) return "軸壓已超限，無可用彎矩餘裕";
+    return axis === "x" ? "固定目前 My 已超限，無可用 Mx" : "固定目前 Mx 已超限，無可用 My";
+  }
+
+  function buildColumnInteractionDiagram(result, metrics = computeColumnEnvelopeMetrics(result)) {
+    const momentUnit = getQuantityUnit("moment");
+    const ir = metrics.currentIr;
+    const ratioLabel = metrics.hasMoment ? "互制需求容量比" : "軸壓需求容量比";
+    const ratioText = Number.isFinite(ir) ? ratioLabel + " " + f1(ir * 100) + "%" : ratioLabel + "無有限值";
+    return MemberSectionSvg.steelColumnInteraction({
+      ...metrics,
+      methodLabel: result.isLRFD ? "LRFD" : "ASD",
+      forceUnit: getQuantityUnit("force"),
+      momentUnit,
+      noteLabel: "固定 |My| " + formatInputValue(metrics.demandMy, 2) + " " + momentUnit,
+      ratioText: ratioText + (result.axialOk && result.interOk ? "（OK）" : "（NG）"),
+      ok: result.axialOk && result.interOk,
+      unavailableReason: metrics.allowMAtP == null ? columnMomentLimitText(result, "x") : "",
+    });
+  }
+
+  function buildColumnBiaxialDiagram(result, metrics = computeColumnEnvelopeMetrics(result)) {
+    const capMxTf = solveMaxMomentAtAxial(result, result.PuTf, "x", 0);
+    const capMyTf = solveMaxMomentAtAxial(result, result.PuTf, "y", 0);
+    const contour = [];
+    if (capMxTf > 0 && capMyTf > 0) {
+      for (let i = 0; i <= 24; i++) {
+        const theta = Math.PI * i / 48;
+        const vx = Math.cos(theta) * capMxTf;
+        const vy = Math.sin(theta) * capMyTf;
+        let low = 0;
+        let high = 1.5;
+        for (let k = 0; k < 28; k++) {
+          const mid = (low + high) / 2;
+          if (evalColumnInteractionRatio(result, result.PuTf, mid * vx, mid * vy) <= 1) low = mid;
+          else high = mid;
+        }
+        contour.push({ mx: convertLegacyValue(low * vx, "moment"), my: convertLegacyValue(low * vy, "moment") });
+      }
+    }
+    return MemberSectionSvg.steelColumnBiaxial({
+      momentUnit: getQuantityUnit("moment"),
+      forceUnit: getQuantityUnit("force"),
+      demandP: metrics.demandP,
+      demandMx: metrics.demandM,
+      demandMy: metrics.demandMy,
+      capMxAtP: capMxTf == null ? null : convertLegacyValue(capMxTf, "moment"),
+      capMyAtP: capMyTf == null ? null : convertLegacyValue(capMyTf, "moment"),
+      allowMxAtMy: metrics.allowMAtP,
+      allowMyAtMx: metrics.allowMyAtP,
+      contourPoints: contour,
+      ok: result.axialOk && result.interOk,
+      sourceLabel: (result.isLRFD ? "LRFD" : "ASD") + "｜" + metrics.sourceLabel,
+      unavailableReason: !result.axialOk ? columnMomentLimitText(result, "x") : "",
+    });
+  }
+
+  function applyColumnChartTab(tab = currentChartTab) {
+    currentChartTab = tab;
+    document.querySelectorAll("[data-column-chart-tab]").forEach((btn) => {
+      const selected = btn.dataset.columnChartTab === tab;
+      btn.classList.toggle("active", selected);
+      btn.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+    document.querySelectorAll("[data-column-chart-item]").forEach((fig) => {
+      fig.hidden = fig.dataset.columnChartItem !== tab;
+    });
+  }
+
+  function renderColumnVisualHub(result) {
+    const metrics = computeColumnEnvelopeMetrics(result);
+    setColumnDiagram("columnSection", buildMemberSectionDiagram(result));
+    setColumnDiagram("columnInteraction", buildColumnInteractionDiagram(result, metrics));
+    setColumnDiagram("columnBiaxial", buildColumnBiaxialDiagram(result, metrics));
+    const mUnit = getQuantityUnit("moment");
+    const fUnit = getQuantityUnit("force");
+    const fmt = (value, unit) => formatInputValue(value, 2) + " " + unit;
+    const momentReadout = (axis, capacity, demand, fixedLabel) => {
+      const margin = capacity == null ? null : capacity - demand;
+      return {
+        label: axis === "x" ? "強軸彎矩餘裕 ΔMx" : "弱軸彎矩餘裕 ΔMy",
+        value: margin == null ? "無可用餘裕" : (margin > 0 ? "+" : "") + fmt(margin, mUnit),
+        detail: margin == null ? columnMomentLimitText(result, axis) : fixedLabel + "　需求 " + fmt(demand, mUnit) + " ／ 容量 " + fmt(capacity, mUnit),
+        tone: margin == null || margin < 0 ? "fail" : "ok",
+      };
+    };
+    const ir = metrics.currentIr;
+    const ratioValue = Number.isFinite(ir) ? f1(ir * 100) + "%" : "無有限值";
+    const overallTone = result.axialOk && result.interOk ? "ok" : "fail";
+    const cards = [
+      momentReadout("x", metrics.allowMAtP, metrics.demandM, "固定 P、My"),
+      momentReadout("y", metrics.allowMyAtP, metrics.demandMy, "固定 P、Mx"),
+      { label: metrics.hasMoment ? "互制需求容量比" : "軸壓需求容量比", value: ratioValue,
+        detail: (result.axialOk && result.interOk ? "OK" : "NG") + "｜" + metrics.eqLabel, tone: overallTone },
+      { label: "軸壓需求／容量", value: formatInputValue(metrics.demandP, 2) + " ／ " + fmt(metrics.maxP, fUnit),
+        detail: "控制 KL/r " + f1(result.KLrMax) + "（" + getColumnAxisDisplay(result.ctrlAxis) + "）", tone: result.axialOk ? "ok" : "fail" },
+    ];
+    $("columnChartBasis").textContent = (result.isLRFD ? "LRFD" : "ASD") + "｜" + metrics.sourceLabel + "｜P " + fmt(metrics.demandP, fUnit) + "，My " + fmt(metrics.demandMy, mUnit);
+    $("columnMarginStrip").innerHTML = cards.map(({ label, value, detail, tone }) =>
+      '<div class="member-margin-pill ' + tone + '"><dt>' + label + '</dt><dd><strong>' + value + '</strong><small>' + detail + '</small></dd></div>').join("");
+    applyColumnChartTab(currentChartTab);
+    $("columnSectionDiagram").hidden = false;
+  }
+
+  function setColumnDiagram(prefix, diagram) {
+    const title = $(prefix + "DiagramTitle");
+    if (title) title.textContent = diagram.title;
+    $(prefix + "DiagramImage").src = diagram.dataURL;
+    $(prefix + "DiagramCaption").textContent = diagram.caption;
+  }
+
   function buildColumnReportConfig(result, sourceVersion = "") {
     const replayV11 = sourceVersion === "v1.1";
     const previousFormat = replayV11 || sourceVersion === "v1.2";
@@ -1759,6 +2120,8 @@
       return formatSteelMemberComparison(left, right, minimum, getQuantityUnit(kind), convertLegacyValue(1, kind, unitMode));
     }
     const summaryState = getColumnReportSummaryState(result);
+    const loadComboGroup = getAdoptedLoadComboGroup();
+    const envelope = computeColumnEnvelopeMetrics(result);
     return {
       title: "鋼柱正式規範核算計算書",
       subtitle: `Steel Column Formal Report (${designMethod})`,
@@ -1774,7 +2137,7 @@
             { label: "Sx / Sy", value: f2(result.sec.Sx) + " / " + f2(result.sec.Sy), unit:"cm³" },
             { label: "Zx / Zy", value: f2(result.sec.Zx) + " / " + f2(result.sec.Zy), unit:"cm³" },
           ] : []),
-          ...((!sourceVersion || sourceVersion === SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)) && result.materialNote
+          ...((!sourceVersion || ["v1.5", SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)].includes(sourceVersion)) && result.materialNote
             ? [{ label:"材料採用依據", value:result.materialNote }] : []),
           { label: "Fy", value: formatDisplayValue(result.Fy, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress") },
             { label: "rx", value: f2(result.sec.rx), unit: "cm" },
@@ -1797,6 +2160,7 @@
           { label: "Mux", value: formatDisplayValue(result.MuxTf, "moment", 2), unit: getQuantityUnit("moment") },
           { label: "Muy", value: formatDisplayValue(result.MuyTf, "moment", 2), unit: getQuantityUnit("moment") },
         ]},
+        ...(loadComboGroup ? [loadComboGroup] : []),
       ],
           checks: [
             { group: "軸壓強度", items: [
@@ -1807,7 +2171,11 @@
             ]},
           { group: "互制檢核", items: [{ label: "互制狀態", formula: "第八章組合力互制式", sub: result.bending ? result.interDetail.join(" ｜ ") : `${result.isLRFD ? `φb = ${f2(Steel.PHI.flexure)}` : `Ωb = ${f2(Steel.OMEGA.flexure)}`} ｜ ${result.interDetail.join(" ｜ ")}`, value: result.interRatioText, ok: result.local && !result.MuxTf && !result.MuyTf ? null : result.interOk, note: `控制軸向：${getColumnAxisDisplay(result.ctrlAxis)}` }] },
       ],
-      diagrams: [buildMemberSectionDiagram(result)],
+      diagrams: [
+        buildMemberSectionDiagram(result),
+        buildColumnInteractionDiagram(result, envelope),
+        buildColumnBiaxialDiagram(result, envelope),
+      ],
       summary: summaryState,
       steps: buildReportSteps(result),
     };
@@ -1816,7 +2184,7 @@
   function collectColumnSourceFields() {
     const fields = {};
     document.querySelectorAll("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]").forEach((field) => {
-      if (field.disabled || field.dataset.filterInput) return;
+      if (field.disabled || field.dataset.filterInput || field.closest("[data-source-ignore]")) return;
       fields[field.id] = {
         value: field.type === "checkbox" ? field.checked : field.value,
       };
@@ -1828,6 +2196,7 @@
     if (!result) return null;
     const reportConfig = buildColumnReportConfig(result, sourceVersion);
     const reportTrace = SteelFormalUI.buildReportTrace(reportConfig);
+    const loadComboGroup = getAdoptedLoadComboGroup();
     return {
       schemaVersion: 1,
       kind: "formal-calculation-source",
@@ -1841,6 +2210,7 @@
       designMethod,
       unitMode,
       fields: collectColumnSourceFields(),
+      ...(loadComboGroup ? { adoptedLoadCombo: { method: designMethod, group: loadComboGroup } } : {}),
       calculationFingerprint: reportTrace.calculationFingerprint,
       report: {
         title: reportConfig.title,
@@ -1876,17 +2246,22 @@
   }
 
   function captureColumnSourceState() {
+    const loadComboGroup = getAdoptedLoadComboGroup();
     return {
       project: { name: $("projName").value, no: $("projNo").value, designer: $("projDesigner").value },
       designMethod,
       unitMode,
       fields: collectColumnSourceFields(),
+      adoptedLoadCombo: loadComboGroup ? { method: designMethod, group: loadComboGroup } : null,
     };
   }
 
   function applyColumnSourceState(source, sourceVersion = "") {
+    if (window.lastLoadCombo) delete window.lastLoadCombo[lcCfg.prefix];
+    restoredLoadComboGroup = source.adoptedLoadCombo?.group ? source.adoptedLoadCombo : null;
     setUnitMode(source.unitMode, { convertFields: false, rerun: false, persist: false });
     setMethod(source.designMethod);
+    updateLoadComboBadge();
     $("projName").value = source.project?.name || "";
     $("projNo").value = source.project?.no || "";
     $("projDesigner").value = source.project?.designer || "";
@@ -1896,7 +2271,7 @@
     $("materialBasis").value = "";
     Object.entries(source.fields || {}).forEach(([id, entry]) => {
       const field = $(id);
-      if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || (field.disabled && id !== "materialBasis") || field.dataset.filterInput) return;
+      if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || (field.disabled && id !== "materialBasis") || field.dataset.filterInput || field.closest("[data-source-ignore]")) return;
       if (field.type === "checkbox") field.checked = Boolean(entry?.value);
       else field.value = entry?.value ?? "";
     });
@@ -1911,7 +2286,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.4", "v1.4.1"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.4", "v1.4.1", "v1.5"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -2047,11 +2422,28 @@
         if (resultState) renderSummary(resultState);
       });
     });
+    document.querySelectorAll("[data-column-chart-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => applyColumnChartTab(btn.dataset.columnChartTab));
+    });
+    ["frameType", "inGA", "inGB"].forEach((id) => {
+      $(id)?.addEventListener("input", () => refreshKHelperPreview());
+      $(id)?.addEventListener("change", () => refreshKHelperPreview());
+    });
+    $("btnApplyKBoth")?.addEventListener("click", () => applyKHelper("both"));
+    $("btnApplyKXOnly")?.addEventListener("click", () => applyKHelper("x"));
+    $("btnApplyKYOnly")?.addEventListener("click", () => applyKHelper("y"));
+    ["inPu", "inMux", "inMuy"].forEach((id) => {
+      $(id)?.addEventListener("input", () => {
+        restoredLoadComboGroup = null;
+        updateLoadComboBadge();
+      });
+    });
     ["projName", "projNo", "projDesigner"].forEach((id) => {
       $(id).addEventListener("input", syncColumnProjectMetaUi);
       $(id).addEventListener("change", syncColumnProjectMetaUi);
     });
     document.querySelectorAll("input, select").forEach((input) => {
+      if (input.closest("[data-source-ignore]")) return;
       if (!["projName", "projNo", "projDesigner"].includes(input.id) && !input.dataset.filterInput) {
         input.addEventListener("change", () => { resultState = runCheck(); });
       }
@@ -2080,6 +2472,7 @@
   syncSectionTypeUI();
   setMethod(designMethod);
   onMatSelect();
+  refreshKHelperPreview();
   renderFillStatus();
   renderCardStatuses(null);
   resultState = runCheck();

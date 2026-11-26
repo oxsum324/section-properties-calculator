@@ -130,6 +130,92 @@
   let pendingBeamImport = null;
   let adoptedBeamImport = null;
   let adoptedBrace = null, braceTools = null;
+  let restoredLoadComboGroup = null;
+  let currentChartTab = "envelope";
+
+  const lcCfg = {
+    prefix: "lcSB",
+    tupleMode: "select",
+    forces: [
+      { key: "M", label: "彎矩 Mu", unit: "tf·m" },
+      { key: "V", label: "剪力 Vu", unit: "tf" },
+    ],
+    limitStates: [
+      { key: "flexure", label: "撓曲 |M|", criterion: "abs", forceKey: "M" },
+      { key: "shear", label: "剪力 |V|", criterion: "abs", forceKey: "V" },
+    ],
+    targetIds: { M: "inMu", V: "inVu" },
+    targetReportMeta: {
+      inMu: { label: "撓曲需求 |M|", unit: "tf·m" },
+      inVu: { label: "剪力需求 |V|", unit: "tf" },
+    },
+    targetAdapter: ({ value, targets }) => [{ id: targets[0], value: Math.abs(value) }],
+    getMethod: () => designMethod,
+    onApplied: () => {
+      restoredLoadComboGroup = null;
+      updateLoadComboBadge();
+      resultState = runCheck();
+      persistInputDraft();
+    },
+  };
+
+  function syncLcLabels() {
+    const isLRFD = designMethod === "LRFD";
+    const mUnit = getQuantityUnit("moment");
+    const vUnit = getQuantityUnit("force");
+    lcCfg.forces[0].label = isLRFD ? "彎矩 Mu" : "彎矩 Ma";
+    lcCfg.forces[0].unit = mUnit;
+    lcCfg.forces[1].label = isLRFD ? "剪力 Vu" : "剪力 Va";
+    lcCfg.forces[1].unit = vUnit;
+    lcCfg.targetReportMeta.inMu = { label: `撓曲需求 |${isLRFD ? "Mu" : "Ma"}|`, unit: mUnit };
+    lcCfg.targetReportMeta.inVu = { label: `剪力需求 |${isLRFD ? "Vu" : "Va"}|`, unit: vUnit };
+  }
+
+  function updateLoadComboBadge() {
+    const badge = $("beamLcBadge");
+    if (!badge) return;
+    const group = getAdoptedLoadComboGroup();
+    const comboItem = group?.items?.find((item) => item.label === "採用組合");
+    badge.textContent = comboItem?.value ? `已套用 ${comboItem.value}` : "選填輔助";
+  }
+
+  function getAdoptedLoadComboGroup() {
+    const liveGroup = window.LoadCombo && typeof LoadCombo.toReportGroup === "function"
+      ? LoadCombo.toReportGroup(lcCfg.prefix, "採用載重組合")
+      : null;
+    if (liveGroup) return liveGroup;
+    if (restoredLoadComboGroup && restoredLoadComboGroup.method === designMethod) {
+      return restoredLoadComboGroup.group;
+    }
+    return null;
+  }
+
+  function renderLoadComboPanel({ previousUnitMode = unitMode, convertValues = false } = {}) {
+    const panel = $("lcPanel");
+    if (!panel || !window.LoadCombo) return;
+    const saved = {};
+    ["M", "V"].forEach((fKey) => {
+      const kind = fKey === "M" ? "moment" : "force";
+      ["D", "L", "W", "E"].forEach((cKey) => {
+        const el = $(`${lcCfg.prefix}_${fKey}_${cKey}`);
+        if (!el) return;
+        const parsed = parseFloat(el.value);
+        if (!Number.isFinite(parsed) || parsed === 0) return;
+        const val = convertValues && previousUnitMode !== unitMode
+          ? convertLegacyValue(convertDisplayValue(parsed, kind, previousUnitMode), kind, unitMode)
+          : parsed;
+        saved[`${fKey}_${cKey}`] = formatInputValue(val, 3);
+      });
+    });
+    syncLcLabels();
+    panel.innerHTML = window.LoadCombo.buildPanel(lcCfg);
+    Object.entries(saved).forEach(([suffix, val]) => {
+      const el = $(`${lcCfg.prefix}_${suffix}`);
+      if (el) el.value = val;
+    });
+    window.LoadCombo.bind(lcCfg);
+    updateLoadComboBadge();
+  }
 
   function finiteCandidate(value) {
     if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
@@ -620,6 +706,7 @@
     $("methodBadge").textContent = `鋼構造建築物鋼結構設計技術規範｜鋼梁檢核 (${method})`;
     $("loadTitle").textContent = isLRFD ? "載重 (LRFD)" : "載重 (ASD / 使用荷重)";
     updateUnitLabels();
+    renderLoadComboPanel();
     persistUiPrefs();
   }
 
@@ -671,6 +758,7 @@
     unitMode = nextMode;
     buildMatOptions();
     updateUnitLabels();
+    renderLoadComboPanel({ previousUnitMode: previousMode, convertValues: convertFields });
     if (persist) persistUiPrefs();
     if (rerun) resultState = runCheck();
   }
@@ -946,7 +1034,7 @@
   }
 
   function prepareReportBlockAccordions() {
-    document.querySelectorAll(".report-paper .report-block").forEach((block) => {
+    document.querySelectorAll(".report-paper .report-block:not(.member-visual-hub)").forEach((block) => {
       if (block.querySelector(".report-block-body")) return;
       const title = block.querySelector("h3");
       if (!title) return;
@@ -1815,7 +1903,7 @@
     renderFillStatus();
     clearInputStatus();
     setBeamReportValidationMessage("");
-    const replayGrade = !!sourceVersion && sourceVersion !== "v1.4" && sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version);
+    const replayGrade = !!sourceVersion && !["v1.4", "v1.5", SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)].includes(sourceVersion);
     const material = SteelMemberMaterial.refresh(unitMode,false,replayGrade);
     if (material.error) return inputFail(material.error);
     const issue = braceIssue();
@@ -2016,12 +2104,9 @@
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk({ flexOk, shearOk, deflStatus }) ? "本次鋼梁斷面於主軸彎矩、剪力與撓度檢核均通過。" : "本次鋼梁斷面至少有一項控制條件未通過，請優先檢視控制模式、剪力條件與撓度條件。"}</div>`;
     $("summaryCard").hidden = false;
 
-    const result = { materialNote: material.note, sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, loadDead, loadLive, pointDead, pointLive, pointDeadX, pointLiveX, adoptedInputSource: adoptedBeamImportSourceText() };
+    const result = { materialNote: material.note, sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, strengthMoment, strengthShear, loadDead, loadLive, pointDead, pointLive, pointDeadX, pointLiveX, adoptedInputSource: adoptedBeamImportSourceText() };
     resultState = result;
-    const diagram = buildMemberSectionDiagram(result);
-    $("beamSectionDiagramImage").src = diagram.dataURL;
-    $("beamSectionDiagramCaption").textContent = diagram.caption;
-    $("beamSectionDiagram").hidden = false;
+    renderBeamVisualHub(result);
     setBeamReportValidationMessage("");
     renderSummary(result);
     renderFlow(result);
@@ -2040,15 +2125,168 @@
     return MemberSectionSvg.steelMember({ section: result.sec, member: "beam", loads });
   }
 
+  function beamChartSource(result, loadComboGroup = getAdoptedLoadComboGroup()) {
+    const combo = loadComboGroup?.items?.find((item) => item.label === "採用組合")?.value;
+    return [result.isLRFD ? "LRFD" : "ASD", combo ? "採用組合 " + combo : result.adoptedInputSource || "手動輸入需求"].join("｜");
+  }
+
+  function buildBeamLtbDiagram(result, sourceLabel = beamChartSource(result)) {
+    const usesLtb = result.sectionType === "h" || (result.sectionType === "rhs" && result.sec.H > result.sec.B + 1e-9);
+    const lp = Number(result.flex.Lp) || 0;
+    const lr = Number(result.flex.Lr) || 0;
+    const curvePoints = [];
+    if (usesLtb) {
+      const end = Math.max(lr * 1.15, result.Lb * 1.15, result.L);
+      const stops = new Set([0, lp, lr, result.Lb, end]);
+      for (let i = 1; i < 40; i++) stops.add(end * i / 40);
+      const ordered = Array.from(stops).filter((value) => Number.isFinite(value) && value >= 0).sort((a, b) => a - b);
+      for (const lb of ordered) {
+        const flex = result.sectionType === "h"
+          ? Steel.calcMn(result.sec, result.Fy, lb, result.Cb)
+          : Steel.calcMnRectHss(result.sec, result.Fy, "x", lb, result.Cb);
+        const capacity = result.isLRFD ? flex.phiMn_tfm : flex.MnOmega_tfm;
+        if (Number.isFinite(capacity)) curvePoints.push({
+          x: convertLegacyValue(lb, "memberLength"),
+          y: convertLegacyValue(capacity, "moment"),
+        });
+      }
+    }
+    return MemberSectionSvg.steelBeamLtbCurve({
+      usesLtb,
+      lengthUnit: getQuantityUnit("memberLength"),
+      momentUnit: getQuantityUnit("moment"),
+      strengthSymbol: result.isLRFD ? "φMn" : "Mn/Ω",
+      curvePoints,
+      Lp: convertLegacyValue(lp, "memberLength"),
+      Lr: convertLegacyValue(lr, "memberLength"),
+      Lb: convertLegacyValue(result.Lb, "memberLength"),
+      demandM: convertLegacyValue(result.demandMoment, "moment"),
+      capM: convertLegacyValue(result.strengthMoment, "moment"),
+      governingLabel: getBeamGoverningDisplay(result.flex.governing),
+      clauseLabel: result.flex.webSection,
+      ok: result.flexOk,
+      sourceLabel,
+    });
+  }
+
+  function sampleSimpleBeamDeflectionAt(L, EI, w, points, x) {
+    if (!(L > 0 && EI > 0)) return 0;
+    let delta = (w * x * (L ** 3 - 2 * L * x ** 2 + x ** 3)) / (24 * EI);
+    for (const pt of points) {
+      const P = pt.P;
+      const a = pt.a;
+      if (!(P > 0 && a > 0 && a < L)) continue;
+      if (x <= a) {
+        const b = L - a;
+        delta += (P * b * x * (L ** 2 - b ** 2 - x ** 2)) / (6 * L * EI);
+      } else {
+        const u = L - x;
+        delta += (P * a * u * (L ** 2 - a ** 2 - u ** 2)) / (6 * L * EI);
+      }
+    }
+    return Math.max(0, delta);
+  }
+
+  function buildBeamResponseDiagram(result) {
+    const L = result.L;
+    const { EI, deltaL, deltaT, xL, xT } = result.deflection;
+    const deadPts = result.pointDead > 0 ? [{ P: result.pointDead * 1000, a: result.pointDeadX ?? L / 2 }] : [];
+    const livePts = result.pointLive > 0 ? [{ P: result.pointLive * 1000, a: result.pointLiveX ?? L / 2 }] : [];
+    const allPts = [...deadPts, ...livePts];
+    const samples = [];
+    if (result.deflStatus !== "skipped" && L > 0 && EI > 0) {
+      const stations = new Set(Array.from({ length: 33 }, (_, i) => i * L / 32));
+      for (const x of [xL, xT, ...allPts.map((load) => load.a)]) {
+        if (Number.isFinite(x)) stations.add(x);
+      }
+      for (const x of Array.from(stations).sort((a, b) => a - b)) {
+        const live = x === xL ? deltaL : sampleSimpleBeamDeflectionAt(L, EI, result.loadLive, livePts, x);
+        const total = x === xT ? deltaT : sampleSimpleBeamDeflectionAt(L, EI, result.loadDead + result.loadLive, allPts, x);
+        samples.push({ frac: x / L, live: convertLegacyValue(live, "deflection"), total: convertLegacyValue(total, "deflection") });
+      }
+    }
+    const pointLoads = [
+      ...deadPts.map(({ a }) => ({ x: convertLegacyValue(a, "memberLength"), label: "PD" })),
+      ...livePts.map(({ a }) => ({ x: convertLegacyValue(a, "memberLength"), label: "PL" })),
+    ];
+    return MemberSectionSvg.steelBeamResponse({
+      spanL: convertLegacyValue(L, "memberLength"),
+      lengthUnit: getQuantityUnit("memberLength"),
+      deflUnit: getQuantityUnit("deflection"),
+      hasUniformLoad: result.loadDead > 0 || result.loadLive > 0,
+      pointLoads,
+      deflSamples: samples,
+      deltaL: convertLegacyValue(deltaL, "deflection"),
+      allowL: convertLegacyValue(result.allowLive, "deflection"),
+      deltaT: convertLegacyValue(deltaT, "deflection"),
+      allowT: convertLegacyValue(result.allowTotal, "deflection"),
+      peakX: xT != null ? convertLegacyValue(xT, "memberLength") : null,
+      deflStatus: result.deflStatus,
+    });
+  }
+
+  function applyBeamChartTab(tab = currentChartTab) {
+    currentChartTab = tab;
+    document.querySelectorAll("[data-beam-chart-tab]").forEach((btn) => {
+      const selected = btn.dataset.beamChartTab === tab;
+      btn.classList.toggle("active", selected);
+      btn.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+    document.querySelectorAll("[data-beam-chart-item]").forEach((fig) => {
+      fig.hidden = fig.dataset.beamChartItem !== tab;
+    });
+  }
+
+  function renderBeamVisualHub(result) {
+    const sourceLabel = beamChartSource(result);
+    setBeamDiagram("beamSection", buildMemberSectionDiagram(result));
+    setBeamDiagram("beamEnvelope", buildBeamLtbDiagram(result, sourceLabel));
+    setBeamDiagram("beamResponse", buildBeamResponseDiagram(result));
+
+    const readout = (label, demand, capacity, kind, ok) => {
+      const margin = convertLegacyValue(capacity - demand, kind);
+      const fmt = (value) => formatDisplayValue(value, kind, 2) + " " + getQuantityUnit(kind);
+      return {
+        label, tone: ok ? "ok" : "fail",
+        value: (margin > 0 ? "+" : "") + formatInputValue(margin, 2) + " " + getQuantityUnit(kind),
+        detail: "需求 " + fmt(demand) + " ／ " + (kind === "deflection" ? "限值 " : "容量 ") + fmt(capacity),
+      };
+    };
+    const cards = [
+      readout("彎矩餘裕 ΔM", result.demandMoment, result.strengthMoment, "moment", result.flexOk),
+      readout("剪力餘裕 ΔV", result.demandShear, result.strengthShear, "force", result.shearOk),
+      ...(result.deflStatus === "skipped" ? [{ label: "服務撓度", value: "未檢核", detail: "未輸入服務載重", tone: "neutral" }] : [
+        readout("總撓度餘裕", result.deflection.deltaT, result.allowTotal, "deflection", result.deflection.deltaT <= result.allowTotal),
+        readout("活載撓度餘裕", result.deflection.deltaL, result.allowLive, "deflection", result.deflection.deltaL <= result.allowLive),
+      ]),
+    ];
+    const useLtb = result.sectionType === "h" || (result.sectionType === "rhs" && result.sec.H > result.sec.B + 1e-9);
+    $("beamChartBasis").textContent = sourceLabel + (useLtb
+      ? "｜Lb " + formatDisplayValue(result.Lb, "memberLength", unitMode === "si" ? 3 : 1) + " " + getQuantityUnit("memberLength") + "，Cb " + formatInputValue(result.Cb, 2)
+      : "");
+    $("beamMarginStrip").innerHTML = cards.map(({ label, value, detail, tone }) =>
+      '<div class="member-margin-pill ' + tone + '"><dt>' + label + '</dt><dd><strong>' + value + '</strong><small>' + detail + '</small></dd></div>').join("");
+    applyBeamChartTab(currentChartTab);
+    $("beamSectionDiagram").hidden = false;
+  }
+
+  function setBeamDiagram(prefix, diagram) {
+    const title = $(prefix + "DiagramTitle");
+    if (title) title.textContent = diagram.title;
+    $(prefix + "DiagramImage").src = diagram.dataURL;
+    $(prefix + "DiagramCaption").textContent = diagram.caption;
+  }
+
   function buildBeamReportConfig(result, sourceVersion = "") {
     const replayV11 = sourceVersion === "v1.1";
     const previousFormat = replayV11 || sourceVersion === "v1.2";
-    const previousDeflectionFormat = !!sourceVersion && sourceVersion !== SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version);
+    const previousDeflectionFormat = !!sourceVersion && !["v1.5", SteelFormalUI.normalizeReportVersion(TOOL_METADATA.version)].includes(sourceVersion);
     function comparison(left, right, minimum, kind) {
       if (previousFormat) return `${f2(left)} ${minimum ? "≥" : "≤"} ${f2(right)}`;
       return formatSteelMemberComparison(left, right, minimum, getQuantityUnit(kind), convertLegacyValue(1, kind, unitMode));
     }
     const summaryState = getBeamReportSummaryState(result);
+    const loadComboGroup = getAdoptedLoadComboGroup();
     return {
       title: "鋼梁正式規範核算計算書",
       subtitle: `Steel Beam Formal Report (${designMethod})`,
@@ -2085,6 +2323,7 @@
           { label: "跨度 L", value: formatDisplayValue(result.L, "memberLength", unitMode === "si" ? 3 : 1), unit: getQuantityUnit("memberLength") },
           { label: "內力來源", value: result.adoptedInputSource },
         ]},
+        ...(loadComboGroup ? [loadComboGroup] : []),
       ],
         checks: [
           { group: "撓曲強度", items: [
@@ -2102,7 +2341,11 @@
           { label: "總撓度", formula: "ΔT ≤ L / limit", sub: !previousFormat && result.deflStatus === "skipped" ? "未輸入服務載重" : comparison(result.deflection.deltaT, result.allowTotal, false, "deflection"), value: result.deflStatus === "skipped" ? "未檢核" : `${formatDisplayValue(result.deflection.deltaT, "deflection", unitMode === "si" ? 1 : 2)} / ${formatDisplayValue(result.allowTotal, "deflection", unitMode === "si" ? 1 : 2)} ${getQuantityUnit("deflection")}`, ok: result.deflStatus === "skipped" ? null : result.deflection.deltaT <= result.allowTotal, note: `限值：L/${$("limT").value}` },
         ]},
       ],
-      diagrams: [buildMemberSectionDiagram(result)],
+      diagrams: [
+        buildMemberSectionDiagram(result),
+        buildBeamLtbDiagram(result, beamChartSource(result, loadComboGroup)),
+        buildBeamResponseDiagram(result),
+      ],
       summary: summaryState,
       steps: buildReportSteps(result, previousDeflectionFormat),
     };
@@ -2111,7 +2354,7 @@
   function collectBeamSourceFields() {
     const fields = {};
     document.querySelectorAll("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]").forEach((field) => {
-      if (field.disabled || field.dataset.filterInput) return;
+      if (field.disabled || field.dataset.filterInput || field.closest("[data-source-ignore]")) return;
       fields[field.id] = {
         value: field.type === "checkbox" ? field.checked : field.value,
       };
@@ -2123,6 +2366,7 @@
     if (!result) return null;
     const reportConfig = buildBeamReportConfig(result, sourceVersion);
     const reportTrace = SteelFormalUI.buildReportTrace(reportConfig);
+    const loadComboGroup = getAdoptedLoadComboGroup();
     return {
       schemaVersion: 1,
       kind: "formal-calculation-source",
@@ -2138,6 +2382,7 @@
       fields: collectBeamSourceFields(),
       ...(adoptedBeamImport ? { adoptedBeamImport } : {}),
       ...(adoptedBrace ? { adoptedBrace } : {}),
+      ...(loadComboGroup ? { adoptedLoadCombo: { method: designMethod, group: loadComboGroup } } : {}),
       calculationFingerprint: reportTrace.calculationFingerprint,
       report: {
         title: reportConfig.title,
@@ -2173,6 +2418,7 @@
   }
 
   function captureBeamSourceState() {
+    const loadComboGroup = getAdoptedLoadComboGroup();
     return {
       project: { name: $("projName").value, no: $("projNo").value, designer: $("projDesigner").value },
       designMethod,
@@ -2180,15 +2426,19 @@
       fields: collectBeamSourceFields(),
       adoptedBeamImport,
       adoptedBrace,
+      adoptedLoadCombo: loadComboGroup ? { method: designMethod, group: loadComboGroup } : null,
     };
   }
 
   function applyBeamSourceState(source, sourceVersion = "") {
+    if (window.lastLoadCombo) delete window.lastLoadCombo[lcCfg.prefix];
+    restoredLoadComboGroup = source.adoptedLoadCombo?.group ? source.adoptedLoadCombo : null;
     adoptedBeamImport = source.adoptedBeamImport || null;
     adoptedBrace = source.adoptedBrace || null;
     updateBraceControl();
     setUnitMode(source.unitMode, { convertFields: false, rerun: false, persist: false });
     setMethod(source.designMethod);
+    updateLoadComboBadge();
     $("projName").value = source.project?.name || "";
     $("projNo").value = source.project?.no || "";
     $("projDesigner").value = source.project?.designer || "";
@@ -2203,7 +2453,7 @@
     $("materialBasis").value = "";
     Object.entries(source.fields || {}).forEach(([id, entry]) => {
       const field = $(id);
-      if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || (field.disabled && id !== "materialBasis") || field.dataset.filterInput) return;
+      if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || (field.disabled && id !== "materialBasis") || field.dataset.filterInput || field.closest("[data-source-ignore]")) return;
       if (field.type === "checkbox") field.checked = Boolean(entry?.value);
       else field.value = entry?.value ?? "";
     });
@@ -2218,7 +2468,7 @@
     const sourceVersion = SteelFormalUI.normalizeReportVersion(payload?.tool?.version);
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolId: TOOL_METADATA.id,
-      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.3.1", "v1.4"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
+      expectedVersion: ["v1.1", "v1.2", "v1.2.1", "v1.3", "v1.3.1", "v1.4", "v1.5"].includes(sourceVersion) ? sourceVersion : TOOL_METADATA.version,
     });
     if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
     if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
@@ -2383,12 +2633,21 @@
         if (resultState) renderSummary(resultState);
       });
     });
+    document.querySelectorAll("[data-beam-chart-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => applyBeamChartTab(btn.dataset.beamChartTab));
+    });
+    ["inMu", "inVu"].forEach((id) => {
+      $(id)?.addEventListener("input", () => {
+        restoredLoadComboGroup = null;
+        updateLoadComboBadge();
+      });
+    });
     ["projName", "projNo", "projDesigner"].forEach((id) => {
       $(id).addEventListener("input", syncBeamProjectMetaUi);
       $(id).addEventListener("change", syncBeamProjectMetaUi);
     });
     document.querySelectorAll("input, select").forEach((input) => {
-      if (input.closest("#beamImportReview")) return;
+      if (input.closest("#beamImportReview") || input.closest("[data-source-ignore]")) return;
       if (!["projName", "projNo", "projDesigner"].includes(input.id) && !input.dataset.filterInput) {
         input.addEventListener("change", () => { resultState = runCheck(); });
       }

@@ -847,9 +847,9 @@ function newHomeExpression(tools) {
     const rcBeamReadiness = rcBeamCard
       ? (Array.from(rcBeamCard.querySelectorAll('.tool-profile__item')).find(item => item.querySelector('span')?.textContent.trim() === '閱讀狀態')?.querySelector('p')?.textContent.trim() || '')
       : '';
-    const legacySteelCard = Array.from(document.querySelectorAll('.tool-card')).find(card => (card.querySelector('h3')?.textContent || '').trim() === '鋼梁舊案延續頁');
-    const legacySteelReadiness = legacySteelCard
-      ? (Array.from(legacySteelCard.querySelectorAll('.tool-profile__item')).find(item => item.querySelector('span')?.textContent.trim() === '閱讀狀態')?.querySelector('p')?.textContent.trim() || '')
+    const formalSteelCard = Array.from(document.querySelectorAll('.tool-card')).find(card => (card.querySelector('h3')?.textContent || '').trim() === '鋼梁正式頁');
+    const formalSteelReadiness = formalSteelCard
+      ? (Array.from(formalSteelCard.querySelectorAll('.tool-profile__item')).find(item => item.querySelector('span')?.textContent.trim() === '閱讀狀態')?.querySelector('p')?.textContent.trim() || '')
       : '';
     const rcStmToolTitles = Array.from(document.querySelectorAll('.tool-card h3'))
       .map(node => node.textContent.trim())
@@ -916,7 +916,7 @@ function newHomeExpression(tools) {
       },
       rcBeamMeta,
       rcBeamReadiness,
-      legacySteelReadiness,
+      formalSteelReadiness,
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
@@ -1130,12 +1130,13 @@ function legacyInlineValidationExpression(testCase) {
       target.dispatchEvent(new Event('input', { bubbles: true }));
       target.dispatchEvent(new Event('change', { bubbles: true }));
     }
-    document.querySelector('.btn-calc')?.click();
+    (document.getElementById('runCheckBtn') || document.querySelector('.btn-calc'))?.click();
     await settle(2);
+    const statusNode = document.getElementById(${JSON.stringify(testCase.statusId || 'inputStatus')});
     return {
       title: document.title,
-      inputStatus: document.getElementById('inputStatus')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
-      hasInputStatus: !!document.getElementById('inputStatus'),
+      inputStatus: statusNode?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      hasInputStatus: !!statusNode,
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
@@ -1994,7 +1995,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
   }
   assert.ok(state.rcBeamMeta.includes('報告邊界'), `${label} new home RC beam exposes report boundary chip`);
   assert.ok(state.rcBeamReadiness.includes('正式計算書') && state.rcBeamReadiness.includes('工程師確認'), `${label} new home RC beam readiness summary`);
-  assert.ok(state.legacySteelReadiness.includes('既有案件延續') && state.legacySteelReadiness.includes('新案正式計算附件'), `${label} new home transition steel readiness summary`);
+  assert.ok(state.formalSteelReadiness.includes('正式計算書') && state.formalSteelReadiness.includes('工程師確認'), `${label} new home formal steel readiness summary`);
   assert.equal(state.horizontalOverflow, false, `${label} new home horizontal overflow`);
   for (const link of state.requiredLinks) {
     assert.equal(link.exists, true, `${label} new home link exists: ${link.href}`);
@@ -3227,23 +3228,25 @@ async function main() {
     const legacyInlineValidationCases = [
       {
         key: 'steel-beam',
-        route: '/steel-beam',
+        route: '/steel-beam-formal',
+        statusId: 'beamInputStatus',
         invalidField: 'inH',
         invalidValue: '0',
-        expectedStatus: '請完整輸入斷面尺寸',
+        expectedStatus: '請確認 H 型鋼尺寸輸入完整且合理。',
       },
       {
         key: 'steel-column',
-        route: '/steel-column',
+        route: '/steel-column-formal',
+        statusId: 'columnInputStatus',
         invalidField: 'inH',
         invalidValue: '0',
-        expectedStatus: '斷面尺寸',
+        expectedStatus: '請確認 H 型鋼尺寸輸入完整且合理。',
       },
     ];
     const loadComboLimitStateCases = [
       {
         key: 'steel-beam',
-        route: '/steel-beam',
+        route: '/steel-beam-formal',
         prefix: 'lcSB',
         sourceWrites: [
           { id:'lcSB_M_W', value:-10 },
@@ -3255,7 +3258,7 @@ async function main() {
       },
       {
         key: 'steel-column',
-        route: '/steel-column',
+        route: '/steel-column-formal',
         prefix: 'lcSC',
         sourceWrites: [
           { id:'lcSC_P_L', value:100 },
@@ -3338,24 +3341,7 @@ async function main() {
         expectedCapacityStatus: 'evaluated',
       },
     ];
-    const legacyReportCases = [
-      {
-        key: 'steel-beam',
-        route: '/steel-beam',
-        reportButtonId: 'btnReport',
-        purposeId: 'beamLegacyPurpose',
-        confirmId: 'beamLegacyUseConfirm',
-        reportTitle: '鋼梁舊案延續計算記錄',
-      },
-      {
-        key: 'steel-column',
-        route: '/steel-column',
-        reportButtonId: 'btnReport',
-        purposeId: 'columnLegacyPurpose',
-        confirmId: 'columnLegacyUseConfirm',
-        reportTitle: '鋼柱舊案延續計算記錄',
-      },
-    ];
+    const legacyReportCases = [];
     const referenceReadinessCases = [
       {
         key: 'wind-kzt',
@@ -3441,8 +3427,8 @@ async function main() {
         assert.deepEqual(searchResults.missing, [], `${label} empty search result`);
         assert.equal(searchResults.emptyVisible, true, `${label} empty result is visible`);
         assert.equal(searchResults.cleared, true, `${label} clear search`);
-        assert.equal(searchResults.existingInventoryCount, 52, `${label} clear preserves existing inventory including the survey workflow`);
-        assert.equal(searchResults.restoredCount, 53, `${label} clear restores inventory including NDT`);
+        assert.equal(searchResults.existingInventoryCount, 50, `${label} clear preserves existing inventory including the survey workflow`);
+        assert.equal(searchResults.restoredCount, 51, `${label} clear restores inventory including NDT`);
         assert.deepEqual(searchResults.ndtAlias, ['鋼構正式規範工具', '混凝土強度非破壞檢測推估'], `${label} NDT search preserves the existing EndTab substring match and finds NDT`);
         assert.deepEqual(searchResults.reboundAlias, ['混凝土強度非破壞檢測推估'], `${label} rebound-hammer alias search`);
         assert.equal(searchResults.overflow, false, `${label} search controls fit viewport`);

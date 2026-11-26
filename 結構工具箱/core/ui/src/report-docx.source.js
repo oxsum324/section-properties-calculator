@@ -251,7 +251,21 @@
           result.push(await table(node), new d.Paragraph({ spacing: { after: 80 }, children: [] }));
           continue;
         }
-        if (/^H[1-6]$/.test(tag)) {
+        if (node.matches('figure.rep-diagram--engineering')) {
+          const parts = [...node.children].filter(part => !ignored(part, view));
+          for (const [index, part] of parts.entries()) {
+            const isTitle = part.matches('.rep-diagram-title');
+            const isImage = part.matches('img');
+            const chartFormat = isTitle ? { bold: true, color: headingColor, size: 23 }
+              : isImage ? { alignment: d.AlignmentType.CENTER, imageMaxWidth: 500 }
+                : { size: 20, color: '334155' };
+            result.push(await paragraph([part], {
+              keepLines: true,
+              keepNext: index < parts.length - 1,
+              spacing: { before: isTitle ? 120 : 0, after: isImage ? 60 : 100, line: 252 },
+            }, { ...format, ...chartFormat }));
+          }
+        } else if (/^H[1-6]$/.test(tag)) {
           const heading = tag === 'H1' ? d.HeadingLevel.TITLE : d.HeadingLevel['HEADING_' + Math.min(3, Number(tag[1]) - 1)];
           const title = tag === 'H1';
           result.push(await paragraph([node], {

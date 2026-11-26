@@ -63,8 +63,6 @@ const EXTRA = {
   'index.html': { key: '/section-properties', calculateFunction: 'calcHBeam', resultSelector: '#results' },
   '合成斷面性質.html': { key: '/composite-section', calculateFunction: 'calcAll', resultSelector: '#results' },
   '結構工具箱/tools/地震力/seismic-dynamic.html': { key: '/seismic-dynamic', calculateButton: '#btnCalc', resultSelector: '#banner' },
-  '結構工具箱/tools/鋼構/steel-beam.html': { key: '/steel-beam-legacy', calculateFunction: 'runCheck', resultSelector: '#summaryResult' },
-  '結構工具箱/tools/鋼構/steel-column.html': { key: '/steel-column-legacy', calculateFunction: 'runCheck', resultSelector: '#summaryResult' },
   '結構工具箱/tools/風力/wind-kzt.html': { key: '/wind-kzt', calculateButton: '#btnCalc', resultSelector: '#resultPanel' },
   '結構工具箱/tools/風力/wind-special.html': { key: '/wind-special', calculateButton: '#btnCalc', resultSelector: '#summary' },
   '結構工具箱/tools/concrete-ndt/concrete-strength-ndt.html': { key: '/concrete-strength-ndt', calculateButton: '#btnCalc', resultSelector: '#bannerStatus' },
@@ -89,7 +87,7 @@ function inventory() {
     assert.ok(adapter, `需明確新增計算入口映射：${file}`);
     return { ...adapter, file, reportDependencies: refs, format: FORMAT_KEYS.includes(adapter.key), deep: DEEP_KEYS.includes(adapter.key) };
   }).filter(Boolean);
-  assert.equal(list.length, 46, 'actual report.js consumers changed; review inventory before running');
+  assert.equal(list.length, 44, 'actual report.js consumers changed; review inventory before running');
   assert.equal(list.filter(tool => tool.format).length, 7);
   assert.equal(list.filter(tool => tool.deep).length, 7);
   for (const key of TEXT_KEYS) assert.ok(list.some(tool => tool.key === key), `${key} 缺少 TXT 驗證入口`);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>鋼梁正式規範核算工具 V1.5</title>
+  <title>鋼梁正式規範核算工具 V1.6</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="../tool-chrome.css">
   <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
@@ -26,10 +26,10 @@
       <a class="page-header__link" href="../結構工具箱/index.html">← 回結構工具箱</a>
       <a class="page-header__link" href="./index.html">鋼構正式工具首頁</a>
       <a class="page-header__link" href="./plate-check.html">連接板獨立頁</a>
-      <a class="page-header__link" href="../結構工具箱/tools/鋼構/steel-beam.html">舊版鋼梁頁</a>
+      <a class="page-header__link" href="./steel-column-formal.html">鋼柱正式頁</a>
     </nav>
-    <h1>鋼梁正式規範核算工具 V1.5</h1>
-    <p>沿用既有鋼梁檢算核心，升級為左輸入、右報表、計算流程、參數詞典的一體化正式模板</p>
+    <h1>鋼梁正式規範核算工具 V1.6</h1>
+    <p>整合撓曲側扭挫屈、剪力、撓度、載重組合產生器與安全餘裕包絡線圖表的一體化正式核算介面</p>
   </header>
 
   <main class="container">
@@ -333,6 +333,13 @@
             <div class="form-group"><label id="lblMu">Mu / Ma 主軸彎矩 (tf·m)</label><input type="number" id="inMu" value="30"></div>
             <div class="form-group"><label id="lblVu">Vu / Va 剪力 (tf)</label><input type="number" id="inVu" value="15"></div>
           </div>
+          <details class="collapsible-details" id="beamLoadComboDetails" data-page-only="true" data-member-input-secondary>
+            <summary><span class="details-title">載重組合產生器（D / L / W / E）</span><span class="details-summary-badge" id="beamLcBadge">選填輔助</span></summary>
+            <div class="details-body">
+              <p class="section-note">依台灣 112 規範展開完整有號載重組合，選定單一組合列後套用至設計彎矩與剪力欄位；不會拼接不同組合之包絡分量。</p>
+              <div id="lcPanel" class="lc-formal-panel" data-source-ignore="true"></div>
+            </div>
+          </details>
           <div class="form-row is-hidden" id="beamRoundShearRow">
             <div class="form-group"><label id="beamLvLabel">Lv 圓管剪力長度 (cm)</label><input type="number" id="inLv" value="400"></div>
             <div class="form-group">
@@ -440,10 +447,40 @@
               </div>
             </section>
             <div class="member-summary-grid" id="beamSummaryGrid"></div>
-            <section class="report-block no-print" data-page-only="true" id="beamSectionDiagram" hidden>
-              <h3>鋼梁計算斷面與受力示意</h3>
-              <img id="beamSectionDiagramImage" class="member-section-image" alt="鋼梁計算斷面與受力示意">
-              <p id="beamSectionDiagramCaption"></p>
+            <section class="report-block no-print member-visual-hub" data-page-only="true" id="beamSectionDiagram" hidden>
+              <div class="member-visual-hub__head">
+                <h3>撓曲容量與服務性</h3>
+                <div class="member-visual-tabs" role="group" aria-label="鋼梁圖表">
+                  <button type="button" class="active" aria-pressed="true" aria-controls="beamChart-envelope" data-beam-chart-tab="envelope">容量與需求</button>
+                  <button type="button" aria-pressed="false" aria-controls="beamChart-response" data-beam-chart-tab="response">服務撓度</button>
+                  <button type="button" aria-pressed="false" aria-controls="beamChart-section" data-beam-chart-tab="section">斷面與受力</button>
+                </div>
+              </div>
+              <p class="member-chart-basis" id="beamChartBasis"></p>
+              <dl class="member-margin-strip" id="beamMarginStrip" aria-label="鋼梁檢核數值"></dl>
+              <div class="member-diagram-gallery">
+                <figure class="member-diagram-figure" id="beamChart-envelope" data-beam-chart-item="envelope">
+                  <div class="member-diagram-figure__head">
+                    <h4 id="beamEnvelopeDiagramTitle">鋼梁側扭挫屈撓曲容量包絡線與彎矩餘裕圖</h4>
+                  </div>
+                  <img id="beamEnvelopeDiagramImage" class="member-section-image" alt="鋼梁撓曲容量包絡線與彎矩餘裕圖">
+                  <figcaption id="beamEnvelopeDiagramCaption"></figcaption>
+                </figure>
+                <figure class="member-diagram-figure" id="beamChart-response" data-beam-chart-item="response" hidden>
+                  <div class="member-diagram-figure__head">
+                    <h4 id="beamResponseDiagramTitle">鋼梁服務載重撓度曲線與強度動員率示意圖</h4>
+                  </div>
+                  <img id="beamResponseDiagramImage" class="member-section-image" alt="鋼梁服務載重撓度曲線與強度動員率示意圖">
+                  <figcaption id="beamResponseDiagramCaption"></figcaption>
+                </figure>
+                <figure class="member-diagram-figure" id="beamChart-section" data-beam-chart-item="section" hidden>
+                  <div class="member-diagram-figure__head">
+                    <h4>鋼梁計算斷面與受力示意</h4>
+                  </div>
+                  <img id="beamSectionDiagramImage" class="member-section-image" alt="鋼梁計算斷面與受力示意">
+                  <figcaption id="beamSectionDiagramCaption"></figcaption>
+                </figure>
+              </div>
             </section>
             <section class="report-block">
               <h3>審查摘要 <span class="report-block-status neutral" id="beamReviewBadge">待計算</span></h3>
@@ -564,9 +601,10 @@
 <script src="../結構工具箱/core/ui/report-docx.js"></script>
 <script src="./core/ui/report.js"></script>
   <script src="../結構工具箱/core/ui/member-section-svg.js"></script>
+  <script src="../結構工具箱/core/loads/loadcombo.js"></script>
   <script src="./steel-member-report.js"></script>
   <script src="../結構工具箱/tools/beam-element-deflection.js?v=2"></script>
-  <script src="./steel-beam-formal.js?v=2"></script>
+  <script src="./steel-beam-formal.js?v=3"></script>
 <script src="../tool-nav.manifest.js" defer></script>
 <script src="../tool-chrome.js" defer></script>
 <script src="../tool-page-a11y.js" defer></script>

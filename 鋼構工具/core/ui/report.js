@@ -1253,7 +1253,7 @@ function buildReportDocumentHtml(cfg, presentation) {
       <h3>計算線圖與示意圖</h3>
       <div class="rep-diagrams-grid">
         ${cfg.diagrams.map(d => `
-          <figure class="rep-diagram">
+          <figure class="rep-diagram${d.layout === 'engineering-chart' ? ' rep-diagram--engineering' : ''}">
             ${d.title ? `<figcaption class="rep-diagram-title">${esc(d.title)}</figcaption>` : ''}
             <img src="${d.dataURL}" alt="${esc(d.title||'')}" style="${d.width?`max-width:${d.width}px;`:''}">
             ${d.caption ? `<div class="rep-diagram-caption">${esc(d.caption)}</div>` : ''}
@@ -1370,6 +1370,10 @@ table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numer
 .rep-diagram-title { font-size:12px; font-weight:600; color:#1a3d5c; margin-bottom:4px; }
 .rep-diagram img { max-width:100%; height:auto; display:block; margin:0 auto; }
 .rep-diagram-caption { font-size:10px; color:#666; margin-top:4px; font-style:italic; }
+.rep-diagram--engineering { flex:0 1 570px; box-sizing:border-box; min-width:0; max-width:100%; background:#fff; }
+.rep-diagram--engineering .rep-diagram-title { padding:0 0 6px; border-bottom:1px solid #ced7e1; font-weight:700; text-align:left; }
+.rep-diagram--engineering .rep-diagram-caption { padding-top:6px; border-top:1px solid #ced7e1; color:#334155;
+  font-size:11px; font-style:normal; font-variant-numeric:tabular-nums; line-height:1.45; text-align:left; overflow-wrap:anywhere; }
 .rep-toolbar { max-width:800px; margin:0 auto 12px; text-align:right; }
 .rep-toolbar button { background:#1a3d5c; color:#fff; border:0; padding:8px 18px;
                       font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
