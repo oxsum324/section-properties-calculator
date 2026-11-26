@@ -835,3 +835,515 @@
     padding: 6px 9px;
   }
 }
+
+/* ═══ V1.6.1 工程計算書風格輸出畫面（清晰字體、高對比、簡潔扁平結構） ═══ */
+.report-column {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.report-column .section-tabs {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: none;
+  gap: 4px;
+}
+
+.report-column .section-tabs button {
+  border-radius: 3px;
+  padding: 7px 14px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: 0.01em;
+}
+
+.report-column .section-tabs button.active {
+  background: #0f2942;
+  color: #ffffff;
+}
+
+.report-column .section-tab-badge {
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-paper {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 22px 26px 28px;
+  color: #0f172a;
+  font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  line-height: 1.6;
+}
+
+.report-column .report-toolbar {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.report-column .report-toolbar button {
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.report-column .report-head {
+  border-bottom: 2px solid #0f2942;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  gap: 16px;
+  align-items: end;
+}
+
+.report-column .report-head h2 {
+  font-size: 1.32rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.report-column .report-head p {
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.report-column .report-meta {
+  gap: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.report-column .report-meta div {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 5px 10px;
+  min-width: 240px;
+  font-size: 0.84rem;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-meta div:last-child {
+  border-bottom: none;
+}
+
+.report-column .report-meta b {
+  color: #334155;
+  font-weight: 700;
+}
+
+.report-column .report-summary {
+  margin-bottom: 16px;
+}
+
+.report-column .member-banner {
+  border-radius: 3px;
+  border-width: 1px;
+  border-left-width: 4px;
+  padding: 11px 16px;
+  margin-bottom: 12px;
+  text-align: left;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .member-banner.ok {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  border-left-color: #15803d;
+  color: #14532d;
+}
+
+.report-column .member-banner.warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  border-left-color: #b45309;
+  color: #78350f;
+}
+
+.report-column .member-banner.fail {
+  background: #fef2f2;
+  border-color: #fecaca;
+  border-left-color: #b91c1c;
+  color: #7f1d1d;
+}
+
+.report-column .banner-key {
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.report-column .banner-key .k {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.report-column .k-label {
+  color: #475569;
+  font-weight: 600;
+}
+
+.report-column .k-val {
+  color: #0f172a;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-summary-note {
+  margin: 10px 0 0;
+  color: #334155;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.report-column .report-healthbar {
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.report-column .health-chip {
+  border-radius: 3px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  gap: 3px;
+}
+
+.report-column .health-chip__label {
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.report-column .health-chip__value {
+  color: #0f172a;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-jumpbar {
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.report-column .report-jumpbar .btn-secondary {
+  padding: 5px 10px;
+  min-height: 32px;
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.report-column .report-jumpbar .btn-secondary:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.report-column .member-summary-grid {
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.report-column .member-summary-card {
+  border: 1px solid #cbd5e1;
+  border-top: 2px solid #0f2942;
+  border-radius: 3px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.report-column .member-summary-card .label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.report-column .member-summary-card .value {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+/* 扁平化報表內巢狀卡片，呈現簡潔的工程計算書章節節奏 */
+.report-column .report-paper > .report-block,
+.report-column .report-paper > .card,
+.report-column .report-paper #resultWrap > .card {
+  background: transparent;
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 16px 0 4px;
+  margin: 14px 0 0;
+}
+
+.report-column .report-paper > .member-visual-hub {
+  border: 1px solid #cbd5e1;
+  border-top: 3px solid #0f2942;
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 14px 16px;
+  margin: 14px 0 16px;
+}
+
+.report-column .report-paper .report-block > h3,
+.report-column .report-paper .card > h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 2px 0 2px 10px;
+  border-left: 3px solid #0f2942;
+  background: transparent;
+  color: #0f2942;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.report-column .report-block-status {
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.report-column .member-visual-tabs button {
+  border-radius: 3px;
+  border-color: #cbd5e1;
+  color: #334155;
+  font-weight: 700;
+}
+
+.report-column .member-visual-tabs button[aria-pressed="true"] {
+  background: #0f2942;
+  border-color: #0f2942;
+  color: #ffffff;
+}
+
+.report-column .member-chart-basis {
+  color: #334155;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .member-margin-pill {
+  border-radius: 3px;
+  border-color: #cbd5e1;
+  border-left-color: #0f2942;
+  background: #f8fafc;
+  padding: 8px 12px;
+}
+
+.report-column .member-margin-pill dt {
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.report-column .member-margin-pill strong {
+  font-family: var(--font-mono);
+  color: #0f172a;
+}
+
+.report-column .member-diagram-figure {
+  border-radius: 3px;
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+.report-column .member-diagram-figure__head h4 {
+  color: #0f2942;
+  font-size: 0.92rem;
+}
+
+.report-column .member-diagram-figure figcaption {
+  color: #334155;
+  font-size: 0.84rem;
+}
+
+/* 工程計算書表格與檢核列 */
+.report-column .report-table,
+.report-column .member-mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.89rem;
+  line-height: 1.55;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-table th,
+.report-column .report-table td,
+.report-column .member-mini-table th,
+.report-column .member-mini-table td {
+  border: 1px solid #cbd5e1;
+  padding: 7px 10px;
+  vertical-align: middle;
+}
+
+.report-column .report-table th,
+.report-column .member-mini-table th {
+  background: #f1f5f9;
+  color: #0f2942;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.report-column .report-table tbody tr:nth-child(even) td,
+.report-column .member-mini-table tbody tr:nth-child(even) td {
+  background: #fafcff;
+}
+
+.report-column .result-item {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-left: 3px solid #0f2942;
+  border-radius: 3px;
+  padding: 9px 12px;
+  margin-bottom: 7px;
+}
+
+.report-column .result-item.ok {
+  border-left-color: #15803d;
+}
+
+.report-column .result-item.warn {
+  border-left-color: #b45309;
+}
+
+.report-column .result-item.fail {
+  border-left-color: #b91c1c;
+  background: #fef2f2;
+}
+
+.report-column .result-item .label {
+  color: #1e293b;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.report-column .result-item .value {
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+.report-column .result-item .unit {
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.report-column .step-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-left: 3px solid #0f2942;
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.report-column .step-card h4 {
+  color: #0f2942;
+  font-size: 0.94rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.report-column .step-card .formula {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 2px;
+  padding: 6px 10px;
+  margin: 5px 0;
+  font-family: var(--font-mono);
+  font-size: 0.87rem;
+  color: #0f172a;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.report-column .step-card .note {
+  color: #334155;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.report-column .member-reminder {
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  border-left-width: 3px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+
+.report-column .member-reminder strong {
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.report-column .member-reminder p {
+  font-size: 0.86rem;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.report-column .approval-card {
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.report-column .approval-title {
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.report-column .approval-value {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .report-column .report-paper {
+    padding: 14px 14px 18px;
+  }
+
+  .report-column .report-meta div {
+    min-width: 0;
+  }
+}
