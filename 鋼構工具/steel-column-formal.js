@@ -112,7 +112,7 @@
   let resultState = null;
   let lastColumnReportValidationMessage = "";
   let restoredLoadComboGroup = null;
-  let currentChartTab = "pm";
+  let currentChartTab = "all";
 
   const lcCfg = {
     prefix: "lcSC",
@@ -1959,21 +1959,27 @@
 
   function computeColumnEnvelopeMetrics(result) {
     const pcTf = Math.max(0, result.designPcTf);
-    const pLimitAtMy = solveMaxAxialAtMoments(result, 0, result.MuyTf);
     const knee = pcTf * (result.isLRFD ? 0.2 : 0.15);
-    const pStops = new Set([0]);
-    if (pLimitAtMy != null) {
-      if (knee < pLimitAtMy) {
-        pStops.add(knee);
-        pStops.add(Math.min(pLimitAtMy, knee + pcTf * 1e-12));
+    const sampleEnvelope = (axis, fixedOtherTf) => {
+      const pLimit = axis === "x"
+        ? solveMaxAxialAtMoments(result, 0, fixedOtherTf)
+        : solveMaxAxialAtMoments(result, fixedOtherTf, 0);
+      const pStops = new Set([0]);
+      if (pLimit != null) {
+        if (knee < pLimit) {
+          pStops.add(knee);
+          pStops.add(Math.min(pLimit, knee + pcTf * 1e-12));
+        }
+        if (result.PuTf <= pLimit) pStops.add(result.PuTf);
+        for (let i = 1; i <= 32; i++) pStops.add(pLimit * i / 32);
       }
-      if (result.PuTf <= pLimitAtMy) pStops.add(result.PuTf);
-      for (let i = 1; i <= 32; i++) pStops.add(pLimitAtMy * i / 32);
-    }
-    const points = Array.from(pStops).sort((a, b) => b - a).flatMap((p) => {
-      const mx = solveMaxMomentAtAxial(result, p, "x", result.MuyTf);
-      return mx == null ? [] : [{ p: convertLegacyValue(p, "force"), m: convertLegacyValue(mx, "moment") }];
-    });
+      return Array.from(pStops).sort((a, b) => b - a).flatMap((p) => {
+        const m = solveMaxMomentAtAxial(result, p, axis, fixedOtherTf);
+        return m == null ? [] : [{ p: convertLegacyValue(p, "force"), m: convertLegacyValue(m, "moment") }];
+      });
+    };
+    const points = sampleEnvelope("x", result.MuyTf);
+    const pointsY = sampleEnvelope("y", result.MuxTf);
     const pTf = result.PuTf;
     const mxTf = result.MuxTf;
     const myTf = result.MuyTf;
@@ -1983,8 +1989,10 @@
     const combo = getAdoptedLoadComboGroup()?.items?.find((item) => item.label === "採用組合")?.value;
     return {
       points,
+      pointsY,
       maxP: convertLegacyValue(pcTf, "force"),
       maxM: points.at(-1)?.m ?? 0,
+      maxMy: pointsY.at(-1)?.m ?? 0,
       demandP: convertLegacyValue(pTf, "force"),
       demandM: convertLegacyValue(mxTf, "moment"),
       demandMy: convertLegacyValue(myTf, "moment"),
@@ -2012,6 +2020,7 @@
     const ratioText = Number.isFinite(ir) ? ratioLabel + " " + f1(ir * 100) + "%" : ratioLabel + "無有限值";
     return MemberSectionSvg.steelColumnInteraction({
       ...metrics,
+      axis: "x",
       methodLabel: result.isLRFD ? "LRFD" : "ASD",
       forceUnit: getQuantityUnit("force"),
       momentUnit,
@@ -2019,6 +2028,28 @@
       ratioText: ratioText + (result.axialOk && result.interOk ? "（OK）" : "（NG）"),
       ok: result.axialOk && result.interOk,
       unavailableReason: metrics.allowMAtP == null ? columnMomentLimitText(result, "x") : "",
+    });
+  }
+
+  function buildColumnInteractionYDiagram(result, metrics = computeColumnEnvelopeMetrics(result)) {
+    const momentUnit = getQuantityUnit("moment");
+    const ir = metrics.currentIr;
+    const ratioLabel = metrics.hasMoment ? "互制需求容量比" : "軸壓需求容量比";
+    const ratioText = Number.isFinite(ir) ? ratioLabel + " " + f1(ir * 100) + "%" : ratioLabel + "無有限值";
+    return MemberSectionSvg.steelColumnInteraction({
+      ...metrics,
+      axis: "y",
+      points: metrics.pointsY,
+      maxM: metrics.maxMy,
+      demandM: metrics.demandMy,
+      allowMAtP: metrics.allowMyAtP,
+      methodLabel: result.isLRFD ? "LRFD" : "ASD",
+      forceUnit: getQuantityUnit("force"),
+      momentUnit,
+      noteLabel: "固定 |Mx| " + formatInputValue(metrics.demandM, 2) + " " + momentUnit,
+      ratioText: ratioText + (result.axialOk && result.interOk ? "（OK）" : "（NG）"),
+      ok: result.axialOk && result.interOk,
+      unavailableReason: metrics.allowMyAtP == null ? columnMomentLimitText(result, "y") : "",
     });
   }
 
@@ -2060,13 +2091,16 @@
 
   function applyColumnChartTab(tab = currentChartTab) {
     currentChartTab = tab;
+    const isAll = tab === "all";
     document.querySelectorAll("[data-column-chart-tab]").forEach((btn) => {
       const selected = btn.dataset.columnChartTab === tab;
       btn.classList.toggle("active", selected);
       btn.setAttribute("aria-pressed", selected ? "true" : "false");
     });
+    const gallery = $("columnDiagramGallery");
+    if (gallery) gallery.classList.toggle("is-grid", isAll);
     document.querySelectorAll("[data-column-chart-item]").forEach((fig) => {
-      fig.hidden = fig.dataset.columnChartItem !== tab;
+      fig.hidden = !isAll && fig.dataset.columnChartItem !== tab;
     });
   }
 
@@ -2074,6 +2108,7 @@
     const metrics = computeColumnEnvelopeMetrics(result);
     setColumnDiagram("columnSection", buildMemberSectionDiagram(result));
     setColumnDiagram("columnInteraction", buildColumnInteractionDiagram(result, metrics));
+    setColumnDiagram("columnInteractionY", buildColumnInteractionYDiagram(result, metrics));
     setColumnDiagram("columnBiaxial", buildColumnBiaxialDiagram(result, metrics));
     const mUnit = getQuantityUnit("moment");
     const fUnit = getQuantityUnit("force");
@@ -2098,7 +2133,7 @@
       { label: "軸壓需求／容量", value: formatInputValue(metrics.demandP, 2) + " ／ " + fmt(metrics.maxP, fUnit),
         detail: "控制 KL/r " + f1(result.KLrMax) + "（" + getColumnAxisDisplay(result.ctrlAxis) + "）", tone: result.axialOk ? "ok" : "fail" },
     ];
-    $("columnChartBasis").textContent = (result.isLRFD ? "LRFD" : "ASD") + "｜" + metrics.sourceLabel + "｜P " + fmt(metrics.demandP, fUnit) + "，My " + fmt(metrics.demandMy, mUnit);
+    $("columnChartBasis").textContent = (result.isLRFD ? "LRFD" : "ASD") + "｜" + metrics.sourceLabel + "｜P " + fmt(metrics.demandP, fUnit) + "，Mx " + fmt(metrics.demandM, mUnit) + "，My " + fmt(metrics.demandMy, mUnit);
     $("columnMarginStrip").innerHTML = cards.map(({ label, value, detail, tone }) =>
       '<div class="member-margin-pill ' + tone + '"><dt>' + label + '</dt><dd><strong>' + value + '</strong><small>' + detail + '</small></dd></div>').join("");
     applyColumnChartTab(currentChartTab);
@@ -2174,6 +2209,7 @@
       diagrams: [
         buildMemberSectionDiagram(result),
         buildColumnInteractionDiagram(result, envelope),
+        buildColumnInteractionYDiagram(result, envelope),
         buildColumnBiaxialDiagram(result, envelope),
       ],
       summary: summaryState,

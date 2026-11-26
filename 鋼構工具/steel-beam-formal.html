@@ -451,14 +451,15 @@
               <div class="member-visual-hub__head">
                 <h3>撓曲容量與服務性</h3>
                 <div class="member-visual-tabs" role="group" aria-label="鋼梁圖表">
-                  <button type="button" class="active" aria-pressed="true" aria-controls="beamChart-envelope" data-beam-chart-tab="envelope">容量與需求</button>
+                  <button type="button" class="active" aria-pressed="true" aria-controls="beamChart-envelope beamChart-response beamChart-section" data-beam-chart-tab="all">圖表總覽</button>
+                  <button type="button" aria-pressed="false" aria-controls="beamChart-envelope" data-beam-chart-tab="envelope">容量與需求</button>
                   <button type="button" aria-pressed="false" aria-controls="beamChart-response" data-beam-chart-tab="response">服務撓度</button>
                   <button type="button" aria-pressed="false" aria-controls="beamChart-section" data-beam-chart-tab="section">斷面與受力</button>
                 </div>
               </div>
               <p class="member-chart-basis" id="beamChartBasis"></p>
               <dl class="member-margin-strip" id="beamMarginStrip" aria-label="鋼梁檢核數值"></dl>
-              <div class="member-diagram-gallery">
+              <div class="member-diagram-gallery is-grid" id="beamDiagramGallery">
                 <figure class="member-diagram-figure" id="beamChart-envelope" data-beam-chart-item="envelope">
                   <div class="member-diagram-figure__head">
                     <h4 id="beamEnvelopeDiagramTitle">鋼梁側扭挫屈撓曲容量包絡線與彎矩餘裕圖</h4>
@@ -466,14 +467,14 @@
                   <img id="beamEnvelopeDiagramImage" class="member-section-image" alt="鋼梁撓曲容量包絡線與彎矩餘裕圖">
                   <figcaption id="beamEnvelopeDiagramCaption"></figcaption>
                 </figure>
-                <figure class="member-diagram-figure" id="beamChart-response" data-beam-chart-item="response" hidden>
+                <figure class="member-diagram-figure" id="beamChart-response" data-beam-chart-item="response">
                   <div class="member-diagram-figure__head">
                     <h4 id="beamResponseDiagramTitle">鋼梁服務載重撓度曲線與強度動員率示意圖</h4>
                   </div>
                   <img id="beamResponseDiagramImage" class="member-section-image" alt="鋼梁服務載重撓度曲線與強度動員率示意圖">
                   <figcaption id="beamResponseDiagramCaption"></figcaption>
                 </figure>
-                <figure class="member-diagram-figure" id="beamChart-section" data-beam-chart-item="section" hidden>
+                <figure class="member-diagram-figure" id="beamChart-section" data-beam-chart-item="section">
                   <div class="member-diagram-figure__head">
                     <h4>鋼梁計算斷面與受力示意</h4>
                   </div>

@@ -2652,6 +2652,7 @@ async function assertFormalColumnReportPopupComplete(cdp, sessionId, context = {
       builder: 'buildColumnSourcePayload', inputSelector: '#inputImportSourceJson', mutationSelector: '#inFy',
       sourceFieldKey: 'inFy', statusSelector: '#columnInputStatus', nestedFields: true,
     },
+    continuationContextLabels: ['鋼柱 P–My 互制與弱軸彎矩餘裕', '鋼柱 Mx–My 等軸力切面圖'],
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-column-formal' : '',
   });
 }

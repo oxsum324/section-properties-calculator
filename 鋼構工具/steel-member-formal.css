@@ -1347,3 +1347,166 @@
     min-width: 0;
   }
 }
+
+/* ═══ V1.6.2 雙向圖表並排總覽與全頁工程工作站視覺美化 ═══ */
+body.steel-formal-output-page {
+  background: #f1f5f9;
+}
+
+.member-layout .input-column .card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-top: 2px solid #1e3a5f;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 16px 18px;
+}
+
+.member-layout .input-column .card:focus-within {
+  border-color: #64748b;
+  border-top-color: #0f2942;
+  box-shadow: 0 2px 8px rgba(15, 41, 66, 0.08);
+}
+
+.member-layout .input-column .member-card-head {
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.member-layout .input-column .member-card-head h2 {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #0f2942;
+  letter-spacing: 0.02em;
+}
+
+.member-layout .input-column .form-group label {
+  color: #334155;
+  font-size: 0.83rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.member-layout .input-column .form-group input,
+.member-layout .input-column .form-group select,
+.member-layout .input-column .form-group textarea {
+  border: 1px solid #94a3b8;
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 0.92rem;
+  color: #0f172a;
+  background: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.member-layout .input-column .form-group input:focus,
+.member-layout .input-column .form-group select:focus,
+.member-layout .input-column .form-group textarea:focus {
+  border-color: #0f2942;
+  box-shadow: 0 0 0 2px rgba(15, 41, 66, 0.14);
+}
+
+.member-layout .input-column .collapsible-details {
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  background: #f8fafc;
+}
+
+.member-layout .input-column .member-fill-badge,
+.member-layout .input-column .card-header-meta {
+  border-radius: 3px;
+  font-size: 0.76rem;
+}
+
+.member-layout .btn-calc {
+  background: #0f2942;
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.member-layout .btn-calc:hover {
+  background: #163a5f;
+}
+
+.member-layout .btn-secondary {
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f2942;
+  font-weight: 700;
+}
+
+.member-layout .btn-secondary:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* 雙向圖表並排格線（預設總覽可同時看 P-Mx 與 P-My） */
+.report-column .member-margin-strip {
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.report-column .member-margin-pill.ok {
+  border-left-color: #15803d;
+  background: #f8fafc;
+}
+
+.report-column .member-margin-pill.fail {
+  border-left-color: #b91c1c;
+  background: #fef2f2;
+}
+
+.report-column .member-diagram-gallery.is-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.report-column .member-diagram-figure {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.report-column .member-diagram-figure__head {
+  margin: 0;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.report-column .member-diagram-figure__head h4 {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0f2942;
+}
+
+.report-column .member-diagram-figure .member-section-image {
+  padding: 10px 10px 6px;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.report-column .member-diagram-figure figcaption {
+  margin: 0;
+  padding: 8px 12px 10px;
+  background: #fafcff;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.81rem;
+  line-height: 1.5;
+  color: #334155;
+}
+
+@media (max-width: 860px) {
+  .report-column .member-diagram-gallery.is-grid {
+    grid-template-columns: 1fr;
+  }
+}

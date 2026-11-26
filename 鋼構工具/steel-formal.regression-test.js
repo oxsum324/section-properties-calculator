@@ -1864,6 +1864,29 @@ assert.ok(fs.existsSync(formalCoreManifestPath), "steel formal tooling should in
   assert.match(closedSvg, /data-diagram-role="capacity-comparison"/);
   assert.doesNotMatch(closedSvg, /data-diagram-role="capacity-envelope"/);
 
+  const colEnvYDiagram = MemberSectionSvg.steelColumnInteraction({
+    axis: "y",
+    methodLabel: "LRFD",
+    forceUnit: "tf",
+    momentUnit: "tf·m",
+    points: [{ p: 250, m: 0 }, { p: 50, m: 18 }, { p: 0, m: 21 }],
+    demandP: 120,
+    demandM: 6,
+    allowMAtP: 14.5,
+    allowPAtM: 185,
+    maxP: 250,
+    maxM: 21,
+    ratioText: "0.72",
+    ok: true,
+    eqLabel: "式 H1-1a",
+    noteLabel: "固定 |Mx| 18 tf·m",
+  });
+  const colEnvYSvg = decodeURIComponent(colEnvYDiagram.dataURL.replace(/^data:image\/svg\+xml;charset=utf-8,/, ""));
+  assert.match(colEnvYSvg, /鋼柱 P–My 互制與弱軸彎矩餘裕/, "column P-My envelope SVG must title weak-axis interaction");
+  assert.match(colEnvYSvg, /data-diagram-role="margin-zone"[\s\S]*ΔMy \+8\.5 tf·m/, "column P-My envelope SVG must display weak-axis bending safety margin ΔMy");
+  assert.match(columnFormalHtmlSource, /data-column-chart-tab="pmy"[\s\S]*id="columnChart-pmy"/s, "steel-column-formal.html should expose the P-My interaction chart tab");
+  assert.match(columnFormalSource, /buildColumnInteractionYDiagram/, "steel-column-formal.js should build the P-My interaction diagram");
+
   assert.match(columnFormalHtmlSource, /id="columnKHelperPanel"[\s\S]*id="inGA"[\s\S]*id="inGB"[\s\S]*id="btnApplyKBoth"/s, "steel-column-formal.html should integrate the Dumonteil K-factor helper");
   assert.match(columnFormalSource, /Steel\.calcK\(GA, GB, braced\)[\s\S]*buildColumnInteractionDiagram[\s\S]*buildColumnBiaxialDiagram/s, "steel-column-formal.js should wire Steel.calcK and both column interaction SVG diagrams");
   assert.match(beamFormalSource, /buildBeamLtbDiagram[\s\S]*buildBeamResponseDiagram/s, "steel-beam-formal.js should wire LTB capacity and deflection response SVG diagrams");

@@ -131,7 +131,7 @@
   let adoptedBeamImport = null;
   let adoptedBrace = null, braceTools = null;
   let restoredLoadComboGroup = null;
-  let currentChartTab = "envelope";
+  let currentChartTab = "all";
 
   const lcCfg = {
     prefix: "lcSB",
@@ -2227,13 +2227,16 @@
 
   function applyBeamChartTab(tab = currentChartTab) {
     currentChartTab = tab;
+    const isAll = tab === "all";
     document.querySelectorAll("[data-beam-chart-tab]").forEach((btn) => {
       const selected = btn.dataset.beamChartTab === tab;
       btn.classList.toggle("active", selected);
       btn.setAttribute("aria-pressed", selected ? "true" : "false");
     });
+    const gallery = $("beamDiagramGallery");
+    if (gallery) gallery.classList.toggle("is-grid", isAll);
     document.querySelectorAll("[data-beam-chart-item]").forEach((fig) => {
-      fig.hidden = fig.dataset.beamChartItem !== tab;
+      fig.hidden = !isAll && fig.dataset.beamChartItem !== tab;
     });
   }
 

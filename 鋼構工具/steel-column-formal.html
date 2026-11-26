@@ -398,14 +398,16 @@
               <div class="member-visual-hub__head">
                 <h3>壓彎容量與需求</h3>
                 <div class="member-visual-tabs" role="group" aria-label="鋼柱圖表">
-                  <button type="button" class="active" aria-pressed="true" aria-controls="columnChart-pm" data-column-chart-tab="pm">P–Mx 互制</button>
+                  <button type="button" class="active" aria-pressed="true" aria-controls="columnChart-pm columnChart-pmy columnChart-biaxial columnChart-section" data-column-chart-tab="all">雙向總覽</button>
+                  <button type="button" aria-pressed="false" aria-controls="columnChart-pm" data-column-chart-tab="pm">P–Mx 互制</button>
+                  <button type="button" aria-pressed="false" aria-controls="columnChart-pmy" data-column-chart-tab="pmy">P–My 互制</button>
                   <button type="button" aria-pressed="false" aria-controls="columnChart-biaxial" data-column-chart-tab="biaxial">Mx–My 切面</button>
                   <button type="button" aria-pressed="false" aria-controls="columnChart-section" data-column-chart-tab="section">斷面與受力</button>
                 </div>
               </div>
               <p class="member-chart-basis" id="columnChartBasis"></p>
               <dl class="member-margin-strip" id="columnMarginStrip" aria-label="鋼柱檢核數值"></dl>
-              <div class="member-diagram-gallery">
+              <div class="member-diagram-gallery is-grid" id="columnDiagramGallery">
                 <figure class="member-diagram-figure" id="columnChart-pm" data-column-chart-item="pm">
                   <div class="member-diagram-figure__head">
                     <h4 id="columnInteractionDiagramTitle">鋼柱軸力—強軸彎矩互制包絡線與安全餘裕圖</h4>
@@ -413,14 +415,21 @@
                   <img id="columnInteractionDiagramImage" class="member-section-image" alt="鋼柱軸力—強軸彎矩互制包絡線與安全餘裕圖">
                   <figcaption id="columnInteractionDiagramCaption"></figcaption>
                 </figure>
-                <figure class="member-diagram-figure" id="columnChart-biaxial" data-column-chart-item="biaxial" hidden>
+                <figure class="member-diagram-figure" id="columnChart-pmy" data-column-chart-item="pmy">
+                  <div class="member-diagram-figure__head">
+                    <h4 id="columnInteractionYDiagramTitle">鋼柱軸力—弱軸彎矩互制包絡線與安全餘裕圖</h4>
+                  </div>
+                  <img id="columnInteractionYDiagramImage" class="member-section-image" alt="鋼柱軸力—弱軸彎矩互制包絡線與安全餘裕圖">
+                  <figcaption id="columnInteractionYDiagramCaption"></figcaption>
+                </figure>
+                <figure class="member-diagram-figure" id="columnChart-biaxial" data-column-chart-item="biaxial">
                   <div class="member-diagram-figure__head">
                     <h4 id="columnBiaxialDiagramTitle">鋼柱雙向彎矩 Mx—My 等軸力互制切面圖</h4>
                   </div>
                   <img id="columnBiaxialDiagramImage" class="member-section-image" alt="鋼柱雙向彎矩 Mx—My 等軸力互制切面圖">
                   <figcaption id="columnBiaxialDiagramCaption"></figcaption>
                 </figure>
-                <figure class="member-diagram-figure" id="columnChart-section" data-column-chart-item="section" hidden>
+                <figure class="member-diagram-figure" id="columnChart-section" data-column-chart-item="section">
                   <div class="member-diagram-figure__head">
                     <h4>鋼柱計算斷面與受力示意</h4>
                   </div>

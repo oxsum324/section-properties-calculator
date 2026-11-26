@@ -324,15 +324,19 @@
   }
 
   function steelColumnInteraction({
+    axis = 'x',
     methodLabel = 'LRFD', forceUnit = 'tf', momentUnit = 'tf·m', points = [],
     demandP = 0, demandM = 0, allowMAtP = null, allowPAtM = null, maxP = 0, maxM = 0,
     ratioText = '', ok = true, eqLabel = '', noteLabel = '', unavailableReason = '', sourceLabel = '',
   }) {
-    const id = 'steel-column-pm-envelope';
-    const title = '鋼柱 P–Mx 互制與強軸彎矩餘裕';
+    const isY = axis === 'y';
+    const momentSym = isY ? 'My' : 'Mx';
+    const axisLabel = isY ? '弱軸彎矩' : '強軸彎矩';
+    const id = isY ? 'steel-column-pmy-envelope' : 'steel-column-pm-envelope';
+    const title = isY ? '鋼柱 P–My 互制與弱軸彎矩餘裕' : '鋼柱 P–Mx 互制與強軸彎矩餘裕';
     const xMax = niceAxisMax(Math.max(maxM, Math.min(demandM, Math.max(maxM, 10) * 1.3), 1));
     const yMax = niceAxisMax(Math.max(maxP, Math.min(demandP, Math.max(maxP, 10) * 1.3), 1));
-    const { toX, toY, grid } = engineeringAxes(xMax, yMax, '強軸彎矩 |Mx| (' + momentUnit + ')', '軸壓力 |P| (' + forceUnit + ')');
+    const { toX, toY, grid } = engineeringAxes(xMax, yMax, axisLabel + ' |' + momentSym + '| (' + momentUnit + ')', '軸壓力 |P| (' + forceUnit + ')');
     const outline = points.filter(pt => Number.isFinite(pt.m) && Number.isFinite(pt.p)).map(pt => chartCoord(toX(pt.m), toY(pt.p)));
     const envelope = chartBoundary(outline, [chartCoord(toX(0), toY(0)), ...outline]);
     const dx = toX(demandM);
@@ -347,7 +351,7 @@
         const lx = clamp((dx + ax) / 2, chartPlot.x + 83, chartPlot.x + chartPlot.width - 83);
         const ly = dy > chartPlot.y + 26 ? dy - 11 : dy + 19;
         comparison += line(dx, dy, ax, dy, 'stroke="' + marginColor + '" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#' + id + '-arrow)"')
-          + text(lx, ly, 'ΔMx ' + signedChartNumber(allowMAtP - demandM) + ' ' + momentUnit, 'fill="' + marginColor + '" font-size="13" font-weight="800" text-anchor="middle" stroke="#fff" stroke-width="3" paint-order="stroke"');
+          + text(lx, ly, 'Δ' + momentSym + ' ' + signedChartNumber(allowMAtP - demandM) + ' ' + momentUnit, 'fill="' + marginColor + '" font-size="13" font-weight="800" text-anchor="middle" stroke="#fff" stroke-width="3" paint-order="stroke"');
       }
       comparison += chartCapacity(ax, dy);
     }
@@ -359,8 +363,8 @@
       : '';
     const caption = chartCaption([
       [methodLabel, eqLabel, noteLabel, sourceLabel].filter(Boolean).join('｜'),
-      '需求 P ' + chartNumber(demandP) + ' ' + forceUnit + '，Mx ' + chartNumber(demandM) + ' ' + momentUnit,
-      hasMargin ? '同軸力容量 ' + chartNumber(allowMAtP) + ' ' + momentUnit + '，ΔMx ' + signedChartNumber(allowMAtP - demandM) + ' ' + momentUnit : unavailableReason,
+      '需求 P ' + chartNumber(demandP) + ' ' + forceUnit + '，' + momentSym + ' ' + chartNumber(demandM) + ' ' + momentUnit,
+      hasMargin ? '同軸力容量 ' + chartNumber(allowMAtP) + ' ' + momentUnit + '，Δ' + momentSym + ' ' + signedChartNumber(allowMAtP - demandM) + ' ' + momentUnit : unavailableReason,
       Number.isFinite(allowPAtM) ? '同彎矩 ΔP ' + signedChartNumber(allowPAtM - demandP) + ' ' + forceUnit : '',
       ratioText, outside ? '需求點超出圖幅，菱形置於圖幅邊緣' : '',
     ]);
