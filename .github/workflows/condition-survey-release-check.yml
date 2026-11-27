@@ -83,7 +83,7 @@ jobs:
           exit $LASTEXITCODE
 
       - name: Run full governed release preflight
-        shell: pwsh
+        shell: powershell
         run: |
           & .\preflight-tools.ps1 -Quiet -ForceSlowChecks -ForcePlatformAudit
           exit $LASTEXITCODE
