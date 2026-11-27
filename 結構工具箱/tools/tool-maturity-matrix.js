@@ -4083,12 +4083,22 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式放行實際交付物渲染佐證'), 'homepage report readiness details include actual rendered delivery coverage');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('Kzt 地形係數'), 'homepage report readiness details include wind kzt');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('特殊修正 / 折減'), 'homepage report readiness details include wind special');
-  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼梁舊案延續頁'), 'homepage report readiness details include steel beam transition page');
-  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼柱舊案延續頁'), 'homepage report readiness details include steel column transition page');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書/文字 邊界'), 'homepage report readiness details include local quick text boundary chip');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不取代設計者複核'), 'homepage report readiness details distinguish independent engineering verification from designer review');
   assert.equal((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書 邊界'), false, 'homepage report readiness details reject stale local quick boundary chip');
-  assert.ok(Array.isArray(homepageReportReadinessStatus.pageOnlyRoutes) && homepageReportReadinessStatus.pageOnlyRoutes.length >= 4, 'homepage report readiness routes array');
+  const pageOnlyRoutes = homepageReportReadinessStatus.pageOnlyRoutes;
+  assert.ok(Array.isArray(pageOnlyRoutes), 'homepage report readiness routes array');
+  assert.equal(pageOnlyRoutes.length, homepageReportReadinessStatus.pageOnlyBoundaryRequired, 'homepage report readiness lists every page-only route');
+  const readinessDetails = homepageReportReadinessStatus.details.join(' ');
+  for (const route of pageOnlyRoutes) {
+    assert.ok(route.title && readinessDetails.includes(route.title), 'homepage report readiness names page-only route: ' + route.route);
+  }
+  if (!preserveHomepageStatus) {
+    const expectedPageOnlyRoutes = payload.entrypointCoverage.boundaryRoutes
+      .filter(route => route.pageOnlyReadinessRequired)
+      .map(route => ({ route: route.route, title: route.title, state: route.stateLabel || route.state, sourcePath: route.sourcePath }));
+    assert.deepEqual(pageOnlyRoutes, expectedPageOnlyRoutes, 'homepage page-only routes match the current entrypoint inventory');
+  }
   if (!preserveHomepageStatus && latestFullHomepagePreflight?.payload?.quick === false) {
     assert.equal(homepagePreflightStatus.quick, false, 'homepage preflight status should prefer latest full run when history contains one');
     assert.equal(homepagePreflightStatus.runId, String(latestFullHomepagePreflight.payload.runId || ''), 'homepage preflight status runId matches latest full history run');
