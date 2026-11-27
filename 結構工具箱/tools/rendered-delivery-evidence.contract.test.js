@@ -1891,6 +1891,8 @@ for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal', 'src-
           '雙向核算索引',
           'X 向｜規範、構材與分析條件',
           'Y 向｜規範、構材與分析條件',
+          'X 向｜SRC 柱 X 向 各項規範檢核動員比總覽',
+          'Y 向｜SRC 柱 Y 向 各項規範檢核動員比總覽',
           'X 向｜構材斷面與軸彎互制',
           'Y 向｜構材斷面與軸彎互制',
           'X 向｜計算過程明細',
