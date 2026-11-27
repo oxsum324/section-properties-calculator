@@ -134,9 +134,9 @@ for (const tool of targets) {
   const body = html.match(/<body\b[^>]*>/i);
   assert.ok(body, `${tool.route} has a <body> tag`);
   assert.ok(body[0].includes(`data-family="${tool.family}"`), `${tool.route} body carries data-family="${tool.family}": ${body[0]}`);
-  // 靜態占位：緊接 <body> 之後（只允許空白），恰一次，固定 44px 最小高度。
+  // 靜態占位：緊接 <body>（或主頁列印封鎖 aside）之後（只允許空白），恰一次，固定 44px 最小高度。
   assert.equal(html.split(SLOT_MARKUP).length - 1, 1, `${tool.route} has exactly one tool-chrome slot`);
-  assert.match(html.slice(body.index + body[0].length, body.index + body[0].length + SLOT_MARKUP.length + 8), new RegExp(`^\\s*${SLOT_MARKUP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), `${tool.route} slot is the first body child`);
+  assert.match(html.slice(body.index + body[0].length, body.index + body[0].length + SLOT_MARKUP.length + 320), new RegExp(`^\\s*(?:<aside class="formal-direct-print-boundary"[^>]*>[\\s\\S]*?<\\/aside>\\s*)?${SLOT_MARKUP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), `${tool.route} slot is the first body child`);
   assert.equal(html.split('data-tool-chrome-slot').length - 1, 1, `${tool.route} declares the slot attribute once`);
   const scripts = [...html.matchAll(/<script\b([^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*)>/gi)];
   const chromeReferences = scripts.filter(match => /(?:^|\/)tool-chrome\.js(?:\?|$)/.test(match[2]));
