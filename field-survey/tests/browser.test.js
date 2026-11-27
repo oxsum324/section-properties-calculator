@@ -16,6 +16,7 @@ import { verifyV021 } from './v021-browser.js';
 import { verifyV0292 } from './v0292-browser.js';
 import { verifyV030 } from './v030-browser.js';
 import { verifyV031 } from './v031-browser.js';
+import { verifyV032 } from './v032-browser.js';
 import { verifyV0303 } from './v0303-browser.js';
 import { verifyV029 } from './v029-browser.js';
 import { verifyV028 } from './v028-browser.js';
@@ -415,6 +416,7 @@ try {
   await verifyV030(browser, base, out);
   await verifyV0303(browser, base, out);
   await verifyV031(browser, base, out);
+  await verifyV032(browser, base);
   await verifyV029(browser, base, out);
   await verifyV028(browser, base, out);
   await verifyV027(browser, base, out);

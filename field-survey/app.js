@@ -23,7 +23,7 @@ const opts = object => Object.entries(object).map(([v, t]) => `<option value="${
 const size = bytes => bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
 const localDate = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; };
 let project = null, unitId = '', recordId = '', activeView = 'work', dirty = false, editGeneration = 0, saveTimer, formSaving = null, working = false, renderToken = 0;
-let pendingCapture = null, pendingPlan = null, modalCleanup = () => {}, modalDirty = false, recording = null, toastTimer, correctionPromptOpen = false;
+let pendingCapture = null, pendingPlan = null, modalCleanup = () => {}, modalDirty = false, recording = null, toastTimer;
 let conflictDraft = null;
 let reports, crackFields, organisation, signoffs, reviewPage = 0;
 const preference = { get(key) { try { return localStorage.getItem('survey-' + key); } catch { return null; } }, set(key, value) { try { localStorage.setItem('survey-' + key, value); } catch {} } };
@@ -150,21 +150,26 @@ function formValues() {
   return values;
 }
 async function promptCorrectionLog(beforeSig, afterSig) {
-  if (correctionPromptOpen) return null;
-  correctionPromptOpen = true;
   return new Promise(resolve => {
+    const modal = $('#modal'), wasInert = modal.inert;
     let settled = false;
-    const finish = value => { if (settled) return; settled = true; correctionPromptOpen = false; resolve(value); };
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      modal.inert = wasInert;
+      resolve(value);
+    };
     openModal('內業實測更正留痕', `<p class="modal-note">本案已封存外業基準快照，您正在修改實測尺寸、數量或日期。請填寫更正原因以保存完整追溯鏈（若僅調整空間名稱或報告文字不需此步驟）。</p><form id="correctionForm"><label>更正人員（選填）<input id="correctionEditor" maxlength="80" placeholder="例如 歐技師／內業承辦"></label><label>更正原因<select id="correctionChoice"><option value="抄錄筆誤">抄錄筆誤</option><option value="照片量尺複核修正">照片量尺複核修正</option><option value="單位誤植">單位誤植</option><option value="日期補登／核對">日期補登／核對</option><option value="other">其他原因</option></select></label><label>補充說明（選填）<input id="correctionNote" maxlength="300" placeholder="例如 依近照量尺複核改為 0.25 mm"></label><div class="modal-actions"><button id="cancelCorrection" type="button" class="secondary">還原外業值</button><button type="submit" class="primary">確認更正並保存</button></div></form>`, () => finish(null));
-    $('#cancelCorrection').onclick = () => { closeModal(true); finish(null); };
+    modal.inert = false;
+    $('#cancelCorrection').onclick = () => closeModal(true);
     $('#correctionForm').onsubmit = e => {
       e.preventDefault();
       const choice = $('#correctionChoice').value;
       const note = $('#correctionNote').value.trim();
       const reason = choice === 'other' ? (note || '其他內業更正') : (note ? `${choice}：${note}` : choice);
       const editor = $('#correctionEditor').value.trim();
-      closeModal(true);
       finish({ at: now(), editor, reason, before: beforeSig, after: afterSig });
+      closeModal(true);
     };
   });
 }
@@ -173,32 +178,34 @@ async function saveForm() {
   if (formSaving) { await formSaving; if (dirty) return saveForm(); return; }
   if (!dirty || !currentRecord() || $('#recordEditor').hidden) return;
   const generation = editGeneration, target = recordId, values = formValues(), beforeFloor = currentRecord().floor;
-  const sealedSig = project?.fieldHandoff?.records?.[target];
-  let correctionEntry = null;
-  if (sealedSig && (document.body.dataset.workspaceMode === 'office' || window.innerWidth >= 1180 && preference.get('workspace-mode') !== 'field')) {
-    const beforeSig = recordFactSignature(currentRecord());
-    const afterSig = recordFactSignature({ ...currentRecord(), ...values });
-    if (beforeSig !== afterSig && afterSig !== sealedSig) {
-      correctionEntry = await promptCorrectionLog(beforeSig, afterSig);
-      if (!correctionEntry) {
-        dirty = false;
-        await renderEditor();
-        toast('已取消更正，維持原保存內容');
-        return;
+  formSaving = (async () => {
+    let correctionEntry = null;
+    const office = document.body.dataset.workspaceMode === 'office' || window.innerWidth >= 1180 && preference.get('workspace-mode') !== 'field';
+    if (project.fieldHandoff?.records?.[target] && office) {
+      const beforeSig = recordFactSignature(currentRecord());
+      const afterSig = recordFactSignature({ ...currentRecord(), ...values });
+      if (beforeSig !== afterSig) {
+        correctionEntry = await promptCorrectionLog(beforeSig, afterSig);
+        if (!correctionEntry) {
+          dirty = false;
+          await renderEditor();
+          $('#saveStatus').textContent = '已保存於本機';
+          toast('已取消更正，維持原保存內容');
+          return;
+        }
       }
     }
-  }
-  formSaving = commit(next => {
-    const r = next.records.find(x => x.id === target); Object.assign(r, values);
-    if (correctionEntry) { r.editLog = [...(r.editLog || []), correctionEntry].slice(-500); }
-    markUnitOpen(next, r);
-    clearWrongFloor(next, r);
-  }).then(async () => {
+    await commit(next => {
+      const r = next.records.find(x => x.id === target); Object.assign(r, values);
+      if (correctionEntry) { r.editLog = [...(r.editLog || []), correctionEntry].slice(-500); }
+      markUnitOpen(next, r);
+      clearWrongFloor(next, r);
+    });
     if (generation === editGeneration) dirty = false;
     $('#saveStatus').textContent = dirty ? '尚未保存新變更' : '已保存於本機';
     renderRecordList(); renderRecordIssues(); renderFieldDetailCard($('#recordDetail'), currentRecord()); $('#recordDateSummary').textContent = recordDateInfo(project, currentRecord()).label;
     if (beforeFloor !== values.floor && currentRecord()?.id === target) { $('#recordTime').textContent = '樓層變更後請核對位置圖'; await renderLocationCard($('#recordLocation'), currentRecord()); }
-  }).finally(() => { formSaving = null; });
+  })().finally(() => { formSaving = null; });
   await formSaving;
 }
 const selectedConditions = () => [...$('#condition').querySelectorAll('input:checked')].map(el => el.value);
