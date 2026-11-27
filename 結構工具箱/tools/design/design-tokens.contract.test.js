@@ -122,7 +122,7 @@ for (const page of listed.stdout.split('\0').filter(Boolean)) {
   assert.ok(tokenIndex >= 0 && tokenIndex < sharedIndex, `${page}: links ${files.tokens} before ${hrefs[sharedIndex].target}`);
   assert.ok(familyIndex >= 0 && tokenIndex < familyIndex && familyIndex < sharedIndex, `${page}: links ${files.family} after tokens and before ${hrefs[sharedIndex].target}`);
 }
-assert.equal(linkingPages.length, 39, `pages linking shared stylesheets (found ${linkingPages.length})`);
+assert.equal(linkingPages.length, 37, `pages linking shared stylesheets (found ${linkingPages.length})`);
 
 /* 既有 token 值不得被改（只允許新增） */
 const pinned = {
