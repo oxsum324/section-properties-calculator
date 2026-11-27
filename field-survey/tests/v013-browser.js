@@ -42,10 +42,65 @@ export async function verifyV013(browser, base, out) {
     await page.setViewportSize({width:390,height:844});const waiting=page.waitForEvent('download');await click('#downloadDetail');await(await waiting).saveAs(path.join(out,'v0.13-detail.png'));await click('#saveDetail');
     const saved=(await current()).records[0];assert.equal(saved.detail.marks.length,7);assert.deepEqual(saved.detail.marks[0],original.detail.marks[0]);assert.equal(saved.detail.marks[3].rotation,15);assert.equal(saved.detail.marks[3].size,.3);
     for(const key of ['condition','conditions','crackPattern','width','length','tiles','reportText','photos'])assert.deepEqual(saved[key],original[key]);
-    const reports=await page.evaluate(async()=>{const m=await import('./model.js'),s=await import('./store.js'),d=await import('./detail.js'),r=await import('./report.js'),b=await import('./bundle.js'),p=(await s.allProjects())[0],get=async id=>(await s.getMedia(id)).blob,expected=await m.sha256(await d.detailImage(p.records[0].detail,get)),output=[];for(const format of ['standard','quick']){const result=await r.renderAttachment(p,get,{format}),doc=new DOMParser().parseFromString(result.html,'text/html'),src=doc.querySelector('.detail-img').src;output.push({format,hash:await m.sha256(Uint8Array.from(atob(src.split(',')[1]),c=>c.charCodeAt(0))),html:result.html});}const bundle=await b.readBundle((await b.makeBundle(p,get)).blob),copy=m.restoredCopy(bundle.project).project;m.validateProject(copy);return{expected,output,equal:JSON.stringify(copy.records[0].detail)===JSON.stringify(p.records[0].detail),version:bundle.manifest.version};});
-    assert(reports.output.every(x=>x.hash===reports.expected));assert(reports.equal);assert.equal(reports.version, 19);
+    const reports = await page.evaluate(async () => {
+      const model = await import('./model.js'), store = await import('./store.js');
+      const { detailImage } = await import('./detail.js'), { renderAttachment } = await import('./report.js');
+      const { makeBundle, readBundle } = await import('./bundle.js');
+      const project = (await store.allProjects())[0], get = async id => (await store.getMedia(id)).blob;
+      const referencePng = await detailImage(project.records[0].detail, get);
+      const expected = await model.sha256(referencePng), output = [];
+      const readRaster = async source => {
+        const image = new Image();
+        image.src = source;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0);
+        return ctx.getImageData(0, 0, canvas.width, canvas.height);
+      };
+      const referenceUrl = URL.createObjectURL(referencePng);
+      let reference;
+      try {
+        reference = await readRaster(referenceUrl);
+      } finally {
+        URL.revokeObjectURL(referenceUrl);
+      }
+      for (const format of ['standard', 'quick']) {
+        const { html } = await renderAttachment(project, get, { format });
+        const reportDocument = new DOMParser().parseFromString(html, 'text/html');
+        const source = reportDocument.querySelector('.detail-img').src;
+        const hash = await model.sha256(Uint8Array.from(atob(source.split(',')[1]), c => c.charCodeAt(0)));
+        const actual = await readRaster(source);
+        const sameSize = actual.width === reference.width && actual.height === reference.height;
+        let changedPixels = 0, maxDelta = 0;
+        if (sameSize) {
+          for (let offset = 0; offset < reference.data.length; offset += 4) {
+            let pixelDelta = 0;
+            for (let channel = 0; channel < 4; channel++) {
+              const index = offset + channel;
+              pixelDelta = Math.max(pixelDelta, Math.abs(reference.data[index] - actual.data[index]));
+            }
+            if (pixelDelta > 0) changedPixels++;
+            maxDelta = Math.max(maxDelta, pixelDelta);
+          }
+        }
+        output.push({ format, hash, html, raster: { sameSize, changedPixels, maxDelta } });
+      }
+      const bundle = await readBundle((await makeBundle(project, get)).blob);
+      const copy = model.restoredCopy(bundle.project).project;
+      model.validateProject(copy);
+      return { expected, output, equal: JSON.stringify(copy.records[0].detail) === JSON.stringify(project.records[0].detail), version: bundle.manifest.version };
+    });
+    for (const { format, raster } of reports.output) {
+      assert.equal(raster.sameSize, true, format + ' report detail dimensions');
+      // Chromium 的獨立 SVG raster 可在少數抗鋸齒像素出現 1 階量化差。
+      assert.ok(raster.changedPixels <= 16 && raster.maxDelta <= 1, format + ' report detail pixels: ' + JSON.stringify(raster));
+    }
+    assert(reports.equal);assert.equal(reports.version, 19);
     for(const r of reports.output){const file=path.join(out,`v0.13-${r.format}.html`);await fs.writeFile(file,r.html);const preview=await context.newPage();await preview.goto('file:///'+file.replaceAll('\\','/'));await preview.locator(r.format==='standard'?'.table-sheet':'.detail-sheet').screenshot({path:path.join(out,`v0.13-${r.format}.png`)});await preview.close();}
     await page.waitForFunction(()=>document.querySelector('#offlineStatus').textContent==='離線已就緒');await context.setOffline(true);await page.reload();await click('[data-view=report]'); await page.locator('#reportAdvanced').evaluate(el => el.open = true);await click('[data-do=edit-detail]');assert.equal(await count(),7);await click('#closeModal');
-    assert.deepEqual(errors,[]);await fs.writeFile(path.join(out,'v0.13-result.json'),JSON.stringify({passed:true,hash:reports.expected,backupVersion:reports.version,errors,physicalPhoneTested:false},null,2));console.log('PASS V0.13 tap lines/regions, vertex/segment edits, four symbols, gestures, responsive canvas, identical PNG/report images and legacy/offline backup');
+    assert.deepEqual(errors,[]);await fs.writeFile(path.join(out,'v0.13-result.json'),JSON.stringify({passed:true,hash:reports.expected,reportRasters:reports.output.map(({format,hash,raster})=>({format,hash,...raster})),backupVersion:reports.version,errors,physicalPhoneTested:false},null,2));console.log('PASS V0.13 tap lines/regions, vertex/segment edits, four symbols, gestures, responsive canvas, PNG/report raster agreement and legacy/offline backup');
   }finally{await context.close();}
 }
