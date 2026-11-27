@@ -652,9 +652,10 @@ async function navigateAndInspect(client, sessionId, url, viewport, expression) 
   }, sessionId);
 
   const pageErrors = collectPageErrors(client, sessionId);
-  const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000);
-  await client.send('Page.navigate', { url }, sessionId);
-  await loaded.catch(() => waitForPageReady(client, sessionId, 15000));
+  const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000).catch(() => null);
+  const navigation = await client.send('Page.navigate', { url }, sessionId);
+  if (navigation.errorText) throw new Error('Navigation failed for ' + url + ': ' + navigation.errorText);
+  if (!(await loaded)) await waitForPageReady(client, sessionId, 15000);
   await settlePage(client, sessionId, 2);
   await waitForHomeStatusSettled(client, sessionId);
   const state = await evaluate(client, sessionId, expression);
