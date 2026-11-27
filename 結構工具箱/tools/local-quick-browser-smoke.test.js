@@ -832,6 +832,8 @@ function newHomeExpression(tools) {
       const labels = Array.from(card.querySelectorAll('.tool-meta span')).map(node => node.textContent.trim()).filter(Boolean);
       return labels.filter((label, index) => labels.indexOf(label) !== index);
     }).filter(duplicates => duplicates.length > 0);
+    const localFamily = document.querySelector('#toolGrid > .tool-family[data-family="local-quick"]');
+    const localFamilyLink = localFamily?.querySelector('a.tool-family__page');
     const hasToolFinder = text.includes('Tool Finder');
     const hasToolSearch = !!document.getElementById('toolSearch');
     const memberButton = Array.from(document.querySelectorAll('.category-card')).find(card => card.textContent.includes('構件承載力檢核'));
@@ -867,7 +869,7 @@ function newHomeExpression(tools) {
       hasNextToolsPanel: !!document.getElementById('nextToolsPanel'),
       hasOriginalHomeLink: links.includes('/結構工具箱/index-classic.html') || links.includes('index-classic.html'),
       hasDoNotReplaceCopy: text.includes('不取代原本首頁'),
-      hasLocalSection: text.includes('施工臨時設施 / 局部檢核'),
+      hasLocalSection: !!localFamily?.querySelector('a.tool-card') && !!localFamilyLink?.pathname.endsWith('/family/local-quick.html'),
       imageCount: document.querySelectorAll('img').length,
       heroImageCount: document.querySelectorAll('img.home-header__art').length,
       heroImageAlt: document.querySelector('img.home-header__art')?.getAttribute('alt') ?? null,
