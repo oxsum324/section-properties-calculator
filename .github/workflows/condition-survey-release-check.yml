@@ -75,7 +75,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run phase gates
-        shell: powershell
+        shell: pwsh
         run: |
           node 結構工具箱/tools/formal-core-portability.test.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -83,7 +83,7 @@ jobs:
           exit $LASTEXITCODE
 
       - name: Run full governed release preflight
-        shell: powershell
+        shell: pwsh
         run: |
           & .\preflight-tools.ps1 -Quiet -ForceSlowChecks -ForcePlatformAudit
           exit $LASTEXITCODE
