@@ -766,11 +766,13 @@ async function main() {
 
       const response = await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
       assert(response && response.status() === 200, `${key} tool page loads`, `status=${response && response.status()}`);
+      await page.click('[data-rc-details="project"] > summary');
       await page.fill('#projName', 'RC 牆正式附件測試');
       await page.fill('#projNo', 'RC-WALL-001');
       await page.fill('#projDesigner', 'QA');
       await applyCase(page, key);
       await page.waitForTimeout(350);
+      await page.click('[data-rc-details="readiness"] > summary');
 
       const state = await page.evaluate(() => ({
         banner: document.getElementById('bannerStatus')?.innerText?.replace(/\s+/g, ' ').trim() || '',

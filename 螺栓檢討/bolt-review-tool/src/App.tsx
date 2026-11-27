@@ -1288,6 +1288,7 @@ function App() {
   // 案例庫管理 11 個動作 + import input ref 已下放至 useProjectLibrary
   const {
     importInputRef,
+    caseFileStatus,
     loadProjectTemplate,
     selectProject,
     createProject,
@@ -1627,6 +1628,9 @@ function App() {
           setPaletteQuery('')
           setShowCommandPalette(true)
         }}
+        onExportCurrentCase={exportCurrentCase}
+        onOpenCaseImport={openImportDialog}
+        caseFileStatus={caseFileStatus}
         onPrintReport={() => {
           void openStandaloneReportWindow(true)
         }}

@@ -5,6 +5,7 @@ const path = require('path');
 const toolRoot = __dirname;
 const formalPagePath = path.join(toolRoot, '石材計算書產生器_規範版V2.html');
 const formalPage = fs.readFileSync(formalPagePath, 'utf8');
+const pageStyles = fs.readFileSync(path.join(toolRoot, 'stone-v2.css'), 'utf8');
 
 function assertContract(condition, label, detail) {
   if (!condition) {
@@ -15,17 +16,21 @@ function assertContract(condition, label, detail) {
 }
 
 const directPrintNeedles = [
+  '<link rel="stylesheet" href="stone-v2.css">',
   '../結構工具箱/core/direct-print-boundary.css',
-  '<body class="formal-tool-output-page">',
   'class="formal-direct-print-boundary"',
   '石材工具主頁列印已封鎖',
   '本頁不得作為附件',
-  'body.formal-tool-output-page > #printout{display:none!important}',
 ];
 
+const bodyClass = formalPage.match(/<body\b[^>]*\bclass="([^"]*)"/i)?.[1] || '';
+assertContract(bodyClass.split(/\s+/).includes('formal-tool-output-page'),
+  'Stone body retains the direct-print boundary class', bodyClass);
 for (const needle of directPrintNeedles) {
   assertContract(formalPage.includes(needle), 'Stone direct-print boundary is present', needle);
 }
+const printoutSuppression = 'body.formal-tool-output-page > #printout{display:none!important}';
+assertContract(pageStyles.includes(printoutSuppression), 'Stone stylesheet keeps the direct-print boundary', printoutSuppression);
 
 const seismicSourceNeedles = [
   'vendor/loads/regulatory-locations.js',

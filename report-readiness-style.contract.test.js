@@ -17,8 +17,6 @@ const pages = [
   '結構工具箱/tools/earth/earth-pressure.html',
   '結構工具箱/tools/equipment/equipment-load.html',
   '結構工具箱/tools/foundation/foundation-local.html',
-  '結構工具箱/tools/鋼構/steel-beam.html',
-  '結構工具箱/tools/鋼構/steel-column.html',
   '結構工具箱/tools/地震力/seismic-appendage.html',
   '結構工具箱/tools/地震力/seismic-dynamic.html',
   '結構工具箱/tools/地震力/seismic-force.html',
@@ -47,7 +45,7 @@ function inlineCss(html) {
     .join('\n');
 }
 
-assert.equal(pages.length, 26, 'shared report-readiness inventory stays explicit at 26 migrated pages');
+assert.equal(pages.length, 24, 'shared report-readiness inventory stays explicit at 24 migrated pages');
 assert.ok(fs.existsSync(sharedStylesheet), 'shared report-readiness stylesheet exists');
 
 const stylesheet = fs.readFileSync(sharedStylesheet, 'utf8');

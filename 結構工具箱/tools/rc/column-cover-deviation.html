@@ -11,20 +11,21 @@
   <link rel="stylesheet" href="../../core/style.css">
   <link rel="stylesheet" href="../../core/direct-print-boundary.css">
   <link rel="stylesheet" href="../../core/report-readiness.css">
+  <link rel="stylesheet" href="../../core/tool-shell.css">
   <style>
-    :root{--rc:#7c3aed;--rc-dark:#4c1d95;--rc-soft:#f5f3ff;--line:#ddd6fe;--ink:#1f2937}
-    *{box-sizing:border-box}body{margin:0;background:#f6f5fa;color:var(--ink);font-family:"Microsoft JhengHei",Arial,sans-serif;line-height:1.58}.page{max-width:1420px;margin:0 auto;padding:22px}
-    .hero{background:linear-gradient(135deg,var(--rc-dark),var(--rc));color:#fff;border-radius:16px;padding:22px 24px;box-shadow:0 12px 32px rgba(76,29,149,.2)}.hero h1{margin:0;font-size:clamp(1.45rem,3vw,2rem)}.hero p{margin:8px 0 0;color:#ede9fe}.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tag{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 9px;font-size:.84rem}
-    .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.case-card{margin-top:16px}.section-title{font-weight:900;color:var(--rc-dark);margin:0 0 12px;font-size:1.05rem}.sub-title{font-weight:900;color:#5b21b6;margin:15px 0 8px;font-size:.93rem}
-    .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.field label{display:block;font-weight:800;font-size:.86rem;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid #c4b5fd;border-radius:8px;padding:9px 10px;background:#fff;font:inherit}.field small{display:block;color:#64748b;margin-top:4px}.span-2{grid-column:span 2}.span-4{grid-column:1/-1}
-    .case-actions,.output-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.case-actions{margin-top:12px}.btn{border:0;border-radius:8px;padding:9px 13px;font-weight:800;cursor:pointer}.btn-primary{background:var(--rc);color:#fff}.btn-secondary{background:#ede9fe;color:var(--rc-dark)}.btn-danger{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3}.btn:focus{outline:3px solid rgba(124,58,237,.25)}
-    .main-layout{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(400px,.82fr);gap:16px;margin-top:16px}.stack{display:grid;gap:16px}.scope-box{background:var(--rc-soft);border-left:4px solid var(--rc);padding:11px 13px;border-radius:8px;color:#4c1d95}.warning-box{background:#fff7ed;border-left:4px solid #f97316;padding:11px 13px;border-radius:8px;color:#7c2d12}.danger-box{background:#fef2f2;border-left:4px solid #dc2626;padding:11px 13px;border-radius:8px;color:#991b1b}
-    .banner-status{font-weight:900;padding:11px 13px;border-radius:9px;background:#eef2ff}.banner-status.ok{background:#ecfdf5;color:#065f46}.banner-status.fail{background:#fef2f2;color:#991b1b}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{border:1px solid #e5e7eb;border-left:4px solid #94a3b8;border-radius:9px;padding:10px;background:#fff}.metric.ok{border-left-color:#10b981}.metric.fail{border-left-color:#ef4444}.metric.warn{border-left-color:#f59e0b}.metric .label{display:block;color:#64748b;font-size:.82rem}.metric .value{display:block;font-size:1.13rem;font-weight:900;color:#4c1d95}.muted{color:#64748b;font-size:.82rem}.check-list{display:grid;gap:8px}.check-item{border:1px solid #e5e7eb;border-radius:8px;padding:9px 10px}.check-item.ok{border-left:4px solid #10b981}.check-item.fail{border-left:4px solid #ef4444}.check-item.warn{border-left:4px solid #f59e0b}.check-item .k{font-weight:900;display:block}.check-item .v{font-size:.86rem;color:#526168}
-    .diagram-wrap{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fdfcff}.diagram-wrap svg{width:100%;height:auto;min-height:300px;display:block}.formula-list{font-size:.9rem}.formula-list code{font-family:Consolas,monospace;background:#f1f5f9;border-radius:4px;padding:2px 5px}.formula-list p{margin:8px 0}.output-actions{margin-top:12px}.output-actions select{border:1px solid #c4b5fd;border-radius:8px;padding:8px}.json-status{font-size:.84rem;color:#526168}.direct-print-note{margin:0}.source-link{color:#5b21b6;font-weight:800}
+    :root{--rc:var(--hy-navy-500);--rc-dark:var(--hy-navy);--rc-soft:var(--hy-navy-50);--line:var(--hy-navy-100);--ink:var(--fg-1)}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg-page);color:var(--ink);font-family:"Microsoft JhengHei",Arial,sans-serif;line-height:1.58}.page{max-width:1420px;margin:0 auto;padding:22px}
+    .hero{background:var(--bg-navy);color:var(--fg-on-navy);border-radius:16px;padding:22px 24px;box-shadow:var(--shadow-lg)}.hero h1{margin:0;font-size:clamp(1.45rem,3vw,2rem)}.hero p{margin:8px 0 0;color:var(--hy-navy-100)}.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tag{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 9px;font-size:.84rem}
+    .card{background:var(--bg-surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.case-card{margin-top:16px}.section-title{font-weight:900;color:var(--rc-dark);margin:0 0 12px;font-size:1.05rem}.sub-title{font-weight:900;color:var(--hy-navy);margin:15px 0 8px;font-size:.93rem}
+    .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.field label{display:block;font-weight:800;font-size:.86rem;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid var(--hy-navy-300);border-radius:8px;padding:9px 10px;background:var(--bg-surface);font:inherit}.field small{display:block;color:var(--fg-3);margin-top:4px}.span-2{grid-column:span 2}.span-4{grid-column:1/-1}
+    .case-actions,.output-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.case-actions{margin-top:12px}.btn{border:0;border-radius:8px;padding:9px 13px;font-weight:800;cursor:pointer}.btn-primary{background:var(--rc);color:var(--fg-on-navy)}.btn-secondary{background:var(--hy-navy-100);color:var(--rc-dark)}.btn-danger{background:var(--hy-danger-100);color:var(--hy-red-deep);border:1px solid color-mix(in srgb, var(--hy-danger) 32%, var(--bg-surface))}.btn:focus{outline:3px solid rgba(124,58,237,.25)}
+    .main-layout{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(400px,.82fr);gap:16px;margin-top:16px}.stack{display:grid;gap:16px}.scope-box{background:var(--rc-soft);border-left:4px solid var(--rc);padding:11px 13px;border-radius:8px;color:var(--hy-navy)}.warning-box{background:var(--hy-warning-100);border-left:4px solid var(--hy-warning);padding:11px 13px;border-radius:8px;color:var(--hy-warning-ink)}.danger-box{background:var(--hy-danger-100);border-left:4px solid var(--hy-red-deep);padding:11px 13px;border-radius:8px;color:var(--hy-red-deep)}
+    .banner-status{font-weight:900;padding:11px 13px;border-radius:9px;background:var(--hy-navy-50)}.banner-status.ok{background:var(--hy-success-100);color:var(--hy-success)}.banner-status.fail{background:var(--hy-danger-100);color:var(--hy-red-deep)}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{border:1px solid var(--border-default);border-left:4px solid var(--border-strong);border-radius:9px;padding:10px;background:var(--bg-surface)}.metric.ok{border-left-color:var(--hy-success)}.metric.fail{border-left-color:var(--hy-danger)}.metric.warn{border-left-color:var(--hy-warning)}.metric .label{display:block;color:var(--fg-3);font-size:.82rem}.metric .value{display:block;font-size:1.13rem;font-weight:900;color:var(--hy-navy)}.muted{color:var(--fg-3);font-size:.82rem}.check-list{display:grid;gap:8px}.check-item{border:1px solid var(--border-default);border-radius:8px;padding:9px 10px}.check-item.ok{border-left:4px solid var(--hy-success)}.check-item.fail{border-left:4px solid var(--hy-danger)}.check-item.warn{border-left:4px solid var(--hy-warning)}.check-item .k{font-weight:900;display:block}.check-item .v{font-size:.86rem;color:var(--fg-2)}
+    .diagram-wrap{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--hy-navy-50)}.diagram-wrap svg{width:100%;height:auto;min-height:300px;display:block}.formula-list{font-size:.9rem}.formula-list code{font-family:Consolas,monospace;background:var(--bg-subtle);border-radius:4px;padding:2px 5px}.formula-list p{margin:8px 0}.output-actions{margin-top:12px}.output-actions select{border:1px solid var(--hy-navy-300);border-radius:8px;padding:8px}.json-status{font-size:.84rem;color:var(--fg-2)}.direct-print-note{margin:0}.source-link{color:var(--hy-navy);font-weight:800}
     @media(max-width:1000px){.main-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.span-4{grid-column:1/-1}}
     @media(max-width:580px){.page{padding:10px}.form-grid,.metrics{grid-template-columns:1fr}.span-2,.span-4{grid-column:auto}.hero{padding:18px}.btn{width:100%}}
     :is(#coverBatchDialog,#coverBiaxialDialog){box-sizing:border-box;inset:0;margin:auto;width:min(1200px,96vw);height:90vh;height:90dvh;max-height:96vh;padding:0;border:1px solid var(--line);border-radius:14px;color:var(--ink)}
-    :is(#coverBatchDialog,#coverBiaxialDialog)[open]{display:flex;flex-direction:column}:is(#coverBatchDialog,#coverBiaxialDialog)::backdrop{background:#1f1635aa}
+    :is(#coverBatchDialog,#coverBiaxialDialog)[open]{display:flex;flex-direction:column}:is(#coverBatchDialog,#coverBiaxialDialog)::backdrop{background:color-mix(in srgb, var(--hy-ink) 67%, transparent)}
     .cover-batch-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line)}.cover-batch-heading h2{font-size:1.15rem;margin:0}.cover-batch-heading .btn{width:auto}
     #coverBatchFrame,#coverBiaxialFrame{flex:1;width:100%;border:0;min-height:0}
     .batch-excel-help{padding:6px 18px;font-size:.9rem}.batch-excel-help summary{cursor:pointer}.batch-excel-help p{margin:4px 0}
@@ -38,7 +39,7 @@
     <p>請回工具頁按「列印計算書」，在獨立計算書視窗列印或存成 PDF。</p>
   </div>
   <main class="page">
-    <header class="hero" data-smoke="rc-column-cover-deviation-smoke">
+    <header class="hero tool-shell-header" data-smoke="rc-column-cover-deviation-smoke">
       <h1>柱保護層偏差強度評估</h1>
       <p>以四面量測比較四方向單軸 P-M；如有逐筋座標與同組有號內力，可另開雙軸斷面比較。施工容許差須依案件資料另核。</p>
       <div class="hero-meta"><span class="tag">RC 現況評估</span><span class="tag">繫筋矩形柱</span><span class="tag" id="coreVersion">Core v0.2.0</span><span class="tag">公開版本 V0.1</span></div>
@@ -54,11 +55,11 @@
       <div class="case-actions">
         <button class="btn btn-secondary" id="openBiaxial" type="button" aria-haspopup="dialog">逐筋座標與雙軸比較</button>
         <button class="btn btn-secondary" id="openCoverBatch" type="button" aria-haspopup="dialog">批次檢核</button>
-        <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
-        <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveProject" type="button">匯出案件 JSON</button>
+        <button class="btn btn-secondary" id="btnImportJson" type="button">匯入案件 JSON</button>
         <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
         <button class="btn btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
-        <button class="btn btn-danger" id="btnReset" type="button">恢復示例</button>
+        <button class="btn btn-danger" id="btnReset" type="button">重設預設值</button>
         <input id="jsonFile" type="file" accept="application/json,.json" hidden>
         <span class="json-status" id="jsonStatus">JSON 內嵌 result 只供備查、匯入時一律忽略；本頁會用目前 core 重算 input 並核對版本／指紋，重新匯出時取代舊 result。</span>
       </div>
@@ -150,8 +151,8 @@
           <div class="danger-box"><strong>capacity OK 不等於保護層厚度合規。</strong>耐火與耐久性、防火細部、施工容許差、握裹／裂縫與箍筋包覆須獨立判定；雙軸同時作用、二階、剪力、接頭及整體結構安全也不在本頁範圍。</div>
           <div class="output-actions">
             <button class="btn btn-primary" id="btnCalc" type="button">計算斷面強度偏差</button>
-            <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
-            <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
+            <button class="btn btn-secondary" id="btnPrint" type="button">產生計算書</button>
+            <button class="btn btn-secondary" id="btnJson" type="button">匯出計算來源 JSON</button>
             <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
           </div>
         </section>

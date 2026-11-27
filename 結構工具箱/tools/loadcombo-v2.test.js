@@ -559,8 +559,8 @@ function testConsumerReportContracts() {
     ['鋼筋混凝土/tools/column.html', 'lcCol'],
     ['鋼筋混凝土/tools/wall.html', 'lcWall'],
     ['鋼筋混凝土/tools/shear-wall.html', 'lcSW'],
-    ['結構工具箱/tools/鋼構/steel-beam.html', 'lcSB'],
-    ['結構工具箱/tools/鋼構/steel-column.html', 'lcSC'],
+    ['鋼構工具/steel-beam-formal.js', 'lcSB'],
+    ['鋼構工具/steel-column-formal.js', 'lcSC'],
   ];
   const texts = new Map();
   consumers.forEach(([relativePath, prefix]) => {
@@ -580,8 +580,8 @@ function testConsumerReportContracts() {
   [
     '鋼筋混凝土/tools/beam.html',
     '鋼筋混凝土/tools/column.html',
-    '結構工具箱/tools/鋼構/steel-beam.html',
-    '結構工具箱/tools/鋼構/steel-column.html',
+    '鋼構工具/steel-beam-formal.js',
+    '鋼構工具/steel-column-formal.js',
   ].forEach(relativePath => {
     const text = texts.get(relativePath);
     assert.equal(text.includes("group: '載重組合包絡摘要'"), false, relativePath + ' removes component envelope report');
@@ -611,16 +611,6 @@ function testConsumerReportContracts() {
     assert.ok(text.includes("label: '採用組合'"));
     assert.ok(text.includes("label: '來源完整有號內力'"));
     assert.ok(text.includes("label: tuplePreserved ? '採用需求欄位'"));
-  });
-  ['結構工具箱/tools/鋼構/steel-beam.html', '結構工具箱/tools/鋼構/steel-column.html'].forEach(relativePath => {
-    const text = texts.get(relativePath);
-    assert.ok(text.includes('ForcePickerReceive?.getLastApplied?.()'));
-    assert.ok(text.includes("combination.validationStatus === 'verified'"));
-    assert.ok(text.includes("label:'來源驗證狀態'"));
-    assert.ok(text.includes("'未驗證來源'"));
-    assert.ok(text.includes("label:'採用組合'"));
-    assert.ok(text.includes("label:'來源完整有號內力'"));
-    assert.ok(text.includes("label:tuplePreserved ? '採用需求欄位'"));
   });
 
   const beamText = texts.get('鋼筋混凝土/tools/beam.html');

@@ -322,10 +322,11 @@ for (const relativePath of [
     `${relativePath} includes the shared calculation traceability header`
   );
   assert.ok(
-    source.includes('.rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }')
+    source.includes('.rep-paper h2, .rep-paper h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }')
       && hasKeepTogetherMarkup
       && source.includes('.rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }')
-      && source.includes('tr { break-inside:avoid-page; page-break-inside:avoid; }'),
+      && source.includes('thead { display:table-header-group; }')
+      && source.includes('tr, .rep-step, .rep-diagram, .rep-paper figure { break-inside:avoid-page; page-break-inside:avoid; }'),
     `${relativePath} keeps report headings and table rows intact across print pages`
   );
 }
@@ -1890,6 +1891,8 @@ for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal', 'src-
           '雙向核算索引',
           'X 向｜規範、構材與分析條件',
           'Y 向｜規範、構材與分析條件',
+          'X 向｜SRC 柱 X 向 各項規範檢核動員比總覽',
+          'Y 向｜SRC 柱 Y 向 各項規範檢核動員比總覽',
           'X 向｜構材斷面與軸彎互制',
           'Y 向｜構材斷面與軸彎互制',
           'X 向｜計算過程明細',

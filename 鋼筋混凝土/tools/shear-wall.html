@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <style>
   .diagram-svg { width:100%; max-width:520px; display:block; margin:0 auto; background:var(--bg-page); border:1px solid var(--border-strong); border-radius: var(--radius-lg); }
   .design-sugg { margin:8px 0; padding:10px 12px; border-radius: var(--radius-md); font-size: var(--fs-sm); border-left:3px solid var(--hy-success); background:var(--hy-success-100); }
@@ -76,6 +77,7 @@
     .design-sugg-actions { display: none !important; }
   }
 </style>
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-sticky-summary.css">
 </head>
 <body class="rc-formal-output-page" data-family="rc">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
@@ -96,17 +98,23 @@
     </div>
     <span class="mode-bar__hint" id="modeHint">設計模式：給定載重，建議配筋與邊界構材。</span>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo"   class="w-no"   placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details project-details no-print" data-rc-details="project">
+        <summary><span class="details-title">案件與計算書頁首</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">未填寫</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo"   class="w-no"   placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+        <div data-details-project-profile></div>
+      </details>
       <div class="mode-bar__actions" aria-label="剪力牆專案存讀檔">
-        <button id="btnSaveShearWallProject" class="mode-bar__action" type="button" title="下載剪力牆專案 JSON 檔">存檔</button>
-        <button id="btnLoadShearWallProject" class="mode-bar__action" type="button" title="讀取剪力牆專案 JSON 檔">讀檔</button>
+        <button id="btnSaveShearWallProject" class="mode-bar__action" type="button" title="下載剪力牆專案 JSON 檔">匯出案件 JSON</button>
+        <button id="btnLoadShearWallProject" class="mode-bar__action" type="button" title="讀取剪力牆專案 JSON 檔">匯入案件 JSON</button>
         <button id="btnSaveShearWallDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
         <button id="btnLoadShearWallDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
         <input id="shearWallProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
       </div>
-      <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+      <button id="btnReport" class="mode-bar__report" type="button">產生計算書</button>
       <span id="shearWallProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
@@ -123,7 +131,7 @@
         </select>
       </div>
       <div class="form-group" data-ui="aligned-action">
-        <button id="btnApplyCase" class="mode-bar__report" type="button">套用案例</button>
+        <button id="btnApplyCase" class="mode-bar__report" type="button">載入範例</button>
       </div>
     </div>
     <div class="tool-toggle">
@@ -316,20 +324,24 @@
         <p class="hint detail-help">ccore 須依專案施工圖指定，與前頁「至縱筋筋心 cover」不同。Ash/(s·bc) ≥ max[0.3·(Ag/Ach−1)·fc'/fyt, 0.09·fc'/fyt] (表 18.7.6.4(g))；矩形牆邊界區採 Ag=tw·ℓbe、Ach=(tw−2ccore)(ℓbe−2ccore)、bc=tw−2ccore。間距 ≤ min(邊界最小尺寸/3, 6·db, so)，so=10+(35−hx)/3 取 [10,15] cm。壓力區 b 可依翼板有效寬度調整，未輸入時採 tw；非矩形邊界構材仍須依施工圖另檢兩方向圍束。</p>
       </div>
       <div class="card subpanel" data-panel="detail">
-        <h2>施工細部</h2>
-        <div class="checkbox-row">
-          <input type="checkbox" id="hasConstrJoint" checked>
-          <label for="hasConstrJoint">本牆段有水平施工縫</label>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>剪力面處理 (表 22.9.4.2)</label>
-            <select id="jointSurface">
-              <option value="roughened" selected>已硬化面，粗糙至約 0.6 cm</option>
-              <option value="not_roughened">已硬化面，未特別粗糙</option>
-            </select>
+        <details class="collapsible-details" data-rc-details="construction-details">
+          <summary><span class="details-title">施工細部</span><span class="details-summary-badge" data-details-value="#jointSurface">已硬化面，粗糙至約 0.6 cm</span></summary>
+          <div class="details-body">
+            <div class="checkbox-row">
+              <input type="checkbox" id="hasConstrJoint" checked>
+              <label for="hasConstrJoint">本牆段有水平施工縫</label>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>剪力面處理 (表 22.9.4.2)</label>
+                <select id="jointSurface">
+                  <option value="roughened" selected>已硬化面，粗糙至約 0.6 cm</option>
+                  <option value="not_roughened">已硬化面，未特別粗糙</option>
+                </select>
+              </div>
+            </div>
+            <p class="hint detail-help">施工縫須檢核剪摩擦 (規範 22.9) 與粗糙度；本頁初估限水平施工縫、垂直穿縫筋，錨定與界面處理須列入圖說。</p>
           </div>
-        </div>
-        <p class="hint detail-help">施工縫須檢核剪摩擦 (規範 22.9) 與粗糙度；本頁初估限水平施工縫、垂直穿縫筋，錨定與界面處理須列入圖說。</p>
+        </details>
       </div>
     </div>
 
@@ -342,8 +354,12 @@
       </div>
 
       <div class="card report-readiness-card" data-shows="summary" id="shearWallAttachmentReadinessCard">
-        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
-        <div id="shearWallAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+        <details class="collapsible-details no-print" data-rc-details="readiness">
+          <summary><span class="details-title">產報前檢查</span><span class="details-summary-badge" data-details-value="#shearWallAttachmentReadiness .report-readiness-badge">尚未計算</span></summary>
+          <div class="details-body">
+            <div id="shearWallAttachmentReadiness" data-details-refresh role="status" aria-live="polite">尚未計算。</div>
+          </div>
+        </details>
       </div>
 
       <div class="card mobile-summary-card" id="quickSummaryCard">
@@ -473,7 +489,7 @@
         <div id="summaryChecklist" class="summary-checklist" aria-live="polite"></div>
         <div id="summaryWarnings" class="summary-warning-list" aria-live="polite" hidden></div>
         <div data-ui="section-actions">
-          <button type="button" id="btnReport2" data-ui-button="report">📄 產生完整計算書</button>
+          <button type="button" id="btnReport2" data-ui-button="report">產生計算書</button>
         </div>
       </div>
     </div>
@@ -485,8 +501,8 @@
       <summary>案例 JSON 匯出 / 匯入</summary>
       <div class="advanced-body">
         <div class="form-row" data-ui-space="flush">
-          <div class="form-group" data-ui="aligned-action"><button id="btnExportCase" class="mode-bar__report" type="button">匯出目前設定 JSON</button></div>
-          <div class="form-group" data-ui="aligned-action"><button id="btnImportCase" class="mode-bar__report" type="button">匯入 JSON</button></div>
+          <div class="form-group" data-ui="aligned-action"><button id="btnExportCase" class="mode-bar__report" type="button">匯出案件 JSON</button></div>
+          <div class="form-group" data-ui="aligned-action"><button id="btnImportCase" class="mode-bar__report" type="button">匯入案件 JSON</button></div>
         </div>
         <div class="form-group" data-ui-space="field">
           <label>案例 JSON</label>
@@ -2065,6 +2081,9 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
 <script src="../../tool-nav.manifest.js" defer></script>
 <script src="../../tool-chrome.js" defer></script>
 <script src="../../tool-page-a11y.js" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-choices=".mode-btn[data-mode]" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-sticky-summary.js" data-sticky-summary="rc-shear-wall" defer></script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

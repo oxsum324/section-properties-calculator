@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-wind-tool="object-tower" data-wind-layout="object">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,59 +11,12 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
-<style>
-  table.zone { width:100%; border-collapse:collapse; font-size:0.84em; }
-  table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
-  table.zone th { background:#f1f5f9; color:var(--primary); font-weight:700; font-family:inherit; }
-  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#7c2d12; color:#fff; }
-  .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
-  .case-actions button { border:none; border-radius:8px; padding:9px 12px; font-weight:700; cursor:pointer; background:#ffedd5; color:#9a3412; }
-  .case-actions button:hover { background:#fed7aa; }
-  .case-actions .primary { background:#9a3412; color:#fff; }
-  .case-actions .primary:hover { background:#7c2d12; }
-  .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
-  .case-status.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
-  .case-status:empty { display:none; }
-  .report-mode-control { margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #fed7aa; border-radius:10px; background:#fff7ed; color:#334155; font-size:0.84em; line-height:1.6; }
-  .report-mode-label { font-weight:700; color:#9a3412; margin-right:2px; }
-  .mode-segment { border:1px solid #fdba74; background:#fff; color:#9a3412; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
-  .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#9a3412; color:#fff; border-color:#9a3412; box-shadow:0 4px 10px rgba(154,52,18,.18); }
-  .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
-  .inline-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
-  .inline-actions .btn-calc { flex:1 1 220px; width:auto; min-height:46px; margin-top:0; justify-content:center; }
-  .form-error { display:none; margin:10px 0 0; border:1px solid #fecaca; background:#fef2f2; color:#991b1b; border-radius:9px; padding:10px 12px; font-size:0.9em; font-weight:700; line-height:1.55; }
-  .form-error.show { display:block; }
-  .conditional-field.is-hidden { display:none; }
-  .applic-list { display:grid; gap:8px; margin-top:10px; }
-  .applic-item { border:1px solid #dbeafe; border-radius:9px; background:#f8fafc; padding:8px 10px; font-size:0.84em; line-height:1.6; }
-  .applic-ok { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
-  .applic-warn { border-color:#fde68a; background:#fffbeb; color:#92400e; }
-  .applic-fail { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
-  .applic-label { display:block; font-weight:700; margin-bottom:2px; }
-  .schema-wrap { border:1px solid #dbeafe; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%); padding:10px; overflow:hidden; }
-  .schema-svg { width:100%; max-width:620px; height:auto; display:block; margin:0 auto; background:#f8fafc; border:0; border-radius:12px; }
-  .step { margin-bottom:14px; }
-  .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px; padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
-  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
-  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
-  .step-body .val.hl { font-size:1.05em; color:#9a3412; }
-  .detail-formula { margin-top:6px; padding:6px 8px; background:#f8fafc; border-left:3px solid #94a3b8; color:#475569; font-size:0.84em; }
-  #resultPanel { min-width:0; }
-  @media (max-width:768px) {
-    .inline-actions { flex-direction:column; }
-    .inline-actions .btn-calc { width:100%; flex-basis:auto; }
-    .case-actions button { flex:1 1 120px; }
-  }
-  @media print {
-    header, .btn-calc, .back, .case-actions, .case-status, .report-mode-control, .page-only-report-status { display:none !important; }
-    .container { max-width:none; padding:0; }
-    .card { break-inside:avoid; box-shadow:none; border:1px solid #ddd; }
-  }
-</style>
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="wind-tools.css">
 </head>
 <body class="formal-tool-output-page" data-family="wind">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
-<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
+<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
   <h1>建築物耐風設計 — 煙囪 / 水塔風力 <span class="badge-v">V3.3</span></h1>
   <p>依「建築物耐風設計規範及解說」103 年版表 2.12 的 C<sub>f</sub> 路線 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
@@ -74,24 +27,34 @@
 <div class="card mode-bar print-meta">
   <strong class="mode-bar__label">計畫資訊：</strong>
   <div class="mode-bar__proj">
-    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-    <input type="text" id="projNo" class="w-no" placeholder="編號">
-    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+    <details class="collapsible-details project-details page-only-tool-actions" id="windProjectDetails">
+      <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">案名／編號／設計人</span></summary>
+      <div class="details-project-fields">
+        <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+        <input type="text" id="projNo" class="w-no" placeholder="編號">
+        <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      </div>
+    </details>
   </div>
-  <div class="report-mode-control" role="group" aria-label="列印計算書輸出模式">
-    <span class="report-mode-label">計算書模式</span>
-    <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true">詳算式</button>
-    <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
-    <span class="report-mode-hint">詳算式輸出示意圖、表 2.12 查表路線、G 代入式與分段表；簡易結果只整理條件、示意圖與控制值。</span>
-  </div>
+  <details class="collapsible-details page-only-tool-actions" id="windReportModeDetails">
+    <summary><span class="details-title">計算書模式</span><span class="details-summary-badge" data-details-value=".mode-segment[aria-pressed=&quot;true&quot;]">詳算式</span></summary>
+    <div class="details-body">
+      <div class="report-mode-control" role="group" aria-label="列印計算書輸出模式">
+        <span class="report-mode-label">計算書模式</span>
+        <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true">詳算式</button>
+        <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
+        <span class="report-mode-hint">詳算式輸出示意圖、表 2.12 查表路線、G 代入式與分段表；簡易結果只整理條件、示意圖與控制值。</span>
+      </div>
+    </div>
+  </details>
   <input type="hidden" id="printReportMode" value="detail">
   <div class="case-actions">
-    <button class="primary" id="btnExportCase" type="button">匯出案件 JSON</button>
+    <button id="btnExportCase" type="button">匯出案件 JSON</button>
     <button id="btnImportCase" type="button">匯入案件 JSON</button>
     <button type="button" id="btnSaveCaseDraft">暫存</button>
     <button type="button" id="btnLoadCaseDraft">讀取暫存</button>
-    <button id="btnResetCase" type="button">恢復預設</button>
+    <button id="btnResetCase" type="button">重設預設值</button>
+    <button class="mode-bar__report primary" id="btnReport" type="button">產生計算書</button>
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
   </div>
   <div class="case-status" id="caseStatus"></div>
@@ -128,11 +91,16 @@
       <select id="impClass"></select>
     </div>
     <div class="form-row">
-      <div class="form-group">
-        <label>K<sub>zt</sub></label>
-        <input id="Kzt" type="number" value="1.0" step="0.05">
-        <div class="hint">平地取 1.0；山頂 / 丘陵可由 Kzt 工具取得。</div>
-      </div>
+      <details class="collapsible-details" id="windTerrainDetails">
+        <summary><span class="details-title">地形係數</span><span class="details-summary-badge" data-details-value="#Kzt" data-details-prefix="Kzt = ">Kzt = 1.0</span></summary>
+        <div class="details-body">
+          <div class="form-group">
+            <label>K<sub>zt</sub></label>
+            <input id="Kzt" type="number" value="1.0" step="0.05">
+            <div class="hint">平地取 1.0；山頂 / 丘陵可由 Kzt 工具取得。</div>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -258,10 +226,10 @@
     </div>
   </div>
 
-  <details class="card fold-card" open>
+  <details class="card fold-card collapsible-details">
     <summary class="fold-summary">
-      <span>分段剪力表</span>
-      <span class="fold-chip">結果明細</span>
+      <span class="details-title">分段剪力表</span>
+      <span class="details-summary-badge">結果明細</span>
     </summary>
     <table class="zone" id="segmentTable">
       <thead>
@@ -279,10 +247,10 @@
     <div class="legend" id="segmentNote"></div>
   </details>
 
-  <details class="card fold-card" id="stepsCard" style="display:none;" open>
+  <details class="card fold-card collapsible-details" id="stepsCard" style="display:none;">
     <summary class="fold-summary">
-      <span>逐步計算</span>
-      <span class="fold-chip">畫面詳算</span>
+      <span class="details-title">逐步計算</span>
+      <span class="details-summary-badge">畫面詳算</span>
     </summary>
     <div id="steps"></div>
   </details>
@@ -635,7 +603,10 @@ function buildGustDetailHtml(g, options = {}) {
     G = 1.927 × [1 + 1.7 × ${fmt(g.gQ,1)} × ${fmt(g.Iz,4)} × ${fmt(g.Q,4)}] / [1 + 1.7 × ${fmt(g.gV,1)} × ${fmt(g.Iz,4)}] = <span class="val">${fmt(g.G,3)}</span>`;
 }
 function updateStepsVisibility() {
-  document.getElementById('stepsCard').style.display = document.getElementById('chkDetail').checked ? '' : 'none';
+  const steps = document.getElementById('stepsCard');
+  const show = document.getElementById('chkDetail').checked;
+  if (show && steps.style.display === 'none') steps.open = true;
+  steps.style.display = show ? '' : 'none';
 }
 function renderSegmentRows(rows) {
   document.querySelector('#segmentTable tbody').innerHTML = rows.map(row => `
@@ -1068,6 +1039,7 @@ document.getElementById('caseJsonFile').addEventListener('change', event => impo
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../../../tool-page-a11y.js" defer></script>
+<script src="../../assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>
 </html>

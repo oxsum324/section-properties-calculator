@@ -55,6 +55,7 @@ class ReleaseBundleSmokeTests(unittest.TestCase):
             'RELEASE_CHECKLIST.md',
             'PROJECT_FILES.md',
             '石材計算書產生器_規範版V2.html',
+            'stone-v2.css',
             'server.py',
             'auto_word.py',
             'generate_docx.py',
@@ -187,6 +188,7 @@ class ReleaseBundleSmokeTests(unittest.TestCase):
         self.assertIn('README.md', names)
         self.assertIn('RELEASE_MANIFEST.json', names)
         self.assertIn('石材計算書產生器_規範版V2.html', names)
+        self.assertIn('stone-v2.css', names)
         self.assertIn('js/regression-smoke.test.js', names)
         self.assertIn('audit_compare.py', names)
         self.assertIn('audit_schema.py', names)

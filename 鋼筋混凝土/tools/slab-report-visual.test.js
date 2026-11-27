@@ -338,10 +338,12 @@ async function main() {
 
       const response = await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
       assert(response && response.status() === 200, `${key} tool page loads`, `status=${response && response.status()}`);
+      await page.click('[data-rc-details="project"] > summary');
       await page.fill('#projName', 'RC 板正式附件測試');
       await page.fill('#projNo', 'RC-SLAB-001');
       await page.fill('#projDesigner', 'QA');
       await applyCase(page, key);
+      await page.click('[data-rc-details="readiness"] > summary');
       await page.waitForTimeout(350);
 
       const state = await page.evaluate(() => ({

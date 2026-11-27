@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-seismic-tool="force">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,115 +11,12 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
-<style>
-  /* ── 局部樣式 ── */
-  .step { margin-bottom:18px; }
-  .step-title { font-size:0.95em; font-weight:700; color:var(--seismic); margin-bottom:8px;
-                padding:6px 12px; background:#faf5ff; border-left:4px solid var(--seismic); border-radius:0 6px 6px 0; }
-  .step-body { font-size:0.88em; line-height:1.9; padding:0 4px; }
-  .step-body code { background:#f1f5f9; padding:1px 6px; border-radius:3px; font-family:'Consolas',monospace; }
-  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
-  .step-body .val.hl { color:var(--seismic); font-size:1.05em; }
-  .step-body .formula { display:block; margin:4px 0 4px 12px; color:#475569; font-style:italic; }
-
-  /* 比較表 */
-  table.cmp { width:100%; border-collapse:collapse; font-size:0.85em; margin:8px 0; }
-  table.cmp th, table.cmp td { border:1px solid var(--border); padding:6px 10px; text-align:center; font-family:'Consolas',monospace; }
-  table.cmp th { background:#f1f5f9; color:var(--primary); font-weight:600; font-family:inherit; }
-  table.cmp td.win { background:#ecfdf5; font-weight:700; color:#065f46; }
-
-  /* 樓層表 */
-  table.story { width:100%; border-collapse:collapse; font-size:0.82em; margin-top:8px; }
-  table.story th, table.story td { border:1px solid var(--border); padding:5px 8px; text-align:right; font-family:'Consolas',monospace; }
-  table.story th { background:#f1f5f9; color:var(--primary); text-align:center; font-weight:600; font-family:inherit; }
-  table.story td.idx { text-align:center; font-weight:700; color:var(--primary); }
-
-  /* 樓層編輯表 */
-  table.floor-edit { width:100%; border-collapse:collapse; font-size:0.85em; }
-  table.floor-edit th, table.floor-edit td { padding:4px 6px; border:1px solid var(--border); text-align:center; }
-  table.floor-edit th { background:#f1f5f9; font-size:0.82em; }
-  table.floor-edit input { width:70px; padding:4px; border:1px solid #cbd5e1; border-radius:4px; text-align:right; font-family:'Consolas',monospace; font-size:0.92em; }
-  table.floor-edit .btn-del { background:none; border:none; color:var(--danger); cursor:pointer; font-size:1.1em; }
-
-  /* 捲動區域 */
-  .floor-scroll { max-height:280px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; }
-
-  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
-             font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--seismic); color:#fff; }
-
-  /* 摺疊面板 */
-  .collapse-toggle { cursor:pointer; user-select:none; }
-  .collapse-toggle::before { content:'▾ '; font-size:0.9em; }
-  .collapse-toggle.collapsed::before { content:'▸ '; }
-  .collapse-body.hidden { display:none; }
-  .assist-block.hidden { display:none; }
-
-  /* 特殊標記 */
-  .tag-ctrl { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.78em; font-weight:700; }
-  .tag-ctrl.vd   { background:#dbeafe; color:#1d4ed8; }
-  .tag-ctrl.vs   { background:#fef3c7; color:#92400e; }
-  .tag-ctrl.vm   { background:#fce7f3; color:#9d174d; }
-
-  .legend { font-size:0.78em; color:var(--text-light); margin-top:6px; line-height:1.7; }
-  .spectrum-fallback-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:12px; }
-  .spectrum-fallback-table th, .spectrum-fallback-table td { border:1px solid #cbd5e1; padding:3px 5px; text-align:right; }
-  .spectrum-fallback-table th { background:#f1f5f9; }
-  .fold-summary { cursor:pointer; font-weight:700; color:var(--primary); }
-  .fold-summary::-webkit-details-marker { display:none; }
-  .fold-summary::before { content:'▸ '; color:var(--seismic); }
-  details[open] > .fold-summary::before { content:'▾ '; }
-  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .inline-actions.compact { margin-top:6px; }
-  .btn-secondary { background:#e2e8f0; color:#0f172a; border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; }
-  .btn-secondary:hover { background:#cbd5e1; }
-  .report-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.82em; color:#334155; line-height:1.7; }
-  .report-status strong { color:#0f172a; }
-  .report-status.warn { background:#fff7ed; border-color:#fdba74; color:#9a3412; }
-  .case-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
-  .case-actions button { border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; background:#e2e8f0; color:#0f172a; }
-  .case-actions button.primary { background:var(--seismic); color:#fff; }
-  .case-actions button:hover { filter:brightness(0.96); }
-  .case-status { min-height:22px; margin-top:8px; color:#166534; font-size:0.82em; line-height:1.6; }
-  .case-status.warn { color:#92400e; }
-  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
-  .input-status:empty { display:none; }
-  .compare-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-  .compare-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-  .compare-actions a,
-  .compare-actions button { text-decoration:none; }
-  .compare-note { margin-top:10px; padding:10px 12px; border-radius:8px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.82em; color:#334155; line-height:1.7; }
-
-  @media (max-width:900px) {
-    .main-layout { grid-template-columns:1fr; }
-    .compare-grid { grid-template-columns:1fr; }
-  }
-
-  @media print {
-    .card { break-inside: avoid; page-break-inside: avoid; }
-    .page-only-report-status, .case-actions, .case-status { display:none !important; }
-    table.cmp, table.story { font-size:0.76em; }
-    table.cmp th, table.cmp td,
-    table.story th, table.story td { padding:4px 5px; }
-    #storyTable, #subTable { table-layout:fixed; }
-  }
-
-  @media (max-width: 768px) {
-    table.cmp, table.story { font-size: 0.78em; }
-    table.cmp th, table.cmp td,
-    table.story th, table.story td { padding: 4px 5px; }
-    table.floor-edit input { width: 55px; }
-    .form-row { grid-template-columns: 1fr; }
-  }
-  @media (max-width: 480px) {
-    .step-title { font-size: 0.85em; padding: 4px 8px; }
-    .step-body { font-size: 0.82em; }
-    .banner-key .k { font-size: 0.78em; }
-  }
-</style>
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="seismic-tools.css">
 </head>
 <body class="formal-tool-output-page" data-family="seismic">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
-<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
+<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
   <h1>建築物耐震設計 — 等值靜力分析 <span class="badge-v">V3</span></h1>
   <p>依「建築物耐震設計規範及解說」113 年版 ｜ 第二章靜力分析方法 ｜ 單位：m, tf, sec</p>
@@ -136,12 +33,16 @@
 
 <div class="container" role="main">
 <div class="card mode-bar print-meta">
-  <strong class="mode-bar__label">計畫資訊：</strong>
   <div class="mode-bar__proj">
-    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-    <input type="text" id="projNo" class="w-no" placeholder="編號">
-    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+    <details class="collapsible-details page-only-tool-actions project-details">
+      <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge">案名／編號／設計人</span></summary>
+      <div class="details-body details-project-fields">
+        <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+        <input type="text" id="projNo" class="w-no" placeholder="編號">
+        <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      </div>
+    </details>
+    <button class="mode-bar__report" id="btnReport" type="button">產生計算書</button>
   </div>
   <div class="case-actions">
     <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
@@ -187,23 +88,28 @@
       <label>用途分類</label>
       <select id="impClass"></select>
     </div>
-    <div class="checkbox-row">
-      <input type="checkbox" id="chkXY">
-      <label for="chkXY">X / Y 向採用不同韌性容量或週期</label>
-    </div>
-    <div id="xyRow" style="display:none;">
-      <div class="form-row">
-        <div class="form-group">
-          <label>Y 向結構系統</label>
-          <select id="sysY"></select>
+    <details class="collapsible-details page-only-tool-actions">
+      <summary><span class="details-title">雙向地震力設定</span><span class="details-summary-badge">X／Y 向</span></summary>
+      <div class="details-body">
+        <div class="checkbox-row">
+          <input type="checkbox" id="chkXY">
+          <label for="chkXY">X / Y 向採用不同韌性容量或週期</label>
         </div>
-        <div class="form-group">
-          <label>Y 向動力分析週期 T<sub>dyna,Y</sub> (sec)</label>
-          <input id="TdynaY" type="number" value="" step="0.01" placeholder="留空同 X">
+        <div id="xyRow" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Y 向結構系統</label>
+              <select id="sysY"></select>
+            </div>
+            <div class="form-group">
+              <label>Y 向動力分析週期 T<sub>dyna,Y</sub> (sec)</label>
+              <input id="TdynaY" type="number" value="" step="0.01" placeholder="留空同 X">
+            </div>
+          </div>
+          <div class="hint" id="sysYHint" style="margin-bottom:8px;"></div>
         </div>
       </div>
-      <div class="hint" id="sysYHint" style="margin-bottom:8px;"></div>
-    </div>
+    </details>
     <div class="checkbox-row">
       <input type="checkbox" id="chkTaipei">
       <label for="chkTaipei">臺北盆地微地動特性 (式 2-11, Ra = 1+(R-1)/2)</label>
@@ -334,36 +240,35 @@
       <input type="checkbox" id="chkDetail">
       <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
     </div>
-    <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
+    <button class="btn-print" id="btnPrint" type="button">產生計算書</button>
   </div>
 
-  <details class="card fold-card">
-    <summary class="fold-summary">
-      <span>計算書輸出項目</span>
-      <span class="fold-chip">列印勾選</span>
-    </summary>
-    <div class="inline-actions compact">
-      <button class="btn-secondary" id="repPresetDefault" type="button">標準版</button>
-      <button class="btn-secondary" id="repPresetResults" type="button">結果版</button>
-      <button class="btn-secondary" id="repPresetFull" type="button">完整版</button>
+  <details class="card collapsible-details page-only-tool-actions">
+    <summary><span class="details-title">計算書輸出項目</span><span class="details-summary-badge">列印勾選</span></summary>
+    <div class="details-body">
+      <div class="inline-actions compact">
+        <button class="btn-secondary" id="repPresetDefault" type="button">標準版</button>
+        <button class="btn-secondary" id="repPresetResults" type="button">結果版</button>
+        <button class="btn-secondary" id="repPresetFull" type="button">完整版</button>
+      </div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_summary" checked><label for="rep_summary">1. 綜合結論摘要</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_direction" checked><label for="rep_direction">2. 雙向設計摘要</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_adopt" checked><label for="rep_adopt">3. 設計採用摘要</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_spectrum" checked><label for="rep_spectrum">4. 反應譜圖與說明</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_story" checked><label for="rep_story">5. 逐層水平地震力分配</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_sub" checked><label for="rep_sub">6. 地下層水平震度</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_drift" checked><label for="rep_drift">7. 層間變位角檢核</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_appendage"><label for="rep_appendage">附屬構造物地震力</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_vertical"><label for="rep_vertical">垂直地震力</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_misc"><label for="rep_misc">雜項工作物地震力</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_steps"><label for="rep_steps">逐步計算</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="rep_inputs" checked><label for="rep_inputs">輸入資料表</label></div>
+      <div class="checkbox-row" style="margin-top:8px; background:#eef2ff; border-color:#c7d2fe;">
+        <input type="checkbox" id="repRemember" checked>
+        <label for="repRemember">記住本頁列印勾選設定</label>
+      </div>
+      <div class="report-status" id="repStatus"></div>
     </div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_summary" checked><label for="rep_summary">1. 綜合結論摘要</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_direction" checked><label for="rep_direction">2. 雙向設計摘要</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_adopt" checked><label for="rep_adopt">3. 設計採用摘要</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_spectrum" checked><label for="rep_spectrum">4. 反應譜圖與說明</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_story" checked><label for="rep_story">5. 逐層水平地震力分配</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_sub" checked><label for="rep_sub">6. 地下層水平震度</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_drift" checked><label for="rep_drift">7. 層間變位角檢核</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_appendage"><label for="rep_appendage">附屬構造物地震力</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_vertical"><label for="rep_vertical">垂直地震力</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_misc"><label for="rep_misc">雜項工作物地震力</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_steps"><label for="rep_steps">逐步計算</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_inputs" checked><label for="rep_inputs">輸入資料表</label></div>
-    <div class="checkbox-row" style="margin-top:8px; background:#eef2ff; border-color:#c7d2fe;">
-      <input type="checkbox" id="repRemember" checked>
-      <label for="repRemember">記住本頁列印勾選設定</label>
-    </div>
-    <div class="report-status" id="repStatus"></div>
   </details>
 
   <div class="card page-only-report-status">
@@ -599,9 +504,9 @@
   </div>
 
   <!-- 公式說明 -->
-  <div class="card">
-    <h2 class="collapse-toggle collapsed" onclick="toggleCollapse(this)">規範與驗證提示</h2>
-    <div class="collapse-body hidden">
+  <details class="card collapsible-details page-only-tool-actions">
+    <summary><span class="details-title">規範與驗證提示</span><span class="details-summary-badge">查核方式</span></summary>
+    <div class="details-body">
       <div class="note">
         目前基準驗證已建立於 <code>tests/seismic.test.js</code>，可用 <code>node tests/seismic.test.js</code> 快速檢查一般工址與臺北盆地微分區計算是否正常。
       </div>
@@ -609,11 +514,11 @@
         驗證涵蓋：一般工址譜參數、臺北盆地 Ra 修正、代表里別 T0 與微分區、一般工址對比盆地譜之設計水平總橫力差異。
       </div>
     </div>
-  </div>
+  </details>
 
-  <div class="card">
-    <h2 class="collapse-toggle collapsed" onclick="toggleCollapse(this)">公式索引 (113 年版)</h2>
-    <div class="collapse-body hidden">
+  <details class="card collapsible-details page-only-tool-actions">
+    <summary><span class="details-title">公式索引（113 年版）</span><span class="details-summary-badge">條文對照</span></summary>
+    <div class="details-body">
       <div class="legend">
         <code>式(2-4)</code> S<sub>DS</sub> = F<sub>a</sub>·S<sub>sD</sub>,  S<sub>D1</sub> = F<sub>v</sub>·S<sub>1D</sub><br>
         <code>式(2-6)</code> T<sub>oD</sub> = S<sub>D1</sub>/S<sub>DS</sub><br>
@@ -643,30 +548,34 @@
         <a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener noreferrer">國震中心 Sederes 平台</a>
       </div>
     </div>
-  </div>
+  </details>
 
 </div>
 </div><!-- main-layout -->
-<details class="card" id="pageScopeCard">
-  <summary class="fold-summary">本頁定位與適用範圍</summary>
-  <div class="note" style="margin-top:12px;">
-    本頁主要對應第二章等值靜力法，適合完整建築物之靜力分析整理、雙向結果摘要、反應譜檢視與列印計算書。
-  </div>
-  <div class="legend" style="margin-top:10px;">
-    適合：一般規律建築之靜力法整理、近斷層或臺北盆地條件下的快速複核、靜力與動力結果前置比較。<br>
-    不宜直接取代：顯著不規則、高層、特殊結構、需正式動力分析或專案精算工址條件之案件。<br>
-    第五章雜項工作物若需正式局部計算書，建議改用 <a href="seismic-misc.html">雜項工作物地震力獨立頁</a>。
+<details class="card collapsible-details page-only-tool-actions" id="pageScopeCard">
+  <summary><span class="details-title">本頁定位與適用範圍</span><span class="details-summary-badge">適用條件</span></summary>
+  <div class="details-body">
+    <div class="note" style="margin-top:12px;">
+      本頁主要對應第二章等值靜力法，適合完整建築物之靜力分析整理、雙向結果摘要、反應譜檢視與列印計算書。
+    </div>
+    <div class="legend" style="margin-top:10px;">
+      適合：一般規律建築之靜力法整理、近斷層或臺北盆地條件下的快速複核、靜力與動力結果前置比較。<br>
+      不宜直接取代：顯著不規則、高層、特殊結構、需正式動力分析或專案精算工址條件之案件。<br>
+      第五章雜項工作物若需正式局部計算書，建議改用 <a href="seismic-misc.html">雜項工作物地震力獨立頁</a>。
+    </div>
   </div>
 </details>
-<details class="card" id="versionInfoCard">
-  <summary class="fold-summary">版本與更新重點</summary>
-  <div class="note" style="margin-top:12px;">
-    目前頁面版本為 <strong>V3</strong>，主軸是把等值靜力法、臺北盆地、近斷層、雙向摘要、列印報表與動力摘要銜接整合在同一頁。
-  </div>
-  <div class="legend" style="margin-top:10px;">
-    本版已完成：近斷層控制譜、臺北盆地微分區主算、設計週期標示、靜力 / 動力摘要橋接、第五章快速分流、列印計算書整理。<br>
-    本頁仍建議定位為：完整建築物靜力法主頁與送審前整理頁。<br>
-      若案件需正式動力分析結果整理，請改用 <a href="seismic-dynamic.html">動力分析摘要</a>；若僅需第五章局部計算書，請改用 <a href="seismic-misc.html">雜項工作物地震力</a>。
+<details class="card collapsible-details page-only-tool-actions" id="versionInfoCard">
+  <summary><span class="details-title">版本與更新重點</span><span class="details-summary-badge">版本資訊</span></summary>
+  <div class="details-body">
+    <div class="note" style="margin-top:12px;">
+      目前頁面版本為 <strong>V3</strong>，主軸是把等值靜力法、臺北盆地、近斷層、雙向摘要、列印報表與動力摘要銜接整合在同一頁。
+    </div>
+    <div class="legend" style="margin-top:10px;">
+      本版已完成：近斷層控制譜、臺北盆地微分區主算、設計週期標示、靜力 / 動力摘要橋接、第五章快速分流、列印計算書整理。<br>
+      本頁仍建議定位為：完整建築物靜力法主頁與送審前整理頁。<br>
+        若案件需正式動力分析結果整理，請改用 <a href="seismic-dynamic.html">動力分析摘要</a>；若僅需第五章局部計算書，請改用 <a href="seismic-misc.html">雜項工作物地震力</a>。
+    </div>
   </div>
 </details>
 </div><!-- container -->

@@ -577,3 +577,29 @@ body.keyboard-open .report-bottom-pager{position:static}
 .signoff-void-actions{display:flex;flex-wrap:wrap;justify-content:end;gap:8px}
 .signoff-void-actions button{flex:1 1 120px}
 #signoffPreview{width:100%;height:60vh;border:1px solid #bdcbc5;background:#fff}
+
+/* V0.32.0: 外業採集 / 內業整編雙模式與桌機雙螢幕工作台 */
+.header-controls{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;min-width:0}
+.workspace-mode-bar{display:inline-flex;align-items:center;gap:2px;padding:2px;border-radius:10px;background:#e6ede8;border:1px solid #cad7ce}
+.workspace-mode-bar button{min-height:36px;padding:4px 10px;font-size:13px;border-radius:8px;color:var(--green)}
+.workspace-mode-bar button[aria-pressed="true"]{background:var(--green);color:#fff}
+.handoff-extra-actions{margin-top:10px}
+.review-handoff-card{margin-bottom:18px;background:#f2f6f2;border-color:#c6d5cb}
+.review-handoff-card .section-heading{margin-bottom:0;flex-wrap:wrap}
+.report-field-origin{padding:10px 12px;margin:0 0 12px;background:#f5f6ef;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px}
+.report-field-origin strong{display:block;font-size:13px;color:var(--green);margin-bottom:4px}
+.report-field-origin .micro{white-space:pre-wrap;margin:0;color:var(--ink)}
+body[data-workspace-mode="field"] #bottomNav [data-view="report"]{display:none}
+@media(max-width:600px){
+  .app-header{flex-wrap:wrap}
+  .header-controls{width:100%;justify-content:space-between}
+  .workspace-mode-bar button{min-height:36px;padding:4px 8px;font-size:12px}
+}
+@media(min-width:1200px){
+  body:not([data-workspace-mode="field"]) .app-header,
+  body:not([data-workspace-mode="field"]) .system-bar,
+  body:not([data-workspace-mode="field"]) main{max-width:min(1760px,95vw)}
+  body:not([data-workspace-mode="field"]) #reportView[data-mode="full"] .report-workspace{grid-template-columns:260px minmax(0,1fr)}
+  body:not([data-workspace-mode="field"]) #reportView[data-mode="full"] .report-record-columns{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(340px,0.95fr);gap:18px;align-items:start}
+  body:not([data-workspace-mode="field"]) #reportView[data-mode="full"] .report-record-media{position:sticky;top:calc(var(--survey-context-height,78px) + 12px)}
+}

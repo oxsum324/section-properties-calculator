@@ -1195,7 +1195,7 @@ if ($manifest.sourceFingerprint -ne $currentFingerprint) {
   Write-Error "anchor deployment source fingerprint is stale; run sync-anchor-deployment.ps1"
   exit 1
 }
-$assetNames = [regex]::Matches($index, '(?:\./)?assets/([^"]+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+$assetNames = [regex]::Matches($index, '(?i)\b(?:src|href)\s*=\s*["''](?:\./)?assets/([^"''<>]+)["'']') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
 if ($assetNames.Count -eq 0) {
   Write-Error 'anchor index has no referenced assets'
   exit 1

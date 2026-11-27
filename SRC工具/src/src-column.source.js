@@ -2,14 +2,15 @@
   const core = root.SrcColumnCore || (typeof require === 'function' ? require('./core/src-column-core.js') : null);
   const catalog = root.SrcColumnHSectionCatalog || (typeof require === 'function' ? require('./core/src-column-h-section-catalog.js') : null);
   const weakAxisReference = root.SrcColumnWeakAxisShearReference || (typeof require === 'function' ? require('./core/src-column-weak-axis-shear-reference.js') : null);
-  const api = factory(core, catalog, weakAxisReference);
+  const diagram = root.MemberSectionSvg || (typeof require === 'function' ? require('../結構工具箱/core/ui/member-section-svg.js') : null);
+  const api = factory(core, catalog, weakAxisReference, diagram);
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.SrcColumnPage = api;
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => api.init(document, root));
     else api.init(document, root);
   }
-})(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog, WeakAxisReference) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog, WeakAxisReference, SectionSvg) {
   'use strict';
 
   const PAGE_VERSION = 'v1.0';
@@ -558,45 +559,56 @@
     const steelTop = cy - steelDepth / 2;
     const steelLeft = cx - flangeWidth / 2;
     const webLeft = cx - webThickness / 2;
-    const layerSvg = layers.map((layer, index) => {
+    const layerInset = Math.min(9, sectionWidth * 0.06, sectionHeight * 0.06);
+    const layerSvg = layers.map(layer => {
       if (axis === 'y') {
         const layerX = x + Number(layer.xCm) * scale;
-        return `<line x1="${layerX}" y1="${y + 9}" x2="${layerX}" y2="${y + sectionHeight - 9}" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>
-          <rect x="${layerX - 12.5}" y="${y + 7}" width="25" height="18" rx="4" fill="#fff7ed" stroke="#fdba74"/>
-          <text x="${layerX}" y="${y + 20}" text-anchor="middle" class="layer">L${index + 1}</text>`;
+        return `<line x1="${layerX}" y1="${y + layerInset}" x2="${layerX}" y2="${y + sectionHeight - layerInset}" stroke="#000000" stroke-width="2.4" stroke-dasharray="6 4"/>`;
       }
       const layerY = y + Number(layer.yCm) * scale;
-      return `<line x1="${x + 9}" y1="${layerY}" x2="${x + sectionWidth - 9}" y2="${layerY}" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>
-        <rect x="${x + 7}" y="${layerY - 10}" width="25" height="18" rx="4" fill="#fff7ed" stroke="#fdba74"/>
-        <text x="${x + 19.5}" y="${layerY + 3}" text-anchor="middle" class="layer">L${index + 1}</text>`;
+      return `<line x1="${x + layerInset}" y1="${layerY}" x2="${x + sectionWidth - layerInset}" y2="${layerY}" stroke="#000000" stroke-width="2.4" stroke-dasharray="6 4"/>`;
     }).join('');
     const layerLegendSvg = layers.map((layer, index) =>
       `<text class="note" x="0" y="${154 + index * 27}">L${index + 1}: ${axis === 'y' ? 'x' : 'y'}=${fmt(axis === 'y' ? layer.xCm : layer.yCm, 1)} cm, As=${fmt(layer.areaCm2, 2)} cm²</text>`
     ).join('');
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 455" role="img" aria-labelledby="src-column-title src-column-desc">
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 530" role="img" aria-labelledby="src-column-title src-column-desc">
       <title id="src-column-title">${SECTION_DIAGRAM_TITLE}</title>
       <desc id="src-column-desc">矩形混凝土柱內置中雙對稱 H 型鋼，主筋以 ${axis.toUpperCase()} 向計算層列總面積表示。</desc>
-      <style>text{font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif;fill:#172033}.dim{font-size:14px;font-weight:700}.layer{font-size:12px;fill:#92400e}.note{font-size:12px;fill:#64748b}.title{font-size:17px;font-weight:800}</style>
-      <rect x="0.5" y="0.5" width="759" height="454" rx="10" fill="#fff" stroke="#cbd5e1"/>
-      <rect x="${x}" y="${y}" width="${sectionWidth}" height="${sectionHeight}" fill="#f1f5f9" stroke="#334155" stroke-width="2.2"/>
-      ${layerSvg}
-      <rect x="${steelLeft}" y="${steelTop}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
-      <rect x="${webLeft}" y="${steelTop + flangeThickness}" width="${webThickness}" height="${steelDepth - 2 * flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
-      <rect x="${steelLeft}" y="${steelTop + steelDepth - flangeThickness}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
+      <defs>
+        ${SectionSvg.arrowMarker('src-column-load', '#000000', 8)}
+        <pattern id="src-col-steel-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="6" stroke="#111111" stroke-width="1.3"/>
+        </pattern>
+      </defs>
+      <style>text{font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif;fill:#000000}.dim{font-size:14px;font-weight:700}.layer{font-size:12px;fill:#000000}.note{font-size:12px;fill:#333333}.title{font-size:17px;font-weight:800}</style>
+      <rect x="0.5" y="0.5" width="759" height="529" rx="10" fill="#ffffff" stroke="#222222"/>
+      <rect data-diagram-role="concrete-outline" x="${x}" y="${y}" width="${sectionWidth}" height="${sectionHeight}" fill="#ffffff" stroke="#000000" stroke-width="2.2"/>
+      ${SectionSvg.symbolicTie({ x, y, width: sectionWidth, height: sectionHeight })}
+      <g data-diagram-role="longitudinal-rebar-layers">${layerSvg}</g>
+      <g data-diagram-role="steel-core">
+      <rect x="${steelLeft}" y="${steelTop}" width="${flangeWidth}" height="${flangeThickness}" fill="url(#src-col-steel-hatch)" stroke="#000000" stroke-width="1.4"/>
+      <rect x="${webLeft}" y="${steelTop + flangeThickness}" width="${webThickness}" height="${steelDepth - 2 * flangeThickness}" fill="url(#src-col-steel-hatch)" stroke="#000000" stroke-width="1.4"/>
+      <rect x="${steelLeft}" y="${steelTop + steelDepth - flangeThickness}" width="${flangeWidth}" height="${flangeThickness}" fill="url(#src-col-steel-hatch)" stroke="#000000" stroke-width="1.4"/>
+      </g>
       <text x="${cx}" y="${y - 18}" text-anchor="middle" class="dim">b = ${fmt(width, 1)} cm</text>
       <text x="${x - 22}" y="${cy}" text-anchor="middle" class="dim" transform="rotate(-90 ${x - 22} ${cy})">h = ${fmt(depth, 1)} cm</text>
-      <g transform="translate(475 82)">
+      <g data-diagram-role="section-dimensions" transform="translate(475 82)">
         <text class="title" x="0" y="0">採用計算斷面</text>
         <text class="dim" x="0" y="35">混凝土 ${fmt(width, 1)} × ${fmt(depth, 1)} cm</text>
         <text class="dim" x="0" y="66">${escapeXml(steel.shape || '')}</text>
-        <text class="note" x="0" y="91">D × bf × tw × tf</text>
+        <text class="note" x="0" y="91">D × bf × tw × tf（斜線填充）</text>
         <text class="dim" x="0" y="116">${fmt(steel.depthCm, 1)} × ${fmt(steel.flangeWidthCm, 1)} × ${fmt(steel.webThicknessCm, 1)} × ${fmt(steel.flangeThicknessCm, 1)} cm</text>
-        <line x1="0" y1="132" x2="28" y2="132" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>
+        <line x1="0" y1="132" x2="28" y2="132" stroke="#000000" stroke-width="2.4" stroke-dasharray="6 4"/>
         <text class="note" x="38" y="136">${axis.toUpperCase()} 向主筋計算${axis === 'y' ? '列' : '層'}與總 As</text>
         ${layerLegendSvg}
-        <text class="note" x="0" y="278">本圖依計算尺寸同比例繪製</text>
+        <text class="note" x="0" y="278">外框內點線為閉合橫箍筋配置示意</text>
         <text class="note" x="0" y="303">不表示鋼筋根數、號數或施工配置</text>
       </g>
+      <text class="title" x="475" y="422">${axis.toUpperCase()} 向檢核 · 外力方向示意</text>
+      ${SectionSvg.loadLegend([
+        { direction: 'down', label: 'Pu = ' + SectionSvg.dimensionValue(input.demands?.puTf) + ' tf' },
+        { direction: 'moment', label: 'M' + axis + ' = ' + SectionSvg.dimensionValue(axis === 'x' ? input.demands?.muxTfM : input.demands?.muyTfM) + ' tf·m' },
+      ], 479, 451, 'src-column-load')}
     </svg>`;
     return Object.freeze({
       title: SECTION_DIAGRAM_TITLE,
@@ -605,6 +617,60 @@
       svg,
       dataURL: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
     });
+  }
+
+  function buildInteractionDiagram(input, result) {
+    if (!SectionSvg?.srcColumnInteraction) return null;
+    const axis = input.seismicAxis === 'y' ? 'y' : 'x';
+    const phiPns = 0.85 * Number(result.steel?.nominalCompressionTf || 0);
+    const phiMns = 0.9 * Number(axis === 'y' ? result.steel?.nominalMomentYTfM : result.steel?.nominalMomentXTfM || 0);
+    const steelPoints = phiPns > 0 && phiMns > 0
+      ? [{ p: phiPns, m: 0 }, { p: 0.2 * phiPns, m: 0.9 * phiMns }, { p: 0, m: phiMns }]
+      : [];
+    const rawRc = Array.isArray(result.rc?.designCurve) ? result.rc.designCurve : [];
+    const posRc = rawRc
+      .map(pt => ({ p: Number(pt.P ?? pt.p), m: Number(pt.M ?? pt.m) }))
+      .filter(pt => Number.isFinite(pt.p) && Number.isFinite(pt.m) && pt.p >= 0 && pt.m >= 0);
+    const step = Math.max(1, Math.floor(posRc.length / 36));
+    const rcPoints = posRc.filter((_, i) => i === 0 || i === posRc.length - 1 || i % step === 0);
+    const sDem = result.redistribution?.finalSteelDemands || {};
+    const rDem = result.redistribution?.finalRcDemands || {};
+    return SectionSvg.srcColumnInteraction({
+      axis,
+      steelPoints,
+      rcPoints,
+      steelDemandP: Number(sDem.puTf || 0),
+      steelDemandM: Math.abs(Number(axis === 'y' ? sDem.muyTfM : sDem.muxTfM || 0)),
+      steelOk: result.checks?.steelInteraction !== false,
+      steelUtil: Number(result.steel?.finalInteraction?.utilization || 0),
+      rcDemandP: Number(rDem.puTf || 0),
+      rcDemandM: Math.abs(Number(axis === 'y' ? rDem.muyTfM : rDem.muxTfM || 0)),
+      rcOk: result.checks?.rcInteraction !== false,
+      rcUtil: Number(result.rc?.utilization || 0),
+      rcAllowMAtP: Number.isFinite(Number(result.rc?.phiMnTfM)) ? Number(result.rc.phiMnTfM) : null,
+      totalPu: Number(input.demands?.puTf || 0),
+      totalMu: Math.abs(Number(axis === 'y' ? input.demands?.muyTfM : input.demands?.muxTfM || 0)),
+      redistributed: result.redistribution?.applied === true,
+    });
+  }
+
+  function buildSeismicProfileDiagram(input, result) {
+    if (!SectionSvg?.srcColumnSeismicProfile) return null;
+    const axis = input.seismicAxis === 'y' ? 'y' : 'x';
+    const items = [
+      { label: '鋼骨 P–M 互制', ratio: Number(result.steel?.finalInteraction?.utilization), ok: result.checks?.steelInteraction !== false },
+      { label: 'RC P–M 互制', ratio: Number(result.rc?.utilization), ok: result.checks?.rcInteraction !== false },
+      { label: '9.3 耐震軸壓', ratio: Number(result.seismicAxial?.compression?.utilization), ok: result.seismicAxial?.compression?.ok !== false },
+      ...(result.seismicAxial?.tension?.applicable ? [{ label: '9.3 耐震軸拉', ratio: Number(result.seismicAxial.tension.utilization), ok: result.seismicAxial.tension.ok !== false }] : []),
+      ...(result.shear ? [
+        { label: '9.6.2 鋼骨剪力', ratio: Number(result.shear.steel?.utilization), ok: result.shear.steel?.ok !== false },
+        { label: '9.6.2 RC 剪力', ratio: Number(result.shear.rc?.utilization), ok: result.shear.rc?.ok !== false },
+      ] : []),
+      ...(result.jointFlexuralStrengthRatio ? [{ label: '8.4.2 接頭比值', ratio: Number(result.jointFlexuralStrengthRatio.maximumUtilization), ok: result.jointFlexuralStrengthRatio.ok !== false }] : []),
+      ...(result.strongColumnWeakBeam ? [{ label: '9.6.1 強柱弱梁', ratio: Number(result.strongColumnWeakBeam.utilization), ok: result.strongColumnWeakBeam.ok !== false }] : []),
+      ...(result.confinement ? [{ label: '9.6.3 圍束箍筋', ratio: Number(result.confinement.ash?.utilization), ok: result.confinement.ok !== false }] : []),
+    ];
+    return SectionSvg.srcColumnSeismicProfile({ axis, items });
   }
 
   function failedLabels(result) {
@@ -665,6 +731,7 @@
       subtitle: `SRC Column ${axis.toUpperCase()}-Axis Seismic Calculation Report`,
       toolName: TOOL_NAME,
       toolVersion: PAGE_VERSION,
+      textExport: true,
       formalApprovalAllowed: result.steelSection?.source?.mode === 'catalog',
       outputSource: {
         tool: TOOL_NAME,
@@ -793,7 +860,10 @@
           ],
         }] : []),
       ],
-      diagrams: [{ title: diagram.title, dataURL: diagram.dataURL, caption: diagram.caption, width: diagram.width }],
+      diagrams: [
+        { title: diagram.title, dataURL: diagram.dataURL, caption: diagram.caption, width: diagram.width },
+        ...[buildInteractionDiagram(input, result), buildSeismicProfileDiagram(input, result)].filter(Boolean),
+      ],
       checks: [
         {
           group: '構材斷面與軸彎互制',
@@ -1005,6 +1075,7 @@
       subtitle: 'SRC Column X/Y-Axis Seismic Calculation Report',
       toolName: `${TOOL_NAME}（雙向彙總）`,
       toolVersion: PAGE_VERSION,
+      textExport: true,
       formalApprovalAllowed: xConfig.formalApprovalAllowed && yConfig.formalApprovalAllowed,
       outputSource: {
         tool: `${TOOL_NAME}（雙向彙總）`,
@@ -1363,6 +1434,13 @@
       $('sectionDiagramPlaceholder').hidden = false;
       $('sectionDiagramPlaceholder').textContent = '輸入尚未通過檢查，未產生計算斷面圖。';
       $('sectionDiagramCaption').textContent = '';
+      for (const prefix of ['pmDiagram', 'seismicDiagram']) {
+        if ($(`${prefix}Image`)) {
+          $(`${prefix}Image`).hidden = true;
+          $(`${prefix}Image`).removeAttribute('src');
+          $(`${prefix}Caption`).textContent = '';
+        }
+      }
       $('reportReadiness').className = 'src-readiness blocked';
       $('reportReadiness').innerHTML = `<strong>輸入未通過檢查</strong><ul>${issues.map(item => `<li>${escapeHtml(item.message || item)}</li>`).join('')}</ul><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`;
     }
@@ -1461,6 +1539,18 @@
       $('sectionDiagramImage').hidden = !diagram;
       $('sectionDiagramPlaceholder').hidden = Boolean(diagram);
       $('sectionDiagramCaption').textContent = diagram?.caption || '';
+      const pmDiagram = config?.diagrams?.[1];
+      if ($('pmDiagramImage')) {
+        $('pmDiagramImage').src = pmDiagram?.dataURL || '';
+        $('pmDiagramImage').hidden = !pmDiagram;
+        $('pmDiagramCaption').textContent = pmDiagram?.caption || '';
+      }
+      const seismicDiagram = config?.diagrams?.[2];
+      if ($('seismicDiagramImage')) {
+        $('seismicDiagramImage').src = seismicDiagram?.dataURL || '';
+        $('seismicDiagramImage').hidden = !seismicDiagram;
+        $('seismicDiagramCaption').textContent = seismicDiagram?.caption || '';
+      }
       $('reportReadiness').className = strengthOk ? 'src-readiness review' : 'src-readiness ng';
       $('reportReadiness').innerHTML = strengthOk
         ? `<strong>${escapeHtml(axisLabel)}計算完成</strong><span>計算書預設為可列印的內部審閱；完成審閱並勾選核可後可作正式附件。正交方向、接頭區剪力、接合細部與完整構架仍由主文或其他附件承接。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`
@@ -1626,6 +1716,16 @@
         lastFingerprint = reportUi.buildReportTrace(lastConfig).calculationFingerprint;
         win.lastSrcColumnReportConfig = lastConfig;
         win.lastSrcColumnCalculationFingerprint = lastFingerprint;
+      });
+    });
+
+    doc.querySelectorAll('[data-src-column-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.srcColumnTab;
+        doc.querySelectorAll('[data-src-column-tab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.srcColumnTab === tab ? 'true' : 'false'));
+        doc.querySelectorAll('[data-src-column-diagram]').forEach(fig => {
+          fig.hidden = tab !== 'all' && fig.dataset.srcColumnDiagram !== tab;
+        });
       });
     });
 

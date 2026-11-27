@@ -444,6 +444,13 @@
   flex: 1 1 180px;
 }
 
+.member-section-image {
+  display: block;
+  width: 100%;
+  max-width: 650px;
+  height: auto;
+}
+
 .member-layout .report-block,
 .member-layout .report-paper,
 .member-layout .input-column .card,
@@ -517,3 +524,989 @@
 }
 .member-draft-clear:hover { background: var(--hy-navy-50); }
 @media print { .member-draft-clear { display: none !important; } }
+
+/* ═══ V1.6 工程視覺圖表中心、安全餘裕指標與整合輔助面板美化 ═══ */
+.page-header {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-default);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+}
+
+.member-layout .card {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.member-layout .input-column .card:focus-within {
+  border-color: var(--hy-navy-300);
+  box-shadow: 0 6px 18px rgba(30, 58, 138, 0.08);
+}
+
+.member-summary-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.member-summary-card .value,
+.result-item .value,
+.member-margin-pill strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.member-visual-hub {
+  margin: 14px 0 18px;
+  padding: clamp(12px, 2vw, 20px);
+  border: 1px solid var(--border-default);
+  border-top: 3px solid var(--hy-navy);
+  border-radius: var(--radius-xl);
+  background: var(--hy-paper, #fff);
+}
+
+.member-visual-hub__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.report-block .member-visual-hub__head h3 {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-size: var(--fs-md, 1.05rem);
+  color: var(--hy-navy-deep, #0f2942);
+}
+
+.member-visual-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.member-visual-tabs button {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md, 6px);
+  min-height: 36px;
+  padding: 4px 9px;
+  background: var(--hy-paper, #fff);
+  color: var(--hy-navy);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.member-visual-tabs button[aria-pressed="true"] {
+  border-color: var(--hy-navy);
+  background: var(--hy-navy);
+  color: var(--fg-on-navy, #fff);
+}
+
+.member-visual-tabs button:focus-visible {
+  outline: 2px solid var(--hy-navy-500, #315e89);
+  outline-offset: 2px;
+}
+
+.member-chart-basis {
+  margin: 10px 0;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--fg-2, #41546b);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.member-margin-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.member-margin-pill {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--hy-navy-300, #9fb5cb);
+  border-radius: var(--radius-md, 6px);
+  background: var(--hy-navy-50, #f5f8fb);
+}
+
+.member-margin-pill.fail {
+  border-left-color: var(--hy-red-deep, #a62b25);
+}
+
+.member-margin-pill dt {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--fg-2, #41546b);
+}
+
+.member-margin-pill dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.member-margin-pill strong {
+  display: block;
+  color: var(--hy-navy-deep, #0f2942);
+  font-size: clamp(1rem, 0.8rem + 0.4vw, 1.2rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.member-margin-pill.fail strong {
+  color: var(--hy-red-deep, #a62b25);
+}
+
+.member-margin-pill small {
+  display: block;
+  margin-top: 4px;
+  color: var(--fg-2, #41546b);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.member-diagram-figure {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md, 6px);
+  background: var(--hy-paper, #fff);
+}
+
+.member-diagram-figure[hidden] {
+  display: none !important;
+}
+
+.member-diagram-figure__head {
+  margin: 0 0 8px;
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.member-diagram-figure__head h4 {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 750;
+  color: var(--hy-navy-deep, #0f2942);
+}
+
+.member-diagram-figure .member-section-image {
+  max-width: 548px;
+  margin-inline: auto;
+}
+
+.member-diagram-figure figcaption {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-default);
+  color: var(--fg-2, #41546b);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* K 值計算輔助與載重組合產生器整合樣式 */
+.member-helper-box {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px dashed var(--hy-navy-300, #93c5fd);
+  border-radius: var(--radius-lg);
+  background: var(--hy-navy-50, #f8fafc);
+}
+
+.member-helper-box__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--hy-navy, #1e3a5f);
+}
+
+.member-helper-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.member-helper-actions button {
+  padding: 5px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  color: var(--hy-navy, #1e3a5f);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.member-helper-actions button:hover {
+  background: var(--hy-info-100, #e0f2fe);
+}
+
+.member-helper-output {
+  margin-top: 8px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--hy-navy-deep, #0f2942);
+}
+
+.lc-formal-panel {
+  margin-top: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.lc-formal-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-xs);
+}
+
+.lc-formal-panel th,
+.lc-formal-panel td {
+  padding: 5px 6px;
+  border: 1px solid var(--border-default);
+  text-align: center;
+}
+
+.lc-formal-panel th {
+  background: var(--bg-subtle, #f1f5f9);
+  font-weight: 700;
+}
+
+.lc-formal-panel input[type="number"] {
+  min-width: 58px;
+  padding: 4px 6px;
+  font-size: var(--fs-xs);
+}
+
+.lc-formal-panel .lc-actions,
+.lc-formal-panel .lc-limit-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+@media (max-width: 640px) {
+  .member-visual-hub {
+    padding: 10px;
+  }
+
+  .member-visual-hub__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .member-visual-tabs button {
+    min-height: 40px;
+  }
+
+  .member-diagram-figure {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 460px) {
+  .member-margin-strip {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .member-margin-pill {
+    padding: 6px 9px;
+  }
+}
+
+/* ═══ V1.6.1 工程計算書風格輸出畫面（清晰字體、高對比、簡潔扁平結構） ═══ */
+.report-column {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.report-column .section-tabs {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: none;
+  gap: 4px;
+}
+
+.report-column .section-tabs button {
+  border-radius: 3px;
+  padding: 7px 14px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: 0.01em;
+}
+
+.report-column .section-tabs button.active {
+  background: #0f2942;
+  color: #ffffff;
+}
+
+.report-column .section-tab-badge {
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-paper {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 22px 26px 28px;
+  color: #0f172a;
+  font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  line-height: 1.6;
+}
+
+.report-column .report-toolbar {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.report-column .report-toolbar button {
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.report-column .report-head {
+  border-bottom: 2px solid #0f2942;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  gap: 16px;
+  align-items: end;
+}
+
+.report-column .report-head h2 {
+  font-size: 1.32rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.report-column .report-head p {
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.report-column .report-meta {
+  gap: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.report-column .report-meta div {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 5px 10px;
+  min-width: 240px;
+  font-size: 0.84rem;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-meta div:last-child {
+  border-bottom: none;
+}
+
+.report-column .report-meta b {
+  color: #334155;
+  font-weight: 700;
+}
+
+.report-column .report-summary {
+  margin-bottom: 16px;
+}
+
+.report-column .member-banner {
+  border-radius: 3px;
+  border-width: 1px;
+  border-left-width: 4px;
+  padding: 11px 16px;
+  margin-bottom: 12px;
+  text-align: left;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .member-banner.ok {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  border-left-color: #15803d;
+  color: #14532d;
+}
+
+.report-column .member-banner.warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  border-left-color: #b45309;
+  color: #78350f;
+}
+
+.report-column .member-banner.fail {
+  background: #fef2f2;
+  border-color: #fecaca;
+  border-left-color: #b91c1c;
+  color: #7f1d1d;
+}
+
+.report-column .banner-key {
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.report-column .banner-key .k {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.report-column .k-label {
+  color: #475569;
+  font-weight: 600;
+}
+
+.report-column .k-val {
+  color: #0f172a;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-summary-note {
+  margin: 10px 0 0;
+  color: #334155;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.report-column .report-healthbar {
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.report-column .health-chip {
+  border-radius: 3px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  gap: 3px;
+}
+
+.report-column .health-chip__label {
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.report-column .health-chip__value {
+  color: #0f172a;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-jumpbar {
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.report-column .report-jumpbar .btn-secondary {
+  padding: 5px 10px;
+  min-height: 32px;
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.report-column .report-jumpbar .btn-secondary:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.report-column .member-summary-grid {
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.report-column .member-summary-card {
+  border: 1px solid #cbd5e1;
+  border-top: 2px solid #0f2942;
+  border-radius: 3px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.report-column .member-summary-card .label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.report-column .member-summary-card .value {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+/* 扁平化報表內巢狀卡片，呈現簡潔的工程計算書章節節奏 */
+.report-column .report-paper > .report-block,
+.report-column .report-paper > .card,
+.report-column .report-paper #resultWrap > .card {
+  background: transparent;
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 16px 0 4px;
+  margin: 14px 0 0;
+}
+
+.report-column .report-paper > .member-visual-hub {
+  border: 1px solid #cbd5e1;
+  border-top: 3px solid #0f2942;
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 14px 16px;
+  margin: 14px 0 16px;
+}
+
+.report-column .report-paper .report-block > h3,
+.report-column .report-paper .card > h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 2px 0 2px 10px;
+  border-left: 3px solid #0f2942;
+  background: transparent;
+  color: #0f2942;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.report-column .report-block-status {
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.report-column .member-visual-tabs button {
+  border-radius: 3px;
+  border-color: #cbd5e1;
+  color: #334155;
+  font-weight: 700;
+}
+
+.report-column .member-visual-tabs button[aria-pressed="true"] {
+  background: #0f2942;
+  border-color: #0f2942;
+  color: #ffffff;
+}
+
+.report-column .member-chart-basis {
+  color: #334155;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .member-margin-pill {
+  border-radius: 3px;
+  border-color: #cbd5e1;
+  border-left-color: #0f2942;
+  background: #f8fafc;
+  padding: 8px 12px;
+}
+
+.report-column .member-margin-pill dt {
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.report-column .member-margin-pill strong {
+  font-family: var(--font-mono);
+  color: #0f172a;
+}
+
+.report-column .member-diagram-figure {
+  border-radius: 3px;
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+.report-column .member-diagram-figure__head h4 {
+  color: #0f2942;
+  font-size: 0.92rem;
+}
+
+.report-column .member-diagram-figure figcaption {
+  color: #334155;
+  font-size: 0.84rem;
+}
+
+/* 工程計算書表格與檢核列 */
+.report-column .report-table,
+.report-column .member-mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.89rem;
+  line-height: 1.55;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-column .report-table th,
+.report-column .report-table td,
+.report-column .member-mini-table th,
+.report-column .member-mini-table td {
+  border: 1px solid #cbd5e1;
+  padding: 7px 10px;
+  vertical-align: middle;
+}
+
+.report-column .report-table th,
+.report-column .member-mini-table th {
+  background: #f1f5f9;
+  color: #0f2942;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.report-column .report-table tbody tr:nth-child(even) td,
+.report-column .member-mini-table tbody tr:nth-child(even) td {
+  background: #fafcff;
+}
+
+.report-column .result-item {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-left: 3px solid #0f2942;
+  border-radius: 3px;
+  padding: 9px 12px;
+  margin-bottom: 7px;
+}
+
+.report-column .result-item.ok {
+  border-left-color: #15803d;
+}
+
+.report-column .result-item.warn {
+  border-left-color: #b45309;
+}
+
+.report-column .result-item.fail {
+  border-left-color: #b91c1c;
+  background: #fef2f2;
+}
+
+.report-column .result-item .label {
+  color: #1e293b;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.report-column .result-item .value {
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+.report-column .result-item .unit {
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.report-column .step-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-left: 3px solid #0f2942;
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.report-column .step-card h4 {
+  color: #0f2942;
+  font-size: 0.94rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.report-column .step-card .formula {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 2px;
+  padding: 6px 10px;
+  margin: 5px 0;
+  font-family: var(--font-mono);
+  font-size: 0.87rem;
+  color: #0f172a;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.report-column .step-card .note {
+  color: #334155;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.report-column .member-reminder {
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  border-left-width: 3px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+
+.report-column .member-reminder strong {
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.report-column .member-reminder p {
+  font-size: 0.86rem;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.report-column .approval-card {
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.report-column .approval-title {
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.report-column .approval-value {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .report-column .report-paper {
+    padding: 14px 14px 18px;
+  }
+
+  .report-column .report-meta div {
+    min-width: 0;
+  }
+}
+
+/* ═══ V1.6.2 雙向圖表並排總覽與全頁工程工作站視覺美化 ═══ */
+body.steel-formal-output-page {
+  background: #f1f5f9;
+}
+
+.member-layout .input-column .card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-top: 2px solid #1e3a5f;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 16px 18px;
+}
+
+.member-layout .input-column .card:focus-within {
+  border-color: #64748b;
+  border-top-color: #0f2942;
+  box-shadow: 0 2px 8px rgba(15, 41, 66, 0.08);
+}
+
+.member-layout .input-column .member-card-head {
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.member-layout .input-column .member-card-head h2 {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #0f2942;
+  letter-spacing: 0.02em;
+}
+
+.member-layout .input-column .form-group label {
+  color: #334155;
+  font-size: 0.83rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.member-layout .input-column .form-group input,
+.member-layout .input-column .form-group select,
+.member-layout .input-column .form-group textarea {
+  border: 1px solid #94a3b8;
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 0.92rem;
+  color: #0f172a;
+  background: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.member-layout .input-column .form-group input:focus,
+.member-layout .input-column .form-group select:focus,
+.member-layout .input-column .form-group textarea:focus {
+  border-color: #0f2942;
+  box-shadow: 0 0 0 2px rgba(15, 41, 66, 0.14);
+}
+
+.member-layout .input-column .collapsible-details {
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  background: #f8fafc;
+}
+
+.member-layout .input-column .member-fill-badge,
+.member-layout .input-column .card-header-meta {
+  border-radius: 3px;
+  font-size: 0.76rem;
+}
+
+.member-layout .btn-calc {
+  background: #0f2942;
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.member-layout .btn-calc:hover {
+  background: #163a5f;
+}
+
+.member-layout .btn-secondary {
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f2942;
+  font-weight: 700;
+}
+
+.member-layout .btn-secondary:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* 雙向圖表並排格線（預設總覽可同時看 P-Mx 與 P-My） */
+.report-column .member-margin-strip {
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.report-column .member-margin-pill.ok {
+  border-left-color: #15803d;
+  background: #f8fafc;
+}
+
+.report-column .member-margin-pill.fail {
+  border-left-color: #b91c1c;
+  background: #fef2f2;
+}
+
+.report-column .member-diagram-gallery.is-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.report-column .member-diagram-figure {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.report-column .member-diagram-figure__head {
+  margin: 0;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.report-column .member-diagram-figure__head h4 {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0f2942;
+}
+
+.report-column .member-diagram-figure .member-section-image {
+  padding: 10px 10px 6px;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.report-column .member-diagram-figure figcaption {
+  margin: 0;
+  padding: 8px 12px 10px;
+  background: #fafcff;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.81rem;
+  line-height: 1.5;
+  color: #334155;
+}
+
+@media (max-width: 860px) {
+  .report-column .member-diagram-gallery.is-grid {
+    grid-template-columns: 1fr;
+  }
+}

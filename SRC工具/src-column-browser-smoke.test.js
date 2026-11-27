@@ -111,6 +111,8 @@ async function main() {
     assert.equal(initial.confinementOk, true);
     assert.match(initial.fingerprint, /^CF-[A-F0-9]{16}$/);
     const responsibilityMatrix = page.locator('#attachmentResponsibility');
+    assert.equal(await responsibilityMatrix.isHidden(), true, '適用範圍預設摺疊');
+    await page.locator('#srcColumnScopeDetails > summary').click();
     await responsibilityMatrix.waitFor({ state: 'visible' });
     assert.equal(await responsibilityMatrix.getAttribute('data-contract-id'), 'src-column-member-calculation-attachment.v1');
     const responsibilityText = await responsibilityMatrix.innerText();
@@ -118,6 +120,7 @@ async function main() {
       assert.ok(responsibilityText.includes(needle), `HTML responsibility matrix includes ${needle}`);
     }
     assert.equal(await responsibilityMatrix.locator('[data-responsibility]').count(), 3);
+    await page.locator('#srcColumnScopeDetails > summary').click();
     const provenancePolicy = page.locator('#materialProvenancePolicy');
     await provenancePolicy.waitFor({ state: 'visible' });
     assert.equal(await provenancePolicy.getAttribute('data-contract-id'), 'src-column-material-provenance.v1');
@@ -167,7 +170,9 @@ async function main() {
     assert.equal(await page.locator('[data-y-project-steel]').first().isVisible(), true);
     assert.equal(await page.locator('[data-y-aisc-steel]').first().isHidden(), true);
     assert.equal(await page.locator('[data-x-shear]').first().isHidden(), true);
+    await page.locator('#confinementSubcheckDetails > summary').click();
     assert.equal(await page.locator('#highlyConfinedAreaCm2').isEditable(), false, 'weak-axis Ahcc is visibly locked at zero');
+    await page.locator('#srcColumnShearDetails > summary').click();
     const weakAxisReference = page.locator('#weakAxisSteelReference');
     await weakAxisReference.waitFor({ state: 'visible' });
     const weakAxisReferenceText = await weakAxisReference.innerText();
@@ -227,6 +232,7 @@ async function main() {
     assert.equal(await page.locator('[data-x-shear]').first().isVisible(), true);
     assert.equal(await weakAxisReference.isHidden(), true, 'external comparison is direction-scoped to the weak axis');
 
+    await page.locator('#jointRatioSubcheckDetails > summary').click();
     await page.selectOption('#jointConnectionType', 'steel-beam-src-column');
     await page.waitForFunction(() => window.lastSrcColumnResult?.jointFlexuralStrengthRatio?.connectionType === 'steel-beam-src-column');
     assert.equal(await page.locator('[data-joint-rc]').first().isHidden(), true, 'steel-beam mode hides inapplicable RC-beam component inputs');
@@ -419,6 +425,8 @@ async function main() {
       continuationContextLabels: [
         '規範、構材與分析條件', '採用斷面與材料', '第 9.3 節採用地震軸力資料',
         '第 9.6.2 節採用柱剪力資料', '第 8.4.2 節採用接頭面分量彎矩',
+        '構材斷面與軸彎互制', 'SRC 柱 Y 向（鋼骨弱軸） 鋼骨／RC 分擔 P–My 互制圖',
+        'SRC 柱 Y 向 各項規範檢核動員比總覽',
         '第 9.6 節Y 向（鋼骨弱軸）耐震子檢核', '計算過程明細',
         '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力', '控制結果', '檢核結論',
       ],
@@ -454,7 +462,7 @@ async function main() {
     await dualReport.getByLabel('核可依據，選填').fill('SRC 柱 X／Y 雙向重算核對');
     await dualApproval.check();
     assert.match(await dualReport.title(), /正式附件/);
-    assert.equal(await dualReport.locator('.rep-diagram img').count(), 2, '雙向彙總含兩張計算斷面');
+    assert.equal(await dualReport.locator('.rep-diagram img').count(), 6, '雙向彙總含 X／Y 計算斷面與互制／耐震動員圖');
     const dualPdfPath = path.join(outDir, 'src-column-dual-axis-formal-report.pdf');
     await dualReport.emulateMedia({ media: 'print' });
     await dualReport.pdf({ path: dualPdfPath, format: 'A4', printBackground: true });
@@ -479,6 +487,10 @@ async function main() {
         'X 向｜第 8.4.2 節接頭撓曲強度比', 'Y 向｜第 8.4.2 節接頭撓曲強度比',
         'X 向｜第 9.6.1 節採用接頭面名義彎矩', 'Y 向｜第 9.6.1 節採用接頭面名義彎矩',
         'X 向｜SRC 柱計算斷面', 'Y 向｜SRC 柱計算斷面',
+        'X 向｜SRC 柱 X 向（鋼骨強軸） 鋼骨／RC 分擔 P–Mx 互制圖',
+        'Y 向｜SRC 柱 Y 向（鋼骨弱軸） 鋼骨／RC 分擔 P–My 互制圖',
+        'X 向｜SRC 柱 X 向 各項規範檢核動員比總覽',
+        'Y 向｜SRC 柱 Y 向 各項規範檢核動員比總覽',
         'X 向｜計算過程明細', 'Y 向｜計算過程明細',
         'X 向｜第 6.4 節鋼骨受壓與 SRC 受壓強度', 'Y 向｜第 6.4 節鋼骨受壓與 SRC 受壓強度',
         'X 向｜第 8.4.2 節接頭撓曲強度比（8.4.2 / (8.4-1)、8.4.2 / (8.4-2)）',

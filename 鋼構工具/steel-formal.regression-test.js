@@ -368,14 +368,28 @@ for (const [label, runtime] of [["shared", sharedReportRuntime], ["local", local
   );
 }
 
-for (const token of [
-  "const toY = (value) => 36 + value * scale",
-  "toY(plateLength) + 34",
-  "toY(plateLength) + 58",
-  "toY(plateLength) + 92",
-]) {
-  assert.ok(appSource.includes(token), `legacy plate sketch should preserve separated label spacing: ${token}`);
+const { boltPlate } = require('../結構工具箱/core/ui/member-section-svg.js');
+const sketch = boltPlate({
+  id: 'test-plate',
+  title: '代表性連接板',
+  width: 170, height: 260, plateThickness: 12, holeDiameter: 22,
+  holes: [{x: 55, y: 35}, {x: 55, y: 105}],
+  boltDescription: '單列 2 栓',
+  notes: ['端距 = 35 mm', '孔距 = 70 mm'],
+  load: {direction: 'down', label: '剪力需求 = 60 kN'},
+  caption: '尺寸與力路配置',
+});
+for (const role of ['member-outline', 'bolt-layout', 'dimension-lines', 'dimension-labels', 'force-arrow-zone', 'force-label-zone']) {
+  assert.ok(sketch.includes('data-diagram-role="' + role + '"'), '可分辨圖面圖層：' + role);
 }
+assert.equal((sketch.match(/<marker\b/g) || []).length, 2);
+assert.equal((sketch.match(/markerUnits="userSpaceOnUse"/g) || []).length, 2);
+const [, outlineX, outlineWidth] = sketch.match(/data-diagram-role="member-outline" x="([\d.]+)" y="[\d.]+" width="([\d.]+)"/);
+const geometryEnd = Number(outlineX) + Number(outlineWidth);
+const forceStart = Number(sketch.match(/data-diagram-role="force-arrow-zone"><line x1="([\d.]+)"/)[1]);
+const labelStart = Number(sketch.match(/data-diagram-role="force-label-zone"[^>]*><text x="([\d.]+)"/)[1]);
+assert.ok(geometryEnd < forceStart && forceStart < labelStart, '受力箭頭及標註依次獨立於孔群外');
+assert.match(sketch, /板厚 t = 12 mm[\s\S]*端距 = 35 mm[\s\S]*孔距 = 70 mm[\s\S]*剪力需求 = 60 kN/);
 assert.match(
   appSource,
   /class="block report-sketch-block"><h3>破壞路徑示意[\s\S]*class="block report-sketch-block"><h3>構材與接合示意/s,
@@ -455,7 +469,7 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, key === "column" ? "V1.5" : key === "connection" ? "V1.3" : key === "beam" ? "V1.5" : key === "plate" ? "V1.2" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
+  assert.equal(metadata.version, key === "column" ? "V1.6" : key === "connection" ? "V1.3" : key === "beam" ? "V1.6" : key === "plate" ? "V1.2" : "V1.1", `${key} metadata should expose its canonical steel formal version`);
 }
 const momentModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.beamColumnMoment;
 assert.equal(momentModuleMetadata?.state, "formal", "connection metadata should mark the scoped beam-column moment review formal");
@@ -578,12 +592,12 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
   );
   assert.match(
     html,
-    /id="exportSourceJsonBtn"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+    /id="exportSourceJsonBtn"[^>]*>[^<]*匯出案件 JSON<\/button>/,
     `${label} page should expose a calculation-source JSON export`,
   );
   assert.match(
     html,
-    /id="importSourceJsonBtn"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="importSourceJsonInput"[^>]*type="file"[^>]*accept="application\/json,\.json"[^>]*hidden/,
+    /id="importSourceJsonBtn"[^>]*>[^<]*匯入案件 JSON<\/button>[\s\S]*id="importSourceJsonInput"[^>]*type="file"[^>]*accept="application\/json,\.json"[^>]*hidden/,
     `${label} page should expose a calculation-source JSON import`,
   );
 }
@@ -591,8 +605,8 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
 for (const [label, html, expectedVersion, navFamily] of [
   ["steel main", indexSource, "V1.3", "steel"],
   ["steel plate", plateCheckSource, "V1.2", "attachments"],
-  ["steel beam", beamFormalHtmlSource, "V1.5", "steel"],
-  ["steel column", columnFormalHtmlSource, "V1.5", "steel"],
+  ["steel beam", beamFormalHtmlSource, "V1.6", "steel"],
+  ["steel column", columnFormalHtmlSource, "V1.6", "steel"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
   const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";
@@ -610,7 +624,7 @@ for (const [label, html, expectedVersion, navFamily] of [
   );
   assert.match(
     html,
-    new RegExp(`<body class="steel-formal-output-page" data-family="${navFamily}">[\\s\\S]*class="steel-formal-direct-print-boundary"`),
+    new RegExp(`<body class="steel-formal-output-page" data-family="${navFamily}"(?:\\s+[^>]*)?>[\\s\\S]*class="steel-formal-direct-print-boundary"`),
     `${label} work page should expose the steel formal direct-print boundary`,
   );
   for (const needle of [
@@ -1340,12 +1354,12 @@ assert.doesNotMatch(
 );
 assert.match(
   beamFormalHtmlSource,
-  /id="btnExportSourceJson"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+  /id="btnExportSourceJson"[^>]*>[^<]*匯出案件 JSON<\/button>/,
   "steel-beam-formal.html should expose a calculation-source JSON export",
 );
 assert.match(
   beamFormalHtmlSource,
-  /id="btnImportSourceJson"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
+  /id="btnImportSourceJson"[^>]*>[^<]*匯入案件 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
   "steel-beam-formal.html should expose a calculation-source JSON import",
 );
 assert.match(
@@ -1391,12 +1405,12 @@ assert.doesNotMatch(
 );
 assert.match(
   columnFormalHtmlSource,
-  /id="btnExportSourceJson"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+  /id="btnExportSourceJson"[^>]*>[^<]*匯出案件 JSON<\/button>/,
   "steel-column-formal.html should expose a calculation-source JSON export",
 );
 assert.match(
   columnFormalHtmlSource,
-  /id="btnImportSourceJson"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
+  /id="btnImportSourceJson"[^>]*>[^<]*匯入案件 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
   "steel-column-formal.html should expose a calculation-source JSON import",
 );
 assert.match(
@@ -1779,5 +1793,105 @@ assert.ok(fs.existsSync(localReportCorePath), "steel formal pages should vendor 
 assert.ok(fs.existsSync(syncFormalCorePath), "steel formal tooling should include a formal core sync script");
 assert.ok(fs.existsSync(runSyncFormalCoreBatPath), "steel formal tooling should include a batch wrapper for formal core sync");
 assert.ok(fs.existsSync(formalCoreManifestPath), "steel formal tooling should include the generated formal core manifest");
+
+// V1.6 consolidation & envelope SVG charts regression checks
+{
+  const MemberSectionSvg = require("../結構工具箱/core/ui/member-section-svg.js");
+  assert.equal(typeof MemberSectionSvg.steelColumnInteraction, "function", "MemberSectionSvg should expose steelColumnInteraction");
+  assert.equal(typeof MemberSectionSvg.steelColumnBiaxial, "function", "MemberSectionSvg should expose steelColumnBiaxial");
+  assert.equal(typeof MemberSectionSvg.steelBeamLtbCurve, "function", "MemberSectionSvg should expose steelBeamLtbCurve");
+  assert.equal(typeof MemberSectionSvg.steelBeamResponse, "function", "MemberSectionSvg should expose steelBeamResponse");
+
+  const colEnvDiagram = MemberSectionSvg.steelColumnInteraction({
+    methodLabel: "LRFD",
+    forceUnit: "tf",
+    momentUnit: "tf·m",
+    points: [{ p: 250, m: 0 }, { p: 50, m: 42 }, { p: 0, m: 48 }],
+    demandP: 120,
+    demandM: 18,
+    allowMAtP: 31.5,
+    allowPAtM: 185,
+    kneeP: 50,
+    kneeM: 42,
+    maxP: 250,
+    maxM: 48,
+    ratioText: "0.72",
+    ok: true,
+    eqLabel: "式 H1-1a",
+    noteLabel: "單向彎矩狀態 (My=0)",
+  });
+  const colEnvSvg = decodeURIComponent(colEnvDiagram.dataURL.replace(/^data:image\/svg\+xml;charset=utf-8,/, ""));
+  assert.equal(colEnvDiagram.layout, "engineering-chart", "long engineering captions must use the constrained report layout");
+  assert.match(colEnvSvg, /markerUnits="userSpaceOnUse"/, "column P-M envelope SVG must use userSpaceOnUse markers");
+  assert.match(colEnvSvg, /data-diagram-role="capacity-envelope"/, "column P-M envelope SVG must include capacity-envelope layer");
+  assert.match(colEnvSvg, /data-diagram-role="margin-zone"[\s\S]*ΔMx \+13\.5 tf·m/, "column P-M envelope SVG must display bending safety margin ΔMx");
+
+  const overCapacity = MemberSectionSvg.steelColumnInteraction({
+    demandP: 10000, demandM: 18, allowMAtP: null, maxP: 250, maxM: 48,
+    ok: false, unavailableReason: "軸壓已超限，無可用彎矩餘裕",
+  });
+  assert.match(overCapacity.caption, /無可用彎矩餘裕[\s\S]*需求點超出圖幅/);
+  assert.doesNotMatch(overCapacity.caption, /同軸力容量 0|ΔMx -18|999/);
+
+  const biaxial = MemberSectionSvg.steelColumnBiaxial({
+    demandP: 50, demandMx: 15, demandMy: 5, capMxAtP: 28, capMyAtP: 13,
+    allowMxAtMy: 18.4, allowMyAtMx: 6.58,
+  });
+  assert.match(biaxial.caption, /固定 My 時 ΔMx \+3\.4[\s\S]*固定 Mx 時 ΔMy \+1\.58/);
+
+  const beamEnvDiagram = MemberSectionSvg.steelBeamLtbCurve({
+    usesLtb: true,
+    lengthUnit: "cm",
+    momentUnit: "tf·m",
+    strengthSymbol: "φMn",
+    curvePoints: [{ x: 0, y: 36 }, { x: 180, y: 36 }, { x: 520, y: 24 }, { x: 800, y: 15 }],
+    Lp: 180,
+    Lr: 520,
+    Lb: 320,
+    demandM: 22,
+    capM: 31,
+    mpCapM: 36,
+    governingLabel: "側向扭轉挫屈控制（LTB）",
+    clauseLabel: "F2",
+    ok: true,
+  });
+  const beamEnvSvg = decodeURIComponent(beamEnvDiagram.dataURL.replace(/^data:image\/svg\+xml;charset=utf-8,/, ""));
+  assert.match(beamEnvSvg, /markerUnits="userSpaceOnUse"/, "beam LTB curve SVG must use userSpaceOnUse markers");
+  assert.match(beamEnvSvg, /ΔM \+9 tf·m/, "beam LTB curve SVG must display moment safety margin ΔM");
+
+  const closedBeam = MemberSectionSvg.steelBeamLtbCurve({ usesLtb: false, demandM: 22, capM: 31 });
+  const closedSvg = decodeURIComponent(closedBeam.dataURL);
+  assert.match(closedSvg, /data-diagram-role="capacity-comparison"/);
+  assert.doesNotMatch(closedSvg, /data-diagram-role="capacity-envelope"/);
+
+  const colEnvYDiagram = MemberSectionSvg.steelColumnInteraction({
+    axis: "y",
+    methodLabel: "LRFD",
+    forceUnit: "tf",
+    momentUnit: "tf·m",
+    points: [{ p: 250, m: 0 }, { p: 50, m: 18 }, { p: 0, m: 21 }],
+    demandP: 120,
+    demandM: 6,
+    allowMAtP: 14.5,
+    allowPAtM: 185,
+    maxP: 250,
+    maxM: 21,
+    ratioText: "0.72",
+    ok: true,
+    eqLabel: "式 H1-1a",
+    noteLabel: "固定 |Mx| 18 tf·m",
+  });
+  const colEnvYSvg = decodeURIComponent(colEnvYDiagram.dataURL.replace(/^data:image\/svg\+xml;charset=utf-8,/, ""));
+  assert.match(colEnvYSvg, /鋼柱 P–My 互制與弱軸彎矩餘裕/, "column P-My envelope SVG must title weak-axis interaction");
+  assert.match(colEnvYSvg, /data-diagram-role="margin-zone"[\s\S]*ΔMy \+8\.5 tf·m/, "column P-My envelope SVG must display weak-axis bending safety margin ΔMy");
+  assert.match(columnFormalHtmlSource, /data-column-chart-tab="pmy"[\s\S]*id="columnChart-pmy"/s, "steel-column-formal.html should expose the P-My interaction chart tab");
+  assert.match(columnFormalSource, /buildColumnInteractionYDiagram/, "steel-column-formal.js should build the P-My interaction diagram");
+
+  assert.match(columnFormalHtmlSource, /id="columnKHelperPanel"[\s\S]*id="inGA"[\s\S]*id="inGB"[\s\S]*id="btnApplyKBoth"/s, "steel-column-formal.html should integrate the Dumonteil K-factor helper");
+  assert.match(columnFormalSource, /Steel\.calcK\(GA, GB, braced\)[\s\S]*buildColumnInteractionDiagram[\s\S]*buildColumnBiaxialDiagram/s, "steel-column-formal.js should wire Steel.calcK and both column interaction SVG diagrams");
+  assert.match(beamFormalSource, /buildBeamLtbDiagram[\s\S]*buildBeamResponseDiagram/s, "steel-beam-formal.js should wire LTB capacity and deflection response SVG diagrams");
+  assert.doesNotMatch(beamFormalHtmlSource, /舊版鋼梁頁/, "steel-beam-formal.html should no longer link to a separate legacy beam page");
+  assert.doesNotMatch(columnFormalHtmlSource, /舊版鋼柱頁/, "steel-column-formal.html should no longer link to a separate legacy column page");
+}
 
 console.log("steel-formal.regression-test.js passed");

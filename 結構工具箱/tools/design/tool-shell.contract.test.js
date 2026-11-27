@@ -8,7 +8,7 @@
  * - 舊「← 回主選單」連結已移除（頂欄提供），頁首帶 .tool-shell-header 與次要副標；
  *   RC 梁、Kzt 頁首另有 <noscript> 回首頁相對連結（.tool-shell-noscript，JS 正常時不渲染、列印隱藏）
  * - 主要動作列 .tool-shell-actions 恰好兩顆按鈕：開始計算＋計算書
- * - 案件表頭（計畫名稱／編號／設計人）一列且不收合；收合區只允許存讀檔類 id
+ * - 案件表頭一列。RC 梁的表頭和案件存讀檔同區收合，其餘頁維持既有配置
  * - 執行期插入點：.mode-bar 位於輸入之後（RC 梁、鋼索），共用表頭列接在收合區內的 .project-storage-bar 後；
  *   Kzt 的 .mode-bar 為列印計畫資訊卡，執行期插在其後的存讀檔列由頁面腳本移入原生 <details>（不以 :has() 收合兄弟）
  * - 鋼索：收合區外的「下載 JSON」在 ④ 輸出卡有自己的 role=status 確認訊息；RC 梁子分頁靜態為具名 role=group
@@ -42,9 +42,10 @@ const PAGES = [
       { label: '計算書', match: node => node.attrs.id === 'btnReport' },
     ],
     firstEngineeringInput: 'seismicMode',
+    foldsProjectFields: true,
     collapsedIds: ['btnSaveBeamProject', 'btnLoadBeamProject', 'btnSaveBeamDraft', 'btnLoadBeamDraft', 'beamProjectFile', 'beamProjectStatus'],
     ids: `bondPlaneData beamLapAreaRatio beamLapPercent beamLapClassAEvidence beamResults flangeMode flangeProjectionGroup flangeLeft flangeSpacingGroup flangeSwLeftGroup flangeSwLeft flangeSwRight flangeStatus simpleDeflLoad sustainedDeflLabel sustainedDeflPercent simpleDeflPointGroup simpleDeflPointX MaNeg MaPos MuNeg MuPos Pu Tu TuWrap Ve VeWrap Vu anchorageLeft anchorageRight autoD autoMa bannerKey bannerStatus barShMin
-      beamAttachmentReadiness beamAttachmentReadinessCard beamDevLeftType beamDevRightType beamForceCandidateApply beamForceCandidateCard
+      beamAttachmentReadiness beamAttachmentReadinessCard beamDevLeftType beamDevRightType beamEnvelopeBasis beamEnvelopeBasisGroup beamForceCandidateApply beamForceCandidateCard
       beamForceCandidateConfirm beamForceCandidateDiscard beamForceCandidateList beamForceCandidateSummary beamJointCard beamJointMprFactor
       beamJointSendStatus beamJointTarget beamLapClass beamLapEnd beamLapLength beamLapStart beamPreset beamProjectFile beamProjectStatus
       beamRebarDesignCandidates beamRebarFeasibleRanges bf botBar1N botBar1No botBar2N botBar2No botBar3N botBar3No botLayerCount
@@ -69,13 +70,13 @@ const PAGES = [
       beamDevLeftType beamDevRightType anchorageLeft anchorageRight beamLapStart beamLapEnd beamLapLength beamLapClass beamLapAreaRatio beamLapPercent bondPlaneData botBar1No
       botBar1N botBar2No botBar2N botBar3No botBar3N topBar1No topBar1N topBar2No topBar2N topBar3No topBar3N skinNo nSkin stirrup legs
       stirS MuPos MuNeg Vu Pu Tu Ve torsionDesignStatus torsionAtPerS torsionAl sensitive enableExactDefl simpleDeflLoad sustainedDeflPercent simpleDeflPointX MaPos MaNeg autoMa xiTime
-      deflLimit colW smrfMnMin firstHoopDist beamJointTarget beamJointMprFactor beamForceCandidateConfirm`,
+      deflLimit colW smrfMnMin firstHoopDist beamJointTarget beamJointMprFactor beamForceCandidateConfirm beamEnvelopeBasis`,
     classes: `active badge-seismic banner-key banner-status big btn-calc btn-secondary canvas-wrap card checkbox-row combo container
       deep-beam-notice force-candidate-actions force-candidate-card force-candidate-confirm force-candidate-list force-candidate-summary
       form-group form-row form-row3 hint label lbl line main-layout mode-bar mode-bar__action mode-bar__actions mode-bar__btn
       mode-bar__file mode-bar__group mode-bar__hint mode-bar__label mode-bar__proj mode-bar__project-status mode-bar__report mode-btn
       page-only-case-tools page-only-tool-chrome preset-row rc-direct-print-boundary rc-formal-output-page rebar-hero rebar-layer
-      rebar-range-wrap rebar-stack rebar-stack-actions report-readiness-card result-item results-grid scope-badge section-tabs
+      rebar-range-wrap rebar-stack rebar-stack-actions report-readiness-card result-item results-grid section-tabs
       steps-body steps-card subpanel tool-chrome-slot unit value w-des w-name w-no`,
   },
   {
@@ -87,7 +88,7 @@ const PAGES = [
     noscriptHome: '結構工具箱/index.html',
     primary: [
       { label: '計算 Kzt', match: node => node.attrs.id === 'btnCalc' },
-      { label: '列印頁面結果', match: node => hasClass(node, 'mode-bar__report') },
+      { label: '列印／另存 PDF', match: node => hasClass(node, 'mode-bar__report') },
     ],
     firstEngineeringInput: 'topoType',
     collapsedIds: [],
@@ -107,7 +108,7 @@ const PAGES = [
     noscriptHome: null,
     primary: [
       { label: '反算鋼索索力', match: node => node.attrs.id === 'btnCalc' },
-      { label: '列印計算書', match: node => node.attrs.id === 'btnPrint' },
+      { label: '產生計算書', match: node => node.attrs.id === 'btnPrint' },
     ],
     firstEngineeringInput: 'effectiveLengthM',
     collapsedIds: ['btnImportJson', 'btnSaveProject', 'btnSaveDraft', 'btnLoadDraft', 'btnReset', 'jsonFile', 'jsonStatus'],
@@ -280,7 +281,7 @@ for (const page of PAGES) {
   assert.ok(firstInput, `${label}: first engineering input exists`);
   assert.ok(buttons[0].order < firstInput.order, `${label}: primary actions precede the first engineering input (desktop: above the form)`);
 
-  // 3e. 案件表頭：三欄一列、不收合；收合區只放存讀檔類 id 且預設關閉
+  // 3e. 案件表頭：三欄一列，依各工具規格決定預設收合範圍。
   const caseRows = all(root, node => hasClass(node, 'tool-shell-case'));
   assert.equal(caseRows.length, 1, `${label}: one case row`);
   const fieldsBox = all(caseRows[0], node => hasClass(node, 'tool-shell-case__fields'));
@@ -292,12 +293,13 @@ for (const page of PAGES) {
   for (const id of PROJECT_FIELDS) {
     const field = byId(root, id)[0];
     assert.ok(field && within(field, fieldsBox[0]), `${label}: #${id} sits in the case fields row`);
-    assert.equal(ancestors(field).some(node => node.tag === 'details'), false, `${label}: #${id} is never collapsed`);
+    assert.equal(ancestors(field).includes(details[0]), Boolean(page.foldsProjectFields), `${label}: #${id} follows the page's case details configuration`);
+    if (!page.foldsProjectFields) assert.equal(ancestors(field).some(node => node.tag === 'details'), false);
   }
   assert.ok(caseRows[0].order < firstInput.order, `${label}: case row precedes the inputs`);
   const collapsed = all(details[0], node => node.attrs.id).map(node => node.attrs.id);
-  assert.deepEqual(collapsed.filter(id => !page.collapsedIds.includes(id)), [], `${label}: only case-file controls may be collapsed`);
-  assert.deepEqual([...page.collapsedIds].sort(), [...collapsed].sort(), `${label}: collapsed case-file controls match the inventory`);
+  const expectedCollapsed = page.foldsProjectFields ? [...page.collapsedIds, ...PROJECT_FIELDS] : page.collapsedIds;
+  assert.deepEqual([...expectedCollapsed].sort(), [...collapsed].sort(), `${label}: collapsed case controls match the inventory`);
 
   // 3f. 執行期插入點（project-storage.js／project-meta-profile.js／tool-workflow-adapters.js 只認 class）
   const modeBars = all(root, node => hasClass(node, 'mode-bar'));
@@ -366,11 +368,14 @@ for (const page of PAGES) {
   assert.ok(adopt.attrs['aria-label'], 'kzt: scrollable adopt table has an accessible name');
   // axe 對比不足的兩處（版本徽章、逐步計算重點值）改用 token；列印規則另以 !important 覆寫，紙本不變。
   const inlineCss = (kztHtml.match(/<style\b[^>]*>([\s\S]*?)<\/style>/i) || [])[1] || '';
-  const inlineRules = [...inlineCss.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(m => ({ selector: m[1].trim(), body: m[2] }));
+  assert.ok(kztHtml.includes('href="wind-tools.css"'), 'kzt loads the shared wind stylesheet');
+  const windCss = read('結構工具箱/tools/風力/wind-tools.css');
+  const rules = [...(windCss + '\n' + inlineCss).matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(m => ({ selector: m[1].trim(), body: m[2] }));
   for (const selector of ['.badge-v', '.step-body .val.hl']) {
-    const rule = inlineRules.find(item => item.selector === selector);
-    assert.ok(rule, `kzt: inline rule ${selector} exists`);
-    assert.equal(/#[0-9a-f]{3,8}\b/i.test(rule.body), false, `kzt: ${selector} uses tokens instead of inline hex`);
+    const rule = rules.find(item => item.selector === selector || item.selector.endsWith(`) ${selector}`));
+    assert.ok(rule, `kzt: rule ${selector} exists`);
+    assert.doesNotMatch(rule.body, /:\s*#[0-9a-f]{3,8}\b/i, `kzt: ${selector} uses tokens instead of literal colors`);
     assert.match(rule.body, /var\(--/, `kzt: ${selector} uses a design token`);
   }
   const printMeta = all(kzt, node => hasClass(node, 'print-meta'))[0];

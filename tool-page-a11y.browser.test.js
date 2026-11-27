@@ -42,8 +42,8 @@ function extractConstLiteral(source, name) {
 function getFormalTools(selectedRoutes = []) {
   const tools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`, {}, { timeout: 1000 });
   const formal = tools.filter(tool => tool.state === 'formal');
-  if (tools.length !== 53 || formal.length !== 40) {
-    throw new Error(`Expected 53 homepage tools and 40 formal tools; found ${tools.length}/${formal.length}`);
+  if (tools.length !== 51 || formal.length !== 40) {
+    throw new Error(`Expected 51 homepage tools and 40 formal tools; found ${tools.length}/${formal.length}`);
   }
   const ndt = tools.find(tool => tool.href === '/concrete-strength-ndt');
   if (!ndt || ndt.state !== 'assist') throw new Error('NDT must retain its explicit assist identity');

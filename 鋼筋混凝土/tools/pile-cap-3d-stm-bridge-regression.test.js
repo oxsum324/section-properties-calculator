@@ -101,6 +101,7 @@ async function main() {
       muyE:document.querySelector('#pileCapMuyE').value,
       pending:localStorage.getItem('structToolbox.pendingForces'),
     })), { pPD:'300', pPL:'50', muxW:'100', muyE:'100', pending:null });
+    await foundation.click('#foundationProjectDetails > summary');
     for (const [id, value] of Object.entries(fields)) await foundation.fill(`#${id}`, value);
     await foundation.click('#btnPreviewPileCap3DSTMCombos');
     assert.match(await foundation.locator('#pileCap3DSTMComboPreview').innerText(), /loadcombo-tuples-v2.*10 組/i);

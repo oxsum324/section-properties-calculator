@@ -142,8 +142,9 @@
     if (!paper) throw new Error('找不到計算書內容，無法建立 Word 文書版。');
     const view = documentRef.defaultView;
     const stats = { tables: 0, rows: 0, cells: 0, images: 0, mergedCells: 0 };
-    const border = { style: d.BorderStyle.SINGLE, size: 4, color: 'D9D9D9' };
+    const border = { style: d.BorderStyle.SINGLE, size: 4, color: 'C5CED6' };
     const normal = { font: 'Microsoft JhengHei', size: 21, color: '000000' };
+    const headingColor = '173955';
 
     async function runs(node, format = {}) {
       if (node.nodeType === 3) {
@@ -170,9 +171,11 @@
       return children;
     }
     async function paragraph(nodes, options = {}, format = {}) {
+      const { alignment, compact, ...runFormat } = format;
       const children = [];
-      for (const node of nodes) children.push(...await runs(node, format));
-      return new d.Paragraph({ children, spacing: { after: 100, line: 276 }, widowControl: true, ...options });
+      for (const node of nodes) children.push(...await runs(node, runFormat));
+      const spacing = compact ? { after: 20, line: 240 } : { after: 100, line: 276 };
+      return new d.Paragraph({ children, spacing, widowControl: true, ...(alignment ? { alignment } : {}), ...options });
     }
     async function table(node) {
       stats.tables += 1;
@@ -209,7 +212,11 @@
           stats.cells += 1;
           if (colSpan > 1 || rowSpan > 1) stats.mergedCells += 1;
           const cellWidth = widths.slice(start, start + colSpan).reduce((a,b) => a+b, 0);
-          const cellChildren = await blocks(cell, true, { bold: cell.tagName === 'TH', imageMaxWidth: Math.max(24, (cellWidth - 180) / 15) });
+          const numeric = cell.matches('td:is(.num,.r,.value,.val,[data-numeric])') ||
+            (cell.tagName === 'TD' && ['right', 'end'].includes(view.getComputedStyle(cell).textAlign));
+          const format = { bold: cell.tagName === 'TH', compact: true, imageMaxWidth: Math.max(24, (cellWidth - 180) / 15) };
+          if (numeric) Object.assign(format, { alignment: d.AlignmentType.RIGHT, font: 'Consolas' });
+          const cellChildren = await blocks(cell, true, format);
           children.push(new d.TableCell({
             children: cellChildren.length ? cellChildren : [new d.Paragraph('')],
             width: { size: cellWidth, type: d.WidthType.DXA },
@@ -218,10 +225,10 @@
             margins: { top: 80, bottom: 80, left: 90, right: 90 },
             borders: { top: border, bottom: border, left: border, right: border },
             verticalAlign: d.VerticalAlign.CENTER,
-            ...(cell.tagName === 'TH' ? { shading: { fill: 'E6EAF3', type: d.ShadingType.CLEAR } } : {})
+            ...(cell.tagName === 'TH' ? { shading: { fill: 'EDF2F6', type: d.ShadingType.CLEAR } } : {})
           }));
         }
-        rows.push(new d.TableRow({ children, ...(row.parentElement.tagName === 'THEAD' ? { tableHeader: true } : {}) }));
+        rows.push(new d.TableRow({ children, cantSplit: true, ...(row.parentElement.tagName === 'THEAD' ? { tableHeader: true } : {}) }));
       }
       if (!rows.length) throw new Error('報告含有空白表格，無法確認 Word 表格一致性。');
       return new d.Table({ rows, width: { size: WIDTH, type: d.WidthType.DXA }, columnWidths: widths, layout: d.TableLayoutType.FIXED,
@@ -244,8 +251,27 @@
           result.push(await table(node), new d.Paragraph({ spacing: { after: 80 }, children: [] }));
           continue;
         }
-        if (/^H[1-6]$/.test(tag)) {
-          result.push(await paragraph([node], { heading: tag === 'H1' ? d.HeadingLevel.TITLE : d.HeadingLevel['HEADING_' + Math.min(3, Number(tag[1]) - 1)], keepNext: true, spacing: { before: 180, after: 120 } }, { bold: true, size: tag === 'H1' ? 32 : 24 }));
+        if (node.matches('figure.rep-diagram--engineering')) {
+          const parts = [...node.children].filter(part => !ignored(part, view));
+          for (const [index, part] of parts.entries()) {
+            const isTitle = part.matches('.rep-diagram-title');
+            const isImage = part.matches('img');
+            const chartFormat = isTitle ? { bold: true, color: headingColor, size: 23 }
+              : isImage ? { alignment: d.AlignmentType.CENTER, imageMaxWidth: 500 }
+                : { size: 20, color: '334155' };
+            result.push(await paragraph([part], {
+              keepLines: true,
+              keepNext: index < parts.length - 1,
+              spacing: { before: isTitle ? 120 : 0, after: isImage ? 60 : 100, line: 252 },
+            }, { ...format, ...chartFormat }));
+          }
+        } else if (/^H[1-6]$/.test(tag)) {
+          const heading = tag === 'H1' ? d.HeadingLevel.TITLE : d.HeadingLevel['HEADING_' + Math.min(3, Number(tag[1]) - 1)];
+          const title = tag === 'H1';
+          result.push(await paragraph([node], {
+            heading, keepNext: true, keepLines: true, spacing: { before: 180, after: 120 },
+            ...(title ? { border: { bottom: { style: d.BorderStyle.SINGLE, size: 8, color: headingColor, space: 4 } } } : {})
+          }, { bold: true, color: headingColor, size: title ? 32 : Number(tag[1]) === 2 ? 26 : 24 }));
         } else if (['P','PRE','FIGCAPTION'].includes(tag)) {
           result.push(await paragraph([node], { ...(tag === 'FIGCAPTION' ? { keepNext: true } : {}) }, format));
         } else if (tag === 'LI') {

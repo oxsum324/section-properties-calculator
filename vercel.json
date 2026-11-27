@@ -34,8 +34,8 @@
     { "source": "/steel-plate", "destination": "/鋼構工具/plate-check", "permanent": true },
     { "source": "/steel-beam-formal", "destination": "/鋼構工具/steel-beam-formal", "permanent": true },
     { "source": "/steel-column-formal", "destination": "/鋼構工具/steel-column-formal", "permanent": true },
-    { "source": "/steel-beam", "destination": "/結構工具箱/tools/鋼構/steel-beam", "permanent": true },
-    { "source": "/steel-column", "destination": "/結構工具箱/tools/鋼構/steel-column", "permanent": true },
+    { "source": "/steel-beam", "destination": "/鋼構工具/steel-beam-formal", "permanent": true },
+    { "source": "/steel-column", "destination": "/鋼構工具/steel-column-formal", "permanent": true },
 
     { "source": "/rc", "destination": "/鋼筋混凝土", "permanent": true },
     { "source": "/rc-beam", "destination": "/鋼筋混凝土/tools/beam", "permanent": true },

@@ -7,10 +7,13 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../tool-chrome.css">
   <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
+  <link rel="stylesheet" href="../結構工具箱/assets/hy/tool-ui-collapsible.css">
   <link rel="stylesheet" href="../結構工具箱/core/family-theme.css">
   <link rel="stylesheet" href="../結構工具箱/core/style.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
   <link rel="stylesheet" href="src-beam.css">
+  <script src="../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
+<link rel="stylesheet" href="../結構工具箱/assets/hy/tool-sticky-summary.css">
 </head>
 <body class="formal-tool-output-page" data-family="steel">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
@@ -33,14 +36,19 @@
 
   <main class="src-page">
     <section class="src-project-bar" aria-label="案件與輸出">
-      <div class="src-project-fields">
-        <label>計畫名稱（選填）<input id="projName" type="text" autocomplete="organization" placeholder="可由主文承接"></label>
-        <label>計畫編號（選填）<input id="projNo" type="text" placeholder="可留空"></label>
-        <label>設計人員（選填）<input id="projDesigner" type="text" autocomplete="name" placeholder="可留空"></label>
-      </div>
+      <details class="collapsible-details" id="srcBeamProjectDetails" data-page-only="true">
+        <summary><span class="details-title">案件識別資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">選填</span></summary>
+        <div class="details-body" data-details-project-profile>
+          <div class="src-project-fields">
+            <label>計畫名稱（選填）<input id="projName" type="text" autocomplete="organization" placeholder="可由主文承接"></label>
+            <label>計畫編號（選填）<input id="projNo" type="text" placeholder="可留空"></label>
+            <label>設計人員（選填）<input id="projDesigner" type="text" autocomplete="name" placeholder="可留空"></label>
+          </div>
+        </div>
+      </details>
       <div class="src-actions">
         <button id="btnCalculate" class="src-primary" type="button">執行核算</button>
-        <button id="btnExportCase" type="button">下載案件 JSON</button>
+        <button id="btnExportCase" type="button">匯出案件 JSON</button>
         <button id="btnImportCase" type="button">匯入案件 JSON</button>
         <button id="btnReport" class="src-report" type="button">產生計算書</button>
         <input id="caseFile" type="file" accept="application/json,.json" hidden>
@@ -51,10 +59,14 @@
     <div class="src-layout">
       <div class="src-input-stack">
         <section class="src-card src-page-only">
-          <h2>適用範圍與輸出邊界</h2>
-          <p>本頁只適用於鋼骨完全包覆、置中雙對稱 H 型鋼骨、無軸力、非耐震之矩形 SRC 梁。耐震設計、軸彎互制、梁柱接頭、剪力釘及施工階段鋼梁容量不在本次自動檢核範圍。</p>
-          <p><strong>計算書只保留採用資料、公式代入、檢核結果與結論。</strong>本段適用邊界、操作提醒及待人工複核內容只顯示在 HTML，不會進入計算書、列印或 PDF。</p>
-          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v1</span></div>
+          <details class="collapsible-details" id="srcBeamScopeDetails">
+            <summary><span class="details-title">適用範圍與輸出邊界</span><span class="details-summary-badge">適用條件</span></summary>
+            <div class="details-body">
+              <p>本頁只適用於鋼骨完全包覆、置中雙對稱 H 型鋼骨、無軸力、非耐震之矩形 SRC 梁。耐震設計、軸彎互制、梁柱接頭、剪力釘及施工階段鋼梁容量不在本次自動檢核範圍。</p>
+              <p><strong>計算書只保留採用資料、公式代入、檢核結果與結論。</strong>本段適用邊界、操作提醒及待人工複核內容只顯示在 HTML，不會進入計算書、列印或 PDF。</p>
+              <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v1</span></div>
+            </div>
+          </details>
         </section>
 
         <section class="src-card">
@@ -108,25 +120,29 @@
         </section>
 
         <section class="src-card">
-          <h2>⑤ 剪力摩擦與細部確認</h2>
-          <div class="src-grid src-grid-3">
-            <label>摩擦係數 μ（固定）<span><input id="frictionMu" type="number" value="0.8" step="0.1" readonly> —</span></label>
-            <label>K1（固定）<span><input id="frictionK1" type="number" value="28" step="1" readonly> kgf/cm²</span></label>
-            <label>剪力釘貢獻（未納入）<span><input id="studContributionTf" type="number" value="0" step="0.1" readonly> tf</span></label>
-          </div>
-          <div class="src-check-grid">
-            <label><input id="fullyEncased" type="checkbox" checked> 鋼骨完全包覆於 RC 斷面</label>
-            <label><input id="normalWeightConcrete" type="checkbox" checked> 已確認常重混凝土</label>
-            <label><input id="monolithicSurface" type="checkbox" checked> 剪力摩擦面為整體澆置</label>
-            <label><input id="mainBarsContinuous" type="checkbox" checked> 梁端主筋連續或適當錨定</label>
-            <label><input id="reinforcementDetailingConfirmed" type="checkbox" checked> 配筋、保護層及澆置可行性已確認</label>
-            <label><input id="temporaryShoringProvided" type="checkbox" checked> 混凝土凝固前設有充分臨時支撐</label>
-            <label><input id="steelConstructionCapacityVerified" type="checkbox"> 無臨時支撐時，施工階段鋼梁容量已另案確認</label>
-            <label><input id="highStrengthConcreteEvidenceConfirmed" type="checkbox"> 高強度混凝土試驗依據已確認（fc′&gt;420 時）</label>
-            <label><input id="highStrengthMaterialEvidenceConfirmed" type="checkbox"> 高強度鋼材可靠性依據已確認（超出建議範圍時）</label>
-            <label><input id="seismicDesign" type="checkbox"> 本案為耐震 SRC 梁（目前會失敗封閉）</label>
-          </div>
-          <label class="src-spacing">長向主筋與鋼板淨距<span><input id="longitudinalClearSpacingMm" type="number" value="25" step="1" min="0"> mm</span></label>
+          <details class="collapsible-details" id="srcBeamDetailChecks">
+            <summary><span class="details-title">⑤ 剪力摩擦與細部確認</span><span class="details-summary-badge" data-details-value="#frictionMu" data-details-prefix="μ = ">μ = 0.8</span></summary>
+            <div class="details-body">
+              <div class="src-grid src-grid-3">
+                <label>摩擦係數 μ（固定）<span><input id="frictionMu" type="number" value="0.8" step="0.1" readonly> —</span></label>
+                <label>K1（固定）<span><input id="frictionK1" type="number" value="28" step="1" readonly> kgf/cm²</span></label>
+                <label>剪力釘貢獻（未納入）<span><input id="studContributionTf" type="number" value="0" step="0.1" readonly> tf</span></label>
+              </div>
+              <div class="src-check-grid">
+                <label><input id="fullyEncased" type="checkbox" checked> 鋼骨完全包覆於 RC 斷面</label>
+                <label><input id="normalWeightConcrete" type="checkbox" checked> 已確認常重混凝土</label>
+                <label><input id="monolithicSurface" type="checkbox" checked> 剪力摩擦面為整體澆置</label>
+                <label><input id="mainBarsContinuous" type="checkbox" checked> 梁端主筋連續或適當錨定</label>
+                <label><input id="reinforcementDetailingConfirmed" type="checkbox" checked> 配筋、保護層及澆置可行性已確認</label>
+                <label><input id="temporaryShoringProvided" type="checkbox" checked> 混凝土凝固前設有充分臨時支撐</label>
+                <label><input id="steelConstructionCapacityVerified" type="checkbox"> 無臨時支撐時，施工階段鋼梁容量已另案確認</label>
+                <label><input id="highStrengthConcreteEvidenceConfirmed" type="checkbox"> 高強度混凝土試驗依據已確認（fc′&gt;420 時）</label>
+                <label><input id="highStrengthMaterialEvidenceConfirmed" type="checkbox"> 高強度鋼材可靠性依據已確認（超出建議範圍時）</label>
+                <label><input id="seismicDesign" type="checkbox"> 本案為耐震 SRC 梁（目前會失敗封閉）</label>
+              </div>
+              <label class="src-spacing">長向主筋與鋼板淨距<span><input id="longitudinalClearSpacingMm" type="number" value="25" step="1" min="0"> mm</span></label>
+            </div>
+          </details>
         </section>
       </div>
 
@@ -148,19 +164,38 @@
         </section>
 
         <section class="src-card src-section-card">
-          <h2>SRC 梁計算斷面</h2>
-          <figure class="src-section-figure">
-            <img id="sectionDiagramImage" alt="SRC 梁計算斷面" hidden>
-            <div id="sectionDiagramPlaceholder" class="src-section-placeholder">尚未產生計算斷面圖。</div>
-            <figcaption id="sectionDiagramCaption"></figcaption>
-          </figure>
+          <div class="src-visual-head">
+            <h2>SRC 梁工程圖表</h2>
+            <div class="src-visual-tabs" role="group" aria-label="SRC 梁圖表切換">
+              <button type="button" aria-pressed="true" data-src-beam-tab="all">總覽</button>
+              <button type="button" aria-pressed="false" data-src-beam-tab="superposition">強度疊加</button>
+              <button type="button" aria-pressed="false" data-src-beam-tab="section">計算斷面</button>
+            </div>
+          </div>
+          <div class="src-diagram-stack">
+            <figure class="src-section-figure" data-src-beam-diagram="superposition">
+              <h3 class="src-figure-title">鋼骨與 RC 強度疊加與安全餘裕</h3>
+              <img id="superpositionDiagramImage" alt="SRC 梁鋼骨與 RC 強度疊加與安全餘裕圖" hidden>
+              <figcaption id="superpositionDiagramCaption"></figcaption>
+            </figure>
+            <figure class="src-section-figure" data-src-beam-diagram="section">
+              <h3 class="src-figure-title">SRC 梁計算斷面</h3>
+              <img id="sectionDiagramImage" alt="SRC 梁計算斷面" hidden>
+              <div id="sectionDiagramPlaceholder" class="src-section-placeholder">尚未產生計算斷面圖。</div>
+              <figcaption id="sectionDiagramCaption"></figcaption>
+            </figure>
+          </div>
         </section>
 
         <section class="src-card src-page-only">
-          <h2>產報前閱讀狀態</h2>
-          <div id="reportReadiness" class="src-readiness idle" role="status" aria-live="polite">
-            <strong>尚未計算</strong><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>
-          </div>
+          <details class="collapsible-details" id="srcBeamReadinessDetails">
+            <summary><span class="details-title">產報前閱讀狀態</span><span class="details-summary-badge" data-details-value="#reportReadiness > strong">尚未計算</span></summary>
+            <div class="details-body">
+              <div id="reportReadiness" data-details-refresh class="src-readiness idle" role="status" aria-live="polite">
+                <strong>尚未計算</strong><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>
+              </div>
+            </div>
+          </details>
         </section>
       </aside>
     </div>
@@ -170,12 +205,15 @@
 <script src="../結構工具箱/core/ui/report-docx.js"></script>
 <script src="../結構工具箱/core/ui/report.js?v=7"></script>
   <script src="core/src-beam-core.js"></script>
+  <script src="../結構工具箱/core/ui/member-section-svg.js"></script>
   <script src="src-beam.js"></script>
 <script src="../結構工具箱/core/ui/tool-workflow.js"></script>
 <script src="../結構工具箱/tools/tool-workflow-adapters.js" data-tool-key="/src-beam" data-workflow-result="#resultHeadline" data-workflow-calculate="#btnCalculate"></script>
 <script src="../tool-nav.manifest.js" defer></script>
 <script src="../tool-chrome.js" defer></script>
 <script src="../tool-page-a11y.js" defer></script>
+<script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-anchor=".src-hero" data-draft-actions="#btnExample, #btnReset" defer></script>
+<script src="../結構工具箱/assets/hy/tool-sticky-summary.js" data-sticky-summary="src-beam" defer></script>
 <script src="../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

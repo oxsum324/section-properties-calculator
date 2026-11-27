@@ -103,7 +103,7 @@
   .diag-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 
   @media (max-width: 1180px) {
-    .main-layout { grid-template-columns: 1fr; }
+    .main-layout { grid-template-columns: minmax(0, 1fr); }
   }
   @media print {
     .page-only-report-status,
@@ -112,6 +112,7 @@
   }
 </style>
 <link rel="stylesheet" href="../結構工具箱/core/family-theme.css">
+<link rel="stylesheet" href="../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <link rel="stylesheet" href="../結構工具箱/assets/hy/frame-analysis-ui.css">
 </head>
 <body class="formal-tool-output-page" data-family="analysis">
@@ -151,56 +152,65 @@
           </div>
         </div>
         <div class="hint">鋼材 E ≈ 2040 tf/cm² (200 GPa)。範例斷面：H350×175×7×11。</div>
-        <h2 data-ui-heading="project">案件資料</h2>
-        <div class="row2">
-          <div>
-            <label>計畫名稱</label>
-            <input type="text" id="projName" placeholder="例：XX 大樓新建工程" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
+        <details class="collapsible-details" id="projectInfoDetails">
+          <summary data-ui-heading="project"><span class="details-title">案件資料與分析依據</span><span class="details-summary-badge">選填／主文承接</span></summary>
+          <div class="details-body">
+            <div class="row2">
+              <div>
+                <label>計畫名稱</label>
+                <input type="text" id="projName" placeholder="例：XX 大樓新建工程" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
+              </div>
+              <div>
+                <label>計畫編號</label>
+                <input type="text" id="projNo" placeholder="例：2026-001" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
+              </div>
+            </div>
+            <div data-ui-part="project-basis">
+              <label>分析模型／圖說／專案文件依據</label>
+              <input type="text" id="projBasis" placeholder="例：S-201、結構分析模型 Rev.3；採專案指定支承、釋放與彈簧" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
+              <div class="hint">使用端部釋放、彈性支承或其他需人工確認的分析假設時，須填入專案指定依據，才可核可正式附件。</div>
+            </div>
+            <div class="row2">
+              <div>
+                <label>設計人員</label>
+                <input type="text" id="projDesigner" placeholder="姓名" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
+              </div>
+              <div>
+                <label>專案備註</label>
+                <input type="text" id="projNote" placeholder="選填" oninput="invalidateFrameReportArtifact()">
+              </div>
+            </div>
           </div>
-          <div>
-            <label>計畫編號</label>
-            <input type="text" id="projNo" placeholder="例：2026-001" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
+        </details>
+        <details class="collapsible-details page-only-tool-actions" id="frameExamplesDetails">
+          <summary><span class="details-title">範例與標準驗證案例</span></summary>
+          <div class="details-body">
+            <div class="flex-row page-only-tool-actions">
+              <button class="btn btn-ghost btn-sm" onclick="loadExample('portal')">門型剛架</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadExample('portalHinge')">門型剛架(梁端鉸接)</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadExample('springPortal')">彈性支承</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadExample('cantilever')">懸臂驗證</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadExample('ss')">簡支梁(均布)</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadExample('ssP')">簡支梁(集中)</button>
+            </div>
+            <div class="frame-benchmark-library page-only-tool-actions">
+              <label for="frameBenchmarkCaseSelect">標準驗證案例庫</label>
+              <div class="flex-row">
+                <select id="frameBenchmarkCaseSelect" aria-label="標準驗證案例">
+                  <option value="portalSideswayBenchmark">固定柱腳門架側推</option>
+                  <option value="portalSymmetricUdlBenchmark">門架梁對稱均布載重</option>
+                  <option value="inclinedCantileverBenchmark">3–4–5 斜桿懸臂端點力</option>
+                  <option value="elasticSupportPortalBenchmark">水平彈簧柱腳門架側推</option>
+                  <option value="rotationalSpringCantileverBenchmark">轉動彈簧柱腳懸臂側推</option>
+                  <option value="twoStoryPortalBenchmark">二層單跨剛接門架側推</option>
+                  <option value="asymmetricTwoStoryPortalBenchmark">不對稱二層剛架偏置節點載重</option>
+                </select>
+                <button class="btn btn-accent btn-sm" id="loadFrameBenchmarkButton" onclick="loadSelectedFrameBenchmark()">載入並分析</button>
+              </div>
+              <div class="hint">以獨立參考值核對求解器；各案例的推導方法列於比對面板，且不會寫入計算書。</div>
+            </div>
           </div>
-        </div>
-        <div data-ui-part="project-basis">
-          <label>分析模型／圖說／專案文件依據</label>
-          <input type="text" id="projBasis" placeholder="例：S-201、結構分析模型 Rev.3；採專案指定支承、釋放與彈簧" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
-          <div class="hint">使用端部釋放、彈性支承或其他需人工確認的分析假設時，須填入專案指定依據，才可核可正式附件。</div>
-        </div>
-        <div class="row2">
-          <div>
-            <label>設計人員</label>
-            <input type="text" id="projDesigner" placeholder="姓名" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
-          </div>
-          <div>
-            <label>專案備註</label>
-            <input type="text" id="projNote" placeholder="選填" oninput="invalidateFrameReportArtifact()">
-          </div>
-        </div>
-        <div class="flex-row page-only-tool-actions">
-          <button class="btn btn-ghost btn-sm" onclick="loadExample('portal')">門型剛架</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadExample('portalHinge')">門型剛架(梁端鉸接)</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadExample('springPortal')">彈性支承</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadExample('cantilever')">懸臂驗證</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadExample('ss')">簡支梁(均布)</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadExample('ssP')">簡支梁(集中)</button>
-        </div>
-        <div class="frame-benchmark-library page-only-tool-actions">
-          <label for="frameBenchmarkCaseSelect">標準驗證案例庫</label>
-          <div class="flex-row">
-            <select id="frameBenchmarkCaseSelect" aria-label="標準驗證案例">
-              <option value="portalSideswayBenchmark">固定柱腳門架側推</option>
-              <option value="portalSymmetricUdlBenchmark">門架梁對稱均布載重</option>
-              <option value="inclinedCantileverBenchmark">3–4–5 斜桿懸臂端點力</option>
-              <option value="elasticSupportPortalBenchmark">水平彈簧柱腳門架側推</option>
-              <option value="rotationalSpringCantileverBenchmark">轉動彈簧柱腳懸臂側推</option>
-              <option value="twoStoryPortalBenchmark">二層單跨剛接門架側推</option>
-              <option value="asymmetricTwoStoryPortalBenchmark">不對稱二層剛架偏置節點載重</option>
-            </select>
-            <button class="btn btn-accent btn-sm" id="loadFrameBenchmarkButton" onclick="loadSelectedFrameBenchmark()">載入並分析</button>
-          </div>
-          <div class="hint">以獨立參考值核對求解器；各案例的推導方法列於比對面板，且不會寫入計算書。</div>
-        </div>
+        </details>
         <div class="flex-row" data-ui-part="self-weight">
           <label>
             <input type="checkbox" id="selfWeight" onchange="invalidateAnalysisState()"> 含自重
@@ -211,12 +221,12 @@
           </span>
         </div>
         <div class="flex-row page-only-tool-actions">
-          <button class="btn btn-accent btn-sm" id="btnExportCase" onclick="exportJSON()">存檔 JSON</button>
-          <button class="btn btn-ghost btn-sm" id="btnImportCase" onclick="document.getElementById('jsonFile').click()">讀取 JSON</button>
+          <button class="btn btn-ghost btn-sm" id="btnExportCase" onclick="exportJSON()">匯出案件 JSON</button>
+          <button class="btn btn-ghost btn-sm" id="btnImportCase" onclick="document.getElementById('jsonFile').click()">匯入案件 JSON</button>
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none" onchange="importJSONFile(this)">
           <button class="btn btn-ghost btn-sm" id="btnSaveDraft" onclick="saveDraft()">暫存</button>
           <button class="btn btn-ghost btn-sm" id="btnLoadDraft" onclick="loadDraft()">讀取暫存</button>
-          <button class="btn btn-ghost btn-sm" id="btnReport" onclick="printReport()">列印計算書</button>
+          <button class="btn btn-primary btn-sm" id="btnReport" onclick="printReport()">產生計算書</button>
           <span id="reportStatus" class="report-status" role="status" aria-live="polite"></span>
           <a id="reportLink" class="report-link" href="#" target="_blank" rel="noopener">開啟計算書</a>
         </div>
@@ -246,27 +256,29 @@
         <div class="hint">目前結果表與內力圖使用上方選取的單一組合；樓層反應包絡比較全部具名組合。自重併入第一個載重案例；因子 0 可排除該案例。</div>
       </div>
 
-      <div class="card page-only-tool-actions" id="foundationTransferCard">
-        <h2>基礎樁帽基本載重分量</h2>
-        <div class="foundation-transfer-grid">
-          <div><label for="foundationTransferNode">基礎節點</label><select id="foundationTransferNode" onchange="updateFoundationTransferSetting('nodeId',this.value)"></select></div>
-          <div><label for="foundationTransferMomentAxis">構架平面／基礎彎矩</label><select id="foundationTransferMomentAxis" onchange="updateFoundationTransferSetting('momentAxis',this.value)"><option value="My">X–Z 平面 → My</option><option value="Mx">Y–Z 平面 → Mx</option></select></div>
-          <div><label for="foundationTransferMomentSign">座標方向倍率</label><select id="foundationTransferMomentSign" onchange="updateFoundationTransferSetting('momentSign',this.value)"><option value="1">+1（同向）</option><option value="-1">−1（反向）</option></select></div>
+      <details class="card collapsible-details page-only-tool-actions" id="foundationTransferCard">
+        <summary><span class="details-title">基礎樁帽基本載重分量</span><span class="details-summary-badge">跨工具傳遞</span></summary>
+        <div class="details-body">
+          <div class="foundation-transfer-grid">
+            <div><label for="foundationTransferNode">基礎節點</label><select id="foundationTransferNode" onchange="updateFoundationTransferSetting('nodeId',this.value)"></select></div>
+            <div><label for="foundationTransferMomentAxis">構架平面／基礎彎矩</label><select id="foundationTransferMomentAxis" onchange="updateFoundationTransferSetting('momentAxis',this.value)"><option value="My">X–Z 平面 → My</option><option value="Mx">Y–Z 平面 → Mx</option></select></div>
+            <div><label for="foundationTransferMomentSign">座標方向倍率</label><select id="foundationTransferMomentSign" onchange="updateFoundationTransferSetting('momentSign',this.value)"><option value="1">+1（同向）</option><option value="-1">−1（反向）</option></select></div>
+          </div>
+          <div class="foundation-transfer-cases">
+            <div><label for="foundationTransferCaseD">D 靜載重</label><select id="foundationTransferCaseD" onchange="updateFoundationTransferCase('D',this.value)"></select></div>
+            <div><label for="foundationTransferCaseL">L 活載重</label><select id="foundationTransferCaseL" onchange="updateFoundationTransferCase('L',this.value)"></select></div>
+            <div><label for="foundationTransferCaseW">W 風力</label><select id="foundationTransferCaseW" onchange="updateFoundationTransferCase('W',this.value)"></select></div>
+            <div><label for="foundationTransferCaseE">E 地震力</label><select id="foundationTransferCaseE" onchange="updateFoundationTransferCase('E',this.value)"></select></div>
+          </div>
+          <div class="hint">逐一以因子 1.0 重算選定案例。P 採向上支承反力為壓力正，基礎作用矩 = −Mz × 座標方向倍率。水平作用力 H = −Rx，沿剛架全域 +X 為正。樁帽三維 STM 採用 P、Mx、My；H 留作抗滑及側向設計核對。勾選「含自重」時，D 必須對應第一個載重案例。</div>
+          <div class="flex-row" data-ui-part="foundation-actions">
+            <button class="btn btn-ghost btn-sm" onclick="previewFoundationLoadComponents()">預覽分量</button>
+            <button class="btn btn-accent btn-sm" onclick="downloadFoundationLoadComponents()">下載分析 JSON</button>
+            <button class="btn btn-primary btn-sm" onclick="sendFoundationLoadComponents()">送至樁帽三維 STM</button>
+          </div>
+          <pre id="foundationTransferPreview" class="foundation-transfer-preview">請先指定基礎節點與 D／L／W／E 案例；未使用案例可保留 0。</pre>
         </div>
-        <div class="foundation-transfer-cases">
-          <div><label for="foundationTransferCaseD">D 靜載重</label><select id="foundationTransferCaseD" onchange="updateFoundationTransferCase('D',this.value)"></select></div>
-          <div><label for="foundationTransferCaseL">L 活載重</label><select id="foundationTransferCaseL" onchange="updateFoundationTransferCase('L',this.value)"></select></div>
-          <div><label for="foundationTransferCaseW">W 風力</label><select id="foundationTransferCaseW" onchange="updateFoundationTransferCase('W',this.value)"></select></div>
-          <div><label for="foundationTransferCaseE">E 地震力</label><select id="foundationTransferCaseE" onchange="updateFoundationTransferCase('E',this.value)"></select></div>
-        </div>
-        <div class="hint">逐一以因子 1.0 重算選定案例。P 採向上支承反力為壓力正，基礎作用矩 = −Mz × 座標方向倍率。水平作用力 H = −Rx，沿剛架全域 +X 為正。樁帽三維 STM 採用 P、Mx、My；H 留作抗滑及側向設計核對。勾選「含自重」時，D 必須對應第一個載重案例。</div>
-        <div class="flex-row" data-ui-part="foundation-actions">
-          <button class="btn btn-ghost btn-sm" onclick="previewFoundationLoadComponents()">預覽分量</button>
-          <button class="btn btn-accent btn-sm" onclick="downloadFoundationLoadComponents()">下載分析 JSON</button>
-          <button class="btn btn-primary btn-sm" onclick="sendFoundationLoadComponents()">送至樁帽三維 STM</button>
-        </div>
-        <pre id="foundationTransferPreview" class="foundation-transfer-preview">請先指定基礎節點與 D／L／W／E 案例；未使用案例可保留 0。</pre>
-      </div>
+      </details>
 
       <div class="card quick-grid-generator page-only-tool-actions" id="quickFrameGeneratorCard">
         <h2><span>⚡ 快速剛架產生器（跨距 × 層高）</span><span class="summary-badge active" id="quickGridPreviewBadge">N 跨 × M 層</span></h2>
@@ -388,7 +400,7 @@
         <div class="hint">a = 自 i 端沿桿件之距離 (0 ≤ a ≤ L)。全域 -Y = 重力向下；局部 +y = 垂直桿軸；局部 +x = 沿桿軸。</div>
       </div>
 
-      <button class="btn-calc" id="btnCalc" onclick="runAnalysis()">▶ 執行分析</button>
+      <button class="btn-calc" id="btnCalc" onclick="runAnalysis()">執行分析</button>
       <div class="error-msg" id="errorMsg"></div>
       <div class="warn-msg" id="warnMsg"></div>
       <div class="report-readiness page-only-report-status blocked" id="frameReportReadiness" role="status" aria-live="polite"></div>
@@ -4435,6 +4447,7 @@ function loadSelectedFrameBenchmark() {
 
 // 啟動
 window.addEventListener('DOMContentLoaded', () => {
+  window.FrameDraft = { capture: collectProjectData, restore: loadFromData };
   loadExample('portal');
 });
 </script>
@@ -4443,6 +4456,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="../tool-nav.manifest.js" defer></script>
 <script src="../tool-chrome.js" defer></script>
 <script src="../tool-page-a11y.js" defer></script>
+<script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-adapter="FrameDraft" data-draft-actions="#btnLoadDraft, #loadFrameBenchmarkButton, button[onclick^=add], button[onclick^=remove], button[onclick^=delete], button[onclick^=loadExample], button[onclick^=applyQuick]" defer></script>
 <script src="../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

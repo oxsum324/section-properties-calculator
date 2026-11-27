@@ -227,11 +227,13 @@ async function main() {
 
       const response = await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
       assert(response && response.status() === 200, `${tc.key} tool page loads`, `status=${response && response.status()}`);
+      await page.click('[data-rc-details="project"] > summary');
       await page.fill('#projName', 'RC 剪力牆正式附件測試');
       await page.fill('#projNo', 'RC-SW-001');
       await page.fill('#projDesigner', 'QA');
       await tc.setup(page);
       await page.evaluate(() => document.querySelector('.section-tabs button[data-tab="summary"]')?.click());
+      await page.click('[data-rc-details="readiness"] > summary');
       await page.waitForTimeout(350);
 
       const state = await page.evaluate(() => ({

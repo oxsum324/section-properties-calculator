@@ -1,7 +1,8 @@
 import { signoffConsent, signoffIdentity, signoffObservations, signoffContentDigest, signoffContentChanged, signoffMediaHashes } from './signoff-content.js';
 export * from './signoff-content.js';
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.31.0';
+export const VERSION = '0.32.0';
+export const CASE_SEED_FORMAT = 'field-case-seed.v1';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -501,6 +502,15 @@ export function validateProject(p) {
   assert(validDate(p.date), '會勘日期格式不正確');
   assert(Number.isSafeInteger(p.revision) && p.revision >= 0, '案件版本不正確');
   if (p.handoffDigests !== undefined) { list(p.handoffDigests, '交接檔指紋', 10000); assert(p.handoffDigests.every(d => typeof d === 'string' && /^[a-f0-9]{64}$/.test(d)), '交接檔指紋不正確'); }
+  if (p.fieldHandoff !== undefined) {
+    const h = p.fieldHandoff;
+    assert(h && typeof h === 'object' && !Array.isArray(h), '外業封存快照格式不正確');
+    text(h.sealedAt, '封存時間', 100);
+    assert(Number.isFinite(Date.parse(h.sealedAt)), '封存時間格式不正確');
+    if (h.visitId !== undefined) text(h.visitId, '封存會勘批次', 100);
+    assert(h.records && typeof h.records === 'object' && !Array.isArray(h.records), '外業封存紀錄清單不正確');
+    for (const [rid, sig] of Object.entries(h.records)) { identifier(rid); text(sig, '外業紀錄摘要', 10000); }
+  }
   if (p.handoffImports !== undefined) {
     list(p.handoffImports, '彙整來源', 500);
     for (const s of p.handoffImports) {
@@ -676,6 +686,14 @@ export function validateProject(p) {
       assert(plans.has(q.planId) && plan.unitId === r.unitId && plan.floor === r.floor, '位置圖戶別或樓層不一致');
       assert([q.x, q.y, q.endX, q.endY].every(finite01), '位置圖座標不正確');
     }
+    if (r.editLog !== undefined) {
+      list(r.editLog, '內業更正紀錄', 500);
+      for (const entry of r.editLog) {
+        assert(entry && typeof entry === 'object' && !Array.isArray(entry), '內業更正紀錄格式不正確');
+        for (const key of ['at', 'editor', 'reason', 'before', 'after']) text(entry[key], `更正紀錄.${key}`, 5000);
+        assert(Number.isFinite(Date.parse(entry.at)) && entry.reason.trim(), '內業更正時間或原因不可空白');
+      }
+    }
   }
   return p;
 }
@@ -762,4 +780,89 @@ export function restoredCopy(p) {
   for (const h of copy.attachmentNumberingHistory || []) for (const n of h.numbers) n.mediaId = remap.get(n.mediaId) || n.mediaId;
   for (const x of copy.signoffs || []) for (const y of x.signers) if (y.mediaId) y.mediaId = remap.get(y.mediaId);
   return { project: copy, remap };
+}
+export function recordFactSignature(r) {
+  if (!r || typeof r !== 'object') return '';
+  return canonicalJSON({
+    observedOn: r.observedOn || '',
+    measured: !!r.measured,
+    widthMode: widthMode(r),
+    width: r.width ?? null,
+    length: r.length ?? null,
+    crackCount: r.crackCount ?? null,
+    countApprox: !!r.countApprox,
+    tiles: r.tiles ? {
+      crack: !!r.tiles.crack, broken: !!r.tiles.broken, bulge: !!r.tiles.bulge, approx: !!r.tiles.approx,
+      crackCount: r.tiles.crackCount ?? null, brokenCount: r.tiles.brokenCount ?? null,
+      bulgeCount: r.tiles.bulgeCount ?? null, overlapCount: r.tiles.overlapCount ?? null,
+      crackText: r.tiles.crackText || '', brokenText: r.tiles.brokenText || '', bulgeText: r.tiles.bulgeText || ''
+    } : null,
+    areas: r.areas || null,
+    cracks: Array.isArray(r.cracks) ? r.cracks.map(c => ({
+      pattern: c.pattern || '', measured: !!c.measured, widthMode: c.widthMode || 'unknown',
+      width: c.width ?? null, length: c.length ?? null, layer: c.layer || 'unknown'
+    })) : null
+  });
+}
+export function sealFieldHandoff(p, visitId = '') {
+  const records = {};
+  for (const r of p.records || []) records[r.id] = recordFactSignature(r);
+  p.fieldHandoff = { sealedAt: now(), visitId: String(visitId || ''), records };
+  return p.fieldHandoff;
+}
+export function exportCaseSeed(p) {
+  assert(p && typeof p === 'object' && p.code?.trim() && p.name?.trim(), '匯出派案種子前須先填寫案號與案件名稱');
+  return {
+    format: CASE_SEED_FORMAT,
+    exportedAt: now(),
+    caseCode: p.code.trim(),
+    caseNumber: (p.caseNumber || '').trim(),
+    caseName: p.name.trim(),
+    orgName: (p.orgName || '').trim(),
+    surveyDate: validDate(p.date) ? p.date : localDateOf(new Date()),
+    buildingType: Object.hasOwn(BUILDING_TYPES, p.buildingType) ? p.buildingType : 'townhouse',
+    units: (p.units || []).map(u => ({
+      code: String(u.code || '').trim(),
+      address: String(u.address || '').trim(),
+      building: String(u.building || '').trim(),
+      kind: Object.hasOwn(UNIT_KINDS, u.kind) ? u.kind : 'residence',
+      floor: String(u.floor || '').trim()
+    })).filter(u => u.code)
+  };
+}
+export function parseCaseSeed(raw) {
+  let seed;
+  try { seed = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { throw new Error('派案種子檔案不是有效的 JSON 格式'); }
+  assert(seed && typeof seed === 'object' && seed.format === CASE_SEED_FORMAT, '不支援的派案種子格式（須為 field-case-seed.v1）');
+  const caseCode = String(seed.caseCode || seed.caseNumber || '').trim();
+  const caseName = String(seed.caseName || caseCode || '').trim();
+  assert(caseCode && caseName, '派案種子缺少案號或案件名稱');
+  const surveyDate = validDate(seed.surveyDate) ? seed.surveyDate : localDateOf(new Date());
+  const buildingType = Object.hasOwn(BUILDING_TYPES, seed.buildingType) ? seed.buildingType : 'other';
+  const unitsRaw = Array.isArray(seed.units) ? seed.units : [];
+  const seen = new Set();
+  const units = [];
+  for (const item of unitsRaw) {
+    const code = String(item?.code || '').trim().slice(0, 150);
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    units.push({
+      code,
+      address: String(item?.address || '').trim().slice(0, 500),
+      building: String(item?.building || '').trim().slice(0, 100),
+      kind: Object.hasOwn(UNIT_KINDS, item?.kind) ? item.kind : 'residence',
+      floor: String(item?.floor || '').trim().slice(0, 100)
+    });
+  }
+  return {
+    format: CASE_SEED_FORMAT,
+    caseCode: caseCode.slice(0, 100),
+    caseNumber: String(seed.caseNumber || '').trim().slice(0, 100),
+    caseName: caseName.slice(0, 180),
+    orgName: String(seed.orgName || '').trim().slice(0, 180),
+    address: String(seed.address || units[0]?.address || '').trim().slice(0, 240),
+    surveyDate,
+    buildingType,
+    units
+  };
 }

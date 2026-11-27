@@ -87,8 +87,8 @@ const MAIN_ROUTE_CANONICAL_PAGE_TITLE = '鋼構正式規範核算工具 V1.3';
 const steelDirectPrintPages = [
   { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.3' },
   { key: 'steel-plate-formal', url: '/plate-check.html', pageTitle: '鋼構連接板正式規範核算工具 V1.2' },
-  { key: 'steel-beam-formal', url: '/steel-beam-formal.html', pageTitle: '鋼梁正式規範核算工具 V1.5' },
-  { key: 'steel-column-formal', url: '/steel-column-formal.html', pageTitle: '鋼柱正式規範核算工具 V1.5' },
+  { key: 'steel-beam-formal', url: '/steel-beam-formal.html', pageTitle: '鋼梁正式規範核算工具 V1.6' },
+  { key: 'steel-column-formal', url: '/steel-column-formal.html', pageTitle: '鋼柱正式規範核算工具 V1.6' },
 ];
 
 const FORMAL_PROJECT_META = {
@@ -1059,6 +1059,7 @@ async function assertFormalBeamReadinessBlocked(cdp, sessionId) {
 }
 
 async function assertFormalBeamImportCandidate(cdp, sessionId) {
+  await openFormalReportReadiness(cdp, sessionId, '#beamReportReadiness');
   const state = await evaluate(cdp, sessionId, `((${installReportPopupFixture.toString()}))(), (async () => {
     const fixture = window.__t23ReportPopupFixture;
     try {
@@ -2651,6 +2652,7 @@ async function assertFormalColumnReportPopupComplete(cdp, sessionId, context = {
       builder: 'buildColumnSourcePayload', inputSelector: '#inputImportSourceJson', mutationSelector: '#inFy',
       sourceFieldKey: 'inFy', statusSelector: '#columnInputStatus', nestedFields: true,
     },
+    continuationContextLabels: ['鋼柱 P–My 互制與弱軸彎矩餘裕', '鋼柱 Mx–My 等軸力切面圖'],
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-column-formal' : '',
   });
 }
@@ -2668,7 +2670,15 @@ async function assertFormalColumnReportPopupPlaceholder(cdp, sessionId) {
   });
 }
 
+async function openFormalReportReadiness(cdp, sessionId, selector) {
+  await evaluate(cdp, sessionId, `(() => {
+    const panel = document.querySelector(${JSON.stringify(selector)});
+    panel?.closest('details:not([open])')?.querySelector(':scope > summary')?.click();
+  })()`, 'expand formal report readiness');
+}
+
 async function assertFormalReportReadiness(cdp, sessionId, selector, label) {
+  await openFormalReportReadiness(cdp, sessionId, selector);
   const text = await evaluate(cdp, sessionId, `(() => {
     const text = document.querySelector('${selector}')?.innerText || '';
     if (!text.includes('優先閱讀')) {
@@ -2686,6 +2696,7 @@ async function assertFormalReportReadiness(cdp, sessionId, selector, label) {
 }
 
 async function assertFormalReportReadinessBlocked(cdp, sessionId, selector, label) {
+  await openFormalReportReadiness(cdp, sessionId, selector);
   const text = await evaluate(cdp, sessionId, `(() => {
     const text = document.querySelector('${selector}')?.innerText || '';
     if (!text.includes('暫勿作附件')) {

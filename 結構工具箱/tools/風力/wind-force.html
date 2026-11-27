@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-wind-tool="force" data-wind-layout="building">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +11,8 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="wind-tools.css">
 <style>
   table.story { width:100%; border-collapse:collapse; font-size:0.82em; margin-top:8px; }
   table.story th, table.story td { border:1px solid var(--border); padding:5px 8px; text-align:right; font-family:'Consolas',monospace; }
@@ -18,30 +20,12 @@
   table.story td.idx { text-align:center; font-weight:700; color:var(--primary); }
   table.story td.edit-cell { text-align:center; }
   table.story input.story-height-input { width:88px; padding:4px 6px; text-align:right; font-family:'Consolas',monospace; }
-  .step { margin-bottom:14px; }
-  .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px;
-                padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
-  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; overflow-wrap:anywhere; }
-  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
-  .step-body .val.hl { font-size:1.05em; color:#0369a1; }
   .legend { font-size:0.78em; color:var(--text-light); margin-top:6px; line-height:1.7; }
   .legend code { background:#f1f5f9; padding:1px 5px; border-radius:3px; }
-  .diagram-wrap { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:10px; }
-  .diagram-wrap svg { width:100%; max-width:560px; height:auto; display:block; margin:0 auto; }
-  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
-             font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--primary); color:#fff; }
   .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
   .inline-actions.compact { margin-top:6px; }
   .btn-secondary { background:#e2e8f0; color:#0f172a; border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; }
   .btn-secondary:hover { background:#cbd5e1; }
-  .case-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
-  .case-actions button { border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; background:#e2e8f0; color:#0f172a; }
-  .case-actions button.primary { background:var(--primary); color:#fff; }
-  .case-actions button:hover { filter:brightness(0.96); }
-  .case-status { min-height:22px; margin-top:8px; color:#166534; font-size:0.82em; line-height:1.6; }
-  .case-status.warn { color:#92400e; }
-  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
-  .input-status:empty { display:none; }
   .story-height-summary { margin-top:8px; font-size:0.82em; color:var(--text-light); line-height:1.7; }
   .result-primary h2 { color:#0f766e; }
   #controlTable td:first-child,
@@ -56,26 +40,17 @@
     table.story { font-size:0.76em; }
     table.story th, table.story td { padding:4px 5px; }
     #controlTable, #dirComboTable, #comboTable, #storyTable { table-layout:fixed; }
-    .page-only-report-status, .case-actions, .case-status { display:none !important; }
   }
 
   @media (max-width: 768px) {
     table.story { font-size: 0.78em; }
     table.story th, table.story td { padding: 4px 5px; }
-    .form-row { grid-template-columns: 1fr; }
-    .step-title { font-size: 0.85em; }
-    .step-body { font-size: 0.82em; }
-  }
-  @media (max-width: 480px) {
-    .step-title { font-size: 0.82em; padding: 4px 8px; }
-    .step-body { font-size: 0.78em; }
-    .banner-key .k { font-size: 0.78em; }
   }
 </style>
 </head>
 <body class="formal-tool-output-page" data-family="wind">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
-<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
+<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
   <h1>建築物耐風設計 — 矩形建物 MWFRS <span class="badge-v">V3</span></h1>
   <p>依「建築物耐風設計規範及解說」103 年版 ｜ 矩形建物牆面 + 一般屋面 MWFRS ｜ 單位：m, kgf/m²</p>
@@ -86,16 +61,21 @@
 <div class="card mode-bar print-meta">
   <strong class="mode-bar__label">計畫資訊：</strong>
   <div class="mode-bar__proj">
-    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-    <input type="text" id="projNo" class="w-no" placeholder="編號">
-    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <button class="mode-bar__report" type="button">📄 列印計算書</button>
+    <details class="collapsible-details project-details page-only-tool-actions" id="windProjectDetails">
+      <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">案名／編號／設計人</span></summary>
+      <div class="details-project-fields">
+        <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+        <input type="text" id="projNo" class="w-no" placeholder="編號">
+        <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      </div>
+    </details>
   </div>
   <div class="case-actions">
-    <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
+    <button type="button" id="btnExportCase">匯出案件 JSON</button>
     <button type="button" id="btnImportCase">匯入案件 JSON</button>
     <button type="button" id="btnSaveCaseDraft">暫存</button>
     <button type="button" id="btnLoadCaseDraft">讀取暫存</button>
+    <button class="mode-bar__report primary" type="button">產生計算書</button>
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
   </div>
   <div class="case-status" id="caseStatus" aria-live="polite"></div>
@@ -206,17 +186,22 @@
         <div class="hint" style="margin-top:10px;">表 2.8 中 D、E、D' 需轉用表 2.5，其餘面代號採固定 Cp。</div>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>地形係數 K<sub>zt</sub></label>
-        <input id="Kzt" type="number" value="1.0" step="0.05">
-        <div class="hint">平地取 1.0；山頂/丘陵 → <a href="wind-kzt.html" target="_blank">K<sub>zt</sub> 計算器</a></div>
+    <details class="collapsible-details" id="windTerrainDetails">
+      <summary><span class="details-title">地形係數與適用說明</span><span class="details-summary-badge" data-details-value="#Kzt" data-details-prefix="Kzt = ">Kzt = 1.0</span></summary>
+      <div class="details-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>地形係數 K<sub>zt</sub></label>
+            <input id="Kzt" type="number" value="1.0" step="0.05">
+            <div class="hint">平地取 1.0；山頂/丘陵 → <a href="wind-kzt.html" target="_blank">K<sub>zt</sub> 計算器</a></div>
+          </div>
+          <div class="form-group">
+            <label>適用說明</label>
+            <div class="hint" style="margin-top:10px;">本頁為 MWFRS 主結構風力；局部構材/包覆物請改用 C&amp;C，女兒牆另有專頁。</div>
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>適用說明</label>
-        <div class="hint" style="margin-top:10px;">本頁為 MWFRS 主結構風力；局部構材/包覆物請改用 C&amp;C，女兒牆另有專頁。</div>
-      </div>
-    </div>
+    </details>
   </div>
 
   <div class="card">
@@ -266,10 +251,10 @@
     </div>
   </div>
 
-  <details class="card fold-card" id="storyHeightCard" style="display:none;">
+  <details class="card fold-card collapsible-details" id="storyHeightCard" style="display:none;">
     <summary class="fold-summary">
-      <span>逐層樓高設定</span>
-      <span class="fold-chip">進階輸入</span>
+      <span class="details-title">逐層樓高設定</span>
+      <span class="details-summary-badge" data-details-value="#storyHeightSummary">進階輸入</span>
     </summary>
     <div class="note">
       本區依 <strong>樓層數 N</strong> 與 <strong>初始樓高 h</strong> 生成逐層樓高表。生成後可逐層微調，重算時即按各層實際高度計入。
@@ -290,10 +275,10 @@
     <div class="story-height-summary" id="storyHeightSummary"></div>
   </details>
 
-  <details class="card fold-card" id="dynamicCard">
+  <details class="card fold-card collapsible-details" id="dynamicCard">
     <summary class="fold-summary">
-      <span>結構動態特性與加速度</span>
-      <span class="fold-chip">柔性結構 / 舒適度</span>
+      <span class="details-title">結構動態特性與加速度</span>
+      <span class="details-summary-badge" data-details-value="#chkAccel" data-details-prefix="加速度：">柔性結構 / 舒適度</span>
     </summary>
     <div class="checkbox-row" style="background:#fef3c7; border-color:#fcd34d;">
       <input type="checkbox" id="flex" style="accent-color:#d97706;">
@@ -441,25 +426,30 @@
   <div class="card">
     <button class="btn-calc" id="btnCalc">計算風力</button>
     <div class="input-status" id="inputStatus" aria-live="polite"></div>
-    <div class="chk-detail">
-      <input type="checkbox" id="chkDetail">
-      <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
-    </div>
-    <div class="form-group">
-      <label for="reportMode">計算書模式</label>
-      <select id="reportMode">
-        <option value="detailed" selected>詳算式（含輸入與逐步計算）</option>
-        <option value="summary">簡易結果（摘要與採用表）</option>
-      </select>
-      <div class="hint">本選項只控制輸出詳略，不會列為計算書欄位。</div>
-    </div>
-    <button class="btn-print" type="button">列印計算書</button>
+    <details class="collapsible-details page-only-tool-actions" id="windReportModeDetails">
+      <summary><span class="details-title">畫面計算式與計算書模式</span><span class="details-summary-badge" data-details-value="#reportMode">詳算式</span></summary>
+      <div class="details-body">
+        <div class="chk-detail">
+          <input type="checkbox" id="chkDetail">
+          <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
+        </div>
+        <div class="form-group">
+          <label for="reportMode">計算書模式</label>
+          <select id="reportMode">
+            <option value="detailed" selected>詳算式（含輸入與逐步計算）</option>
+            <option value="summary">簡易結果（摘要與採用表）</option>
+          </select>
+          <div class="hint">本選項只控制輸出詳略，不會列為計算書欄位。</div>
+        </div>
+      </div>
+    </details>
+    <button class="btn-print" type="button">產生計算書</button>
   </div>
 
-  <details class="card fold-card">
+  <details class="card fold-card collapsible-details page-only-tool-actions">
     <summary class="fold-summary">
-      <span>計算書輸出項目</span>
-      <span class="fold-chip">列印勾選</span>
+      <span class="details-title">計算書輸出項目</span>
+      <span class="details-summary-badge">列印勾選</span>
     </summary>
     <div class="checkbox-row"><input type="checkbox" id="rep_summary" checked><label for="rep_summary">1. 綜合結論摘要</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_applicability" checked><label for="rep_applicability">2. 適用性檢查</label></div>
@@ -1953,6 +1943,8 @@ calc();
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../../../tool-page-a11y.js" defer></script>
+<script src="../../assets/hy/tool-ui-collapsible-summary.js" defer></script>
+<script src="../../assets/hy/tool-draft-guard.js" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>
 </html>

@@ -169,13 +169,13 @@ try {
   Copy-Item -Path (Join-Path $resolvedDist '*') -Destination $staging -Recurse -Force
   $stagedIndex = Join-Path $staging 'index.html'
 
-  node $a11yHelper $stagedIndex
+  node $a11yHelper $stagedIndex --with-tool-chrome
   if ($LASTEXITCODE -ne 0) {
     throw "anchor accessibility helper failed with exit code $LASTEXITCODE; anchor/ was not modified"
   }
 
   $index = Get-Content -LiteralPath $stagedIndex -Raw -Encoding UTF8
-  $referencedAssets = [regex]::Matches($index, '(?:\./)?assets/([^"''<>]+)') |
+  $referencedAssets = [regex]::Matches($index, '(?i)\b(?:src|href)\s*=\s*["''](?:\./)?assets/([^"''<>]+)["'']') |
     ForEach-Object { $_.Groups[1].Value } |
     Sort-Object -Unique
   foreach ($assetName in @($referencedAssets)) {

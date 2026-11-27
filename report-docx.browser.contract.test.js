@@ -25,23 +25,39 @@ async function assertActualBeamSourceCaptureOrder() {
   win.HTMLCanvasElement.prototype.toDataURL = () => 'data:image/png;base64,';
   try {
     for (const script of win.document.scripts) {
-      if (!script.src) { win.eval(script.textContent); continue; }
-      const url = new URL(script.src), file = decodeURIComponent(url.pathname).slice(1);
-      if (url.hostname !== 'localhost' || file.endsWith('/tool-workflow.js')) continue;
-      win.eval(fs.readFileSync(path.join(__dirname, file), 'utf8'));
+      Object.defineProperty(win.document, 'currentScript', { configurable: true, value: script });
+      try {
+        if (!script.src) { win.eval(script.textContent); continue; }
+        const url = new URL(script.src), file = decodeURIComponent(url.pathname).slice(1);
+        if (url.hostname !== 'localhost') continue;
+        win.eval(fs.readFileSync(path.join(__dirname, file), 'utf8'));
+      } finally {
+        delete win.document.currentScript;
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 25));
     const stale = plain(win.collectBeamProjectData());
-    assert.equal(stale.calculationFingerprint, 'CF-A8D9DF08D3D2C7FC');
+    // 兩次指紋取自 259df5d1 的 Edge 來源 JSON 與實際報表重播。
+    assert.equal(stale.calculationFingerprint, 'CF-84FBAF95F0DE79B1');
     const metadata = { projectName: '來源順序測試', projectNo: 'DOCX-QA', designer: 'QA' };
     // 模擬 Playwright 傳回可序列化值，計算與來源收集仍執行實際 beam.html 函數。
     const page = {
-      locator(selector) { return { async fill(value) { win.document.querySelector(selector).value = value; }, async blur() { win.document.querySelector(selector).blur(); } }; },
+      locator(selector) {
+        const target = win.document.querySelector(selector);
+        return {
+          async click() { target.click(); },
+          async fill(value) {
+            assert.equal(target.closest('details')?.open, true, '填寫表頭前須展開案件區');
+            target.value = value;
+          },
+          async blur() { target.blur(); }
+        };
+      },
       async evaluate(fn, argument) { return plain(win.eval('(' + fn.toString() + ')(' + JSON.stringify(argument) + ')')); }
     };
     const snapshot = await prepareCalculationSource(page, CASES.find(item => item.key === 'rc-beam'), metadata);
     assert.equal(snapshot.activeTab, 'summary');
-    assert.equal(snapshot.calculationFingerprint, 'CF-71C1B4ABEB4222F7');
+    assert.equal(snapshot.calculationFingerprint, 'CF-133B8A3EFED44DD2');
     assert.notEqual(stale.summary.banner, snapshot.summary.banner, '既有 summary.banner 會隨頁面而變；不能先保存 geom JSON');
     const sameFields = { ...stale.fields, projName: snapshot.fields.projName, projNo: snapshot.fields.projNo, projDesigner: snapshot.fields.projDesigner };
     assert.deepEqual(snapshot.fields, sameFields, '切換 summary 並未更改工程輸入');

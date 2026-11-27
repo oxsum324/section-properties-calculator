@@ -231,6 +231,7 @@ async function main() {
       await applyCase(page, tc);
       await page.waitForTimeout(250);
       await page.click('.section-tabs button[data-tab="summary"]');
+      await page.click('[data-rc-details="readiness"] > summary');
       const pageReadiness = await page.evaluate(() => {
         const card = document.getElementById('columnAttachmentReadinessCard');
         const methodCard = document.getElementById('columnMethodBoundaryCard');
@@ -438,6 +439,7 @@ async function main() {
       window.calcColumn();
     });
     await page.click('.section-tabs button[data-tab="summary"]');
+    await page.click('[data-rc-details="readiness"] > summary');
     await page.selectOption('[data-review-item="column-anchorage"] [data-review-field="basis"]', 'drawing');
     await page.fill('[data-review-item="column-anchorage"] [data-review-field="reference"]', 'S-302');
     await page.fill('[data-review-item="column-anchorage"] [data-review-field="reviewer"]', 'QA-01');

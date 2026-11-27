@@ -7,11 +7,14 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="../tool-chrome.css">
   <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
+  <link rel="stylesheet" href="../結構工具箱/assets/hy/tool-ui-collapsible.css">
   <link rel="stylesheet" href="../結構工具箱/core/family-theme.css">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
+  <script src="../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
+<link rel="stylesheet" href="../結構工具箱/assets/hy/tool-sticky-summary.css">
 </head>
-<body class="steel-formal-output-page" data-family="attachments">
+<body class="steel-formal-output-page" data-family="attachments" data-steel-draft-guard>
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
   <aside class="steel-formal-direct-print-boundary" aria-label="鋼構正式工具列印邊界">
     <strong>鋼構正式工具主頁列印已封鎖</strong>
@@ -41,20 +44,25 @@
         </div>
         <span class="mode-bar__hint" id="methodHint">此頁固定為連接板檢核；流程建議：先選設計方法，再載入對應範例。</span>
       <div class="mode-bar__proj">
-        <input name="projectName" form="connectionForm" type="text" placeholder="計畫名稱">
-        <input name="connectionTag" form="connectionForm" type="text" placeholder="接頭編號">
-        <input name="designer" form="connectionForm" type="text" placeholder="設計人">
+        <details class="collapsible-details project-details" id="steelProjectDetails" data-page-only="true">
+          <summary><span class="details-title">案件識別資料</span><span class="details-summary-badge" data-details-value="[name=projectName], [name=connectionTag], [name=designer]">選填</span></summary>
+          <div class="details-body details-project-fields">
+            <input name="projectName" form="connectionForm" type="text" placeholder="計畫名稱">
+            <input name="connectionTag" form="connectionForm" type="text" placeholder="接頭編號">
+            <input name="designer" form="connectionForm" type="text" placeholder="設計人">
+          </div>
+        </details>
         <select id="examplePresetSelect" title="範例案例">
           <option value="plate_geometry">連接板｜幾何推導</option>
           <option value="plate_area_manual">連接板｜面積直輸</option>
         </select>
-        <button id="loadExampleBtn" class="mode-bar__report" type="button">載入範例</button>
+        <button id="loadExampleBtn" class="mode-bar__report secondary" type="button">載入範例</button>
         <button id="saveDraftBtn" class="mode-bar__report secondary" type="button">儲存草稿</button>
-        <button id="exportSourceJsonBtn" class="mode-bar__report secondary" type="button">💾 匯出來源 JSON</button>
-        <button id="importSourceJsonBtn" class="mode-bar__report secondary" type="button">📂 匯入來源 JSON</button>
+        <button id="exportSourceJsonBtn" class="mode-bar__report secondary" type="button">匯出案件 JSON</button>
+        <button id="importSourceJsonBtn" class="mode-bar__report secondary" type="button">匯入案件 JSON</button>
         <input id="importSourceJsonInput" type="file" accept="application/json,.json" hidden>
-        <button id="exportReportBtn" class="mode-bar__report" type="button">📄 輸出報表</button>
-        <span id="exportReportStatus" class="mode-bar__status" role="status" aria-live="polite" hidden></span>
+        <button id="exportReportBtn" class="mode-bar__report" type="button">產生計算書</button>
+        <span id="exportReportStatus" data-details-refresh class="mode-bar__status" role="status" aria-live="polite" hidden></span>
       </div>
     </section>
 
@@ -73,17 +81,22 @@
           <div class="card">
             <h2>基本資料</h2>
             <p class="section-note">此頁固定為連接板檢核；上方工作列先決定設計方法與範例，此區保留規範基準、暴露條件與報表選項。</p>
-            <div class="form-group">
-              <label>規範基準</label>
-              <input id="codeBasisDisplay" value="鋼構造建築物鋼結構設計技術規範｜依模組切換對應章節與設計法" disabled>
-            </div>
-            <div class="form-group">
-              <label>暴露條件</label>
-              <select name="exposureCondition">
-                <option value="painted">塗裝或不受腐蝕環境</option>
-                <option value="weathering">耐候鋼且暴露大氣</option>
-              </select>
-            </div>
+            <details class="collapsible-details" id="plateBasisDetails">
+              <summary><span class="details-title">規範基準與暴露條件</span><span class="details-summary-badge" data-details-value="[name=exposureCondition]">塗裝或不受腐蝕環境</span></summary>
+              <div class="details-body">
+                <div class="form-group">
+                  <label>規範基準</label>
+                  <input id="codeBasisDisplay" value="鋼構造建築物鋼結構設計技術規範｜依模組切換對應章節與設計法" disabled>
+                </div>
+                <div class="form-group">
+                  <label>暴露條件</label>
+                  <select name="exposureCondition">
+                    <option value="painted">塗裝或不受腐蝕環境</option>
+                    <option value="weathering">耐候鋼且暴露大氣</option>
+                  </select>
+                </div>
+              </div>
+            </details>
             <div class="form-row is-hidden" data-basic-demand="frame">
               <div class="form-group">
                 <label>需求軸力 Pu / Pa (kN)</label>
@@ -104,10 +117,15 @@
                 <input name="eccentricity" type="number" min="0" step="0.1">
               </div>
             </div>
-            <div class="checkbox-row">
-              <input id="showFlow" type="checkbox" checked>
-              <label for="showFlow">報表中顯示計算流程與公式代入</label>
-            </div>
+            <details class="collapsible-details" id="plateReportOptions">
+              <summary><span class="details-title">報表輸出選項</span><span class="details-summary-badge" data-details-value="#showFlow">已啟用</span></summary>
+              <div class="details-body">
+                <div class="checkbox-row">
+                  <input id="showFlow" type="checkbox" checked>
+                  <label for="showFlow">報表中顯示計算流程與公式代入</label>
+                </div>
+              </div>
+            </details>
           </div>
 
           <div class="card" data-common-card="bolt">
@@ -673,45 +691,50 @@
                   <input name="edgeDistanceBottom" type="number" min="0" step="0.1">
                 </div>
               </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>淨斷面模式</label>
-                  <select name="netSectionMode">
-                    <option value="straight_only">直線淨斷面</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>區塊剪力模式</label>
-                  <select name="blockShearMode">
-                    <option value="auto_with_override">自動推導 + 手動覆寫</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>手動覆寫區塊剪力</label>
-                  <select name="useManualBlockShearPath">
-                    <option value="false">否</option>
-                    <option value="true">是</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>手動 Agv / Anv (mm²)</label>
-                  <div class="form-row compact">
-                    <input name="manualAgv" type="number" min="0" step="0.1" placeholder="Agv">
-                    <input name="manualAnv" type="number" min="0" step="0.1" placeholder="Anv">
+              <details class="collapsible-details" id="platePathDetails">
+                <summary><span class="details-title">淨斷面與區塊剪力路徑</span><span class="details-summary-badge" data-details-value="[name=useManualBlockShearPath]" data-details-prefix="手動覆寫：">手動覆寫：否</span></summary>
+                <div class="details-body">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>淨斷面模式</label>
+                      <select name="netSectionMode">
+                        <option value="straight_only">直線淨斷面</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>區塊剪力模式</label>
+                      <select name="blockShearMode">
+                        <option value="auto_with_override">自動推導 + 手動覆寫</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>手動覆寫區塊剪力</label>
+                      <select name="useManualBlockShearPath">
+                        <option value="false">否</option>
+                        <option value="true">是</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>手動 Agv / Anv (mm²)</label>
+                      <div class="form-row compact">
+                        <input name="manualAgv" type="number" min="0" step="0.1" placeholder="Agv">
+                        <input name="manualAnv" type="number" min="0" step="0.1" placeholder="Anv">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>手動 Agt / Ant (mm²)</label>
+                      <div class="form-row compact">
+                        <input name="manualAgt" type="number" min="0" step="0.1" placeholder="Agt">
+                        <input name="manualAnt" type="number" min="0" step="0.1" placeholder="Ant">
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>手動 Agt / Ant (mm²)</label>
-                  <div class="form-row compact">
-                    <input name="manualAgt" type="number" min="0" step="0.1" placeholder="Agt">
-                    <input name="manualAnt" type="number" min="0" step="0.1" placeholder="Ant">
-                  </div>
-                </div>
-              </div>
+              </details>
             </div>
 
             <div data-plate-mode="area_manual" class="is-hidden">
@@ -751,7 +774,7 @@
               <textarea name="notes" rows="4" placeholder="可記錄構件型號、圖號、審查意見、圖說備註與工程假設"></textarea>
             </div>
             <div class="input-actions">
-              <button id="resetBtn" class="btn-secondary" type="button">重設資料</button>
+              <button id="resetBtn" class="btn-secondary" type="button">重設預設值</button>
             </div>
           </div>
         </form>
@@ -930,9 +953,12 @@
 <script src="../結構工具箱/core/ui/report-docx.js"></script>
 <script src="./core/ui/report.js"></script>
   <script src="./calculator.js"></script>
+  <script src="../結構工具箱/core/ui/member-section-svg.js"></script>
   <script src="./app.js"></script>
   <script src="../tool-nav.manifest.js" defer></script>
   <script src="../tool-chrome.js" defer></script>
   <script src="../tool-page-a11y.js" defer></script>
+<script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-adapter="SteelConnectionDraft" data-draft-choices="button[data-method]" data-draft-actions="#loadExampleBtn, #resetBtn, #saveDraftBtn" defer></script>
+<script src="../結構工具箱/assets/hy/tool-sticky-summary.js" data-sticky-summary="steel-connection" defer></script>
 </body>
 </html>

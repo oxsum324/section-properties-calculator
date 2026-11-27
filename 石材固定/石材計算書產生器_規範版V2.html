@@ -5,760 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>石材外牆固定構件計算書產生器 規範版 V3.2</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
+<link rel="stylesheet" href="../tool-chrome.css">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
-<style>
-/* ─── Reset ─────────────────────────────── */
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'標楷體','DFKai-SB',serif;font-size:13px;background:#e0e4e8;color:#222}
-
-/* ─── App Layout ─────────────────────────── */
-#app{display:flex;height:100vh;overflow:hidden}
-#sidebar{width:370px;min-width:370px;background:#fff;overflow-y:auto;
-  border-right:2px solid #aaa;display:flex;flex-direction:column}
-/* KaTeX 輔助 MathML 的 absolute 定位需留在可捲動預覽內，避免擴張根視窗。 */
-#preview-area{position:relative;flex:1;overflow-y:auto;padding:20px;background:#d0d4d8}
-#review-dashboard{position:sticky;top:0;z-index:50;max-width:210mm;margin:0 auto 12px;
-  background:#f8fafc;border:1px solid #b8c7d9;border-radius:6px;
-  box-shadow:0 2px 8px rgba(0,0,0,.16);padding:9px 10px;font-family:'標楷體','DFKai-SB',serif;cursor:pointer}
-#review-dashboard:hover{filter:brightness(.985)}
-#review-dashboard .dash-toggle:focus-visible,
-#review-dashboard .dash-details:focus-visible{outline:3px solid #4f8fd8;outline-offset:2px}
-.acc-hd:focus-visible,.chip:focus-visible,.v2-method-card:focus-visible,#v2-status-pill:focus-visible,
-.v2-mode-switch .mode-btn:focus-visible,.v2-tier-bar .tier-btn:focus-visible,
-.btn:focus-visible,.v2-method-card .zoom-btn:focus-visible,.case-card .v2-case-copy:focus-visible,
-.case-card .v2-case-toggle:focus-visible,#v2-tpl-mgr .tpl-del:focus-visible,
-button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此附件"]:focus-visible{outline:3px solid #4f8fd8;outline-offset:2px}
-#review-dashboard .dash-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px;min-width:0}
-#review-dashboard .dash-title{font-size:13px;font-weight:bold;color:#1a3a5c;letter-spacing:1px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#review-dashboard .dash-head{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}
-#review-dashboard .dash-state{font-size:12px;font-weight:bold;padding:3px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
-#review-dashboard .dash-state.ok{background:#e7f5ec;color:#176017;border-color:#b8dec3}
-#review-dashboard .dash-state.warn{background:#fff5df;color:#8a5b00;border-color:#e4c274}
-#review-dashboard .dash-state.ng{background:#fff3f3;color:#b00000;border-color:#e7b8b8}
-#review-dashboard .dash-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
-#review-dashboard .dash-toggle,
-#review-dashboard .dash-details{border:1px solid #c8d4e1;background:#fff;color:#1a3a5c;border-radius:4px;
-  min-width:68px;height:24px;padding:0 8px;font-size:11px;cursor:pointer}
-#review-dashboard .dash-toggle:hover,
-#review-dashboard .dash-details:hover{background:#eef5ff}
-#review-dashboard.is-collapsed{padding:6px 10px;margin-bottom:8px}
-#review-dashboard.is-collapsed .dash-top{margin-bottom:0}
-
-/* V2 docked 模式：桌機右側可折疊側欄 / 平板手機底部抽屜 */
-#review-dashboard.is-docked{
-  position:fixed;
-  top:auto; bottom:auto;
-  max-width:none;
-  margin:0;
-  z-index:9000;
-  box-shadow:0 4px 24px rgba(0,0,0,.22);
-  border-radius:8px 0 0 8px;
-  transition:transform .25s ease, width .25s ease;
-}
-/* 桌機：右側固定欄；寬度 320px */
-@media (min-width:1024px){
-  #review-dashboard.is-docked{
-    right:0; top:64px;
-    width:320px;
-    max-height:calc(100vh - 80px);
-    overflow-y:auto;
-    border-radius:8px 0 0 8px;
-  }
-  #review-dashboard.is-docked.is-mini{
-    width:48px;
-    overflow:hidden;
-    cursor:pointer;
-  }
-  #review-dashboard.is-docked.is-mini > *:not(.dock-handle){
-    display:none !important;
-  }
-  #review-dashboard.is-docked .dock-handle{
-    position:absolute;
-    left:-1px; top:0;
-    width:100%;
-    background:#1a3a5c; color:#fff;
-    padding:6px;
-    font-size:11px;
-    text-align:center;
-    border-radius:8px 0 0 0;
-    cursor:pointer;
-    user-select:none;
-    z-index:1;
-  }
-  #review-dashboard.is-docked.is-mini .dock-handle{
-    background:#1a3a5c;
-    height:100%;
-    display:flex; align-items:center; justify-content:center;
-    writing-mode:vertical-rl;
-    border-radius:8px 0 0 8px;
-    font-size:12px; letter-spacing:2px;
-  }
-  #review-dashboard.is-docked:not(.is-mini) > *:not(.dock-handle){
-    margin-top:32px;
-  }
-}
-/* 平板/手機：底部抽屜 */
-@media (max-width:1023px){
-  #review-dashboard.is-docked{
-    left:0; right:0; bottom:0;
-    width:100%;
-    max-height:50vh;
-    overflow-y:auto;
-    border-radius:8px 8px 0 0;
-  }
-  #review-dashboard.is-docked.is-mini{
-    max-height:48px;
-    overflow:hidden;
-    cursor:pointer;
-  }
-  #review-dashboard.is-docked.is-mini > *:not(.dock-handle){
-    display:none !important;
-  }
-  #review-dashboard.is-docked .dock-handle{
-    position:sticky; top:0;
-    background:#1a3a5c; color:#fff;
-    padding:8px 12px;
-    text-align:center;
-    cursor:pointer; user-select:none;
-    z-index:1;
-    border-radius:8px 8px 0 0;
-  }
-}
-/* dock 模式：縮小狀態顯示「最危險檢核」摘要 */
-#review-dashboard.is-docked .dock-handle .mini-summary{
-  font-size:11px; opacity:.85; margin-left:6px;
-}
-@media print{
-  #review-dashboard.is-docked{display:none !important}
-}
-#review-dashboard.is-collapsed .dash-grid,
-#review-dashboard.is-collapsed .dash-hint{display:none}
-#review-dashboard .dash-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-#review-dashboard .dash-card{background:#fff;border:1px solid #dbe3ee;border-radius:5px;padding:6px 7px;min-height:48px}
-#review-dashboard .dash-label{font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#review-dashboard .dash-value{font-size:13px;font-weight:bold;color:#1f2937;margin-top:3px;line-height:1.25;word-break:break-word}
-#review-dashboard .dash-value.ok{color:#176017}
-#review-dashboard .dash-value.warn{color:#995500}
-#review-dashboard .dash-value.ng{color:#b00000}
-#review-dashboard .dash-hint{font-size:10px;color:#64748b;margin-top:6px;text-align:right}
-@media (max-width:1200px){
-  #review-dashboard{max-width:none}
-  #review-dashboard .dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-}
-@media (max-width:900px){
-  html,body{max-width:100%;overflow-x:clip}
-  #app{flex-direction:column}
-  #sidebar{width:100%;min-width:0;max-height:55vh;border-right:0;border-bottom:2px solid #aaa}
-  #preview-area{width:100%;min-width:0;overflow:auto}
-  #preview-area{padding:12px}
-  #review-dashboard .dash-top{flex-wrap:wrap;gap:6px}
-  #review-dashboard .dash-actions{margin-left:auto}
-  #review-dashboard .dash-toggle,
-  #review-dashboard .dash-details{min-width:56px;padding:0 6px}
-}
-@media print{#review-dashboard{display:none!important}}
-
-/* ─── Sidebar Header ─────────────────────── */
-#tool-header{background:#1a3a5c;color:#fff;padding:10px 14px;font-size:15px;
-  font-weight:bold;letter-spacing:1px;flex-shrink:0}
-#tool-header span{font-size:11px;font-weight:normal;opacity:.8;display:block;margin-top:2px}
-
-/* ─── Accordion Sections ─────────────────── */
-.acc-hd{background:#2c5280;color:#fff;padding:7px 12px;font-size:12px;font-weight:bold;
-  cursor:pointer;display:flex;justify-content:space-between;align-items:center;
-  border-bottom:1px solid #1a3a5c;user-select:none}
-.acc-hd:hover{background:#245090}
-.acc-hd .arrow{transition:transform .2s;font-size:11px}
-.acc-hd.open .arrow{transform:rotate(90deg)}
-.acc-body{padding:10px 12px;border-bottom:2px solid #e0e0e0;display:none}
-.acc-body.show{display:block}
-
-/* ─── Form Controls ──────────────────────── */
-.field{margin-bottom:8px}
-.field label{display:block;font-size:11px;color:#555;margin-bottom:3px}
-.field input,.field select,.field textarea{
-  width:100%;padding:4px 7px;border:1px solid #bbb;border-radius:3px;
-  font-size:12px;font-family:inherit;background:#fafafa}
-.field input[type=number]{text-align:right}
-.field input:focus,.field select:focus{outline:2px solid #2c5280;background:#fff}
-.field.invalid input,.field.invalid select,.field.invalid textarea{
-  border-color:#c62828;
-  background:#fff3f3;
-  box-shadow:0 0 0 1px rgba(198,40,40,.18);
-}
-.field-warning{font-size:11px;color:#b00020;margin-top:3px;line-height:1.4}
-.row{display:flex;gap:6px}
-.row .field{flex:1}
-.unit{font-size:11px;color:#888;padding:4px 0 0 2px;white-space:nowrap;align-self:flex-end;margin-bottom:8px}
-.note{font-size:11px;color:#888;margin-top:3px;line-height:1.4}
-.mod-grid{display:grid;grid-template-columns:1fr;gap:8px}
-.mod-card{border:1px solid #d4dbe5;border-radius:6px;background:#fbfcfe;padding:8px 9px}
-.mod-card.is-on{border-color:#2c5280;background:#f5f9ff}
-.mod-hd{display:flex;align-items:flex-start;gap:8px;font-size:12px;font-weight:bold;color:#1a3a5c}
-.mod-hd input[type=checkbox]{margin-top:2px}
-.mod-body{margin-top:6px;padding-left:24px}
-.mod-tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:999px;background:#e8eef7;color:#37516d;margin-left:4px}
-.warn-box{margin-top:6px;padding:6px 8px;border-radius:4px;border:1px solid #e7c07b;background:#fff8e8;color:#7a4c00;font-size:11px;line-height:1.5}
-.rule-box{margin-top:6px;padding:6px 8px;border-radius:4px;border:1px solid #d7e1ec;background:#f5f8fc;color:#40546a;font-size:11px;line-height:1.5}
-.recovery-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.recovery-actions .btn{flex:1 1 120px;padding:5px 8px}
-.basis-row{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;margin-bottom:6px}
-.basis-row label{display:flex;align-items:center;gap:6px;font-size:11px;color:#334155;white-space:nowrap;margin-bottom:0}
-.report-control-grid{display:grid;grid-template-columns:1fr;gap:8px}
-.case-tip{margin-top:4px;font-size:11px;color:#6b7280;line-height:1.45}
-.batch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:8px}
-.batch-card{border:1px solid #d7e1ec;border-radius:6px;background:#fbfcff;padding:8px}
-.batch-card h4{font-size:12px;color:#1f4d7a;margin-bottom:6px}
-.batch-card table{width:100%;border-collapse:collapse;font-size:12px}
-.batch-card th,.batch-card td{padding:4px 5px;border-bottom:1px solid #edf1f6}
-.batch-card th{text-align:left;color:#4b5563;font-weight:bold}
-.batch-card td.r{text-align:right}
-.batch-chip{display:inline-block;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:bold}
-.batch-heatmaps{display:grid;gap:10px;margin-top:10px}
-.batch-heatmap{border:1px solid #d7e1ec;border-radius:6px;background:#fff;padding:8px}
-.batch-heatmap h4{font-size:12px;color:#1f4d7a;margin-bottom:6px}
-.batch-heatmap table{width:100%;border-collapse:separate;border-spacing:4px;font-size:11px}
-.batch-heatmap th{font-size:11px;color:#4b5563;font-weight:bold;text-align:center}
-.batch-cell{border:1px solid #d1d9e6;border-radius:6px;padding:6px 4px;text-align:center;min-height:56px}
-.batch-cell-main{font-size:14px;font-weight:bold;line-height:1.15}
-.batch-cell-sub{font-size:10px;line-height:1.3;margin-top:3px;word-break:break-word}
-.batch-rank-table{margin-top:10px;font-size:12px}
-.batch-rank-table td,.batch-rank-table th{padding:5px 6px}
-
-/* ─── Radio Chips ────────────────────────── */
-.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
-.chip{padding:3px 10px;border:1px solid #bbb;border-radius:12px;cursor:pointer;
-  font-size:11px;background:#f5f5f5;user-select:none;white-space:nowrap}
-.chip:hover{background:#dde8f0;border-color:#2c5280}
-.chip.active{background:#2c5280;color:#fff;border-color:#2c5280}
-
-/* ─── Sub-section Divider ────────────────── */
-.sub-hd{font-size:11px;font-weight:bold;color:#2c5280;border-bottom:1px solid #ccc;
-  padding-bottom:3px;margin:10px 0 6px}
-
-/* ─── Result Indicator ───────────────────── */
-.res-ok{color:#176017;font-weight:bold}
-.res-ng{color:#b00000;font-weight:bold}
-.res-pending{color:#888}
-
-/* ─── Bottom Buttons ─────────────────────── */
-#btn-bar{padding:10px 12px;background:#f0f0f0;border-top:2px solid #ccc;
-  display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
-.btn{padding:7px 14px;border:none;border-radius:4px;cursor:pointer;
-  font-size:12px;font-family:inherit;font-weight:bold}
-.btn-blue{background:#1a3a5c;color:#fff}
-.btn-green{background:#196019;color:#fff}
-.btn-gray{background:#666;color:#fff}
-.btn:hover{opacity:.85}
-.btn:active{transform:scale(.97)}
-
-/* ─── Preview Sheet ──────────────────────── */
-.a4{background:#fff;width:210mm;min-height:297mm;
-  margin:0 auto 20px;padding:15mm 20mm 0 25mm;
-  box-shadow:0 3px 12px rgba(0,0,0,.25);
-  display:flex;flex-direction:column}
-
-/* ─── Cover ──────────────────────────────── */
-.a4.cov-page{display:block}
-/* 標題列：三欄 grid，標題置於中欄確保頁面正中 */
-.cov-header{display:grid;grid-template-columns:1fr auto 1fr;
-  align-items:center;margin:0 0 10mm 0}
-.cov-title{grid-column:2;font-size:48pt;letter-spacing:14px;
-  text-align:center;line-height:2.0;margin:0}
-.cov-stamps-side{grid-column:3;justify-self:start;margin-left:1.5cm;
-  display:flex;flex-direction:column;align-items:center;gap:10px}
-/* 工程資訊表 */
-.cov-info{margin:0}
-.cov-info table{font-size:20px;line-height:2.8;border-collapse:collapse}
-.cov-info td.lbl{color:#444;width:6em;vertical-align:top;white-space:nowrap;font-size:20px}
-.cov-info td.val{font-size:20px;vertical-align:top}
-/* 日期 */
-.cov-date{text-align:center;font-size:20px;letter-spacing:8px;
-  margin-top:16px;padding-top:14px;border-top:1px solid #bbb}
-.stamp-img-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
-.stamp-img-wrap img{display:block}
-.stamp-placeholder{border:2px dashed #ccc;display:flex;align-items:center;
-  justify-content:center;font-size:10px;color:#bbb;text-align:center;
-  line-height:1.5}
-.stamp-placeholder.circle{width:4.6cm;height:4.6cm;border-radius:50%}
-.stamp-placeholder.square{width:1.5cm;height:1.5cm}
-
-/* ─── TOC Page ────────────────────────────── */
-.toc-page{}
-.toc-title{font-size:36px;font-weight:bold;text-align:center;margin-bottom:20px;
-  border-bottom:2px solid #000;padding-bottom:8px;letter-spacing:4px}
-.toc-row{display:flex;justify-content:space-between;align-items:baseline;
-  font-size:18px;padding:5px 0;border-bottom:1px dotted #ddd}
-.toc-row.toc-ch{font-weight:bold;margin-top:8px;font-size:18px}
-.toc-row.toc-app{padding-left:20px;font-size:16px}
-.toc-pg{min-width:50px;text-align:right;font-size:17px;color:#555}
-.toc-pg.roman{font-style:italic}
-/* 螢幕預覽：僅顯示 fallback 數字，隱藏 Paged.js 專用錨連結 */
-.toc-pg .toc-link{display:none}
-.toc-pg .toc-fallback{display:inline}
-
-/* ─── Annex image placeholder ───────────────── */
-.annex-img-box{display:block;width:100%;height:65mm;border:2px dashed #bbb;
-  display:flex;align-items:center;justify-content:center;
-  color:#aaa;font-size:13px;margin:6mm 0 8mm;text-align:center}
-
-/* ─── Page Number Footer ─────────────────── */
-.pg-footer{margin-top:auto;padding:6mm 0 10mm;
-  text-align:center;font-size:13px;color:#666;
-  border-top:1px solid #ddd}
-
-/* ─── Appendix Page Header ───────────────── */
-.pg-hd{display:flex;justify-content:space-between;align-items:baseline;
-  border-bottom:1.5px solid #333;padding-bottom:3mm;margin-bottom:5mm;
-  font-size:14px;color:#333}
-
-/* ─── Body Sections ──────────────────────── */
-.doc-title{font-size:21px;font-weight:bold;text-align:center;
-  border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:14px;letter-spacing:2px}
-.sec{margin-bottom:16px;page-break-inside:avoid;break-inside:avoid}
-.sec-hd{font-size:19px;font-weight:bold;margin-bottom:7px;
-  border-bottom:1px solid #aaa;padding-bottom:2px}
-.sec-hd-sm{font-size:16px;margin-bottom:5px}
-.calc{font-size:17px;margin:4px 0 4px 16px;line-height:1.65}
-.calc .eq{color:#444}
-.calc .highlight{background:#fef9c3;padding:1px 4px;border-radius:2px;font-weight:bold}
-.calc-sm{font-size:15px}
-.calc-note{font-size:13px;color:#555;line-height:1.65}
-.calc-note-sm{font-size:12px;color:#555;line-height:1.6}
-.calc-note-xs{font-size:10px;color:#444;line-height:1.5}
-.calc-note-blue{font-size:10px;color:#2563eb;line-height:1.5}
-.calc-muted{font-size:11px;color:#888;line-height:1.4;text-align:center}
-.ok{color:#155215;font-weight:bold}
-.ng{color:#aa0000;font-weight:bold}
-.warn{color:#995500;font-weight:bold}
-.calc .ok,.calc .ng{font-weight:bold}
-.calc .warn{color:#995500;font-weight:bold}
-.indent{padding-left:24px;font-size:15px}
-.dt-sm{font-size:14px}
-
-/* ─── Data Table ─────────────────────────── */
-.dt{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0}
-.dt th{background:#1a3a5c;color:#fff;padding:5px 8px;text-align:center;border:1px solid #888}
-.dt td{border:1px solid #bbb;padding:4px 8px}
-.dt tr:nth-child(even) td{background:#f7f7f7}
-.dt td.r{text-align:right}
-.dt td.c{text-align:center}
-
-/* ─── Check Row ──────────────────────────── */
-.chk{display:flex;justify-content:space-between;align-items:baseline;
-  font-size:17px;margin:5px 0 5px 16px;padding:3px 0;border-bottom:1px dotted #ddd}
-.chk .expr{flex:1}
-.chk .judge{font-weight:bold;font-size:17px;min-width:60px;text-align:right}
-.chk .formula-source{display:block;font-size:11px;color:#667085;margin-top:2px}
-
-/* ─── Page Break ─────────────────────────── */
-.pg-break{page-break-before:always}
-
-/* V2: 列印時長表格 thead 自動重複（避免無表頭續頁誤讀） */
-@media print{
-  .dt thead, .dt tr:first-child{display:table-header-group}
-  .dt tr{page-break-inside:avoid}
-  .chk{page-break-inside:avoid}
-}
-
-/* ─── Print ──────────────────────────────── */
-@page{size:A4 portrait;margin:0}
-@media print{
-  #app{display:none!important}
-  #printout{display:block!important}
-  body.formal-tool-output-page > #printout{display:none!important}
-  body{background:#fff;margin:0;padding:0}
-  .a4{box-shadow:none;margin:0;width:210mm;min-height:297mm;
-      display:flex;flex-direction:column;
-      page-break-after:always;break-after:page}
-  .a4:last-child{page-break-after:auto!important;break-after:auto!important}
-  .pg-footer{display:block}
-}
-@media screen{
-  #printout{display:none}
-}
-
-/* ══════════════════ V2 增補 ══════════════════ */
-/* 側欄頂部工具列（範例快速載入 / 全部展開收合） */
-#v2-toolbar{display:flex;gap:6px;padding:8px 10px;background:#eaf1fa;border-bottom:1px solid #c8d6e8;align-items:center;flex-wrap:wrap}
-#v2-toolbar label{font-size:11px;color:#334;white-space:nowrap}
-#v2-toolbar select{font-size:11px;padding:3px 5px;border:1px solid #b6c4d8;border-radius:3px;background:#fff;flex:1;min-width:110px}
-#v2-toolbar .mini{font-size:11px;padding:3px 7px;border:1px solid #b6c4d8;background:#fff;color:#2c5280;border-radius:3px;cursor:pointer;white-space:nowrap}
-#v2-toolbar .mini:hover{background:#d7e4f3}
-.v2-mode-switch{display:flex;gap:4px;flex:1 1 100%}
-.v2-mode-switch .mode-btn{flex:1;font-size:11px;padding:5px 7px;border:1px solid #b6c4d8;background:#fff;color:#2c5280;border-radius:3px;cursor:pointer;font-weight:bold}
-.v2-mode-switch .mode-btn.active{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
-.v2-mode-switch .mode-btn:hover:not(.active){background:#d7e4f3}
-
-/* ℹ tooltip 圖示 */
-.infoi{display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;font-size:10px;font-weight:bold;color:#fff;background:#7a8ca5;border-radius:50%;margin-left:4px;cursor:help;font-family:Arial,sans-serif;vertical-align:1px}
-.infoi:hover{background:#2c5280}
-
-/* 工法選擇卡片（位於 ③ 石材規格頂端） */
-.v2-method-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:4px 0 8px}
-.v2-method-card{border:1.5px solid #c8d3e3;border-radius:6px;background:#fbfcfe;padding:6px 8px;cursor:pointer;display:flex;gap:8px;align-items:center;transition:all .15s;min-height:58px}
-.v2-method-card:hover{border-color:#2c5280;background:#eef4fc}
-.v2-method-card.active{border-color:#2c5280;background:#2c5280;color:#fff;box-shadow:0 1px 4px rgba(44,82,128,.35)}
-.v2-method-card .mthumb{width:44px;height:44px;flex-shrink:0;border-radius:4px;background:#fff center/cover no-repeat;border:1px solid #d0d8e4;box-shadow:inset 0 0 0 1px rgba(255,255,255,.6)}
-.v2-method-card.active .mthumb{border-color:rgba(255,255,255,.5)}
-.v2-method-card .mtxt{font-size:11.5px;font-weight:bold;line-height:1.3}
-.v2-method-card .msub{font-size:10px;opacity:.75;font-weight:normal;margin-top:1px}
-.v2-method-note{font-size:10px;color:#666;line-height:1.45;margin:2px 0 6px;padding:4px 6px;background:#fff8e6;border-left:3px solid #e3b86b;border-radius:2px}
-
-/* 主按鈕放大、次按鈕縮小 */
-#btn-bar .btn-primary{padding:9px 14px;font-size:13px;flex:1 1 100%;box-shadow:0 1px 3px rgba(0,0,0,.15)}
-#btn-bar .btn-sec{padding:5px 9px;font-size:11px;font-weight:normal;opacity:.92}
-#btn-bar .btn-sec:hover{opacity:1}
-
-/* 匯出按鈕（含副標角色提示） */
-#btn-bar .v2-export-btn{display:flex;flex-direction:column;align-items:center;gap:0;padding:5px 4px;line-height:1.15}
-#btn-bar .v2-export-btn .v2-btn-main{font-size:11.5px;font-weight:bold}
-#btn-bar .v2-export-btn .v2-btn-sub{font-size:9.5px;opacity:.78;font-weight:normal;margin-top:1px}
-
-/* 欄位警示強化（已有 .field.invalid，補充範圍外提示） */
-.field.range-warn input{border-color:#d99a4a;background:#fffaf0}
-.field.range-warn::after{content:attr(data-warn);display:block;font-size:10px;color:#a5691a;margin-top:2px}
-
-/* sub-hd V2 樣式微調 */
-.sub-hd.v2-core{background:linear-gradient(90deg,#eaf2fb 0%,transparent 100%);padding:4px 6px;border-left:3px solid #2c5280;border-bottom:none}
-
-/* V2 .chk 三層分類視覺 */
-.chk[data-tier]{position:relative;padding-left:10px;border-left:3px solid transparent;transition:border-color .15s}
-.chk[data-tier="strength"][data-pass="true"]{border-left-color:#1d6c2a}
-.chk[data-tier="strength"][data-pass="false"]{border-left-color:#c62828;background:linear-gradient(90deg,#fff3f3 0%,transparent 80%)}
-.chk[data-tier="strength"][data-near="true"]{border-left-color:#d99a4a;background:linear-gradient(90deg,#fffaf0 0%,transparent 80%)}
-.chk[data-tier="detailing"]{border-left-color:#a5691a}
-.chk[data-tier="detailing"][data-pass="false"]{background:linear-gradient(90deg,#fff8e6 0%,transparent 80%)}
-.chk[data-tier="info"]{border-left-color:#5b7fa3;opacity:.92}
-.chk[data-tier="unclassified"]{border-left-color:#bbb}
-/* 列印時保留左邊框（背景簡化） */
-@media print{
-  .chk[data-tier]{background:none !important}
-  .chk[data-tier]{padding-left:8px}
-}
-
-/* 案例頂部三層摘要 banner（preview-only，列印時隱藏避免重複） */
-.v2-tier-banner{display:flex;gap:8px;margin:8px 0 10px;padding:6px 8px;background:#fafcff;border:1px solid #d4dbe5;border-radius:4px;font-size:13px;line-height:1.4}
-.v2-tier-banner .tier-cell{flex:1;padding:4px 8px;border-radius:3px;border:1px solid transparent}
-.v2-tier-banner .tier-cell .lbl{font-size:11px;color:#666;display:block;margin-bottom:2px}
-.v2-tier-banner .tier-cell .val{font-size:14px;font-weight:bold}
-.v2-tier-banner .tier-cell.strength{background:#f4faf6;border-color:#c8e6c9}
-.v2-tier-banner .tier-cell.strength .val{color:#1d6c2a}
-.v2-tier-banner .tier-cell.strength.fail{background:#fff3f3;border-color:#ffcdd2}
-.v2-tier-banner .tier-cell.strength.fail .val{color:#c62828}
-.v2-tier-banner .tier-cell.strength.near{background:#fffaf0;border-color:#e7c07b}
-.v2-tier-banner .tier-cell.strength.near .val{color:#a5691a}
-.v2-tier-banner .tier-cell.detailing{background:#fefaf2;border-color:#e3b86b}
-.v2-tier-banner .tier-cell.detailing.fail{background:#fff8e6}
-.v2-tier-banner .tier-cell.detailing .val{color:#a5691a}
-.v2-tier-banner .tier-cell.info{background:#f5f8fc;border-color:#c8d6e8}
-.v2-tier-banner .tier-cell.info .val{color:#37516d}
-@media print{ .v2-tier-banner{display:none} }
-
-/* 法規版本資訊 footer */
-.v2-regulation-footer{margin:12px 16px;padding:8px 12px;background:#f5f8fc;border:1px solid #d4dbe5;border-radius:4px;font-size:11px;color:#37516d}
-.v2-regulation-footer h2{font-size:11.5px;font-weight:bold;margin-bottom:4px;color:#1a3a5c}
-.v2-regulation-footer table{width:100%;border-collapse:collapse;margin-top:3px}
-.v2-regulation-footer td{padding:2px 6px;border-bottom:1px dotted #d4dbe5}
-.v2-regulation-footer td:first-child{color:#666;width:90px;white-space:nowrap}
-.v2-regulation-footer td:last-child{color:#222}
-@media print{ .v2-regulation-footer{break-inside:avoid;page-break-inside:avoid} }
-
-/* V2.2.2：規範參數總覽（active profile params 列表） */
-.v2-active-params{margin:8px 16px 16px;padding:10px 14px;background:#fcfdfe;border:1px solid #d4dbe5;border-radius:4px;font-size:11px;color:#2c3e50}
-.v2-active-params summary{cursor:pointer;font-weight:bold;color:#1a3a5c;padding:2px 0;outline:none}
-.v2-active-params summary:hover{color:#0d6cad}
-.v2-active-params summary::-webkit-details-marker{color:#888}
-.v2-active-params .ap-meta{font-size:10px;color:#888;margin:2px 0 8px;font-weight:normal}
-.v2-active-params .ap-scope{margin-top:8px;border-top:1px solid #e9eef4;padding-top:6px}
-.v2-active-params .ap-scope:first-of-type{border-top:none;padding-top:0}
-.v2-active-params .ap-scope-head{font-weight:bold;color:#1a3a5c;font-size:11px;margin-bottom:3px;display:flex;justify-content:space-between;align-items:baseline}
-.v2-active-params .ap-scope-head .ap-pid{font-family:monospace;font-size:10px;color:#666;font-weight:normal}
-.v2-active-params table{width:100%;border-collapse:collapse;font-size:10.5px}
-.v2-active-params td{padding:2px 8px;border-bottom:1px dotted #eef1f5;vertical-align:top}
-.v2-active-params td:first-child{font-family:monospace;color:#37516d;width:42%;word-break:break-word}
-.v2-active-params td:last-child{color:#0d4a73;font-weight:600;text-align:right;font-family:monospace}
-.v2-active-params .ap-print-note{font-size:10px;color:#888;margin-top:8px;font-style:italic}
-/* V2.2.3：profile picker */
-.v2-active-params .ap-picker{margin:4px 0 6px;font-size:10.5px;color:#666;display:flex;align-items:center;gap:6px}
-.v2-active-params .ap-picker label{color:#888;white-space:nowrap}
-.v2-active-params .ap-picker-select{font-family:monospace;font-size:10.5px;padding:1px 4px;border:1px solid #c5cdd9;border-radius:3px;background:#fff;color:#0d4a73;cursor:pointer}
-.v2-active-params .ap-picker-select:hover{border-color:#1a3a5c}
-.v2-active-params .ap-picker-select:focus{outline:1px solid #0d6cad;outline-offset:1px}
-.v2-active-params .ap-override-badge{display:inline-block;padding:1px 6px;background:#fdebd0;color:#a35400;border-radius:3px;font-size:9.5px;font-weight:bold}
-@media print{ .v2-active-params .ap-picker{display:none} }
-
-/* V2.2.4：profile diff viewer */
-.v2-profile-diff{margin:8px 16px 16px;padding:10px 14px;background:#fff8e8;border:1px solid #e8c87a;border-radius:4px;font-size:11px;color:#5a4317}
-.v2-profile-diff summary{cursor:pointer;font-weight:bold;color:#7a5210;padding:2px 0;outline:none}
-.v2-profile-diff summary:hover{color:#a35400}
-.v2-profile-diff .pd-meta{font-size:10px;color:#7a5210;margin:4px 0 8px;font-weight:normal}
-.v2-profile-diff table{width:100%;border-collapse:collapse;font-size:10.5px;margin-top:4px}
-.v2-profile-diff th{padding:3px 6px;background:#f7eccc;border:1px solid #e8c87a;color:#5a4317;font-weight:600}
-.v2-profile-diff td{padding:2px 6px;border:1px solid #ead8aa;text-align:right;font-family:monospace;color:#3a2e10}
-.v2-profile-diff td:first-child{text-align:left;font-family:inherit}
-.v2-profile-diff .pd-up{color:#b3471d;font-weight:bold}
-.v2-profile-diff .pd-down{color:#1a7a3a;font-weight:bold}
-.v2-profile-diff .pd-eq{color:#888}
-.v2-profile-diff .pd-fail{color:#a4242a;font-weight:bold}
-.v2-profile-diff .pd-ok{color:#1a7a3a;font-weight:bold}
-.v2-profile-diff .pd-note{font-size:10px;color:#a35400;margin-top:6px;font-style:italic}
-@media print{ .v2-profile-diff{break-inside:avoid;page-break-inside:avoid} .v2-profile-diff details{display:block} .v2-profile-diff details > *{display:block !important} }
-
-/* V2.8.3：ack history A/B 比較 row 高亮 */
-.v2-ack-history tbody tr.v2-ack-row-a{background:#dbecf5 !important;border-left:3px solid #4a8e57}
-.v2-ack-history tbody tr.v2-ack-row-b{background:#fde8c8 !important;border-left:3px solid #b58900}
-.v2-ack-history button.v2-ack-cmp-a:hover,
-.v2-ack-history button.v2-ack-cmp-b:hover{background:#e0eaf2 !important}
-@media print{ .v2-ack-history button.v2-ack-cmp-a, .v2-ack-history button.v2-ack-cmp-b{display:none} }
-
-/* V2.9.1：governance dashboard「複製為純文字」按鈕 */
-.v2-gov-copy-btn:hover{background:#e7f5e9 !important;border-color:#1a7a3a !important}
-.v2-gov-copy-btn:active{background:#d4ecd9 !important}
-@media print{ .v2-gov-copy-btn{display:none !important} }
-@media print{
-  .v2-active-params{break-inside:avoid;page-break-inside:avoid}
-  .v2-active-params details{display:block}
-  .v2-active-params details > *{display:block !important}
-  .v2-active-params summary::-webkit-details-marker, .v2-active-params summary::marker{display:none}
-}
-
-/* Migration toast */
-#v2-migration-toast{position:fixed;top:60px;right:12px;background:#1d6c2a;color:#fff;padding:12px 18px;border-radius:5px;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:9999;display:none;max-width:340px;font-size:12.5px;line-height:1.5;border-left:5px solid #2eb84a;pointer-events:none}
-#v2-migration-toast.show{display:block;animation:v2toast-in .3s ease-out}
-#v2-migration-toast.warn{background:#a5691a;border-left-color:#e3b86b}
-#v2-migration-toast.err{background:#9b1c1c;border-left-color:#ffb4b4}
-@keyframes v2toast-in{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
-#v2-migration-toast .v2-toast-close{float:right;background:transparent;color:rgba(255,255,255,.7);border:none;cursor:pointer;font-size:14px;margin-left:8px;padding:0;pointer-events:auto}
-#v2-migration-toast .v2-toast-close:hover{color:#fff}
-
-/* ⑤ 規範附加模組 – 核心/進階過濾器 */
-.v2-tier-bar{display:flex;gap:4px;margin:0 0 6px}
-.v2-tier-bar .tier-btn{flex:1;font-size:11px;padding:4px 6px;border:1px solid #c8d3e3;background:#fff;border-radius:3px;cursor:pointer;color:#2c5280;font-weight:bold}
-.v2-tier-bar .tier-btn.active{background:#2c5280;color:#fff;border-color:#2c5280}
-.v2-tier-bar .tier-btn:hover:not(.active){background:#eaf2fb}
-.mod-grid.tier-core .mod-card[data-tier="advanced"]{display:none}
-.mod-grid.tier-advanced .mod-card[data-tier="core"]{display:none}
-
-/* 工法卡 lightbox */
-#v2-lightbox{position:fixed;inset:0;background:rgba(10,20,35,.82);display:none;align-items:center;justify-content:center;z-index:10000;cursor:zoom-out}
-#v2-lightbox.show{display:flex}
-#v2-lightbox:focus-visible,#v2-lightbox .lightbox-close:focus-visible{outline:3px solid #4f8fd8;outline-offset:2px}
-#v2-lightbox img{max-width:90vw;max-height:85vh;box-shadow:0 6px 30px rgba(0,0,0,.5);border-radius:4px;background:#fff}
-#v2-lightbox .caption{position:absolute;bottom:24px;color:#fff;font-size:14px;letter-spacing:2px}
-#v2-lightbox .lightbox-close{position:absolute;top:16px;right:18px;width:34px;height:34px;border:1px solid rgba(255,255,255,.55);border-radius:50%;background:rgba(0,0,0,.35);color:#fff;font-size:22px;line-height:1;cursor:pointer}
-.v2-method-card .zoom-btn{position:absolute;top:2px;right:2px;font-size:10px;line-height:1;padding:2px 4px;background:rgba(0,0,0,.35);color:#fff;border:none;border-radius:3px;cursor:zoom-in;opacity:0;transition:opacity .15s}
-.v2-method-card{position:relative}
-.v2-method-card:hover .zoom-btn{opacity:1}
-
-/* 自訂範本管理浮層 */
-#v2-tpl-mgr{position:fixed;inset:0;background:rgba(10,20,35,.6);display:none;align-items:center;justify-content:center;z-index:9999}
-#v2-tpl-mgr.show{display:flex}
-#v2-tpl-mgr .panel{background:#fff;border-radius:6px;width:min(500px,calc(100vw - 32px));min-width:0;max-height:75vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.35)}
-#v2-tpl-mgr .panel h3{background:#2c5280;color:#fff;padding:8px 12px;font-size:13px;font-weight:bold}
-#v2-tpl-mgr .tpl-list{overflow-y:auto;padding:6px 0;flex:1}
-#v2-tpl-mgr .tpl-save{padding:10px 12px;border-bottom:1px solid #e0e7ef;background:#f8fbff}
-#v2-tpl-mgr .tpl-save label{display:block;font-size:11px;color:#2c5280;font-weight:bold;margin-bottom:4px}
-#v2-tpl-mgr .tpl-save-row{display:flex;gap:6px;align-items:center}
-#v2-tpl-mgr .tpl-save-row input{flex:1;min-width:0;padding:5px 7px;border:1px solid #b8c6d8;border-radius:3px;font-size:12px}
-#v2-tpl-mgr .tpl-save-row input:focus{outline:2px solid #4f8fd8;outline-offset:1px}
-#v2-tpl-mgr .tpl-save-row button{white-space:nowrap;font-size:11px;padding:5px 9px}
-#v2-tpl-mgr .tpl-row{padding:6px 12px;border-bottom:1px solid #eef2f7;display:flex;gap:8px;align-items:center}
-#v2-tpl-mgr .tpl-row:hover{background:#f5f9ff}
-#v2-tpl-mgr .tpl-name{flex:1;font-size:12px;color:#223}
-#v2-tpl-mgr .tpl-meta{font-size:10px;color:#888;display:block;margin-top:2px}
-#v2-tpl-mgr .tpl-del{font-size:11px;padding:3px 7px;background:#c43b3b;color:#fff;border:none;border-radius:3px;cursor:pointer}
-#v2-tpl-mgr .tpl-del:hover{background:#a82222}
-#v2-tpl-mgr .panel-foot{padding:8px 12px;border-top:1px solid #e0e0e0;text-align:right;background:#f8f9fb}
-#v2-tpl-mgr .empty-tip{padding:16px;color:#888;font-size:12px;text-align:center}
-@media (max-width:520px){
-  #v2-tpl-mgr .panel{width:calc(100vw - 20px);max-height:88vh}
-  #v2-tpl-mgr .tpl-row{padding:6px 10px;align-items:flex-start}
-}
-
-/* 案例卡收合 */
-.case-card > div:nth-child(2){transition:max-height .18s ease-out}
-.case-card.v2-collapsed > div:nth-child(2){display:none}
-.case-card .v2-case-toggle{background:none;border:none;cursor:pointer;font-size:14px;color:#2c5280;padding:0 6px;user-select:none;font-family:inherit}
-.case-card .v2-case-toggle:hover{color:#000}
-.case-card .v2-case-summary{display:none;font-size:10.5px;color:#6b7280;margin-left:8px;font-weight:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
-.case-card.v2-collapsed .v2-case-summary{display:inline}
-
-/* 檢核狀態燈（側欄底部，匯出鈕旁） */
-#v2-status-pill{flex:1 1 100%;padding:6px 10px;border-radius:4px;font-size:11.5px;font-weight:bold;text-align:center;cursor:pointer;line-height:1.3;border:1px solid transparent;margin-bottom:4px}
-#v2-status-pill.ok{background:#e6f4ea;color:#1d6c2a;border-color:#c3e6cb}
-#v2-status-pill.ok::before{content:"✓ "}
-#v2-status-pill.warn{background:#fff7e0;color:#8a5b00;border-color:#e3c77a}
-#v2-status-pill.warn::before{content:"⚠ "}
-#v2-status-pill.err{background:#fff3f3;color:#c62828;border-color:#ffcdd2}
-#v2-status-pill.err::before{content:"🔴 "}
-#v2-status-pill:hover{filter:brightness(0.97)}
-
-/* ④ 材料子區塊聯動高亮 */
-.sub-hd.v2-material-hl{background:linear-gradient(90deg,#fff3d6 0%,transparent 80%);border-left:3px solid #e3b86b;padding:4px 6px;animation:v2hl 2.4s ease-out}
-@keyframes v2hl{0%{background:#ffe6a8}100%{background:linear-gradient(90deg,#fff3d6 0%,transparent 80%)}}
-
-/* 寬螢幕雙欄模式（≥1600px：側欄加寬、表單內兩欄並排） */
-@media (min-width:1600px){
-  #sidebar{width:440px;min-width:440px}
-  .row{gap:10px}
-  #btn-bar{gap:6px}
-  .v2-method-grid{grid-template-columns:repeat(4,1fr)}
-  .v2-method-card{flex-direction:column;text-align:center;min-height:76px;padding:6px 4px}
-  .v2-method-card .mthumb{width:40px;height:40px;margin:0 auto}
-}
-@media (min-width:1920px){
-  #sidebar{width:500px;min-width:500px}
-  .field label{font-size:12px}
-  .field input,.field select,.field textarea{font-size:13px}
-}
-
-/* 進度指示 / Loading Overlay */
-#v2-progress{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:10001;flex-direction:column;gap:12px}
-#v2-progress.show{display:flex}
-#v2-progress .spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:v2spin 1s linear infinite}
-#v2-progress .p-text{color:#fff;font-size:14px;letter-spacing:2px}
-#v2-progress .p-sub{color:rgba(255,255,255,.75);font-size:11px;margin-top:-4px}
-@keyframes v2spin{to{transform:rotate(360deg)}}
-
-/* 快捷鍵說明浮層 */
-#v2-shortcut-hint{position:fixed;bottom:12px;right:12px;background:rgba(26,58,92,.92);color:#fff;font-size:11px;padding:8px 12px;border-radius:4px;z-index:5000;display:none;line-height:1.6;box-shadow:0 3px 12px rgba(0,0,0,.3);max-width:260px}
-#v2-shortcut-hint.show{display:block}
-#v2-shortcut-hint b{color:#ffe89e}
-#v2-shortcut-hint kbd{background:#344a63;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:10px;margin:0 1px}
-
-/* 案例卡複製按鈕 */
-.case-card .v2-case-copy{background:none;border:none;cursor:pointer;font-size:12px;color:#2c5280;padding:0 4px}
-.case-card .v2-case-copy:hover{color:#000}
-
-/* REV 碼 pill */
-.v2-rev-pill{display:inline-block;font-size:10px;padding:2px 8px;margin-left:8px;background:#eef3fa;color:#1a3a5c;border:1px solid #c6d4e7;border-radius:10px;font-family:monospace;letter-spacing:1px;font-weight:bold;vertical-align:middle}
-
-/* DCR 儀表板 */
-#v2-dcr-dashboard{margin:6px 0 10px;padding:8px 10px;background:#fafcff;border:1px solid #d4dbe5;border-radius:4px}
-#v2-dcr-dashboard h4{font-size:11px;font-weight:bold;color:#1a3a5c;margin-bottom:5px}
-.v2-dcr-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:10.5px;line-height:1.4}
-.v2-dcr-row .label{flex:0 0 110px;color:#334;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.v2-dcr-row .bar-wrap{flex:1;height:14px;background:#eef1f5;border-radius:3px;overflow:hidden;position:relative}
-.v2-dcr-row .bar{height:100%;transition:width .3s}
-.v2-dcr-row .bar.ok{background:linear-gradient(90deg,#7dc387,#4ea861)}
-.v2-dcr-row .bar.warn{background:linear-gradient(90deg,#ffd76b,#e8a837)}
-.v2-dcr-row .bar.ng{background:linear-gradient(90deg,#ef8686,#c83838)}
-.v2-dcr-row .val{flex:0 0 50px;text-align:right;font-family:monospace;font-weight:bold;font-size:10.5px}
-.v2-dcr-row.ng .val{color:#c83838}
-.v2-dcr-row.warn .val{color:#8a5b00}
-.v2-dcr-row.ok .val{color:#1d6c2a}
-
-/* 側欄搜尋框 */
-#v2-search-wrap{position:relative;flex:1 1 100%;margin-top:4px}
-#v2-search{width:100%;padding:4px 8px 4px 24px;border:1px solid #b6c4d8;border-radius:3px;font-size:11px;background:#fff url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23677%22 stroke-width=%222%22><circle cx=%2211%22 cy=%2211%22 r=%228%22/><path d=%22m21 21-4.35-4.35%22/></svg>') 4px 3px/14px no-repeat}
-.v2-search-hit{background:#fffadf!important;transition:background .3s}
-
-/* 智能建議卡 */
-.v2-suggest-box{margin:6px 0;padding:8px 10px;background:#fff4d4;border:1px solid #e8c066;border-left:4px solid #c49828;border-radius:3px;font-size:11px;line-height:1.6;color:#5a4116}
-.v2-suggest-box b{color:#78510f}
-.v2-suggest-box ul{margin:4px 0 0 20px}
-.v2-suggest-box li{margin-bottom:2px}
-
-/* 案例標籤 */
-.v2-case-tags{display:flex;gap:4px;flex-wrap:wrap;margin:3px 0}
-.v2-case-tag{font-size:10px;padding:1px 6px;border-radius:10px;background:#e4ecf7;color:#2c5280;border:1px solid #b6c4d8}
-.v2-case-tag.editable{cursor:text}
-
-/* 對照表 */
-.v2-compare-table{width:100%;font-size:10.5px;border-collapse:collapse;margin-top:6px}
-.v2-compare-table th,.v2-compare-table td{border:1px solid #d6deea;padding:3px 4px;text-align:center}
-.v2-compare-table th{background:#eaf1fa;color:#1a3a5c;font-weight:bold}
-.v2-compare-table tr:hover td{background:#fcfdff}
-.v2-compare-table .dcr-cell{font-family:monospace;font-weight:bold}
-
-/* 立面 SVG */
-.v2-facade-svg{background:#fafafa;border:1px solid #ccc;border-radius:3px;margin:6px 0}
-.v2-facade-svg rect{stroke:#333;stroke-width:1.5;fill:#f8f3e4}
-.v2-facade-svg circle.fx-pt{fill:#c83838;stroke:#8a1f1f}
-.v2-facade-svg text{font-size:10px;fill:#333;font-family:Arial,sans-serif}
-
-/* 城市風速快速選單 */
-.v2-city-row{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0 6px}
-.v2-city-chip{font-size:10px;padding:2px 7px;border:1px solid #b6c4d8;background:#fff;border-radius:10px;cursor:pointer;color:#2c5280}
-.v2-city-chip:hover{background:#eaf2fb}
-
-/* T1 物理合理性警示 */
-.v2-sanity-box{margin:6px 0 8px;padding:8px 10px;border-radius:4px;border-left:4px solid #888;background:#f7f8fa;font-size:11px;line-height:1.6;display:none}
-.v2-sanity-box.has-issues{display:block}
-.v2-sanity-box.lvl-error{border-left-color:#c62828;background:#fff3f3;color:#5a1616}
-.v2-sanity-box.lvl-warn{border-left-color:#d99a4a;background:#fffaf0;color:#5c3a10}
-.v2-sanity-box h5{font-size:11px;font-weight:bold;margin-bottom:3px}
-.v2-sanity-box ul{margin:2px 0 0 18px}
-.v2-sanity-box li{margin-bottom:2px}
-.v2-sanity-box .badge{display:inline-block;font-size:9px;padding:0 5px;border-radius:6px;margin-right:4px;font-weight:bold;color:#fff}
-.v2-sanity-box .badge.error{background:#c62828}
-.v2-sanity-box .badge.warn{background:#d99a4a}
-
-/* P1 驗算對照面板 */
-#v2-validation-modal{position:fixed;inset:0;background:rgba(10,20,35,.6);display:none;align-items:center;justify-content:center;z-index:9999}
-#v2-validation-modal.show{display:flex}
-#v2-validation-modal .panel{background:#fff;border-radius:6px;width:min(960px,calc(100vw - 32px));min-width:0;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.35)}
-#v2-validation-modal h3{background:#196019;color:#fff;padding:8px 12px;font-size:13px;font-weight:bold}
-#v2-validation-modal .body{padding:10px 14px;overflow:auto;font-size:11.5px}
-#v2-validation-modal table{width:100%;border-collapse:collapse;margin:6px 0}
-#v2-validation-modal th,#v2-validation-modal td{border:1px solid #ccd4df;padding:4px 6px;font-size:11px}
-#v2-validation-modal th{background:#eaf2fb;color:#1a3a5c;font-weight:bold}
-#v2-validation-modal td input{width:100%;padding:2px 4px;border:1px solid #ccc;border-radius:2px;font-size:11px;text-align:right;font-family:monospace}
-#v2-validation-modal tr.pass td{background:#f2faf2}
-#v2-validation-modal tr.fail td{background:#fff3f3}
-#v2-validation-modal .foot{padding:8px 12px;border-top:1px solid #e0e0e0;text-align:right;background:#f8f9fb;gap:6px;display:flex;justify-content:flex-end}
-@media (max-width:520px){
-  #v2-validation-modal .panel{width:calc(100vw - 20px);max-height:92vh}
-  #v2-validation-modal h3{padding:7px 10px;font-size:12px}
-  #v2-validation-modal .body{padding:8px 10px;font-size:11px}
-  #v2-validation-modal .foot{flex-wrap:wrap;padding:8px 10px}
-}
-.v2-check-tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:bold}
-.v2-check-tag.ok{background:#c8e6c9;color:#1b5e20}
-.v2-check-tag.ng{background:#ffcdd2;color:#b71c1c}
-.v2-check-tag.na{background:#e0e0e0;color:#555}
-
-/* 高風險欄位 D/預 標記 + 仍為預設值提示 */
-.v2-field-badge{display:inline-block}
-.field[data-using-default] input,
-.field[data-using-default] select{
-  background-image:linear-gradient(to right, transparent 0%, transparent calc(100% - 8px), rgba(91,127,163,0.18) calc(100% - 8px), rgba(91,127,163,0.18) 100%);
-}
-.field[data-using-default] label::after{
-  content:'· 仍為預設值';
-  font-size:9.5px;
-  color:#5b7fa3;
-  margin-left:4px;
-  opacity:.75;
-}
-
-/* 案例卡批次操作列 */
-.v2-case-ops{display:flex;gap:4px;margin:4px 0 6px;flex-wrap:wrap}
-.v2-case-ops .mini{font-size:10.5px;padding:3px 7px;border:1px solid #b6c4d8;background:#fff;color:#2c5280;border-radius:3px;cursor:pointer;white-space:nowrap}
-.v2-case-ops .mini:hover{background:#d7e4f3}
-.v2-case-ops .mini.pri{background:#2c5280;color:#fff;border-color:#2c5280}
-.v2-case-ops .mini.pri:hover{background:#1e3f62}
-.v2-case-ops .count{font-size:10.5px;color:#6b7280;margin-left:auto;padding-top:4px}
-
-/* 匯出檢查清單 */
-#v2-check-modal{position:fixed;inset:0;background:rgba(10,20,35,.6);display:none;align-items:center;justify-content:center;z-index:9999}
-#v2-check-modal.show{display:flex}
-#v2-check-modal .panel{background:#fff;border-radius:6px;width:min(760px,calc(100vw - 32px));min-width:0;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.35)}
-#v2-check-modal h3{background:#b8860b;color:#fff;padding:8px 12px;font-size:13px;font-weight:bold}
-#v2-check-modal .body{padding:10px 14px;font-size:12px;line-height:1.7;color:#333;max-height:50vh;overflow:auto;flex:1 1 auto}
-#v2-check-modal ul{margin:6px 0 6px 20px}
-#v2-check-modal li{color:#a5691a}
-#v2-check-modal .foot{padding:8px 12px;border-top:1px solid #e0e0e0;text-align:right;background:#f8f9fb}
-#v2-check-modal .foot button{margin-left:6px}
-@media (max-width:520px){
-  #v2-check-modal .panel{width:calc(100vw - 20px);max-height:92vh}
-  #v2-check-modal h3{padding:7px 10px;font-size:12px}
-  #v2-check-modal .body{padding:8px 10px;font-size:11.5px}
-  #v2-check-modal .foot{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;padding:8px 10px}
-  #v2-check-modal .foot button{margin-left:0;min-width:0}
-}
-</style>
+<link rel="stylesheet" href="stone-v2.css">
+<link rel="stylesheet" href="../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <script src="vendor/loads/seismic-zones.js"></script>
 <script src="vendor/loads/regulatory-locations.js"></script>
 <script src="vendor/loads/seismic.js"></script>
@@ -799,7 +50,8 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
   }
 </style>
 </head>
-<body class="formal-tool-output-page">
+<body class="formal-tool-output-page" data-family="attachments">
+<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>石材工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「預覽列印 (A4)」、「PDF」或「Word」輸出，產生只包含案件資料、採用條件、計算結果與必要追溯資訊的文件；本頁不得作為附件。</span></div>
 
 <!-- PDF 頁面挑選器 -->
@@ -832,9 +84,9 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
     <h3 id="v2_validation_title">🔬 V2 × Excel V1.101 驗算對照</h3>
     <div class="body" id="v2_validation_body"></div>
     <div class="foot">
-      <button type="button" class="btn btn-gray" onclick="v2ResetValidationRef()">重設範例值</button>
+      <button type="button" class="btn btn-gray" onclick="v2ResetValidationRef()">重設預設值</button>
       <button type="button" class="btn btn-gray" onclick="v2ExportValidationCsv()">匯出對照 CSV</button>
-      <button type="button" class="btn btn-blue" onclick="v2RunValidation()">▶ 執行比對</button>
+      <button type="button" class="btn btn-blue" onclick="v2RunValidation()">執行比對</button>
       <button type="button" class="btn btn-gray" id="v2_validation_close" onclick="v2CloseValidationModal()">關閉</button>
     </div>
   </div>
@@ -872,8 +124,8 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
       </optgroup>
       <optgroup label="自訂範本" id="v2_user_tpl_group"></optgroup>
     </select>
-    <button type="button" class="mini" onclick="v2OpenTemplateManager({focusName:true})" title="將目前荷載與石材主要輸入儲存為自訂範本（存於瀏覽器 LocalStorage）">💾存範本</button>
-    <button type="button" class="mini" onclick="v2OpenTemplateManager()" aria-haspopup="dialog" aria-controls="v2-tpl-mgr" title="檢視／刪除已儲存的自訂範本">🗂管理</button>
+    <button type="button" class="mini" onclick="v2OpenTemplateManager({focusName:true})" title="將目前荷載與石材主要輸入儲存為自訂範本（存於瀏覽器 LocalStorage）">存範本</button>
+    <button type="button" class="mini" onclick="v2OpenTemplateManager()" aria-haspopup="dialog" aria-controls="v2-tpl-mgr" title="檢視／刪除已儲存的自訂範本">管理</button>
     <button type="button" class="mini" onclick="v2ToggleAll(true)" title="展開所有區塊">全開</button>
     <button type="button" class="mini" onclick="v2ToggleAll(false)" title="收合所有區塊">全收</button>
     <button type="button" class="mini" id="v2_shortcut_toggle" onclick="v2ToggleShortcutHint()" aria-label="顯示快捷鍵說明" aria-controls="v2-shortcut-hint" aria-expanded="false" aria-keyshortcuts="F1" title="快捷鍵說明 (F1)">⌨</button>
@@ -1052,7 +304,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
         color:#aaa;text-align:center;flex-shrink:0;overflow:hidden">未上傳</div>
       <div style="flex:1">
         <button type="button" class="btn btn-gray" style="width:100%;font-size:11px;padding:5px" aria-controls="diagramFile"
-          onclick="document.getElementById('diagramFile').click()">📎 上傳示意圖</button>
+          onclick="document.getElementById('diagramFile').click()">上傳示意圖</button>
         <input type="file" id="diagramFile" accept=".png,.jpg,.jpeg,.webp,.gif" style="display:none"
           onchange="uploadDiagram(event)">
         <button type="button" class="btn" style="width:100%;font-size:11px;padding:4px;margin-top:4px;
@@ -1070,7 +322,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
       </div>
       <div style="flex:1">
         <button type="button" class="btn btn-gray" style="width:100%;font-size:11px;padding:5px" aria-controls="stampFile"
-          onclick="document.getElementById('stampFile').click()">📎 上傳印章圖片</button>
+          onclick="document.getElementById('stampFile').click()">上傳印章圖片</button>
         <input type="file" id="stampFile" accept=".png,.jpg,.jpeg,.webp,.gif" style="display:none"
           onchange="uploadStamp(event)">
         <button type="button" class="btn" style="width:100%;font-size:11px;padding:4px;margin-top:4px;
@@ -1254,9 +506,12 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
     <p class="note" id="seismic_summary_preview">地震力採規範上限：Fph = 1.6 × SDS × Ip × Wp = 84.00 kgf/m²。</p>
 
     <!-- V2 進階：地震力自訂文字 -->
-    <details style="margin-top:8px;border:1px dashed #c6cfd9;border-radius:5px;padding:4px 8px;background:#fafcff">
-      <summary style="cursor:pointer;font-size:11px;font-weight:bold;color:#2c5280;user-select:none">▸ 進階：自訂地震力敘述文字（留空採預設）</summary>
-      <div style="margin-top:6px">
+    <details class="collapsible-details" style="margin-top:8px">
+      <summary>
+        <span class="details-title">自訂地震力敘述文字</span>
+        <span class="details-summary-badge no-print">留空採預設</span>
+      </summary>
+      <div class="details-body">
         <div class="field"><label>地震力主文敘述（直接顯示於主文）</label>
           <textarea id="seismic_main_text_custom" rows="2" placeholder="例：本案地震力依建築物耐震設計規範及解說，按附屬構造物非結構構件需求進行檢核。" oninput="save();render()"></textarea></div>
         <div class="row">
@@ -1363,7 +618,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 
     <!-- V2 CSV 案例匯入（案例管理；其他匯出已集中至下方匯出按鈕區） -->
     <div style="margin-top:6px">
-      <button type="button" class="btn btn-gray" style="width:100%;font-size:10.5px;padding:4px 6px" aria-controls="v2_csv_import" onclick="document.getElementById('v2_csv_import').click()" title="從 CSV 匯入新形式（UTF-8，第一列為欄名：name,w,h,type,fx,fy1,fy2,tags...）">📂 從 CSV 匯入新形式</button>
+      <button type="button" class="btn btn-gray" style="width:100%;font-size:10.5px;padding:4px 6px" aria-controls="v2_csv_import" onclick="document.getElementById('v2_csv_import').click()" title="從 CSV 匯入新形式（UTF-8，第一列為欄名：name,w,h,type,fx,fy1,fy2,tags...）">從 CSV 匯入新形式</button>
       <input type="file" id="v2_csv_import" accept=".csv" style="display:none" onchange="if(this.files[0])v2ImportCaseCsv(this.files[0]);this.value=''">
     </div>
   </div>
@@ -1811,13 +1066,13 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
       <input id="sa_size_values" type="text" value="600x800, 870x800, 1000x1200" oninput="save()"></div>
     <div class="row">
       <div class="field" style="margin-bottom:0">
-        <button type="button" class="btn btn-blue" style="width:100%" onclick="runBatchAnalysis()">▶ 執行掃描</button>
+        <button type="button" class="btn btn-blue" style="width:100%" onclick="runBatchAnalysis()">執行掃描</button>
       </div>
       <div class="field" style="margin-bottom:0">
-        <button type="button" class="btn btn-gray" style="width:100%" onclick="exportBatchAnalysisCSV()">⬇ 匯出 CSV</button>
+        <button type="button" class="btn btn-gray" style="width:100%" onclick="exportBatchAnalysisCSV()">匯出 CSV</button>
       </div>
       <div class="field" style="margin-bottom:0">
-        <button type="button" class="btn btn-gray" style="width:100%" onclick="exportBatchAnalysisJSON()">⬇ 匯出 JSON</button>
+        <button type="button" class="btn btn-gray" style="width:100%" onclick="exportBatchAnalysisJSON()">匯出 JSON</button>
       </div>
     </div>
     <div class="rule-box" style="margin-top:8px">會以所選案例為基準，批次掃描 SDS、風速與板塊尺寸組合，輸出每組工況的最大 DCR、控制項目與是否通過。若目前為手動風壓模式，風速變化會依 V² 比例縮放；若為 C&amp;C 模式則會重算風壓。</div>
@@ -1829,8 +1084,8 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
     <!-- V2 檢核狀態燈 -->
     <div id="v2-status-pill" class="ok" onclick="v2ShowStatusDetails()" title="點擊檢視細節">✓ 檢核：核心欄正常</div>
     <!-- 主要動作 -->
-    <button type="button" class="btn btn-blue btn-primary" onclick="render()" title="重新跑計算引擎並更新預覽">🔄 重新計算 / 預覽</button>
-    <button type="button" class="btn btn-green btn-primary" onclick="previewPrint()" title="A4 預覽列印（含 KaTeX 公式排版）">🖨 預覽列印 (A4)</button>
+    <button type="button" class="btn btn-blue btn-primary" onclick="render()" title="重新跑計算引擎並更新預覽">重新計算 / 預覽</button>
+    <button type="button" class="btn btn-green btn-primary" onclick="previewPrint()" title="A4 預覽列印（含 KaTeX 公式排版）">列印／另存 PDF</button>
     <label style="grid-column:1/-1;display:flex;align-items:flex-start;gap:7px;padding:8px 9px;border:1px solid #b8c8d8;border-radius:5px;background:#f7fafc;font-size:11px;line-height:1.45;cursor:pointer">
       <input id="v2_attachment_approved" type="checkbox" onchange="v2SetAttachmentApproval(this.checked)" style="margin-top:2px">
       <span><b>本計算內容已完成審閱，核可作為正式附件</b><br><span style="color:#667">未勾選時為可列印的內部審閱版；修改計算內容後會自動取消核可。</span></span>
@@ -1856,17 +1111,17 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
     <!-- 進階輸出 -->
     <div class="v2-export-group" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:6px;width:100%;margin-top:4px;padding-top:6px;border-top:1px dashed #c8d3e3">
       <div style="grid-column:1/-1;font-size:10px;color:#666;letter-spacing:1px;margin-bottom:-2px">━ 進階輸出 ━</div>
-      <button type="button" class="btn" style="flex:1;font-size:10.5px;padding:4px 6px;background:#196019;color:#fff" onclick="v2ExportXlsxSummary()" title="可追算附錄版：含三 sheet（形式摘要 / 完整 Checks / 版本指紋），DCR 為 raw numeric 可直接二次運算；用於業主追蹤、自動化分析">📊 XLSX 摘要 ‧ 可追算</button>
-      <button type="button" class="btn btn-gray" style="flex:1;font-size:10.5px;padding:4px 6px" onclick="v2ExportCaseCsv()" title="把目前所有形式匯出為 CSV，可於 Excel 編輯後再匯入">📤 CSV 形式表</button>
-      <button type="button" id="v2_validation_open" class="btn btn-gray btn-sec" style="font-size:10.5px;padding:5px 6px" onclick="v2OpenValidationModal()" title="對照 Excel V1.101 計算值，逐欄驗算 V2 是否一致">🔬 驗算對照</button>
-      <button type="button" class="btn btn-gray btn-sec" style="font-size:10.5px;padding:5px 6px" onclick="v2ExportChangeLog()" title="匯出歷史版次變更紀錄 CSV">📋 變更紀錄</button>
+      <button type="button" class="btn" style="flex:1;font-size:10.5px;padding:4px 6px;background:#196019;color:#fff" onclick="v2ExportXlsxSummary()" title="可追算附錄版：含三 sheet（形式摘要 / 完整 Checks / 版本指紋），DCR 為 raw numeric 可直接二次運算；用於業主追蹤、自動化分析">XLSX 摘要 ‧ 可追算</button>
+      <button type="button" class="btn btn-gray" style="flex:1;font-size:10.5px;padding:4px 6px" onclick="v2ExportCaseCsv()" title="把目前所有形式匯出為 CSV，可於 Excel 編輯後再匯入">CSV 形式表</button>
+      <button type="button" id="v2_validation_open" class="btn btn-gray btn-sec" style="font-size:10.5px;padding:5px 6px" onclick="v2OpenValidationModal()" title="對照 Excel V1.101 計算值，逐欄驗算 V2 是否一致">驗算對照</button>
+      <button type="button" class="btn btn-gray btn-sec" style="font-size:10.5px;padding:5px 6px" onclick="v2ExportChangeLog()" title="匯出歷史版次變更紀錄 CSV">變更紀錄</button>
     </div>
 
     <!-- 專案存檔 / 載入 -->
     <div class="v2-export-group" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:6px;width:100%;margin-top:4px;padding-top:6px;border-top:1px dashed #c8d3e3">
       <div style="grid-column:1/-1;font-size:10px;color:#666;letter-spacing:1px;margin-bottom:-2px">━ 專案存檔 ━</div>
-      <button type="button" class="btn btn-gray btn-sec" style="font-size:11px;padding:5px 6px" onclick="exportJSON()" title="儲存目前所有輸入為 JSON 檔（含計算結果與形式）">💾 存 JSON</button>
-      <button type="button" class="btn btn-gray btn-sec" style="font-size:11px;padding:5px 6px" aria-controls="importFile" onclick="document.getElementById('importFile').click()" title="載入先前儲存的 JSON 檔">📂 載入 JSON</button>
+      <button type="button" class="btn btn-gray btn-sec" style="font-size:11px;padding:5px 6px" onclick="exportJSON()" title="儲存目前所有輸入為 JSON 檔（含計算結果與形式）">匯出案件 JSON</button>
+      <button type="button" class="btn btn-gray btn-sec" style="font-size:11px;padding:5px 6px" aria-controls="importFile" onclick="document.getElementById('importFile').click()" title="載入先前儲存的 JSON 檔">匯入案件 JSON</button>
     </div>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
   </div>
@@ -2259,6 +1514,7 @@ let _projectMigrationEventInfo = null;
 let _projectIntegrityToken = 0;
 let _projectMigrationPersistenceToken = 0;
 let _projectPersistenceRequestToken = 0;
+let stoneWorkspaceReady = false;
 let _lastStoredProjectBackupStatus = '';
 function getStoredProjectRaw(){
   for(const key of STORAGE_KEYS){
@@ -4900,12 +4156,10 @@ async function v2ComputeCalcSourceHash(){
     window.__CALC_SOURCE_HASH = null;
   }
 }
-// 啟動時觸發（非同步、不阻塞）
-if(document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', () => { v2ComputeCalcSourceHash(); });
-} else {
-  v2ComputeCalcSourceHash();
-}
+// 工作頁照常載入，獨立產檔流程可等候同一份公式指紋。
+const calcSourceHashReady = document.readyState === 'loading'
+  ? new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, {once:true})).then(v2ComputeCalcSourceHash)
+  : v2ComputeCalcSourceHash();
 
 /* ═════════ V2 審查儀表板 dock 模式（可折疊側欄 / 底部抽屜） ═════════ */
 const V2_DOCK_KEY = 'stoneV2DashboardDock';
@@ -6229,6 +5483,16 @@ function v2InjectRegulationFooter(){
   }catch(e){ console.warn('[v2InjectRegulationFooter] failed:', e); }
 }
 
+const v2ProfileDetailsOpen = { activeParams: false, profileDiff: false };
+
+function v2RestoreProfileDetails(block, panel){
+  const details = block.querySelector('details');
+  details.open = v2ProfileDetailsOpen[panel];
+  details.addEventListener('toggle', () => {
+    v2ProfileDetailsOpen[panel] = details.open;
+  });
+}
+
 // V2.2.2：規範參數總覽 — 在法規 footer 之後追加可展開的 active profile params 列表
 // 設計：依 scope 分組 → wind / seismic / anchor / steel / stone；每組顯示 profile id + 全部 params
 // 列印時展開（@media print 規則）；數值格式統一保留原值不四捨五入（governance 透明）
@@ -6310,12 +5574,16 @@ function v2InjectActiveParamsOverview(){
     const block = document.createElement('div');
     block.className = 'v2-active-params';
     block.innerHTML = `
-      <details open>
-        <summary>📐 規範參數總覽（active profile 共 ${totalKeys} 個參數）</summary>
+      <details class="collapsible-details">
+        <summary>
+          <span class="details-title">規範參數總覽</span>
+          <span class="details-summary-badge no-print">${totalKeys} 項參數</span>
+        </summary>
         <div class="ap-meta">本表列出計算當下 5 個 scope 之 active profile 全部參數值；calc-core 經 getParam(scope, key, fallback) 機制取用，profile 缺失時回退 fallback。技師簽證前可直接核對。<strong>採非預設 profile 時，正式簽證計算書應於本頁附說明採用理由。</strong></div>
         ${sectionsHtml}
         <div class="ap-print-note">列印與 PDF 匯出時自動展開全部內容；數值來源詳見 js/code-profiles/*.json。</div>
       </details>`;
+    v2RestoreProfileDetails(block, 'activeParams');
     previewSheets.appendChild(block);
 
     // V3.0.3：picker 事件綁定 — 切換時同步仍沿用舊 profile 預設的可編輯欄位，再重新計算。
@@ -6457,8 +5725,11 @@ function v2InjectProfileDiff(){
     const block = document.createElement('div');
     block.className = 'v2-profile-diff';
     block.innerHTML = `
-      <details open>
-        <summary>🔀 profile 對照計算（A: 預設 vs B: 已覆寫）</summary>
+      <details class="collapsible-details">
+        <summary>
+          <span class="details-title">規範版本對照</span>
+          <span class="details-summary-badge no-print">A 預設／B 覆寫</span>
+        </summary>
         <div class="pd-meta">目前已啟用 profile 覆寫：${overrideDesc}。下表並排 5 個案例之主要 metric；calc-core 雙路執行（A 強制預設、B 採覆寫），不依賴 localStorage 暫存。</div>
         <table>
           <thead><tr>
@@ -6475,6 +5746,7 @@ function v2InjectProfileDiff(){
         </table>
         <div class="pd-note">⚠ B 覆寫狀態之計算結果即為目前計算書之值；A 預設為對照基準，僅供敏感度判讀。正式簽證若採 B，計算書應於本表附說明採用對照 profile 之理由。</div>
       </details>`;
+    v2RestoreProfileDetails(block, 'profileDiff');
     previewSheets.appendChild(block);
   }catch(e){ console.warn('[v2InjectProfileDiff] failed:', e); }
 }
@@ -12949,10 +12221,12 @@ function startProjectMigrationPersistence(migrated, context, token){
 }
 
 async function save(){
+  const canPersist = stoneWorkspaceReady;
   const requestToken = ++_projectPersistenceRequestToken;
   const payload = await buildProjectPayload();
   // oninput 會頻繁啟動非同步 SHA-256；只有最新請求可寫回，避免較慢的舊快照倒寫覆蓋新輸入。
   if(requestToken !== _projectPersistenceRequestToken) return payload;
+  if(!canPersist) return payload;
   try{
     setStoredProjectRaw(JSON.stringify(payload));
     _projectMigrationInfo = { ...(_projectMigrationInfo || {}), ...(payload.meta || {}) };
@@ -12971,7 +12245,7 @@ async function save(){
   return payload;
 }
 
-function load(){
+function load(draft){
   try{
     // 載入／復原／匯入會取代目前專案；使先前尚在計算 hash 的 save/export 寫回失效。
     _projectPersistenceRequestToken++;
@@ -12982,7 +12256,9 @@ function load(){
     _v2MigrationToastShown = false;
     _v2IntegrityToastSignature = '';
     clearTimeout(window._v2IntegrityToastTimer);
-    const { key: storedKey, raw } = getStoredProjectRaw();
+    const { key: storedKey, raw } = draft
+      ? { key: STORAGE_KEY, raw: JSON.stringify(draft) }
+      : getStoredProjectRaw();
     if(!raw){
       refreshRecoveryNotice();
       return;
@@ -13031,7 +12307,7 @@ function load(){
       || !parsed?.meta
       || (migrationDiagnostics?.appliedDefaults?.length || 0) > 0
       || persistenceRetry;
-    if(needsMigrationPersistence){
+    if(needsMigrationPersistence && !draft){
       startProjectMigrationPersistence(migrated, {
         sourceSchema,
         sourceVersion,
@@ -13148,7 +12424,8 @@ function load(){
     if(scc) caseIdCounter = scc;
     (savedCases||[]).forEach(c=>{ addCase(c); });
     refreshRecoveryNotice();
-    startProjectIntegrityCheck(parsed);
+    if (!draft || parsed.meta?.input_hash) startProjectIntegrityCheck(parsed);
+    return true;
   } catch(e){
     console.warn('load failed', e);
     refreshRecoveryNotice();
@@ -16397,7 +15674,11 @@ window.addEventListener('DOMContentLoaded', ()=>{
     const json = v2DecodeBase64Utf8(m[1]);
     v2ImportProjectText(json, 'hash_import_replace');
     history.replaceState(null, '', location.pathname + location.search);
-    setTimeout(()=>location.reload(), 50);
+    window.addEventListener('load', () => {
+      load();
+      render();
+      document.dispatchEvent(new Event('tool-draft-change'));
+    }, { once: true });
   }catch(e){
     console.warn('import hash 解析失敗', e);
     v2Notify('分享連結匯入失敗：\n' + (e?.message || e), 'error', '分享連結');
@@ -16627,6 +15908,56 @@ function updateStampPreview(b64){
   }
 }
 
+function stoneDraftInputs() {
+  const inp = inputs();
+  const activeCC = currentCCReportSnapshot(inp);
+  if (activeCC) inp.cc_report = activeCC;
+  if (Object.keys(_windCoeffReport).length) inp.wind_coeff_report = _windCoeffReport;
+  inp.extra_ann_on = document.getElementById('extra_ann_on')?.checked || false;
+  inp.extra_ann_title = document.getElementById('extra_ann_title')?.value || '';
+  inp.extra_ann_note = document.getElementById('extra_ann_note')?.value || '';
+  inp.extra_per_page = v2NormalizeExtraPerPage(document.getElementById('extra_per_page')?.value);
+  return inp;
+}
+
+window.StoneWorkspaceDraft = {
+  capture() {
+    return {
+      schema: PROJECT_SCHEMA,
+      version: PROJECT_SCHEMA_VERSION,
+      meta: { workflow_mode: v2CurrentWorkflowMode(), template: v2TemplateTrace() },
+      inp: stoneDraftInputs(),
+      cases: cases.map(id => ({ id, ...caseData(id) })),
+      reviewNotes: reviewNotesForPayload(),
+      batchAnalysis: _batchAnalysisReport,
+      caseIdCounter,
+    };
+  },
+  signature(state) {
+    return stableSerialize({
+      inp: state.inp, cases: state.cases, reviewNotes: state.reviewNotes,
+      batchAnalysis: state.batchAnalysis, workflow: state.meta?.workflow_mode,
+    });
+  },
+  restore(state) {
+    if (!isRecognizableProjectPayload(state) || !load(state)) return false;
+    render();
+    return true;
+  },
+  readLegacy() {
+    const { raw } = getStoredProjectRaw();
+    if (!raw) return null;
+    const prior = JSON.parse(raw);
+    if (!isRecognizableProjectPayload(prior)) return null;
+    const { document: approval, ...state } = prior;
+    return { version: 1, savedAt: prior.meta?.generated_at || '時間未記錄', state };
+  },
+  clearLegacy() {
+    _projectPersistenceRequestToken++;
+    STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+  },
+};
+
 /* ══════════════════ INIT ══════════════════════ */
 window.addEventListener('load', ()=>{
   renderSpecRefSummary();
@@ -16639,13 +15970,7 @@ window.addEventListener('load', ()=>{
   v2RefreshKeyboardSemanticStates();
   toggleCertPageOptions(false);
   initCityDropdown();
-  load();
-  // 還原縣市→鄉鎮下拉的選取狀態
-  const { raw: savedRaw } = getStoredProjectRaw();
-  if(savedRaw){ try{ const {inp} = JSON.parse(savedRaw);
-    if(inp?.city){ document.getElementById('c_city').value = inp.city; onCityChange();
-      setTimeout(()=>{ if(inp?.dist) document.getElementById('c_dist').value = normalizedDistrict(inp.city, inp.dist); }, 0); }
-  }catch(e){} }
+  refreshRecoveryNotice();
   updatePinVa();
   updateAnchorAllowable();
   refreshSeismicSiteState({ applySds: seismicSiteMode() !== 'manual' });
@@ -16659,10 +15984,14 @@ window.addEventListener('load', ()=>{
   const savedDiagram = v2StoredRasterDataUrl(DIAGRAM_KEY);
   if(savedDiagram) updateDiagramPreview(savedDiagram);
   render();
+  stoneWorkspaceReady = true;
 });
 </script>
 <script src="../結構工具箱/core/ui/tool-workflow.js"></script>
 <script src="../結構工具箱/tools/tool-workflow-adapters.js" data-tool-key="/stone-fixing" data-workflow-result="#review-dashboard"></script>
+<script src="../tool-nav.manifest.js" defer></script>
+<script src="../tool-chrome.js" defer></script>
   <script src="../tool-page-a11y.js" defer></script>
+<script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-anchor="#v2-toolbar" data-draft-adapter="StoneWorkspaceDraft" data-draft-actions="button[onclick^=add], button[onclick^=remove], button[onclick^=del], button[onclick^=v2Apply], button[onclick^=v2Load], .chip, .mode-btn" defer></script>
 </body>
 </html>

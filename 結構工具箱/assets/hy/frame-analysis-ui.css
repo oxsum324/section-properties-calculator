@@ -94,6 +94,7 @@
 
 [data-ui-heading="project"] { margin-top: 16px; }
 [data-ui-part="project-basis"], .flex-row.page-only-tool-actions, [data-ui-part="foundation-actions"] { margin-top: 8px; }
+
 [data-ui-part="self-weight"] { margin-top: 10px; gap: 12px; }
 [data-ui-part="self-weight"] > label, [data-ui-part="self-weight"] > span { display: inline-flex; align-items: center; gap: 5px; }
 [data-ui-part="self-weight"] > label { font-weight: var(--fw-bold); }

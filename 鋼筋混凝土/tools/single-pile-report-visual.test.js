@@ -61,6 +61,7 @@ const CASES = {
   optimistic_params_review: {
     expectedSnapshot: '複核',
     setup: async page => {
+      await page.getByText('細部折減與規範參數', { exact: true }).click();
       await page.fill('#alphaSoft', '1.20');
       await page.evaluate(() => {
         const el = document.getElementById('alphaSoft');
@@ -285,6 +286,7 @@ async function main() {
 
       const response = await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
       assert(response && response.status() === 200, `${key} tool page loads`, `status=${response && response.status()}`);
+      await page.getByText('案件資料與場址快捷帶入', { exact: true }).click();
       await page.fill('#projName', 'RC 單樁正式附件測試');
       await page.fill('#projNo', 'RC-PILE-001');
       await page.fill('#projDesigner', 'QA');

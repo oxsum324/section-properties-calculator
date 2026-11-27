@@ -13,15 +13,15 @@ const routes = [
   '/rc-beam', '/rc-deep-beam-stm', '/rc-column', '/rc-slab', '/rc-wall', '/rc-shear-wall', '/rc-foundation',
   '/rc-foundation-deep-beam-stm', '/rc-pile-cap-3d-stm', '/rc-pile', '/rc-retrofit-section', '/rc-column-cover-deviation',
   '/src-beam', '/src-column', '/steel-formal', '/steel-beam-formal', '/steel-column-formal', '/steel-plate',
-  '/steel-beam', '/steel-column', '/wind-overview', '/wind-kzt', '/wind-special', '/wind-force', '/wind-cc',
+  '/wind-overview', '/wind-kzt', '/wind-special', '/wind-force', '/wind-cc',
   '/wind-parapet', '/wind-open-roof', '/wind-object-solid', '/wind-object-frame', '/wind-lattice-tower',
   '/wind-object-tower', '/wind-fence-sign', '/wind-sign-pole', '/seismic-force', '/seismic-dynamic',
   '/seismic-appendage', '/seismic-misc', '/anchor', '/stone-fixing', '/foundation-local', '/equipment-load',
   '/earth-pressure', '/floor-slab-westergaard', '/concrete-strength-ndt', '/cable-tension-frequency', '/decking', '/excavation-support',
 ];
 const baseline = {
-  schemaVersion: 1, capturedAt: new Date(0).toISOString(), sourceCommit: 'base-commit', routeCount: 53,
-  totalJsBytes: 5300, docxRuntimePath: '/docx.js', docxRuntimeBytes: 100,
+  schemaVersion: 1, capturedAt: new Date(0).toISOString(), sourceCommit: 'base-commit', routeCount: 51,
+  totalJsBytes: 5100, docxRuntimePath: '/docx.js', docxRuntimeBytes: 100,
   routes: routes.map(route => ({ route, jsBytes: 100, sharedScripts: [{ path: '/core/shared.js', bytes: 100 }] })),
 };
 const baseUrl = 'http://127.0.0.1:1234/';
@@ -63,8 +63,8 @@ assert.deepEqual(validateBaseline(baseline, routes), []);
 assert.deepEqual(validateHomepageInventory(cleanHomepageInventory()), [], 'the homepage may have an extra non-card route alias in routeFileMap');
 for (const [name, alter] of [
   ['same-size unapproved homepage route replacement', inventory => { inventory.homepageRoutes[0] = '/unapproved-route'; }],
-  ['52 homepage routes', inventory => { inventory.homepageRoutes.pop(); }],
-  ['54 homepage routes', inventory => { inventory.homepageRoutes.push('/unapproved-route'); }],
+  ['50 homepage routes', inventory => { inventory.homepageRoutes.pop(); }],
+  ['52 homepage routes', inventory => { inventory.homepageRoutes.push('/unapproved-route'); }],
   ['duplicate homepage href', inventory => { inventory.homepageRoutes[1] = inventory.homepageRoutes[0]; }],
   ['missing baseline route', inventory => { inventory.baselineRoutes.pop(); }],
   ['missing date route', inventory => { delete inventory.updateRoutes[routes[0]]; }],
@@ -149,7 +149,7 @@ withTempBaseline(file => {
 });
 
 for (const [name, mutate] of [
-  ['missing route', candidate => { candidate.routes.pop(); candidate.routeCount = 51; candidate.totalJsBytes -= 100; }],
+  ['missing route', candidate => { candidate.routes.pop(); candidate.routeCount = 49; candidate.totalJsBytes -= 100; }],
   ['duplicate route', candidate => { candidate.routes[1].route = candidate.routes[0].route; }],
   ['invalid page bytes', candidate => { candidate.routes[0].jsBytes = Infinity; }],
   ['zero shared-script bytes', candidate => { candidate.routes[0].sharedScripts[0].bytes = 0; }],
@@ -167,14 +167,14 @@ for (const [name, mutate] of [
   });
 }
 
-for (const malformedRoutes of [routes.slice(1), [...routes.slice(0, 51), routes[0]]]) {
+for (const malformedRoutes of [routes.slice(1), [...routes.slice(0, 49), routes[0]]]) {
   const errors = validateBaseline(baseline, malformedRoutes);
   assert(errors.length > 0, 'expected route list with missing/duplicate route must fail');
 }
 for (const malformedResults of [
   cleanResults().slice(1),
-  [...cleanResults().slice(0, 51), cleanResults()[0]],
-  cleanResults().slice(0, 52),
+  [...cleanResults().slice(0, 49), cleanResults()[0]],
+  cleanResults().slice(0, 50),
   [...cleanResults(), { ...cleanResults()[0], route: '/unapproved-route' }],
   (() => { const changed = cleanResults(); changed[0] = { ...changed[0], route: '/unapproved-route' }; return changed; })(),
 ]) {

@@ -101,19 +101,7 @@ def replay_golden_formal_payload() -> tuple[dict, dict]:
         browser = playwright.chromium.launch(headless=True)
         try:
             page = browser.new_page(viewport={'width': 1280, 'height': 1800})
-            page.goto(auto_word.TOOL_URL, wait_until='domcontentloaded', timeout=60000)
-            page.evaluate(
-                """(args) => {
-                  localStorage.clear();
-                  localStorage.setItem(args.key, JSON.stringify(args.data));
-                }""",
-                {'key': auto_word.STORAGE_KEY, 'data': payload},
-            )
-            page.goto(auto_word.TOOL_URL, wait_until='networkidle', timeout=60000)
-            page.wait_for_function(
-                """() => document.querySelectorAll('#preview-sheets .a4').length > 0""",
-                timeout=30000,
-            )
+            auto_word.load_render_payload(page, payload)
             replayed = page.evaluate("""async () => {
               const hashes = await v2RefreshDeliveryHashes();
               const payload = await buildProjectPayload();
@@ -251,16 +239,7 @@ class AutoWordArtifactTests(unittest.TestCase):
                     payload['inp']['review_summary_on'] = enabled
                     page = browser.new_page(viewport={'width': 1280, 'height': 1800})
                     try:
-                        page.goto(auto_word.TOOL_URL, wait_until='domcontentloaded', timeout=60000)
-                        page.evaluate(
-                            """(args) => localStorage.setItem(args.key, JSON.stringify(args.data))""",
-                            {'key': auto_word.STORAGE_KEY, 'data': payload},
-                        )
-                        page.goto(auto_word.TOOL_URL, wait_until='networkidle', timeout=60000)
-                        page.wait_for_function(
-                            """() => document.querySelectorAll('#preview-sheets .a4').length > 0""",
-                            timeout=30000,
-                        )
+                        auto_word.load_render_payload(page, payload)
                         page.wait_for_timeout(500)
                         state = page.evaluate(
                             """() => ({

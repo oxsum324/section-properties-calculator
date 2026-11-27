@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>覆工板系統計算工具</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="../tool-chrome.css">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
+<link rel="stylesheet" href="../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <link rel="stylesheet" href="../結構工具箱/core/report-readiness.css">
 <style>
   :root {
@@ -346,6 +348,10 @@
     color: #555;
   }
 
+  #tab-report h2, #tab-report h3 { color: var(--hy-navy); line-height: 1.35; }
+  #tab-report table { font-variant-numeric: tabular-nums; }
+  #tab-report table.calc th { background: var(--bg-subtle); color: var(--hy-navy); }
+
   @media print {
     body.formal-tool-output-page.decking-report-print-mode > .formal-direct-print-boundary { display: none !important; }
     body.formal-tool-output-page.decking-report-print-mode > main {
@@ -359,14 +365,15 @@
       page-break-after: auto;
     }
     nav.tabs, .btn, .statusbar, .preset-bar, .action-status, .auto-link-toggle,
-    .page-only-report-status, .decking-report-page-only, header { display: none !important; }
+    .page-only-report-status, .page-only-tool-actions, .decking-report-page-only, header { display: none !important; }
     body { background: #fff; font-size: 11px; }
     #tab-report > .card { border: 0; box-shadow: none; padding: 0; page-break-inside: auto; }
-    #tab-report h1, #tab-report h2, #tab-report h3, #tab-report h4 { break-after: avoid-page; }
+    #tab-report h1, #tab-report h2, #tab-report h3, #tab-report h4 { break-after: avoid-page; page-break-after: avoid; }
     #tab-report table { break-inside: auto; }
     #report-output { max-width: none; overflow: visible; }
     #tab-report thead { display: table-header-group; }
-    #tab-report tr { break-inside: avoid-page; }
+    #tab-report tr, #tab-report figure { break-inside: avoid-page; page-break-inside: avoid; }
+    #tab-report .ok, #tab-report .ng, #tab-report .pass, #tab-report .fail { color: #111; font-weight: 800; }
     .summary, table.calc th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
@@ -388,13 +395,13 @@
   <button data-tab="girder">④ 覆工大梁</button>
   <button data-tab="column">⑤ 共構柱</button>
   <button data-tab="report">⑥ 📑 彙整報告</button>
-  <button class="btn btn-ghost" style="align-self:center;" onclick="saveProjectJSON()" title="下載可回讀的專案 JSON">存檔 JSON</button>
-  <button class="btn btn-ghost" style="align-self:center;" onclick="document.getElementById('projectJsonFile').click()" title="讀取專案 JSON">讀取 JSON</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="saveProjectJSON()" title="下載可回讀的專案 JSON">匯出案件 JSON</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="document.getElementById('projectJsonFile').click()" title="讀取專案 JSON">匯入案件 JSON</button>
   <button class="btn btn-ghost" style="align-self:center;" onclick="saveDraft()" title="暫存目前輸入">暫存</button>
   <button class="btn btn-ghost" style="align-self:center;" onclick="loadDraft()" title="讀取瀏覽器暫存">讀取暫存</button>
   <input type="file" id="projectJsonFile" accept=".json,application/json" style="display:none" onchange="importProjectJSON(this)">
-  <button class="btn" style="margin-left:auto; align-self:center;" onclick="printDeckingReport()" title="列印彙整計算書 / 匯出 PDF">🖨 列印彙整計算書</button>
-  <button class="btn btn-ghost" style="align-self:center;" onclick="resetAll()" title="清空所有輸入">↺ 重置</button>
+  <button class="btn" style="margin-left:auto; align-self:center;" onclick="printDeckingReport()" title="列印彙整計算書 / 匯出 PDF">產生計算書</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="resetAll()" title="清空所有輸入">重設預設值</button>
 </nav>
 
 <section class="statusbar" id="statusbar" aria-label="覆工板狀態摘要">
@@ -409,11 +416,14 @@
 
 <!-- ==================== Tab 1: 全域參數 ==================== -->
 <section class="tab-panel active" id="tab-global">
-  <div class="project-head">
-    <div><label style="font-size:11px;color:#666;">案名</label><br><input id="proj_name" placeholder="例：○○捷運 G1 工區覆工板系統" style="width:100%"></div>
-    <div><label style="font-size:11px;color:#666;">案件編號</label><br><input id="proj_no" placeholder="例：CV-2025-001" style="width:100%"></div>
-    <div><label style="font-size:11px;color:#666;">日期</label><br><input id="proj_date" type="date" style="width:100%"></div>
-  </div>
+  <details class="card collapsible-details page-only-tool-actions" id="deckingProjectDetails">
+    <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge" data-details-value="#proj_name, #proj_no, #proj_date">選填</span></summary>
+    <div class="project-head details-body">
+      <div><label style="font-size:11px;color:#666;">案名</label><br><input id="proj_name" placeholder="例：○○捷運 G1 工區覆工板系統" style="width:100%"></div>
+      <div><label style="font-size:11px;color:#666;">案件編號</label><br><input id="proj_no" placeholder="例：CV-2025-001" style="width:100%"></div>
+      <div><label style="font-size:11px;color:#666;">日期</label><br><input id="proj_date" type="date" style="width:100%"></div>
+    </div>
+  </details>
 
   <div class="preset-bar">
     <b>一鍵套用整套工況：</b>
@@ -468,19 +478,21 @@
     <div class="note">此頁參數會自動套用至 Tab2~Tab4 計算。修改後請切回各分頁查看更新結果（已即時連動）。</div>
   </div>
 
-  <div class="card">
-    <h2>載重規格速查</h2>
-    <table class="calc">
-      <thead><tr><th>類別</th><th>型式</th><th>載重</th><th>幾何</th><th>備註</th></tr></thead>
-      <tbody>
-        <tr><td>HS 20-44 卡車</td><td>集中</td><td>P = 7.3 t/輪</td><td>輪心距 1.2 / 1.8 / 1.2 m</td><td>含衝擊 ×1.3</td></tr>
-        <tr><td>PC400 履帶車</td><td>均佈(履帶)</td><td>Wc = 8.244 t/m</td><td>輪心距 2.74 m，履帶長 4.35 m</td><td>含衝擊 ×1.3</td></tr>
-        <tr><td>45T 吊車</td><td>集中</td><td>P = 13.63 t</td><td>支撐距 6.6 × 5.4 m</td><td>容許 M = 50 T-m</td></tr>
-        <tr><td>200T 吊車 (NK-1600)</td><td>集中</td><td>P = 56.51 t</td><td>支撐距 5.7 × 9.2 m</td><td>容許 M = 350 T-m</td></tr>
-        <tr><td>300T 吊車</td><td>集中</td><td>P = 89.83 t</td><td>(依機型)</td><td>容許 M ≈ 630 T-m</td></tr>
-      </tbody>
-    </table>
-  </div>
+  <details class="card collapsible-details page-only-tool-actions" id="deckingLoadReferenceDetails">
+    <summary><span class="details-title">載重規格速查</span><span class="details-summary-badge">車輛／吊車</span></summary>
+    <div class="details-body" style="overflow-x:auto" tabindex="0" role="region" aria-label="載重速查表，可左右捲動">
+      <table class="calc">
+        <thead><tr><th>類別</th><th>型式</th><th>載重</th><th>幾何</th><th>備註</th></tr></thead>
+        <tbody>
+          <tr><td>HS 20-44 卡車</td><td>集中</td><td>P = 7.3 t/輪</td><td>輪心距 1.2 / 1.8 / 1.2 m</td><td>含衝擊 ×1.3</td></tr>
+          <tr><td>PC400 履帶車</td><td>均佈(履帶)</td><td>Wc = 8.244 t/m</td><td>輪心距 2.74 m，履帶長 4.35 m</td><td>含衝擊 ×1.3</td></tr>
+          <tr><td>45T 吊車</td><td>集中</td><td>P = 13.63 t</td><td>支撐距 6.6 × 5.4 m</td><td>容許 M = 50 T-m</td></tr>
+          <tr><td>200T 吊車 (NK-1600)</td><td>集中</td><td>P = 56.51 t</td><td>支撐距 5.7 × 9.2 m</td><td>容許 M = 350 T-m</td></tr>
+          <tr><td>300T 吊車</td><td>集中</td><td>P = 89.83 t</td><td>(依機型)</td><td>容許 M ≈ 630 T-m</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
 </section>
 
 <!-- ==================== Tab 2: 覆工版面 ==================== -->
@@ -784,11 +796,16 @@
 
     <div class="row-flex decking-report-page-only" style="margin-bottom:12px; padding:10px; background:#e8f4ff; border:1px solid #b8d4f0; border-radius:6px;">
       <b style="color:#1a4480;">📄 產出正式 Word 計算書：</b>
-      <button class="btn" onclick="exportJSON()">💾 步驟 1：下載 JSON 參數檔</button>
+      <button class="btn" onclick="exportJSON()">步驟 1：下載 JSON 參數檔</button>
       <span style="font-size:12px; color:#555;">→ 雙擊本資料夾內「<b>產生計算書.bat</b>」→ 生成 Word 檔</span>
     </div>
 
-    <div id="report-readiness" class="report-readiness page-only-report-status" role="status" aria-live="polite"></div>
+    <details class="collapsible-details page-only-report-status" id="deckingReadinessDetails">
+      <summary><span class="details-title">產報前閱讀狀態</span><span class="details-summary-badge" data-details-value=".report-readiness-badge">尚未計算</span></summary>
+      <div class="details-body">
+        <div id="report-readiness" class="report-readiness page-only-report-status" role="status" aria-live="polite" data-details-refresh></div>
+      </div>
+    </details>
     <div id="report-output" tabindex="0" role="region" aria-label="覆工板彙整計算書，可左右捲動檢視表格"></div>
   </div>
 </section>
@@ -1083,7 +1100,7 @@ function calcDeck() {
         <span class="val">${fmt(def3.dmax,3)} cm &lt; L/${g.defl} = ${fmt(def_allow,3)} cm ${checkTag(def3.dmax<def_allow)}</span></div>
     </div>
 
-    <details class="steps" open><summary>三工況撓度明細</summary>
+    <details class="steps collapsible-details page-only-tool-actions"><summary><span class="details-title">三工況撓度明細</span><span class="details-summary-badge">3 工況</span></summary>
 <pre>HS20  : δ = δw + δp = ${fmt(def3.detail.find(x=>x.n==='HS20').dw,4)} + ${fmt(def3.detail.find(x=>x.n==='HS20').dp,4)} = ${fmt(def3.d1,4)} cm
 PC400 : δ = δw_self + δw_track = ${fmt(def3.d2,4)} cm   (履帶用部分 UDL 嚴謹解)
 吊車  : δ = δw + δp = ${fmt(def3.detail.find(x=>x.n==='吊車').dw,4)} + ${fmt(def3.detail.find(x=>x.n==='吊車').dp,4)} = ${fmt(def3.d3,4)} cm
@@ -1184,7 +1201,7 @@ function calcStringer() {
         <span class="val">${fmt(def3.dmax,3)} &lt; L/${g.defl} = ${fmt(def_allow,3)} cm ${checkTag(def3.dmax<def_allow)}</span></div>
     </div>
 
-    <details class="steps" open><summary>三工況撓度明細</summary>
+    <details class="steps collapsible-details page-only-tool-actions"><summary><span class="details-title">三工況撓度明細</span><span class="details-summary-badge">3 工況</span></summary>
 <pre>HS20  : δ = ${fmt(def3.d1,4)} cm  (5wL⁴/384EI + PL³/48EI)
 PC400 : δ = ${fmt(def3.d2,4)} cm  (履帶部分 UDL 嚴謹解 wc(8L³−4c²L+c³)/384EI)
 吊車  : δ = ${fmt(def3.d3,4)} cm
@@ -1285,7 +1302,7 @@ function calcGirder() {
       <div class="row"><span class="name">δmax = ${fmt(def3.dmax,3)} cm (${def3.ctrl}) &lt; L/${g.defl} = ${fmt(def_allow,3)}</span><span class="val">${checkTag(def3.dmax<def_allow)}</span></div>
     </div>
 
-    <details class="steps" open><summary>三工況撓度明細（吊車工況不疊堆料/活載）</summary>
+    <details class="steps collapsible-details page-only-tool-actions"><summary><span class="details-title">三工況撓度明細（吊車工況不疊堆料/活載）</span><span class="details-summary-badge">3 工況</span></summary>
 <pre>HS20  : δ = ${fmt(def3.d1,4)} cm
 PC400 : δ = ${fmt(def3.d2,4)} cm  (履帶部分 UDL 嚴謹解)
 吊車  : δ = ${fmt(def3.d3,4)} cm
@@ -1687,19 +1704,26 @@ function applyFormState(data, version) {
   }
   return '';
 }
-function saveState() {
-  const data = collectFormState();
-  localStorage.setItem(LS_KEY, JSON.stringify({ ...data, sectionTableVersion:DECKING_TOOL_METADATA.version }));
+function deckingDraftFields(input) {
+  const { deckingAttachmentApproved, ...fields } = input;
+  return fields;
 }
-function restoreState() {
-  const raw = localStorage.getItem(LS_KEY);
-  if (!raw) return;
-  try {
-    const stored = JSON.parse(raw);
-    const notice = applyFormState(stored, stored.sectionTableVersion);
+
+window.DeckingDraft = {
+  capture() {
+    return { ...deckingDraftFields(collectFormState()), sectionTableVersion: DECKING_TOOL_METADATA.version };
+  },
+  restore(state) {
+    const notice = applyFormState(deckingDraftFields(state), state.sectionTableVersion);
+    recalcAll();
     if (notice) setActionStatus(notice, 'info');
-  } catch(e) { console.warn(e); }
-}
+  },
+  readLegacy() {
+    const state = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+    return state ? { version: 1, savedAt: '時間未記錄', state: deckingDraftFields(state) } : null;
+  },
+  clearLegacy() { localStorage.removeItem(LS_KEY); },
+};
 function buildProjectPayload() {
   return {
     schema: 'fugongban.project.v1',
@@ -2042,7 +2066,6 @@ function recalcAll() {
   calcBond();
   calcPile();
   buildReport();
-  saveState();
 }
 
 //============================================================
@@ -2076,7 +2099,6 @@ document.addEventListener('keydown', (e) => {
 
 window.addEventListener('DOMContentLoaded', () => {
   fillSectionSelects();
-  restoreState();
   // 預設日期 = 今天
   const dateEl = document.getElementById('proj_date');
   if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
@@ -2089,5 +2111,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="../tool-nav.manifest.js" defer></script>
   <script src="../tool-chrome.js" defer></script>
   <script src="../tool-page-a11y.js" defer></script>
+  <script src="../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
+<script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-adapter="DeckingDraft" data-draft-actions=".preset-bar button, button[onclick^=loadDraft], button[onclick^=reset]" defer></script>
 </body>
 </html>

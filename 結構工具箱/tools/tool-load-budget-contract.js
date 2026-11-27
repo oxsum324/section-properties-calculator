@@ -1,6 +1,6 @@
 'use strict';
 // 首頁正式路由數：新增或移除工具時更新，並由委託人授權以 --write-baseline 重設基準。
-const HOME_ROUTE_COUNT = 53;
+const HOME_ROUTE_COUNT = 51;
 
 function validBytes(value, { allowZero = false } = {}) {
   return Number.isSafeInteger(value) && value >= (allowZero ? 0 : 1);

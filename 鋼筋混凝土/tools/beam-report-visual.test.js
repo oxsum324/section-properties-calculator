@@ -332,6 +332,7 @@ async function main() {
       assert(response && response.status() === 200, `${tc.key} tool page loads`, `status=${response && response.status()}`);
       await applyCase(page, tc);
       await waitForCalculatedReadiness(page);
+      await page.click('[data-rc-details="readiness"] > summary');
 
       const state = await page.evaluate(() => ({
         banner: document.getElementById('bannerStatus')?.innerText?.replace(/\s+/g, ' ').trim() || '',

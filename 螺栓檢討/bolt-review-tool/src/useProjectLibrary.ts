@@ -1,4 +1,4 @@
-import { startTransition, useRef, type ChangeEvent } from 'react'
+import { startTransition, useRef, useState, type ChangeEvent } from 'react'
 import type { AnchorProduct, ProjectCase } from './domain'
 import { db } from './db'
 import { defaultProject } from './defaults'
@@ -87,6 +87,12 @@ export function useProjectLibrary(deps: {
   } = deps
 
   const importInputRef = useRef<HTMLInputElement | null>(null)
+  const [caseFileStatus, setCaseFileStatus] = useState('')
+
+  function reportCaseFileStatus(message: string) {
+    setCaseFileStatus(message)
+    setSaveMessage(message)
+  }
 
   // setProjects 在 React useState setter 是 (updater | newValue) 兩可型別；以下統一使用 cast。
   const setProjectsAny = setProjects as (
@@ -258,12 +264,12 @@ export function useProjectLibrary(deps: {
         link.download = `${safeName}-${exportDate}.json`
         link.click()
         window.URL.revokeObjectURL(objectUrl)
-        setSaveMessage(
+        reportCaseFileStatus(
           `已匯出單案 ${linkedProducts.length} 產品 / ${linkedFiles.length} 附件：${safeName}`,
         )
       } catch (error) {
         const message = error instanceof Error ? error.message : '匯出失敗'
-        setSaveMessage(`單案匯出失敗：${message}`)
+        reportCaseFileStatus(`單案匯出失敗：${message}`)
       }
     })()
   }
@@ -297,7 +303,7 @@ export function useProjectLibrary(deps: {
         !file.type.includes('json') &&
         !file.name.toLowerCase().endsWith('.json')
       ) {
-        setSaveMessage(`忽略非 JSON 檔案：${file.name}`)
+        reportCaseFileStatus(`忽略非 JSON 檔案：${file.name}`)
         return
       }
       const {
@@ -334,7 +340,7 @@ export function useProjectLibrary(deps: {
         merged.invalidatedAuditEntries > 0
           ? `；已撤銷 ${merged.invalidatedAuditEntries} 筆因匯入識別重編而失效的舊留痕`
           : ''
-      setSaveMessage(
+      reportCaseFileStatus(
         `已匯入 ${merged.importedProjects} 個案例 / ${merged.importedProducts} 個產品 / ${merged.importedFiles} 份附件；${replayMessage}${legacyRoundingMessage}${auditMessage}`,
       )
     } catch (error) {
@@ -343,7 +349,7 @@ export function useProjectLibrary(deps: {
       const preservedMessage = message.includes('已保留原工作區')
         ? ''
         : ' 已保留原工作區。'
-      setSaveMessage(`匯入失敗：${message}${preservedMessage}`)
+      reportCaseFileStatus(`匯入失敗：${message}${preservedMessage}`)
     }
   }
 
@@ -361,6 +367,7 @@ export function useProjectLibrary(deps: {
 
   return {
     importInputRef,
+    caseFileStatus,
     loadProjectTemplate,
     selectProject,
     createProject,

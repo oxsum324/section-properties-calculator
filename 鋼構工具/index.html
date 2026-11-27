@@ -7,11 +7,14 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="../tool-chrome.css">
   <link rel="stylesheet" href="../結構工具箱/assets/hy/colors_and_type.css">
+  <link rel="stylesheet" href="../結構工具箱/assets/hy/tool-sticky-summary.css">
   <link rel="stylesheet" href="../結構工具箱/core/family-theme.css">
+  <link rel="stylesheet" href="../結構工具箱/assets/hy/tool-ui-collapsible.css">
+  <script src="../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 </head>
-<body class="steel-formal-output-page" data-family="steel">
+<body class="steel-formal-output-page" data-family="steel" data-steel-draft-guard>
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
   <aside class="steel-formal-direct-print-boundary" aria-label="鋼構正式工具列印邊界">
     <strong>鋼構正式工具主頁列印已封鎖</strong>
@@ -48,19 +51,24 @@
         </div>
         <span class="mode-bar__hint" id="methodHint">流程建議：先選檢核模組，再選設計方法，再載入對應範例。</span>
       <div class="mode-bar__proj">
-        <input name="projectName" form="connectionForm" type="text" placeholder="計畫名稱">
-        <input name="connectionTag" form="connectionForm" type="text" placeholder="接頭編號">
-        <input name="designer" form="connectionForm" type="text" placeholder="設計人">
+        <details class="collapsible-details project-details" id="steelProjectDetails">
+          <summary><span class="details-title">案件識別資料</span><span class="details-summary-badge" data-details-value="[name=projectName], [name=connectionTag], [name=designer]">選填</span></summary>
+          <div class="details-body details-project-fields">
+            <input name="projectName" form="connectionForm" type="text" placeholder="計畫名稱">
+            <input name="connectionTag" form="connectionForm" type="text" placeholder="接頭編號">
+            <input name="designer" form="connectionForm" type="text" placeholder="設計人">
+          </div>
+        </details>
         <select id="examplePresetSelect" title="範例案例">
           <option value="">選擇範例案例</option>
         </select>
-        <button id="loadExampleBtn" class="mode-bar__report" type="button">載入範例</button>
+        <button id="loadExampleBtn" class="mode-bar__report secondary" type="button">載入範例</button>
         <button id="saveDraftBtn" class="mode-bar__report secondary" type="button">儲存草稿</button>
-        <button id="exportSourceJsonBtn" class="mode-bar__report secondary" type="button">💾 匯出來源 JSON</button>
-        <button id="importSourceJsonBtn" class="mode-bar__report secondary" type="button">📂 匯入來源 JSON</button>
+        <button id="exportSourceJsonBtn" class="mode-bar__report secondary" type="button">匯出案件 JSON</button>
+        <button id="importSourceJsonBtn" class="mode-bar__report secondary" type="button">匯入案件 JSON</button>
         <input id="importSourceJsonInput" type="file" accept="application/json,.json" hidden>
-        <button id="exportReportBtn" class="mode-bar__report" type="button">📄 輸出報表</button>
-        <span id="exportReportStatus" class="mode-bar__status" role="status" aria-live="polite" hidden></span>
+        <button id="exportReportBtn" class="mode-bar__report" type="button">產生計算書</button>
+        <span id="exportReportStatus" class="mode-bar__status" data-details-refresh role="status" aria-live="polite" hidden></span>
       </div>
     </section>
 
@@ -82,13 +90,18 @@
               <label>規範基準</label>
               <input id="codeBasisDisplay" value="鋼構造建築物鋼結構設計技術規範｜依模組切換對應章節與設計法" disabled>
             </div>
-            <div class="form-group">
-              <label>暴露條件</label>
-              <select name="exposureCondition">
-                <option value="painted">塗裝或不受腐蝕環境</option>
-                <option value="weathering">耐候鋼且暴露大氣</option>
-              </select>
-            </div>
+            <details class="collapsible-details" id="steelExposureDetails">
+              <summary><span class="details-title">暴露條件</span><span class="details-summary-badge" data-details-value="[name=exposureCondition]">塗裝或不受腐蝕環境</span></summary>
+              <div class="details-body">
+                <div class="form-group">
+                  <label>暴露條件</label>
+                  <select name="exposureCondition">
+                    <option value="painted">塗裝或不受腐蝕環境</option>
+                    <option value="weathering">耐候鋼且暴露大氣</option>
+                  </select>
+                </div>
+              </div>
+            </details>
             <div class="form-row is-hidden" data-basic-demand="frame">
               <div class="form-group">
                 <label>需求軸力 Pu / Pa (kN)</label>
@@ -109,10 +122,15 @@
                 <input name="eccentricity" type="number" min="0" step="0.1">
               </div>
             </div>
-            <div class="checkbox-row">
-              <input id="showFlow" type="checkbox" checked>
-              <label for="showFlow">工作頁顯示計算流程（正式計算書固定完整輸出公式）</label>
-            </div>
+            <details class="collapsible-details" id="steelDisplayDetails">
+              <summary><span class="details-title">工作頁顯示選項</span><span class="details-summary-badge" data-details-value="#showFlow">已啟用</span></summary>
+              <div class="details-body">
+                <div class="checkbox-row">
+                  <input id="showFlow" type="checkbox" checked>
+                  <label for="showFlow">工作頁顯示計算流程（正式計算書固定完整輸出公式）</label>
+                </div>
+              </div>
+            </details>
           </div>
 
           <div class="card" data-common-card="bolt">
@@ -311,38 +329,42 @@
                 <input name="weldElectrodeStrength" type="number" min="1" step="1">
               </div>
             </div>
-            <h3>專案來源與模型確認</h3>
-            <div class="form-group">
-              <label>剪力需求來源</label>
-              <input name="demandBasis" type="text" placeholder="例如：分析模型 LC-ULS-07／節點反力表">
-            </div>
-            <div class="form-group">
-              <label>幾何資料來源</label>
-              <input name="geometryBasis" type="text" placeholder="例如：核定圖 S-502／接頭 ST-01">
-            </div>
-            <div class="form-group">
-              <label>材料資料來源</label>
-              <input name="materialBasis" type="text" placeholder="例如：鋼材規格表與螺栓證明文件">
-            </div>
-            <div class="form-group">
-              <label>偏心模型來源</label>
-              <input name="eccentricityBasis" type="text" placeholder="說明 e_b、e_w 與栓列—銲線距離之採用依據">
-            </div>
-            <div class="form-group">
-              <label>AISC conventional 材料延性等同性確認</label>
-              <select name="conventionalMaterialConfirmed">
-                <option value="false">尚未確認｜禁止正式核可</option>
-                <option value="true">已依核定材料規範確認 Fy 36/50 ksi 或等效延性材料</option>
-              </select>
-              <p class="section-note">限剪力板與梁腹板 Fy ≤ 345 MPa；此確認不得用於高強或低延性鋼材，也不涵蓋耐震塑鉸、疲勞或反覆載重。</p>
-            </div>
-            <div class="form-group">
-              <label>工程師確認接頭模型</label>
-              <select name="connectionModelConfirmed">
-                <option value="false">尚未確認｜禁止正式核可</option>
-                <option value="true">已確認單列、單剪、純剪力與彈性偏心模型適用</option>
-              </select>
-            </div>
+            <details class="collapsible-details" id="steelShearEvidenceDetails">
+              <summary><span class="details-title">專案來源與模型確認</span><span class="details-summary-badge" data-details-value="[name=connectionModelConfirmed]">尚未確認</span></summary>
+              <div class="details-body">
+                <div class="form-group">
+                  <label>剪力需求來源</label>
+                  <input name="demandBasis" type="text" placeholder="例如：分析模型 LC-ULS-07／節點反力表">
+                </div>
+                <div class="form-group">
+                  <label>幾何資料來源</label>
+                  <input name="geometryBasis" type="text" placeholder="例如：核定圖 S-502／接頭 ST-01">
+                </div>
+                <div class="form-group">
+                  <label>材料資料來源</label>
+                  <input name="materialBasis" type="text" placeholder="例如：鋼材規格表與螺栓證明文件">
+                </div>
+                <div class="form-group">
+                  <label>偏心模型來源</label>
+                  <input name="eccentricityBasis" type="text" placeholder="說明 e_b、e_w 與栓列—銲線距離之採用依據">
+                </div>
+                <div class="form-group">
+                  <label>AISC conventional 材料延性等同性確認</label>
+                  <select name="conventionalMaterialConfirmed">
+                    <option value="false">尚未確認｜禁止正式核可</option>
+                    <option value="true">已依核定材料規範確認 Fy 36/50 ksi 或等效延性材料</option>
+                  </select>
+                  <p class="section-note">限剪力板與梁腹板 Fy ≤ 345 MPa；此確認不得用於高強或低延性鋼材，也不涵蓋耐震塑鉸、疲勞或反覆載重。</p>
+                </div>
+                <div class="form-group">
+                  <label>工程師確認接頭模型</label>
+                  <select name="connectionModelConfirmed">
+                    <option value="false">尚未確認｜禁止正式核可</option>
+                    <option value="true">已確認單列、單剪、純剪力與彈性偏心模型適用</option>
+                  </select>
+                </div>
+              </div>
+            </details>
           </div>
 
           <div class="card" data-connection="column_splice">
@@ -396,11 +418,15 @@
               <div class="form-group"><label>全覆蓋非破壞檢測</label><select name="spliceNdtMethod"><option value="UT">超音波檢測 UT</option><option value="RT">放射線檢測 RT</option></select></div>
             </div>
 
-            <h3>專案依據與可重現證據</h3>
-            <div class="form-group"><label>需求／幾何／材料依據</label><div class="form-row compact"><textarea name="spliceDemandBasis" rows="2" placeholder="分析模型、13.4.1 組合與相鄰構件轉移上限"></textarea><textarea name="spliceGeometryBasis" rows="2" placeholder="核定續接圖與斷面資料"></textarea><textarea name="spliceMaterialBasis" rows="2" placeholder="上下柱母材與相稱銲材證明"></textarea></div></div>
-            <div class="form-group"><label>WPS／NDT 計畫依據</label><div class="form-row compact"><textarea name="spliceWpsBasis" rows="2" placeholder="核定 WPS／PQR"></textarea><textarea name="spliceNdtPlanBasis" rows="2" placeholder="UT／RT 全覆蓋檢測計畫"></textarea></div></div>
-            <div class="form-row"><div class="form-group"><label>需求證據 SHA-256</label><input name="spliceDemandEvidenceSha256" type="text" maxlength="64"></div><div class="form-group"><label>續接細部證據 SHA-256</label><input name="spliceDetailEvidenceSha256" type="text" maxlength="64"></div></div>
-            <div class="form-row"><div class="form-group"><label>WPS 證據 SHA-256</label><input name="spliceWpsEvidenceSha256" type="text" maxlength="64"></div><div class="form-group"><label>NDT 計畫證據 SHA-256</label><input name="spliceNdtPlanEvidenceSha256" type="text" maxlength="64"></div></div>
+            <details class="collapsible-details" id="steelSpliceEvidenceDetails">
+              <summary><span class="details-title">專案依據與可重現證據</span><span class="details-summary-badge" data-details-value="[name=spliceDemandBasis], [name=spliceGeometryBasis], [name=spliceMaterialBasis]" data-details-filled="已登錄資料">檢視依據</span></summary>
+              <div class="details-body">
+                <div class="form-group"><label>需求／幾何／材料依據</label><div class="form-row compact"><textarea name="spliceDemandBasis" rows="2" placeholder="分析模型、13.4.1 組合與相鄰構件轉移上限"></textarea><textarea name="spliceGeometryBasis" rows="2" placeholder="核定續接圖與斷面資料"></textarea><textarea name="spliceMaterialBasis" rows="2" placeholder="上下柱母材與相稱銲材證明"></textarea></div></div>
+                <div class="form-group"><label>WPS／NDT 計畫依據</label><div class="form-row compact"><textarea name="spliceWpsBasis" rows="2" placeholder="核定 WPS／PQR"></textarea><textarea name="spliceNdtPlanBasis" rows="2" placeholder="UT／RT 全覆蓋檢測計畫"></textarea></div></div>
+                <div class="form-row"><div class="form-group"><label>需求證據 SHA-256</label><input name="spliceDemandEvidenceSha256" type="text" maxlength="64"></div><div class="form-group"><label>續接細部證據 SHA-256</label><input name="spliceDetailEvidenceSha256" type="text" maxlength="64"></div></div>
+                <div class="form-row"><div class="form-group"><label>WPS 證據 SHA-256</label><input name="spliceWpsEvidenceSha256" type="text" maxlength="64"></div><div class="form-group"><label>NDT 計畫證據 SHA-256</label><input name="spliceNdtPlanEvidenceSha256" type="text" maxlength="64"></div></div>
+              </div>
+            </details>
 
             <h3>失敗封閉確認與附件邊界</h3>
             <div class="form-row"><div class="form-group"><label>斷面、材質與軸線</label><select name="spliceIdenticalSectionsAndMaterialConfirmed"><option value="true">上下柱為同材質、相同軋製 H 形斷面</option><option value="false">尚未確認｜禁止核可</option></select><select name="spliceAlignedAxesConfirmed"><option value="true">形心軸與構件軸線對齊</option><option value="false">尚未確認｜禁止核可</option></select></div><div class="form-group"><label>全斷面銲接路線</label><select name="spliceFullProfileCjpConfirmed"><option value="true">翼板與腹板均採全斷面 CJP</option><option value="false">尚未確認｜禁止核可</option></select><select name="spliceMatchingFillerConfirmed"><option value="true">銲材與母材相稱</option><option value="false">尚未確認｜禁止核可</option></select></div></div>
@@ -680,15 +706,19 @@
             <div class="form-row"><div class="form-group"><label>順時針：上／下柱 Zc(Fyc−Puc/Ag)</label><div class="form-row compact"><input name="momentCwUpperColumnMoment" type="number" min="0" step="0.1"><input name="momentCwLowerColumnMoment" type="number" min="0" step="0.1"></div></div><div class="form-group"><label>順時針：左／右梁 ZbFyb + Vp·x</label><div class="form-row compact"><input name="momentCwLeftBeamMoment" type="number" min="0" step="0.1"><input name="momentCwRightBeamMoment" type="number" min="0" step="0.1"></div></div></div>
             <div class="form-row"><div class="form-group"><label>逆時針：上／下柱 Zc(Fyc−Puc/Ag)</label><div class="form-row compact"><input name="momentCcwUpperColumnMoment" type="number" min="0" step="0.1"><input name="momentCcwLowerColumnMoment" type="number" min="0" step="0.1"></div></div><div class="form-group"><label>逆時針：左／右梁 ZbFyb + Vp·x</label><div class="form-row compact"><input name="momentCcwLeftBeamMoment" type="number" min="0" step="0.1"><input name="momentCcwRightBeamMoment" type="number" min="0" step="0.1"></div></div></div>
 
-            <h3>專案依據與失敗封閉確認</h3>
-            <div class="form-group"><label>需求／幾何／材料依據</label><div class="form-row compact"><textarea name="momentDemandBasis" rows="2" placeholder="分析模型與控制組合"></textarea><textarea name="momentGeometryBasis" rows="2" placeholder="核定接頭圖"></textarea><textarea name="momentMaterialBasis" rows="2" placeholder="材料與銲材證明"></textarea></div></div>
-            <div class="form-group"><label>容量／Panel Zone／強柱弱梁依據</label><div class="form-row compact"><textarea name="momentCapacityBasis" rows="2" placeholder="接頭硬體詳算"></textarea><textarea name="momentPanelZoneBasis" rows="2" placeholder="交會區分析"></textarea><textarea name="momentStrongColumnBasis" rows="2" placeholder="柱項與各梁 ZbFyb + Vp·x 來源"></textarea></div></div>
-            <div class="form-group"><label>資格證據說明</label><textarea name="momentQualificationBasis" rows="2" placeholder="試驗報告、相似性矩陣或第三者審查文件"></textarea></div>
-            <div class="form-row"><div class="form-group"><label>資格證據 SHA-256</label><input name="momentQualificationEvidenceSha256" type="text" maxlength="64"></div><div class="form-group"><label>接頭容量證據 SHA-256</label><input name="momentCapacityEvidenceSha256" type="text" maxlength="64"></div></div>
-            <div class="form-row"><div class="form-group"><label>試驗配置／材料／銲接一致</label><select name="momentQualificationConfigurationConfirmed"><option value="true">配置一致</option><option value="false">未確認</option></select><select name="momentQualificationMaterialConfirmed"><option value="true">材料一致</option><option value="false">未確認</option></select><select name="momentQualificationWeldingConfirmed"><option value="true">銲接一致</option><option value="false">未確認</option></select></div><div class="form-group"><label>尺寸／施工方法／流程一致</label><select name="momentQualificationGeometryConfirmed"><option value="true">尺寸一致</option><option value="false">未確認</option></select><select name="momentQualificationFabricationConfirmed"><option value="true">施工方法一致</option><option value="false">未確認</option></select><select name="momentQualificationProcedureConfirmed"><option value="true">施工流程一致</option><option value="false">未確認</option></select></div></div>
-            <div class="form-row"><div class="form-group"><label>塑性區斷面與開孔</label><select name="momentPlasticZoneGeometryConfirmed"><option value="true">斷面變化已有試驗依據／無不利變化</option><option value="false">尚未確認</option></select><select name="momentPlasticZoneOpeningsAbsentConfirmed"><option value="true">無未驗證開孔</option><option value="false">有未驗證開孔</option></select></div><div class="form-group"><label>耐震材料與銲接</label><select name="momentSeismicMaterialConfirmed"><option value="true">材料符合 13.2</option><option value="false">尚未確認</option></select><select name="momentMatchingWeldConfirmed"><option value="true">銲材與母材相稱</option><option value="false">尚未確認</option></select><select name="momentCns3506WeldConfirmed"><option value="true">銲材 CNS 3506 級以上</option><option value="false">尚未確認</option></select></div></div>
-            <div class="form-row"><div class="form-group"><label>試驗一致施工細部</label><select name="momentEndTabsRemovedGroundConfirmed"><option value="true">導銲板已切除磨平</option><option value="false">尚未確認</option></select><select name="momentWeldProcedureMatchesQualificationConfirmed"><option value="true">銲接程序符合資格證據</option><option value="false">尚未確認</option></select></div><div class="form-group"><label>側向支撐</label><select name="momentJointLateralRestraintConfirmed"><option value="true">接頭側向束制已確認</option><option value="false">尚未確認</option></select><select name="momentBeamLateralBracingConfirmed"><option value="true">梁／塑鉸側向支撐已確認</option><option value="false">尚未確認</option></select></div></div>
-            <div class="form-row"><div class="form-group"><label>強柱弱梁資料</label><select name="momentAllMembersIncludedConfirmed"><option value="true">已納入選定構架面全部相接梁柱</option><option value="false">尚未納入完整</option></select><select name="momentColumnStrengthsAtGoverningAxialConfirmed"><option value="true">柱採控制軸力下強度</option><option value="false">尚未確認</option></select><select name="momentOpposingDirectionsConfirmed"><option value="true">梁柱合力方向已確認</option><option value="false">尚未確認</option></select></div><div class="form-group"><label>附件邊界</label><select name="momentOrthogonalDirectionSeparateConfirmed"><option value="true">正交方向另案</option><option value="false">尚未另案</option></select><select name="momentConnectionHardwareVerifiedConfirmed"><option value="true">接頭硬體詳算已由容量證據涵蓋</option><option value="false">詳算未完成</option></select><select name="momentSelectedAxisScopeConfirmed"><option value="true">接受單一選定方向審查邊界</option><option value="false">不接受｜禁止核可</option></select></div></div>
+            <details class="collapsible-details" id="steelMomentEvidenceDetails">
+              <summary><span class="details-title">專案依據與失敗封閉確認</span><span class="details-summary-badge" data-details-value="[name=momentQualificationBasis], [name=momentCapacityBasis]" data-details-filled="已登錄資料">檢視依據</span></summary>
+              <div class="details-body">
+                <div class="form-group"><label>需求／幾何／材料依據</label><div class="form-row compact"><textarea name="momentDemandBasis" rows="2" placeholder="分析模型與控制組合"></textarea><textarea name="momentGeometryBasis" rows="2" placeholder="核定接頭圖"></textarea><textarea name="momentMaterialBasis" rows="2" placeholder="材料與銲材證明"></textarea></div></div>
+                <div class="form-group"><label>容量／Panel Zone／強柱弱梁依據</label><div class="form-row compact"><textarea name="momentCapacityBasis" rows="2" placeholder="接頭硬體詳算"></textarea><textarea name="momentPanelZoneBasis" rows="2" placeholder="交會區分析"></textarea><textarea name="momentStrongColumnBasis" rows="2" placeholder="柱項與各梁 ZbFyb + Vp·x 來源"></textarea></div></div>
+                <div class="form-group"><label>資格證據說明</label><textarea name="momentQualificationBasis" rows="2" placeholder="試驗報告、相似性矩陣或第三者審查文件"></textarea></div>
+                <div class="form-row"><div class="form-group"><label>資格證據 SHA-256</label><input name="momentQualificationEvidenceSha256" type="text" maxlength="64"></div><div class="form-group"><label>接頭容量證據 SHA-256</label><input name="momentCapacityEvidenceSha256" type="text" maxlength="64"></div></div>
+                <div class="form-row"><div class="form-group"><label>試驗配置／材料／銲接一致</label><select name="momentQualificationConfigurationConfirmed"><option value="true">配置一致</option><option value="false">未確認</option></select><select name="momentQualificationMaterialConfirmed"><option value="true">材料一致</option><option value="false">未確認</option></select><select name="momentQualificationWeldingConfirmed"><option value="true">銲接一致</option><option value="false">未確認</option></select></div><div class="form-group"><label>尺寸／施工方法／流程一致</label><select name="momentQualificationGeometryConfirmed"><option value="true">尺寸一致</option><option value="false">未確認</option></select><select name="momentQualificationFabricationConfirmed"><option value="true">施工方法一致</option><option value="false">未確認</option></select><select name="momentQualificationProcedureConfirmed"><option value="true">施工流程一致</option><option value="false">未確認</option></select></div></div>
+                <div class="form-row"><div class="form-group"><label>塑性區斷面與開孔</label><select name="momentPlasticZoneGeometryConfirmed"><option value="true">斷面變化已有試驗依據／無不利變化</option><option value="false">尚未確認</option></select><select name="momentPlasticZoneOpeningsAbsentConfirmed"><option value="true">無未驗證開孔</option><option value="false">有未驗證開孔</option></select></div><div class="form-group"><label>耐震材料與銲接</label><select name="momentSeismicMaterialConfirmed"><option value="true">材料符合 13.2</option><option value="false">尚未確認</option></select><select name="momentMatchingWeldConfirmed"><option value="true">銲材與母材相稱</option><option value="false">尚未確認</option></select><select name="momentCns3506WeldConfirmed"><option value="true">銲材 CNS 3506 級以上</option><option value="false">尚未確認</option></select></div></div>
+                <div class="form-row"><div class="form-group"><label>試驗一致施工細部</label><select name="momentEndTabsRemovedGroundConfirmed"><option value="true">導銲板已切除磨平</option><option value="false">尚未確認</option></select><select name="momentWeldProcedureMatchesQualificationConfirmed"><option value="true">銲接程序符合資格證據</option><option value="false">尚未確認</option></select></div><div class="form-group"><label>側向支撐</label><select name="momentJointLateralRestraintConfirmed"><option value="true">接頭側向束制已確認</option><option value="false">尚未確認</option></select><select name="momentBeamLateralBracingConfirmed"><option value="true">梁／塑鉸側向支撐已確認</option><option value="false">尚未確認</option></select></div></div>
+                <div class="form-row"><div class="form-group"><label>強柱弱梁資料</label><select name="momentAllMembersIncludedConfirmed"><option value="true">已納入選定構架面全部相接梁柱</option><option value="false">尚未納入完整</option></select><select name="momentColumnStrengthsAtGoverningAxialConfirmed"><option value="true">柱採控制軸力下強度</option><option value="false">尚未確認</option></select><select name="momentOpposingDirectionsConfirmed"><option value="true">梁柱合力方向已確認</option><option value="false">尚未確認</option></select></div><div class="form-group"><label>附件邊界</label><select name="momentOrthogonalDirectionSeparateConfirmed"><option value="true">正交方向另案</option><option value="false">尚未另案</option></select><select name="momentConnectionHardwareVerifiedConfirmed"><option value="true">接頭硬體詳算已由容量證據涵蓋</option><option value="false">詳算未完成</option></select><select name="momentSelectedAxisScopeConfirmed"><option value="true">接受單一選定方向審查邊界</option><option value="false">不接受｜禁止核可</option></select></div></div>
+              </div>
+            </details>
           </div>
 
           <div class="card" data-connection="plate_check">
@@ -788,45 +818,50 @@
                   <input name="edgeDistanceBottom" type="number" min="0" step="0.1">
                 </div>
               </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>淨斷面模式</label>
-                  <select name="netSectionMode">
-                    <option value="straight_only">直線淨斷面</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>區塊剪力模式</label>
-                  <select name="blockShearMode">
-                    <option value="auto_with_override">自動推導 + 手動覆寫</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>手動覆寫區塊剪力</label>
-                  <select name="useManualBlockShearPath">
-                    <option value="false">否</option>
-                    <option value="true">是</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>手動 Agv / Anv (mm²)</label>
-                  <div class="form-row compact">
-                    <input name="manualAgv" type="number" min="0" step="0.1" placeholder="Agv">
-                    <input name="manualAnv" type="number" min="0" step="0.1" placeholder="Anv">
+              <details class="collapsible-details" id="steelPlatePathDetails">
+                <summary><span class="details-title">淨斷面與區塊剪力進階設定</span><span class="details-summary-badge" data-details-value="[name=useManualBlockShearPath]" data-details-prefix="手動覆寫：">手動覆寫：否</span></summary>
+                <div class="details-body">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>淨斷面模式</label>
+                      <select name="netSectionMode">
+                        <option value="straight_only">直線淨斷面</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>區塊剪力模式</label>
+                      <select name="blockShearMode">
+                        <option value="auto_with_override">自動推導 + 手動覆寫</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>手動覆寫區塊剪力</label>
+                      <select name="useManualBlockShearPath">
+                        <option value="false">否</option>
+                        <option value="true">是</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>手動 Agv / Anv (mm²)</label>
+                      <div class="form-row compact">
+                        <input name="manualAgv" type="number" min="0" step="0.1" placeholder="Agv">
+                        <input name="manualAnv" type="number" min="0" step="0.1" placeholder="Anv">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>手動 Agt / Ant (mm²)</label>
+                      <div class="form-row compact">
+                        <input name="manualAgt" type="number" min="0" step="0.1" placeholder="Agt">
+                        <input name="manualAnt" type="number" min="0" step="0.1" placeholder="Ant">
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>手動 Agt / Ant (mm²)</label>
-                  <div class="form-row compact">
-                    <input name="manualAgt" type="number" min="0" step="0.1" placeholder="Agt">
-                    <input name="manualAnt" type="number" min="0" step="0.1" placeholder="Ant">
-                  </div>
-                </div>
-              </div>
+              </details>
             </div>
 
             <div data-plate-mode="area_manual" class="is-hidden">
@@ -911,12 +946,17 @@
                 <input name="radiusOfGyration" type="number" min="0.1" step="0.1">
               </div>
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>手動 U</label>
-                <input name="tensionShearLagFactor" type="number" min="0" max="1" step="0.01">
+            <details class="collapsible-details" id="steelShearLagDetails">
+              <summary><span class="details-title">剪力滯後與手動 U</span><span class="details-summary-badge" data-details-value="[name=tensionShearLagFactor]" data-details-prefix="U = ">檢視採用值</span></summary>
+              <div class="details-body">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>手動 U</label>
+                    <input name="tensionShearLagFactor" type="number" min="0" max="1" step="0.01">
+                  </div>
+                </div>
               </div>
-            </div>
+            </details>
 
             <div data-tension-area="geometry">
               <div class="form-row">
@@ -1130,13 +1170,17 @@
           </div>
 
           <div class="card">
-            <h2>設計備註</h2>
-            <div class="form-group">
-              <label>備註內容</label>
-              <textarea name="notes" rows="4" placeholder="可記錄構件型號、圖號、審查意見、圖說備註與工程假設"></textarea>
-            </div>
+            <details class="collapsible-details" id="steelNotesDetails">
+              <summary><span class="details-title">設計備註</span><span class="details-summary-badge" data-details-value="[name=notes]" data-details-filled="已填寫">選填</span></summary>
+              <div class="details-body">
+                <div class="form-group">
+                  <label>備註內容</label>
+                  <textarea name="notes" rows="4" placeholder="可記錄構件型號、圖號、審查意見、圖說備註與工程假設"></textarea>
+                </div>
+              </div>
+            </details>
             <div class="input-actions">
-              <button id="resetBtn" class="btn-secondary" type="button">重設資料</button>
+              <button id="resetBtn" class="btn-secondary" type="button">重設預設值</button>
             </div>
           </div>
         </form>
@@ -1234,6 +1278,11 @@
             <section class="report-block is-hidden" id="tensionSketchBlock">
               <h3>構材與接合示意</h3>
               <div id="tensionSketchWrap" class="plate-sketch-wrap"></div>
+            </section>
+
+            <section class="report-block no-print" id="connectionSketchBlock" data-page-only="true" hidden>
+              <h3>接頭幾何與受力示意</h3>
+              <div id="connectionSketch" class="plate-sketch-wrap"></div>
             </section>
 
             <section class="report-block is-hidden" id="shearTabExtrasBlock">
@@ -1344,9 +1393,12 @@
 <script src="../結構工具箱/core/ui/report-docx.js"></script>
 <script src="./core/ui/report.js"></script>
   <script src="./calculator.js"></script>
+  <script src="../結構工具箱/core/ui/member-section-svg.js"></script>
   <script src="./app.js"></script>
   <script src="../tool-nav.manifest.js" defer></script>
   <script src="../tool-chrome.js" defer></script>
   <script src="../tool-page-a11y.js" defer></script>
+<script src="../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-adapter="SteelConnectionDraft" data-draft-choices="button[data-method]" data-draft-actions="#loadExampleBtn, #resetBtn, #saveDraftBtn" defer></script>
+<script src="../結構工具箱/assets/hy/tool-sticky-summary.js" data-sticky-summary="steel-connection" defer></script>
 </body>
 </html>

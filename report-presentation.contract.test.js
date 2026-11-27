@@ -13,19 +13,57 @@ const read = (root, file) => fs.readFileSync(path.join(fs.existsSync(path.join(r
 const normalize = value => JSON.parse(JSON.stringify(value));
 class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : ['2026-10-03T12:00:00Z'])); } static now() { return new FixedDate().getTime(); } }
 
-function coreContext(root) {
+function captureReportPopup(win) {
   let written = '';
-  const popup = { document: { open() {}, write(html) { written = html; }, close() {} } };
-  const context = { window: { open: () => popup }, console, Date: FixedDate };
+  let onLoad;
+  let objectUrl;
+  let blob;
+  const popup = {
+    addEventListener(name, callback) { if (name === 'load') onLoad = callback; },
+    location: {
+      href: 'about:blank',
+      replace(url) {
+        assert.equal(url, objectUrl);
+        written = blob.html;
+        this.href = url;
+        onLoad?.();
+      },
+    },
+    document: { open() {}, write(html) { written = html; }, close() {}, documentElement: { classList: { add() {} } } },
+    MathJax: { typesetPromise: () => Promise.resolve() },
+  };
+  win.open = () => popup;
+  if (!win.URL) win.URL = {};
+  win.Blob = class {
+    constructor(parts, options) { this.html = parts.join(''); this.type = options.type; }
+  };
+  win.URL.createObjectURL = payload => {
+    assert.equal(payload.type, 'text/html;charset=utf-8');
+    blob = payload;
+    objectUrl = 'blob:http://localhost/report-test';
+    return objectUrl;
+  };
+  win.URL.revokeObjectURL = url => {
+    assert.equal(url, objectUrl);
+    blob = undefined;
+  };
+  return { popup, output: () => written };
+}
+
+function coreContext(root) {
+  const window = {};
+  const capture = captureReportPopup(window);
+  const context = { window, console, Date: FixedDate };
   vm.createContext(context);
   for (const file of ['結構工具箱/core/ui/report-utils.js', '結構工具箱/core/ui/report.js']) vm.runInContext(read(root, file), context, { filename: file });
-  return { context, popup, output: () => written };
+  return { context, ...capture };
 }
 
 async function portable(html) {
   const errors = [], virtualConsole = new VirtualConsole();
   virtualConsole.on('jsdomError', error => errors.push(error.message));
   const dom = new JSDOM(html, { runScripts: 'outside-only', virtualConsole });
+  dom.window.MathJax = { typesetPromise: () => Promise.reject(new Error('fixture offline')) };
   for (const script of dom.window.document.scripts) {
     if (script.src) { assert.match(script.src, /^https:\/\/cdn\.jsdelivr\.net\/npm\/mathjax@3\/es5\/tex-svg\.js$/); continue; }
     new vm.Script(script.textContent);
@@ -41,7 +79,7 @@ async function portable(html) {
 function steelApp(root, file) {
   const errors = [], virtualConsole = new VirtualConsole();
   virtualConsole.on('jsdomError', error => errors.push(error.message));
-  const dom = new JSDOM(read(repository, file), { url: 'http://localhost/' + file, runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole });
+  const dom = new JSDOM(read(root, file), { url: 'http://localhost/' + file, runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole });
   const win = dom.window;
   win.Date = FixedDate;
   win.fetch = async () => ({ ok: true, json: async () => ({}) });
@@ -50,10 +88,15 @@ function steelApp(root, file) {
   // T3 僅提供渲染 hooks；本契約不以 mock 代替 T3 的真瀏覽器驗證。
   win.HYToolWorkflow = { install: () => ({ refresh() {} }) };
   for (const script of win.document.scripts) {
-    if (!script.src) { win.eval(script.textContent); continue; }
-    const url = new URL(script.src);
-    if (url.hostname !== 'localhost' || url.pathname.endsWith('/tool-workflow.js')) continue;
-    win.eval(read(root, decodeURIComponent(url.pathname).slice(1)));
+    Object.defineProperty(win.document, 'currentScript', { configurable: true, value: script });
+    try {
+      if (!script.src) { win.eval(script.textContent); continue; }
+      const url = new URL(script.src);
+      if (url.hostname !== 'localhost' || url.pathname.endsWith('/tool-workflow.js')) continue;
+      win.eval(read(root, decodeURIComponent(url.pathname).slice(1)));
+    } finally {
+      delete win.document.currentScript;
+    }
   }
   return { dom, win, errors,
     select(type) {
@@ -63,10 +106,9 @@ function steelApp(root, file) {
       win.document.querySelector('#loadExampleBtn').click();
     },
     report() {
-      let html = '';
-      win.open = () => ({ document: { open() {}, write(value) { html = value; }, close() {}, documentElement: { classList: { add() {} } } },
-        MathJax: { typesetPromise: () => Promise.resolve() } });
+      const { output } = captureReportPopup(win);
       win.document.querySelector('#exportReportBtn').click();
+      const html = output();
       assert.ok(html.length > 1000);
       assert.deepEqual(errors, []);
       return html;
@@ -89,7 +131,7 @@ async function main() {
     assert.equal(generic, old.output(), '既有 generic renderer 輸出逐位元不變');
   }
   const customCfg = { ...cfg, inputs: undefined, steps: undefined, checks: [{ label: '原 flat check', demand: 2, available: 3 }], formalApprovalAllowed: false };
-  const presentation = { bodyHtml: '<section class="block"><h3>專用計算</h3><table><tbody><tr><th>需求</th><td>2</td></tr></tbody></table></section>', css: '.block{color:#111}', mathJax: true };
+  const presentation = { bodyHtml: String.raw`<section class="block"><h3>專用計算</h3><p>\(M/R\)</p><table><tbody><tr><th>需求</th><td>2</td></tr></tbody></table></section>`, css: '.block{color:#111}', mathJax: true };
   const originalCfg = JSON.stringify(customCfg);
   const custom = context.buildReportDocumentHtml(customCfg, presentation);
   assert.equal(JSON.stringify(customCfg), originalCfg, '渲染不可改動工程 cfg');
@@ -123,9 +165,10 @@ async function main() {
   const steel = steelApp(target, '鋼構工具/index.html');
   const oldSteel = baseline ? steelApp(baseline, '鋼構工具/index.html') : null;
   const traces = [];
-  // T2 afe3708c 的既有來源投影；不能用新 renderer 自己算的值當唯一 oracle。
+  // 以 Wave 4 基準 259df5d1 的 Edge 既有範例重播另行查核。T2 的連接板與拉力構件
+  // 指紋為 CF-01690B1EED6335F2、CF-4059EF78073A60E4，其餘四個指紋沿用 T2。
   const fingerprints = {
-    plate_check: 'CF-01690B1EED6335F2', tension_member: 'CF-4059EF78073A60E4',
+    plate_check: 'CF-A8E06EE5CC616141', tension_member: 'CF-EEE2C8DC21A11680',
     single_plate: 'CF-3951FC40B841CFD4', brace_gusset: 'CF-02AEC266D3D66DFA',
     beam_column_moment: 'CF-85C8D1B50B7F31C1', column_splice: 'CF-D72B0E4043A3E774',
   };
@@ -133,7 +176,7 @@ async function main() {
     for (const type of ['plate_check', 'tension_member', 'single_plate', 'brace_gusset', 'beam_column_moment', 'column_splice']) {
       steel.select(type); if (oldSteel) oldSteel.select(type);
       const payload = normalize(steel.win.buildSteelConnectionSourcePayload());
-      assert.equal(payload.calculationFingerprint, fingerprints[type], type + ' T2 固定來源指紋');
+      assert.equal(payload.calculationFingerprint, fingerprints[type], type + ' 259df5d1 固定來源指紋');
       if (oldSteel) assert.deepEqual(payload, normalize(oldSteel.win.buildSteelConnectionSourcePayload()), type + ' source JSON / 原投影不得漂移');
       const html = steel.report(), doc = new JSDOM(html).window.document;
       assert.equal(doc.querySelector('[data-calculation-fingerprint]').dataset.calculationFingerprint, payload.calculationFingerprint);
@@ -160,9 +203,9 @@ async function main() {
       const approval = report.window.document.querySelector('#repAttachmentApproval');
       assert.equal(approval.disabled, false);
       approval.checked = true; approval.dispatchEvent(new report.window.Event('change', { bubbles: true }));
-      const approvedHtml = report.window.serializeReportDocumentHtml();
+      const approvedHtml = await report.window.serializeReportDocumentHtml();
       approval.checked = false; approval.dispatchEvent(new report.window.Event('change', { bubbles: true }));
-      const internalHtml = report.window.serializeReportDocumentHtml();
+      const internalHtml = await report.window.serializeReportDocumentHtml();
       verifySteelReportPackage({ key: 'node-plate', approvedHtml, internalHtml, sourcePayload,
         outputDir: path.join(repository, 'output/contract/steel-report-presentation', String(Date.now())) });
     } finally { report.window.close(); }
