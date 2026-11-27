@@ -154,7 +154,7 @@ assert.ok(steelOutputBytes <= steelSourceBytes * 0.70, `steel output exceeds 70%
 const anchorHelperPath = '結構工具箱/tools/anchor-a11y-tag.js';
 assert.ok(PRIVATE_FILES.has(anchorHelperPath), `${anchorHelperPath} must be explicitly private`);
 assert.equal(classifyPublishedPath(anchorHelperPath).publish, false, `${anchorHelperPath} must not enter Pages`);
-const { ANCHOR_A11Y_TAG, ensureAnchorA11yTag } = require(`./${anchorHelperPath}`);
+const { ANCHOR_A11Y_TAG, ensureAnchorA11yTag, ensureAnchorToolChrome, ensureAnchorDirectPrintBoundary } = require(`./${anchorHelperPath}`);
 const insertBefore = (html, index) => html.slice(0, index) + ANCHOR_A11Y_TAG + html.slice(index);
 const distLike = '<!doctype html>\n<html lang="zh-Hant">\n  <body>\n    <div id="root"></div>\n  </body>\n</html>\n';
 const patched = ensureAnchorA11yTag(distLike);
@@ -214,6 +214,23 @@ try {
 }
 const committedAnchor = fs.readFileSync(path.join(root, 'anchor', 'index.html'), 'utf8');
 assert.equal(ensureAnchorA11yTag(committedAnchor).changed, false, 'committed anchor index already holds the runtime tag');
+const anchorShell = ensureAnchorToolChrome(ensureAnchorA11yTag(singleLine).html);
+assert.equal(anchorShell.changed, true, 'staged anchor page receives tool navigation and tokens');
+assert.match(anchorShell.html, /<body data-family="attachments">\s*<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot><\/div>\s*<div id="root"/);
+assert.match(anchorShell.html, /<script type="module" crossorigin src="\.\/assets\/index-x\.js"><\/script>/, 'anchor app entry remains intact');
+assert.match(anchorShell.html, /colors_and_type\.css"[^]*tool-chrome\.css"[^]*<\/head>/);
+assert.ok(anchorShell.html.indexOf('tool-nav.manifest.js') < anchorShell.html.indexOf('tool-chrome.js'));
+assert.ok(anchorShell.html.indexOf('tool-chrome.js') < anchorShell.html.indexOf('tool-page-a11y.js'));
+assert.equal(ensureAnchorToolChrome(anchorShell.html).changed, false, 'the staged navigation is idempotent');
+assert.equal(ensureAnchorToolChrome(committedAnchor).changed, false, 'the tracked anchor follows the staging helper');
+assert.throws(() => ensureAnchorToolChrome(anchorShell.html.replace('data-tool-chrome-slot', '')), /incomplete or duplicate/);
+const anchorPrint = ensureAnchorDirectPrintBoundary(anchorShell.html);
+assert.equal(anchorPrint.changed, true, 'the staged Anchor working page receives the shared print boundary');
+assert.match(anchorPrint.html, /<link rel="stylesheet" href="\.\.\/結構工具箱\/core\/direct-print-boundary\.css">[^]*<\/head>/);
+assert.match(anchorPrint.html, /<body data-family="attachments" class="formal-tool-output-page">\s*<aside class="formal-direct-print-boundary" data-page-only="true" aria-hidden="true"><strong>錨栓工具主頁列印已封鎖<\/strong>/);
+assert.equal(ensureAnchorDirectPrintBoundary(anchorPrint.html).changed, false, 'the staged print boundary is idempotent');
+assert.equal(ensureAnchorDirectPrintBoundary(committedAnchor).changed, false, 'the tracked Anchor follows the staged print boundary');
+assert.throws(() => ensureAnchorDirectPrintBoundary(anchorPrint.html.replace('formal-tool-output-page', 'other-page')), /incomplete or duplicate/);
 
 const syncScriptBytes = fs.readFileSync(path.join(root, 'sync-anchor-deployment.ps1'));
 assert.ok(syncScriptBytes.every(byte => byte < 0x80), 'sync-anchor-deployment.ps1 stays pure ASCII for Windows PowerShell 5.1');
@@ -262,8 +279,8 @@ function anchorSyncProblems(script) {
   if (buildAt < 0 || helperDefinitions.length === 0 || code.findIndex(line => /^\s*\$a11yHelper\s*=/.test(line)) > buildAt) {
     problems.push('helper is not located before the build');
   }
-  const targetDefinition = /^\$\w+$/.test(call.target)
-    ? code.find(line => line.trim().startsWith(`${call.target} =`)) : undefined;
+  const targetVariable = /^(\$\w+) --with-tool-chrome$/.exec(call.target)?.[1];
+  const targetDefinition = targetVariable ? code.find(line => line.trim().startsWith(targetVariable + ' =')) : undefined;
   if (!targetDefinition || !/=\s*Join-Path \$staging 'index\.html'\s*$/.test(targetDefinition)) {
     problems.push(`helper target ${call.target} is not the staged index`);
   }
@@ -287,7 +304,7 @@ const mutateSync = (from, to) => {
   return syncScript.replace(from, to);
 };
 const eolText = syncScript.includes('\r\n') ? '\r\n' : '\n';
-const helperCallLine = `  node $a11yHelper $stagedIndex${eolText}`;
+const helperCallLine = `  node $a11yHelper $stagedIndex --with-tool-chrome${eolText}`;
 const exitCheckBlock = [
   '  if ($LASTEXITCODE -ne 0) {',
   '    throw "anchor accessibility helper failed with exit code $LASTEXITCODE; anchor/ was not modified"',

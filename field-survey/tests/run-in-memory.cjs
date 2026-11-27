@@ -2,17 +2,21 @@ const fs = require('node:fs/promises'), path = require('node:path'), { pathToFil
 const { chromium } = require('../../.github/pages-smoke/node_modules/playwright');
 (async () => {
   const root = path.resolve(__dirname, '..'), origin = 'https://survey-test.invalid', base = origin + '/field-survey/recorder.html';
+  const sharedAssets = new Set(['/tool-chrome.css', '/tool-nav.manifest.js', '/tool-chrome.js', '/結構工具箱/assets/hy/colors_and_type.css']);
   const out = path.resolve(root, '../output/field-survey-validation'); await fs.mkdir(out, { recursive: true });
   const browser = await chromium.launch({ ...(process.platform === 'win32' ? { channel: 'chrome' } : {}), headless: true });
   const create = browser.newContext.bind(browser);
   browser.newContext = async options => {
     const context = await create({ ...options, serviceWorkers: 'block' });
     await context.route('**/*', async route => {
-      const url = new URL(route.request().url()), name = url.pathname.slice('/field-survey/'.length);
-      if (url.origin !== origin || !url.pathname.startsWith('/field-survey/') || !/^[a-z0-9.-]+$/.test(name)) return route.abort('blockedbyclient');
+      const url = new URL(route.request().url()), pathname = decodeURIComponent(url.pathname);
+      const localFile = pathname.slice('/field-survey/'.length);
+      const isSurveyFile = pathname.startsWith('/field-survey/') && /^[a-z0-9.-]+$/.test(localFile);
+      if (url.origin !== origin || (!isSurveyFile && !sharedAssets.has(pathname))) return route.abort('blockedbyclient');
+      const file = isSurveyFile ? path.join(root, localFile) : path.resolve(root, '..', pathname.slice(1));
       try {
         const types = { '.js': 'text/javascript', '.html': 'text/html', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
-        await route.fulfill({ contentType: types[path.extname(name)] || 'application/octet-stream', body: await fs.readFile(path.join(root, name)) });
+        await route.fulfill({ contentType: types[path.extname(file)] || 'application/octet-stream', body: await fs.readFile(file) });
       } catch { await route.fulfill({ status: 404, body: '' }); }
     });
     return context;

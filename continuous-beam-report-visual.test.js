@@ -79,16 +79,15 @@ async function verifyDeflectionReview(page) {
     await page.waitForFunction(filename => document.getElementById('saveStatus').textContent.includes(filename), name);
   };
   const download = async (name, trigger) => {
-    const event = page.waitForEvent('download');
-    await trigger();
+    const [download] = await Promise.all([page.waitForEvent('download'), trigger()]);
     const file = path.join(OUT_DIR, name);
-    await (await event).saveAs(file);
+    await download.saveAs(file);
     return JSON.parse(fs.readFileSync(file, 'utf8'));
   };
   const calculate = () => page.locator('.btn-calc').click();
   const panel = page.locator('#deflectionReview');
   const button = page.locator('#downloadDeflectionReview');
-  const saved = await download('continuous-beam-current-input.json', () => page.getByRole('button', { name: '本地存檔', exact: true }).click());
+  const saved = await download('continuous-beam-current-input.json', () => page.getByRole('button', { name: '匯出案件 JSON', exact: true }).click());
   const { analysisVersion, ...data } = saved.data;
 
   await load('legacy-beam.json', { ...saved, tool: { ...saved.tool, pageVersion: 'V1.4', calculationEngine: 'continuous-beam.inline.v1.4.0' }, data });
@@ -116,7 +115,7 @@ async function verifyDeflectionReview(page) {
   assert(narrowLayout, 'review panel fits the 390 px viewport', 'mobile layout');
   await panel.screenshot({ path: path.join(OUT_DIR, 'continuous-beam-deflection-review-390.png') });
 
-  const resaved = await download('continuous-beam-resaved-input.json', () => page.getByRole('button', { name: '本地存檔', exact: true }).click());
+  const resaved = await download('continuous-beam-resaved-input.json', () => page.getByRole('button', { name: '匯出案件 JSON', exact: true }).click());
   await load('resaved-beam.json', resaved);
   await calculate();
   assert((await panel.locator('#deflectionReviewSource').textContent()).includes('V1.4'), 'resaving preserves the original source version', 'V1.4');

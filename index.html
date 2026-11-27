@@ -5,56 +5,59 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>斷面性質計算工具</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="結構工具箱/assets/hy/colors_and_type.css">
 <link rel="stylesheet" href="tool-chrome.css">
 <link rel="stylesheet" href="結構工具箱/core/direct-print-boundary.css">
+<link rel="stylesheet" href="結構工具箱/core/family-theme.css">
+<link rel="stylesheet" href="結構工具箱/core/tool-shell.css">
 <style>
   :root {
-    --primary: #1e3a5f;
-    --primary-dark: #0f172a;
-    --primary-accent: #1e40af;
-    --bg: #f1f5f9;
-    --card: #ffffff;
-    --border: #cbd5e1;
-    --text: #0f172a;
-    --text-light: #475569;
-    --accent: #047857;
+    --primary: var(--hy-navy);
+    --primary-dark: var(--hy-navy-deep);
+    --primary-accent: var(--hy-navy-500);
+    --bg: var(--bg-subtle);
+    --card: var(--bg-surface);
+    --border: var(--border-strong);
+    --text: var(--fg-1);
+    --text-light: var(--fg-2);
+    --accent: var(--hy-success);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
-  header { background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 55%, var(--primary-accent) 100%); color: white; padding: 22px 32px; box-shadow: 0 4px 14px rgba(15,23,42,0.22); border-bottom: 1px solid rgba(255,255,255,0.12); }
+  body { font-family: var(--font-sans); background: var(--bg); color: var(--text); line-height: 1.6; }
+  header { background: var(--bg-navy); color: var(--fg-on-navy); box-shadow: var(--shadow-md); border-bottom: 1px solid var(--border-navy); }
   header h1 { font-size: 1.55em; letter-spacing: 0.02em; font-weight: 700; }
   header p { font-size: 0.85em; opacity: 0.88; margin-top: 4px; }
   .container { max-width: 1240px; margin: 20px auto; padding: 0 20px; }
-  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; background: var(--card); padding: 8px 10px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 6px rgba(15,23,42,0.06); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; background: var(--card); padding: 8px 10px; border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .tabs::-webkit-scrollbar { display: none; }
   .tab-btn { padding: 9px 16px; border: 1px solid transparent; background: transparent; color: var(--text-light); font-size: 0.9em; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 0.18s ease; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
-  .tab-btn:hover { background: #f1f5f9; color: var(--primary); border-color: #e2e8f0; }
-  .tab-btn.active { background: linear-gradient(135deg, var(--primary), var(--primary-accent)); color: white; box-shadow: 0 2px 8px rgba(30,58,95,0.28); }
+  .tab-btn:hover { background: var(--bg-subtle); color: var(--primary); border-color: var(--border-default); }
+  .tab-btn.active { background: linear-gradient(135deg, var(--primary), var(--primary-accent)); color: var(--fg-on-navy); box-shadow: var(--shadow-md); }
   .main-layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 20px; align-items: start; }
-  .auto-calc-badge { margin-top: 12px; padding: 8px 12px; background: linear-gradient(135deg, #eff6ff, #f8fafc); border: 1px dashed #93c5fd; border-radius: 8px; color: #1e40af; font-size: 0.8em; font-weight: 600; text-align: center; }
-  .card { background: var(--card); border-radius: 12px; padding: 24px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(15,23,42,0.05); }
-  .card h2 { font-size: 1.1em; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; color: var(--primary); font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+  .auto-calc-badge { margin-top: 12px; padding: 8px 12px; background: linear-gradient(135deg, var(--hy-navy-50), var(--bg-page)); border: 1px dashed var(--hy-navy-300); border-radius: 8px; color: var(--hy-navy); font-size: 0.8em; font-weight: 600; text-align: center; }
+  .card { background: var(--card); border-radius: 12px; padding: 24px; border: 1px solid var(--border); box-shadow: var(--shadow-md); }
+  .card h2 { font-size: 1.1em; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--border-default); color: var(--primary); font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
   .form-group { margin-bottom: 12px; }
   .form-group label { display: block; font-size: 0.85em; font-weight: 600; color: var(--text-light); margin-bottom: 4px; }
-  .form-group input, .form-group select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.98em; font-family: inherit; outline: none; transition: border-color 0.2s, box-shadow 0.2s; background: #fff; color: var(--text); }
+  .form-group input, .form-group select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.98em; font-family: inherit; outline: none; transition: border-color 0.2s, box-shadow 0.2s; background: var(--bg-surface); color: var(--text); }
   .form-group input[type="number"] { font-family: 'Consolas', 'Segoe UI', monospace; font-variant-numeric: tabular-nums; }
-  .form-group input:focus, .form-group select:focus { border-color: var(--primary-accent); box-shadow: 0 0 0 3px rgba(30,64,175,0.12); }
-  .h-filter-input { width: 100%; padding: 7px 11px; margin-bottom: 6px; border: 1.5px dashed var(--border); border-radius: 7px; font-size: 0.86em; font-family: inherit; background: #f8fafc; color: var(--text); outline: none; transition: border-color 0.2s, background 0.2s; }
-  .h-filter-input:focus { border-color: var(--primary-accent); border-style: solid; background: #fff; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--primary-accent); box-shadow: var(--shadow-focus); }
+  .h-filter-input { width: 100%; padding: 7px 11px; margin-bottom: 6px; border: 1.5px dashed var(--border); border-radius: 7px; font-size: 0.86em; font-family: inherit; background: var(--bg-page); color: var(--text); outline: none; transition: border-color 0.2s, background 0.2s; }
+  .h-filter-input:focus { border-color: var(--primary-accent); border-style: solid; background: var(--bg-surface); }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-  .btn-calc { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-accent)); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; box-shadow: 0 2px 6px rgba(30,58,95,0.2); transition: filter 0.15s, transform 0.1s; }
+  .btn-calc { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-accent)); color: var(--fg-on-navy); border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; box-shadow: var(--shadow-sm); transition: filter 0.15s, transform 0.1s; }
   .btn-calc:hover { filter: brightness(1.08); }
   .btn-calc:active { transform: translateY(1px); }
   .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .result-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; border-left: 3.5px solid var(--primary); transition: background 0.15s, border-color 0.15s; }
-  .result-item:hover { background: #f1f5f9; border-color: #cbd5e1; border-left-color: var(--primary-accent); }
+  .result-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-page); border-radius: 8px; border: 1px solid var(--border-default); border-left: 3.5px solid var(--primary); transition: background 0.15s, border-color 0.15s; }
+  .result-item:hover { background: var(--bg-subtle); border-color: var(--border-strong); border-left-color: var(--primary-accent); }
   .result-item .label { font-size: 0.85em; color: var(--text-light); font-weight: 600; }
   .result-item .val-wrap { cursor: pointer; padding: 2px 6px; border-radius: 5px; transition: background 0.15s; text-align: right; white-space: nowrap; }
-  .result-item .val-wrap:hover { background: #e2e8f0; }
+  .result-item .val-wrap:hover { background: var(--border-default); }
   .result-item .value { font-size: 1.02em; font-weight: 700; font-family: 'Consolas',monospace; font-variant-numeric: tabular-nums; color: var(--primary-dark); }
   .result-item .unit { font-size: 0.75em; color: var(--text-light); margin-left: 4px; font-family: 'Consolas', sans-serif; }
-  .canvas-wrap { display: flex; justify-content: center; align-items: center; margin-bottom: 4px; background: #ffffff; border-radius: 8px; border: 1px solid var(--border); min-height: 250px; padding: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; box-shadow: inset 0 1px 3px rgba(15,23,42,0.03); }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; margin-bottom: 4px; background: var(--bg-surface); border-radius: 8px; border: 1px solid var(--border); min-height: 250px; padding: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; box-shadow: var(--shadow-inset); }
   canvas { display: block; max-width: 100%; }
   .section-panel { display: none; }
   .section-panel.active { display: block; }
@@ -62,24 +65,24 @@
   .right-panel { display: flex; flex-direction: column; gap: 20px; }
   .sub-select { margin-bottom: 14px; }
   .status-msg { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; font-weight: 500; }
-  .status-msg.ok { display: block; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-  .status-msg.warn { display: block; background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
-  .status-msg.error { display: block; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-  .case-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; padding:10px 14px; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
-  .case-bar button, .action-chip-btn { padding:7px 11px; border:1px solid var(--border); background:#fff; color:var(--text); border-radius:7px; cursor:pointer; font-family:inherit; font-size:.82em; font-weight:600; transition: all 0.15s; }
-  .case-bar button:hover, .action-chip-btn:hover { background:#f1f5f9; border-color:#94a3b8; color:var(--primary); }
+  .status-msg.ok { display: block; background: var(--hy-success-100); color: var(--hy-success); border: 1px solid color-mix(in srgb, var(--hy-success) 38%, var(--bg-surface)); }
+  .status-msg.warn { display: block; background: var(--hy-warning-100); color: var(--hy-warning-ink); border: 1px solid color-mix(in srgb, var(--hy-warning) 35%, var(--bg-surface)); }
+  .status-msg.error { display: block; background: var(--hy-danger-100); color: var(--hy-red-deep); border: 1px solid color-mix(in srgb, var(--hy-danger) 32%, var(--bg-surface)); }
+  .case-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; padding:10px 14px; background:var(--bg-surface); border:1px solid var(--border); border-radius:10px; box-shadow: var(--shadow-sm); }
+  .case-bar button, .action-chip-btn { padding:7px 11px; border:1px solid var(--border); background:var(--bg-surface); color:var(--text); border-radius:7px; cursor:pointer; font-family:inherit; font-size:.82em; font-weight:600; transition: all 0.15s; }
+  .case-bar button:hover, .action-chip-btn:hover { background:var(--bg-subtle); border-color:var(--border-strong); color:var(--primary); }
   .case-bar .bar-sep { width:1px; height:20px; background:var(--border); margin:0 2px; }
   .case-bar label { margin-left:auto; display:flex; align-items:center; gap:7px; font-size:.84em; color:var(--text-light); font-weight:600; }
   .comp-table-wrap { overflow-x: auto; margin-top: 10px; }
   .comp-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-  .comp-table th, .comp-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums; }
+  .comp-table th, .comp-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-default); text-align: right; font-variant-numeric: tabular-nums; }
   .comp-table th:first-child, .comp-table td:first-child { text-align: left; font-weight: 600; color: var(--text-light); white-space: nowrap; }
-  .comp-table th { background: #f8fafc; color: var(--primary); font-weight: 700; border-bottom: 2px solid var(--border); }
+  .comp-table th { background: var(--bg-page); color: var(--primary); font-weight: 700; border-bottom: 2px solid var(--border); }
   .comp-table td.num { font-family: 'Consolas', monospace; font-weight: 600; color: var(--text); }
   .comp-delta { font-size: 0.78em; font-weight: 600; margin-left: 4px; padding: 1px 4px; border-radius: 4px; }
-  .comp-delta.pos { color: #047857; background: #ecfdf5; }
-  .comp-delta.neg { color: #b91c1c; background: #fef2f2; }
-  .comp-delta.zero { color: #64748b; }
+  .comp-delta.pos { color: var(--hy-success); background: var(--hy-success-100); }
+  .comp-delta.neg { color: var(--hy-red-deep); background: var(--hy-danger-100); }
+  .comp-delta.zero { color: var(--fg-3); }
   @media (max-width: 900px) {
     .main-layout { grid-template-columns: minmax(0, 1fr); }
   }
@@ -113,65 +116,65 @@
 <body class="formal-tool-output-page" data-family="reference">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>斷面工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的 PDF／計算書輸出按鈕產生只包含採用輸入、計算結果與必要圖示的文件；本頁不得作為附件。</span></div>
-<header>
-  <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
+<header class="tool-shell-header">
+  <p><a href="結構工具箱/index.html" style="color:var(--fg-on-navy);font-size:0.85em;">← 回主選單</a></p>
   <h1>斷面性質計算工具 <span id="sectionToolVersion"></span></h1>
   <p>鋼結構 / 基本幾何斷面性質計算 | 尺寸輸入 mm, 結果輸出 cm</p>
 </header>
 <div class="container">
   <div class="case-bar page-only-tool-actions">
-    <button type="button" onclick="downloadSectionProject()">儲存案例 JSON</button>
-    <button type="button" onclick="document.getElementById('sectionJsonFile').click()">載入案例 JSON</button>
+    <button type="button" onclick="downloadSectionProject()">匯出案件 JSON</button>
+    <button type="button" onclick="document.getElementById('sectionJsonFile').click()">匯入案件 JSON</button>
     <input id="sectionJsonFile" type="file" accept="application/json,.json" hidden onchange="loadSectionProjectFile(event)">
     <span class="bar-sep" aria-hidden="true"></span>
-    <button type="button" onclick="copyResultsTSV()" title="複製為 Tab 分隔格式，可直接 Ctrl+V 貼入 Excel">📋 複製 Excel 表格 (TSV)</button>
-    <button type="button" onclick="copyResultsSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或通訊軟體">📝 複製報告摘要</button>
-    <button type="button" onclick="exportCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">📊 匯出 CSV</button>
-    <button type="button" onclick="copyShareLink()" title="將目前斷面尺寸編碼為分享網址">🔗 複製分享連結</button>
-    <button type="button" onclick="addCurrentToComparison()" style="margin-left:auto;background:#eff6ff;border-color:#93c5fd;color:#1e40af;" title="將目前斷面加入下方方案並排比較表（最多 4 組）">⚖️ ➕ 加入方案比較</button>
+    <button type="button" onclick="copyResultsTSV()" title="複製為 Tab 分隔格式，可直接 Ctrl+V 貼入 Excel">複製 Excel 表格 (TSV)</button>
+    <button type="button" onclick="copyResultsSummary()" title="複製單段工程文字摘要，適合貼入 Word 報告或通訊軟體">複製報告摘要</button>
+    <button type="button" onclick="exportCSV()" title="匯出含 UTF-8 BOM 之 CSV 試算表">匯出 CSV</button>
+    <button type="button" onclick="copyShareLink()" title="將目前斷面尺寸編碼為分享網址">複製分享連結</button>
+    <button type="button" onclick="addCurrentToComparison()" style="margin-left:auto;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將目前斷面加入下方方案並排比較表（最多 4 組）">加入方案比較</button>
   </div>
   <div class="tabs" id="tabBar"></div>
   <div class="main-layout">
     <div class="card" id="input-panel"></div>
     <div class="right-panel">
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid var(--border-default);flex-wrap:wrap;gap:8px;">
           <div>
             <span style="font-size:1.1em;font-weight:700;color:var(--primary);">斷面圖形與性質圖卡</span>
             <span style="font-size:0.75em;font-weight:500;color:var(--text-light);margin-left:6px;">2x 高解析工程標註｜左圖＋右參數表</span>
           </div>
           <div class="page-only-tool-actions" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button type="button" onclick="copyCanvasImage()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:#eff6ff;border-color:#93c5fd;color:#1e40af;" title="將斷面圖卡複製為圖片，可直接 Ctrl+V 貼入 Word 報告或簡報">📋 複製圖卡 (貼入報告)</button>
-            <button type="button" onclick="exportCanvasCardJPG()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:#ecfdf5;border-color:#6ee7b7;color:#047857;" title="直接另存左圖＋右參數表之高解析度工程圖卡 JPG">↓ 另存圖卡 JPG</button>
+            <button type="button" onclick="copyCanvasImage()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);" title="將斷面圖卡複製為圖片，可直接 Ctrl+V 貼入 Word 報告或簡報">複製圖卡 (貼入報告)</button>
+            <button type="button" onclick="exportCanvasCardJPG()" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;background:var(--hy-success-100);border-color:color-mix(in srgb, var(--hy-success) 45%, var(--bg-surface));color:var(--hy-success);" title="直接另存左圖＋右參數表之高解析度工程圖卡 JPG">↓ 另存圖卡 JPG</button>
           </div>
         </div>
         <div class="canvas-wrap"><canvas id="sectionCanvas" width="680" height="310"></canvas></div>
       </div>
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--border-default);flex-wrap:wrap;gap:8px;">
           <div><span style="font-size:1.1em;font-weight:700;color:var(--primary);">計算結果</span> <span style="font-size:0.76em;font-weight:500;color:var(--text-light);">(單位: cm｜點擊數值可單獨複製)</span></div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
             <button type="button" onclick="toggleAllResults()" title="全選/取消全選" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;">☑ 全選</button>
             <button type="button" onclick="selectCoreResults()" title="僅勾選常用核心斷面性質 (A, W, Ix, Iy, Sx, Sy, Zx, Zy, rx, ry)" class="action-chip-btn" style="padding:5px 10px;font-size:0.78em;">★ 常用核心項</button>
-            <button type="button" id="btnPickI" onclick="sendIxToOpener()" style="display:none;padding:5px 12px;border:none;background:#1e40af;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">→ 導入至連續梁工具</button>
-            <button type="button" onclick="exportJPG()" style="padding:5px 12px;border:none;background:#047857;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
-            <button type="button" onclick="exportPDF()" aria-label="計算書" style="padding:5px 12px;border:none;background:#b91c1c;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">📄 計算書</button>
-            <button type="button" onclick="exportPDF()" aria-label="📄 計算書" tabindex="-1" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;overflow:hidden;border:none;padding:0;">📄 計算書</button>
+            <button type="button" id="btnPickI" onclick="sendIxToOpener()" style="display:none;padding:5px 12px;border:none;background:var(--hy-navy);color:var(--fg-on-navy);border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">→ 導入至連續梁工具</button>
+            <button type="button" onclick="exportJPG()" style="padding:5px 12px;border:none;background:var(--hy-success);color:var(--fg-on-navy);border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
+            <button type="button" onclick="exportPDF()" aria-label="計算書" style="padding:5px 12px;border:none;background:var(--hy-red-deep);color:var(--fg-on-navy);border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">產生計算書</button>
+            <button type="button" onclick="exportPDF()" aria-label="📄 計算書" tabindex="-1" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;overflow:hidden;border:none;padding:0;">產生計算書</button>
           </div>
         </div>
         <div class="results-grid" id="results"><div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div></div>
         <div class="status-msg" id="exportStatus" role="status" aria-live="polite"></div>
       </div>
       <div class="card page-only-tool-actions" id="comparisonCard" style="display:none;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid var(--border-default);flex-wrap:wrap;gap:8px;">
           <div>
             <span id="sectionComparisonTitle" style="font-size:1.05em;font-weight:700;color:var(--primary);">⚖️ 斷面方案並排比較</span>
             <span id="comparisonCountBadge" style="font-size:0.76em;color:var(--text-light);margin-left:6px;">(0 / 4 組，以方案 1 為基準對照百分比變化)</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button type="button" onclick="addCurrentToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:#eff6ff;border-color:#93c5fd;color:#1e40af;">➕ 加入目前斷面</button>
-            <button type="button" onclick="copyComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">📋 複製比較表 (Excel)</button>
-            <button type="button" onclick="clearComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;color:#b91c1c;">清空比較</button>
+            <button type="button" onclick="addCurrentToComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;background:var(--hy-navy-50);border-color:var(--hy-navy-300);color:var(--hy-navy);">加入目前斷面</button>
+            <button type="button" onclick="copyComparisonTSV()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;">複製比較表 (Excel)</button>
+            <button type="button" onclick="clearComparison()" class="action-chip-btn" style="padding:4px 10px;font-size:0.78em;color:var(--hy-red-deep);">清空比較</button>
           </div>
         </div>
         <div class="comp-table-wrap" id="comparisonTableWrap" role="region" aria-labelledby="sectionComparisonTitle" tabindex="0"></div>

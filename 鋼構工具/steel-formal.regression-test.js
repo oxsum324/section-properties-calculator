@@ -368,14 +368,28 @@ for (const [label, runtime] of [["shared", sharedReportRuntime], ["local", local
   );
 }
 
-for (const token of [
-  "const toY = (value) => 36 + value * scale",
-  "toY(plateLength) + 34",
-  "toY(plateLength) + 58",
-  "toY(plateLength) + 92",
-]) {
-  assert.ok(appSource.includes(token), `legacy plate sketch should preserve separated label spacing: ${token}`);
+const { boltPlate } = require('../結構工具箱/core/ui/member-section-svg.js');
+const sketch = boltPlate({
+  id: 'test-plate',
+  title: '代表性連接板',
+  width: 170, height: 260, plateThickness: 12, holeDiameter: 22,
+  holes: [{x: 55, y: 35}, {x: 55, y: 105}],
+  boltDescription: '單列 2 栓',
+  notes: ['端距 = 35 mm', '孔距 = 70 mm'],
+  load: {direction: 'down', label: '剪力需求 = 60 kN'},
+  caption: '尺寸與力路配置',
+});
+for (const role of ['member-outline', 'bolt-layout', 'dimension-lines', 'dimension-labels', 'force-arrow-zone', 'force-label-zone']) {
+  assert.ok(sketch.includes('data-diagram-role="' + role + '"'), '可分辨圖面圖層：' + role);
 }
+assert.equal((sketch.match(/<marker\b/g) || []).length, 2);
+assert.equal((sketch.match(/markerUnits="userSpaceOnUse"/g) || []).length, 2);
+const [, outlineX, outlineWidth] = sketch.match(/data-diagram-role="member-outline" x="([\d.]+)" y="[\d.]+" width="([\d.]+)"/);
+const geometryEnd = Number(outlineX) + Number(outlineWidth);
+const forceStart = Number(sketch.match(/data-diagram-role="force-arrow-zone"><line x1="([\d.]+)"/)[1]);
+const labelStart = Number(sketch.match(/data-diagram-role="force-label-zone"[^>]*><text x="([\d.]+)"/)[1]);
+assert.ok(geometryEnd < forceStart && forceStart < labelStart, '受力箭頭及標註依次獨立於孔群外');
+assert.match(sketch, /板厚 t = 12 mm[\s\S]*端距 = 35 mm[\s\S]*孔距 = 70 mm[\s\S]*剪力需求 = 60 kN/);
 assert.match(
   appSource,
   /class="block report-sketch-block"><h3>破壞路徑示意[\s\S]*class="block report-sketch-block"><h3>構材與接合示意/s,
@@ -578,12 +592,12 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
   );
   assert.match(
     html,
-    /id="exportSourceJsonBtn"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+    /id="exportSourceJsonBtn"[^>]*>[^<]*匯出案件 JSON<\/button>/,
     `${label} page should expose a calculation-source JSON export`,
   );
   assert.match(
     html,
-    /id="importSourceJsonBtn"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="importSourceJsonInput"[^>]*type="file"[^>]*accept="application\/json,\.json"[^>]*hidden/,
+    /id="importSourceJsonBtn"[^>]*>[^<]*匯入案件 JSON<\/button>[\s\S]*id="importSourceJsonInput"[^>]*type="file"[^>]*accept="application\/json,\.json"[^>]*hidden/,
     `${label} page should expose a calculation-source JSON import`,
   );
 }
@@ -610,7 +624,7 @@ for (const [label, html, expectedVersion, navFamily] of [
   );
   assert.match(
     html,
-    new RegExp(`<body class="steel-formal-output-page" data-family="${navFamily}">[\\s\\S]*class="steel-formal-direct-print-boundary"`),
+    new RegExp(`<body class="steel-formal-output-page" data-family="${navFamily}"(?:\\s+[^>]*)?>[\\s\\S]*class="steel-formal-direct-print-boundary"`),
     `${label} work page should expose the steel formal direct-print boundary`,
   );
   for (const needle of [
@@ -1340,12 +1354,12 @@ assert.doesNotMatch(
 );
 assert.match(
   beamFormalHtmlSource,
-  /id="btnExportSourceJson"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+  /id="btnExportSourceJson"[^>]*>[^<]*匯出案件 JSON<\/button>/,
   "steel-beam-formal.html should expose a calculation-source JSON export",
 );
 assert.match(
   beamFormalHtmlSource,
-  /id="btnImportSourceJson"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
+  /id="btnImportSourceJson"[^>]*>[^<]*匯入案件 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
   "steel-beam-formal.html should expose a calculation-source JSON import",
 );
 assert.match(
@@ -1391,12 +1405,12 @@ assert.doesNotMatch(
 );
 assert.match(
   columnFormalHtmlSource,
-  /id="btnExportSourceJson"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+  /id="btnExportSourceJson"[^>]*>[^<]*匯出案件 JSON<\/button>/,
   "steel-column-formal.html should expose a calculation-source JSON export",
 );
 assert.match(
   columnFormalHtmlSource,
-  /id="btnImportSourceJson"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
+  /id="btnImportSourceJson"[^>]*>[^<]*匯入案件 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
   "steel-column-formal.html should expose a calculation-source JSON import",
 );
 assert.match(

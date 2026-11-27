@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-seismic-tool="appendage">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,108 +11,12 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
-<style>
-  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
-             font-size:0.6em; font-weight:700; vertical-align:middle; background:#7c3aed; color:#fff; }
-  .header-links { margin-top:4px; font-size:0.88em; line-height:1.7; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
-  .header-links .sep { opacity:0.55; }
-  .hero-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:#fff; }
-  .append-shell { display:grid; grid-template-columns:minmax(320px, 430px) minmax(0, 1fr); gap:18px; align-items:start; }
-  .append-form-stack { display:grid; gap:18px; }
-  .append-result-stack { display:grid; gap:18px; position:sticky; top:18px; }
-  .compact-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
-  .compact-item { border:1px solid #ddd6fe; border-radius:10px; background:#faf5ff; padding:10px 12px; }
-  .compact-item .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; }
-  .compact-item .value { font-weight:700; color:#5b21b6; font-family:'Consolas',monospace; }
-  .fold-summary { cursor:pointer; font-weight:700; color:var(--primary); }
-  .fold-summary::-webkit-details-marker { display:none; }
-  .fold-summary::before { content:'▸ '; color:#7c3aed; }
-  details[open] > .fold-summary::before { content:'▾ '; }
-  .status-box { padding:12px 14px; border-radius:10px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.84em; line-height:1.7; color:#334155; }
-  .status-box strong { color:#0f172a; }
-  .step { margin-bottom:14px; }
-  .step-title { font-size:0.92em; font-weight:700; color:#6d28d9; margin-bottom:6px;
-                padding:5px 10px; background:#faf5ff; border-left:4px solid #7c3aed; border-radius:0 6px 6px 0; }
-  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
-  .step-body .val { font-weight:700; color:#6d28d9; font-family:'Consolas',monospace; }
-  .step-body .val.hl { font-size:1.05em; color:#4c1d95; }
-  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .inline-actions .btn-calc,
-  .inline-actions .btn-print,
-  .inline-actions .btn-secondary {
-    flex:1 1 180px;
-    width:auto;
-    min-height:46px;
-    margin-top:0;
-    justify-content:center;
-  }
-  .results-grid { align-items:stretch; }
-  .results-grid .result-item { min-height:72px; }
-  #zoneHint { margin-bottom:10px; padding:10px 12px; border-radius:10px; background:#f8fafc; border:1px dashed #cbd5e1; color:#475569; line-height:1.7; }
-  #zoneHint:empty { display:none; }
-  #zoneHint b { color:#6d28d9; }
-  #resultPanel { min-width:0; }
-  #appendResult { display:grid; gap:12px; }
-  .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  .case-actions button {
-    border:none;
-    border-radius:8px;
-    padding:9px 12px;
-    font-weight:700;
-    cursor:pointer;
-    background:#ede9fe;
-    color:#4c1d95;
-  }
-  .case-actions button:hover { background:#ddd6fe; }
-  .case-actions .primary { background:#6d28d9; color:#fff; }
-  .case-actions .primary:hover { background:#5b21b6; }
-  .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
-  .case-status:empty { display:none; }
-  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
-  .input-status:empty { display:none; }
-  .print-option-row { margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; }
-  .report-mode-control { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #ddd6fe; border-radius:10px; background:#faf5ff; color:#334155; font-size:0.84em; line-height:1.6; }
-  .report-mode-label { font-weight:700; color:#4c1d95; margin-right:2px; }
-  .mode-segment { border:1px solid #c4b5fd; background:#fff; color:#5b21b6; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
-  .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#6d28d9; color:#fff; border-color:#6d28d9; box-shadow:0 4px 10px rgba(109,40,217,.18); }
-  .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
-  .type-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
-  .type-tab { border:1px solid #cbd5e1; background:#fff; color:#334155; border-radius:999px; padding:7px 12px; font-weight:700; cursor:pointer; }
-  .type-tab.active { border-color:#7c3aed; background:#ede9fe; color:#4c1d95; }
-  .type-meta { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; font-size:0.82em; }
-  .type-badge { display:inline-flex; align-items:center; gap:4px; border:1px solid #ddd6fe; background:#faf5ff; color:#5b21b6; border-radius:999px; padding:5px 9px; font-weight:700; }
-  .input-check-panel { display:grid; gap:7px; margin-top:12px; }
-  .input-check-panel:empty { display:none; }
-  .check-msg { border:1px solid #cbd5e1; border-radius:9px; padding:8px 10px; font-size:0.82em; line-height:1.55; color:#334155; background:#f8fafc; }
-  .check-msg.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
-  .check-msg.error { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
-  .check-msg.info { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
-  .diagram-wrap { border:1px solid #dbeafe; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%); padding:10px; overflow:hidden; }
-  .line-h2-diagram { display:block; width:100%; height:auto; max-height:360px; }
-  .diagram-caption { margin-top:8px; color:#475569; font-size:0.82em; line-height:1.7; }
-  @media (max-width: 1080px) {
-    .append-shell { grid-template-columns:1fr; }
-    .append-result-stack { position:static; }
-  }
-  @media (max-width: 768px) {
-    .header-links { font-size:0.82em; gap:4px 8px; }
-    .header-links .sep { display:none; }
-    .hero-chip { font-size:0.76em; padding:5px 10px; }
-    .append-shell, .append-form-stack, .append-result-stack { gap:14px; }
-    .form-row, .compact-grid { grid-template-columns:1fr; }
-    .inline-actions { flex-direction:column; }
-    .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { width:100%; flex:1 1 auto; }
-    .results-grid .result-item { min-height:auto; }
-  }
-  @media print {
-    .page-only-report-status, .case-actions, .case-status, .print-option-row, .report-mode-control { display:none !important; }
-  }
-</style>
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="seismic-tools.css">
 </head>
 <body class="formal-tool-output-page" data-family="seismic">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
-<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
+<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
   <h1>附屬構造物地震力 <span class="badge-v">V2.6</span></h1>
   <p>依「建築物耐震設計規範及解說」113 年版 ｜ 第四章附屬構造物 ｜ 單位：m, tf, sec</p>
@@ -132,31 +36,40 @@
 
 <div class="container" role="main">
   <div class="card mode-bar print-meta">
-    <strong class="mode-bar__label">計畫資訊：</strong>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo" class="w-no" placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details page-only-tool-actions project-details">
+        <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge">案名／編號／設計人</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo" class="w-no" placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+      </details>
       <div class="case-actions">
         <button id="btnExportCaseJson" type="button">匯出案件 JSON</button>
         <button id="btnImportCaseJson" type="button">匯入案件 JSON</button>
         <button type="button" id="btnSaveCaseDraft">暫存</button>
         <button type="button" id="btnLoadCaseDraft">讀取暫存</button>
-        <button id="btnResetCase" type="button">恢復預設</button>
-        <button class="primary" id="btnReport" type="button">列印計算書</button>
+        <button id="btnResetCase" type="button">重設預設值</button>
+        <button class="primary" id="btnReport" type="button">產生計算書</button>
         <input id="caseJsonFile" type="file" accept="application/json,.json" hidden>
       </div>
     </div>
-    <div class="print-option-row">
-      <div class="report-mode-control" role="group" aria-label="列印模式">
-        <span class="report-mode-label">列印模式</span>
-        <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true" title="列印詳算式計算書">詳算式</button>
-        <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
-        <input id="printReportMode" type="hidden" value="detail">
-        <input id="printCalcDetailSection" type="checkbox" checked hidden>
-        <span class="report-mode-hint">詳算式輸出完整代入式與採用值；簡易結果只輸出條件表與摘要。</span>
+    <details class="collapsible-details page-only-tool-actions">
+      <summary><span class="details-title">計算書模式</span><span class="details-summary-badge">報表詳略</span></summary>
+      <div class="details-body">
+        <div class="print-option-row">
+          <div class="report-mode-control" role="group" aria-label="列印模式">
+            <span class="report-mode-label">列印模式</span>
+            <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true" title="列印詳算式計算書">詳算式</button>
+            <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
+            <input id="printReportMode" type="hidden" value="detail">
+            <input id="printCalcDetailSection" type="checkbox" checked hidden>
+            <span class="report-mode-hint">詳算式輸出完整代入式與採用值；簡易結果只輸出條件表與摘要。</span>
+          </div>
+        </div>
       </div>
-    </div>
+    </details>
     <div id="caseJsonStatus" class="case-status"></div>
   </div>
   <div class="card page-only-report-status">
@@ -190,23 +103,26 @@
           <label for="SsD">震區短週期設計係數 SsD (g)</label>
           <input id="SsD" type="number" value="0.6" min="0" step="any">
         </div>
-        <details><summary>來源摘要其餘譜值（選填）</summary>
-        <div class="form-row">
-          <div class="form-group">
-            <label>S<sub>1D</sub> (g)</label>
-            <input id="S1D" type="number" value="0.35" step="0.05">
+        <details class="collapsible-details page-only-tool-actions">
+          <summary><span class="details-title">來源摘要其餘譜值</span><span class="details-summary-badge">選填</span></summary>
+          <div class="details-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>S<sub>1D</sub> (g)</label>
+                <input id="S1D" type="number" value="0.35" step="0.05">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>S<sub>sM</sub> (g)</label>
+                <input id="SsM" type="number" value="0.8" step="0.05">
+              </div>
+              <div class="form-group">
+                <label>S<sub>1M</sub> (g)</label>
+                <input id="S1M" type="number" value="0.5" step="0.05">
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>S<sub>sM</sub> (g)</label>
-            <input id="SsM" type="number" value="0.8" step="0.05">
-          </div>
-          <div class="form-group">
-            <label>S<sub>1M</sub> (g)</label>
-            <input id="S1M" type="number" value="0.5" step="0.05">
-          </div>
-        </div>
         </details>
         <div class="form-row">
           <div class="form-group">
@@ -316,25 +232,29 @@
     </div>
   </div>
 
-  <details class="card" id="pageScopeCard">
-    <summary class="fold-summary">本頁定位與適用範圍</summary>
-    <div class="note" style="margin-top:12px;">
-      本頁專注第四章附屬構造物之局部計算書，適合快速計算附屬構件之水平與垂直地震力，並直接整理成章節型報表。
-    </div>
-    <div class="hint" style="margin-top:10px;">
-      適合：機電設備、管線、吊掛設備、外掛構件、非結構牆、天花、招牌等附屬構造物。<br>
-      不適合：完整建築物通盤檢討、主結構等值靜力法、第五章雜項工作物案件。<br>
-      若需完整主結構耐震整理，請回 <a href="seismic-force.html">等值靜力分析</a>。
+  <details class="card collapsible-details page-only-tool-actions" id="pageScopeCard">
+    <summary><span class="details-title">本頁定位與適用範圍</span><span class="details-summary-badge">適用條件</span></summary>
+    <div class="details-body">
+      <div class="note" style="margin-top:12px;">
+        本頁專注第四章附屬構造物之局部計算書，適合快速計算附屬構件之水平與垂直地震力，並直接整理成章節型報表。
+      </div>
+      <div class="hint" style="margin-top:10px;">
+        適合：機電設備、管線、吊掛設備、外掛構件、非結構牆、天花、招牌等附屬構造物。<br>
+        不適合：完整建築物通盤檢討、主結構等值靜力法、第五章雜項工作物案件。<br>
+        若需完整主結構耐震整理，請回 <a href="seismic-force.html">等值靜力分析</a>。
+      </div>
     </div>
   </details>
-  <details class="card" id="versionInfoCard">
-    <summary class="fold-summary">版本與更新重點</summary>
-    <div class="note" style="margin-top:12px;">
-      本頁目前版本為 <strong>V2.6</strong>，定位為第四章附屬構造物的獨立局部工具，支援獨立輸入、沿用等值靜力摘要與案件 JSON 回讀三種模式。
-    </div>
-    <div class="hint" style="margin-top:10px;">
-      本版已完成：表 4-1 / 表 4-2 型式整理、式(4-1)~式(4-3) 計算、R<sub>pa</sub> 盆地調整、垂直力近斷層比值、地區回填、案件 JSON 匯入匯出、詳算式 / 簡易結果列印模式、構材類型分頁、輸入檢核與示意圖。<br>
-      建議用法：作為第四章專章計算與送審前整理頁；若需與主結構耐震結果一併統整，請回 <a href="seismic-force.html">等值靜力分析</a>。
+  <details class="card collapsible-details page-only-tool-actions" id="versionInfoCard">
+    <summary><span class="details-title">版本與更新重點</span><span class="details-summary-badge">版本資訊</span></summary>
+    <div class="details-body">
+      <div class="note" style="margin-top:12px;">
+        本頁目前版本為 <strong>V2.6</strong>，定位為第四章附屬構造物的獨立局部工具，支援獨立輸入、沿用等值靜力摘要與案件 JSON 回讀三種模式。
+      </div>
+      <div class="hint" style="margin-top:10px;">
+        本版已完成：表 4-1 / 表 4-2 型式整理、式(4-1)~式(4-3) 計算、R<sub>pa</sub> 盆地調整、垂直力近斷層比值、地區回填、案件 JSON 匯入匯出、詳算式 / 簡易結果列印模式、構材類型分頁、輸入檢核與示意圖。<br>
+        建議用法：作為第四章專章計算與送審前整理頁；若需與主結構耐震結果一併統整，請回 <a href="seismic-force.html">等值靜力分析</a>。
+      </div>
     </div>
   </details>
 </div>

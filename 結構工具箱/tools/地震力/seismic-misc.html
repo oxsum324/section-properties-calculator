@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-seismic-tool="misc">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,131 +11,12 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
-<style>
-  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
-             font-size:0.6em; font-weight:700; vertical-align:middle; background:#0e7490; color:#fff; }
-  .header-links { margin-top:4px; font-size:0.88em; line-height:1.7; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
-  .header-links .sep { opacity:0.55; }
-  .hero-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:#fff; }
-  .misc-shell { display:grid; grid-template-columns:minmax(320px, 420px) minmax(0, 1fr); gap:18px; align-items:start; }
-  .misc-form-stack { display:grid; gap:18px; }
-  .misc-result-stack { display:grid; gap:18px; position:sticky; top:18px; }
-  .compact-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
-  .compact-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px 12px; }
-  .compact-item .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; }
-  .compact-item .value { font-weight:700; color:#0c4a6e; font-family:'Consolas',monospace; }
-  .fold-summary { cursor:pointer; font-weight:700; color:var(--primary); }
-  .fold-summary::-webkit-details-marker { display:none; }
-  .fold-summary::before { content:'▸ '; color:#0891b2; }
-  details[open] > .fold-summary::before { content:'▾ '; }
-  .step { margin-bottom:14px; }
-  .step-title { font-size:0.92em; font-weight:700; color:#0f766e; margin-bottom:6px;
-                padding:5px 10px; background:#ecfeff; border-left:4px solid #0891b2; border-radius:0 6px 6px 0; }
-  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
-  .step-body .val { font-weight:700; color:#0f766e; font-family:'Consolas',monospace; }
-  .step-body .val.hl { font-size:1.05em; color:#0c4a6e; }
-  .calc-note { margin-top:10px; font-size:0.82em; color:var(--text-light); line-height:1.7; }
-  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .btn-secondary { background:#e2e8f0; color:#0f172a; border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; }
-  .btn-secondary:hover { background:#cbd5e1; }
-  .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  .case-actions button {
-    border:none;
-    border-radius:8px;
-    padding:9px 12px;
-    font-weight:700;
-    cursor:pointer;
-    background:#ccfbf1;
-    color:#115e59;
-  }
-  .case-actions button:hover { background:#99f6e4; }
-  .case-actions .primary { background:#0f766e; color:#fff; }
-  .case-actions .primary:hover { background:#115e59; }
-  .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
-  .case-status:empty { display:none; }
-  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
-  .input-status:empty { display:none; }
-  .print-option-row { margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; }
-  .report-mode-control { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #99f6e4; border-radius:10px; background:#f0fdfa; color:#334155; font-size:0.84em; line-height:1.6; }
-  .report-mode-label { font-weight:700; color:#0f766e; margin-right:2px; }
-  .mode-segment { border:1px solid #5eead4; background:#fff; color:#0f766e; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
-  .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#0f766e; color:#fff; border-color:#0f766e; box-shadow:0 4px 10px rgba(15,118,110,.18); }
-  .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
-  .input-check-panel { display:grid; gap:7px; margin-top:12px; }
-  .input-check-panel:empty { display:none; }
-  .check-msg { border:1px solid #cbd5e1; border-radius:9px; padding:8px 10px; font-size:0.82em; line-height:1.55; color:#334155; background:#f8fafc; }
-  .check-msg.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
-  .check-msg.error { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
-  .check-msg.info { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
-  .diagram-wrap { border:1px solid #dbeafe; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%); padding:10px; overflow:hidden; }
-  .line-h2-diagram { display:block; width:100%; height:auto; max-height:340px; }
-  .tag-ctrl { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.78em; font-weight:700; }
-  .tag-ctrl.vd { background:#dbeafe; color:#1d4ed8; }
-  .tag-ctrl.vs { background:#fef3c7; color:#92400e; }
-  .tag-ctrl.vm { background:#fce7f3; color:#9d174d; }
-  table.cmp { width:100%; border-collapse:collapse; font-size:0.85em; margin:8px 0; }
-  table.cmp th, table.cmp td { border:1px solid var(--border); padding:6px 10px; text-align:center; font-family:'Consolas',monospace; }
-  table.cmp th { background:#f1f5f9; color:var(--primary); font-weight:600; font-family:inherit; }
-  table.cmp td.win { background:#ecfdf5; font-weight:700; color:#065f46; }
-  .results-grid { align-items:stretch; }
-  .results-grid .result-item { min-height:72px; }
-  .result-item .label { line-height:1.45; }
-  #resultPanel { min-width:0; }
-  #miscResult { display:grid; gap:12px; }
-  #zoneHint { margin-bottom:10px; padding:10px 12px; border-radius:10px; background:#f8fafc; border:1px dashed #cbd5e1; color:#475569; line-height:1.7; }
-  #zoneHint:empty { display:none; }
-  #zoneHint b { color:#0f766e; }
-  .inline-actions .btn-calc,
-  .inline-actions .btn-print {
-    flex:1 1 220px;
-    width:auto;
-    min-height:46px;
-    margin-top:0;
-    justify-content:center;
-  }
-  .inline-actions .btn-print { min-width:180px; }
-  @media (max-width: 1080px) {
-    .misc-shell { grid-template-columns:1fr; }
-    .misc-result-stack { position:static; }
-  }
-  @media (max-width: 900px) {
-    .compact-grid { grid-template-columns:1fr 1fr; }
-    .hero-strip { gap:6px; }
-  }
-  @media (max-width: 768px) {
-    .header-links { font-size:0.82em; gap:4px 8px; }
-    .header-links .sep { display:none; }
-    .hero-strip { margin-top:10px; }
-    .hero-chip { font-size:0.76em; padding:5px 10px; }
-    .misc-shell,
-    .misc-form-stack,
-    .misc-result-stack { gap:14px; }
-    .form-row { grid-template-columns:1fr; }
-    .compact-grid { grid-template-columns:1fr; }
-    .inline-actions { flex-direction:column; }
-    .inline-actions .btn-calc,
-    .inline-actions .btn-print { width:100%; flex:1 1 auto; }
-    .checkbox-row { align-items:flex-start; }
-    .checkbox-row label { line-height:1.6; }
-    .results-grid .result-item { min-height:auto; }
-    #zoneHint { font-size:0.82em; padding:9px 10px; }
-  }
-  @media (max-width: 480px) {
-    .badge-v { margin-left:6px; }
-    .hero-strip { gap:5px; }
-    .hero-chip { width:100%; justify-content:center; }
-    .compact-item { padding:9px 10px; }
-    .step-body { font-size:0.83em; line-height:1.75; }
-  }
-  @media print {
-    .page-only-report-status, .case-actions, .case-status, .print-option-row, .report-mode-control { display:none !important; }
-  }
-</style>
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="seismic-tools.css">
 </head>
 <body class="formal-tool-output-page" data-family="seismic">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
-<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
+<div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
   <h1>雜項工作物地震力 <span class="badge-v">V3.5</span></h1>
   <p>依「建築物耐震設計規範及解說」113 年版 ｜ 第五章雜項工作物 ｜ 單位：m, tf, sec</p>
@@ -155,31 +36,40 @@
 
 <div class="container" role="main">
   <div class="card mode-bar print-meta">
-    <strong class="mode-bar__label">計畫資訊：</strong>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo" class="w-no" placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details page-only-tool-actions project-details">
+        <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge">案名／編號／設計人</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo" class="w-no" placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+      </details>
       <div class="case-actions">
         <button id="btnExportCaseJson" type="button">匯出案件 JSON</button>
         <button id="btnImportCaseJson" type="button">匯入案件 JSON</button>
         <button type="button" id="btnSaveCaseDraft">暫存</button>
         <button type="button" id="btnLoadCaseDraft">讀取暫存</button>
-        <button id="btnResetCase" type="button">恢復預設</button>
-        <button class="primary" id="btnReport" type="button">列印計算書</button>
+        <button id="btnResetCase" type="button">重設預設值</button>
+        <button class="primary" id="btnReport" type="button">產生計算書</button>
       </div>
       <input type="file" id="caseJsonFile" accept=".json,application/json" style="display:none;">
     </div>
     <div class="case-status" id="caseStatus"></div>
-    <div class="print-option-row">
-      <div class="report-mode-control" role="group" aria-label="列印計算書模式">
-        <span class="report-mode-label">列印模式</span>
-        <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true" title="列印詳算式計算書">詳算式</button>
-        <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false" title="只列印條件與結果摘要">簡易結果</button>
-        <span class="report-mode-hint">詳算式輸出完整代入式與採用值；簡易結果只輸出條件表、示意圖與摘要。</span>
+    <details class="collapsible-details page-only-tool-actions">
+      <summary><span class="details-title">計算書模式</span><span class="details-summary-badge">報表詳略</span></summary>
+      <div class="details-body">
+        <div class="print-option-row">
+          <div class="report-mode-control" role="group" aria-label="列印計算書模式">
+            <span class="report-mode-label">列印模式</span>
+            <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true" title="列印詳算式計算書">詳算式</button>
+            <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false" title="只列印條件與結果摘要">簡易結果</button>
+            <span class="report-mode-hint">詳算式輸出完整代入式與採用值；簡易結果只輸出條件表、示意圖與摘要。</span>
+          </div>
+          <input type="hidden" id="printReportMode" value="detail">
+        </div>
       </div>
-      <input type="hidden" id="printReportMode" value="detail">
-    </div>
+    </details>
   </div>
   <div class="card page-only-report-status">
     <div class="report-readiness blocked" id="miscReportReadiness" role="status" aria-live="polite"></div>
@@ -294,10 +184,15 @@
             <input id="miscRemark" type="text" placeholder="例：屋頂招牌、庭園圍牆">
           </div>
         </div>
-        <div class="checkbox-row">
-          <input type="checkbox" id="chkNearFaultMisc">
-          <label for="chkNearFaultMisc">近斷層工址垂直力比值採 2/3（一般 / 臺北盆地為 1/2）</label>
-        </div>
+        <details class="collapsible-details page-only-tool-actions">
+          <summary><span class="details-title">近斷層垂直力設定</span><span class="details-summary-badge">工址條件</span></summary>
+          <div class="details-body">
+            <div class="checkbox-row">
+              <input type="checkbox" id="chkNearFaultMisc">
+              <label for="chkNearFaultMisc">近斷層工址垂直力比值採 2/3（一般 / 臺北盆地為 1/2）</label>
+            </div>
+          </div>
+        </details>
         <div id="inputCheckPanel" class="input-check-panel"></div>
         <div class="inline-actions">
           <button class="btn-calc" id="btnCalc">計算雜項工作物地震力</button>
@@ -342,25 +237,29 @@
     </div>
   </div>
 </div>
-<details class="card" id="pageScopeCard">
-  <summary class="fold-summary">本頁定位與適用範圍</summary>
-  <div class="note" style="margin-top:12px;">
-    本頁專注第五章雜項工作物之局部計算書，適合快速判斷 5.3 / 5.4 路徑、整理 Vh / Vv，並直接列印章節型報表。
-  </div>
-  <div class="hint" style="margin-top:10px;">
-    適合：屋頂招牌、圍牆、塔狀工作物、獨立設備等第五章局部案件。<br>
-    不適合：完整建築物耐震通盤檢討、近斷層控制譜的整體建築設計，或需跨章節整合之案件。<br>
-    若要和主結構靜力法一起整理，請回 <a href="seismic-force.html">等值靜力分析</a>。
+<details class="card collapsible-details page-only-tool-actions" id="pageScopeCard">
+  <summary><span class="details-title">本頁定位與適用範圍</span><span class="details-summary-badge">適用條件</span></summary>
+  <div class="details-body">
+    <div class="note" style="margin-top:12px;">
+      本頁專注第五章雜項工作物之局部計算書，適合快速判斷 5.3 / 5.4 路徑、整理 Vh / Vv，並直接列印章節型報表。
+    </div>
+    <div class="hint" style="margin-top:10px;">
+      適合：屋頂招牌、圍牆、塔狀工作物、獨立設備等第五章局部案件。<br>
+      不適合：完整建築物耐震通盤檢討、近斷層控制譜的整體建築設計，或需跨章節整合之案件。<br>
+      若要和主結構靜力法一起整理，請回 <a href="seismic-force.html">等值靜力分析</a>。
+    </div>
   </div>
 </details>
-<details class="card" id="versionInfoCard">
-  <summary class="fold-summary">版本與更新重點</summary>
-  <div class="note" style="margin-top:12px;">
-    本頁目前版本為 <strong>V3.5</strong>，定位為第五章局部章節工具，核心目標是把雜項工作物的輸入、分流、列印與正式章節語言整理乾淨。
-  </div>
-  <div class="hint" style="margin-top:10px;">
-    本版已完成：5.3 / 5.4 分流、表 5-1 / 表 5-2 型式整理、Vh / Vv 公式分流、地區回填、案件 JSON 匯入匯出、輸入檢核、計算示意圖、詳算式 / 簡易結果列印與全裝置版面。<br>
-    建議用法：作為第五章專章計算與送審前整理頁；若需和主結構耐震結果一起統整，請回 <a href="seismic-force.html">等值靜力分析</a>。
+<details class="card collapsible-details page-only-tool-actions" id="versionInfoCard">
+  <summary><span class="details-title">版本與更新重點</span><span class="details-summary-badge">版本資訊</span></summary>
+  <div class="details-body">
+    <div class="note" style="margin-top:12px;">
+      本頁目前版本為 <strong>V3.5</strong>，定位為第五章局部章節工具，核心目標是把雜項工作物的輸入、分流、列印與正式章節語言整理乾淨。
+    </div>
+    <div class="hint" style="margin-top:10px;">
+      本版已完成：5.3 / 5.4 分流、表 5-1 / 表 5-2 型式整理、Vh / Vv 公式分流、地區回填、案件 JSON 匯入匯出、輸入檢核、計算示意圖、詳算式 / 簡易結果列印與全裝置版面。<br>
+      建議用法：作為第五章專章計算與送審前整理頁；若需和主結構耐震結果一起統整，請回 <a href="seismic-force.html">等值靜力分析</a>。
+    </div>
   </div>
 </details>
 </div>

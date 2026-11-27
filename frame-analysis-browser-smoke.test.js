@@ -90,7 +90,15 @@ function createServer() {
   });
 }
 
+async function expandProjectFields(page) {
+  const panel = page.locator('#projectInfoDetails');
+  if (!(await panel.evaluate(element => element.open))) {
+    await panel.locator('summary').click();
+  }
+}
+
 async function fillProject(page, values) {
+  await expandProjectFields(page);
   await page.fill('#projName', values.name || '');
   await page.fill('#projNo', values.no || '');
   await page.fill('#projDesigner', values.designer || '');
@@ -381,6 +389,7 @@ async function main() {
     assert.ok(resultTamperRollback.error.includes('已保留原輸入'));
     assert.deepEqual(resultTamperRollback.after, resultTamperRollback.before, 'tampered V2 result snapshot rolls back transactionally');
 
+    await expandProjectFields(page);
     await page.fill('#projName', 'UNSAVED-WIP');
     const memberEInput = page.locator('#memberTbody tr').first().locator('td').nth(3).locator('input');
     await memberEInput.fill('0');

@@ -6,6 +6,8 @@
 <title>RC 基礎深梁二維壓拉桿模型 — V0.3</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
 <style>
@@ -68,6 +70,21 @@
       <div class="form-group"><label for="projName">計畫名稱</label><input id="projName" type="text" placeholder="可留空"></div>
       <div class="form-group"><label for="projNo">計畫編號</label><input id="projNo" type="text" placeholder="可留空"></div>
       <div class="form-group"><label for="projDesigner">設計人員</label><input id="projDesigner" type="text" placeholder="可留空"></div>
+    </div>
+  </section>
+
+  <section class="card no-print page-only-tool-actions" data-stm-case aria-label="案件 JSON">
+    <div class="action-row">
+      <button type="button" class="btn-secondary" data-stm-case-export>匯出案件 JSON</button>
+      <button type="button" class="btn-secondary" data-stm-case-import>匯入案件 JSON</button>
+      <input type="file" accept=".json,application/json" data-stm-case-file hidden>
+    </div>
+    <p class="hint" data-stm-case-status role="status"></p>
+    <div data-stm-case-preview hidden>
+      <div class="action-row">
+        <button type="button" data-stm-case-apply>套用案件</button>
+        <button type="button" class="btn-secondary" data-stm-case-cancel>取消</button>
+      </div>
     </div>
   </section>
 
@@ -203,10 +220,11 @@
     $('tieBar').value = '#9'; $('tieTransverseBar').value = '#4';
   }
 
-  function modeChanged() {
+  function modeChanged(applyDefaults = true) {
     const pile = $('reactionMode').value === 'pile-group';
     $('soilPanel').hidden = pile;
     $('pilePanel').hidden = !pile;
+    if (!applyDefaults) return;
     if (pile) {
       if (num('h') === 400) $('h').value = '240';
       if (num('ln') === 1000) $('ln').value = '900';
@@ -331,6 +349,7 @@
   $('btnCalc').addEventListener('click',calculate); $('btnReport').addEventListener('click',buildReport);
   document.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('change',calculate));
   window.calculateFoundationDeepBeamSTM=calculate; window.buildFoundationDeepBeamSTMReport=buildReport;
+  window.refreshFoundationDeepBeamSTMCase = () => { modeChanged(false); calculate(); };
   calculate();
 })();
 </script>
@@ -339,6 +358,9 @@
 <script src="../../tool-nav.manifest.js" defer></script>
 <script src="../../tool-chrome.js" defer></script>
 <script src="../../tool-page-a11y.js" defer></script>
+<script src="../../結構工具箱/tools/project-storage.js" data-auto-bind="false"></script>
+<script src="stm-case-file.js" data-tool-id="rc-foundation-deep-beam-stm" data-refresh="refreshFoundationDeepBeamSTMCase"></script>
+<script src="../../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-actions="[data-preset]" defer></script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

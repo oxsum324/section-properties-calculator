@@ -11,7 +11,7 @@ function mockLibrary(blobSize = 512) {
   Object.assign(library, {
     BorderStyle: { SINGLE: 'single' }, WidthType: { DXA: 'dxa' },
     VerticalAlign: { CENTER: 'center' }, ShadingType: { CLEAR: 'clear' },
-    TableLayoutType: { FIXED: 'fixed' }, AlignmentType: { CENTER: 'center' },
+    TableLayoutType: { FIXED: 'fixed' }, AlignmentType: { CENTER: 'center', RIGHT: 'right' },
     PageNumber: { CURRENT: 'current-page', TOTAL_PAGES: 'total-pages' },
     HeadingLevel: { TITLE: 'title', HEADING_1: 'heading1', HEADING_2: 'heading2', HEADING_3: 'heading3' },
     Packer: { async toBlob(document) { library.document = document; return { size: blobSize }; } },
@@ -50,7 +50,7 @@ async function convert(body, { outside = '', style = '', blobSize, options, prep
 }
 
 async function main() {
-  const caption = await convert('<table><caption>需求表 <strong>單位：kN</strong></caption><thead><tr><th>項目</th><th>值</th></tr></thead><tbody><tr><td>剪力</td><td>12</td></tr></tbody></table>');
+  const caption = await convert('<table><caption>需求表 <strong>單位：kN</strong></caption><thead><tr><th>項目</th><th>值</th></tr></thead><tbody><tr><td>剪力</td><td class="value">12</td></tr></tbody></table>');
   const captionParagraph = caption.body.find(node => node.kind === 'Paragraph' && words(node) === '需求表 單位：kN');
   assert.ok(captionParagraph, '表題與單位不得遺失');
   assert.equal(captionParagraph.options.keepNext, true, '表題應跟隨表格');
@@ -58,6 +58,10 @@ async function main() {
   const captionRows = find(caption.document, 'TableRow');
   assert.equal(captionRows[0].options.tableHeader, true);
   assert.equal(Object.hasOwn(captionRows[1].options, 'tableHeader'), false, '一般列不得產生重複表頭標記');
+  assert.ok(captionRows.every(row => row.options.cantSplit), 'Word 表格列不得分頁截斷');
+  const numericParagraph = find(captionRows[1], 'Paragraph').find(node => words(node) === '12');
+  assert.equal(numericParagraph.options.alignment, 'right');
+  assert.equal(find(numericParagraph, 'TextRun')[0].options.font, 'Consolas');
   for (const cell of find(caption.document, 'TableCell')) {
     assert.equal(Object.hasOwn(cell.options, 'rowSpan'), false, '單列格不得產生垂直合併');
     assert.equal(Object.hasOwn(cell.options, 'columnSpan'), false);

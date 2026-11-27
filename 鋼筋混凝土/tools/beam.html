@@ -69,9 +69,11 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-sticky-summary.css">
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <link rel="stylesheet" href="../../結構工具箱/core/tool-shell.css">
 <style>
   #beamResults.flange-pending > :not(#conclusionCard):not(#beamForceCandidateCard) { display:none !important; }
@@ -219,18 +221,18 @@
 
 <div class="container" role="main">
 
-  <!-- ① 案件表頭：計畫名稱／編號／設計人一列；存讀檔與跨工具共用表頭收合（共用表頭列執行期接在存讀檔群組之後） -->
+  <!-- ① 案件表頭：計畫名稱、編號、設計人、存讀檔及共用表頭集中在同一摺疊區 -->
   <section class="card tool-shell-case" aria-label="案件表頭">
-    <div class="mode-bar__proj tool-shell-case__fields">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo"   class="w-no"   placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    </div>
-    <details class="tool-shell-case__more">
-      <summary>案件存讀檔與共用表頭</summary>
+    <details class="tool-shell-case__more collapsible-details no-print" data-rc-details="project">
+      <summary><span class="details-title">案件與計算書頁首</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">未填寫</span></summary>
+      <div class="mode-bar__proj tool-shell-case__fields">
+        <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+        <input type="text" id="projNo"   class="w-no"   placeholder="編號">
+        <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      </div>
       <div class="mode-bar__actions project-storage-bar" aria-label="梁專案存讀檔">
-        <button id="btnSaveBeamProject" class="mode-bar__action" type="button" title="下載梁專案 JSON 檔">存檔</button>
-        <button id="btnLoadBeamProject" class="mode-bar__action" type="button" title="讀取梁專案 JSON 檔">讀檔</button>
+        <button id="btnSaveBeamProject" class="mode-bar__action" type="button" title="下載梁專案 JSON 檔">匯出案件 JSON</button>
+        <button id="btnLoadBeamProject" class="mode-bar__action" type="button" title="讀取梁專案 JSON 檔">匯入案件 JSON</button>
         <button id="btnSaveBeamDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
         <button id="btnLoadBeamDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
         <input id="beamProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
@@ -251,7 +253,7 @@
     </div>
     <div class="tool-shell-actions" role="group" aria-label="主要動作">
       <button class="mode-bar__report btn-calc" type="button">開始計算</button>
-      <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+      <button id="btnReport" class="mode-bar__report" type="button">產生計算書</button>
     </div>
   </div>
 
@@ -373,7 +375,7 @@
               <option value="t-seismic">T 梁｜SMRF 耐震案例</option>
               <option value="l-deflection">L 梁｜撓度控制案例</option>
             </select>
-            <button id="btnApplyPreset" class="btn-secondary" type="button">套用案例</button>
+            <button id="btnApplyPreset" class="btn-secondary" type="button">載入範例</button>
           </div>
           <p class="hint">快速帶入常見梁設計情境，便於手機、平板與桌機上演示或比對。</p>
         </div>
@@ -592,26 +594,31 @@
           <input type="checkbox" id="autoMa">
             <label for="autoMa">由 +Mu/−Mu 自動換算 Ma (除以 1.4)</label>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>長期持時係數 ξ</label>
-              <select id="xiTime">
-                <option value="1.0">1.0 (3 個月)</option>
-                <option value="1.2">1.2 (6 個月)</option>
-                <option value="1.4">1.4 (12 個月)</option>
-                <option value="2.0" selected>2.0 (5 年以上)</option>
-              </select>
+          <details class="collapsible-details" data-rc-details="deflection">
+            <summary><span class="details-title">長期持時係數與容許撓度</span><span class="details-summary-badge" data-details-value="#deflLimit">ℓn/360 (樓版瞬時)</span></summary>
+            <div class="details-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>長期持時係數 ξ</label>
+                  <select id="xiTime">
+                    <option value="1.0">1.0 (3 個月)</option>
+                    <option value="1.2">1.2 (6 個月)</option>
+                    <option value="1.4">1.4 (12 個月)</option>
+                    <option value="2.0" selected>2.0 (5 年以上)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>容許撓度</label>
+                  <select id="deflLimit">
+                    <option value="180">ℓn/180 (平屋頂瞬時)</option>
+                    <option value="240">ℓn/240 (一般)</option>
+                    <option value="360" selected>ℓn/360 (樓版瞬時)</option>
+                    <option value="480">ℓn/480 (連接易損, 長期)</option>
+                  </select>
+                </div>
+              </div>
             </div>
-            <div class="form-group">
-              <label>容許撓度</label>
-              <select id="deflLimit">
-                <option value="180">ℓn/180 (平屋頂瞬時)</option>
-                <option value="240">ℓn/240 (一般)</option>
-                <option value="360" selected>ℓn/360 (樓版瞬時)</option>
-                <option value="480">ℓn/480 (連接易損, 長期)</option>
-              </select>
-            </div>
-          </div>
+          </details>
         </div>
       </div>
 
@@ -624,30 +631,33 @@
           <div class="form-group"><label>首支箍筋距柱面 (cm，可選)</label><input type="number" id="firstHoopDist" placeholder="未輸入則人工複核" step="any"></div>
         </div>
         <p class="hint">Mn,min 用於 18.3.3.2 跨內任一斷面 ≥ Mn,max/4；首支箍筋距柱面用於 18.3.4 梁端圍束細節。</p>
-        <hr data-ui="section-divider">
-        <h3 data-ui="section-heading">梁柱接頭整合</h3>
-        <p class="hint">將本梁端標稱彎矩 Mnb 與由 Mpr 推得之梁剪力上限送至柱工具，供強柱弱梁與柱設計剪力檢核使用。</p>
-        <div class="form-row">
-          <div class="form-group">
-            <label>送入柱頁位置</label>
-            <select id="beamJointTarget">
-              <option value="scwbBeamXLeft" selected>X 向左梁</option>
-              <option value="scwbBeamXRight">X 向右梁</option>
-              <option value="scwbBeamYFront">Y 向前梁</option>
-              <option value="scwbBeamYBack">Y 向後梁</option>
-            </select>
+        <details class="collapsible-details no-print" data-rc-details="joint-transfer">
+          <summary><span class="details-title">梁柱接頭整合</span><span class="details-summary-badge" data-details-value="#beamJointTarget">X 向左梁</span></summary>
+          <div class="details-body">
+            <p class="hint">將本梁端標稱彎矩 Mnb 與由 Mpr 推得之梁剪力上限送至柱工具，供強柱弱梁與柱設計剪力檢核使用。</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label>送入柱頁位置</label>
+                <select id="beamJointTarget">
+                  <option value="scwbBeamXLeft" selected>X 向左梁</option>
+                  <option value="scwbBeamXRight">X 向右梁</option>
+                  <option value="scwbBeamYFront">Y 向前梁</option>
+                  <option value="scwbBeamYBack">Y 向後梁</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Mpr 鋼筋強度倍率</label><input type="number" id="beamJointMprFactor" value="1.25" min="1" step="0.05"></div>
+            </div>
+            <button id="btnSendToColumn" class="btn-secondary" type="button">送至柱工具</button>
+            <p class="hint" id="beamJointSendStatus">送出後柱頁會啟用耐震模式，並填入對應梁端 Mnb 與該方向梁 Mpr 控制剪力上限。</p>
           </div>
-          <div class="form-group"><label>Mpr 鋼筋強度倍率</label><input type="number" id="beamJointMprFactor" value="1.25" min="1" step="0.05"></div>
-        </div>
-        <button id="btnSendToColumn" class="btn-secondary" type="button">送至柱工具</button>
-        <p class="hint" id="beamJointSendStatus">送出後柱頁會啟用耐震模式，並填入對應梁端 Mnb 與該方向梁 Mpr 控制剪力上限。</p>
+        </details>
       </div>
 
       <div class="card subpanel" data-panel="summary">
         <h2>輸出</h2>
         <button class="btn-secondary btn-calc" type="button">開始計算</button>
-        <button id="btnReport2" class="btn-secondary" type="button">📄 匯出計算書</button>
-        <button id="btnPrintReport2" class="btn-secondary" type="button">🖨️ 直接列印計算書</button>
+        <button id="btnReport2" class="btn-secondary" type="button">產生計算書</button>
+        <button id="btnPrintReport2" class="btn-secondary" type="button">列印／另存 PDF</button>
         <button id="btnCopyJson" class="btn-secondary" type="button">複製輸入 JSON</button>
         <p class="hint">計算書內容會依目前「設計／檢核」模式自動切換群組與標題；預覽視窗可下載文字備查版 TXT，或列印／存成 PDF。</p>
       </div>
@@ -655,7 +665,7 @@
       <!-- ⑤ 輸出（次要）：置於輸入欄末端；計算操作面板執行期接在本卡之後，不推擠首屏 -->
       <div class="card mode-bar tool-shell-dock">
         <span class="tool-shell-dock__label">其他輸出</span>
-        <button id="btnPrintReport" class="mode-bar__report secondary" type="button">🖨️ 直接列印計算書</button>
+        <button id="btnPrintReport" class="mode-bar__report secondary" type="button">列印／另存 PDF</button>
       </div>
     </div>
 
@@ -668,22 +678,30 @@
         <div id="bannerKey" class="banner-key"></div>
       </div>
       <div class="card report-readiness-card" data-shows="summary" id="beamAttachmentReadinessCard">
-        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
-        <div id="beamAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+        <details class="collapsible-details no-print" data-rc-details="readiness">
+          <summary><span class="details-title">產報前檢查</span><span class="details-summary-badge" data-details-value="#beamAttachmentReadiness .report-readiness-badge">尚未計算</span></summary>
+          <div class="details-body">
+            <div id="beamAttachmentReadiness" data-details-refresh role="status" aria-live="polite">尚未計算。</div>
+          </div>
+        </details>
       </div>
       <div class="card force-candidate-card" id="beamForceCandidateCard" style="display:none;">
-        <h2>上游內力候選值 <span class="scope-badge">需確認</span></h2>
-        <p class="force-candidate-summary" id="beamForceCandidateSummary"></p>
-        <div class="force-candidate-list" id="beamForceCandidateList"></div>
-        <label class="force-candidate-confirm"><input type="checkbox" id="beamForceCandidateConfirm">我已確認載重組合、正負號、單位，以及這些資料可作為本梁的係數化設計外力。</label>
-        <label id="beamEnvelopeBasisGroup" hidden>全梁包絡之工程採用依據
-          <input id="beamEnvelopeBasis" type="text" maxlength="160" placeholder="因數化載重表、模型組合或圖號">
-        </label>
-        <div class="force-candidate-actions">
-          <button class="btn-secondary" type="button" id="beamForceCandidateApply" disabled>套用至正式輸入</button>
-          <button class="btn-secondary" type="button" id="beamForceCandidateDiscard">捨棄候選值</button>
-        </div>
-        <p class="hint">候選值只在本頁顯示，不會寫入計算書、列印或 PDF；確認套用後，才會在計算書留下實際採用來源。</p>
+        <details class="collapsible-details no-print" data-rc-details="force-candidate">
+          <summary><span class="details-title">上游內力候選值</span><span class="details-summary-badge" data-details-value="#beamForceCandidateSummary" data-details-filled="需確認">需確認</span></summary>
+          <div class="details-body">
+            <p class="force-candidate-summary" id="beamForceCandidateSummary" data-details-refresh></p>
+            <div class="force-candidate-list" id="beamForceCandidateList"></div>
+            <label class="force-candidate-confirm"><input type="checkbox" id="beamForceCandidateConfirm">我已確認載重組合、正負號、單位，以及這些資料可作為本梁的係數化設計外力。</label>
+            <label id="beamEnvelopeBasisGroup" hidden>全梁包絡之工程採用依據
+              <input id="beamEnvelopeBasis" type="text" maxlength="160" placeholder="因數化載重表、模型組合或圖號">
+            </label>
+            <div class="force-candidate-actions">
+              <button class="btn-secondary" type="button" id="beamForceCandidateApply" disabled>套用至正式輸入</button>
+              <button class="btn-secondary" type="button" id="beamForceCandidateDiscard">捨棄候選值</button>
+            </div>
+            <p class="hint">候選值只在本頁顯示，不會寫入計算書、列印或 PDF；確認套用後，才會在計算書留下實際採用來源。</p>
+          </div>
+        </details>
       </div>
       <div class="card" id="warningCard">
         <h2>設計警示</h2>
@@ -4300,6 +4318,9 @@ ${layerBars.map(L => {
 <script src="../../tool-nav.manifest.js" defer></script>
 <script src="../../tool-chrome.js" defer></script>
 <script src="../../tool-page-a11y.js" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-choices=".mode-btn[data-mode]" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-sticky-summary.js" data-sticky-summary="rc-beam" defer></script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

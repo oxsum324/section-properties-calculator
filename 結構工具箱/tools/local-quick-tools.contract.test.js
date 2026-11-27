@@ -623,13 +623,17 @@ assert.equal(repoDocs.homeHtml.includes('id="toolSearch"'), true, 'home provides
 assert.equal(repoDocs.homeHtml.includes('id="stateFilterPanel"'), false, 'new home removes state filter panel');
 assert.equal(repoDocs.homeHtml.includes('id="stateFilters"'), false, 'new home removes state filters');
 assertIncludes(repoDocs.homeHtml, 'id="memberSystemPanel"', 'new home member system panel');
-assertIncludes(repoDocs.homeHtml, '以固定柱位 ID 逐階段套用到指定開挖共構柱', 'new home roadmap records completed column-mapped multi-stage handoff');
-assertIncludes(repoDocs.homeHtml, '逐階段明確採用附加 X／Y 偏心與依據', 'new home records completed stage-specific eccentricity adoption');
-assertIncludes(repoDocs.homeHtml, '開挖支撐與斜撐匯入已保留完整軸力時序', 'new home roadmap records completed analysis-stage force history');
-assertIncludes(repoDocs.homeHtml, '正式模型、控制組合、傳力、偏心、極限狀態與證據檔', 'new home records structured receiver verification scope');
-assertIncludes(repoDocs.homeHtml, '特定承接型式容量計算模組及 SRC 構件能力', 'new home roadmap points to the next deeper construction-stage capabilities');
-assertIncludes(repoDocs.homeHtml, '成熟度矩陣與巡檢儀表板', 'new home roadmap points to current governance evidence');
-assertIncludes(repoDocs.homeHtml, '牆身、趾版底層與踵版頂層設計', 'canonical home records completed earth-to-RC base slab design');
+assertIncludes(repoDocs.homeHtml, 'href="platform-status.html#toolDevelopmentPlan"', 'home links to the platform roadmap');
+const statusHtml = readText(toolboxFile('platform-status.html'));
+const toolDevelopmentPlan = statusHtml.match(/<section[^>]*\bid="toolDevelopmentPlan"[^>]*>[\s\S]*?<\/section>/)?.[0] || '';
+assert.ok(toolDevelopmentPlan, 'platform roadmap section is available at the linked anchor');
+assertIncludes(toolDevelopmentPlan, '以固定柱位 ID 逐階段套用到指定開挖共構柱', 'platform roadmap records completed column-mapped multi-stage handoff');
+assertIncludes(toolDevelopmentPlan, '逐階段明確採用附加 X／Y 偏心與依據', 'platform roadmap records completed stage-specific eccentricity adoption');
+assertIncludes(toolDevelopmentPlan, '開挖支撐與斜撐匯入已保留完整軸力時序', 'platform roadmap records completed analysis-stage force history');
+assertIncludes(toolDevelopmentPlan, '正式模型、控制組合、傳力、偏心、極限狀態與證據檔', 'platform roadmap records structured receiver verification scope');
+assertIncludes(toolDevelopmentPlan, '特定承接型式容量計算模組及 SRC 構件能力', 'platform roadmap points to the next deeper construction-stage capabilities');
+assertIncludes(toolDevelopmentPlan, '成熟度矩陣與巡檢儀表板', 'platform roadmap points to current governance evidence');
+assertIncludes(toolDevelopmentPlan, '牆身、趾版底層與踵版頂層設計', 'platform roadmap records completed earth-to-RC base slab design');
 assertIncludes(repoDocs.indexClassic, '舊網址相容入口', 'classic route is retained as a compatibility entry');
 assertIncludes(repoDocs.indexClassic, '工具清冊、使用邊界與巡檢狀態均以目前工具首頁為唯一公開來源', 'classic route delegates public claims to canonical home');
 assertIncludes(repoDocs.indexClassic, 'href="./index.html"', 'classic route links canonical home');
@@ -757,7 +761,7 @@ assertFunctionTemplateExcludes(repoDocs.steelColumn, 'buildColumnReport', 'openR
   ].forEach(needle => assertIncludes(html, needle, `${label} page-only readiness copy`));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), `${label} page-only readiness hidden from print`);
 });
-assertIncludes(repoDocs.windKzt, '列印頁面結果', 'wind kzt reference page print wording');
+assertIncludes(repoDocs.windKzt, '列印／另存 PDF', 'wind kzt reference page print wording');
 assertIncludes(repoDocs.windSpecial, 'const DEFAULT_BASIS_PROMPT', 'wind special reference page default basis guard');
 assertIncludes(repoDocs.windSpecial, 'function normalizeBasisText', 'wind special reference page basis normalization helper');
 assertIncludes(repoDocs.forcePicker, 'id="targetStatus"', 'force picker inline target status');
@@ -1066,7 +1070,7 @@ assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home 
   'spectrumExportTmax',
   '匯出案件 JSON',
   '匯入案件 JSON',
-  '恢復預設',
+  '重設預設值',
   'caseJsonFile',
   'function exportCaseJson',
   'function importCaseJsonFile',
@@ -1090,7 +1094,7 @@ assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home 
   'seismic-appendage.case.v1',
   '匯出案件 JSON',
   '匯入案件 JSON',
-  '恢復預設',
+  '重設預設值',
   'caseJsonFile',
   'function exportCaseJson',
   'function importCaseJsonFile',
@@ -1130,7 +1134,7 @@ assert.equal(repoDocs.seismicAppendage.includes('id="btnPrint"'), false, 'seismi
   'seismic-misc.case.v1',
   '匯出案件 JSON',
   '匯入案件 JSON',
-  '恢復預設',
+  '重設預設值',
   'caseJsonFile',
   'function exportCaseJson',
   'function importCaseJsonFile',
@@ -1167,7 +1171,7 @@ assert.equal(repoDocs.seismicMisc.includes('diagram-caption'), false, 'seismic m
   'wind-object-solid.case.v3',
   '匯出案件 JSON',
   '匯入案件 JSON',
-  '恢復預設',
+  '重設預設值',
   'caseJsonFile',
   'function exportCaseJson',
   'function importCaseJsonFile',
@@ -1179,7 +1183,7 @@ assert.equal(repoDocs.seismicMisc.includes('diagram-caption'), false, 'seismic m
   'card mode-bar print-meta',
   '<div class="main-layout">',
   '<div id="resultPanel">',
-  'class="mode-bar__report" id="btnReport"',
+  'class="mode-bar__report primary" id="btnReport"',
   'objectHeight',
   'sectionMajor',
   'sectionMinor',
@@ -1304,13 +1308,13 @@ assert.equal(solidReportBuilderBlock.includes('formError'), false, 'solid object
   'wind-object-frame.case.v2',
   '匯出案件 JSON',
   '匯入案件 JSON',
-  '恢復預設',
+  '重設預設值',
   'caseJsonFile',
   'printReportMode',
   'btnReportModeDetail',
   'btnReportModeSimple',
   '簡易結果',
-  'class="mode-bar__report" id="btnReport"',
+  'class="mode-bar__report primary" id="btnReport"',
   'function buildFrameObjectReportHtml',
   'window.buildFrameObjectReportHtml',
   'function exportCaseJson',
@@ -1350,13 +1354,13 @@ assert.equal(repoDocs.windObjectFrame.includes('lSegments'), false, 'frame objec
   'wind-lattice-tower.case.v1',
   '匯出案件 JSON',
   '匯入案件 JSON',
-  '恢復預設',
+  '重設預設值',
   'caseJsonFile',
   'printReportMode',
   'btnReportModeDetail',
   'btnReportModeSimple',
   '簡易結果',
-  'class="mode-bar__report" id="btnReport"',
+  'class="mode-bar__report primary" id="btnReport"',
   'function buildLatticeTowerReportHtml',
   'window.buildLatticeTowerReportHtml',
   'function exportCaseJson',
@@ -1447,13 +1451,13 @@ assert.equal(latticeReportBuilderBlock.includes('formError'), false, 'lattice to
   'wind-object-tower.case.v2',
   '匯出案件 JSON',
   '匯入案件 JSON',
-  '恢復預設',
+  '重設預設值',
   'caseJsonFile',
   'printReportMode',
   'btnReportModeDetail',
   'btnReportModeSimple',
   '簡易結果',
-  'class="mode-bar__report" id="btnReport"',
+  'class="mode-bar__report primary" id="btnReport"',
   'function buildTowerObjectReportHtml',
   'window.buildTowerObjectReportHtml',
   'function exportCaseJson',
@@ -1517,7 +1521,7 @@ assert.equal(towerReportBuilderBlock.includes('formError'), false, 'tower object
   'wind-fence-sign.case.v1',
   '匯出案件 JSON',
   '匯入案件 JSON',
-  '恢復預設',
+  '重設預設值',
   'printReportMode',
   'btnReportModeDetail',
   'btnReportModeSimple',
@@ -1528,12 +1532,14 @@ assert.equal(towerReportBuilderBlock.includes('formError'), false, 'tower object
   'function drawSchema',
   'data-diagram-object="',
   'data-diagram-role="force-panel"',
-  'applic-warn',
+  '<link rel="stylesheet" href="wind-tools.css">',
   '圍籬牆 / 直接座地',
   '獨立招牌 / 離地架高',
   '專案指定 C<sub>f</sub>',
   '規範表 2.10 判定值',
 ].forEach(needle => assertIncludes(repoDocs.windFenceSign, needle, 'wind fence sign v2 workflow'));
+const windToolStyles = readText(toolboxFile('tools/風力/wind-tools.css'));
+assert.match(windToolStyles, /\.applic-warn\s*\{[^}]+background:#fffbeb/, 'wind fence sign uses the shared applicability warning style');
 assert.equal(repoDocs.windFenceSign.includes('覆寫'), false, 'wind fence sign avoids override wording for Cf adoption');
 assert.equal(repoDocs.windFenceSign.includes('使用者'), false, 'wind fence sign avoids user-choice wording in report-sensitive flow');
 assert.equal(repoDocs.windFenceSign.includes('工具預設'), false, 'wind fence sign avoids tool-centric default wording');
@@ -1544,13 +1550,13 @@ assert.equal(repoDocs.windFenceSign.includes('工具預設'), false, 'wind fence
   'wind-sign-pole.case.v1',
   '匯出案件 JSON',
   '匯入案件 JSON',
-  '恢復預設',
+  '重設預設值',
   'caseJsonFile',
   'printReportMode',
   'btnReportModeDetail',
   'btnReportModeSimple',
   '簡易結果',
-  'class="mode-bar__report" id="btnReport"',
+  'class="mode-bar__report primary" id="btnReport"',
   'function buildSignPoleReportHtml',
   'window.buildSignPoleReportHtml',
   'function exportCaseJson',
@@ -1699,8 +1705,8 @@ for (const tool of tools) {
     'id="coreVersion"',
     tool.coreGlobal,
     tool.label,
-    '列印計算書',
-    '下載 JSON',
+    '產生計算書',
+    tool.key === 'concrete-strength-ndt' ? '匯出案件 JSON' : '匯出計算來源 JSON',
     'LocalQuickExport',
     'function downloadResultJson',
     `ReportUI.${manifest.shared.documentStateBuilder}`,

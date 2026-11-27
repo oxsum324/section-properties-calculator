@@ -977,6 +977,9 @@ for (const inlineValidationPage of [
   assertNoIncludes(html, 'alert(', `${inlineValidationPage} input validation must be inline`);
 }
 
+const windToolCss = readText(toolboxFile('tools/風力/wind-tools.css'));
+assertPrintHidesSelectors(windToolCss, ['.page-only-report-status', '.page-only-tool-actions'], 'wind operation-page print boundary');
+
 {
   const html = readText(toolboxFile('tools/風力/wind-force.html'));
   [
@@ -991,7 +994,6 @@ for (const inlineValidationPage of [
     '不會寫入計算書或列印 PDF',
     '計算書模式'
   ].forEach(needle => assertIncludes(html, needle, 'wind-force page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-force page-only report readiness hidden from print');
   assertIncludes(html, '../../core/loads/wind.js', 'wind-force page loads the production wind core covered by the independent benchmark');
   assert.ok(/const r = W\.calcBuildingWind\([\s\S]*const rY = W\.calcBuildingWind\(/.test(html), 'wind-force page calculates both directions through the production MWFRS core');
   assertIncludes(html, "const SHARED_FREQUENCY_ENGINE = 'wind-force.v1.2.0'", 'wind-force verifies the original shared-frequency engine fingerprint');
@@ -1029,7 +1031,6 @@ for (const inlineValidationPage of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'wind-cc page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-cc page-only report readiness hidden from print');
   const refShotTag = html.match(/<img\s+id="refShot"[^>]*>/)?.[0] || '';
   assert.ok(refShotTag, 'wind-cc reference image exists');
   assert.equal(/\bsrc=/.test(refShotTag), false, 'wind-cc reference image waits for the calculated figure before requesting an asset');
@@ -1057,7 +1058,6 @@ for (const inlineValidationPage of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'wind-open-roof page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-open-roof page-only report readiness hidden from print');
 
   const windReport = readText(toolboxFile('core/src/wind-report.source.js'));
   [
@@ -1082,7 +1082,6 @@ for (const inlineValidationPage of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'wind-parapet page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-parapet page-only report readiness hidden from print');
 
   const windReport = readText(toolboxFile('core/src/wind-report.source.js'));
   [
@@ -1112,7 +1111,6 @@ for (const inlineValidationPage of [
   assertNoIncludes(html, 'value="未填" placeholder="計畫名稱"', 'wind-object-solid project name should start blank');
   assertNoIncludes(html, "project: { name: '未填', no: '', designer: '' }", 'wind-object-solid default case project metadata should start blank');
   assertNoIncludes(html, 'function normalizeProjectFieldValue(value)', 'wind-object-solid should reuse shared project metadata normalization helper');
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-object-solid page-only report readiness hidden from print');
   const reportStart = html.indexOf('function buildSolidObjectReportHtml()');
   const reportEnd = html.indexOf('function openSolidObjectReport()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'wind-object-solid report body isolated');
@@ -1139,7 +1137,6 @@ for (const inlineValidationPage of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'wind-object-frame page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-object-frame page-only report readiness hidden from print');
   const reportStart = html.indexOf('function buildFrameObjectReportHtml()');
   const reportEnd = html.indexOf('function openFrameObjectReport()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'wind-object-frame report body isolated');
@@ -1166,7 +1163,6 @@ for (const inlineValidationPage of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'wind-object-tower page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-object-tower page-only report readiness hidden from print');
   const reportStart = html.indexOf('function buildTowerObjectReportHtml()');
   const reportEnd = html.indexOf('function openTowerObjectReport()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'wind-object-tower report body isolated');
@@ -1193,7 +1189,6 @@ for (const inlineValidationPage of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'wind-lattice-tower page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-lattice-tower page-only report readiness hidden from print');
   const reportStart = html.indexOf('function buildLatticeTowerReportHtml()');
   const reportEnd = html.indexOf('function openLatticeTowerReport()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'wind-lattice-tower report body isolated');
@@ -1227,7 +1222,6 @@ for (const inlineValidationPage of [
   assertIncludes(html, "const phi = val('phi');", 'wind-fence-sign preserves raw phi for validation');
   assertNoIncludes(html, "const Kzt = val('Kzt') || 1.0;", 'wind-fence-sign avoids defaulting invalid Kzt to 1.0');
   assertNoIncludes(html, "const phi = val('phi') || 1.0;", 'wind-fence-sign avoids defaulting invalid phi to 1.0');
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-fence-sign page-only report readiness hidden from print');
   const reportStart = html.indexOf('function buildFenceSignReportHtml()');
   const reportEnd = html.indexOf('function openFenceSignReport()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'wind-fence-sign report body isolated');
@@ -1254,7 +1248,6 @@ for (const inlineValidationPage of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'wind-sign-pole page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-sign-pole page-only report readiness hidden from print');
   const reportStart = html.indexOf('function buildSignPoleReportHtml()');
   const reportEnd = html.indexOf('function openSignPoleReport()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'wind-sign-pole report body isolated');
@@ -1287,6 +1280,14 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
   });
 }
 
+const seismicToolCss = readText(toolboxFile('tools/地震力/seismic-tools.css'));
+for (const adapter of ['force', 'appendage', 'dynamic', 'misc']) {
+  const relativePath = `tools/地震力/seismic-${adapter}.html`;
+  const html = readText(toolboxFile(relativePath));
+  assertIncludes(html, '<link rel="stylesheet" href="seismic-tools.css">', `${relativePath} loads the seismic page stylesheet`);
+  assertPrintHidesSelectors(seismicToolCss, ['.page-only-report-status', '.collapsible-details.page-only-tool-actions'], `${relativePath} operation-page print boundary`);
+}
+
 {
   const html = readText(toolboxFile('tools/地震力/seismic-force.html'));
   assertIncludes(html, 'id="inputStatus"', 'seismic-force inline input status element');
@@ -1308,7 +1309,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'seismic-force page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-force page-only report readiness hidden from print');
   assertIncludes(html, 'class="rep-source-tool"', 'seismic-force trace source has dedicated print cell');
   assertIncludes(html, '.rep-meta--traceable .rep-source-tool { grid-column:span 2; }', 'seismic-force trace source spans two print columns');
   assertIncludes(html, '../../core/loads/seismic.js', 'seismic-force page loads the production seismic core covered by the independent benchmark');
@@ -1351,7 +1351,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'seismic-appendage page-only report readiness'));
   assertIncludes(html, "if (!lastAppendResult || appendageReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none')", 'seismic-appendage stale report recalculation guard');
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-appendage page-only report readiness hidden from print');
   const reportStart = html.indexOf('function openAppendageReport()');
   const reportEnd = html.indexOf('(function initPageScopeCard()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-appendage report body isolated');
@@ -1386,7 +1385,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'seismic-dynamic page-only report readiness'));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-dynamic page-only report readiness hidden from print');
   const reportStart = html.indexOf('function openDynamicReport()');
   const reportEnd = html.indexOf('function exportResponseSpectrumCsv()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-dynamic report body isolated');
@@ -1427,7 +1425,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'seismic-misc page-only report readiness'));
   assertIncludes(html, "if (!lastMiscResult || miscReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none')", 'seismic-misc stale report recalculation guard');
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-misc page-only report readiness hidden from print');
   const reportStart = html.indexOf('function openMiscReport()');
   const reportEnd = html.indexOf('(function initPageScopeCard()', reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-misc report body isolated');
@@ -1490,39 +1487,16 @@ for (const relativePath of [
   'tools/風力/wind-object-tower.html',
   'tools/風力/wind-lattice-tower.html',
   'tools/風力/wind-sign-pole.html',
-  'tools/地震力/seismic-force.html',
-  'tools/地震力/seismic-appendage.html',
-  'tools/地震力/seismic-misc.html',
 ]) {
   const html = readText(toolboxFile(relativePath));
-  assertPrintHidesSelectors(html, ['.case-actions', '.case-status'], `${relativePath} print-only case helper boundary`);
+  assertIncludes(html, '<link rel="stylesheet" href="wind-tools.css">', `${relativePath} loads the wind page stylesheet`);
 }
 
-{
-  const html = readText(toolboxFile('tools/地震力/seismic-dynamic.html'));
-  assertPrintHidesSelectors(html, ['.case-file-actions'], 'seismic-dynamic print-only case helper boundary');
-}
+assertPrintHidesSelectors(windToolCss, ['.case-actions', '.case-status'], 'wind print-only case helper boundary');
+assertPrintHidesSelectors(seismicToolCss, ['.case-actions', '.case-status', '.case-file-actions'], 'seismic print-only case helper boundary');
 
-for (const relativePath of [
-  'tools/風力/wind-fence-sign.html',
-  'tools/風力/wind-object-solid.html',
-  'tools/風力/wind-object-frame.html',
-  'tools/風力/wind-object-tower.html',
-  'tools/風力/wind-lattice-tower.html',
-  'tools/風力/wind-sign-pole.html',
-  'tools/地震力/seismic-appendage.html',
-  'tools/地震力/seismic-misc.html',
-]) {
-  const html = readText(toolboxFile(relativePath));
-  assertPrintHidesSelectors(html, ['.report-mode-control'], `${relativePath} print-only report mode boundary`);
-}
+assertPrintHidesSelectors(windToolCss, ['.report-mode-control'], 'wind print-only report mode boundary');
 
-for (const relativePath of [
-  'tools/地震力/seismic-appendage.html',
-  'tools/地震力/seismic-misc.html',
-]) {
-  const html = readText(toolboxFile(relativePath));
-  assertPrintHidesSelectors(html, ['.print-option-row'], `${relativePath} print-only print option boundary`);
-}
+assertPrintHidesSelectors(seismicToolCss, ['.report-mode-control', '.print-option-row'], 'seismic print-only report mode boundary');
 
 console.log(`formal tools contract OK (${tools.length} tools)`);

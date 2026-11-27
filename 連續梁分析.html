@@ -146,6 +146,7 @@
   @media(max-width:640px){.brace-panel{padding:.6rem}.brace-sender .form-row{display:grid;grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="結構工具箱/core/family-theme.css">
+<link rel="stylesheet" href="結構工具箱/assets/hy/tool-ui-collapsible.css">
 <link rel="stylesheet" href="結構工具箱/assets/hy/continuous-beam-ui.css">
 </head>
 <body class="formal-tool-output-page" data-family="analysis">
@@ -157,10 +158,10 @@
   <p>Direct Stiffness Method | 剪力圖 / 彎矩圖 / 撓度曲線 / 影響線 / 計算書輸出</p>
 </header>
 <div class="save-bar">
-  <button class="btn btn-primary btn-sm" onclick="window._fbSave()">💾 儲存</button>
-  <button class="btn btn-accent btn-sm" onclick="window._fbLoad()">📂 載入</button>
-  <button class="btn btn-sm" onclick="window._localSave()">本地存檔</button>
-  <button class="btn btn-sm" onclick="window._localLoad()">本地讀檔</button>
+  <button class="btn btn-primary btn-sm" onclick="window._fbSave()">儲存至雲端</button>
+  <button class="btn btn-accent btn-sm" onclick="window._fbLoad()">從雲端載入</button>
+  <button class="btn btn-sm" onclick="window._localSave()">匯出案件 JSON</button>
+  <button class="btn btn-sm" onclick="window._localLoad()">匯入案件 JSON</button>
   <button class="btn btn-sm" onclick="window._localSaveDraft()">暫存</button>
   <button class="btn btn-sm" onclick="window._localLoadDraft()">讀取暫存</button>
   <input type="file" id="localJsonFile" accept=".json,application/json" style="display:none" onchange="window._localImportFile(this)">
@@ -394,7 +395,7 @@
       <div class="card empty-analysis-card page-only-report-status" id="emptyAnalysisCard">
         <div class="empty-analysis-inner">
           <span>確認左側跨度與載重後，點擊右側按鈕即可在此同步檢視<strong>剪力圖、彎矩圖、撓度曲線与反力極值表</strong>。</span>
-          <button type="button" class="btn btn-primary btn-sm" onclick="runAnalysis()">▶ 立即計算</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="runAnalysis()">立即計算</button>
         </div>
       </div>
       <div class="diagrams-section" id="diagramsSection" data-view-mode="tabs">
@@ -440,7 +441,7 @@
             <span>分析結果</span>
             <div>
               <button class="btn btn-accent btn-sm" onclick="exportJPG()">JPG</button>
-              <button class="btn btn-danger btn-sm" onclick="exportPDF()">📄 計算書</button>
+              <button class="btn btn-danger btn-sm" onclick="exportPDF()">產生計算書</button>
               <span id="designBtns"></span>
             </div>
           </div>
@@ -3982,6 +3983,14 @@ function collectSaveData() {
   };
 }
 
+window.ContinuousBeamDraft = {
+  capture: collectSaveData,
+  restore(state) {
+    restoreFromData(state);
+    setLoadedCaseStatus('已恢復本機草稿，請重新分析。');
+  }
+};
+
 function buildLocalPayload() {
   return {
     schema: 'continuous-beam.project.v1',
@@ -4379,6 +4388,7 @@ async function runDeleteAction(docId, name) {
 <script src="結構工具箱/tools/tool-workflow-adapters.js" data-tool-key="/beam-analysis" data-workflow-result="#resultsCard"></script>
 <script src="tool-nav.manifest.js" defer></script>
 <script src="tool-chrome.js" defer></script>
+<script src="結構工具箱/assets/hy/tool-draft-guard.js" data-draft-adapter="ContinuousBeamDraft" data-draft-actions="button[onclick^=add], button[onclick^=remove], button[onclick^=delete], button[onclick^=apply], button[onclick^=loadExample], button[onclick^=reset]" defer></script>
 <script src="結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

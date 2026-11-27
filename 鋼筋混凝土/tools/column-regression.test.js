@@ -359,6 +359,7 @@ async function runColumnForceCandidateReviewCase(page) {
   assert(before.Pu !== '333' && before.Mux !== '71' && before.Muy !== '10', 'column candidate does not write formal inputs before confirmation', JSON.stringify(before));
   assert(!!before.stored, 'column candidate keeps pending storage before confirmation', before.stored);
 
+  await page.click('[data-rc-details="force-candidate"] > summary');
   await page.check('#columnForceCandidateConfirm');
   await page.click('#columnForceCandidateApply');
   await wait(250);
@@ -733,6 +734,8 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
       window.calcColumn();
     }, { tcCase: tc, projectInfo: project || {}, fieldOverrides: overrides });
     await wait(250);
+    await page.click('.section-tabs button[data-tab="summary"]');
+    await page.click('[data-rc-details="readiness"] > summary');
     return page.evaluate(() => {
       const target = document.getElementById('columnAttachmentReadiness');
       return {
@@ -789,7 +792,6 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
   const reviewReport = await captureColumnReportHtml(page);
   assert(!reviewReport.includes('DRAFT／非正式附件') && reviewReport.includes('data-initial-approved="false"'), 'column review result remains a printable internal-review calculation book', 'review document state');
 
-  await page.click('.section-tabs button[data-tab="summary"]');
   const reviewPanel = await page.evaluate(() => ({
     hidden: document.getElementById('columnReviewResolutionPanel')?.hidden,
     text: document.getElementById('columnReviewResolutionPanel')?.innerText?.replace(/\s+/g, ' ').trim() || '',
@@ -843,6 +845,7 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
   await page.click('.section-tabs button[data-tab="rebar"]');
   await page.selectOption('#columnDevTopType', 'other');
   await wait(250);
+  await page.click('.section-tabs button[data-tab="summary"]');
   const staleReview = await page.evaluate(() => ({
     status: document.getElementById('columnAttachmentReadiness')?.dataset.attachmentStatus,
     text: document.getElementById('columnReviewResolutionPanel')?.innerText?.replace(/\s+/g, ' ').trim() || '',

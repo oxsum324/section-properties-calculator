@@ -12,6 +12,7 @@
       : STEEL_TOOL_METADATA.connection;
   const withFormalToolVersion = (title, metadata) => `${title} ${metadata.version}`;
   const MAIN_SUITE_PAGE_TITLE = "鋼構正式規範核算工具";
+  const usesDraftGuard = document.body.hasAttribute("data-steel-draft-guard");
   const IS_STANDALONE_PLATE = location.pathname.toLowerCase().includes("plate-check");
   const STORAGE_KEY = IS_STANDALONE_PLATE
     ? "steel-plate-check-draft-v2"
@@ -2146,17 +2147,6 @@
     `).join("");
   }
 
-  function buildDimensionLine({ x1, y1, x2, y2, label, cls = "sketch-dim", textOffsetX = 0, textOffsetY = 0, textAnchor = "middle", markerId = "", verticalLabel = false }) {
-    const textX = (x1 + x2) / 2 + textOffsetX;
-    const textY = (y1 + y2) / 2 + textOffsetY;
-    const rotation = verticalLabel ? ` transform="rotate(-90 ${textX} ${textY})"` : "";
-    const markerAttrs = markerId ? ` marker-start="url(#${markerId})" marker-end="url(#${markerId})"` : "";
-    return `
-      <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${cls}"${markerAttrs} />
-      <text x="${textX}" y="${textY}" text-anchor="${textAnchor}"${rotation} class="sketch-dim-label">${label}</text>
-    `;
-  }
-
   function classifyReviewNotes(result) {
     const limits = [];
     const scope = [];
@@ -2197,177 +2187,186 @@
     ].join("");
   }
 
+  function renderSketchFigure(options) {
+    const markup = MemberSectionSvg.boltPlate(options);
+    return markup ? markup + '<p class="sketch-caption">' + SteelFormalUI.escapeHtml(options.caption) + '</p>' : "";
+  }
+
   function buildPlateSketchMarkup(result, { inline = false } = {}) {
     if (result.sketchData?.mode !== "geometry" || result.state.showPlateSketch === false) {
       return `<div class="card-placeholder">${result.sketchData?.caption || "本案採指定斷面面積，未建立幾何示意。"}</div>`;
     }
-
-    const { plateWidth, plateLength, holes, netSection, blockShearPaths, fromEnd, caption, loadDirection } = result.sketchData;
-    const scale = Math.min(480 / Math.max(plateWidth, 1), 340 / Math.max(plateLength, 1));
-    const toX = (value) => 20 + value * scale;
-    const toY = (value) => 36 + value * scale;
-    const holeRadius = Math.max(result.state.holeDiameter * scale / 2, 3);
-    const netPath = (netSection?.points || []).map((point) => `${toX(point.x)},${toY(point.y)}`).join(" ");
-    const blockMarkup = blockShearPaths.map(points => {
-      const path = points.map((p, i) => `${i ? "L" : "M"} ${toX(p.x)} ${toY(p.y)}`).join(" ");
-      return `<path d="${path}" class="sketch-block" style="fill:none"/>`;
-    }).join("");
+    const state = result.state;
+    const { plateWidth, plateLength, holes, netSection, blockShearPaths, caption, loadDirection } = result.sketchData;
     const horizontal = loadDirection === "horizontal";
-    const arrow = loadDirection === "horizontal"
-      ? `<line x1="${toX(10)}" y1="${toY(plateLength / 2)}" x2="${toX(plateWidth - 10)}" y2="${toY(plateLength / 2)}" class="sketch-arrow" marker-end="url(#plateArrow)" />`
-      : `<line x1="${toX(plateWidth / 2)}" y1="${toY(10)}" x2="${toX(plateWidth / 2)}" y2="${toY(plateLength - 10)}" class="sketch-arrow" marker-end="url(#plateArrow)" />`;
-    const widthDim = buildDimensionLine({
-      x1: toX(0),
-      y1: toY(plateLength) + 34,
-      x2: toX(plateWidth),
-      y2: toY(plateLength) + 34,
-      label: `板寬 ${formatNumber(plateWidth, 1)} mm`,
-      textOffsetY: -6,
-      markerId: "plateDimArrow",
+    const notes = [
+      `端距 e1／e2 = ${formatNumber(state.endDistanceStart, 1)}／${formatNumber(state.endDistanceEnd, 1)} mm`,
+      `邊距 = ${formatNumber(state.edgeDistanceTop, 1)}／${formatNumber(state.edgeDistanceBottom, 1)} mm`,
+      `沿力孔距 = ${formatNumber(horizontal ? state.pitchX : state.pitchY, 1)} mm`,
+      `橫向孔距 = ${formatNumber(horizontal ? state.pitchY : state.pitchX, 1)} mm`,
+    ];
+    return renderSketchFigure({
+      id: "plate-check-sketch",
+      title: "連接板幾何及破壞路徑示意",
+      width: plateWidth,
+      height: plateLength,
+      plateThickness: state.plateThickness,
+      holeDiameter: state.holeDiameter,
+      holes,
+      boltDescription: `${state.rowCount} 列 × ${state.lineCount} 行｜孔徑 ${formatNumber(state.holeDiameter, 1)} mm`,
+      notes,
+      paths: [
+        { className: "sketch-net", points: netSection?.points || [] },
+        ...blockShearPaths.map(points => ({ className: "sketch-block", points })),
+      ],
+      extraClass: inline ? "plate-path-diagram plate-sketch--print" : "plate-path-diagram",
+      load: { direction: horizontal ? "right" : "down", label: `拉力需求 = ${formatNumber(state.requiredTension, 2)} kN` },
+      caption,
     });
-    const lengthDim = buildDimensionLine({
-      x1: toX(plateWidth) + 26,
-      y1: toY(0),
-      x2: toX(plateWidth) + 26,
-      y2: toY(plateLength),
-      label: `板長 ${formatNumber(plateLength, 1)} mm`,
-      cls: "sketch-dim sketch-dim--vertical",
-      textOffsetX: -6,
-      verticalLabel: true,
-      markerId: "plateDimArrow",
-    });
-    const alongCount = horizontal ? result.state.lineCount : result.state.rowCount;
-    const pitch = horizontal ? result.state.pitchX : result.state.pitchY;
-    const endDistance = fromEnd ? result.state.endDistanceEnd : result.state.endDistanceStart;
-    const extent = horizontal ? plateWidth : plateLength;
-    function alongDimension(a, b, label, pitchLine) {
-      if (horizontal) {
-        const y = pitchLine ? toY(plateLength) + 58 : toY(0) - 14;
-        return buildDimensionLine({x1:toX(a), x2:toX(b), y1:y, y2:y, label, textOffsetY:-6, markerId:"plateDimArrow"});
-      }
-      const x = toX(plateWidth) + (pitchLine ? 70 : 112);
-      return buildDimensionLine({x1:x, x2:x, y1:toY(a), y2:toY(b), label, cls:"sketch-dim sketch-dim--vertical", textOffsetX:-6, verticalLabel:true, markerId:"plateDimArrow"});
-    }
-    const pitchStart = horizontal ? holes[0].x : holes[0].y;
-    const pitchXDim = alongCount > 1 ? alongDimension(pitchStart, pitchStart + pitch, `沿力孔距 ${formatNumber(pitch,1)} mm`, true) : "";
-    const edgeDim = alongDimension(fromEnd ? extent-endDistance : 0, fromEnd ? extent : endDistance,
-      `${fromEnd ? "e2" : "e1"} ${formatNumber(endDistance,1)} mm`, false);
-
-    return `
-      <svg class="plate-sketch plate-path-diagram${inline ? " plate-sketch--print" : ""}" viewBox="0 0 ${toX(plateWidth) + (horizontal ? 62 : 145)} ${toY(plateLength) + 92}" xmlns="http://www.w3.org/2000/svg" aria-label="連接板幾何示意">
-        <defs>
-          <marker id="plateArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-            <path d="M0,0 L8,4 L0,8 z" fill="#0e7490"></path>
-          </marker>
-          <marker id="plateDimArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
-            <path d="M0,0 L8,4 L0,8 z" fill="#475569"></path>
-          </marker>
-        </defs>
-        <rect x="${toX(0)}" y="${toY(0)}" width="${plateWidth * scale}" height="${plateLength * scale}" class="sketch-plate"/>
-        ${holes.map((hole) => `<circle cx="${toX(hole.x)}" cy="${toY(hole.y)}" r="${holeRadius}" class="sketch-hole"/>`).join("")}
-        ${blockMarkup}
-        ${netPath ? `<polyline points="${netPath}" class="sketch-net"/>` : ""}
-        ${arrow}
-        ${widthDim}
-        ${lengthDim}
-        ${pitchXDim}
-        ${edgeDim}
-        <text x="${toX(plateWidth / 2)}" y="${toY(plateLength) + 14}" text-anchor="middle" class="sketch-label">${loadDirection === "horizontal" ? "水平拉力" : "垂直拉力"}</text>
-      </svg>
-      <p class="sketch-caption">${SteelFormalUI.escapeHtml(caption)}</p>
-    `;
   }
 
   function buildTensionSketchMarkup(result, { inline = false } = {}) {
     if (result.sketchData?.mode !== "geometry") {
       return `<div class="card-placeholder">${result.sketchData?.caption || "本案採指定斷面面積，未建立幾何示意。"}</div>`;
     }
-
-    const {
-      memberWidth,
-      memberLength,
-      connectionMode,
-      holes = [],
-      weldSegments = [],
-      netSection,
-      blockShear = [],
+    const s = result.state;
+    const { memberWidth, memberLength, connectionMode, holes, weldSegments, netSection, blockShear, caption } = result.sketchData;
+    const bolted = connectionMode === "bolted";
+    return renderSketchFigure({
+      id: "tension-member-sketch",
+      title: "拉力構件與接合示意",
+      width: memberLength,
+      height: memberWidth,
+      axes: ["長度示意", "構材寬度"],
+      plateThickness: s.memberThickness,
+      holeDiameter: s.holeDiameter,
+      holes,
+      welds: weldSegments,
+      paths: [
+        { className: "sketch-net", points: netSection?.points || [] },
+        { className: "sketch-block", points: blockShear?.length ? [...blockShear, blockShear[0]] : [] },
+      ],
+      boltDescription: bolted ? `${s.tensionBoltRowCount} 列 × ${s.tensionBoltLineCount} 行` : "銲接配置示意",
+      notes: bolted ? [
+        `端距 e = ${formatNumber(s.tensionEndDistance, 1)} mm`,
+        `邊距 e1／e2 = ${formatNumber(s.tensionEdgeDistanceNear, 1)}／${formatNumber(s.tensionEdgeDistanceFar, 1)} mm`,
+        `縱距／橫距 = ${formatNumber(s.tensionPitchLongitudinal, 1)}／${formatNumber(s.tensionGaugeTransverse, 1)} mm`,
+      ] : [
+        `縱向有效銲長 = ${formatNumber(s.tensionWeldLengthLongitudinal, 1)} mm`,
+        `橫向有效銲長 = ${formatNumber(s.tensionWeldLengthTransverse, 1)} mm`,
+      ],
+      extraClass: inline ? "plate-path-diagram plate-sketch--print" : "plate-path-diagram",
+      load: { direction: "right", label: `拉力需求 = ${formatNumber(s.requiredTension, 2)} kN` },
       caption,
-    } = result.sketchData;
-    const scale = Math.min(520 / Math.max(memberLength, 1), 260 / Math.max(memberWidth, 1));
-    const toX = (value) => 20 + value * scale;
-    const toY = (value) => 20 + value * scale;
-    const holeRadius = Math.max(result.state.holeDiameter * scale / 2, 3);
-    const netPath = (netSection?.points || []).map((point) => `${toX(point.x)},${toY(point.y)}`).join(" ");
-    const blockPath = blockShear.length
-      ? blockShear.map((point, index) => `${index === 0 ? "M" : "L"} ${toX(point.x)} ${toY(point.y)}`).join(" ") + " Z"
-      : "";
-    const widthDim = buildDimensionLine({
-      x1: toX(0),
-      y1: toY(memberWidth) + 42,
-      x2: toX(memberLength),
-      y2: toY(memberWidth) + 42,
-      label: `構材長度示意 ${formatNumber(memberLength, 1)} mm`,
-      textOffsetY: -6,
-      markerId: "tensionDimArrow",
     });
-    const depthDim = buildDimensionLine({
-      x1: toX(memberLength) + 26,
-      y1: toY(0),
-      x2: toX(memberLength) + 26,
-      y2: toY(memberWidth),
-      label: `構材寬度 b = ${formatNumber(memberWidth, 1)} mm`,
-      cls: "sketch-dim sketch-dim--vertical",
-      textOffsetX: 34,
-      textAnchor: "start",
-      markerId: "tensionDimArrow",
-    });
-    const localDim = connectionMode === "bolted" && holes.length
-      ? buildDimensionLine({
-          x1: toX(0),
-          y1: toY(0) - 14,
-          x2: toX(holes[0].x),
-          y2: toY(0) - 14,
-          label: `端距 e = ${formatNumber(result.state.tensionEndDistance, 1)} mm`,
-          textOffsetY: -6,
-          markerId: "tensionDimArrow",
-        })
-      : result.state.tensionWeldLengthLongitudinal > 0
-        ? buildDimensionLine({
-            x1: toX(18),
-            y1: toY(memberWidth) + 66,
-            x2: toX(Math.min(18 + result.state.tensionWeldLengthLongitudinal, memberLength - 18)),
-            y2: toY(memberWidth) + 66,
-            label: `縱向有效銲長 l = ${formatNumber(result.state.tensionWeldLengthLongitudinal, 1)} mm`,
-            textOffsetY: -6,
-            markerId: "tensionDimArrow",
-          })
-        : "";
+  }
 
-    return `
-      <svg class="plate-sketch${inline ? " plate-sketch--print" : ""}" viewBox="0 -16 ${toX(memberLength) + 180} ${toY(memberWidth) + 128}" xmlns="http://www.w3.org/2000/svg" aria-label="拉力構件與接合示意">
-        <defs>
-          <marker id="tensionArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-            <path d="M0,0 L8,4 L0,8 z" fill="#0e7490"></path>
-          </marker>
-          <marker id="tensionDimArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-            <path d="M0,0 L8,4 L0,8 z" fill="#475569"></path>
-          </marker>
-        </defs>
-        <rect x="${toX(0)}" y="${toY(0)}" width="${memberLength * scale}" height="${memberWidth * scale}" class="sketch-member"/>
-        ${connectionMode === "bolted"
-          ? holes.map((hole) => `<circle cx="${toX(hole.x)}" cy="${toY(hole.y)}" r="${holeRadius}" class="sketch-hole"/>`).join("")
-          : weldSegments.map((segment) => `<line x1="${toX(segment.x1)}" y1="${toY(segment.y1)}" x2="${toX(segment.x2)}" y2="${toY(segment.y2)}" class="sketch-weld ${segment.type === "transverse" ? "sketch-weld--transverse" : ""}"/>`).join("")
-        }
-        ${blockPath ? `<path d="${blockPath}" class="sketch-block"/>` : ""}
-        ${netPath ? `<polyline points="${netPath}" class="sketch-net"/>` : ""}
-        <line x1="${toX(10)}" y1="${toY(memberWidth / 2)}" x2="${toX(memberLength - 10)}" y2="${toY(memberWidth / 2)}" class="sketch-arrow" marker-end="url(#tensionArrow)" />
-        ${widthDim}
-        ${depthDim}
-        ${localDim}
-        <text x="${toX(memberLength / 2)}" y="${toY(memberWidth) + 68}" text-anchor="middle" class="sketch-label">拉力作用方向</text>
-        <text x="${toX(memberLength / 2)}" y="${toY(memberWidth) + 102}" text-anchor="middle" class="sketch-note">${caption || "構材與接合示意"}</text>
-      </svg>
-    `;
+  function buildAdjacentConnectionSketch(result) {
+    const state = result.state;
+    if (state.connectionType === "single_plate") {
+      const { boltCount, boltLineToWeldDistance, transverseEdgeDistance, plateHeight, endDistance, pitch, holeDiameter } = state;
+      if (!Number.isInteger(boltCount) || boltCount < 1 || boltCount > 256
+          || boltLineToWeldDistance <= 0 || transverseEdgeDistance <= 0 || endDistance <= 0
+          || 2 * endDistance + (boltCount - 1) * pitch > plateHeight) return "";
+      const holes = Array.from({ length: boltCount }, (_, index) => ({ x: boltLineToWeldDistance, y: endDistance + index * pitch }));
+      return renderSketchFigure({
+        id: "shear-tab-sketch",
+        title: "剪力板接頭幾何與受力示意",
+        extraClass: "plate-path-diagram",
+        width: boltLineToWeldDistance + transverseEdgeDistance,
+        height: plateHeight,
+        plateThickness: state.plateThickness,
+        holeDiameter, holes,
+        welds: [{x1: 0, y1: 0, x2: 0, y2: plateHeight}],
+        boltDescription: `單列 ${boltCount} 栓｜孔徑 ${formatNumber(holeDiameter, 1)} mm`,
+        notes: [
+          `端距 ep = ${formatNumber(endDistance, 1)} mm`,
+          `自由邊距 g = ${formatNumber(transverseEdgeDistance, 1)} mm`,
+          `沿剪力孔距 s = ${formatNumber(pitch, 1)} mm`,
+          `栓列至銲線 = ${formatNumber(boltLineToWeldDistance, 1)} mm`,
+        ],
+        load: { direction: "down", label: `採用剪力 Vd = ${formatNumber(result.designDemand?.adoptedShear, 2)} kN` },
+        caption: "沿剪力方向從端距定位栓列；銲線位置及外力方向為模型示意。",
+      });
+    }
+    if (state.connectionType === "brace_gusset") {
+      const { gussetBoltCount, gussetEndDistance, gussetPitch, gussetEdgeDistance, gussetConnectionWidth, braceEndDistance, holeDiameter } = state;
+      if (!Number.isInteger(gussetBoltCount) || gussetBoltCount < 2 || gussetBoltCount > 12
+          || gussetEndDistance <= 0 || gussetPitch <= 0 || braceEndDistance <= 0
+          || gussetEdgeDistance <= 0 || gussetEdgeDistance >= gussetConnectionWidth) return "";
+      const holes = Array.from({ length: gussetBoltCount }, (_, index) => ({ x: gussetEndDistance + index * gussetPitch, y: gussetEdgeDistance }));
+      return renderSketchFigure({
+        id: "gusset-sketch",
+        title: "Gusset 栓群與受力示意",
+        extraClass: "plate-path-diagram",
+        width: holes.at(-1).x + braceEndDistance,
+        height: gussetConnectionWidth,
+        axes: ["局部範圍", "栓孔斷面寬"],
+        plateThickness: state.gussetThickness,
+        holeDiameter, holes,
+        boltDescription: `單列 ${gussetBoltCount} 栓｜孔徑 ${formatNumber(holeDiameter, 1)} mm`,
+        notes: [
+          `Gusset 端距 eg = ${formatNumber(gussetEndDistance, 1)} mm`,
+          `Gusset 邊距 gg = ${formatNumber(gussetEdgeDistance, 1)} mm`,
+          `孔距 sg = ${formatNumber(gussetPitch, 1)} mm`,
+          `支撐材端距 eb = ${formatNumber(braceEndDistance, 1)} mm`,
+        ],
+        load: { direction: "right", label: `軸向拉力 = ${formatNumber(state.requiredAxial, 2)} kN` },
+        caption: "沿力向圖框以兩端距與接合長度標示栓群範圍；橫向採栓孔斷面總寬。圖框僅表示局部尺寸。",
+      });
+    }
+
+    if (state.connectionType === "beam_column_moment" && result.seismicReview
+        && state.momentPanelZoneClearDepth > 0 && state.momentPanelZoneClearWidth > 0) {
+      const caption = "標示 Panel Zone 採用淨尺寸與需求。梁柱外形及彎矩、剪力方向為示意。";
+      return renderConnectionElevation({
+        id: "moment-joint-sketch",
+        title: "梁柱彎矩接頭區與受力示意",
+        verticalSize: state.momentPanelZoneClearDepth,
+        horizontalSize: state.momentPanelZoneClearWidth,
+        notes: [
+          `Panel Zone 總厚 tp = ${formatNumber(state.momentPanelZoneThickness, 1)} mm`,
+          `柱深 dc = ${formatNumber(state.momentColumnDepth, 1)} mm`,
+          `臨界斷面至柱面 x = ${formatNumber(state.momentCriticalSectionDistance, 1)} mm`,
+        ],
+        loads: [
+          { direction: "moment", label: `柱面彎矩 = ${formatNumber(result.seismicReview.MuFace, 2)} kN·m` },
+          { direction: "down", label: `需求剪力 = ${formatNumber(result.seismicReview.VuRequired, 2)} kN` },
+          { direction: "right", label: `接頭區剪力 = ${formatNumber(result.seismicReview.VpzRequired, 2)} kN` },
+        ],
+        caption,
+      });
+    }
+    if (state.connectionType === "column_splice" && result.spliceReview) {
+      const caption = "同型柱形心對齊及全斷面全滲透槽銲續接示意。柱斷面、坡口與施工細部須核對核定圖說。";
+      return renderConnectionElevation({
+        id: "column-splice-sketch",
+        title: "CJP 柱續接與受力示意",
+        notes: [
+          `接合最大母材厚度 = ${formatNumber(state.spliceMaxThickness, 1)} mm`,
+          `續接距最近梁翼 = ${formatNumber(state.spliceDistanceToNearestBeamFlange, 1)} mm`,
+        ],
+        loads: [
+          { direction: "down", label: `軸壓包絡 = ${formatNumber(result.spliceReview.PuCompression, 2)} kN` },
+          { direction: "up", label: `軸拉包絡 = ${formatNumber(result.spliceReview.TuTension, 2)} kN` },
+        ],
+        caption,
+      });
+    }
+    return "";
+  }
+
+  function renderConnectionElevation(options) {
+    return MemberSectionSvg.connectionElevation(options) + '<p class="sketch-caption">'
+      + SteelFormalUI.escapeHtml(options.caption) + '</p>';
+  }
+
+  function renderAdjacentConnectionSketch(result) {
+    const block = document.getElementById("connectionSketchBlock");
+    if (!block) return;
+    const markup = buildAdjacentConnectionSketch(result);
+    document.getElementById("connectionSketch").innerHTML = markup;
+    block.hidden = !markup;
   }
 
   function renderPlateExtras(result) {
@@ -2741,7 +2740,7 @@
     draftStatus.textContent = `草稿已儲存：${nowLabel()}`;
   }
 
-  function loadSavedDraft() {
+  function loadSavedDraft(announce = true) {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
@@ -2754,10 +2753,10 @@
         ...(exampleStates[draftType] || {}),
         ...draftState,
       };
-      draftStatus.textContent = `已載入草稿：${parsed.savedAt || "未知時間"}`;
-      return mergedState;
+      if (announce) draftStatus.textContent = `已載入草稿：${parsed.savedAt || "未知時間"}`;
+      return { savedAt: parsed.savedAt, state: mergedState };
     } catch {
-      draftStatus.textContent = "草稿讀取失敗";
+      if (announce) draftStatus.textContent = "草稿讀取失敗";
       return null;
     }
   }
@@ -3305,6 +3304,10 @@
     `);
     const flowHtml = flowSections.slice(0, -1).join("");
     const endingFlowHtml = flowSections.at(-1) || "";
+    const adjacentSketch = buildAdjacentConnectionSketch(result);
+    const adjacentSketchHtml = adjacentSketch
+      ? `<section class="block report-sketch-block"><h3>接頭幾何與受力示意</h3>${adjacentSketch}</section>`
+      : "";
     const plateAreaTable = result.state.connectionType === "plate_check" && result.derivedAreas
       ? `<section class="block"><h3>連接板派生面積</h3><table><tbody>
           <tr><th>Ag</th><td>${formatNumber(result.derivedAreas.Ag, 2)} mm²</td></tr>
@@ -3408,6 +3411,7 @@ ${plateAreaTable}
 ${tensionAreaTable}
 ${shearTabAreaTable}
 ${gussetAreaTable}
+${adjacentSketchHtml}
 ${momentReviewTable}
 ${spliceReviewTable}
 ${flowHtml}
@@ -3458,9 +3462,10 @@ ${scopeHtml}
     renderPlateExtras(result);
     renderTensionExtras(result);
     renderShearTabExtras(result);
+    renderAdjacentConnectionSketch(result);
     updateReportJumpButtons(result);
     window.latestSteelConnectionResult = result;
-    if (autoSave) persistDraft(state);
+    if (autoSave && !usesDraftGuard) persistDraft(state);
     workflow?.refresh();
   }
 
@@ -3788,7 +3793,22 @@ ${scopeHtml}
   });
   window.buildSteelConnectionSourcePayload = buildConnectionSourcePayload;
   window.importSteelConnectionSourceJson = importConnectionSourceJson;
-  setFormState(loadSavedDraft() || getCurrentExampleState(), false);
+  if (usesDraftGuard) {
+    window.SteelConnectionDraft = {
+      capture: collectFormState,
+      restore(state) {
+        setFormState(state, false);
+        draftStatus.textContent = "已恢復草稿";
+      },
+      readLegacy: () => loadSavedDraft(false),
+      clearLegacy() {
+        localStorage.removeItem(STORAGE_KEY);
+        draftStatus.textContent = "尚未儲存草稿";
+      },
+    };
+  }
+  const savedDraft = usesDraftGuard ? null : loadSavedDraft();
+  setFormState(savedDraft?.state || getCurrentExampleState(), false);
   allowMathJaxLoad = true;
   activatePanel(currentPanel);
   loadAuditStatus();

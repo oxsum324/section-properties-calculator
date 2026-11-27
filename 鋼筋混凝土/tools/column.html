@@ -8,9 +8,11 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../tool-chrome.css">
 <link rel="stylesheet" href="../../結構工具箱/assets/hy/colors_and_type.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-sticky-summary.css">
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/tool-page.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<link rel="stylesheet" href="../../結構工具箱/assets/hy/tool-ui-collapsible.css">
 <style>
   .column-review-resolution { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px; }
   .column-review-resolution[hidden] { display: none; }
@@ -56,18 +58,24 @@
     </div>
     <span class="mode-bar__hint" id="modeHint">設計模式：給定載重，建議鋼筋配置。</span>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo"   class="w-no"   placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <details class="collapsible-details project-details no-print" data-rc-details="project">
+        <summary><span class="details-title">案件與計算書頁首</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">未填寫</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo"   class="w-no"   placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        </div>
+        <div data-details-project-profile></div>
+      </details>
       <div class="mode-bar__actions" aria-label="柱專案存讀檔">
-        <button id="btnSaveProject" class="mode-bar__action" type="button" title="下載柱專案 JSON 檔">存檔</button>
-        <button id="btnLoadProject" class="mode-bar__action" type="button" title="讀取柱專案 JSON 檔">讀檔</button>
+        <button id="btnSaveProject" class="mode-bar__action" type="button" title="下載柱專案 JSON 檔">匯出案件 JSON</button>
+        <button id="btnLoadProject" class="mode-bar__action" type="button" title="讀取柱專案 JSON 檔">匯入案件 JSON</button>
         <button id="btnSaveDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
         <button id="btnLoadDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
         <input id="columnProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
       </div>
-      <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
-      <button id="btnPrintReport" class="mode-bar__report" type="button">🖨️ 直接列印計算書</button>
+      <button id="btnReport" class="mode-bar__report" type="button">產生計算書</button>
+      <button id="btnPrintReport" class="mode-bar__report" type="button">列印／另存 PDF</button>
       <span id="projectFileStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
@@ -331,46 +339,54 @@
 
       <!-- 載重 — 細長效應 / 搖擺 -->
       <div class="card" data-shows="loads">
-        <h2>細長效應 / 搖擺</h2>
-        <div class="checkbox-row">
-          <input type="checkbox" id="swayMode">
-          <label for="swayMode">搖擺架構 (Sway frame, 計算 δs)</label>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>M1/M2 比值</label><input type="number" id="m1m2" value="1" step="0.1" min="-1" max="1"></div>
-          <div class="form-group"><label>βdns 持久軸力比</label><input type="number" id="betaDns" value="0.6" step="0.1" min="0" max="1"></div>
-        </div>
-        <div class="form-row" id="swayInputs" style="display:none;">
-          <div class="form-group"><label>樓層 ΣPu (tf, 全樓)</label><input type="number" id="sumPu" value="2000"></div>
-          <div class="form-group"><label>樓層 ΣPc (tf, 全樓臨界)</label><input type="number" id="sumPc" value="6000"></div>
-        </div>
-        <p class="hint">M1/M2: 兩端較小/較大彎矩比，雙曲率為負。βdns: 持久軸力 / 全部因數化軸力。搖擺架構時 δs = 1/(1 − ΣPu/(0.75·ΣPc))。<br>⚠ 簡化處理：本工具未分離 sway / non-sway 彎矩分量，採 Mc = δns·δs·Mu 乘積法保守估算。</p>
+        <details class="collapsible-details" data-rc-details="slenderness">
+          <summary><span class="details-title">細長效應 / 搖擺</span><span class="details-summary-badge" data-details-value="#betaDns" data-details-prefix="βdns = ">βdns = 0.6</span></summary>
+          <div class="details-body">
+            <div class="checkbox-row">
+              <input type="checkbox" id="swayMode">
+              <label for="swayMode">搖擺架構 (Sway frame, 計算 δs)</label>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>M1/M2 比值</label><input type="number" id="m1m2" value="1" step="0.1" min="-1" max="1"></div>
+              <div class="form-group"><label>βdns 持久軸力比</label><input type="number" id="betaDns" value="0.6" step="0.1" min="0" max="1"></div>
+            </div>
+            <div class="form-row" id="swayInputs" style="display:none;">
+              <div class="form-group"><label>樓層 ΣPu (tf, 全樓)</label><input type="number" id="sumPu" value="2000"></div>
+              <div class="form-group"><label>樓層 ΣPc (tf, 全樓臨界)</label><input type="number" id="sumPc" value="6000"></div>
+            </div>
+            <p class="hint">M1/M2: 兩端較小/較大彎矩比，雙曲率為負。βdns: 持久軸力 / 全部因數化軸力。搖擺架構時 δs = 1/(1 − ΣPu/(0.75·ΣPc))。<br>⚠ 簡化處理：本工具未分離 sway / non-sway 彎矩分量，採 Mc = δns·δs·Mu 乘積法保守估算。</p>
+          </div>
+        </details>
       </div>
 
       <!-- 載重 — 耐震 (僅 seismicMode 顯示) -->
       <div class="card" data-shows="loads" id="seismicLoadCard">
-        <h2>耐震 — 強柱弱梁</h2>
-        <div class="form-group"><label>快速梁彎矩強度合 ΣMnb,x (tf·m)</label><input type="number" id="SMnb" value="80"></div>
-        <p class="hint">若下方 X 向梁端彎矩未填，會沿用此快速值；完整檢核建議填入各梁端標稱彎矩。</p>
-        <h3 data-ui="section-heading">X 向接頭 (對應 Mux)</h3>
-        <div class="form-row">
-          <div class="form-group"><label>上柱 Mnc,x (tf·m, 0=自動)</label><input type="number" id="scwbColXTop" value="0" step="any"></div>
-          <div class="form-group"><label>下柱 Mnc,x (tf·m, 0=自動)</label><input type="number" id="scwbColXBot" value="0" step="any"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>左梁 Mnb,x (tf·m)</label><input type="number" id="scwbBeamXLeft" value="0" step="any"></div>
-          <div class="form-group"><label>右梁 Mnb,x (tf·m)</label><input type="number" id="scwbBeamXRight" value="0" step="any"></div>
-        </div>
-        <h3 data-ui="section-heading">Y 向接頭 (對應 Muy)</h3>
-        <div class="form-row">
-          <div class="form-group"><label>上柱 Mnc,y (tf·m, 0=自動)</label><input type="number" id="scwbColYTop" value="0" step="any"></div>
-          <div class="form-group"><label>下柱 Mnc,y (tf·m, 0=自動)</label><input type="number" id="scwbColYBot" value="0" step="any"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>前梁 Mnb,y (tf·m)</label><input type="number" id="scwbBeamYFront" value="0" step="any"></div>
-          <div class="form-group"><label>後梁 Mnb,y (tf·m)</label><input type="number" id="scwbBeamYBack" value="0" step="any"></div>
-        </div>
-        <p class="hint">依規範 18.4.3.2 檢核 ΣMnc ≥ 1.2ΣMnb。柱 Mnc 應取該方向、含地震組合軸力下的最小標稱彎矩；本頁自動值以目前柱斷面 φMn/φ 估算。</p>
+        <details class="collapsible-details" data-rc-details="scwb">
+          <summary><span class="details-title">耐震 — 強柱弱梁</span><span class="details-summary-badge" data-details-value="#SMnb" data-details-prefix="ΣMnb,x = " data-details-suffix=" tf·m">ΣMnb,x = 80 tf·m</span></summary>
+          <div class="details-body">
+            <div class="form-group"><label>快速梁彎矩強度合 ΣMnb,x (tf·m)</label><input type="number" id="SMnb" value="80"></div>
+            <p class="hint">若下方 X 向梁端彎矩未填，會沿用此快速值；完整檢核建議填入各梁端標稱彎矩。</p>
+            <h3 data-ui="section-heading">X 向接頭 (對應 Mux)</h3>
+            <div class="form-row">
+              <div class="form-group"><label>上柱 Mnc,x (tf·m, 0=自動)</label><input type="number" id="scwbColXTop" value="0" step="any"></div>
+              <div class="form-group"><label>下柱 Mnc,x (tf·m, 0=自動)</label><input type="number" id="scwbColXBot" value="0" step="any"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>左梁 Mnb,x (tf·m)</label><input type="number" id="scwbBeamXLeft" value="0" step="any"></div>
+              <div class="form-group"><label>右梁 Mnb,x (tf·m)</label><input type="number" id="scwbBeamXRight" value="0" step="any"></div>
+            </div>
+            <h3 data-ui="section-heading">Y 向接頭 (對應 Muy)</h3>
+            <div class="form-row">
+              <div class="form-group"><label>上柱 Mnc,y (tf·m, 0=自動)</label><input type="number" id="scwbColYTop" value="0" step="any"></div>
+              <div class="form-group"><label>下柱 Mnc,y (tf·m, 0=自動)</label><input type="number" id="scwbColYBot" value="0" step="any"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>前梁 Mnb,y (tf·m)</label><input type="number" id="scwbBeamYFront" value="0" step="any"></div>
+              <div class="form-group"><label>後梁 Mnb,y (tf·m)</label><input type="number" id="scwbBeamYBack" value="0" step="any"></div>
+            </div>
+            <p class="hint">依規範 18.4.3.2 檢核 ΣMnc ≥ 1.2ΣMnb。柱 Mnc 應取該方向、含地震組合軸力下的最小標稱彎矩；本頁自動值以目前柱斷面 φMn/φ 估算。</p>
+          </div>
+        </details>
       </div>
 
       <!-- 載重組合產生器 -->
@@ -382,8 +398,8 @@
       <!-- 綜合結果 — 輸出 -->
       <div class="card" data-shows="summary">
         <h2>輸出</h2>
-        <button id="btnReportSummary" type="button" class="btn-secondary">匯出計算書</button>
-        <button id="btnPrintReportSummary" type="button" class="btn-secondary">🖨️ 直接列印計算書</button>
+        <button id="btnReportSummary" type="button" class="btn-secondary">產生計算書</button>
+        <button id="btnPrintReportSummary" type="button" class="btn-secondary">列印／另存 PDF</button>
         <p class="hint">計算書預覽可下載文字備查版 TXT，或列印／存成 PDF。</p>
       </div>
     </div>
@@ -519,13 +535,17 @@
         <p class="hint" id="inputRiskHint" data-ui-space="field">尚未計算。</p>
       </div>
       <div class="card report-readiness-card" data-shows="summary" id="columnAttachmentReadinessCard">
-        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
-        <div id="columnAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
-        <div id="columnReviewResolutionPanel" class="column-review-resolution" hidden></div>
+        <details class="collapsible-details no-print" data-rc-details="readiness">
+          <summary><span class="details-title">產報前檢查</span><span class="details-summary-badge" data-details-value="#columnAttachmentReadiness .report-readiness-badge">尚未計算</span></summary>
+          <div class="details-body">
+            <div id="columnAttachmentReadiness" data-details-refresh role="status" aria-live="polite">尚未計算。</div>
+            <div id="columnReviewResolutionPanel" class="column-review-resolution" hidden></div>
+          </div>
+        </details>
       </div>
       <div class="card" data-shows="summary" id="columnMethodBoundaryCard">
-        <details>
-          <summary><strong>計算方法與適用邊界</strong> <span class="scope-badge">頁面輔助</span></summary>
+        <details class="collapsible-details no-print">
+          <summary><span class="details-title">計算方法與適用邊界</span><span class="details-summary-badge">頁面輔助</span></summary>
           <ul class="hint" data-ui="review-list">
             <li>P-M 強度採應變相容法與強度折減；雙向彎矩以纖維斷面角度掃描檢核，Bresler 僅作近似對照。</li>
             <li>剪力結果同時檢核 φVn、最小剪力鋼筋量與斷面尺度上限。</li>
@@ -537,15 +557,19 @@
         </details>
       </div>
       <div class="card force-candidate-card" id="columnForceCandidateCard" style="display:none;">
-        <h2>上游內力候選值 <span class="scope-badge">需確認</span></h2>
-        <p class="force-candidate-summary" id="columnForceCandidateSummary"></p>
-        <div class="force-candidate-list" id="columnForceCandidateList"></div>
-        <label class="force-candidate-confirm"><input type="checkbox" id="columnForceCandidateConfirm">我已確認載重組合、軸力與彎矩方向、單位，以及這些資料可作為本柱的係數化設計外力。</label>
-        <div class="force-candidate-actions">
-          <button class="btn-secondary" type="button" id="columnForceCandidateApply" disabled>套用至正式輸入</button>
-          <button class="btn-secondary" type="button" id="columnForceCandidateDiscard">捨棄候選值</button>
-        </div>
-        <p class="hint">候選值只在本頁顯示，不會寫入計算書、列印或 PDF；確認套用後，才會在計算書留下實際採用來源。</p>
+        <details class="collapsible-details no-print" data-rc-details="force-candidate">
+          <summary><span class="details-title">上游內力候選值</span><span class="details-summary-badge" data-details-value="#columnForceCandidateSummary" data-details-filled="需確認">需確認</span></summary>
+          <div class="details-body">
+            <p class="force-candidate-summary" id="columnForceCandidateSummary" data-details-refresh></p>
+            <div class="force-candidate-list" id="columnForceCandidateList"></div>
+            <label class="force-candidate-confirm"><input type="checkbox" id="columnForceCandidateConfirm">我已確認載重組合、軸力與彎矩方向、單位，以及這些資料可作為本柱的係數化設計外力。</label>
+            <div class="force-candidate-actions">
+              <button class="btn-secondary" type="button" id="columnForceCandidateApply" disabled>套用至正式輸入</button>
+              <button class="btn-secondary" type="button" id="columnForceCandidateDiscard">捨棄候選值</button>
+            </div>
+            <p class="hint">候選值只在本頁顯示，不會寫入計算書、列印或 PDF；確認套用後，才會在計算書留下實際採用來源。</p>
+          </div>
+        </details>
       </div>
       <!-- 載重摘要 (loads + summary) -->
       <div class="card" data-shows="loads summary">
@@ -673,6 +697,9 @@
 <script src="../../tool-nav.manifest.js" defer></script>
 <script src="../../tool-chrome.js" defer></script>
 <script src="../../tool-page-a11y.js" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-choices=".mode-btn[data-mode]" defer></script>
+<script src="../../結構工具箱/assets/hy/tool-sticky-summary.js" data-sticky-summary="rc-column" defer></script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

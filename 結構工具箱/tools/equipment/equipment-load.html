@@ -12,13 +12,15 @@
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <link rel="stylesheet" href="../../core/report-readiness.css">
+<link rel="stylesheet" href="../../assets/hy/tool-ui-collapsible.css">
+<link rel="stylesheet" href="../../core/tool-shell.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
-             font-size:0.6em; font-weight:700; vertical-align:middle; background:#0b7285; color:#fff; }
+             font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--hy-navy-500); color:var(--fg-on-navy); }
   .header-links { margin-top:4px; font-size:0.88em; line-height:1.7; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
   .header-links .sep { opacity:0.55; }
   .hero-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:#fff; }
+  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:var(--fg-on-navy); }
   .equipment-shell { display:grid; grid-template-columns:minmax(320px, 430px) minmax(0, 1fr); gap:18px; align-items:start; }
   .equipment-form-stack { display:grid; gap:18px; }
   .equipment-result-stack { display:grid; gap:18px; position:sticky; top:18px; }
@@ -48,32 +50,32 @@
   .output-actions .btn-secondary { flex:1 1 150px; }
   .json-file-input { display:none; }
   .json-status { flex:1 1 100%; margin-top:0; }
-  .form-group select { width:100%; min-height:42px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-size:0.95rem; }
-  .scope-box { padding:12px 14px; border-radius:10px; background:#ecfeff; border:1px solid #67e8f9; color:#155e75; font-size:0.84em; line-height:1.75; }
-  .scope-box strong { color:#0e7490; }
+  .form-group select { width:100%; min-height:42px; padding:8px 10px; border:1px solid var(--border-strong); border-radius:8px; background:var(--bg-surface); font-size:0.95rem; }
+  .scope-box { padding:12px 14px; border-radius:10px; background:var(--hy-navy-50); border:1px solid var(--hy-navy-300); color:var(--hy-navy-500); font-size:0.84em; line-height:1.75; }
+  .scope-box strong { color:var(--hy-navy-500); }
   .tool-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-  .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:#cffafe; color:#155e75; font-size:0.78em; font-weight:800; }
+  .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:var(--hy-navy-100); color:var(--hy-navy-500); font-size:0.78em; font-weight:800; }
   .metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
-  .metric { border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; padding:10px 12px; min-height:72px; }
+  .metric { border:1px solid var(--border-default); border-radius:10px; background:var(--bg-page); padding:10px 12px; min-height:72px; }
   .metric .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; line-height:1.45; }
-  .metric .value { font-weight:800; color:#0f172a; font-family:'Consolas',monospace; overflow-wrap:anywhere; }
+  .metric .value { font-weight:800; color:var(--fg-1); font-family:'Consolas',monospace; overflow-wrap:anywhere; }
   .metric.ok { border-left:4px solid var(--accent); }
   .metric.warn { border-left:4px solid var(--warn); }
   .metric.fail { border-left:4px solid var(--danger); }
   .check-list { display:grid; gap:9px; }
-  .check-item { padding:10px 12px; border-radius:8px; background:#f8fafc; border-left:4px solid #cbd5e1; }
+  .check-item { padding:10px 12px; border-radius:8px; background:var(--bg-page); border-left:4px solid var(--border-strong); }
   .check-item.ok { border-left-color:var(--accent); }
   .check-item.warn { border-left-color:var(--warn); }
   .check-item.fail { border-left-color:var(--danger); }
   .check-item .k { display:block; color:var(--text-light); font-size:0.8em; font-weight:700; margin-bottom:2px; }
   .check-item .v { display:block; color:var(--text); font-size:0.88em; line-height:1.6; }
-  .step-card { font-size:0.84em; line-height:1.8; color:#334155; }
-  .step-card .step-title { margin:10px 0 4px; font-weight:800; color:#0b7285; }
-  .step-card code { font-family:'Consolas',monospace; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:1px 5px; }
+  .step-card { font-size:0.84em; line-height:1.8; color:var(--fg-2); }
+  .step-card .step-title { margin:10px 0 4px; font-weight:800; color:var(--hy-navy-500); }
+  .step-card code { font-family:'Consolas',monospace; background:var(--bg-page); border:1px solid var(--border-default); border-radius:4px; padding:1px 5px; }
   .muted { color:var(--text-light); font-size:0.82em; line-height:1.65; }
-  .diagram-wrap { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px; }
+  .diagram-wrap { background:var(--bg-page); border:1px solid var(--border-default); border-radius:10px; padding:8px; }
   .diagram-wrap svg { width:100%; height:auto; display:block; max-width:520px; margin:0 auto; }
-  .basis-note { margin-top:8px; padding:10px 12px; border-radius:8px; background:#f8fafc; border:1px dashed #cbd5e1; color:#475569; font-size:0.8em; line-height:1.7; }
+  .basis-note { margin-top:8px; padding:10px 12px; border-radius:8px; background:var(--bg-page); border:1px dashed var(--border-strong); color:var(--fg-2); font-size:0.8em; line-height:1.7; }
   @media (max-width:1080px) {
     .equipment-shell { grid-template-columns:1fr; }
     .equipment-result-stack { position:static; }
@@ -94,14 +96,15 @@
   }
   @media print {
     .page-only-report-status,
+    .page-only-tool-actions,
     .case-actions { display:none !important; }
   }
 </style>
 </head>
 <body class="local-quick-output-page" data-family="local-quick">
 <div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>
-<div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
-<header>
+<div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
+<header class="tool-shell-header">
   <h1>設備局部荷重 <span class="badge-v">V0.4 局部正式檢核</span></h1>
   <p>設備重量、平均或矩形四支點偏心反力、接觸壓、混凝土承壓、RC 穿孔剪力與鋼板分散厚度 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
@@ -122,19 +125,24 @@
 
 <div class="container" role="main">
   <div class="card mode-bar print-meta">
-    <strong class="mode-bar__label">計畫資訊：</strong>
     <div class="mode-bar__proj">
-      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-      <input type="text" id="projNo" class="w-no" placeholder="編號">
-      <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
+      <details class="collapsible-details project-details page-only-tool-actions" id="quickProjectDetails">
+        <summary><span class="details-title">計算書頁首資料</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">選填</span></summary>
+        <div class="details-body details-project-fields">
+          <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+          <input type="text" id="projNo" class="w-no" placeholder="編號">
+          <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
+        </div>
+        <div data-details-project-profile></div>
+      </details>
     </div>
     <div class="case-actions" aria-label="案例管理">
-      <button class="btn-secondary" id="btnSaveProject" type="button">存檔 JSON</button>
-      <button class="btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
+      <button class="btn-secondary" id="btnSaveProject" type="button">匯出案件 JSON</button>
+      <button class="btn-secondary" id="btnImportJson" type="button">匯入案件 JSON</button>
       <input class="json-file-input" id="jsonFile" type="file" accept="application/json,.json">
       <button class="btn-secondary" id="btnSaveDraft" type="button">暫存</button>
       <button class="btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
-      <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
+      <button class="btn-secondary" id="btnReset" type="button">重設預設值</button>
       <div class="muted json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</div>
     </div>
   </div>
@@ -255,9 +263,14 @@
 
       <div class="card">
         <h2>③ 材料與厚度檢核</h2>
-        <div class="basis-note">
-          混凝土承壓與穿孔剪力為初判基準；若新欄位填 0，該項視為未啟用。靠邊、開孔、配筋與動力設備仍需正式構件檢核。
-        </div>
+        <details class="collapsible-details page-only-tool-actions" id="equipmentMaterialNotes">
+          <summary><span class="details-title">材料檢核適用說明</span><span class="details-summary-badge">局部初判</span></summary>
+          <div class="details-body">
+            <div class="basis-note">
+              混凝土承壓與穿孔剪力為初判基準；若新欄位填 0，該項視為未啟用。靠邊、開孔、配筋與動力設備仍需正式構件檢核。
+            </div>
+          </div>
+        </details>
         <div class="form-row">
           <div class="form-group">
             <label>混凝土 f'c (kgf/cm²)</label>
@@ -312,41 +325,54 @@
             <input type="number" id="steelFy" value="2450" step="50" min="0">
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>混凝土承壓 phi</label>
-            <input type="number" id="concretePhiBearing" value="0.65" step="0.05" min="0">
+        <details class="collapsible-details" id="equipmentFactorsDetails">
+          <summary><span class="details-title">強度折減係數</span><span class="details-summary-badge" data-details-value="#concretePhiBearing" data-details-prefix="φc = ">φc = 0.65</span></summary>
+          <div class="details-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>混凝土承壓 phi</label>
+                <input type="number" id="concretePhiBearing" value="0.65" step="0.05" min="0">
+              </div>
+              <div class="form-group">
+                <label>穿孔剪力 phi</label>
+                <input type="number" id="concretePhiShear" value="0.75" step="0.05" min="0">
+                <label style="margin-top:8px;">鋼板彎曲 phi</label>
+                <input type="number" id="steelPhiFlexure" value="0.90" step="0.05" min="0">
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>穿孔剪力 phi</label>
-            <input type="number" id="concretePhiShear" value="0.75" step="0.05" min="0">
-            <label style="margin-top:8px;">鋼板彎曲 phi</label>
-            <input type="number" id="steelPhiFlexure" value="0.90" step="0.05" min="0">
-          </div>
-        </div>
+        </details>
       </div>
 
       <div class="card action-card">
         <h2>④ 計算與輸出</h2>
-        <div class="basis-note">所有輸入與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>計算書模式</label>
-            <select id="reportMode">
-              <option value="detailed">詳算式（公式逐步）</option>
-              <option value="summary">簡易結果（摘要）</option>
-            </select>
+        <details class="collapsible-details page-only-tool-actions" id="quickReportModeDetails">
+          <summary><span class="details-title">計算書模式</span><span class="details-summary-badge" data-details-value="#reportMode">詳算式</span></summary>
+          <div class="details-body">
+            <div class="basis-note">所有輸入與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>計算書模式</label>
+                <select id="reportMode">
+                  <option value="detailed">詳算式（公式逐步）</option>
+                  <option value="summary">簡易結果（摘要）</option>
+                </select>
+              </div>
+            </div>
           </div>
-        </div>
+        </details>
         <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算設備局部荷重</button>
-          <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
-          <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
+          <button class="btn-print" id="btnPrint" type="button">產生計算書</button>
+          <button class="btn-secondary" id="btnJson" type="button">匯出計算來源 JSON</button>
         </div>
       </div>
-      <div class="card page-only-report-status">
-        <div class="report-readiness blocked" id="equipmentReportReadiness" role="status" aria-live="polite"></div>
-      </div>
+      <details class="card collapsible-details page-only-report-status" id="quickReadinessDetails">
+        <summary><span class="details-title">產報前閱讀狀態</span><span class="details-summary-badge" data-details-value=".report-readiness-badge">尚未計算</span></summary>
+        <div class="details-body">
+          <div class="report-readiness blocked" id="equipmentReportReadiness" role="status" aria-live="polite" data-details-refresh></div>
+        </div>
+      </details>
     </div>
 
     <div class="equipment-result-stack">
@@ -1136,6 +1162,8 @@ ${body}
 <script src="../../../tool-nav.manifest.js" defer></script>
 <script src="../../../tool-chrome.js" defer></script>
 <script src="../../../tool-page-a11y.js" defer></script>
+<script src="../../assets/hy/tool-ui-collapsible-summary.js" defer></script>
+<script src="../../../結構工具箱/assets/hy/tool-draft-guard.js" data-draft-actions="#btnReset, #btnLoadDraft" defer></script>
 <script src="../project-meta-profile.js"></script>
 </body>
 </html>

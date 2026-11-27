@@ -403,6 +403,7 @@ async function exerciseBeamAttachmentBoundary(page, pack) {
     assert(!!tc, `beam attachment case ${key}`, 'case exists');
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
     await applyCase(page, tc);
+    await page.click('[data-rc-details="readiness"] > summary');
     const state = await page.evaluate(({ projectName, projectNo, designer }) => {
       const setValue = (id, value) => {
         const el = document.getElementById(id);
@@ -890,6 +891,7 @@ async function runBeamForceCandidateReviewCase(page) {
     assert(!reportBefore.includes(fragment), 'beam report excludes candidate reading state', fragment);
   });
 
+  await page.click('[data-rc-details="force-candidate"] > summary');
   await page.check('#beamForceCandidateConfirm');
   await page.click('#beamForceCandidateApply');
   await wait(250);

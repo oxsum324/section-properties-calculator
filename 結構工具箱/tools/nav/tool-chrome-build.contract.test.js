@@ -24,9 +24,8 @@ const OUTPUT = chromeBuilder.OUTPUT;
 const RUNTIME_BYTE_LIMIT = 8192;
 const RUNTIME_MANIFEST_BYTE_LIMIT = 12288;
 const SLOT_MARKUP = '<div class="tool-chrome-slot page-only-tool-chrome" data-tool-chrome-slot></div>';
-// 本輪不注入：PWA、SPA、石材自有列印管線；外部套件依 state 排除。
-const EXCLUDED_ROUTES = ['/condition-survey', '/anchor', '/stone-fixing'];
-const EXPECTED_TARGET_COUNT = 49;
+// 外部套件沿用其原有導覽。
+const EXPECTED_TARGET_COUNT = 52;
 // 首頁更新日依賴只登錄程式碼兩檔；清冊（json／js）變動不改路由更新日。
 const DEPENDENCIES = [OUTPUT, SOURCE];
 const FORBIDDEN_DEPENDENCIES = [MANIFEST, RUNTIME_MANIFEST];
@@ -111,9 +110,14 @@ for (const [route, files] of Object.entries(dependencies)) {
 }
 
 // --- 注入對象 ---
-const targets = manifest.tools.filter(tool => tool.state !== 'external' && !EXCLUDED_ROUTES.includes(tool.route));
+const targets = manifest.tools.filter(tool => tool.state !== 'external');
 assert.equal(targets.length, EXPECTED_TARGET_COUNT, `injection targets derived from the manifest: ${targets.length}`);
 const publicRuntime = path.join(root, OUTPUT);
+const tokenStyles = path.join(root, '結構工具箱/assets/hy/colors_and_type.css');
+const rcStyles = path.join(root, '鋼筋混凝土/shared/style.css');
+const rcTokenImport = fs.readFileSync(rcStyles, 'utf8').match(/@import url\("([^"]*colors_and_type\.css)"\)/);
+assert.ok(rcTokenImport && path.resolve(path.dirname(rcStyles), rcTokenImport[1]) === tokenStyles,
+  'RC shared stylesheet includes the canonical design tokens');
 const publicManifest = path.join(root, RUNTIME_MANIFEST);
 const slotStylesheet = fs.readFileSync(path.join(root, 'tool-chrome.css'), 'utf8');
 assert.match(slotStylesheet, /\.tool-chrome-slot\s*\{[^}]*min-height:\s*44px/, 'tool-chrome.css reserves the 44px slot height');
@@ -123,12 +127,16 @@ assert.equal(/style=\"/.test(SLOT_MARKUP), false, 'slot markup carries no inline
 for (const tool of targets) {
   const htmlPath = path.join(root, tool.file);
   const html = fs.readFileSync(htmlPath, 'utf8');
+  const head = html.slice(0, html.search(/<\/head>/i));
+  const sheets = [...head.matchAll(/<link\b[^>]*\brel="stylesheet"[^>]*\bhref="([^"]+)"/gi)]
+    .map(([, href]) => path.resolve(path.dirname(htmlPath), href.split('?')[0]));
+  assert.ok(sheets.includes(tokenStyles) || sheets.includes(rcStyles), tool.route + ' loads the design tokens');
   const body = html.match(/<body\b[^>]*>/i);
   assert.ok(body, `${tool.route} has a <body> tag`);
   assert.ok(body[0].includes(`data-family="${tool.family}"`), `${tool.route} body carries data-family="${tool.family}": ${body[0]}`);
-  // 靜態占位：緊接 <body> 之後（只允許空白），恰一次，固定 44px 最小高度。
+  // 靜態占位：緊接 <body>（或主頁列印封鎖 aside）之後（只允許空白），恰一次，固定 44px 最小高度。
   assert.equal(html.split(SLOT_MARKUP).length - 1, 1, `${tool.route} has exactly one tool-chrome slot`);
-  assert.match(html.slice(body.index + body[0].length, body.index + body[0].length + SLOT_MARKUP.length + 8), new RegExp(`^\\s*${SLOT_MARKUP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), `${tool.route} slot is the first body child`);
+  assert.match(html.slice(body.index + body[0].length, body.index + body[0].length + SLOT_MARKUP.length + 320), new RegExp(`^\\s*(?:<aside class="formal-direct-print-boundary"[^>]*>[\\s\\S]*?<\\/aside>\\s*)?${SLOT_MARKUP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), `${tool.route} slot is the first body child`);
   assert.equal(html.split('data-tool-chrome-slot').length - 1, 1, `${tool.route} declares the slot attribute once`);
   const scripts = [...html.matchAll(/<script\b([^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*)>/gi)];
   const chromeReferences = scripts.filter(match => /(?:^|\/)tool-chrome\.js(?:\?|$)/.test(match[2]));

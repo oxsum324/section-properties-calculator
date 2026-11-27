@@ -51,6 +51,14 @@
   --hy-info:            var(--hy-navy-500);
   --hy-info-100:        var(--hy-navy-100);
 
+  /* Continuous beam diagrams and moving-load readouts */
+  --hy-beam-shear: #2563eb;
+  --hy-beam-moment: #dc2626;
+  --hy-beam-deflection: #059669;
+  --hy-beam-moving-load: #7c3aed;
+  --hy-beam-positive: #b91c1c;
+  --hy-beam-negative: #1d4ed8;
+
   /* Foreground / background semantic tokens */
   --fg-1:               var(--hy-ink);
   --fg-2:               var(--hy-slate-700);

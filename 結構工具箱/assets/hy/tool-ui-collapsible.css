@@ -1,0 +1,84 @@
+.collapsible-details { margin-top: 6px; }
+
+.collapsible-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--hy-navy);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  list-style: none;
+}
+.collapsible-details > summary:focus-visible {
+  outline: 2px solid var(--hy-navy);
+  outline-offset: 2px;
+}
+.collapsible-details > summary::-webkit-details-marker { display: none; }
+.collapsible-details > summary::before { content: "▸"; }
+.collapsible-details[open] > summary::before { transform: rotate(90deg); }
+
+.collapsible-details .details-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.collapsible-details .details-summary-badge {
+  padding: 2px 8px;
+  color: var(--fg-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collapsible-details > .details-body { padding-top: 10px; }
+
+@media (max-width: 640px) {
+  .collapsible-details .details-summary-badge { max-width: min(140px, 45%); }
+}
+
+.form-row > .collapsible-details {
+  margin-top: 0;
+  min-width: 0;
+}
+
+.mode-bar__proj > .project-details {
+  flex: 1 1 100%;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.project-details > .details-project-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 8px;
+}
+
+.mode-bar__proj .details-project-fields input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+@media screen and (min-width: 360px) and (max-width: 640px) {
+  .mode-bar__proj:has(> #steelProjectDetails),
+  #inputColumn [data-plate-mode="geometry"] > .form-row,
+  #inputColumn [data-connection="plate_check"] .form-row.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mode-bar__proj:has(> #steelProjectDetails) > :is(#examplePresetSelect, #exportReportBtn, #exportReportStatus) {
+    grid-column: 1 / -1;
+  }
+}

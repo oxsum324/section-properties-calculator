@@ -84,6 +84,24 @@ def validate_payload_for_formal_output(payload: dict) -> dict:
     return {'is_formal': is_formal, 'missing': missing, 'reason': reason}
 
 
+def load_render_payload(page, payload: dict, tool_url: str = TOOL_URL) -> None:
+    """讓獨立產檔瀏覽器明確套用呼叫者提供的案件。"""
+    page.goto(tool_url, wait_until='load', timeout=60000)
+    page.evaluate(
+        """async (args) => {
+            await calcSourceHashReady;
+            localStorage.setItem(args.key, JSON.stringify(args.data));
+            if (!load()) throw new Error('產檔案件載入失敗');
+            render();
+        }""",
+        {'key': STORAGE_KEY, 'data': payload},
+    )
+    page.wait_for_function(
+        """() => document.querySelectorAll('#preview-sheets .a4').length > 0""",
+        timeout=30000,
+    )
+
+
 def render_payload_to_pdf(payload: dict, out_pdf: Path, tool_url: str = TOOL_URL,
                           enforce_fingerprint: bool = True):
     """用 headless Chromium 載入工具 → 用 Paged.js 分頁 → 存 PDF。
@@ -106,18 +124,7 @@ def render_payload_to_pdf(payload: dict, out_pdf: Path, tool_url: str = TOOL_URL
         ctx = browser.new_context(viewport={'width': 1280, 'height': 1800})
         page = ctx.new_page()
 
-        # 第一次載入（只為了寫 localStorage）
-        page.goto(tool_url, wait_until='domcontentloaded', timeout=60000)
-        page.evaluate(
-            """(args) => { localStorage.setItem(args.key, JSON.stringify(args.data)); }""",
-            {'key': STORAGE_KEY, 'data': payload},
-        )
-        # 重新載入以讓 load() 讀 localStorage 並呼叫 render()
-        page.goto(tool_url, wait_until='networkidle', timeout=60000)
-        page.wait_for_function(
-            """() => document.querySelectorAll('#preview-sheets .a4').length > 0""",
-            timeout=30000,
-        )
+        load_render_payload(page, payload, tool_url)
         page.wait_for_load_state('networkidle')
         time.sleep(0.5)
 

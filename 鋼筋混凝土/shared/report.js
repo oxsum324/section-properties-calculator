@@ -938,20 +938,20 @@ body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-
        color:#111; margin:0; padding:24px; background:#f4f4f4; }
 .rep-paper { max-width: 800px; margin:0 auto; background:#fff; padding:32px 36px;
              box-shadow:0 2px 12px rgba(0,0,0,.08); }
-.rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
-.rep-header h1 { margin:0 0 4px; font-size:22px; }
+.rep-header { border-bottom:2px solid #173955; padding-bottom:10px; margin-bottom:16px; }
+.rep-header h1 { margin:0 0 4px; color:#173955; font-size:22px; line-height:1.3; }
 .rep-header .sub { color:#555; font-size:13px; }
 ${RC_ATTACHMENT_APPROVAL_REPORT_CSS}
 ${mathJaxFallbackCss}
-.rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px;
-            font-size:12px; margin:14px 0 18px; }
-.rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
-.rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
+.rep-meta { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px 24px;
+            font-size:12px; line-height:1.5; font-variant-numeric:tabular-nums; margin:14px 0 18px; }
+.rep-meta--traceable { grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px 14px; }
+.rep-meta div { border-bottom:1px solid #c5ced6; padding:4px 0; overflow-wrap:anywhere; }
 .rep-meta b { display:inline-block; min-width:64px; color:#444; }
 .rep-block { margin:14px 0 18px; }
-.rep-block h3 { font-size:14px; margin:0 0 6px; padding:4px 8px;
-                background:#1a3d5c; color:#fff; border-radius:3px 3px 0 0; }
-table { width:100%; border-collapse:collapse; font-size:12px; }
+.rep-paper .rep-block > h3 { font-size:14px; line-height:1.35; margin:0 0 7px; padding:4px 8px;
+  background:#edf2f6; color:#173955; border-left:3px solid #1a3d5c; border-radius:0; }
+table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
 .rep-input th, .rep-input td { border:1px solid #888; padding:5px 8px; }
 .rep-input th { background:#eef2f6; text-align:left; width:38%; font-weight:600; }
 .rep-input .val { font-weight:600; }
@@ -967,13 +967,13 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-check tr.ng td.judge { color:#c0392b; }
 .rep-check tr.ng td.lbl { color:#c0392b; }
 .rep-check .note { font-weight:400; font-size:10px; color:#666; margin-top:2px; }
-.rep-step { margin:10px 0 14px; page-break-inside: avoid; }
+.rep-step { margin:10px 0 14px; break-inside:avoid-page; page-break-inside:avoid; }
 .rep-step h4 { margin:0 0 4px; padding:3px 8px; font-size:12px;
-               background:#ede9fe; color:#5b21b6; border-left:3px solid #7c3aed; }
+               background:#edf2f6; color:#173955; border-left:3px solid #476883; }
 .rep-step-body { white-space:pre-wrap; word-break:break-word;
                  font-family:"Consolas","Cascadia Code",monospace; font-size:11px;
-                 line-height:1.55; background:#faf5ff; border:1px solid #e9d5ff;
-                 border-radius:4px; padding:8px 10px; margin:0; color:#3b0764; }
+                 line-height:1.55; background:#f6f8fa; border:1px solid #c5ced6;
+                 border-radius:3px; padding:8px 10px; margin:0; color:#263747; }
 .rep-summary { margin:12px 0 20px; padding:14px 18px; border-radius:5px;
                font-size:18px; font-weight:700; text-align:center; }
 .rep-summary.ok { background:#e8f5ec; color:#1b8a3a; border:2px solid #1b8a3a; }
@@ -981,7 +981,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-summary.na { background:#f0f0f0; color:#555; border:2px solid #888; }
 .rep-diagrams-grid { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; }
 .rep-diagram { margin:0; padding:8px 10px; border:1px solid #cbd5e1; border-radius:4px;
-               background:#fafbfc; text-align:center; page-break-inside: avoid; flex:0 0 auto; }
+               background:#fafbfc; text-align:center; break-inside:avoid-page; page-break-inside:avoid; flex:0 0 auto; }
 .rep-diagram-title { font-size:12px; font-weight:600; color:#1a3d5c; margin-bottom:4px; }
 .rep-diagram img { max-width:100%; height:auto; display:block; margin:0 auto; }
 .rep-diagram-caption { font-size:10px; color:#666; margin-top:4px; font-style:italic; }
@@ -998,13 +998,14 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; }
   .rep-block--last-check { margin-bottom:0; }
   .rep-block--short-tail { break-inside:avoid-page; page-break-inside:avoid; }
-  .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
+  .rep-paper h2, .rep-paper h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
   .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
   .rep-steps-wrap > .rep-step:last-of-type { break-after:avoid-page; page-break-after:avoid; }
   .rep-summary { break-before:avoid-page; page-break-before:avoid; break-after:avoid-page; page-break-after:avoid; break-inside:avoid; page-break-inside:avoid; }
   thead { display:table-header-group; }
   table { break-inside:auto; page-break-inside:auto; }
-  tr { break-inside:avoid-page; page-break-inside:avoid; }
+  tr, .rep-step, .rep-diagram, .rep-paper figure { break-inside:avoid-page; page-break-inside:avoid; }
+  .rep-check tr.ok td.judge, .rep-check tr.ng td.judge, .rep-summary { color:#111; font-weight:800; }
   p, li, .rep-step-body { orphans:3; widows:3; }
   .rep-footer { position:static; width:auto; clear:both; padding:1mm 0 0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }

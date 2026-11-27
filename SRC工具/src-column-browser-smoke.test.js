@@ -111,6 +111,8 @@ async function main() {
     assert.equal(initial.confinementOk, true);
     assert.match(initial.fingerprint, /^CF-[A-F0-9]{16}$/);
     const responsibilityMatrix = page.locator('#attachmentResponsibility');
+    assert.equal(await responsibilityMatrix.isHidden(), true, '適用範圍預設摺疊');
+    await page.locator('#srcColumnScopeDetails > summary').click();
     await responsibilityMatrix.waitFor({ state: 'visible' });
     assert.equal(await responsibilityMatrix.getAttribute('data-contract-id'), 'src-column-member-calculation-attachment.v1');
     const responsibilityText = await responsibilityMatrix.innerText();
@@ -118,6 +120,7 @@ async function main() {
       assert.ok(responsibilityText.includes(needle), `HTML responsibility matrix includes ${needle}`);
     }
     assert.equal(await responsibilityMatrix.locator('[data-responsibility]').count(), 3);
+    await page.locator('#srcColumnScopeDetails > summary').click();
     const provenancePolicy = page.locator('#materialProvenancePolicy');
     await provenancePolicy.waitFor({ state: 'visible' });
     assert.equal(await provenancePolicy.getAttribute('data-contract-id'), 'src-column-material-provenance.v1');
@@ -167,7 +170,9 @@ async function main() {
     assert.equal(await page.locator('[data-y-project-steel]').first().isVisible(), true);
     assert.equal(await page.locator('[data-y-aisc-steel]').first().isHidden(), true);
     assert.equal(await page.locator('[data-x-shear]').first().isHidden(), true);
+    await page.locator('#confinementSubcheckDetails > summary').click();
     assert.equal(await page.locator('#highlyConfinedAreaCm2').isEditable(), false, 'weak-axis Ahcc is visibly locked at zero');
+    await page.locator('#srcColumnShearDetails > summary').click();
     const weakAxisReference = page.locator('#weakAxisSteelReference');
     await weakAxisReference.waitFor({ state: 'visible' });
     const weakAxisReferenceText = await weakAxisReference.innerText();
@@ -227,6 +232,7 @@ async function main() {
     assert.equal(await page.locator('[data-x-shear]').first().isVisible(), true);
     assert.equal(await weakAxisReference.isHidden(), true, 'external comparison is direction-scoped to the weak axis');
 
+    await page.locator('#jointRatioSubcheckDetails > summary').click();
     await page.selectOption('#jointConnectionType', 'steel-beam-src-column');
     await page.waitForFunction(() => window.lastSrcColumnResult?.jointFlexuralStrengthRatio?.connectionType === 'steel-beam-src-column');
     assert.equal(await page.locator('[data-joint-rc]').first().isHidden(), true, 'steel-beam mode hides inapplicable RC-beam component inputs');

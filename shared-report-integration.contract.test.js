@@ -1,8 +1,10 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const { JSDOM, VirtualConsole } = require('./螺栓檢討/bolt-review-tool/node_modules/jsdom');
+const { checkPackage } = require('./結構工具箱/tools/attachment-package-check.js');
 const root = process.env.REPORT_TEST_ROOT || __dirname;
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const cfg = {
@@ -17,7 +19,19 @@ const cfg = {
 
 function render(relative) {
   let html = '';
-  const context = { window: { open() { return { document: { open() {}, write(value) { html = value; }, close() {} } }; } }, console };
+  let blob;
+  const reportUrl = 'blob:http://localhost/report-integration';
+  const window = {
+    Blob: class { constructor(parts) { this.html = parts.join(''); } },
+    URL: {
+      createObjectURL(value) { blob = value; return reportUrl; },
+      revokeObjectURL(url) { assert.equal(url, reportUrl); },
+    },
+    open() {
+      return { location: { replace(url) { assert.equal(url, reportUrl); html = blob.html; } } };
+    },
+  };
+  const context = { window, console };
   vm.createContext(context);
   for (const file of ['結構工具箱/core/ui/report-utils.js', '鋼筋混凝土/shared/report-utils.js', relative]) vm.runInContext(read(file), context, { filename: file });
   context.openReport(cfg);
@@ -63,6 +77,19 @@ async function main() {
         assert.equal(reopened.window.document.querySelector('[data-calculation-fingerprint]').dataset.calculationFingerprint, fingerprint);
         assert.equal(await reopened.window.buildReportText(), text, '離線重新開啟後文字、指紋與內容 SHA 一致');
       } finally { reopened.window.close(); }
+      const approval = dom.window.document.querySelector('.rep-approval-control input[type="checkbox"]');
+      assert.ok(approval && !approval.disabled, 'fixture allows formal approval');
+      approval.click();
+      const approvedText = await dom.window.buildReportText();
+      assert.match(approvedText, /來源文件狀態：正式附件/);
+      assert.match(approvedText, /正式附件資格：否/);
+      const packageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'reference-text-package-'));
+      try {
+        fs.writeFileSync(path.join(packageDir, `契約測試_文字備查_${fingerprint}.txt`), '\ufeff' + approvedText);
+        const result = checkPackage(packageDir);
+        assert.equal(result.status, 'blocked');
+        assert.ok(result.issues.some(issue => issue.code === 'non-formal-reference-text'));
+      } finally { fs.rmSync(packageDir, { recursive: true, force: true }); }
     } finally { dom.window.close(); }
   }
   assert.equal(read('結構工具箱/core/ui/report.js'), read('鋼構工具/core/ui/report.js'));
@@ -90,7 +117,7 @@ async function main() {
     }
     if (usesReport) count++;
   }
-  assert.equal(count, 45, '依實際 report.js 引用全集接線，含輔助頁與雙 renderer 頁');
-  console.log('shared-report-integration.contract.test.js passed (45 consumers/offline portable HTML/fingerprints/print and steel mirrors)');
+  assert.equal(count, 46, '依實際 report.js 引用全集接線，含混凝土非破壞試驗及雙 renderer 頁');
+  console.log(`shared-report-integration.contract.test.js passed (${count} consumers / offline HTML / TXT boundary / fingerprints / mirrors)`);
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

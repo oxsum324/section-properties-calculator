@@ -444,6 +444,13 @@
   flex: 1 1 180px;
 }
 
+.member-section-image {
+  display: block;
+  width: 100%;
+  max-width: 650px;
+  height: auto;
+}
+
 .member-layout .report-block,
 .member-layout .report-paper,
 .member-layout .input-column .card,

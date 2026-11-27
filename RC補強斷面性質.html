@@ -6,6 +6,9 @@
 <title>RC 補強斷面性質計算 V1.9</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="tool-chrome.css">
+<link rel="stylesheet" href="結構工具箱/assets/hy/colors_and_type.css">
+<link rel="stylesheet" href="結構工具箱/assets/hy/tool-ui-collapsible.css">
+<script src="結構工具箱/assets/hy/tool-ui-collapsible-summary.js" defer></script>
 <link rel="stylesheet" href="鋼筋混凝土/shared/direct-print-boundary.css">
 <link rel="stylesheet" href="結構工具箱/core/report-readiness.css">
 <style>
@@ -106,18 +109,22 @@
 
   <!-- 計畫資訊 -->
   <div class="card" style="padding:12px 20px;">
-    <div style="font-size:0.88em; font-weight:700; color:var(--primary); margin-bottom:8px;">附件識別資料（選填，可由主文承接）</div>
-    <div class="form-row4">
-      <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 廠房梁柱補強"></div>
-      <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
-      <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
-      <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—"></div>
-    </div>
+    <details class="collapsible-details" id="retrofitProjectDetails" data-details-project-profile>
+      <summary><span class="details-title">附件識別資料（選填，可由主文承接）</span><span class="details-summary-badge" data-details-value="#projName, #projNo, #projDesigner">選填</span></summary>
+      <div class="details-body">
+        <div class="form-row4">
+          <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 廠房梁柱補強"></div>
+          <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
+          <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
+          <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—"></div>
+        </div>
+      </div>
+    </details>
     <div class="case-actions page-only-tool-actions" aria-label="案例存取">
-      <button type="button" class="btn-case" onclick="exportRetrofitJSON()">本地存檔 JSON</button>
-      <button type="button" class="btn-case" onclick="document.getElementById('retrofitJsonFile').click()">讀取 JSON</button>
+      <button type="button" class="btn-case" onclick="exportRetrofitJSON()">匯出案件 JSON</button>
+      <button type="button" class="btn-case" onclick="document.getElementById('retrofitJsonFile').click()">匯入案件 JSON</button>
       <input id="retrofitJsonFile" type="file" accept="application/json,.json" hidden onchange="importRetrofitJSONFile(this)">
-      <span id="caseStatus" class="case-status" role="status" aria-live="polite"></span>
+      <span id="caseStatus" class="case-status" data-details-refresh role="status" aria-live="polite"></span>
     </div>
   </div>
 
@@ -150,7 +157,12 @@
             <div class="form-group"><label>As 受拉鋼筋 (cm²)</label><input type="number" id="b-As" value="25.3" step="any"><div class="hint">例：5-#8 = 25.3 cm²</div></div>
             <div class="form-group"><label>As' 受壓鋼筋 (cm²)</label><input type="number" id="b-Asp" value="0" step="any"></div>
           </div>
-          <div class="form-group"><label>εbi 既有應變（FRP 施作前底部應變，保守取 0）</label><input type="number" id="b-ebi" value="0" step="any"></div>
+          <details class="collapsible-details" id="retrofitBeamStrainDetails">
+            <summary><span class="details-title">既有應變</span><span class="details-summary-badge" data-details-value="#b-ebi" data-details-prefix="εbi = ">εbi = 0</span></summary>
+            <div class="details-body">
+              <div class="form-group"><label>εbi 既有應變（FRP 施作前底部應變，保守取 0）</label><input type="number" id="b-ebi" value="0" step="any"></div>
+            </div>
+          </details>
         </div>
 
         <div class="card">
@@ -216,32 +228,42 @@
             </div>
             <div class="form-row">
               <div class="form-group"><label>n 層數</label><input type="number" id="b-nf" value="1" step="1"></div>
-              <div class="form-group">
-                <label>CE 環境係數</label>
-                <select id="b-CE">
-                  <option value="0.95">室內 0.95</option>
-                  <option value="0.85" selected>室外 0.85</option>
-                  <option value="0.85s">侵蝕環境 0.85</option>
-                </select>
-              </div>
+              <details class="collapsible-details" id="retrofitBeamExposureDetails">
+                <summary><span class="details-title">CFRP 環境係數</span><span class="details-summary-badge" data-details-value="#b-CE" data-details-prefix="CE ">室外 0.85</span></summary>
+                <div class="details-body">
+                  <div class="form-group">
+                    <label>CE 環境係數</label>
+                    <select id="b-CE">
+                      <option value="0.95">室內 0.95</option>
+                      <option value="0.85" selected>室外 0.85</option>
+                      <option value="0.85s">侵蝕環境 0.85</option>
+                    </select>
+                  </div>
+                </div>
+              </details>
             </div>
             <div class="form-group"><label>bf FRP 寬度 (mm)</label><input type="number" id="b-bf" value="" step="any" placeholder="預設 = b"></div>
-            <div class="form-group" style="margin-top:6px; padding:8px 10px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:6px;">
-              <label style="display:flex;align-items:center;gap:6px; font-weight:700; color:var(--frp);"><input type="checkbox" id="b-frp-uwrap" onchange="toggleFrpUWrap()"> CFRP U 型包覆（底＋雙側；T 梁實務常用）</label>
-              <div class="hint">側 CFRP 同時提供：<b>側面撓曲貢獻</b>、<b>連續剪力補強</b>、並自動<b>解除 εfd 脫層限制</b>（視同端部錨固）。</div>
-            </div>
-            <div id="b-frp-uwrap-panel" style="display:none;">
-              <div class="form-group">
-                <label>ts 樓板厚 (mm)</label>
-                <input type="number" id="b-frp-slab" value="150" step="any" oninput="updateFrpHspDerived()">
-                <div class="hint">台灣實務典型 120 ~ 180 mm；工具以 h − ts 自動推算側 CFRP 高度。</div>
+            <details class="collapsible-details" id="retrofitBeamAnchorageDetails">
+              <summary><span class="details-title">CFRP 包覆與端部錨固</span><span class="details-summary-badge" data-details-value="#b-frp-uwrap" data-details-prefix="U 型包覆">未啟用</span></summary>
+              <div class="details-body">
+                <div class="form-group" style="margin-top:6px; padding:8px 10px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:6px;">
+                  <label style="display:flex;align-items:center;gap:6px; font-weight:700; color:var(--frp);"><input type="checkbox" id="b-frp-uwrap" onchange="toggleFrpUWrap()"> CFRP U 型包覆（底＋雙側；T 梁實務常用）</label>
+                  <div class="hint">側 CFRP 同時提供：<b>側面撓曲貢獻</b>、<b>連續剪力補強</b>、並自動<b>解除 εfd 脫層限制</b>（視同端部錨固）。</div>
+                </div>
+                <div id="b-frp-uwrap-panel" style="display:none;">
+                  <div class="form-group">
+                    <label>ts 樓板厚 (mm)</label>
+                    <input type="number" id="b-frp-slab" value="150" step="any" oninput="updateFrpHspDerived()">
+                    <div class="hint">台灣實務典型 120 ~ 180 mm；工具以 h − ts 自動推算側 CFRP 高度。</div>
+                  </div>
+                  <div class="hint" id="hsp-frp-derived" style="color:var(--frp); font-weight:700; margin-top:2px;">側 CFRP 高度 hf,s = h − ts = — mm</div>
+                </div>
+                <div class="form-group" style="margin-top:6px; padding:8px 10px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px;">
+                  <label style="display:flex;align-items:center;gap:6px; font-weight:700; color:#0369a1;"><input type="checkbox" id="b-frp-anchor"> 端部設 U 型／機械錨固（僅底貼時需勾選）</label>
+                  <div class="hint">U 型包覆已視同錨固；此項僅針對「底貼 CFRP」時額外外加端部錨固的情況。</div>
+                </div>
               </div>
-              <div class="hint" id="hsp-frp-derived" style="color:var(--frp); font-weight:700; margin-top:2px;">側 CFRP 高度 hf,s = h − ts = — mm</div>
-            </div>
-            <div class="form-group" style="margin-top:6px; padding:8px 10px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px;">
-              <label style="display:flex;align-items:center;gap:6px; font-weight:700; color:#0369a1;"><input type="checkbox" id="b-frp-anchor"> 端部設 U 型／機械錨固（僅底貼時需勾選）</label>
-              <div class="hint">U 型包覆已視同錨固；此項僅針對「底貼 CFRP」時額外外加端部錨固的情況。</div>
-            </div>
+            </details>
           </div>
         </div>
 
@@ -257,22 +279,26 @@
             <div class="form-group"><label>Vu 設計剪力 (tf)</label><input type="number" id="b-Vu" value="0" step="any"><div class="hint">填入供 φVn/Vu 檢核；可留 0</div></div>
           </div>
 
-          <div class="subsect-title" style="border-left-color:var(--frp); color:var(--frp); margin-top:10px;">FRP U 型剪力補強（可選）</div>
-          <div class="form-group">
-            <label><input type="checkbox" id="b-frp-shear" onchange="toggleFrpShear()"> 啟用 FRP U 型剪力補強</label>
-            <div class="hint">若撓曲補強已選 CFRP，可延伸為 U 型包覆；否則需另輸入 FRP 參數。</div>
-          </div>
-          <div id="b-frp-shear-panel" style="display:none;">
-            <div class="form-row">
-              <div class="form-group"><label>wf 條帶寬 (mm)</label><input type="number" id="b-wfs" value="100" step="any"></div>
-              <div class="form-group"><label>sf 條帶間距 (mm)</label><input type="number" id="b-sfs" value="100" step="any"><div class="hint">連續布料時 wf = sf。</div></div>
+          <details class="collapsible-details" id="retrofitBeamShearDetails">
+            <summary><span class="details-title">FRP U 型剪力補強（可選）</span><span class="details-summary-badge" data-details-value="#b-frp-shear">未啟用</span></summary>
+            <div class="details-body">
+              <div class="form-group">
+                <label><input type="checkbox" id="b-frp-shear" onchange="toggleFrpShear()"> 啟用 FRP U 型剪力補強</label>
+                <div class="hint">若撓曲補強已選 CFRP，可延伸為 U 型包覆；否則需另輸入 FRP 參數。</div>
+              </div>
+              <div id="b-frp-shear-panel" style="display:none;">
+                <div class="form-row">
+                  <div class="form-group"><label>wf 條帶寬 (mm)</label><input type="number" id="b-wfs" value="100" step="any"></div>
+                  <div class="form-group"><label>sf 條帶間距 (mm)</label><input type="number" id="b-sfs" value="100" step="any"><div class="hint">連續布料時 wf = sf。</div></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label>α 條帶傾角 (°)</label><input type="number" id="b-alpha" value="90" step="any"></div>
+                  <div class="form-group"><label>dfv 剪力作用深度 (mm)</label><input type="number" id="b-dfv" value="" step="any" placeholder="預設 = d"></div>
+                </div>
+                <div class="form-group"><label>εfe 剪力有效應變</label><input type="number" id="b-efe-s" value="0.004" step="any"><div class="hint">ACI 440.2R-17：U-wrap 取 min(κv·εfu, 0.004)，保守採 0.004。</div></div>
+              </div>
             </div>
-            <div class="form-row">
-              <div class="form-group"><label>α 條帶傾角 (°)</label><input type="number" id="b-alpha" value="90" step="any"></div>
-              <div class="form-group"><label>dfv 剪力作用深度 (mm)</label><input type="number" id="b-dfv" value="" step="any" placeholder="預設 = d"></div>
-            </div>
-            <div class="form-group"><label>εfe 剪力有效應變</label><input type="number" id="b-efe-s" value="0.004" step="any"><div class="hint">ACI 440.2R-17：U-wrap 取 min(κv·εfu, 0.004)，保守採 0.004。</div></div>
-          </div>
+          </details>
 
           <button class="btn-calc" onclick="calcBeam()">計 算</button>
           <div class="hint" id="b-msg" style="color:var(--warn); margin-top:6px;"></div>
@@ -294,7 +320,7 @@
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border);">
             <span style="font-size:1.05em; font-weight:700; color:var(--primary);">計算結果（梁）</span>
-            <button class="btn-report" onclick="exportBeamReport()">📄 計算書</button>
+            <button class="btn-report" onclick="exportBeamReport()">產生計算書</button>
           </div>
           <div id="b-results">
             <div class="result-item"><span class="label">請輸入參數後點擊計算</span></div>
@@ -393,24 +419,29 @@
               <div class="form-group"><label>fyj (kgf/cm²)</label><input type="number" id="c-fyj" value="2500" step="any"></div>
             </div>
             <div class="form-group"><label>Esj (kgf/cm²)</label><input type="number" id="c-Esj" value="2040000" step="any"></div>
-            <div class="form-group">
-              <label><input type="checkbox" id="c-jacket-composite" onchange="calcCol()">彈性斷面計入鋼套管縱向合成作用</label>
-              <label for="c-jacket-basis">連接、端部傳力與變形相容依據</label>
-              <input type="text" id="c-jacket-basis" placeholder="圖號、詳圖或專案計算編號" onchange="calcCol()">
-            </div>
-            <div class="form-group">
-              <label>ke 形狀效率（Priestley 1994；文獻範圍 0 ~ 0.75）</label>
-              <select id="c-ke-preset" onchange="applyKePreset()">
-                <option value="0">0.00 — 無圍束貢獻（僅剪力 / 搭接束制）</option>
-                <option value="0.25" selected>0.25 — 矩形直貼保守值</option>
-                <option value="0.40">0.40 — 矩形直貼中等（小倒角）</option>
-                <option value="0.50">0.50 — 矩形直貼良好（含灌漿填角）</option>
-                <option value="0.75">0.75 — 橢圓化鋼套管</option>
-                <option value="custom">自訂</option>
-              </select>
-              <input type="number" id="c-ke" value="0.25" step="any" style="margin-top:6px;">
-              <div class="hint">Priestley et al. (1994)：矩形直貼之圍束效率隨角點圓弧化、填角灌漿或橢圓化改造而提升。</div>
-            </div>
+            <details class="collapsible-details" id="retrofitJacketDetails">
+              <summary><span class="details-title">鋼套管合成作用與圍束效率</span><span class="details-summary-badge" data-details-value="#c-ke" data-details-prefix="ke = ">ke = 0.25</span></summary>
+              <div class="details-body">
+                <div class="form-group">
+                  <label><input type="checkbox" id="c-jacket-composite" onchange="calcCol()">彈性斷面計入鋼套管縱向合成作用</label>
+                  <label for="c-jacket-basis">連接、端部傳力與變形相容依據</label>
+                  <input type="text" id="c-jacket-basis" placeholder="圖號、詳圖或專案計算編號" onchange="calcCol()">
+                </div>
+                <div class="form-group">
+                  <label>ke 形狀效率（Priestley 1994；文獻範圍 0 ~ 0.75）</label>
+                  <select id="c-ke-preset" onchange="applyKePreset()">
+                    <option value="0">0.00 — 無圍束貢獻（僅剪力 / 搭接束制）</option>
+                    <option value="0.25" selected>0.25 — 矩形直貼保守值</option>
+                    <option value="0.40">0.40 — 矩形直貼中等（小倒角）</option>
+                    <option value="0.50">0.50 — 矩形直貼良好（含灌漿填角）</option>
+                    <option value="0.75">0.75 — 橢圓化鋼套管</option>
+                    <option value="custom">自訂</option>
+                  </select>
+                  <input type="number" id="c-ke" value="0.25" step="any" style="margin-top:6px;">
+                  <div class="hint">Priestley et al. (1994)：矩形直貼之圍束效率隨角點圓弧化、填角灌漿或橢圓化改造而提升。</div>
+                </div>
+              </div>
+            </details>
           </div>
 
           <!-- FRP -->
@@ -437,28 +468,38 @@
             </div>
             <div class="form-row">
               <div class="form-group"><label>n 層</label><input type="number" id="c-nf" value="2" step="1"></div>
-              <div class="form-group">
-                <label>CE 環境係數</label>
-                <select id="c-CE">
-                  <option value="0.95">室內 0.95</option>
-                  <option value="0.85" selected>室外 0.85</option>
-                </select>
-              </div>
+              <details class="collapsible-details" id="retrofitColumnExposureDetails">
+                <summary><span class="details-title">CFRP 環境係數</span><span class="details-summary-badge" data-details-value="#c-CE" data-details-prefix="CE ">室外 0.85</span></summary>
+                <div class="details-body">
+                  <div class="form-group">
+                    <label>CE 環境係數</label>
+                    <select id="c-CE">
+                      <option value="0.95">室內 0.95</option>
+                      <option value="0.85" selected>室外 0.85</option>
+                    </select>
+                  </div>
+                </div>
+              </details>
             </div>
             <div class="hint">此處採環向 CFRP 圍束；柱縱向 EA、EI 採既有 RC 斷面。</div>
-            <div class="form-group"><label>εfe 圍束有效應變（建議 0.004 保守）</label><input type="number" id="c-efe" value="0.004" step="any"></div>
-            <div class="form-group">
-              <label>ka 形狀效率（ACI 440.2R-17 §12；矩形範圍 0.25 ~ 0.5）</label>
-              <select id="c-ka-preset" onchange="applyKaPreset()">
-                <option value="0.25">0.25 — 矩形未倒角（保守）</option>
-                <option value="0.30" selected>0.30 — 矩形典型（rc/h ≈ 0 ~ 0.05）</option>
-                <option value="0.40">0.40 — 矩形小倒角（rc/h ≈ 0.1）</option>
-                <option value="0.50">0.50 — 矩形大倒角（rc/h ≥ 0.2 或近圓形）</option>
-                <option value="custom">自訂</option>
-              </select>
-              <input type="number" id="c-ka" value="0.3" step="any" style="margin-top:6px;">
-              <div class="hint">ACI 440.2R-17：ka 隨角隅倒角半徑 rc 增加；法規要求矩形柱倒角半徑 rc ≥ 13 mm。</div>
-            </div>
+            <details class="collapsible-details" id="retrofitColumnConfinementDetails">
+              <summary><span class="details-title">CFRP 圍束應變與形狀效率</span><span class="details-summary-badge" data-details-value="#c-ka" data-details-prefix="ka = ">ka = 0.3</span></summary>
+              <div class="details-body">
+                <div class="form-group"><label>εfe 圍束有效應變（建議 0.004 保守）</label><input type="number" id="c-efe" value="0.004" step="any"></div>
+                <div class="form-group">
+                  <label>ka 形狀效率（ACI 440.2R-17 §12；矩形範圍 0.25 ~ 0.5）</label>
+                  <select id="c-ka-preset" onchange="applyKaPreset()">
+                    <option value="0.25">0.25 — 矩形未倒角（保守）</option>
+                    <option value="0.30" selected>0.30 — 矩形典型（rc/h ≈ 0 ~ 0.05）</option>
+                    <option value="0.40">0.40 — 矩形小倒角（rc/h ≈ 0.1）</option>
+                    <option value="0.50">0.50 — 矩形大倒角（rc/h ≥ 0.2 或近圓形）</option>
+                    <option value="custom">自訂</option>
+                  </select>
+                  <input type="number" id="c-ka" value="0.3" step="any" style="margin-top:6px;">
+                  <div class="hint">ACI 440.2R-17：ka 隨角隅倒角半徑 rc 增加；法規要求矩形柱倒角半徑 rc ≥ 13 mm。</div>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -508,7 +549,7 @@
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border);">
             <span style="font-size:1.05em; font-weight:700; color:var(--primary);">計算結果（柱）</span>
-            <button class="btn-report" onclick="exportColReport()">📄 計算書</button>
+            <button class="btn-report" onclick="exportColReport()">產生計算書</button>
           </div>
           <div id="c-results">
             <div class="result-item"><span class="label">請輸入參數後點擊計算</span></div>
@@ -2597,6 +2638,7 @@ init();
 <script src="tool-nav.manifest.js" defer></script>
 <script src="tool-chrome.js" defer></script>
 <script src="tool-page-a11y.js" defer></script>
+<script src="結構工具箱/assets/hy/tool-draft-guard.js" data-draft-anchor=".case-actions" defer></script>
 <script src="結構工具箱/tools/project-meta-profile.js"></script>
 </body>
 </html>

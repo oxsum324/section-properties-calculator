@@ -133,8 +133,10 @@ async function main() {
     await page.setViewportSize({ width: 1280, height: 720 });
 
     await page.fill('#longTermLoad', '77');
+    await page.getByText('搜尋範圍', { exact: true }).click();
     await page.fill('#diameterMin', '55');
     await page.fill('#depthMin', '13');
+    await page.getByText('案件資料與場址快捷帶入', { exact: true }).click();
     await page.click('#btnPresetB031');
     await page.waitForTimeout(200);
     const b031 = await page.evaluate(() => window.singlePileLast);

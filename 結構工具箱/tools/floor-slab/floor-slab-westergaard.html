@@ -10,24 +10,25 @@
   <link rel="stylesheet" href="../../core/family-theme.css">
   <link rel="stylesheet" href="../../core/style.css">
   <link rel="stylesheet" href="../../core/direct-print-boundary.css">
+  <link rel="stylesheet" href="../../core/tool-shell.css">
   <style>
-    :root{--floor:#0f766e;--floor-dark:#134e4a;--floor-soft:#f0fdfa;--line:#d7e4e2;--ink:#17212b}
-    *{box-sizing:border-box} body{margin:0;background:#f5f7f7;color:var(--ink);font-family:"Microsoft JhengHei",Arial,sans-serif;line-height:1.55}
-    .page{max-width:1380px;margin:0 auto;padding:22px}.hero{background:linear-gradient(135deg,var(--floor-dark),var(--floor));color:#fff;border-radius:16px;padding:22px 24px;box-shadow:0 12px 32px rgba(15,118,110,.18)}
-    .hero h1{margin:0;font-size:clamp(1.45rem,3vw,2rem)}.hero p{margin:8px 0 0;color:#d9fffa}.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tag{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 9px;font-size:.84rem}
-    .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.case-card{margin-top:16px}.section-title{font-weight:900;color:var(--floor-dark);margin:0 0 12px;font-size:1.05rem}
-    .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field label{display:block;font-weight:800;font-size:.88rem;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid #b8cbc8;border-radius:8px;padding:9px 10px;background:#fff;font:inherit}.field small{display:block;color:#5c6b73;margin-top:4px}.span-2{grid-column:span 2}.span-3{grid-column:1/-1}
-    .case-actions,.output-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.case-actions{margin-top:12px}.btn{border:0;border-radius:8px;padding:9px 13px;font-weight:800;cursor:pointer}.btn-primary{background:var(--floor);color:#fff}.btn-secondary{background:#e5efee;color:var(--floor-dark)}.btn-danger{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3}.btn:focus{outline:3px solid rgba(13,148,136,.25)}
-    .main-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(380px,.9fr);gap:16px;margin-top:16px}.stack{display:grid;gap:16px}.scope-box{background:var(--floor-soft);border-left:4px solid var(--floor);padding:11px 13px;border-radius:8px;color:#134e4a}.warning-box{background:#fff7ed;border-left:4px solid #f97316;padding:11px 13px;border-radius:8px;color:#7c2d12}
-    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.load-table{width:100%;min-width:1030px;border-collapse:collapse;font-size:.84rem}.load-table th,.load-table td{border-bottom:1px solid #e4eceb;padding:7px;text-align:left;vertical-align:top}.load-table th{background:#eef7f6;color:#134e4a;white-space:nowrap}.load-table input{width:100%;min-width:70px;border:1px solid #bfcecc;border-radius:6px;padding:7px}.load-table .basis{min-width:210px}.load-table .row-actions{min-width:64px;text-align:center}
-    .banner-status{font-weight:900;padding:11px 13px;border-radius:9px;background:#edf2f2}.banner-status.ok{background:#ecfdf5;color:#065f46}.banner-status.fail{background:#fef2f2;color:#991b1b}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{border:1px solid #dfe8e7;border-left:4px solid #94a3b8;border-radius:9px;padding:10px;background:#fff}.metric.ok{border-left-color:#10b981}.metric.fail{border-left-color:#ef4444}.metric .label{display:block;color:#5f6d72;font-size:.82rem}.metric .value{display:block;font-size:1.18rem;font-weight:900;color:#0f3d39}.muted{color:#607078;font-size:.82rem}.check-list{display:grid;gap:8px}.check-item{border:1px solid #e2e8e7;border-radius:8px;padding:9px 10px}.check-item.ok{border-left:4px solid #10b981}.check-item.fail{border-left:4px solid #ef4444}.check-item.warn{border-left:4px solid #f59e0b}.check-item .k{font-weight:900;display:block}.check-item .v{font-size:.86rem;color:#526168}
-    .diagram-wrap{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbffff}.diagram-wrap svg{width:100%;height:auto;min-height:250px;display:block}.formula-list{font-size:.9rem}.formula-list code{font-family:Consolas,monospace;background:#edf6f5;border-radius:4px;padding:2px 5px}.formula-list p{margin:7px 0}.output-actions{margin-top:12px}.output-actions select{border:1px solid #b8cbc8;border-radius:8px;padding:8px}.json-status{font-size:.84rem;color:#526168}.direct-print-note{margin:0}
+    :root{--floor:var(--hy-navy-500);--floor-dark:var(--hy-navy);--floor-soft:var(--hy-navy-50);--line:var(--border-strong);--ink:var(--fg-1)}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg-page);color:var(--ink);font-family:"Microsoft JhengHei",Arial,sans-serif;line-height:1.55}
+    .page{max-width:1380px;margin:0 auto;padding:22px}.hero{background:var(--bg-navy);color:var(--fg-on-navy);border-radius:16px;padding:22px 24px;box-shadow:var(--shadow-lg)}
+    .hero h1{margin:0;font-size:clamp(1.45rem,3vw,2rem)}.hero p{margin:8px 0 0;color:var(--fg-on-navy-muted)}.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tag{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 9px;font-size:.84rem}
+    .card{background:var(--bg-surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.case-card{margin-top:16px}.section-title{font-weight:900;color:var(--floor-dark);margin:0 0 12px;font-size:1.05rem}
+    .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field label{display:block;font-weight:800;font-size:.88rem;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid var(--border-strong);border-radius:8px;padding:9px 10px;background:var(--bg-surface);font:inherit}.field small{display:block;color:var(--fg-2);margin-top:4px}.span-2{grid-column:span 2}.span-3{grid-column:1/-1}
+    .case-actions,.output-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.case-actions{margin-top:12px}.btn{border:0;border-radius:8px;padding:9px 13px;font-weight:800;cursor:pointer}.btn-primary{background:var(--floor);color:var(--fg-on-navy)}.btn-secondary{background:var(--border-default);color:var(--floor-dark)}.btn-danger{background:var(--hy-danger-100);color:var(--hy-red-deep);border:1px solid color-mix(in srgb, var(--hy-danger) 32%, var(--bg-surface))}.btn:focus{outline:3px solid rgba(13,148,136,.25)}
+    .main-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(380px,.9fr);gap:16px;margin-top:16px}.stack{display:grid;gap:16px}.scope-box{background:var(--floor-soft);border-left:4px solid var(--floor);padding:11px 13px;border-radius:8px;color:var(--hy-navy)}.warning-box{background:var(--hy-warning-100);border-left:4px solid var(--hy-warning);padding:11px 13px;border-radius:8px;color:var(--hy-warning-ink)}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.load-table{width:100%;min-width:1030px;border-collapse:collapse;font-size:.84rem}.load-table th,.load-table td{border-bottom:1px solid var(--border-default);padding:7px;text-align:left;vertical-align:top}.load-table th{background:var(--hy-navy-50);color:var(--hy-navy);white-space:nowrap}.load-table input{width:100%;min-width:70px;border:1px solid var(--border-strong);border-radius:6px;padding:7px}.load-table .basis{min-width:210px}.load-table .row-actions{min-width:64px;text-align:center}
+    .banner-status{font-weight:900;padding:11px 13px;border-radius:9px;background:var(--bg-subtle)}.banner-status.ok{background:var(--hy-success-100);color:var(--hy-success)}.banner-status.fail{background:var(--hy-danger-100);color:var(--hy-red-deep)}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{border:1px solid var(--border-strong);border-left:4px solid var(--border-strong);border-radius:9px;padding:10px;background:var(--bg-surface)}.metric.ok{border-left-color:var(--hy-success)}.metric.fail{border-left-color:var(--hy-danger)}.metric .label{display:block;color:var(--fg-2);font-size:.82rem}.metric .value{display:block;font-size:1.18rem;font-weight:900;color:var(--hy-navy)}.muted{color:var(--fg-2);font-size:.82rem}.check-list{display:grid;gap:8px}.check-item{border:1px solid var(--border-default);border-radius:8px;padding:9px 10px}.check-item.ok{border-left:4px solid var(--hy-success)}.check-item.fail{border-left:4px solid var(--hy-danger)}.check-item.warn{border-left:4px solid var(--hy-warning)}.check-item .k{font-weight:900;display:block}.check-item .v{font-size:.86rem;color:var(--fg-2)}
+    .diagram-wrap{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--hy-navy-50)}.diagram-wrap svg{width:100%;height:auto;min-height:250px;display:block}.formula-list{font-size:.9rem}.formula-list code{font-family:Consolas,monospace;background:var(--hy-navy-100);border-radius:4px;padding:2px 5px}.formula-list p{margin:7px 0}.output-actions{margin-top:12px}.output-actions select{border:1px solid var(--border-strong);border-radius:8px;padding:8px}.json-status{font-size:.84rem;color:var(--fg-2)}.direct-print-note{margin:0}
     @media(max-width:900px){.main-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.span-3{grid-column:1/-1}}
     @media(max-width:560px){.page{padding:10px}.form-grid,.metrics{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.hero{padding:18px}.btn{width:100%}}
     @media print{.page-only-report-status,.case-actions{display:none!important}}
-    #plateDialog{box-sizing:border-box;width:min(1240px,97vw);height:93vh;height:93dvh;max-height:97vh;padding:0;border:1px solid #7e9c98;border-radius:9px}
-    #plateDialog[open]{display:flex;flex-direction:column}#plateDialog::backdrop{background:#17393299}
-    #plateDialog .dialog-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #c6d7d3}#plateDialog .dialog-heading h2{margin:0;font-size:1.1rem}#plateFrame{border:0;flex:1;min-height:0;width:100%}
+    #plateDialog{box-sizing:border-box;width:min(1240px,97vw);height:93vh;height:93dvh;max-height:97vh;padding:0;border:1px solid var(--border-strong);border-radius:9px}
+    #plateDialog[open]{display:flex;flex-direction:column}#plateDialog::backdrop{background:color-mix(in srgb, var(--hy-ink) 60%, transparent)}
+    #plateDialog .dialog-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border-strong)}#plateDialog .dialog-heading h2{margin:0;font-size:1.1rem}#plateFrame{border:0;flex:1;min-height:0;width:100%}
   </style>
 </head>
 <body class="local-quick-output-page" data-family="local-quick">
@@ -39,7 +40,7 @@
   </div>
   <main class="page">
     <dialog id="plateDialog" aria-labelledby="plateTitle"><div class="dialog-heading"><h2 id="plateTitle">地坪輪組位置分析</h2><form method="dialog"><button class="btn btn-secondary" autofocus>返回單輪與輪組頁</button></form></div><iframe id="plateFrame" title="多輪與腳位位置分析"></iframe></dialog>
-    <header class="hero" data-smoke="floor-slab-westergaard-smoke">
+    <header class="hero tool-shell-header" data-smoke="floor-slab-westergaard-smoke">
       <h1>地坪承載檢核（Westergaard）</h1>
       <p>以一般化 Westergaard 閉式解，計算地坪版內部、自由邊緣與角隅集中載重彎拉應力。</p>
       <div class="hero-meta"><span class="tag">局部快算</span><span class="tag">SI 單位</span><span class="tag" id="coreVersion">Core v0.1.0</span><span class="tag">公開版本 V0.1</span></div>
@@ -54,11 +55,11 @@
       </div>
       <div class="case-actions">
         <button class="btn btn-secondary" type="button" id="openPlate" aria-haspopup="dialog">多輪與腳位位置分析</button>
-        <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
-        <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveProject" type="button">匯出案件 JSON</button>
+        <button class="btn btn-secondary" id="btnImportJson" type="button">匯入案件 JSON</button>
         <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
         <button class="btn btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
-        <button class="btn btn-danger" id="btnReset" type="button">恢復示例</button>
+        <button class="btn btn-danger" id="btnReset" type="button">重設預設值</button>
         <input id="jsonFile" type="file" accept="application/json,.json" hidden>
         <span class="json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</span>
       </div>
@@ -95,8 +96,8 @@
           <div class="warning-box">本頁檢核的是均質彈性地坪版之載重彎拉應力，不是地質承載力或沉陷分析。疲勞、接縫傳力與沉陷不在本頁範圍；溫度翹曲、有限版尺寸、空洞、非線性接觸與配筋亦須另行檢核。</div>
           <div class="output-actions">
             <button class="btn btn-primary" id="btnCalc" type="button">計算 Westergaard 應力</button>
-            <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
-            <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
+            <button class="btn btn-secondary" id="btnPrint" type="button">產生計算書</button>
+            <button class="btn btn-secondary" id="btnJson" type="button">匯出計算來源 JSON</button>
             <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
           </div>
         </section>
